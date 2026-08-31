@@ -57,13 +57,6 @@ the scope `Kartaan-Server` actually asks the seller for. One fact, written down
 twice, with nothing mechanical joining them -- which is the exact shape this
 project keeps paying for.
 
-**IGNORE THE PARAGRAPH BELOW'S OLD WORDING:** `firestore_checks.py` pins the three
-collection names this job WRITES against the names Kartaan's screens READ, and
-`firestore_door_checks.py` pins the Google scope this door needs against the
-scope the seller is actually asked for. One fact, written down twice, in two
-languages, with nothing mechanical joining them — which is the exact shape this
-project keeps paying for.
-
 They **refuse rather than skip** when they cannot find Kartaan. A check that
 quietly stops checking is worse than no check, because it is still counted.
 
