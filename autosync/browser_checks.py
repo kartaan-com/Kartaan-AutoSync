@@ -1,0 +1,281 @@
+"""Checks for how a page is driven.
+
+**THIS FILE CHECKS THE LANGUAGE, NOT THE RECIPES.** What a step is, what a failure
+is called, what counts as something covering the page. The recipes themselves are
+in `recipes.py` and are checked by `recipes_checks.py`.
+
+**EVERY CASE HERE COMES FROM A REAL FAILURE**, most of them read out of the
+reference's own live log and one of them out of his own Chrome on 2026-08-27:
+
+  - the promotion covering the Meesho panel, whose close control is an `<img>`
+    with no class, no label and no text, and which **Escape does not close**;
+  - the chart legend reading "Payments to Date" that was clicked instead of the
+    menu item of the same name -- nine days of payments lost;
+  - the Flipkart files now built inside the page, which cannot be fetched twice.
+
+Run: python autosync/browser_checks.py
+"""
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import browser as tool  # noqa: E402
+
+ran = 0
+failures = []
+# Everything that ended by throwing rather than by answering. **The floor under
+# all of it:** answering with nothing stops the run dying, but on its own it is
+# not enough -- a check written as "this word is NOT in what it said" passes
+# against nothing, and would go green for the worst possible reason.
+THREW = []
+
+
+def answered(work):
+    """What this answers, or nothing at all when it threw.
+
+    **A RUN THAT STOPS IS NOT A CHECK GOING RED.** Worked out before it is handed
+    over, one deliberate breakage anywhere ends the whole run and nothing goes
+    red -- so the measurement reads "noticed" while saying nothing about whether
+    any check here is any good. Worked out in here, a call that throws answers
+    with nothing, that one check goes red by itself, and the rest still run.
+
+    Nothing is never a pass: every check reads its answer for truth, so nothing
+    always fails. That is what makes this safe to put round every one of them.
+    """
+    try:
+        return work()
+    except Exception as wrong:  # noqa: BLE001
+        THREW.append(repr(wrong))
+        return None
+
+
+def check(name, passed):
+    global ran
+    ran += 1
+    print(f"{'PASS' if passed else 'FAIL'}  {name}")
+    if not passed:
+        failures.append(name)
+
+
+def refuses(fn):
+    try:
+        fn()
+    except (ValueError, KeyError, TypeError, AttributeError):
+        return True
+    except Exception:  # noqa: BLE001
+        return False
+    return False
+
+
+def said(fn):
+    try:
+        fn()
+    except Exception as wrong:  # noqa: BLE001
+        return str(wrong)
+    return ""
+
+
+# ------------------------------------------------------------ bad steps
+
+check("a step that is not a step is refused", answered(lambda: tool.why_step_is_refused("go somewhere") is not None))
+check("a kind nobody knows is refused",
+      answered(lambda: tool.why_step_is_refused(tool.Step("teleport", why="x")) is not None))
+check("going nowhere is refused", answered(lambda: tool.why_step_is_refused(tool.Step(tool.GO, why="x")) is not None))
+check("clicking nothing in particular is refused",
+      answered(lambda: tool.why_step_is_refused(tool.Step(tool.CLICK, why="x")) is not None))
+check("waiting for nothing in particular is refused",
+      answered(lambda: tool.why_step_is_refused(tool.Step(tool.WAIT_FOR, why="x")) is not None))
+check("a way of finding nobody knows is refused",
+      answered(lambda: tool.why_step_is_refused(tool.Step(tool.CLICK, find=tool.Find("by vibes", "x"), why="y")) is not None))
+check("finding something with no words to look for is refused",
+      answered(lambda: tool.why_step_is_refused(tool.Step(tool.CLICK, find=tool.Find(tool.BY_TEXT, ""), why="y")) is not None))
+check("a step that waits no time at all is refused",
+      answered(lambda: tool.why_step_is_refused(tool.Step(tool.GO, address="x", patience=0, why="y")) is not None))
+# **A RANGE IS NOT ALWAYS ONE DAY.** Flipkart's Reports Centre needs the start
+# strictly before the end, so its smallest range is two days -- and a single-day
+# one is refused by a Submit that does nothing at all, silently.
+check("a range of no days at all is refused",
+      answered(lambda: tool.why_step_is_refused(tool.Step(tool.PICK_RANGE, range_days=0, why="y")) is not None))
+check("a range of two days is fine",
+      answered(lambda: tool.why_step_is_refused(tool.Step(tool.PICK_RANGE, range_days=2, why="y")) is None))
+check("and one day is what a step means unless it says otherwise",
+      answered(lambda: tool.Step(tool.GO, address="x", why="y").range_days == 1))
+# **ONLY A RANGE STEP MAY SAY HOW MANY DAYS.** A click that carried a day count
+# would be saying something nothing reads, which is how a setting silently stops
+# working.
+check("a step that is not a range may not say how many days it covers",
+      answered(lambda: tool.why_step_is_refused(tool.Step(tool.GO, address="x", range_days=2, why="y")) is not None))
+check("while a range step may", answered(lambda: tool.why_step_is_refused(tool.Step(tool.PICK_RANGE, range_days=2, why="y")) is None))
+# **A STEP HAS TO SAY WHAT IT IS FOR.** Without it a failure can only say what
+# could not be found -- which is how a month of "button not found" told nobody the
+# button was underneath a dialog.
+no_why = tool.why_step_is_refused(tool.Step(tool.GO, address="x"))
+check("a step that does not say what it is for is refused", answered(lambda: no_why is not None))
+check("and the reason says why that matters", answered(lambda: "what was being attempted" in no_why))
+
+# ----------------------------------- EXACT BY DEFAULT: the nine-day outage
+
+# **Meesho added a chart whose legend read "Payments to Date", exactly like the
+# menu item. The legend sits earlier in the page, so the code clicked the chart.**
+check("a way of finding something is exact unless it says otherwise",
+      answered(lambda: tool.Find(tool.BY_TEXT, "Payments to Date").exact is True))
+check("and a loose match has to be asked for deliberately",
+      answered(lambda: tool.Find(tool.BY_TEXT, "x", exact=False).exact is False))
+# A thing can be given a readable name for when it is missing.
+check("something can be given a name a person reads",
+      answered(lambda: tool.Find(tool.BY_ROLE_AND_TEXT, "Download Orders Data", called="the download menu").name() == "the download menu"))
+check("and falls back to its own words when it has none",
+      answered(lambda: tool.Find(tool.BY_TEXT, "Export data").name() == "Export data"))
+
+# ------------------------------- SIX FAILURES, NOT ONE -- and each says itself
+
+check("every kind of failure has its own meaning written down",
+      answered(lambda: set(tool.WHAT_IT_MEANS) == {tool.FOUND_NOTHING, tool.FOUND_SEVERAL, tool.COVERED_UP,
+                                  tool.NEEDS_SIGNING_IN, tool.BUILT_IN_THE_PAGE,
+                                  tool.DAY_NOT_AVAILABLE, tool.TOOK_TOO_LONG}))
+# **THE REFERENCE HAD ONE MESSAGE FOR ALL SIX**, and a month of diagnosis went at
+# the wrong thing because "it is underneath a dialog" and "it has been renamed"
+# arrived wearing the same words.
+check("and no two of them read the same", answered(lambda: len(set(tool.WHAT_IT_MEANS.values())) == 7))
+
+# **A DAY THE PORTAL DRAWS AND THEN REFUSES.** Flipkart does this for a period it
+# has not finished preparing, by two different mechanisms found weeks apart -- and
+# a date picked anyway reads back as "Invalid date", after which Submit does
+# nothing at all, silently.
+day = tool.WentWrong(tool.DAY_NOT_AVAILABLE, "26 August", "setting the day to fetch")
+check("a day drawn and then refused is its own failure", answered(lambda: "refuses it" in day.say()))
+check("and says waiting is the answer", answered(lambda: "Waiting is the only answer" in day.say()))
+check("and it is worth trying again", answered(lambda: day.worth_retrying is True))
+
+# **SIGNED OUT IS TOLD APART FROM NOT-YET-DRAWN, and they are not the same.**
+# Across 71 real occurrences, 54 were a page mid-draw and harmless.
+out = tool.WHAT_IT_MEANS[tool.NEEDS_SIGNING_IN]
+check("being signed out names the public site Flipkart serves instead", answered(lambda: "Sell Online" in out))
+check("and says a page mid-draw is a different thing", answered(lambda: "not finished drawing" in out))
+
+nothing = tool.WentWrong(tool.FOUND_NOTHING, "the download menu", "opening the download menu", page_was="Welcome back")
+check("a thing that is not there says what was being attempted", answered(lambda: "opening the download menu" in nothing.say()))
+check("and what it was looking for", answered(lambda: "the download menu" in nothing.say()))
+check("and that it may have been renamed", answered(lambda: "renamed" in nothing.say()))
+check("and it is worth trying again tomorrow", answered(lambda: nothing.worth_retrying is True))
+
+several = tool.WentWrong(tool.FOUND_SEVERAL, "Payments to Date", "choosing the payments export", matches=2)
+check("several matches says how many", answered(lambda: "2 things match" in several.say()))
+check("and that nothing was clicked", answered(lambda: "Nothing was clicked" in several.say()))
+check("and names the nine days it cost", answered(lambda: "nine days" in several.say()))
+
+covered = tool.WentWrong(tool.COVERED_UP, "the download menu", "opening the download menu")
+check("something covering the page says the button is there", answered(lambda: "The button is there" in covered.say()))
+check("and that it is underneath something", answered(lambda: "underneath something" in covered.say()))
+
+# **A DOOR THAT HAS CLOSED IS NOT RETRIED.**
+blob = tool.WentWrong(tool.BUILT_IN_THE_PAGE, "the file itself", "taking the finished file")
+check("a file built inside the page is not worth retrying", answered(lambda: blob.worth_retrying is False))
+check("and it says it is a door closing rather than a fault", answered(lambda: "door closing" in blob.say()))
+check("while everything else IS worth retrying",
+      answered(lambda: all(tool.WentWrong(k, "x", "y").worth_retrying for k in tool.WHAT_IT_MEANS if k != tool.BUILT_IN_THE_PAGE)))
+
+# ------------------------------ THE PAGE IS CAPTURED, AUTOMATICALLY
+
+# **Two reports went undiagnosed for over a month** because the evidence had to be
+# added afterwards and then somebody had to wait for the failure to happen again.
+messy = "Welcome   back,\n\n  Rumee\t\tManage and grow" + ("x" * 900)
+kept = tool.capture(messy)
+check("the page is kept when something cannot be found", answered(lambda: kept != ""))
+check("tidied up so a log stays readable", answered(lambda: "\n" not in kept and "  " not in kept))
+check("and cut short rather than filling the log", answered(lambda: len(kept) == tool.PAGE_SNIPPET))
+check("nothing at all captures nothing, rather than falling over", answered(lambda: tool.capture(None) == ""))
+check("and the failure carries it", answered(lambda: tool.WentWrong(tool.FOUND_NOTHING, "x", "y", page_was=kept).page_was == kept))
+
+# ------------------- SOMETHING COVERING THE PAGE -- read off his own Chrome
+
+# **THE REAL ONE.** `role="dialog"` over a full-screen backdrop; close control an
+# `<img>` with no class, no label, no text, and Escape does not work. **The
+# backdrop is what a click aimed at the page hits, and it carries no words -- the
+# words are on the panel sitting on it.**
+REAL_MODAL = [
+    {"width": 1280, "height": 800, "text": "", "blocks": True},
+    {"width": 414, "height": 330, "text": "Abhi Update Karein ! Participate Now", "blocks": False},
+]
+found = tool.is_covered(REAL_MODAL)
+check("a promotion covering the panel is found", answered(lambda: found is not None))
+check("and named as its own failure, not as a missing button", answered(lambda: found.kind == tool.COVERED_UP))
+check("and the words come from the panel, since the backdrop has none",
+      answered(lambda: "Abhi Update" in found.page_was))
+check("nothing in the way is nothing to report", answered(lambda: tool.is_covered([]) is None))
+check("and neither is no list at all", answered(lambda: tool.is_covered(None) is None))
+# Ordinary furniture is not an overlay. A small notice does not swallow a click.
+check("a small notice is not treated as covering the page",
+      answered(lambda: tool.is_covered([{"width": 250, "height": 80, "text": "Saved", "blocks": False}]) is None))
+check("nor a wide but shallow banner",
+      answered(lambda: tool.is_covered([{"width": 1200, "height": 60, "text": "Upcoming Policy Update", "blocks": False}]) is None))
+
+# **THE NEAR-MISS THAT CHANGED THIS RULE, both sides measured on his own panel on
+# 2026-08-28.** The download menu the recipe opens ON PURPOSE calls itself a
+# dialog and is 232 x 196. The old rule refused at 300 x 200 -- **four pixels in
+# one direction from stopping every Meesho report because of a menu the door had
+# just opened itself.**
+OWN_MENU = [{"width": 232, "height": 196, "text": "GST Report Payments to Date", "blocks": False}]
+check("the menu the door opens itself is not something covering the page",
+      answered(lambda: tool.is_covered(OWN_MENU) is None))
+check("and neither is a big dialog that is not laid over anything",
+      answered(lambda: tool.is_covered([{"width": 600, "height": 400, "text": "", "blocks": False}]) is None))
+# **WHAT IT IS JUDGED ON NOW: whether it would swallow a click.**
+check("while something laid over the whole page is, whatever size it is called",
+      answered(lambda: tool.is_covered([{"width": 0, "height": 0, "text": "x", "blocks": True}]) is not None))
+check("and a missing size is not read as a huge one",
+      answered(lambda: tool.is_covered([{"text": "no size given"}]) is None))
+# A blocking thing with no words anywhere still reports, rather than falling over.
+check("something in the way that says nothing at all is still reported",
+      answered(lambda: tool.is_covered([{"blocks": True}]) is not None))
+check("with no words rather than the word None",
+      answered(lambda: tool.is_covered([{"blocks": True}]).page_was == ""))
+
+# ------------------------------------- the third way of finding something
+
+# **READ OFF HIS OWN MEESHO PANEL, 2026-08-27, signed in and fully drawn: there
+# is not one control on it.** No button, no link, no role attribute anywhere --
+# the sidebar's "Orders" is an `h5` and "Manage Orders" is a `p`, and the only
+# thing marking either as pressable is the mouse cursor.
+check("there is a way of finding something by the words on a pressable thing",
+      answered(lambda: tool.BY_PRESSABLE_TEXT in tool.WAYS_OF_FINDING))
+check("and a step may use it",
+      answered(lambda: tool.why_step_is_refused(tool.Step(
+          tool.CLICK, find=tool.Find(tool.BY_PRESSABLE_TEXT, "Orders"), why="x")) is None))
+# **THE OTHER THREE ARE UNCHANGED.** Flipkart's pages are full of real controls
+# -- thirty-two painted ones and eight kinds of role on its dashboard -- so the
+# role way is right there and stays.
+check("and all four ways are known", answered(lambda: len(tool.WAYS_OF_FINDING) == 4))
+check("a way nobody has heard of is still refused",
+      answered(lambda: tool.why_step_is_refused(tool.Step(
+          tool.CLICK, find=tool.Find("xpath", "//div"), why="x")) is not None))
+check("and the refusal names what was asked for",
+      answered(lambda: "xpath" in tool.why_step_is_refused(tool.Step(
+          tool.CLICK, find=tool.Find("xpath", "//div"), why="x"))))
+
+
+# ------------------------------------------------------------ the records
+
+check("a step cannot be edited after it is written",
+      answered(lambda: refuses(lambda: setattr(tool.Step(tool.GO, address="a", why="b"), "address", "x"))))
+check("nor a way of finding something",
+      answered(lambda: refuses(lambda: setattr(tool.Find(tool.BY_TEXT, "x"), "exact", False))))
+check("nor a failure once it has happened",
+      answered(lambda: refuses(lambda: setattr(tool.WentWrong(tool.FOUND_NOTHING, "x", "y"), "kind", "z"))))
+
+
+# **AND NOTHING ABOVE ENDED BY THROWING RATHER THAN BY ANSWERING.** Answering
+# with nothing keeps the run alive; this is what stops a check phrased as "this
+# word is NOT in what it said" going green because there was nothing to look in.
+check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
+
+
+EXPECTED = 65
+if ran != EXPECTED:
+    print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
+    failures.append("count")
+
+print(f"\n{len(failures)} FAILED ({ran} checks)" if failures else f"\nall {ran} checks passed")
+sys.exit(1 if failures else 0)

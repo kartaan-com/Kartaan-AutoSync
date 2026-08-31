@@ -1,0 +1,218 @@
+name: Auto-sync
+
+# **THE THING THAT SETS AUTO-SYNC OFF WITH NOBODY PRESENT.** Everything it calls
+# already existed; this is what wakes it up. D36 settled where -- the seller's own
+# GitHub Actions -- and D100 settled which half runs here: **Amazon only.** Meesho
+# has no published API and Akamai in front of it, so Meesho runs in the seller's
+# own Chrome through the extension (D107), and a job here that tried it would fail
+# on twenty-one reports every night.
+#
+# **IT IS NEVER A SELLER'S JOB.** A seller signs in to Google and installs the
+# extension, and that is all. This file and its secrets are put in place for them
+# at onboarding (D36). It is manual today only because that part is not built.
+#
+# **WHERE THE CREDENTIALS GO, and they never pass through code or a session:**
+# Settings -> Secrets and variables -> Actions -> New repository secret, on the
+# seller's own repository. They are named one per line in the `env` block below,
+# and nowhere is the number written down -- a hand-typed count is wrong from the
+# moment the next one lands. Golden Rule 8: they live there and nowhere else --
+# not in a file, not in this workflow, not in a message.
+
+# **WHAT THIS JOB IS ALLOWED TO DO TO THE SELLER'S REPOSITORY: NOTHING (D135).**
+#
+# Left unsaid, `GITHUB_TOKEN` takes the repository's default, which on most
+# repositories is `contents: write` -- so a fetching job that only ever reads
+# files and writes to Google could rewrite the seller's own code, including this
+# workflow and therefore what their secrets are handed to. **That is exactly the
+# permission D113 refused to give Kartaan's server, granted by accident to a job
+# running on a machine nobody is watching.**
+#
+# `contents: read` is what `actions/checkout` needs and is all it needs. Written
+# out rather than left to a default, because a default is a setting somebody
+# else can change (D135's second rule: the narrowest permission that works, and
+# the wider one refused in writing).
+permissions:
+  contents: read
+
+on:
+  # **ONCE A DAY, AT THE HOUR THE SELLER CHOSE (D120).**
+  #
+  # It used to wake every hour and let the clock refuse twenty-three of them.
+  # His decision, and he was right: there is no new data every hour, and the cost
+  # was not what D113 said. **GitHub bills every job rounded UP to a whole
+  # minute**, so twenty-four ten-second refusals cost twenty-four minutes a day,
+  # not four -- about 720 of the free 2,000 a month, for nothing.
+  #
+  # **THE HOUR IS WRITTEN INTO THIS LINE WHEN THE WORKFLOW IS PUT IN THE SELLER'S
+  # REPOSITORY AT ONBOARDING**, and never afterwards. Changing it later is a
+  # one-off the seller triggers -- **never standing permission for Kartaan to
+  # write files in their repository**, which is the thing D113 was right to
+  # refuse: anything that can write a workflow can write one that carries their
+  # secrets away.
+  #
+  # **AND THE CLOCK STILL DECIDES.** The cron line is a wake-up, not an
+  # appointment. `clock.why_not_now` refuses a tick before the chosen hour and
+  # refuses a second run the same day, so a workflow whose line was never
+  # rewritten still fetches at the hour the seller can see rather than at the one
+  # written here.
+  #
+  # **UTC, deliberately, and not the timezone field GitHub now offers.** That
+  # field is in public preview, and a seller's data arriving depends on it.
+  # India's clock lives in `clock.py`, said out loud, where it is checked --
+  # `HOURS_AHEAD_OF_UTC = 5`, `MINUTES_AHEAD_OF_UTC = 30`. One clock, in the file
+  # that can prove it. **20:53 UTC is 02:23 the next morning in his time**, which
+  # is `clock.NOT_BEFORE_HOUR` -- the default for a seller who has not chosen.
+  #
+  # **:53 RATHER THAN :00** because GitHub's own documentation names the start of
+  # the hour as when a scheduled run is most likely to be delayed.
+  schedule:
+    - cron: '53 20 * * *'
+
+  # **STARTABLE BY HAND**, which is what makes a first run, and any morning
+  # something looks wrong, possible without waiting for a tick.
+  workflow_dispatch:
+    inputs:
+      even_if_not_due:
+        description: 'Run even if one already ran in the last 24 hours'
+        type: boolean
+        default: false
+
+# **TWO RUNS AT ONCE FETCH EVERY FILE TWICE**, into two differently-named copies --
+# the fault that put three wrongly-dated files into the reference's Drive. The
+# clock already refuses a second run; this is the belt to its braces, because the
+# clock reads a record and this reads GitHub itself.
+#
+# **NOT `cancel-in-progress`.** Killing a run halfway is exactly how the reference
+# lost four runs in twenty-six days. A second one waits, and by the time it starts
+# the clock will tell it there is nothing to do.
+concurrency:
+  group: autosync
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    # A run that has gone wrong should not sit there burning the seller's free
+    # minutes until GitHub's own six-hour ceiling.
+    #
+    # **AN HOUR, AND `clock.GONE_AFTER` IS FOUR -- SO FOR THREE HOURS THE RECORD
+    # SAYS A RUN IS STILL GOING WHEN GITHUB HAS ALREADY STOPPED IT.** That is
+    # deliberate and it is the safe direction: nothing starts a second run in
+    # those three hours, and a run killed at sixty minutes had already stopped
+    # doing anything useful. Said here because an earlier version of this comment
+    # claimed the two "never disagree", which is not true and never was.
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # **NOTHING IS INSTALLED.** The whole of `autosync/` is written on what
+      # Python itself provides. A seller's nightly job that pulled packages from
+      # the internet would be a job that fails the day one of them moves, and a
+      # supply chain nobody here is watching.
+      - name: Nothing to install
+        run: python -c "import sys; print(sys.version)"
+
+      # **IS THIS REPOSITORY SET UP TO FETCH AT ALL?**
+      #
+      # This same workflow sits in Kartaan's own repository, where none of these
+      # secrets exist and none should. Without this, it would go red every three
+      # hours for ever, and a red tick that always means nothing is a red tick
+      # nobody looks at on the day it means something (D108).
+      #
+      # `secrets` cannot be read in an `if:` -- GitHub's own documentation -- so
+      # it is read where it is allowed, a step's `env`, and answered as an output.
+      # **The values are never printed; only whether they are there.**
+      - name: Is this repository set up to fetch?
+        id: setup
+        env:
+          READY: >-
+            ${{ secrets.AMAZON_CLIENT_ID != ''
+             && secrets.AMAZON_CLIENT_SECRET != ''
+             && secrets.AMAZON_REFRESH_TOKEN != ''
+             && secrets.GOOGLE_CLIENT_ID != ''
+             && secrets.GOOGLE_CLIENT_SECRET != ''
+             && secrets.GOOGLE_REFRESH_TOKEN != ''
+             && secrets.DRIVE_FOLDER_ID != ''
+             && secrets.FIREBASE_PROJECT_ID != '' }}
+        run: |
+          echo "ready=$READY" >> "$GITHUB_OUTPUT"
+          if [ "$READY" != "true" ]; then
+            echo "::notice::No platform is connected on this repository, so there is nothing to fetch."
+            echo "::notice::Auto-sync runs on the seller's own repository, where its secrets are set."
+          fi
+
+      - name: Fetch whatever is owed
+        if: steps.setup.outputs.ready == 'true'
+        working-directory: autosync
+        env:
+          # **THESE VALUES ONLY EVER EXIST HERE.** They are read
+          # once by `start.main`, handed straight to the door they belong to,
+          # and never written to the log, the run's record or an error message.
+          #
+          # Amazon: from the seller's own Login with Amazon application, created
+          # when they registered as a private developer (D83).
+          AMAZON_CLIENT_ID: ${{ secrets.AMAZON_CLIENT_ID }}
+          AMAZON_CLIENT_SECRET: ${{ secrets.AMAZON_CLIENT_SECRET }}
+          AMAZON_REFRESH_TOKEN: ${{ secrets.AMAZON_REFRESH_TOKEN }}
+          # Google: the seller's own account, asked only for `drive.file`, which
+          # reaches nothing this app did not itself create.
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+          # Not secret, and kept beside the rest so there is one place to look:
+          # the id of the one folder in the seller's Drive that Kartaan was given.
+          DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
+          # **WHICH DATABASE THE RUN'S RECORDS GO INTO (D114, widened by D136).**
+          # The seller's own
+          # Firebase project. Not a credential either -- it names a project and
+          # grants nothing; what grants anything is the Google permission above,
+          # which the seller gave and which now covers their own database too.
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          # Only ever set by somebody pressing the button. A scheduled tick sends
+          # nothing, so `inputs.even_if_not_due` is empty and the clock decides.
+          EVEN_IF_NOT_DUE: ${{ inputs.even_if_not_due }}
+          #
+          # **THE HOUR THE SELLER CHOSE IS NOT HERE, and that is D114.** It used
+          # to be a secret nobody set. It is now READ, every run, off the business
+          # record in the seller's own database -- where the This business tab
+          # writes it (D113). A setting with two homes is a setting that
+          # disagrees with itself, and the one the seller can see has to win.
+        # **RED MEANS OUR OWN DEFECT, NOT A REPORT FAILING (D108).** A report
+        # Amazon would not give up is written to the log, put on the board and
+        # raised as an alarm, and the job did its work. `start.main` returns 1
+        # only when the run could not read its own record, could not save it, or
+        # could not get its evidence out of the building.
+        run: python start.py
+
+      # **THE PACKAGE'S OWN CHECKS RUN HERE TOO.**
+      #
+      # Not because a scheduled run changes the code -- it cannot -- but because
+      # this is the one job that runs in the seller's repository, on a machine
+      # nobody is watching. If the code that arrives there is broken, this is
+      # where it is found, and it is found before anybody notices data stopped
+      # arriving.
+      #
+      # **ONLY WHEN THERE IS SOMETHING TO FETCH.** On a repository with no
+      # secrets there is nothing for these checks to be about, and a red tick
+      # that always means nothing is a red tick nobody reads on the day it means
+      # something (D108).
+      - name: The package's own checks
+        if: steps.setup.outputs.ready == 'true'
+        working-directory: autosync
+        run: |
+          COUNT=0
+          for CHECK in *_checks.py; do
+            echo "--- $CHECK"
+            python "$CHECK"
+            COUNT=$((COUNT + 1))
+          done
+          if [ "$COUNT" -eq 0 ]; then
+            echo "::error::no checks files were found at all -- the checks are not running"
+            exit 1
+          fi
+          echo "$COUNT checks files ran"

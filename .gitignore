@@ -1,0 +1,37 @@
+# Secrets — never committed. Golden Rule 8.
+.env
+.env.*
+*secrets*
+credentials.json
+service_account*.json
+*.pem
+*.key
+.claude/settings.local.json
+
+# Working analysis of the reference implementation.
+# Contains another business's real figures and SKU names — Golden Rule 13
+# (no cross-pollination) and D27 (nothing tenant-specific in the product).
+# Kept locally, deliberately not part of the product repo.
+audit/out/
+
+# Build output
+dist/
+build/
+node_modules/
+
+# OS / editor
+Thumbs.db
+desktop.ini
+.DS_Store
+*.swp
+.vscode/
+.idea/
+review_pass.json
+
+# Python build output
+__pycache__/
+*.pyc
+
+# Python build junk. Never committed, never useful.
+__pycache__/
+*.pyc

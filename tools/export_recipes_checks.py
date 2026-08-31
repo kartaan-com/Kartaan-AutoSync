@@ -1,0 +1,296 @@
+"""Checks for writing the recipes out, and the one that refuses a stale copy.
+
+**THE CHECK THAT MATTERS MOST IS THE LAST ONE.** Everything else here is about the
+tool being right; that one is about the file on disk being current. D107 chose to
+have the steps decided in Python and walked in JavaScript, and named the cost out
+loud: two halves that could drift. **This is the thing that stops them** -- exactly
+as the commit gate already refuses a stale `STATUS.md`.
+
+Run: python tools/export_recipes_checks.py
+"""
+
+import json
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "tools"))
+
+import export_recipes as tool  # noqa: E402
+
+# **THE TOOL'S OWN COPIES, not a second import of the same two modules.** Putting
+# the autosync folder on the path here as well would be two records of one fact --
+# and it hid something: with this file reaching those modules by its own route,
+# the tool could stop reaching them at all and every check here would still pass.
+language = tool.language
+book = tool.book
+
+ran = 0
+failures = []
+
+
+def check(name, passed):
+    global ran
+    ran += 1
+    print(f"{'PASS' if passed else 'FAIL'}  {name}")
+    if not passed:
+        failures.append(name)
+
+
+def answered(work, *given):
+    """What this answers, or None when it threw.
+
+    **A RUN THAT STOPS IS NOT A CHECK GOING RED.** Sixty-one deliberate breakages
+    of `browser_door.py` were "noticed" only by its checks file falling over, on
+    the day this was written. Same cure, from the start, here.
+    """
+    try:
+        return work(*given)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+HELD = answered(tool.what_the_extension_reads) or {}
+
+# ------------------------------------------------ everything crosses
+
+check("every recipe the Python has crosses",
+      set(HELD.get("recipes", {})) == set(book.RECIPES))
+check("and there are seventeen of them, both platforms", len(HELD.get("recipes", {})) == 17)
+check("every meaning of a failure crosses",
+      set(HELD.get("whatItMeans", {})) == set(language.WHAT_IT_MEANS))
+# **THE WHOLE MAP, not the part the walk happens to use today.** Splitting it is
+# two records of one fact by another name.
+check("including the ones the walk does not name yet",
+      language.DAY_NOT_AVAILABLE in HELD.get("whatItMeans", {})
+      and language.TOOK_TOO_LONG in HELD.get("whatItMeans", {}))
+check("and the reports known to build their file inside the page",
+      set(HELD.get("buildsInThePageSince", {})) == set(book.BUILDS_IN_THE_PAGE_SINCE))
+check("with the day each of them started",
+      HELD.get("buildsInThePageSince", {}).get("fk_orders") == "2026-08-22")
+
+# **AND THE WORDS ONLY A SIGNED-OUT PORTAL SHOWS.** Found by loading the
+# extension into a real Chrome for the first time: the door refused to be built
+# at all, out loud, because these were not crossing.
+check("the words a signed-out portal shows cross",
+      list(HELD.get("signedOutSigns", [])) == list(book.SIGNED_OUT_SIGNS))
+# **TWO OF THEM ARE NEEDED ON A PAGE, so fewer than two could never fire.**
+check("and there are enough of them for the rule that needs two",
+      len(HELD.get("signedOutSigns", [])) >= 2)
+check("they are Flipkart's public menu, read off the real signed-out site",
+      "Fees and Commission" in HELD.get("signedOutSigns", []))
+# **NOTHING OF THE SELLER'S IS IN THEM.** These go into a file that ships to
+# every seller.
+check("and none of them names a seller or a panel",
+      all("meesho.com" not in one and "flipkart.com" not in one
+          for one in HELD.get("signedOutSigns", [])))
+
+# ------------------------------------------------ nothing is translated
+
+STEPS = [s for r in HELD.get("recipes", {}).values() for s in r["toAsk"] + r["toTake"]]
+check("there are steps to look at", len(STEPS) > 50)
+check("what a step does is the Python word, not a new one",
+      {s["do"] for s in STEPS} <= set(language.STEP_KINDS))
+check("and every one of the Python's kinds is used somewhere",
+      {s["do"] for s in STEPS} == set(language.STEP_KINDS))
+WAYS = {s["find"]["how"] for s in STEPS if s["find"]}
+check("how a thing is found is the Python word too", WAYS <= set(language.WAYS_OF_FINDING))
+# **AND THE THIRD WAY REALLY CROSSES.** Meesho's panel has no control on it at
+# all, so every one of its lookups is by pressable words -- if that word did not
+# reach the extension, not one Meesho report could ever be fetched.
+check("the pressable way reaches the extension", language.BY_PRESSABLE_TEXT in WAYS)
+check("and so does the control way, which Flipkart still uses",
+      language.BY_ROLE_AND_TEXT in WAYS)
+
+# **THE ONE PLACE A NAME CHANGES SHAPE, and it is asserted rather than assumed.**
+check("a step says how many days its range covers, spelt for JavaScript",
+      all("rangeDays" in s for s in STEPS))
+check("and the Python spelling is not also in there, which would be two names for one thing",
+      all("range_days" not in s for s in STEPS))
+ONE = HELD.get("recipes", {}).get("fk_orders", {})
+check("a recipe says how long the platform takes, spelt for JavaScript",
+      "readyInMinutes" in ONE and "ready_in_minutes" not in ONE)
+check("and its two phases are spelt for JavaScript",
+      "toAsk" in ONE and "toTake" in ONE and "to_ask" not in ONE and "to_take" not in ONE)
+
+# ------------------------------------------------ what a step carries
+
+check("every step says what it is for, so a failure can say what was attempted",
+      all(s["why"] for s in STEPS))
+check("every step says how long to wait", all(s["patience"] > 0 for s in STEPS))
+check("a step that goes somewhere says where",
+      all(s["address"] for s in STEPS if s["do"] == language.GO))
+check("a step that clicks or waits says what to look for",
+      all(s["find"] for s in STEPS if s["do"] in (language.CLICK, language.WAIT_FOR)))
+check("and everything it looks for says what to look for",
+      all(s["find"]["what"] for s in STEPS if s["find"]))
+# **THE SELLER'S OWN WORDS FOR IT.** Without this a failure names the raw text on
+# a button, and "could not find 'Download Orders Data'" says far less than "could
+# not find the download menu".
+check("a thing worth naming in a person's words carries that name",
+      sum(1 for s in STEPS if s["find"] and s["find"]["called"]) > 20)
+# Matching loosely has to be asked for, because a loose match is what found a
+# chart legend before a menu item and cost nine days of payments.
+check("matching the whole phrase is what most steps do",
+      sum(1 for s in STEPS if s["find"] and s["find"]["exact"])
+      > sum(1 for s in STEPS if s["find"] and not s["find"]["exact"]))
+
+# ------------------------------------------------ the seller's own panel
+
+PANEL_STEPS = [s for s in STEPS if "{panel}" in s["address"]]
+# Five, not four: orders loads its page twice, because Meesho does not show a
+# finished file until the page is loaded again.
+check("every Meesho page carries the placeholder for the seller's own slug",
+      len(PANEL_STEPS) == 5)
+check("and orders carries it twice, because it loads its page twice",
+      sum(1 for s in HELD["recipes"]["me_orders"]["toTake"]
+          if "{panel}" in s["address"]) == 2)
+# **NOT FILLED IN HERE.** One seller's panel address in a file that ships to every
+# seller is exactly what D27, D30 and D92 forbid, and the reference holds one
+# supplier's slug in its own source.
+WHOLE = tool.written_out()
+check("and no real supplier panel name is anywhere in the file",
+      "supplier.meesho.com/panel/v3/new/growth" not in WHOLE)
+
+# ------------------------------------------------ the same bytes every time
+
+check("writing it out twice gives the same bytes",
+      tool.written_out() == tool.written_out())
+check("and it is real JSON", answered(json.loads, WHOLE) is not None)
+check("with the note telling a reader not to edit it",
+      "DO NOT EDIT" in WHOLE and "export_recipes.py" in WHOLE)
+check("and it ends with a newline, the way a text file does", WHOLE.endswith("\n"))
+
+# ------------------------------------------------ THE ONE THAT MATTERS
+
+# **THE FILE ON DISK IS WHAT THE PYTHON SAYS, OR THIS GOES RED.**
+#
+# Without it, the recipes are decided in one place and carried out from another
+# that quietly stopped agreeing -- and the extension would drive his portals by an
+# older set of steps than the ones anybody checked. That is the cost D107 named
+# when it chose this shape, and this is the thing that pays it.
+STALE = tool.what_is_stale()
+check(f"extension/recipes.json is what the Python says -- {STALE or 'it is'}", STALE is None)
+check("and the refusal, when there is one, says how to put it right",
+      "python tools/export_recipes.py" in (tool.what_is_stale() or "python tools/export_recipes.py"))
+
+# ------------------------------------------------ writing it, for real
+
+# **THE TOOL IS RUN, not merely read.** Everything above asks what it would
+# produce; none of it puts a file on a disk or works the command line, which is
+# the half a person actually uses -- and the half that can be broken without a
+# single check above noticing.
+import io  # noqa: E402
+import tempfile  # noqa: E402
+
+REALLY = tool.WHERE
+# **TWO FOLDERS DEEP, ON PURPOSE.** One deep and the tool making its folder
+# "and every folder above it" reads the same as making just the one -- so the
+# difference between them could not be seen.
+SOMEWHERE = Path(tempfile.mkdtemp(prefix="kartaan-recipes-")) / "nested" / "deeper" / "recipes.json"
+tool.WHERE = SOMEWHERE
+try:
+    missing = tool.what_is_stale()
+    check("with no file at all it says so plainly", "does not exist" in (missing or ""))
+    check("and says the extension has no recipes at all",
+          "no recipes" in (missing or ""))
+    check("and says how to put it right", "python tools/export_recipes.py" in (missing or ""))
+
+    written = tool.write()
+    check("writing it makes the folder it needs", SOMEWHERE.is_file())
+    check("and answers where it put it", written == SOMEWHERE)
+    with open(SOMEWHERE, "r", encoding="utf-8", newline="") as handle:
+        back = handle.read()
+    check("and what came back off the disk is exactly what it meant to write",
+          back == tool.written_out())
+    check("which is now current", tool.what_is_stale() is None)
+
+    # **AND A FILE THAT HAS DRIFTED IS CAUGHT, not just a missing one.**
+    with open(SOMEWHERE, "w", encoding="utf-8", newline="") as handle:
+        handle.write(back.replace("opening the orders page", "opening the ORDERS page"))
+    drifted = tool.what_is_stale()
+    check("a file that has drifted from the Python is refused",
+          drifted is not None and "does not exist" not in drifted)
+    check("and the refusal says what has actually gone wrong",
+          "older set of steps than the ones that were checked" in (drifted or ""))
+    check("and names both files it was generated from",
+          "autosync/recipes.py" in (drifted or "") and "autosync/browser.py" in (drifted or ""))
+    check("and how to put it right", "python tools/export_recipes.py" in (drifted or ""))
+
+    # ---------------------------------------- the command line a person uses
+    was = sys.argv
+    was_stderr = sys.stderr
+    was_stdout = sys.stdout
+    try:
+        sys.argv = ["export_recipes.py", "--check"]
+        sys.stderr = io.StringIO()
+        answered_with = tool.main()
+        complained = sys.stderr.getvalue()
+        sys.stderr = was_stderr
+        check("asked to check a file that has drifted, it refuses", answered_with == 1)
+        # **AND IT SAYS SO OUT LOUD.** A refusal nobody can read is a gate that
+        # stops a commit for a reason the person is left to guess at.
+        check("and says why, where a person will see it",
+              "older set of steps" in complained)
+        # **AND IT CHANGES NOTHING.** Asked to CHECK, writing the file would make
+        # the answer true by rewriting the question.
+        with open(SOMEWHERE, "r", encoding="utf-8", newline="") as handle:
+            still = handle.read()
+        check("and checking it leaves the file exactly as it was",
+              "opening the ORDERS page" in still)
+
+        sys.argv = ["export_recipes.py"]
+        check("asked to write it, it does", tool.main() == 0)
+        check("and the file is current afterwards", tool.what_is_stale() is None)
+
+        sys.argv = ["export_recipes.py", "--check"]
+        sys.stderr = io.StringIO()
+        sys.stdout = io.StringIO()
+        happy = tool.main()
+        quiet = sys.stderr.getvalue()
+        told = sys.stdout.getvalue()
+        sys.stderr = was_stderr
+        sys.stdout = was_stdout
+        check("and checking it again is happy", happy == 0)
+        check("with nothing complained about", quiet == "")
+        # **AND IT SAYS SO.** A tool that answers nothing at all leaves the person
+        # wondering whether it ran.
+        check("and it says the file is what the Python says",
+              "is what the Python says" in told)
+        # **AND IT STOPS THERE.** Asked to CHECK, carrying on and writing the file
+        # would make the answer true by rewriting the question -- and on a file
+        # that is already current, nothing about the bytes would ever show it.
+        check("and does not go on to write it", "wrote" not in told)
+    finally:
+        sys.argv = was
+        sys.stderr = was_stderr
+        sys.stdout = was_stdout
+finally:
+    tool.WHERE = REALLY
+    # **PUT BACK BEFORE THE ONE THAT MATTERS RUNS.** Left pointing at a temporary
+    # folder, the last check below would ask whether a file nobody ships is
+    # current, pass, and say nothing at all about the real one.
+    check("and the tool is pointed back at the real file", tool.WHERE == REALLY)
+
+# ------------------------------------------------ the shape of the bytes
+
+# **THE ORDER IS SETTLED, and that is what makes comparing two runs mean
+# anything.** Sorted differently, every line of the file moves and the comparison
+# reports drift on a change that is not one.
+check("the recipes come before what a failure means",
+      WHOLE.index('"recipes"') < WHOLE.index('"whatItMeans"'))
+check("and what a failure means before the doors that have closed",
+      WHOLE.index('"whatItMeans"') < WHOLE.index('"buildsInThePageSince"'))
+check("and the note to a reader comes first of all",
+      WHOLE.index('"_generated"') < WHOLE.index('"recipes"'))
+check("the recipes themselves are in a settled order",
+      list(HELD["recipes"]) == sorted(HELD["recipes"]))
+
+
+EXPECTED = 61
+if ran != EXPECTED:
+    print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
+    failures.append("count")
+
+print(f"\n{len(failures)} FAILED ({ran} checks)" if failures else f"\nall {ran} checks passed")
+sys.exit(1 if failures else 0)

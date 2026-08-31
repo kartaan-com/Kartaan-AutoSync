@@ -1,0 +1,299 @@
+"""Driving a page, step by step. The other half of phase 4.
+
+**IT ANSWERS EXACTLY WHAT THE AMAZON DOOR ANSWERS**, so the runner cannot tell
+them apart -- same states, same `say`, same `their_id`. That is the whole of D100:
+one report list, one log, one board, and the door is a detail underneath. A report
+moving from this door to an API door is one word in the report list, and nothing
+above here changes at all.
+
+**WHAT `browser` HAS TO BE**, written down because somebody else implements it --
+the seller's own Chrome, driven by an extension:
+
+    browser.go(address, patience)            -> None, or raises
+    browser.find(how, what, exact, patience, near) -> how many things match
+    browser.click(how, what, exact, near)    -> None, or raises
+    browser.pick_range(start, end, patience) -> None, or raises
+    browser.take_file(patience)              -> bytes, or None if nothing came
+    browser.overlays()                       -> [{width, height, text, blocks}, ...]
+    browser.page_text()                      -> what is on the page now
+    browser.needs_signing_in()               -> True when the portal is asking
+
+**EVERYTHING THAT CAN WAIT IS TOLD HOW LONG TO WAIT, and that was missing.** The
+step has said how patient to be since it was written -- 300 seconds while Meesho
+builds a file, 45 while a page draws -- and not one of those numbers ever reached
+the browser. So every "wait for this to appear" step asked once and gave up,
+which is exactly the failure the number exists to prevent: `find` would have
+reported the platform as having renamed a button that was half a second away.
+**Only `click` is not told, and that is deliberate: what it clicks has just been
+found, so waiting there would be waiting for something already in front of it.**
+
+**IT HOLDS NO KNOWLEDGE.** Every decision -- which step, what to look for, what a
+failure is called, whether to retry -- is in `browser.py`, where it is checked
+without a browser existing. The extension carries out instructions and reports
+what it saw. That is deliberate: the reference put all of it in 3,800 lines of
+JavaScript that nothing could check, and every failure for three months was a
+button that had moved.
+
+**NOTHING HERE IS ASKED FOR TWICE EITHER**, but for a different reason than
+Amazon. There is no rationed request -- a page is just a page. What must not
+happen is a file being downloaded twice into two differently-named copies, which
+is how the reference put three wrongly-dated duplicates into Drive.
+"""
+
+from dataclasses import dataclass
+from datetime import date, timedelta
+from typing import Callable, List, Optional, Sequence
+
+import browser as pages
+import recipes as book
+from landing import file_name_for
+from reports import report as kartaan_report
+
+# The same four words the Amazon door answers with. **Not similar -- the same.**
+LANDED = "landed"
+NOTHING_TO_FETCH = "nothing-to-fetch"
+STILL_WAITING = "still-waiting"
+FAILED = "failed"
+
+
+@dataclass(frozen=True)
+class Fetched:
+    """What one attempt came to. The same shape the Amazon door gives back."""
+
+    state: str
+    report_id: str
+    data_date: date
+    file_name: Optional[str] = None
+    size: int = 0
+    say: str = ""
+    their_id: Optional[str] = None
+    # What the page looked like when something could not be found. **Captured
+    # automatically, first time** -- rule 4.
+    page_was: str = ""
+
+
+class NeedsSigningIn(RuntimeError):
+    """The portal wants somebody to sign in.
+
+    **ITS OWN KIND, because it is not a fault in the report.** Every report after
+    it in the run will hit the same wall, and calling each of them broken buries
+    the one thing that actually needs doing. The reference reported it as a
+    per-report failure and its queue died on the spot.
+    """
+
+
+def do_the_steps(
+    browser,
+    report_id: str,
+    data_date: date,
+    panel: str,
+    say: Callable[[str], None],
+    asked_already: Optional[str] = None,
+) -> Fetched:
+    """Walk one report's recipe, and answer what came of it.
+
+    **A COVERING IS ASKED ABOUT ONLY ONCE A LOOKUP HAS ALREADY FAILED, and that
+    is a correction made on 2026-08-28 with the evidence in front of it.** It used
+    to be asked before every click, so that a failure could never be written down
+    as "button not found" when the button was underneath a promotion -- a month of
+    diagnosis went chasing exactly that. Two things read off his own panel say the
+    order has to be the other way round:
+
+      - **the panel a recipe opens ON PURPOSE sits on a full-screen backdrop
+        too.** Meesho's "Bulk Stock Update" panel measures the whole window and
+        contains the very Download the recipe is about to press. Asked
+        beforehand, the door refuses to carry on because of a panel it opened;
+      - **and a covering never actually stops anything here.** A click is sent
+        straight to the thing being clicked, so a sheet laid over the page does
+        not intercept it the way it intercepts a person's mouse.
+
+    So a covering does not STOP a step -- it EXPLAINS one that stopped. Asked in
+    this order the failure still says "something is covering the page", which was
+    the whole point, and a panel the recipe opened costs nothing.
+    """
+    # **BOTH LOOKUPS INSIDE THE SAME GUARD.** The report lookup sat outside it, so
+    # a report this door has no recipe for threw straight out instead of being
+    # answered -- and the runner would have recorded a bare KeyError as the reason
+    # a seller's data was missing. A door answers; it does not throw at its caller.
+    try:
+        which = kartaan_report(report_id)
+        how = book.recipe(report_id)
+        # **A TWO-PHASE REPORT IS NEVER ASKED FOR TWICE.** Flipkart's Reports Centre
+        # allows twenty requests a day; the reference burned through them
+        # re-submitting reports that had actually worked, then spent the rest of the
+        # day locked out. Given what it was asked under, this collects.
+        collecting = bool(asked_already) or not how.two_phase
+        steps = book.steps_for(report_id, panel, collecting=collecting)
+    except (KeyError, ValueError) as wrong:
+        return Fetched(FAILED, report_id, data_date, say=str(wrong))
+
+    for step in steps:
+        wrong = pages.why_step_is_refused(step)
+        if wrong:
+            # A bad recipe is a fault in the product, not in the portal, and it
+            # says so rather than reading as the platform having changed.
+            return Fetched(FAILED, report_id, data_date, say=f"This recipe is wrong: {wrong}")
+
+        # **SIGNING IN IS ASKED ABOUT FIRST, AND IT IS NOT THIS REPORT'S FAULT.**
+        if browser.needs_signing_in():
+            raise NeedsSigningIn(
+                "The Meesho panel is asking to be signed in to. Nothing can be fetched from it "
+                "until somebody does, and every report after this one would fail the same way."
+            )
+
+        if step.do == pages.GO:
+            browser.go(step.address, step.patience)
+            continue
+
+        if step.do == pages.PICK_RANGE:
+            # **A RANGE IS NOT ALWAYS ONE DAY.** Flipkart's Reports Centre needs the
+            # start strictly before the end, so its smallest range is two days --
+            # and it names the row it produces by the END date, which is the day
+            # actually being fetched.
+            browser.pick_range(
+                data_date - timedelta(days=step.range_days - 1), data_date, step.patience
+            )
+            continue
+
+        if step.do == pages.TAKE_FILE:
+            got = _take_the_file(browser, step, report_id, data_date, which)
+            if isinstance(got, Fetched):
+                return got
+            body = got
+            name = file_name_for(which, data_date)
+            return Fetched(LANDED, report_id, data_date, file_name=name, size=len(body),
+                           say=f"Landed {name} ({len(body)} bytes).")
+
+        # CLICK and WAIT_FOR both have to find something first.
+        many = browser.find(step.find.how, step.find.what, step.find.exact, step.patience,
+                            step.find.near)
+        if many == 0:
+            # **WHICH OF THE TWO IT WAS, decided now that the lookup has failed.**
+            # "Button not found" sent a month of diagnosis at a button that was
+            # there all along, underneath a promotion -- so it still has to say.
+            return _gave_up(report_id, data_date, pages.WentWrong(
+                kind=(pages.COVERED_UP if pages.is_covered(browser.overlays()) is not None
+                      else pages.FOUND_NOTHING),
+                looking_for=step.find.name(), doing=step.why,
+                page_was=pages.capture(browser.page_text()),
+            ))
+        if many > 1:
+            # **AMBIGUITY IS A FAILURE, NOT A COIN TOSS.** Nine days of payments
+            # were lost to a chart legend that read like a menu item, because the
+            # code took the first match.
+            return _gave_up(report_id, data_date, pages.WentWrong(
+                kind=pages.FOUND_SEVERAL, looking_for=step.find.name(), doing=step.why,
+                page_was=pages.capture(browser.page_text()), matches=many,
+            ))
+
+        if step.do == pages.CLICK:
+            browser.click(step.find.how, step.find.what, step.find.exact, step.find.near)
+            say(f"{report_id}: {step.why}.")
+
+    if not collecting:
+        # **THE ASKING PHASE FINISHED, AND THAT IS A SUCCESS, NOT A FAILURE.** The
+        # platform is building it now. `their_id` is the day it was asked under,
+        # which is how the row is found when a later run comes back -- and holding
+        # it is what stops this being asked for a second time.
+        return Fetched(
+            STILL_WAITING, report_id, data_date, their_id=data_date.isoformat(),
+            say=(
+                f"Asked for it. About {how.ready_in_minutes} minutes before it is ready; "
+                "a later run will collect it rather than asking again."
+            ),
+        )
+
+    # **A RECIPE THAT NEVER TOOK A FILE IS A FAULT IN THE RECIPE**, and it says so
+    # rather than reporting a missing file as the platform's doing.
+    return Fetched(
+        FAILED, report_id, data_date,
+        say="Every step ran and none of them took a file. The recipe is missing its last step.",
+    )
+
+
+def _take_the_file(browser, step, report_id, data_date, which):
+    """The last step: whatever the page produced. Answers bytes, or a failure.
+
+    **A STEP THAT PRESSES NOTHING HAS NO LOOKUP TO EXPLAIN**, so there is nothing
+    to ask about a covering: the file either comes or it does not.
+    """
+    if step.find is not None:
+        many = browser.find(step.find.how, step.find.what, step.find.exact, step.patience,
+                            step.find.near)
+        if many == 0:
+            return _gave_up(report_id, data_date, pages.WentWrong(
+                kind=(pages.COVERED_UP if pages.is_covered(browser.overlays()) is not None
+                      else pages.FOUND_NOTHING),
+                looking_for=step.find.name(), doing=step.why,
+                page_was=pages.capture(browser.page_text()),
+            ))
+        if many > 1:
+            return _gave_up(report_id, data_date, pages.WentWrong(
+                kind=pages.FOUND_SEVERAL, looking_for=step.find.name(), doing=step.why,
+                page_was=pages.capture(browser.page_text()), matches=many,
+            ))
+        browser.click(step.find.how, step.find.what, step.find.exact, step.find.near)
+
+    # **THE FILE IS WAITED FOR TOO, and this is the one that would have hurt
+    # most.** Meesho takes up to five minutes to build an orders export; asked
+    # the instant the button was pressed nothing has come back, and the report
+    # then reads as the page having produced an empty file. That failure looks
+    # like the platform's doing and is entirely ours.
+    body = browser.take_file(step.patience)
+    if body is None:
+        # **THE DOOR THAT HAS CLOSED.** Flipkart has started building files inside
+        # the page and handing over a temporary handle an extension cannot fetch
+        # twice. Retrying it for ever is doing nothing slowly.
+        gone = _gave_up(report_id, data_date, pages.WentWrong(
+            kind=pages.BUILT_IN_THE_PAGE, looking_for="the file itself", doing=step.why,
+            page_was=pages.capture(browser.page_text()),
+        ))
+        since = book.BUILDS_IN_THE_PAGE_SINCE.get(report_id)
+        if since:
+            # **SAID WITH THE DAY IT STARTED**, so this reads as a known door
+            # closing rather than as tonight's news. Flipkart began doing it to
+            # orders and returns on 2026-08-22.
+            return Fetched(
+                gone.state, gone.report_id, gone.data_date,
+                say=gone.say + f" This has been happening to {report_id} since {since}.",
+                page_was=gone.page_was,
+            )
+        return gone
+    if not body:
+        return Fetched(
+            FAILED, report_id, data_date,
+            say="The page produced a file with nothing in it, so nothing has been written.",
+        )
+    return body
+
+
+def _gave_up(report_id: str, data_date: date, wrong: pages.WentWrong) -> Fetched:
+    """One failure, with the page it happened on kept.
+
+    **THE EVIDENCE TRAVELS WITH THE FAILURE.** It is not written somewhere else to
+    be correlated later -- correlating later is what nobody ever does.
+    """
+    return Fetched(
+        state=FAILED,
+        report_id=report_id,
+        data_date=data_date,
+        say=wrong.say(),
+        page_was=wrong.page_was,
+    )
+
+
+def a_door(browser, panel: str, say: Callable[[str], None]) -> Callable[..., Fetched]:
+    """The browser door, in the shape the runner expects.
+
+    Answers a `fetch(report_id, data_date, asked_already=None)` exactly like the
+    Amazon one -- and **it means the same thing here as it does there**: a report
+    the platform is still building, collected rather than asked for again. On
+    Flipkart that is not politeness. Its Reports Centre allows twenty requests a
+    day, and the reference burned through them re-submitting requests that had
+    actually worked, then spent the rest of the day locked out.
+    """
+
+    def fetch(report_id: str, data_date: date, asked_already: Optional[str] = None) -> Fetched:
+        return do_the_steps(browser, report_id, data_date, panel, say, asked_already)
+
+    return fetch

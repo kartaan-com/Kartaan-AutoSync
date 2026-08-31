@@ -1,0 +1,45 @@
+{
+  "manifest_version": 3,
+  "name": "Kartaan Auto-sync",
+  "version": "0.1.0",
+  "description": "Fetches a seller's own reports from Meesho and Flipkart, in their own browser.",
+  "background": {
+    "service_worker": "worker.js",
+    "type": "module"
+  },
+  "permissions": [
+    "alarms",
+    "storage",
+    "downloads",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://supplier.meesho.com/*",
+    "https://seller.flipkart.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://supplier.meesho.com/*",
+        "https://seller.flipkart.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "driver.js",
+        "walk.js",
+        "recipes.json"
+      ],
+      "matches": [
+        "https://supplier.meesho.com/*",
+        "https://seller.flipkart.com/*"
+      ]
+    }
+  ]
+}
