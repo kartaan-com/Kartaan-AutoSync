@@ -50,7 +50,14 @@ for f in autosync/*_checks.py tools/*_checks.py; do python "$f"; done
 for f in extension/*.test.js; do node "$f"; done
 ```
 
-**Two of them need the other repository.** `firestore_checks.py` pins the three
+**Three of them need another repository (D148).** `firestore_checks.py` pins
+the three collection names this job WRITES against the names Kartaan's screens
+READ; `firestore_door_checks.py` pins the Google scope this door needs against
+the scope `Kartaan-Server` actually asks the seller for. One fact, written down
+twice, with nothing mechanical joining them -- which is the exact shape this
+project keeps paying for.
+
+**IGNORE THE PARAGRAPH BELOW'S OLD WORDING:** `firestore_checks.py` pins the three
 collection names this job WRITES against the names Kartaan's screens READ, and
 `firestore_door_checks.py` pins the Google scope this door needs against the
 scope the seller is actually asked for. One fact, written down twice, in two
@@ -61,11 +68,12 @@ They **refuse rather than skip** when they cannot find Kartaan. A check that
 quietly stops checking is worse than no check, because it is still counted.
 
 ```
-set KARTAAN=D:\Kartaan          # Windows
-export KARTAAN=~/Kartaan        # anywhere else
+set KARTAAN=D:\Kartaan          set SERVER=D:\Kartaan-Server      # Windows
+export KARTAAN=~/Kartaan        export SERVER=~/Kartaan-Server    # anywhere else
 ```
 
-A sibling folder called `Kartaan` is found without being told.
+Sibling folders called `Kartaan` and `Kartaan-Server` are found without being
+told.
 
 ---
 

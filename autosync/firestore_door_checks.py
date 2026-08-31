@@ -24,7 +24,7 @@ import board  # noqa: E402
 import firestore  # noqa: E402
 import firestore_door as tool  # noqa: E402
 import runlog  # noqa: E402
-from the_other_half import readFromKartaan  # noqa: E402
+from the_other_half import readFromServer  # noqa: E402
 
 ran = 0
 failures = []
@@ -113,7 +113,7 @@ check("and one document is asked for by its own full name",
 # `server/going_off.py` and needed here, and nothing mechanical joins the two --
 # so it is pinned, both ways.
 check("the scope it needs is the datastore one", tool.SCOPE == "https://www.googleapis.com/auth/datastore")
-GOING_OFF = readFromKartaan("server", "going_off.py")
+GOING_OFF = readFromServer("server", "going_off.py")
 check("and it is the one the seller is actually asked for", f'"{tool.SCOPE}"' in GOING_OFF)
 check("and the seller is still asked for Drive as well",
       '"https://www.googleapis.com/auth/drive.file"' in GOING_OFF)

@@ -34,6 +34,9 @@ import pathlib
 
 HERE = pathlib.Path(__file__).resolve().parent.parent
 
+NEWLINE = chr(10)
+SLASH = chr(92)
+
 
 def whereKartaanIs():
     """The other repository's folder, or nothing.
@@ -45,6 +48,45 @@ def whereKartaanIs():
     if said:
         return pathlib.Path(said)
     return HERE.parent / 'Kartaan'
+
+
+def whereTheServerIs():
+    """The server's folder, or where it would be.
+
+    **`going_off.py` MOVED AGAIN (D148).** It was in Kartaan, then the server
+    was split out and took it. The check that reads it asks for the scope this
+    door needs against the scope the seller is actually asked for -- so it now
+    looks in a third place.
+    """
+    said = os.environ.get('SERVER', '').strip()
+    if said:
+        return pathlib.Path(said)
+    return HERE.parent / 'Kartaan-Server'
+
+
+def readFromServer(*parts):
+    """A file out of the server's repository, or a refusal that says what to do."""
+    wanted = whereTheServerIs().joinpath(*parts)
+    if wanted.is_file():
+        return wanted.read_text(encoding='utf-8')
+    raise SystemExit(
+        f"{NEWLINE}CANNOT CHECK THIS: {'/'.join(parts)} is not at {wanted}."
+        + NEWLINE + NEWLINE
+        + "  This pins the Google scope this door NEEDS against the scope the"
+        + NEWLINE
+        + "  seller is actually ASKED for. Unpinned, the seller grants one thing"
+        + NEWLINE
+        + "  and the job needs another, and every night fails on a permission"
+        + NEWLINE
+        + "  nobody withheld." + NEWLINE + NEWLINE
+        + "  Point it at the server and run again:" + NEWLINE
+        + "      set SERVER=D:" + SLASH + SLASH + "Kartaan-Server" + NEWLINE
+        + "      export SERVER=~/Kartaan-Server" + NEWLINE + NEWLINE
+        + "  It is NOT skipped when it cannot be found. A check that quietly"
+        + NEWLINE
+        + "  stops checking is worse than no check, because it is still counted."
+        + NEWLINE
+    )
 
 
 def readFromKartaan(*parts):
