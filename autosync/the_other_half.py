@@ -39,15 +39,25 @@ SLASH = chr(92)
 
 
 def whereKartaanIs():
-    """The other repository's folder, or nothing.
+    """The ERP's folder, or where it would be.
 
-    **NAMED, NOT GUESSED AT REPEATEDLY.** One place decides where to look, so
-    the two checks that need it cannot end up looking in different places.
+    **TWO NAMES ARE TRIED, and that is deliberate rather than a guess.** The
+    repository was renamed to `Kartaan-ERP` (D148) and the folder on a machine
+    may still be the old `Kartaan` -- a folder cannot be renamed by a session
+    running inside it. New name first, old name second.
+
+    **THIS IS TEMPORARY AND SAYS SO.** When the folder is renamed everywhere,
+    the second name comes out. A fallback nobody wrote down is how two spellings
+    of one thing survive for a year.
     """
     said = os.environ.get('KARTAAN', '').strip()
     if said:
         return pathlib.Path(said)
-    return HERE.parent / 'Kartaan'
+    for name in ('Kartaan-ERP', 'Kartaan'):
+        here = HERE.parent / name
+        if here.is_dir():
+            return here
+    return HERE.parent / 'Kartaan-ERP'
 
 
 def whereTheServerIs():
