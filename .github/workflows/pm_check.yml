@@ -96,7 +96,7 @@ jobs:
           # to pretend otherwise (D156). This is the rule's start date, not an
           # exemption, and it is one named commit rather than a date or a count
           # so it cannot quietly widen.
-          GATE_BORN=__GATE_BORN__
+          GATE_BORN=d538efd462fa51e390a7ec14e1c7c2a079a979e4
 
           # Asks whether that commit is ON THIS LINE OF HISTORY, not merely that
           # the object exists somewhere. A checkout fetches every branch and tag,
