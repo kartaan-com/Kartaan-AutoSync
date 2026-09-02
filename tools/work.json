@@ -12,7 +12,7 @@
     "again anywhere. The only way to know what was built here was to read all of",
     "it. That is what this closes.",
     "",
-    "THE FOUR ENTRIES ARE SPLIT INTO SEVENTEEN. `autosync` was one entry covering",
+    "THE FOUR ENTRIES ARE SPLIT INTO SEVENTEEN, and the reader adds more. `autosync` was one entry covering",
     "the report list, what is owed, the run log, landing, the day board, both",
     "doors, the recipes, the runner and the alarms -- nine separate pieces with",
     "one review record between them. Split, because a review of the day board",
@@ -48,24 +48,42 @@
     "                 rows -- by scripts in the ERP's audit folder. This code did",
     "                 not do that reading.",
     "",
-    "THE CHECKS. 1,758 Python checks and 400 JavaScript checks pass, 2026-09-02.",
+    "THE CHECKS. 1,833 Python checks and 400 JavaScript checks pass, 2026-09-02.",
     "They are checks, not a run. Every door in this package has its transport",
     "handed in, which is what lets them pass with no account, no token and no",
     "internet -- and is also exactly why passing them proves nothing about a real",
     "night.",
     "",
-    "NOTHING HERE HAS BEEN PROVED BY BREAKING IT ON PURPOSE. `tools/prove_checks.py`",
-    "lives in the ERP and there is no copy here (open item 10 in the ERP's memory).",
-    "So no check in this repository has been shown to be capable of going red.",
+    "ONE PIECE HAS BEEN PROVED BY BREAKING IT ON PURPOSE. `reading-a-file`, and no",
+    "other. `tools/prove_checks.py` lives in the ERP and there is still no copy here",
+    "(open item 10 in the ERP's memory), so that one piece was done by hand: eight",
+    "faults put back one at a time, eight caught, no survivors. TWO OF THE EIGHT",
+    "FOUND GAPS IN THE CHECKS RATHER THAN IN THE CODE, which is the argument for",
+    "doing it to everything else. **Every other piece here has checks nobody has",
+    "ever watched fail.**",
     "",
-    "THE HOLE IN THE MIDDLE OF THE PRODUCT: THERE IS NO READER. This repository",
-    "downloads files and lands them in the seller's Drive. Nothing turns them into",
-    "numbers. It is not listed below as an unfinished piece because it is not",
-    "started -- no file, no check, nothing. D119 settles that it belongs here and",
-    "not in the browser; D148 says in as many words that the chain is broken in",
-    "the middle."
+    "THE READER IS STARTED, 2026-09-02. His go-ahead: Meesho, Flipkart and Amazon.",
+    "`reading-a-file` is the first piece of it and the floor the rest stands on. It",
+    "is also the first piece in this repository ever PROVED by breaking it on",
+    "purpose -- eight faults put back one at a time, eight caught, no survivors,",
+    "and two of the eight found real gaps in the checks rather than in the code.",
+    "",
+    "STILL TO COME, and none of it is started: reading a spreadsheet (Flipkart",
+    "orders and every payments file are .xlsx, not text -- 67 and 186 real files);",
+    "what a sale IS, with its columns pinned to the ERP's own sheet; the per-platform",
+    "column maps; and what makes a read START, which is solely what NEW file is in",
+    "the Drive folder.",
+    "",
+    "THE HOLE IN THE MIDDLE OF THE PRODUCT: THE READER IS ONE PIECE OLD. Files are",
+    "downloaded and landed in the seller's Drive, and NOTHING YET TURNS THEM INTO",
+    "NUMBERS -- `reading-a-file` turns a file into rows and stops there, on purpose.",
+    "Until the pieces above it exist, every one of Kartaan's twenty tabs still shows",
+    "an empty business. D119 settles that the reading belongs here and not in the",
+    "browser, AND its condition still stands: the browser readers in the ERP's",
+    "src/modules/listings are deleted the day this replaces them, and NOT BEFORE.",
+    "Nothing replaces them yet."
   ],
-  "active": null,
+  "active": "reading-a-file",
   "items": [
     {
       "id": "report-list",
@@ -633,6 +651,37 @@
         "reviewed": false,
         "run_for_real": false,
         "instead": "Written at the split, 2026-08-31. Nobody has read it back against the code."
+      }
+    },
+    {
+      "id": "reading-a-file",
+      "name": "Turning a platform's file into rows",
+      "what": "The floor the whole reader stands on: take the bytes a platform handed over and say what rows are in them, or say why a row could not be read. It knows nothing about sales, settlements, SKUs or money, and it never hands back a number -- turning \"0\" into 0 is a decision about a FIELD, and D119 says the money rules are written once, somewhere else. **Written against his real files, not a description of them.** Four faults those files actually have: Amazon ends every line with CARRIAGE-RETURN CARRIAGE-RETURN NEWLINE, so the plain way of counting lines reports 93 orders where there are 46; all three Amazon files are named `.csv` and all three are TAB-separated, so what separates the columns is read out of the file and never off its name; Meesho's comma file quotes every field while Amazon's tab files contain not one quote character, so quoting is off for tab and on for comma; and **a row of the wrong width is named and kept, never dropped** -- the reference read its files with on_bad_lines='skip', which loses the row AND says nothing.",
+      "rests_on": [],
+      "files": [
+        "autosync/table.py",
+        "autosync/table_checks.py"
+      ],
+      "reviews": [],
+      "findings": [
+        {
+          "what": "A check named 'a quote character in a tab file does not swallow the columns after it' COULD NOT FAIL for that fault. Its sample put the quote in the MIDDLE of a field (`9\" Bangle`), and a quote that is not the first character never opens a quoted field -- so the file read identically whether the rule was there or not. Exactly the shape of the log-line-name check this project already shipped: named for the fault, passing through it.",
+          "found": "2026-09-02, by putting the fault back and watching nothing go red",
+          "fixed": true,
+          "proved_by": "autosync/table_checks.py -- the sample now starts a field with a quote. Taking `quoting=csv.QUOTE_NONE` back out turns two checks red."
+        },
+        {
+          "what": "A check was written with a dead `if False else True` on the end, so it was green by construction and counted towards the total.",
+          "found": "2026-09-02, on the first run of the checks",
+          "fixed": true,
+          "proved_by": "It is deleted; the count went from 75 to 74 and had to be corrected."
+        }
+      ],
+      "state": {
+        "built": true,
+        "reviewed": false,
+        "run_for_real": false,
+        "instead": "75 checks pass, and **28 of them read his REAL files** -- 46 real Amazon orders, 7 real returns, 15 real settlement lines, a real Meesho orders file. **THE ONLY PIECE IN THIS REPOSITORY PROVED BY BREAKING IT ON PURPOSE: eight faults put back one at a time, eight caught, no survivors.** Two of those eight found real gaps and are the findings above. It has still never run inside a real nightly run, and no independent reviewer has read it."
       }
     }
   ]
