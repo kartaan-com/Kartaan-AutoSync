@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# The gate, run by git before every commit in this repository.
+#
+# **THIS FILE IS DELIBERATELY FOUR LINES OF WORK.** Every rule lives in
+# tools/gate.py, where tools/gate_checks.py can check it -- because a rule
+# written in a git hook is a rule nothing can test. The ERP learned that the
+# expensive way: a hook that printed it had tagged a commit and never did,
+# undetected across three commits.
+#
+# **IT REFUSES WHEN IT CANNOT RUN.** A missing python, a moved tool or a broken
+# checkout all block the commit rather than letting it through. A gate that waves
+# a commit past because it could not look is worse than no gate, because
+# everybody believes it looked.
+#
+# TURN IT ON, once per checkout:  git config core.hooksPath .githooks
+# Run it by hand any time:        python tools/gate.py
+
+set -uo pipefail
+cd "$(git rev-parse --show-toplevel)" || {
+  printf '\n  BLOCKED: git could not say where this repository is.\n\n' >&2
+  exit 1
+}
+
+python tools/gate.py || exit 1

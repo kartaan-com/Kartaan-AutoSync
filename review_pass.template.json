@@ -1,0 +1,41 @@
+{
+  "_what_this_is": "The record that somebody READ this commit. Copy to review_pass.json, fill it in, then commit. tools/gate.py refuses a commit that touches code without one, and .githooks/commit-msg deletes it afterwards so it cannot be reused.",
+
+  "_why": "0 of this repository's first 11 commits carry any record that a person read the diff, and its 2,206 checks were green because a session remembered to run them. A check answers a question somebody thought to ask; a review is what catches the question nobody thought of. On 2026-09-02 this repository put 96 faults back into its own code one at a time -- and TWELVE of them found gaps in the CHECKS rather than in the code, including five checks that could not fail for the very thing they were named for. No check catches that. Reading it does.",
+
+  "_ascii_only": "Plain ASCII. No em dashes, no smart quotes, no rupee sign -- the hooks run on a Windows shell that will crash on them.",
+
+  "written_by": "",
+  "_written_by": "Which session wrote the code. Name it so the next reader can tell whether the review below was a second pair of eyes or the same pair.",
+
+  "reviewer": "",
+  "_reviewer": "Who read it. MUST NOT be the same words as written_by -- the gate refuses that, because a review by the author is not a review.",
+
+  "independent": false,
+  "_independent": "true only if the reviewer genuinely did not write the code. A session reviewing its own work sets this false and fills in the next field. SAYING SO IS THE POINT: a weak review recorded as weak is worth something; a weak review recorded as strong is worth less than nothing.",
+
+  "if_not_independent_why": "",
+  "_if_not_independent_why": "Required when independent is false. One sentence: why there was no second pair of eyes, and what was leaned on instead.",
+
+  "read": [],
+  "_read": "Every code file this commit touches, listed by path. The gate refuses a record that leaves one out -- a reviewer who did not open a changed file did not review this commit.",
+
+  "checked_against_decision_log": false,
+  "_checked_against_decision_log": "The diff was read against D:\\Kartaan-ERP\\DECISION_LOG.md, which D40 calls binding. Not 'I know the decisions' -- opened and compared.",
+
+  "decisions_followed": [],
+  "deviation": null,
+  "_deviation": "A departure from a logged decision is not forbidden. Leaving it unsaid is. Either the code changes to comply, or a new decision is logged superseding the old one (D40).",
+
+  "found": [],
+  "_found": "WHAT WAS FOUND, one sentence each. The gate refuses an empty list, and refuses 'fine', 'ok', 'passed', 'looks good' and their like. If nothing was wrong, say what you looked FOR and why you are satisfied it is not there -- that is a finding. 'It passed' is not a review, it is a result.",
+
+  "security": "",
+  "_security": "The lens this repository has, and it is the sharpest one in Kartaan: THIS REPOSITORY IS COPIED INTO EVERY SELLER'S OWN GITHUB ACCOUNT, and sits there beside their Amazon and Google credentials. A secret committed here is copied into all of them. What does this commit change about what is held, what is sent, or what a seller's own repository now contains? 'Nothing' is an answer -- say why.",
+
+  "could_not_be_checked": [],
+  "_could_not_be_checked": "Anything this review could not settle, and what would settle it. Optional, and the honest half of a review.",
+
+  "verify_instruction": "",
+  "_verify_instruction": "How Jaiswal could see this working himself, in one line, in his own words."
+}

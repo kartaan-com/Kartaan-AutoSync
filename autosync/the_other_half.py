@@ -16,6 +16,12 @@ nothing anywhere saying why.
 rather than dodged.** Before the split, one folder held both halves and the
 check just worked. Now no single checkout has both.
 
+**AND IT READS WHAT IS COMMITTED, NEVER WHAT IS ON DISK.** A check that reads
+the other repository's working file goes green against work nobody has committed
+-- which can still change, or be abandoned -- and red against work in progress
+that says nothing about the contract. `git show HEAD:` is the only reading that
+is a fact about the other half rather than about what somebody has open.
+
 **IT REFUSES; IT DOES NOT SKIP.** A check that quietly stops checking when it
 cannot find what it needs is worse than no check at all, because it is still
 counted in the tally. So this raises, and says exactly what to do about it.
@@ -74,11 +80,69 @@ def whereTheServerIs():
     return HERE.parent / 'Kartaan-Server'
 
 
+def _asItWasCommitted(root, parts, why):
+    """A file as it is COMMITTED in the other repository, never as it sits on disk.
+
+    **THIS IS THE WHOLE POINT OF THE DOOR AND IT WAS WRONG.** Reading the working
+    file means a check here can go GREEN against work in another folder that
+    nobody has committed and that might still change -- or RED against work that
+    was tried and abandoned. Neither is a fact about the contract between two
+    repositories; both are a fact about what somebody happens to have open.
+
+    **IT REALLY HAPPENED, 2026-09-02.** The ERP had seventeen new ledger columns
+    written into `sheet-store.js` and NOT committed. Read off the disk, the check
+    pinning the two column lists went red -- against a file that, at the ERP's
+    own HEAD, still said exactly what this repository says. **A gate built while
+    that was red would have refused the commit containing the gate.**
+
+    **IT REFUSES RATHER THAN FALLING BACK TO THE DISK.** A fallback is the exact
+    fault a gate exists to prevent: waving something through because it could not
+    look, while everybody believes it looked.
+    """
+    import subprocess
+
+    where = '/'.join(parts)
+    try:
+        done = subprocess.run(
+            ['git', '-C', str(root), 'show', 'HEAD:' + where],
+            capture_output=True,
+        )
+    except OSError as wrong:
+        raise SystemExit(
+            f"{NEWLINE}CANNOT CHECK THIS: git could not be run to read {where}"
+            f" out of {root} -- {wrong}." + NEWLINE + NEWLINE
+            + "  It is NOT skipped. A check that quietly stops checking is worse"
+            + NEWLINE
+            + "  than no check, because it is still counted." + NEWLINE
+        )
+    if done.returncode != 0:
+        raise SystemExit(
+            f"{NEWLINE}CANNOT CHECK THIS: {where} is not committed at HEAD in"
+            f" {root}." + NEWLINE + NEWLINE
+            + "  " + why + NEWLINE + NEWLINE
+            + "  **The file may well be sitting there on disk. That is not the"
+            + NEWLINE
+            + "  same thing.** This check pins what the other repository has"
+            + NEWLINE
+            + "  actually COMMITTED, because work that is not committed can still"
+            + NEWLINE
+            + "  change, and a check that goes green against it is green about"
+            + NEWLINE
+            + "  nothing." + NEWLINE + NEWLINE
+            + "  git said: " + (done.stderr.decode('utf-8', 'replace').strip()
+                                or '(nothing)') + NEWLINE
+        )
+    return done.stdout.decode('utf-8', 'replace')
+
+
 def readFromServer(*parts):
     """A file out of the server's repository, or a refusal that says what to do."""
-    wanted = whereTheServerIs().joinpath(*parts)
-    if wanted.is_file():
-        return wanted.read_text(encoding='utf-8')
+    root = whereTheServerIs()
+    if root.is_dir():
+        return _asItWasCommitted(
+            root, parts,
+            'This pins the Google scope this door NEEDS against the scope the '
+            'seller is actually ASKED for.')
     raise SystemExit(
         f"{NEWLINE}CANNOT CHECK THIS: {'/'.join(parts)} is not at {wanted}."
         + NEWLINE + NEWLINE
@@ -107,9 +171,11 @@ def readFromKartaan(*parts):
     checkout. This says which fact is unpinned and what it would cost.
     """
     root = whereKartaanIs()
-    wanted = root.joinpath(*parts)
-    if wanted.is_file():
-        return wanted.read_text(encoding='utf-8')
+    if root.is_dir():
+        return _asItWasCommitted(
+            root, parts,
+            'This pins something written down in BOTH repositories, with nothing '
+            'mechanical joining them.')
     raise SystemExit(
         f"\nCANNOT CHECK THIS: {'/'.join(parts)} is not at {wanted}.\n\n"
         "  This check pins something written down in BOTH repositories -- Kartaan\n"

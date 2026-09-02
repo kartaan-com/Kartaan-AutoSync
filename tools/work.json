@@ -104,7 +104,7 @@
     "src/modules/listings are deleted the day this replaces them, and NOT BEFORE.",
     "Nothing replaces them yet."
   ],
-  "active": "what-starts-a-read",
+  "active": "the-gate",
   "items": [
     {
       "id": "report-list",
@@ -933,6 +933,41 @@
         "reviewed": false,
         "run_for_real": false,
         "instead": "42 checks. **Proved by breaking it on purpose: eight faults, seven caught by a NAMED check; the eighth was a no-op breakage -- the behaviour is protected structurally, confirmed by running it. It has never chosen a file in a real folder: nothing calls it yet.**"
+      }
+    },
+    {
+      "id": "the-gate",
+      "name": "The gate, so the checks are not run because somebody remembered to",
+      "what": "**2,206 checks passed here and NOTHING MADE THEM RUN**, and 0 of the first 11 commits carry any record that a person read the diff (D156). Follows Kartaan-Server's gate (cf648d9) rather than inventing a shape. **Every rule is in `tools/gate.py`, never in the hook** -- a rule written in a git hook is a rule nothing can test, and the ERP's hook once PRINTED that it had tagged a commit and never did, undetected across three commits. It refuses a commit that carries a credential, leaves the register disagreeing with disk, has any checks file red, or has nothing recording that somebody READ it. **The tag goes on in `commit-msg` because a pre-commit hook structurally cannot rewrite a message**, and the review record is consumed so it cannot be reused. `.github/workflows/pm_check.yml` is the half `--no-verify` cannot walk past.",
+      "rests_on": [],
+      "files": [
+        "tools/gate.py",
+        "tools/gate_checks.py",
+        ".githooks/pre-commit",
+        ".githooks/commit-msg",
+        "review_pass.template.json",
+        ".github/workflows/pm_check.yml"
+      ],
+      "reviews": [],
+      "findings": [
+        {
+          "what": "**THE JAVASCRIPT CHECKS WOULD NOT HAVE RUN.** The Server's gate sweeps only Python because it has only Python. Copied as-is, this gate would have reported green while 400 checks over the extension -- the half that runs in the seller's own Chrome -- never ran. The same shape as the Server's own gate not sweeping its `tools/`, which it found by reading what it printed.",
+          "found": "2026-09-02, while adapting it",
+          "fixed": true,
+          "proved_by": "tools/gate_checks.py -- 'THE JAVASCRIPT ONES ARE FOUND TOO'; and the register sweeps .js as well."
+        },
+        {
+          "what": "**THE WORKFLOW WOULD HAVE RUN IN EVERY SELLER'S GITHUB ACCOUNT.** D36 copies this repository into each one, and the workflow cannot pass there: its checks are pinned against two PRIVATE repositories a seller has no token for. Every seller would carry a permanent red cross for a rule about how Kartaan is developed. Guarded to `kartaan-com` only, with the cost of the guard stated in the file: a seller's copy has no gate on GitHub, which is right because nobody develops there.",
+          "found": "2026-09-02",
+          "fixed": true,
+          "proved_by": "tools/gate_checks.py -- 'IT RUNS ONLY IN KARTAAN'S OWN ORGANISATION'."
+        }
+      ],
+      "state": {
+        "built": true,
+        "reviewed": false,
+        "run_for_real": false,
+        "instead": "88 checks on the gate's own rules, including one that reads all THREE copies of `NOT_CODE` off disk -- Python, the commit-msg hook, and the workflow -- and holds them to each other. The workflow has never run: nothing has been pushed."
       }
     }
   ]

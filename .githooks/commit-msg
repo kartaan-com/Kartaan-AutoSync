@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# The tag, and the reason it lives HERE and not in the gate.
+#
+# **A PRE-COMMIT HOOK CANNOT WRITE THE COMMIT MESSAGE.** It runs before the
+# commit object exists, so it structurally cannot rewrite a message passed with
+# `git commit -m`. The reference project's hook PRINTED that it had added a tag
+# and never did -- undetected across three commits (Golden Rule 24). This hook
+# runs after the message file is written and before the commit is made, which is
+# the only moment the tag can go on.
+#
+# It also DELETES the review record, so one record covers one commit and a stale
+# one cannot be reused by accident.
+#
+# It adds nothing when the commit touches no code -- tools/gate.py did not ask
+# for a record in that case either, and the two must agree.
+
+set -uo pipefail
+MSG_FILE="$1"
+ROOT="$(git rev-parse --show-toplevel)" || exit 1
+cd "$ROOT" || exit 1
+
+# **MUST STAY IDENTICAL TO NOT_CODE IN tools/gate.py AND IN
+# .github/workflows/pm_check.yml.** Three copies of one fact, and a check in
+# tools/gate_checks.py holds them to each other -- because the day they disagree,
+# one of them is letting a commit through that another would have stopped.
+NOT_CODE='(^|/)(README|LICENSE|CHANGELOG|NOTICE)(\.md)?$|^\.gitignore$|^\.gitattributes$|^review_pass\.json$|^review_pass\.template\.json$'
+
+CODE_STAGED="$(git diff --cached --name-only | grep -v -E "$NOT_CODE" || true)"
+[ -z "$CODE_STAGED" ] && exit 0
+
+# tools/gate.py already refused this case. Reaching here without one means the
+# gate was skipped -- say so rather than tagging a commit nobody read.
+if [ ! -f review_pass.json ]; then
+  printf '\n  BLOCKED: no review_pass.json, and this commit touches code.\n\n' >&2
+  exit 1
+fi
+
+if ! grep -q '\[PM-REVIEWED\]' "$MSG_FILE"; then
+  printf '\n[PM-REVIEWED]\n' >> "$MSG_FILE"
+fi
+
+rm -f review_pass.json
+git rm --cached -q review_pass.json 2>/dev/null || true
+
+printf '  gate: [PM-REVIEWED] added, and the review record is used up.\n'
+exit 0

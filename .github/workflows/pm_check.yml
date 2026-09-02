@@ -1,0 +1,249 @@
+name: PM Discipline Check
+
+# **THE HALF THAT CANNOT BE WALKED PAST.**
+#
+# `git commit --no-verify` skips every local hook and nothing is any the wiser.
+# So a perfect local gate is a gate honoured voluntarily, and this repository had
+# only that half -- in fact neither half -- until 2026-09-02.
+#
+# **IT RE-RUNS THE CHECKS ITSELF rather than trusting that the local hook ran.**
+# That is the whole point: a gate is only real when it is checked against a
+# signal the person being gated does not control.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  pm-discipline:
+    # **IT RUNS IN KARTAAN'S OWN ORGANISATION AND NOWHERE ELSE, and this is a
+    # decision that has to be said out loud rather than left in a condition.**
+    #
+    # D36 copies this repository into EVERY SELLER'S OWN GITHUB ACCOUNT. Without
+    # this line, this workflow runs there too -- and it cannot possibly pass: the
+    # checks here are pinned against Kartaan-ERP and Kartaan-Server, both
+    # private, which a seller's account has no token for. Every seller would get
+    # a permanent red cross on their repository for a rule that is about how
+    # Kartaan is DEVELOPED and has nothing to do with their nightly fetch.
+    #
+    # **The cost of the guard, stated:** a seller's copy has no gate on GitHub.
+    # That is the right trade, because nobody develops in a seller's copy --
+    # it is a checkout that runs a schedule. The gate exists to stop unreviewed
+    # work entering Kartaan, and unreviewed work enters through kartaan-com.
+    if: github.repository_owner == 'kartaan-com'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # **THE EXTENSION IS HALF OF WHAT THIS REPOSITORY SHIPS**, and 400 of its
+      # checks are JavaScript. Without node they would silently not run.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Determine what changed
+        id: changed
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            HEAD="${{ github.event.pull_request.head.sha }}"
+            # **THE MERGE BASE, NOT THE BASE BRANCH TIP.** `base.sha` is where the
+            # base branch is NOW. A branch merely behind it then shows everything
+            # the base has gained since as having been REMOVED by this branch.
+            BASE="$(git merge-base "${{ github.event.pull_request.base.sha }}" "$HEAD" \
+              || echo "${{ github.event.pull_request.base.sha }}")"
+          else
+            BASE="${{ github.event.before }}"
+            HEAD="${{ github.sha }}"
+            # **NO PREVIOUS COMMIT -- a first push, or a branch created here.**
+            # Falling back to the ROOT COMMIT quietly excludes that commit from
+            # everything: `A..B` does not include A. **The empty tree is the
+            # correct sentinel**: diffed against it, the root's own contents are
+            # included.
+            if ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+              BASE="$(git hash-object -t tree /dev/null)"
+              RANGE="$HEAD"
+            fi
+          fi
+          # A tree cannot be one end of a commit range, so the walk and the diff
+          # are told apart deliberately rather than sharing one variable.
+          RANGE="${RANGE:-$BASE..$HEAD}"
+          echo "base=$BASE" >> "$GITHUB_OUTPUT"
+          echo "head=$HEAD" >> "$GITHUB_OUTPUT"
+          echo "range=$RANGE" >> "$GITHUB_OUTPUT"
+
+      # **THREE COPIES OF ONE FACT.** This pattern must stay identical to
+      # NOT_CODE in tools/gate.py and in .githooks/commit-msg. The day they
+      # disagree, one of them lets a commit past that another would have stopped
+      # -- so tools/gate_checks.py reads all three and holds them to each other.
+      #
+      # A denylist, never an allowlist: everything counts as code unless named,
+      # so a new kind of file is covered by default.
+      - name: Every code commit carries the review tag
+        run: |
+          NOT_CODE='(^|/)(README|LICENSE|CHANGELOG|NOTICE)(\.md)?$|^\.gitignore$|^\.gitattributes$|^review_pass\.json$|^review_pass\.template\.json$'
+
+          # **WHERE THE RULE STARTS.** The commit that introduced the review
+          # record. Everything before it carries code and no tag and COULD NOT
+          # have carried one -- the rule did not exist, and this repository's
+          # history is copied into every seller's account, so it is not rewritten
+          # to pretend otherwise (D156). This is the rule's start date, not an
+          # exemption, and it is one named commit rather than a date or a count
+          # so it cannot quietly widen.
+          GATE_BORN=__GATE_BORN__
+
+          # Asks whether that commit is ON THIS LINE OF HISTORY, not merely that
+          # the object exists somewhere. A checkout fetches every branch and tag,
+          # so a rewritten main can leave it on an old ref -- object present,
+          # ancestry gone -- and the weaker test would pass while reporting
+          # nothing.
+          if ! git merge-base --is-ancestor "$GATE_BORN" HEAD 2>/dev/null; then
+            echo "::error::the commit that introduced the review record ($GATE_BORN) is not an ancestor of HEAD."
+            echo "::error::The history was rewritten. Refusing to guess which commits the rule covers."
+            exit 1
+          fi
+
+          MISSING=0
+          for sha in $(git rev-list "${{ steps.changed.outputs.range }}"); do
+            THIS="$(git rev-parse --verify "$sha^{commit}")"
+            BORN="$(git rev-parse --verify "$GATE_BORN^{commit}")"
+            # Anything strictly before the gate existed. Compared as resolved
+            # commits, not as text -- and `--is-ancestor X X` is true, so this
+            # string test is the ONLY thing keeping the gate's own commit inside
+            # the gate.
+            if [ "$THIS" != "$BORN" ] && git merge-base --is-ancestor "$THIS" "$BORN"; then
+              continue
+            fi
+            # `-m` expands a merge commit against each parent. Without it git
+            # shows a combined diff that omits cleanly-merged files, so a merge
+            # could present an empty file list and skip this check entirely.
+            FILES="$(git show -m --pretty=format: --name-only "$sha" | grep -v -E "$NOT_CODE" || true)"
+            [ -z "$FILES" ] && continue
+            if ! git log -1 --format=%B "$sha" | grep -q '\[PM-REVIEWED\]'; then
+              echo "::error::commit $sha changes code and carries no [PM-REVIEWED] tag -- nothing records that anybody read it"
+              MISSING=1
+            fi
+          done
+          [ "$MISSING" -eq 0 ] || exit 1
+
+      - name: No review record may be committed
+        run: |
+          # It is a per-commit working file. Tracked, it could be filled in once
+          # and carried for ever.
+          if git ls-files --error-unmatch review_pass.json >/dev/null 2>&1; then
+            echo "::error::review_pass.json is committed. It is a per-commit working file and must never be tracked."
+            exit 1
+          fi
+
+      - name: The enforcement is actually in the repository
+        run: |
+          # Enforcement code that never entered the repository protects one
+          # laptop. This is the half that survives --no-verify, so it asks.
+          for GATE in tools/gate.py tools/gate_checks.py tools/work.json \
+                      .githooks/pre-commit .githooks/commit-msg \
+                      review_pass.template.json; do
+            if ! git ls-files --error-unmatch "$GATE" >/dev/null 2>&1; then
+              echo "::error::$GATE is not tracked. The checks below would be running code that is not in this repository."
+              exit 1
+            fi
+          done
+
+      - name: Secret scan on the pushed diff
+        run: |
+          # Note the [y] and [t]: written plainly the patterns match their own
+          # source and this step would fail on every push that touches this file.
+          HITS="$(git diff -U0 "${{ steps.changed.outputs.base }}" "${{ steps.changed.outputs.head }}" \
+            | grep -E '^\+' \
+            | grep -E 'gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|ya29\.[A-Za-z0-9._-]{20,}|AIzaSy[A-Za-z0-9_-]{30,}|amzn1\.application-oa2-client\.[a-f0-9]{32,}|Atzr\|[A-Za-z0-9_-]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|"private_ke[y]"|"client_secre[t]"|discord(app)?\.com/api/webhooks/|AKIA[0-9A-Z]{16}' || true)"
+          if [ -n "$HITS" ]; then
+            echo "::error::a credential appears in the pushed diff -- remove it and rotate it, it is compromised"
+            echo "::error::and this repository is copied into every seller's own GitHub account"
+            exit 1
+          fi
+
+      - name: The gate's own checks
+        run: python tools/gate_checks.py
+
+      # **THE OTHER TWO REPOSITORIES.** Four checks here are pinned against files
+      # that live in kartaan-com/Kartaan-ERP and kartaan-com/Kartaan-Server, and
+      # they REFUSE rather than skip when they cannot find the other half. That
+      # is the correct behaviour and it means this runner must have them.
+      #
+      # **BOTH ARE PRIVATE, so the token a workflow gets by default cannot read
+      # them.** Without KARTAAN_SIBLING_TOKEN this job fails, loudly, naming what
+      # is missing -- rather than skipping four checks and reporting green, which
+      # is the exact hole D148's whole door design exists to close.
+      #
+      # **THEY ARE READ WITH `git show HEAD:`**, so a real git checkout is needed
+      # rather than an unpacked copy -- a check must pin against what the other
+      # repository has COMMITTED, not against a working file that can still
+      # change.
+      - name: The ERP, for the checks pinned against it
+        uses: actions/checkout@v4
+        with:
+          repository: kartaan-com/Kartaan-ERP
+          path: .siblings/Kartaan-ERP
+          token: ${{ secrets.KARTAAN_SIBLING_TOKEN }}
+
+      - name: The server, for the check pinned against it
+        uses: actions/checkout@v4
+        with:
+          repository: kartaan-com/Kartaan-Server
+          path: .siblings/Kartaan-Server
+          token: ${{ secrets.KARTAAN_SIBLING_TOKEN }}
+
+      # Found rather than listed. A list goes stale the first time a checks file
+      # is added, and it goes stale silently -- the new file simply never runs
+      # while this step goes on passing. The floor is what catches the day they
+      # all disappear.
+      - name: Every checks file, Python and JavaScript
+        env:
+          KARTAAN: ${{ github.workspace }}/.siblings/Kartaan-ERP
+          SERVER: ${{ github.workspace }}/.siblings/Kartaan-Server
+        run: |
+          COUNT=0
+          for CHECK in $(git ls-files '*_checks.py'); do
+            echo "--- $CHECK"
+            python "$CHECK"
+            COUNT=$((COUNT + 1))
+          done
+          for CHECK in $(git ls-files '*.test.js'); do
+            echo "--- $CHECK"
+            node "$CHECK"
+            COUNT=$((COUNT + 1))
+          done
+          if [ "$COUNT" -eq 0 ]; then
+            echo "::error::no checks files were found at all -- the checks are not running"
+            exit 1
+          fi
+          echo "$COUNT checks files ran"
+
+      # The gate itself, run the way a commit would run it -- against the whole
+      # pushed diff rather than a staging area, which CI does not have.
+      - name: The register still matches the files
+        run: |
+          python - <<'PY'
+          import sys
+          sys.path.insert(0, "tools")
+          import gate
+          wrong = gate.why_the_register_is_refused(gate.the_register())
+          if wrong:
+              for one in wrong:
+                  print(f"::error::{one}")
+              sys.exit(1)
+          print("the register matches the files")
+          PY
+
+      # **THE RECIPES ARE DECIDED IN PYTHON AND ONLY WALKED IN THE EXTENSION
+      # (D107).** `extension/recipes.json` says "generated -- do not edit", and a
+      # generated file nothing regenerates is a hand-copy that nobody owns. The
+      # ERP already paid for exactly this shape: a made-up report was listed to a
+      # seller while 179 checks passed.
+      - name: The generated recipes are not stale
+        run: python tools/export_recipes.py --check
