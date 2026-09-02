@@ -64,9 +64,16 @@ it shrinks the night he tidies Drive, and no number had to be guessed at.
 
 **IT RESTS ON THE LISTING BEING THE WHOLE FOLDER, and that is said out loud
 because it is the one way this can go wrong.** A short listing looks exactly like
-a tidied folder from in here. `still_worth_remembering` refuses to forget
-anything at all when the folder comes back empty, which is the one case it can
-tell apart by itself; everything past that is the door's to get right.
+a tidied folder from in here, and nothing in this file can tell them apart.
+
+Two things stand behind it, and neither is in this file:
+
+- `still_worth_remembering` lets go of **nothing at all** when the folder comes
+  back empty. That is the one bad listing it can recognise by itself.
+- **`drive_door` reads the folder to the end and refuses a listing Drive itself
+  calls incomplete** (fixed 2026-09-02 -- until that day it asked Drive once and
+  took the first page as the whole folder, which would have let go of the ids of
+  hundreds of files that were still sitting there).
 
 ---
 

@@ -501,7 +501,14 @@
      "note": "Inside the single `shared-place` entry."
     }
    ],
-   "findings": [],
+   "findings": [
+    {
+     "what": "**THE FOLDER WAS READ ONE PAGE DEEP AND THAT WAS TAKEN AS THE WHOLE FOLDER.** All three listings called Drive's files.list with no pageSize, no pageToken and no following of nextPageToken. His flipkart folder holds ~800 files and meesho ~470, so most of the folder was never seen -- and nothing said so. **AND THE `fields` MASK IS WHY IT COULD NOT BE NOTICED:** Google's own documentation on partial responses says a mask of `files(id,name)` returns ONLY that, so `nextPageToken` never arrived at all. The listing looked complete because the one thing that would have contradicted it had been filtered out of the reply. **THREE OF THIS FILE'S OWN CHECKS PINNED THE FAULT** by asserting the mask was exactly `files(id,name)`. Fixed: one pager for all three listings, pageSize asked for explicitly at Drive's documented maximum of 1000, nextPageToken followed to the end, a repeated page marker refused rather than looped, and **a listing Drive itself calls `incompleteSearch` refused rather than believed.** Every parameter read off Google's live reference on 2026-09-02 (Golden Rule 1).",
+     "found": "2026-09-02, while building the folder cap",
+     "fixed": true,
+     "proved_by": "`drive_door_checks.py` -- 'A FOLDER OF 850 FILES COMES BACK AS 850, NOT AS ONE PAGE', 'A LISTING DRIVE ITSELF CALLS INCOMPLETE REFUSES RATHER THAN BEING BELIEVED' and 'A SECOND FOLDER OF THE SAME NAME ON A LATER PAGE IS STILL SEEN'. Nine faults were put back one at a time and all nine went red on a named check."
+    }
+   ],
    "state": {
     "built": true,
     "reviewed": "2026-08-29, inside a wider review",
@@ -955,10 +962,10 @@
      "proved_by": "`whats_new_checks.py` -- 'A FILE THAT HAS GONE FROM THE FOLDER IS LET GO OF', 'A FILE FROM MONTHS AGO IS STILL REMEMBERED WHILE IT IS STILL IN THE FOLDER' and 'AN EMPTY FOLDER LISTING LETS GO OF NOTHING AT ALL'. All three go red when the cap is made a day-count, or when an empty listing is read as a tidied folder."
     },
     {
-     "what": "**THE CAP RESTS ON THE FOLDER LISTING BEING THE WHOLE FOLDER, AND TODAY IT IS NOT.** `drive_door.what_has_arrived` calls Drive's files.list with no paging at all, so it returns at most Drive's default page and drops the rest silently. His flipkart folder holds ~800 files and meesho ~470. A short listing looks exactly like a tidied folder from inside `whats_new`, so the cap would let go of ids for files that are still there -- and, far worse, the reader would never even SEE those files to read them in the first place. **Found 2026-09-02 while building the cap. Not fixed here: it is another piece's working code.** The empty-listing refusal covers the one bad listing this file can tell apart by itself; a merely short one it cannot.",
+     "what": "**THE CAP RESTS ON THE FOLDER LISTING BEING THE WHOLE FOLDER, AND IT WAS NOT.** `drive_door` called Drive's files.list with no paging at all and took the first page as the whole folder. His flipkart folder holds ~800 files and meesho ~470. A short listing looks exactly like a tidied folder from inside `whats_new`, so the cap would have let go of ids for files still sitting there -- and, far worse, the reader would never have SEEN those files to read them at all. **FIXED 2026-09-02 in `the-drive-door`.**",
      "found": "2026-09-02",
-     "fixed": false,
-     "proved_by": null
+     "fixed": true,
+     "proved_by": "`drive_door_checks.py` -- 'A FOLDER OF 850 FILES COMES BACK AS 850, NOT AS ONE PAGE'. Red the moment the listing stops following nextPageToken."
     }
    ],
    "state": {

@@ -73,11 +73,11 @@ def folder_for(transport, report_id: str, inside: str) -> str:
         f"name = '{name}' and mimeType = '{FOLDER}' "
         f"and '{inside}' in parents and trashed = false"
     )
-    reply = _answered(
-        transport.get(FILES, params={"q": looking, "fields": "files(id,name)"}),
-        f"looking for the {name} folder",
-    )
-    found = (reply.json() or {}).get("files", [])
+    # **THROUGH THE SAME PAGER AS EVERYTHING ELSE.** This asked Drive once, and a
+    # second folder of this name on a later page would have read as "there is
+    # exactly one" -- putting tonight's file somewhere else from last night's,
+    # which is the one thing the refusal below exists to prevent.
+    found = _every_file(transport, looking, "id,name", f"looking for the {name} folder")
     if len(found) > 1:
         raise DriveSaidNo(
             f"There are {len(found)} folders called {name} in the seller's Drive. "
@@ -97,19 +97,102 @@ def folder_for(transport, report_id: str, inside: str) -> str:
     return (made.json() or {})["id"]
 
 
+# How many files Drive is asked for at a time. **1000 IS ITS DOCUMENTED MAXIMUM**
+# (files.list, read 2026-09-02), and asking for the most it will give means the
+# fewest requests for a folder of eight hundred files.
+#
+# **IT IS ASKED FOR EXPLICITLY RATHER THAN LEFT TO THE DEFAULT**, because the
+# default is not one number: Drive's own reference says 100 for a shared drive and
+# "the entire list" otherwise. A page size that depends on which kind of Drive the
+# seller happens to have is a page size nobody can reason about.
+A_PAGEFUL = 1000
+
+# **HOW MANY PAGES BEFORE THIS DECIDES SOMETHING IS WRONG.** 1000 files a page,
+# so this is a million files in one folder -- far past anything real, and there
+# only so that a token that never advances cannot spin for ever.
+TOO_MANY_PAGES = 200
+
+
+def _every_file(transport, looking: str, want: str, doing: str) -> List[Dict]:
+    """Every file in one folder. **EVERY page of them, not the first.**
+
+    **THIS WAS THE FAULT, AND IT WAS SILENT (found 2026-09-02).** Both listings
+    below asked Drive once and took what came back as the whole folder. His
+    `flipkart` folder holds around eight hundred files and `meesho` around four
+    hundred and seventy, so what came back was a fraction of it -- and nothing
+    anywhere said so. Read against a folder like that, the reader would simply
+    never see most of the files, and what has already been read would let go of
+    their ids because they looked like files somebody had tidied away.
+
+    **AND THE `fields` MASK IS WHY IT COULD NOT EVEN HAVE BEEN NOTICED.** Google's
+    own documentation on partial responses (read 2026-09-02) is explicit: a mask
+    of `files(id,name)` returns ONLY that, so `nextPageToken` never arrives at
+    all. The listing looked complete because the one thing that would have said
+    otherwise had been filtered out of the reply. **`nextPageToken` is now asked
+    for by name in both masks**, and a check pins that.
+
+    **ALL THREE LISTINGS GO THROUGH HERE, including the one that looks for a
+    folder by name.** That one only ever wants to know whether there are none,
+    one, or more than one -- but a SECOND folder of the same name sitting on page
+    two would have read as "there is exactly one", and it would then have put
+    tonight's file in a different folder from last night's, silently. That is the
+    very thing that function refuses to do, undone by the listing beneath it.
+
+    **AN INCOMPLETE SEARCH REFUSES.** Drive's reference says `incompleteSearch`
+    means *"some search results might be missing, since all documents were not
+    searched"*. That is a listing that is short and says so -- and a short listing
+    is exactly what must never be acted on here, because it is indistinguishable
+    from a folder somebody tidied. Refusing costs a night; believing it loses
+    files quietly.
+    """
+    found: List[Dict] = []
+    token: Optional[str] = None
+    seen_tokens: set = set()
+
+    for _ in range(TOO_MANY_PAGES):
+        params = {
+            "q": looking,
+            "fields": f"nextPageToken,incompleteSearch,files({want})",
+            "pageSize": A_PAGEFUL,
+        }
+        if token:
+            params["pageToken"] = token
+        said = (_answered(transport.get(FILES, params=params), doing).json() or {})
+
+        if said.get("incompleteSearch"):
+            raise DriveSaidNo(
+                f"{doing}: Drive says the search was incomplete, so some of the folder is "
+                f"missing from what it sent. {len(found) + len(said.get('files', []))} files "
+                "were listed. Nothing is being decided on a folder that is only partly known."
+            )
+
+        found += list(said.get("files", []))
+        token = said.get("nextPageToken")
+        if not token:
+            return found
+        if token in seen_tokens:
+            # A token that comes back a second time is Drive answering oddly, and
+            # following it is a loop that never ends.
+            raise DriveSaidNo(
+                f"{doing}: Drive handed back the same page marker twice, so the folder "
+                f"cannot be read to the end. {len(found)} files were listed."
+            )
+        seen_tokens.add(token)
+
+    raise DriveSaidNo(
+        f"{doing}: the folder did not end after {TOO_MANY_PAGES} pages "
+        f"({len(found)} files). Nothing is being decided on a folder that is only partly read."
+    )
+
+
 def what_is_already_there(transport, folder_id: str) -> List[Dict]:
     """Every file in one folder, so a second copy can be refused."""
-    reply = _answered(
-        transport.get(
-            FILES,
-            params={
-                "q": f"'{folder_id}' in parents and trashed = false",
-                "fields": "files(id,name)",
-            },
-        ),
+    return _every_file(
+        transport,
+        f"'{folder_id}' in parents and trashed = false",
+        "id,name",
         "reading what is already in the folder",
     )
-    return list((reply.json() or {}).get("files", []))
 
 
 def what_has_arrived(transport, folder_id: str) -> List[Dict]:
@@ -127,18 +210,13 @@ def what_has_arrived(transport, folder_id: str) -> List[Dict]:
     is read as nought, which is the safe direction: it means the day is fetched
     again rather than written off as arrived.
     """
-    reply = _answered(
-        transport.get(
-            FILES,
-            params={
-                "q": f"'{folder_id}' in parents and trashed = false",
-                "fields": "files(id,name,size)",
-            },
-        ),
-        "reading what has arrived in the folder",
-    )
     out: List[Dict] = []
-    for one in (reply.json() or {}).get("files", []):
+    for one in _every_file(
+        transport,
+        f"'{folder_id}' in parents and trashed = false",
+        "id,name,size",
+        "reading what has arrived in the folder",
+    ):
         try:
             size = int(one.get("size") or 0)
         except (TypeError, ValueError):

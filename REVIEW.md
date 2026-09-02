@@ -154,7 +154,7 @@ pins the two lists, so whichever side moves alone goes red.
 
 ---
 
-### 10. The folder listing is not paged, so it never sees a folder of 800 files
+### 10. The folder listing was not paged, so it never saw a folder of 800 files
 
 `drive_door.what_has_arrived` and `what_is_already_there` both call Drive's
 `files.list` with **no page token and no page size**, and neither follows
@@ -166,10 +166,32 @@ The reader would never even SEE the files past the first page, so they would
 never be read at all — the folder cap then compounds it, because a short listing
 looks exactly like a tidied folder and their ids would be let go of.
 
-**Not fixed here.** It is another piece's working code (`the-drive-door`), and
-nothing is wired to the reader yet, so nothing is broken tonight. **It must be
-fixed before the reader is joined to the nightly job**, and `whats_new` says so
-in its own words where the cap is written.
+**FIXED THE SAME DAY, on his say-so: "fix the paging thing".** One pager for all
+three listings, with every parameter read off Google's live reference first
+(Golden Rule 1):
+
+- `pageSize` asked for **explicitly** at Drive's documented maximum of 1000 —
+  the default is not one number (100 for a shared drive, "the entire list"
+  otherwise), and a page size that depends on which kind of Drive the seller has
+  is one nobody can reason about.
+- `nextPageToken` **asked for by name in the mask** and followed to the end.
+- **A listing Drive itself calls `incompleteSearch` is refused, not believed** —
+  its own words are *"some search results might be missing"*. That is a short
+  listing that says it is short, and it is exactly what the cap must never act on.
+- A page marker that comes back a second time refuses rather than looping.
+- **The folder-by-name listing goes through the same pager.** It only wants to
+  know whether there are none, one, or more than one — but a second folder of the
+  same name on page two read as "exactly one", which would have put tonight's
+  file somewhere else from last night's. The refusal that exists to prevent that
+  was being undone by the listing beneath it.
+
+*Proved by:* nine faults put back one at a time, **all nine caught by a named
+check**, including the original fault itself.
+
+**AND THREE OF THAT FILE'S OWN CHECKS WERE PINNING THE FAULT** — they asserted
+the mask was exactly `files(id,name)`, which is precisely the thing that stopped
+`nextPageToken` ever arriving. A check can hold a bug in place. They now pin the
+fixed mask.
 
 ---
 

@@ -90,9 +90,28 @@ class FakeDrive:
             # file is read back out again.
             return Reply(raw=self.how.get("contents", b""))
         looking = (params or {}).get("q", "")
-        if FOLDER in looking:
-            return Reply({"files": [dict(one) for one in self.folders]})
-        return Reply({"files": [dict(one) for one in self.files]})
+        whose = self.folders if FOLDER in looking else self.files
+
+        # **IT ANSWERS IN PAGES, because the real one does and that was the whole
+        # fault.** A stand-in that always hands back everything in one go is a
+        # stand-in that cannot fail the way the real thing failed -- and this
+        # file's checks went green against a listing that read one page of eight
+        # hundred files for as long as it did.
+        if self.how.get("said_incomplete"):
+            return Reply({"files": [dict(one) for one in whose], "incompleteSearch": True})
+        if self.how.get("same_token_for_ever"):
+            return Reply({"files": [dict(one) for one in whose], "nextPageToken": "stuck"})
+
+        a_page = self.how.get("a_page")
+        if a_page:
+            start = int((params or {}).get("pageToken") or 0)
+            page = [dict(one) for one in whose[start:start + a_page]]
+            said = {"files": page}
+            if start + a_page < len(whose):
+                said["nextPageToken"] = str(start + a_page)
+            return Reply(said)
+
+        return Reply({"files": [dict(one) for one in whose]})
 
     def post(self, where, params=None, headers=None, json=None, data=None):
         self.asked.append(("post", where, params))
@@ -205,14 +224,15 @@ check("and not among what has been thrown away", "trashed = false" in FOLDER_Q)
 check("and it is looked for as a folder, not as any file with that name",
       FOLDER in FOLDER_Q)
 check("and only the id and name are asked for, not the whole of it",
-      (asking.asked[0][2] or {}).get("fields") == "files(id,name)")
+      (asking.asked[0][2] or {}).get("fields") == "nextPageToken,incompleteSearch,files(id,name)")
 
 reading = FakeDrive(folders=[{"id": "f9", "name": "me_orders"}])
 answered(lambda: tool.what_is_already_there(reading, "f9"))
 FILES_Q = (reading.asked[0][2] or {}).get("q", "")
 check("what is already there is read from that folder",
       "'f9' in parents" in FILES_Q and "trashed = false" in FILES_Q)
-check("and only the id and name of each", (reading.asked[0][2] or {}).get("fields") == "files(id,name)")
+check("and only the id and name of each",
+      (reading.asked[0][2] or {}).get("fields") == "nextPageToken,incompleteSearch,files(id,name)")
 
 making = FakeDrive()
 answered(lambda: tool.folder_for(making, "me_returns", "root-folder"))
@@ -387,7 +407,8 @@ ARRIVED_Q = (counting.asked[0][2] or {}).get("q", "")
 check("what has arrived is read from that folder",
       "'f9' in parents" in ARRIVED_Q and "trashed = false" in ARRIVED_Q)
 check("and the size is asked for as well as the name",
-      (counting.asked[0][2] or {}).get("fields") == "files(id,name,size)")
+      (counting.asked[0][2] or {}).get("fields")
+      == "nextPageToken,incompleteSearch,files(id,name,size)")
 check("every file in the folder comes back", len(arrived or []) == 2)
 check("and its size comes back as a number, not as the text Drive sends",
       [one["size"] for one in (arrived or [])] == [120, 0])
@@ -404,6 +425,85 @@ check("a file Drive gave no size for counts as empty, not as unknown",
 odd = FakeDrive(files=[{"id": "d", "name": "x", "size": "not a number"}])
 check("and a size that is not a number counts as empty rather than stopping the run",
       [one["size"] for one in (answered(lambda: tool.what_has_arrived(odd, "f9")) or [])] == [0])
+
+# ------------------- THE FOLDER IS READ TO THE END (found and fixed 2026-09-02)
+
+# **THE FAULT: DRIVE WAS ASKED ONCE AND THE FIRST PAGE TAKEN AS THE WHOLE
+# FOLDER.** His `flipkart` folder holds around eight hundred files and `meesho`
+# around four hundred and seventy. Read one page deep, the reader would never see
+# most of them -- and what has already been read would let go of their ids,
+# because from inside `whats_new` a short listing is a tidied folder.
+#
+# **AND `fields` WAS WHY IT COULD NOT BE NOTICED.** Google's documentation on
+# partial responses (read 2026-09-02) says a mask of `files(id,name)` returns only
+# that, so `nextPageToken` never arrived. The one thing that would have said the
+# listing was short had been filtered out of the reply.
+
+MANY = [{"id": f"id-{n}", "name": f"file-{n}.csv", "size": "10"} for n in range(850)]
+paged = FakeDrive(files=MANY, a_page=100)
+all_of_them = answered(lambda: tool.what_has_arrived(paged, "f9"))
+check("A FOLDER OF 850 FILES COMES BACK AS 850, NOT AS ONE PAGE",
+      len(all_of_them or []) == 850)
+check("and it took as many requests as there were pages", len(paged.asked) == 9)
+check("and every file is there, not just the first page's",
+      {one["id"] for one in (all_of_them or [])} == {one["id"] for one in MANY})
+check("the page marker Drive sent is handed back on the next request",
+      (paged.asked[1][2] or {}).get("pageToken") == "100")
+check("and the first request carries no page marker at all",
+      "pageToken" not in (paged.asked[0][2] or {}))
+
+# **`nextPageToken` IS ASKED FOR BY NAME, or it never comes back.** This is the
+# half of the fault that made the other half invisible.
+check("nextPageToken is asked for by name in the fields Drive is sent",
+      "nextPageToken" in ((paged.asked[0][2] or {}).get("fields") or ""))
+check("and so is incompleteSearch",
+      "incompleteSearch" in ((paged.asked[0][2] or {}).get("fields") or ""))
+
+# **THE PAGE SIZE IS ASKED FOR RATHER THAN LEFT TO DRIVE.** Its own reference
+# gives two different defaults depending on the kind of Drive -- 100 for a shared
+# one, the whole list otherwise -- and a page size nobody can name is a page size
+# nobody can reason about. 1000 is the documented maximum.
+check("how many to send is asked for explicitly, not left to the default",
+      (paged.asked[0][2] or {}).get("pageSize") == tool.A_PAGEFUL)
+check("and it is the most Drive will give, so a big folder takes the fewest asks",
+      tool.A_PAGEFUL == 1000)
+
+# **A FOLDER THAT FITS IN ONE PAGE STILL TAKES ONE REQUEST.** The fix must not
+# make an ordinary night cost anything.
+small = FakeDrive(files=MANY[:5], a_page=100)
+check("a folder that fits in one page is read in one request",
+      len(answered(lambda: tool.what_has_arrived(small, "f9")) or []) == 5
+      and len(small.asked) == 1)
+
+# **AN INCOMPLETE SEARCH REFUSES.** Drive's own word for "some results might be
+# missing". A short listing that says it is short is the one kind this can catch,
+# and acting on it would let go of ids for files that are still there.
+incomplete = FakeDrive(files=MANY[:20], said_incomplete=True)
+check("A LISTING DRIVE ITSELF CALLS INCOMPLETE REFUSES RATHER THAN BEING BELIEVED",
+      "incomplete" in refused(lambda: tool.what_has_arrived(incomplete, "f9")))
+check("and it says nothing is being decided on a folder only partly known",
+      "only partly known" in refused(lambda: tool.what_has_arrived(incomplete, "f9")))
+check("and it says how many it did get, so somebody can tell how bad it was",
+      "20 files" in refused(lambda: tool.what_has_arrived(incomplete, "f9")))
+
+# A page marker that never advances is Drive answering oddly, and following it
+# for ever is a job that never ends.
+stuck = FakeDrive(files=MANY[:10], same_token_for_ever=True)
+check("a page marker that comes back a second time refuses rather than looping",
+      "same page marker twice" in refused(lambda: tool.what_has_arrived(stuck, "f9")))
+
+# **THE FOLDER-BY-NAME LISTING GOES THROUGH THE SAME PAGER**, or a second folder
+# of one name on page two reads as "there is exactly one" -- and tonight's file
+# goes somewhere else from last night's, silently.
+TWO_PAGES_OF_FOLDERS = [
+    {"id": "wrong-1", "name": "amazon"},
+    {"id": "wrong-2", "name": "amazon"},
+]
+doubled = FakeDrive(folders=TWO_PAGES_OF_FOLDERS, a_page=1)
+check("A SECOND FOLDER OF THE SAME NAME ON A LATER PAGE IS STILL SEEN",
+      "2 folders called" in refused(lambda: tool.folder_for(doubled, "az_orders", "root")))
+check("and finding it took more than one request -- it was not on the first page",
+      len(doubled.asked) > 1)
 
 check("a folder Drive will not read refuses rather than reading as empty",
       "Drive refused" in refused(lambda: tool.what_has_arrived(FakeDrive(refuse_reads=True), "f9")))
@@ -474,7 +574,7 @@ check("and nothing is said about it", not any("zip" in one for one in quiet))
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 74
+EXPECTED = 90
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
