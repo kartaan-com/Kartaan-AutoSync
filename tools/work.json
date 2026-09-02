@@ -48,14 +48,14 @@
     "                 rows -- by scripts in the ERP's audit folder. This code did",
     "                 not do that reading.",
     "",
-    "THE CHECKS. 2,164 Python checks and 400 JavaScript checks pass, 2026-09-02.",
+    "THE CHECKS. 2,206 Python checks and 400 JavaScript checks pass, 2026-09-02.",
     "They are checks, not a run. Every door in this package has its transport",
     "handed in, which is what lets them pass with no account, no token and no",
     "internet -- and is also exactly why passing them proves nothing about a real",
     "night.",
     "",
-    "SIX PIECES HAVE BEEN PROVED BY BREAKING THEM ON PURPOSE -- the six the reader is",
-    "made of, and no others. `tools/prove_checks.py` lives in the ERP and there is still no copy here",
+    "SEVEN PIECES HAVE BEEN PROVED BY BREAKING THEM ON PURPOSE -- the seven the",
+    "reader is made of, and no others. `tools/prove_checks.py` lives in the ERP and there is still no copy here",
     "(open item 10 in the ERP's memory), so that one piece was done by hand: eight",
     "eighty-eight faults put back one at a time; eighty-six caught by a NAMED check",
     "and two by a second guard, proved by removing both. TEN OF THE EIGHTY-EIGHT",
@@ -86,8 +86,11 @@
     "(D137 says Kartaan must, because `drive.file` cannot reach a sheet the seller",
     "made by hand).**",
     "",
-    "STILL TO COME: what makes a read START, which is solely what NEW file is in",
-    "the Drive folder; whatever CREATES the seller's sheet; the PAYMENTS files,",
+    "WHAT STARTS A READ IS BUILT TOO, 2026-09-02.",
+    "",
+    "STILL TO COME: nothing yet REMEMBERS which files have been read across runs --",
+    "`between_runs.Between` has no field for it, and adding one bumps its SHAPE;",
+    "whatever CREATES the seller's sheet; the PAYMENTS files,",
     "which is where Flipkart's money lives since its orders file has none; and",
     "D152's new columns, which cannot be added here until the ERP adds them too --",
     "`sales_checks.py` pins the two lists, so whichever side moves first goes red.",
@@ -101,7 +104,7 @@
     "src/modules/listings are deleted the day this replaces them, and NOT BEFORE.",
     "Nothing replaces them yet."
   ],
-  "active": "the-sheet-door",
+  "active": "what-starts-a-read",
   "items": [
     {
       "id": "report-list",
@@ -893,6 +896,43 @@
         "reviewed": false,
         "run_for_real": false,
         "instead": "49 checks against a stand-in that records every request. **His 121 real sales were written through it end to end, and the same files again made NO write call at all.** Six checks pin the calls against the ERP's own `sheet-store.js` through the door, refusing rather than skipping when it is not there. **Proved by breaking it on purpose: ten faults, ten caught.** NOT ONE REAL CELL HAS EVER BEEN WRITTEN TO A REAL GOOGLE SHEET -- no sheet exists, and nothing yet creates one."
+      }
+    },
+    {
+      "id": "what-starts-a-read",
+      "name": "What starts a read",
+      "what": "**His rule, and the word 'solely' is his: a read starts on what NEW file is in the Drive folder, and on nothing else.** Never whether a fetch succeeded or failed -- D148 says why: one platform having a bad night must not cost the day's numbers. **It is enforced STRUCTURALLY:** the decision is handed the folder and what was already read, and nothing else, and the module cannot even import anything that knows whether a fetch worked. **Identity is Drive's own id, NEVER the name** -- `landing.py` names a file for the day its data is about, so a day fetched again lands under the same name, and keyed by name that correction would never be read (D110 exists because somebody naming a day by hand usually knows what arrived was wrong). **An empty file is new, is not data, is reported by name, and is NOT marked as read** -- so tomorrow's real file for that day is still new.",
+      "rests_on": [],
+      "files": [
+        "autosync/whats_new.py",
+        "autosync/whats_new_checks.py"
+      ],
+      "reviews": [],
+      "findings": [
+        {
+          "what": "**A THIRD CHECK WRITTEN WITH A DEAD `if False` ON THE END** -- green by construction. Third one on this project, all three mine.",
+          "found": "2026-09-02, on the first run",
+          "fixed": true,
+          "proved_by": "Replaced by two that really ask it; the empty-file breakage turns them red."
+        },
+        {
+          "what": "**A CHECK THAT SCANNED THE SOURCE FOR FORBIDDEN WORDS WAS THE WRONG CHECK.** It read the docstring too, so the sentence explaining that a day fetched again must still be read made it go red about the word 'fetch'. Prose is not code.",
+          "found": "2026-09-02",
+          "fixed": true,
+          "proved_by": "It now checks what the file can REACH -- that `runlog`, `board`, `schedule`, `reports`, `runner` and `nightly` are not importable here, so the rule cannot be broken by somebody passing the wrong thing."
+        },
+        {
+          "what": "**NOTHING YET REMEMBERS WHICH FILES HAVE BEEN READ ACROSS RUNS.** What survives a run is `between_runs.Between`, which has no field for it. Adding one means bumping its SHAPE, and a shape bump makes an existing record refuse and stop the run -- deliberate, on their side. No seller record exists anywhere yet, so the cost today is nil. **NOT DONE HERE: that file has its own contract and 60 checks, and touching working code is confirmed first.**",
+          "found": "2026-09-02",
+          "fixed": false,
+          "proved_by": null
+        }
+      ],
+      "state": {
+        "built": true,
+        "reviewed": false,
+        "run_for_real": false,
+        "instead": "42 checks. **Proved by breaking it on purpose: eight faults, seven caught by a NAMED check; the eighth was a no-op breakage -- the behaviour is protected structurally, confirmed by running it. It has never chosen a file in a real folder: nothing calls it yet.**"
       }
     }
   ]
