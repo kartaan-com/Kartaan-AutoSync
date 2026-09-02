@@ -48,19 +48,19 @@
     "                 rows -- by scripts in the ERP's audit folder. This code did",
     "                 not do that reading.",
     "",
-    "THE CHECKS. 1,907 Python checks and 400 JavaScript checks pass, 2026-09-02.",
+    "THE CHECKS. 1,967 Python checks and 400 JavaScript checks pass, 2026-09-02.",
     "They are checks, not a run. Every door in this package has its transport",
     "handed in, which is what lets them pass with no account, no token and no",
     "internet -- and is also exactly why passing them proves nothing about a real",
     "night.",
     "",
-    "TWO PIECES HAVE BEEN PROVED BY BREAKING THEM ON PURPOSE -- `reading-a-file`",
-    "and `reading-a-spreadsheet`, and no others. `tools/prove_checks.py` lives in the ERP and there is still no copy here",
+    "THREE PIECES HAVE BEEN PROVED BY BREAKING THEM ON PURPOSE -- `reading-a-file`,",
+    "`reading-a-spreadsheet` and `what-a-sale-is`, and no others. `tools/prove_checks.py` lives in the ERP and there is still no copy here",
     "(open item 10 in the ERP's memory), so that one piece was done by hand: eight",
-    "twenty faults put back one at a time, twenty caught, no survivors. SIX OF THE",
-    "TWENTY FOUND GAPS IN THE CHECKS RATHER THAN IN THE CODE -- including a check",
-    "helper that hid a fault and a proving pass that called a crash a survivor.",
-    "That is the argument for doing this to everything else. **Every other piece here has checks nobody has",
+    "thirty-three faults put back one at a time, thirty-three caught, no survivors.",
+    "SIX OF THE THIRTY-THREE FOUND GAPS IN THE CHECKS RATHER THAN IN THE CODE --",
+    "including a check helper that hid a fault and a proving pass that called a",
+    "crash a survivor. That is the argument for doing this to everything else. **Every other piece here has checks nobody has",
     "ever watched fail.**",
     "",
     "THE READER IS STARTED, 2026-09-02. His go-ahead: Meesho, Flipkart and Amazon.",
@@ -72,10 +72,14 @@
     "READING A SPREADSHEET IS DONE TOO, 2026-09-02, and it had to be: all 67",
     "Flipkart order files and all 186 payments files are .xlsx, not text.",
     "",
-    "STILL TO COME, and none of it is started: what a sale IS, with its columns",
-    "pinned to the ERP's own sheet-store.js through the door rather than retyped;",
-    "the per-platform column maps; and what makes a read START, which is solely",
-    "what NEW file is in the Drive folder.",
+    "WHAT A SALE IS, DONE TOO, 2026-09-02, with its columns and its name read out",
+    "of the ERP's own source and compared rather than retyped.",
+    "",
+    "STILL TO COME, and none of it is started: the PER-PLATFORM COLUMN MAPS (which",
+    "of Meesho's, Flipkart's and Amazon's own columns is the sku, the quantity, the",
+    "money); what makes a read START, which is solely what NEW file is in the Drive",
+    "folder; and the SHEET DOOR that actually writes a row. Until that last one",
+    "exists nothing reaches a seller's screen.",
     "",
     "THE HOLE IN THE MIDDLE OF THE PRODUCT: THE READER IS ONE PIECE OLD. Files are",
     "downloaded and landed in the seller's Drive, and NOTHING YET TURNS THEM INTO",
@@ -86,7 +90,7 @@
     "src/modules/listings are deleted the day this replaces them, and NOT BEFORE.",
     "Nothing replaces them yet."
   ],
-  "active": "reading-a-spreadsheet",
+  "active": "what-a-sale-is",
   "items": [
     {
       "id": "report-list",
@@ -730,6 +734,33 @@
         "reviewed": false,
         "run_for_real": false,
         "instead": "66 checks, and they read HIS REAL SPREADSHEETS -- his Flipkart orders (39 columns, 63 rows), his Flipkart payments (74 columns, 77 rows, header on row 2, 16 sheets) and his Meesho payments (43 columns, 83 rows). **Proved by breaking it on purpose: twelve faults put back one at a time, twelve caught, no survivors** -- and two of those twelve found gaps in the checks rather than in the code. The spreadsheets the checks build are built by hand out of zip and XML, because one made by the same code that reads it would agree with itself about anything. Never run inside a real run, and no independent reviewer has read it."
+      }
+    },
+    {
+      "id": "what-a-sale-is",
+      "name": "What a sale IS, and the row it becomes",
+      "what": "**Sales do not go in the database. They go in a GOOGLE SHEET (D126)** -- a Sheet is for what the pipeline writes and Kartaan only reads; the database is for what Kartaan's own clicks change. His own numbers decided it: one document per sale means a screen opening reads thirty thousand of them, most of a day's free allowance, at his current 83 orders a day. **The columns are not invented here -- they belong to the ERP**, and are written out again only because Python cannot import JavaScript. A sale is named `platform::orderId::sku` from the sale itself, which is what makes the same file arriving twice change nothing. Nothing here writes anything anywhere: putting a row in a sheet is a door, and it is not built.",
+      "rests_on": [
+        "the-other-half"
+      ],
+      "files": [
+        "autosync/sales.py",
+        "autosync/sales_checks.py"
+      ],
+      "reviews": [],
+      "findings": [
+        {
+          "what": "**THE CHECK'S FIRST VERSION GAVE A CONFIDENT, SPECIFIC, WRONG ANSWER ABOUT REAL DATA.** Reading the ERP's column list with a plain quote-matching pattern, it reported that the two sides DISAGREED and named two columns called things like `s shelf it would come out different...`. Those were sentences out of the COMMENTS beside the list -- the ERP explains `taking` as \"the whole of D51's replay safety\", and that apostrophe opened a string as far as the pattern was concerned, swallowing `took` and inventing two columns that do not exist. The lists were identical all along.",
+          "found": "2026-09-02, on the first run of the checks",
+          "fixed": true,
+          "proved_by": "Comments are stripped before anything is read, at all three read sites. Dropping a real column, swapping two, or renaming a charge each turns the comparison red -- proved by doing all three."
+        }
+      ],
+      "state": {
+        "built": true,
+        "reviewed": false,
+        "run_for_real": false,
+        "instead": "60 checks. **The important ones read the ERP's own source and compare, name by name and in order** -- `sheet-store.js` for the columns, `charges.js` for the charge ids, `orders.js` for how a sale is named and what states it can be in. Neither list is typed out in the check. They REFUSE rather than skip when the ERP cannot be found, proved by pointing them at nothing. **Proved by breaking it on purpose: thirteen faults put back one at a time, thirteen caught, no survivors.** No sale has ever been written to a real sheet -- there is no sheet door yet."
       }
     }
   ]

@@ -50,12 +50,20 @@ for f in autosync/*_checks.py tools/*_checks.py; do python "$f"; done
 for f in extension/*.test.js; do node "$f"; done
 ```
 
-**Three of them need another repository (D148).** `firestore_checks.py` pins
-the three collection names this job WRITES against the names Kartaan's screens
-READ; `firestore_door_checks.py` pins the Google scope this door needs against
-the scope `Kartaan-Server` actually asks the seller for. One fact, written down
-twice, with nothing mechanical joining them -- which is the exact shape this
-project keeps paying for.
+**Some of them need another repository (D148).** `firestore_checks.py` pins the
+three collection names this job WRITES against the names Kartaan's screens READ;
+`firestore_door_checks.py` pins the Google scope this door needs against the
+scope `Kartaan-Server` actually asks the seller for; and `sales_checks.py` pins
+**every column of the seller's sales ledger, and the way a sale is named**,
+against the ERP's own `sheet-store.js`, `charges.js` and `orders.js`. One fact,
+written down twice, with nothing mechanical joining them -- which is the exact
+shape this project keeps paying for.
+
+**They compare the two sides; they do not look for a string.** That distinction
+is not pedantry: a check in this package was once named for exactly the fault it
+was passing through, because it asserted that the other side CONTAINED some text
+rather than reading what each side actually builds. It was green for days while
+the Python built a six-part log-line name and the page built a five-part one.
 
 They **refuse rather than skip** when they cannot find Kartaan. A check that
 quietly stops checking is worse than no check, because it is still counted.
