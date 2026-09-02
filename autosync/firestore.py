@@ -335,7 +335,10 @@ def a_log_line(line) -> Tuple[str, Dict]:
     # silently replaces the first. The place is stable across a retried flush, so
     # the same line still writes once (D93).
     place = int(getattr(line, "place", 0) or 0)
-    named = f"{run}::{moment}::{place:04d}::{report}::{level}::{fingerprint(message)}"
+    # Named the same words the page names them -- see the check that holds
+    # the two together, which compares each side's own template part by part.
+    at = moment
+    named = f"{run}::{at}::{place:04d}::{report}::{level}::{fingerprint(message)}"
     return named, {"at": moment, "run": run, "report": report, "level": level, "message": message}
 
 

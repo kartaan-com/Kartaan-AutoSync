@@ -12,6 +12,7 @@ documented behaviour -- so this refusal is the only lock there is.
 Run: python autosync/firestore_checks.py
 """
 
+import re
 import sys
 from datetime import date, datetime
 from pathlib import Path
@@ -77,8 +78,39 @@ for named, value in (("SYNC_LOG", tool.LOG), ("SYNC_BOARD", tool.BOARD), ("SYNC_
 # **THE ID OF A LOG LINE IS BUILT THE SAME WAY IN BOTH LANGUAGES.** The page never
 # writes one, so a difference would not break a screen -- it would break the one
 # thing the shape is for: a retried flush landing at the same name twice.
+# **THIS USED TO ASSERT THE PAGE CONTAINED ONE PARTICULAR STRING, AND PASSED
+# WHILE THE TWO SIDES DISAGREED.** An independent reviewer found it: the page
+# built a FIVE-part name and this file a SIX-part one -- the extra part being a
+# line's place in the run, without which two different lines matching in all five
+# fields land at one name and the second silently replaces the first. The check
+# was named for exactly that fault and could not fail for it.
+#
+# **BOTH SIDES ARE READ AND COMPARED NOW, in pieces, neither typed out here.**
+# A part renamed, added, removed or reordered on either side goes red, because
+# what is compared is what each side actually builds.
+_OURS = re.search(r'named = f"([^"]+)"', Path(__file__).with_name("firestore.py").read_text(encoding="utf-8"))
+_THEIRS = re.search(r"id: `([^`]+)`,", THE_PAGES_OWN)
+check("both sides say how a log line is named",
+      _OURS is not None and _THEIRS is not None)
+
+
+def _parts(said: str):
+    """The names between the `::`s, whatever each language wraps them in."""
+    out = []
+    for one in said.split("::"):
+        one = one.strip().strip("{}$")
+        one = one.replace("line.", "").replace("fingerprint(", "").rstrip(")")
+        one = one.split(":")[0]
+        out.append(one.strip())
+    return out
+
+
 check("a log line's name is built the same way on both sides",
-      "`${line.run}::${line.at}::${line.report}::${line.level}::${fingerprint(line.message)}`" in THE_PAGES_OWN)
+      _parts(_OURS.group(1)) == _parts(_THEIRS.group(1)))
+if _parts(_OURS.group(1)) != _parts(_THEIRS.group(1)):
+    print(f"      this file builds {_parts(_OURS.group(1))}; "
+          f"the page builds {_parts(_THEIRS.group(1))}. "
+          "One of them is writing lines the other cannot find, or two lines at one name.")
 check("and a board row's name is too", "`${report}::${day}`" in THE_PAGES_OWN)
 # The fingerprint itself, pinned to the page's own arithmetic.
 check("the fingerprint is the same arithmetic on both sides",
@@ -423,7 +455,7 @@ check("and it is read off the business record the rules name",
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 120
+EXPECTED = 121
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
