@@ -48,7 +48,10 @@
     "                 rows -- by scripts in the ERP's audit folder. This code did",
     "                 not do that reading.",
     "",
-    "THE CHECKS. 2,206 Python checks and 400 JavaScript checks pass, 2026-09-02.",
+    "THE CHECKS. 2,300 Python checks and 400 JavaScript checks pass, 2026-09-02,",
+    "AND A GATE NOW MAKES THEM RUN -- see `the-gate`. Before 2026-09-02 they were",
+    "green because a session remembered to, and 0 of the first 11 commits carried",
+    "any record that a person read the diff.",
     "They are checks, not a run. Every door in this package has its transport",
     "handed in, which is what lets them pass with no account, no token and no",
     "internet -- and is also exactly why passing them proves nothing about a real",
@@ -104,7 +107,7 @@
     "src/modules/listings are deleted the day this replaces them, and NOT BEFORE.",
     "Nothing replaces them yet."
   ],
-  "active": "the-gate",
+  "active": null,
   "items": [
     {
       "id": "report-list",
@@ -643,10 +646,16 @@
       "reviews": [],
       "findings": [
         {
-          "what": "It still accepts the OLD folder name `D:\\Kartaan` as well as `D:\\Kartaan-ERP`. The folder is renamed; the fallback should come out, and a check should go red if it comes back. (Open item 12 in the ERP's memory.)",
-          "found": "2026-08-31",
-          "fixed": false,
-          "proved_by": null
+          "what": "**IT ACCEPTED THE ERP'S OLD FOLDER NAME** `Kartaan` alongside `Kartaan-ERP`, left over from D148's rename. A fallback nobody writes down is how two spellings of one thing survive for a year.",
+          "found": "2026-09-02, by the review (the ERP's own open item 12)",
+          "fixed": true,
+          "proved_by": "autosync/firestore_door_checks.py -- 'the door no longer accepts the old folder name'."
+        },
+        {
+          "what": "**IT READ THE OTHER REPOSITORY'S WORKING FILES, NOT ITS COMMITTED ONES**, so a check here could go green against work nobody had committed. It really bit: the ERP has seventeen new ledger columns written and not committed, so the column check was RED against a file that at the ERP's HEAD agreed exactly -- and a gate built while that was red would have refused the commit containing the gate.",
+          "found": "2026-09-02",
+          "fixed": true,
+          "proved_by": "It reads `git show HEAD:` and refuses when git cannot answer, with no fallback to disk; pointing it at a file not committed there refuses in words."
         }
       ],
       "state": {
@@ -861,6 +870,12 @@
           "found": "2026-09-02, while building it",
           "fixed": false,
           "proved_by": null
+        },
+        {
+          "what": "**TWO FILES OF ONE REPORT AND ONE DATE SILENTLY OVERWROTE EACH OTHER**, and D150 rule 3 says a same-date disagreement is KEPT and REPORTED. The rule was applied only when the reports differed -- but a day fetched again lands as a NEW FILE of the same report and the same date (D110), which `whats_new` correctly calls new. **And the first half of the fix was not enough: the sort still tied on the report, so a stable sort kept whatever order the files were handed over in and the order of FETCHING decided which figure stood** -- precisely what rule 2 exists to stop.",
+          "found": "2026-09-02, by the review of this repository (REVIEW.md findings 1 and 2)",
+          "fixed": true,
+          "proved_by": "autosync/ledger_checks.py -- 'RULE 3: TWO FILES OF ONE REPORT AND ONE DATE ARE TWO STATEMENTS', 'RULE 3: the order they were handed over in decides nothing', and 'but TWO ROWS OF ONE FILE are still one statement'."
         }
       ],
       "state": {
@@ -924,6 +939,12 @@
         {
           "what": "**NOTHING YET REMEMBERS WHICH FILES HAVE BEEN READ ACROSS RUNS.** What survives a run is `between_runs.Between`, which has no field for it. Adding one means bumping its SHAPE, and a shape bump makes an existing record refuse and stop the run -- deliberate, on their side. No seller record exists anywhere yet, so the cost today is nil. **NOT DONE HERE: that file has its own contract and 60 checks, and touching working code is confirmed first.**",
           "found": "2026-09-02",
+          "fixed": false,
+          "proved_by": null
+        },
+        {
+          "what": "**WHAT HAS BEEN READ GROWS FOR EVER.** `now_read` never drops an id -- about 7,000 a year at his volume, in a record that lives in the seller's own Drive. `between_runs.py` caps its own history at KEEP_RUN_DAYS; this has no cap. Not fixed: the cap belongs where the record lives, and nothing carries this across runs yet.",
+          "found": "2026-09-02, by the review",
           "fixed": false,
           "proved_by": null
         }

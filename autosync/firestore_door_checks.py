@@ -284,9 +284,17 @@ check("and if the database fails, Drive is never written at all",
       _why(lambda: tool.both_places(_blows_up, lambda lines: order.append("drive"))([LINE])) != ""
       and order == ["database"])
 
+# **THE OLD FOLDER NAME MUST NOT COME BACK (the ERP's open item 12).** It was
+# accepted alongside `Kartaan-ERP` while the rename was in progress; the rename
+# is done, and a fallback nobody writes down is how two spellings of one thing
+# survive for a year.
+_DOOR = Path(__file__).with_name("the_other_half.py").read_text(encoding="utf-8")
+check("the door no longer accepts the old folder name",
+      "'Kartaan-ERP', 'Kartaan'" not in _DOOR and '"Kartaan-ERP", "Kartaan"' not in _DOOR)
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 46
+EXPECTED = 47
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

@@ -93,6 +93,38 @@ PLAIN_FIELDS = (
     "took",
     "taking",
     "rev",
+    # ---- D152's seventeen, at the end after `rev`, in the order he gave them.
+    #
+    # **THEY EXIST HERE BECAUSE THE ERP COMMITTED THEM (4550310), not because
+    # they were written somewhere.** They sat in the ERP's working file for part
+    # of 2026-09-02 and this side deliberately did not follow: matching
+    # uncommitted work in another folder is matching something that can still
+    # change. The check reads `git show HEAD:` for exactly that reason.
+    #
+    # **NOTHING WRITES MOST OF THEM YET.** A column with nothing behind it is
+    # blank, which means "nobody has worked this out yet" -- the truthful answer,
+    # and the same one a Flipkart sale's money carries because its orders file
+    # has none.
+    "status",
+    "isShopsy",
+    "cogs",
+    "packagingCost",
+    "adSpend",
+    "returnReason",
+    # **THE THREE CONDITIONS AND THE THREE LOSSES ARE KEPT BROKEN OUT, never one
+    # lump (D152).** That is how it is visible WHERE the money went, and it is
+    # what showed the chain deserved a column of its own.
+    "earringCondition",
+    "boxCondition",
+    "chainCondition",
+    "itemLoss",
+    "packingLoss",
+    "chainLoss",
+    "claimId",
+    "claimStatus",
+    "claimRecovered",
+    "netPnl",
+    "returnPnl",
 )
 
 # **ONE COLUMN PER CHARGE A PLATFORM CAN MAKE**, in the ERP's own order.
@@ -124,7 +156,9 @@ COLUMNS = PLAIN_FIELDS + CHARGE_COLUMNS
 # whatever reads a row back has to know which ones to turn into numbers -- and
 # `0` read back as the text "0" is what every sum in the product would join
 # rather than add.
-NUMBER_FIELDS = ("qty", "gmv", "settlement", "taxPct", "returned")
+NUMBER_FIELDS = ("qty", "gmv", "settlement", "taxPct", "returned",
+                 "cogs", "packagingCost", "adSpend", "itemLoss", "packingLoss",
+                 "chainLoss", "claimRecovered", "netPnl", "returnPnl")
 
 
 class NotASale(ValueError):
@@ -223,6 +257,25 @@ class Sale:
     took: Optional[object] = None
     taking: Optional[object] = None
     rev: Optional[object] = None
+    # ---- D152's seventeen. All optional, like everything else: a platform's
+    # ---- orders file says nothing about most of them, and blank is the truth.
+    status: Optional[str] = None
+    is_shopsy: Optional[object] = None
+    cogs: Optional[object] = None
+    packaging_cost: Optional[object] = None
+    ad_spend: Optional[object] = None
+    return_reason: Optional[str] = None
+    earring_condition: Optional[str] = None
+    box_condition: Optional[str] = None
+    chain_condition: Optional[str] = None
+    item_loss: Optional[object] = None
+    packing_loss: Optional[object] = None
+    chain_loss: Optional[object] = None
+    claim_id: Optional[str] = None
+    claim_status: Optional[str] = None
+    claim_recovered: Optional[object] = None
+    net_pnl: Optional[object] = None
+    return_pnl: Optional[object] = None
     charges: Dict[str, object] = field(default_factory=dict)
 
     def __post_init__(self):
@@ -274,6 +327,23 @@ FROM_FIELD = {
     "took": "took",
     "taking": "taking",
     "rev": "rev",
+    "status": "status",
+    "isShopsy": "is_shopsy",
+    "cogs": "cogs",
+    "packagingCost": "packaging_cost",
+    "adSpend": "ad_spend",
+    "returnReason": "return_reason",
+    "earringCondition": "earring_condition",
+    "boxCondition": "box_condition",
+    "chainCondition": "chain_condition",
+    "itemLoss": "item_loss",
+    "packingLoss": "packing_loss",
+    "chainLoss": "chain_loss",
+    "claimId": "claim_id",
+    "claimStatus": "claim_status",
+    "claimRecovered": "claim_recovered",
+    "netPnl": "net_pnl",
+    "returnPnl": "return_pnl",
 }
 
 

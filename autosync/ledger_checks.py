@@ -208,6 +208,32 @@ check("RULE 3: two files of the same date AGREEING is not a disagreement",
           answered(lambda: tool.plan([], [
               a_reading("orders", "2026-08-28", [a_sale("O1", gmv=100)]),
               a_reading("payments", "2026-08-28", [a_sale("O1", gmv=100)])]))))
+# **A STATEMENT IS A FILE, NOT A REPORT -- found by reviewing this against D150.**
+# Told apart only by report and date, two files of the SAME report and SAME date
+# looked like one statement: the second silently overwrote the first, rule 3
+# never fired, and which won depended on the order they were handed over in.
+TWO_FILES = [
+    tool.Reading(report="meesho orders", on="2026-08-30", knows=ORDERS_KNOWS,
+                 which="file-one", sales=(a_sale("O1", gmv=100),)),
+    tool.Reading(report="meesho orders", on="2026-08-30", knows=ORDERS_KNOWS,
+                 which="file-two", sales=(a_sale("O1", gmv=200),)),
+]
+p = answered(lambda: tool.plan([], TWO_FILES))
+check("RULE 3: TWO FILES OF ONE REPORT AND ONE DATE ARE TWO STATEMENTS",
+      p is not None and len(p.disagreements) == 1)
+check("RULE 3: and neither silently overwrites the other",
+      p is not None and p.append[0][AT["gmv"]] == "100")
+check("RULE 3: the order they were handed over in decides nothing",
+      p is not None and tool.plan([], list(reversed(TWO_FILES))).append[0][AT["gmv"]]
+      == p.append[0][AT["gmv"]])
+check("but TWO ROWS OF ONE FILE are still one statement, and the later row wins",
+      (lambda x: x is not None and x.disagreements == () and x.append[0][AT["gmv"]] == "200")(
+          answered(lambda: tool.plan([], [tool.Reading(
+              report="meesho orders", on="2026-08-30", knows=ORDERS_KNOWS, which="file-one",
+              sales=(a_sale("O1", gmv=100), a_sale("O1", gmv=200)))]))))
+check("a reading that does not say which file it came from falls back to the report",
+      tool.Reading(report="r", on="2026-08-01", knows=("gmv",), sales=()).one_statement == "r")
+
 check("RULE 3: one report saying it twice in one file is not a disagreement",
       (lambda x: x is not None and x.disagreements == ())(
           answered(lambda: tool.plan([], [
@@ -322,7 +348,7 @@ if not_run:
 print()
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-WITH_HIS_FILES = 57
+WITH_HIS_FILES = 62
 EXPECTED = WITH_HIS_FILES - (9 if not_run else 0)
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")

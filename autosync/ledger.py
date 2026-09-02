@@ -66,7 +66,7 @@ sheet moves every row under it, so every remembered row number becomes wrong.
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Sequence, Tuple
 
-from sales import COLUMNS, FROM_FIELD, PLAIN_FIELDS, Sale, a_cell, the_row_for
+from sales import COLUMNS, Sale, a_cell, the_row_for
 from table import CannotRead
 
 # The first row of the sheet is the column names, so a sale is on row 2 or later.
@@ -134,6 +134,25 @@ class Reading:
     on: str
     knows: Tuple[str, ...]
     sales: Tuple[Sale, ...]
+    # **WHICH FILE THIS CAME FROM, and it is not decoration.**
+    #
+    # Two files of the SAME report and the SAME data date are two separate
+    # statements -- a day fetched again lands as a new file under the same name
+    # (D110), and `whats_new` correctly calls it new. Told apart only by report
+    # and date they looked like ONE statement, so the second silently overwrote
+    # the first and D150's rule 3 never fired. Which of them won depended on the
+    # order they happened to be handed over in: the exact thing rule 2 exists to
+    # stop. Found by reviewing this file against D150.
+    #
+    # `whats_new.InTheFolder.which` is what goes here. Left empty, the report's
+    # name stands in and two files of one report and one date are indistinguishable
+    # again -- so the caller that has it should pass it.
+    which: str = ""
+
+    @property
+    def one_statement(self) -> str:
+        """What counts as ONE statement for rule 3: this file, not this report."""
+        return self.which or self.report
 
     def __post_init__(self):
         if not self.report.strip():
@@ -276,7 +295,12 @@ def plan(values: Sequence[Sequence[str]], readings: Sequence[Reading]) -> Plan:
     """
     held, row_of, unreadable = what_the_sheet_holds(values)
 
-    in_order = sorted(readings or (), key=lambda r: (r.on, r.report))
+    # **SORTED BY THE FILE, NOT BY THE REPORT.** Keyed on the report, two files
+    # of one report and one date tie -- and a stable sort then keeps whatever
+    # order they were handed over in, so the order of FETCHING decided which
+    # figure stood. That is precisely what rule 2 exists to stop. Found by the
+    # check named for it, after the first half of this fix was already in.
+    in_order = sorted(readings or (), key=lambda r: (r.on, r.one_statement))
 
     # What this run has decided so far, and which day's file decided it -- so a
     # same-day clash can be told from an ordinary overwrite by a newer file.
@@ -333,7 +357,8 @@ def plan(values: Sequence[Sequence[str]], readings: Sequence[Reading]) -> Plan:
                 if str(value) == "" and str(was) != "":
                     continue
                 before = decided_on.get((name, column))
-                if before is not None and before[0] == reading.on and before[1] != reading.report:
+                if (before is not None and before[0] == reading.on
+                        and before[1] != reading.one_statement):
                     if str(was) != str(value):
                         # **RULE 3. Nothing is overwritten on a tie.**
                         disagreements.append(Disagreement(
@@ -345,7 +370,7 @@ def plan(values: Sequence[Sequence[str]], readings: Sequence[Reading]) -> Plan:
                 if str(was) != str(value):
                     now[name][column] = value
                     changed[name] = True
-                decided_on[(name, column)] = (reading.on, reading.report)
+                decided_on[(name, column)] = (reading.on, reading.one_statement)
 
     append: List[Tuple[str, ...]] = []
     update: List[Tuple[int, Tuple[str, ...]]] = []

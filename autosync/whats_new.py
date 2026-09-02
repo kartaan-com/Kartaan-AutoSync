@@ -51,7 +51,7 @@ no Drive, no token and no internet.
 """
 
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Iterable, List, Sequence, Tuple
 
 from table import CannotRead
 

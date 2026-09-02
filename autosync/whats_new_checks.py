@@ -80,10 +80,16 @@ IMPORTS = [l.strip() for l in SOURCE.splitlines()
 for forbidden in ("runlog", "board", "schedule", "reports", "runner", "nightly"):
     check(f"nothing that knows whether a fetch worked is even reachable: {forbidden}",
           not any(forbidden in one for one in IMPORTS))
-check("what it does import is only shapes and the one refusal kind",
-      sorted(IMPORTS) == ["from dataclasses import dataclass",
-                          "from table import CannotRead",
-                          "from typing import Dict, Iterable, List, Optional, Sequence, Tuple"])
+# **THE MODULES, not the exact wording.** Written as an exact list of import
+# LINES, this went red the moment a dead name was tidied out of the typing
+# import -- which says nothing about whether a fetch's opinion can reach here.
+# What matters is WHICH modules are reachable.
+_MODULES = {one.split()[1] for one in IMPORTS if one.startswith("from ")}
+_MODULES |= {one.split()[1].split(".")[0] for one in IMPORTS if one.startswith("import ")}
+check("what it can reach is only shapes and the one refusal kind",
+      _MODULES == {"dataclasses", "typing", "table"})
+if _MODULES != {"dataclasses", "typing", "table"}:
+    print(f"      it reaches: {sorted(_MODULES)}")
 
 # --------------------------------------------------------- what is new
 

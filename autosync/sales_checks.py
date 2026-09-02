@@ -291,13 +291,45 @@ check("the last column's letter is worked out from how many there are",
       and tool.column_letter(27) == "AA" and tool.column_letter(28) == "AB")
 check("the whole tab's range covers every column",
       tool.the_whole_tab() == f"orders!A:{tool.column_letter(len(tool.COLUMNS))}")
-check("and it is 28 columns wide today, which is AB",
-      len(tool.COLUMNS) == 28 and tool.the_whole_tab() == "orders!A:AB")
+check("and it is 45 columns wide today, which is AS",
+      len(tool.COLUMNS) == 45 and tool.the_whole_tab() == "orders!A:AS")
+
+# **WHICH COLUMNS ARE FIGURES IS THE ERP'S LIST TOO, and it is read, not typed.**
+# A sheet hands back TEXT for everything, so a column the ERP turns back into a
+# number and this side does not is a figure that arrives as the string "0" and
+# gets joined rather than added.
+THEIR_NUMBERS = _list_named(SHEET_STORE, "NUMBER_FIELDS")
+check("the ERP's own list of number columns can be read", THEIR_NUMBERS is not None)
+check("and it is not empty", bool(THEIR_NUMBERS) and len(THEIR_NUMBERS) > 4)
+check("THE NUMBER COLUMNS ARE THE SAME ON BOTH SIDES, in the same order",
+      tuple(THEIR_NUMBERS or ()) == tool.NUMBER_FIELDS)
+if tuple(THEIR_NUMBERS or ()) != tool.NUMBER_FIELDS:
+    print(f"      the ERP says {THEIR_NUMBERS}")
+    print(f"      this file says {list(tool.NUMBER_FIELDS)}")
+check("every number column is a real column", 
+      all(n in tool.COLUMNS for n in tool.NUMBER_FIELDS))
+
+# D152's seventeen, present and in his order.
+D152 = ("status", "isShopsy", "cogs", "packagingCost", "adSpend", "returnReason",
+        "earringCondition", "boxCondition", "chainCondition", "itemLoss",
+        "packingLoss", "chainLoss", "claimId", "claimStatus", "claimRecovered",
+        "netPnl", "returnPnl")
+check("D152's seventeen are at the END, after rev, in his order",
+      tool.PLAIN_FIELDS[-17:] == D152)
+check("and every one of them can be written from a field that exists",
+      all(hasattr(tool.Sale(platform="p", order_id="o"), tool.FROM_FIELD[c]) for c in D152))
+check("THE THREE LOSSES ARE THREE COLUMNS, never one lump (D152)",
+      all(c in tool.COLUMNS for c in ("itemLoss", "packingLoss", "chainLoss")))
+check("and so are the three conditions",
+      all(c in tool.COLUMNS for c in ("earringCondition", "boxCondition", "chainCondition")))
+check("a sale that says nothing about them writes them blank, which is the truth",
+      all(tool.the_row_for(tool.Sale(platform="p", order_id="o"))[
+          {c: n for n, c in enumerate(tool.COLUMNS)}[c]] == "" for c in D152))
 check("a nonsense column count is refused rather than answered",
       refused_by(lambda: tool.column_letter(0)))
 check("and True is not a column count, whatever Python thinks",
       refused_by(lambda: tool.column_letter(True)))
-check("one row's range is that row only", tool.the_range_for(2) == "orders!A2:AB2")
+check("one row's range is that row only", tool.the_range_for(2) == "orders!A2:AS2")
 check("writing a sale to row 1 is REFUSED -- that row is the column names",
       refused_by(lambda: tool.the_range_for(1)))
 
@@ -326,7 +358,7 @@ check("two sales on one order but different SKUs are two rows",
 print()
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 60
+EXPECTED = 69
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
