@@ -82,6 +82,14 @@ CR = "\r"
 LF = "\n"
 
 
+def _catch(work):
+    try:
+        work()
+    except Exception as e:  # noqa: BLE001
+        return e
+    return None
+
+
 # ------------------------------------------------------- the four real faults
 
 # 1. AMAZON'S CARRIAGE-RETURN CARRIAGE-RETURN NEWLINE
@@ -184,8 +192,32 @@ t = answered(lambda: tool.read(f"a{TAB}b{LF}1{TAB}2{LF}"))
 check("asking for a column the file does not have is refused, not answered blank",
       t is not None and refused_by(lambda: t.rows[0]["nope"]))
 
-check("two columns with one name is refused rather than picked between",
-      refused_by(lambda: tool.read(f"sku{TAB}qty{TAB}sku{LF}1{TAB}2{TAB}3{LF}")))
+# **THE DUPLICATE-NAME RULE MOVED, and his real data is why.** It used to refuse
+# the whole FILE. His real Meesho payments file has two columns called
+# `Fixed Fee (Incl. GST)`, at columns 18 and 26, beside 41 good ones -- so
+# refusing the file made that whole stream permanently unreadable over one name.
+# Nothing guesses, which was always the point; the refusal simply happens where
+# it bites, when somebody asks for that name.
+TWICE = f"sku{TAB}qty{TAB}sku{LF}1{TAB}2{TAB}3{LF}"
+t = answered(lambda: tool.read(TWICE))
+check("a name used twice does not lose the file", t is not None and len(t.rows) == 1)
+check("the other columns still read", t is not None and t.rows[0]["qty"] == "2")
+check("asking for the doubled name is refused, never picked between",
+      t is not None and refused_by(lambda: t.rows[0]["sku"]))
+check("and the refusal says where BOTH of them are",
+      (lambda e: e is not None and "1" in str(e) and "3" in str(e) and "2 columns" in str(e))(
+          _catch(lambda: t.rows[0]["sku"])))
+check("what was doubled is kept, so it can be reported",
+      t is not None and t.ambiguous == {"sku": (0, 2)})
+check("and it is said out loud rather than staying quiet",
+      t is not None and "cannot be read" in t.says())
+check("has() says no to a doubled column, rather than promising a value",
+      t is not None and not t.rows[0].has("sku") and t.rows[0].has("qty"))
+check("a doubled column that the reading NEEDS stops the file",
+      refused_by(lambda: tool.read(TWICE, expect=["sku"])))
+check("but a doubled column nobody needs does not",
+      (lambda r: r is not None and len(r.rows) == 1)(
+          answered(lambda: tool.read(TWICE, expect=["qty"]))))
 check("a header naming no columns at all is refused",
       refused_by(lambda: tool.read(f"{TAB}{TAB}{LF}1{TAB}2{TAB}3{LF}")))
 check("an empty file is refused", refused_by(lambda: tool.read("")))
@@ -198,14 +230,6 @@ check("a missing needed column stops the whole file rather than every row",
       refused_by(lambda: tool.read(f"a{TAB}b{LF}1{TAB}2{LF}", expect=["a", "settlement"])))
 t = answered(lambda: tool.read(f"a{TAB}b{LF}1{TAB}2{LF}", expect=["a", "b"]))
 check("and when they are all there it reads normally", t is not None and len(t.rows) == 1)
-
-
-def _catch(work):
-    try:
-        work()
-    except Exception as e:  # noqa: BLE001
-        return e
-    return None
 
 
 err = _catch(lambda: tool.read(f"a{TAB}b{LF}1{TAB}2{LF}", expect=["settlement"]))
@@ -305,7 +329,7 @@ check(f"nothing above ended by throwing rather than by answering -- {THREW}", no
 # **THE COUNT KNOWS THE DIFFERENCE between here and a machine without his Drive.**
 # A single expected number would go red on one of them and be edited until it went
 # green on both, which is how a count stops meaning anything.
-WITH_HIS_FILES = 75
+WITH_HIS_FILES = 83
 WITHOUT = WITH_HIS_FILES - 7 * len(REAL)
 EXPECTED = WITHOUT if len(not_run) == len(REAL) else WITH_HIS_FILES
 if not_run and len(not_run) != len(REAL):

@@ -48,18 +48,19 @@
     "                 rows -- by scripts in the ERP's audit folder. This code did",
     "                 not do that reading.",
     "",
-    "THE CHECKS. 1,833 Python checks and 400 JavaScript checks pass, 2026-09-02.",
+    "THE CHECKS. 1,907 Python checks and 400 JavaScript checks pass, 2026-09-02.",
     "They are checks, not a run. Every door in this package has its transport",
     "handed in, which is what lets them pass with no account, no token and no",
     "internet -- and is also exactly why passing them proves nothing about a real",
     "night.",
     "",
-    "ONE PIECE HAS BEEN PROVED BY BREAKING IT ON PURPOSE. `reading-a-file`, and no",
-    "other. `tools/prove_checks.py` lives in the ERP and there is still no copy here",
+    "TWO PIECES HAVE BEEN PROVED BY BREAKING THEM ON PURPOSE -- `reading-a-file`",
+    "and `reading-a-spreadsheet`, and no others. `tools/prove_checks.py` lives in the ERP and there is still no copy here",
     "(open item 10 in the ERP's memory), so that one piece was done by hand: eight",
-    "faults put back one at a time, eight caught, no survivors. TWO OF THE EIGHT",
-    "FOUND GAPS IN THE CHECKS RATHER THAN IN THE CODE, which is the argument for",
-    "doing it to everything else. **Every other piece here has checks nobody has",
+    "twenty faults put back one at a time, twenty caught, no survivors. SIX OF THE",
+    "TWENTY FOUND GAPS IN THE CHECKS RATHER THAN IN THE CODE -- including a check",
+    "helper that hid a fault and a proving pass that called a crash a survivor.",
+    "That is the argument for doing this to everything else. **Every other piece here has checks nobody has",
     "ever watched fail.**",
     "",
     "THE READER IS STARTED, 2026-09-02. His go-ahead: Meesho, Flipkart and Amazon.",
@@ -68,11 +69,13 @@
     "purpose -- eight faults put back one at a time, eight caught, no survivors,",
     "and two of the eight found real gaps in the checks rather than in the code.",
     "",
-    "STILL TO COME, and none of it is started: reading a spreadsheet (Flipkart",
-    "orders and every payments file are .xlsx, not text -- 67 and 186 real files);",
-    "what a sale IS, with its columns pinned to the ERP's own sheet; the per-platform",
-    "column maps; and what makes a read START, which is solely what NEW file is in",
-    "the Drive folder.",
+    "READING A SPREADSHEET IS DONE TOO, 2026-09-02, and it had to be: all 67",
+    "Flipkart order files and all 186 payments files are .xlsx, not text.",
+    "",
+    "STILL TO COME, and none of it is started: what a sale IS, with its columns",
+    "pinned to the ERP's own sheet-store.js through the door rather than retyped;",
+    "the per-platform column maps; and what makes a read START, which is solely",
+    "what NEW file is in the Drive folder.",
     "",
     "THE HOLE IN THE MIDDLE OF THE PRODUCT: THE READER IS ONE PIECE OLD. Files are",
     "downloaded and landed in the seller's Drive, and NOTHING YET TURNS THEM INTO",
@@ -83,7 +86,7 @@
     "src/modules/listings are deleted the day this replaces them, and NOT BEFORE.",
     "Nothing replaces them yet."
   ],
-  "active": "reading-a-file",
+  "active": "reading-a-spreadsheet",
   "items": [
     {
       "id": "report-list",
@@ -682,6 +685,51 @@
         "reviewed": false,
         "run_for_real": false,
         "instead": "75 checks pass, and **28 of them read his REAL files** -- 46 real Amazon orders, 7 real returns, 15 real settlement lines, a real Meesho orders file. **THE ONLY PIECE IN THIS REPOSITORY PROVED BY BREAKING IT ON PURPOSE: eight faults put back one at a time, eight caught, no survivors.** Two of those eight found real gaps and are the findings above. It has still never run inside a real nightly run, and no independent reviewer has read it."
+      }
+    },
+    {
+      "id": "reading-a-spreadsheet",
+      "name": "Reading a spreadsheet, with nothing installed",
+      "what": "**Most of his files are not text, and that was in nobody's plan until 2026-09-02.** All 67 Flipkart order files are `.xlsx`, and so is every payments file -- 99 Meesho and 87 Flipkart. Only Meesho orders and Amazon read as text, so without this Flipkart cannot be read at all. Nothing is installed to do it and nothing needs to be: an `.xlsx` is a zip of XML, so `zipfile` and `xml.etree` are enough. **It hands back the same `table.Table` a text file does**, so everything above cannot tell which arrived and the rules about refused rows and missing columns stay written once.",
+      "rests_on": [
+        "reading-a-file"
+      ],
+      "files": [
+        "autosync/sheet.py",
+        "autosync/sheet_checks.py"
+      ],
+      "reviews": [],
+      "findings": [
+        {
+          "what": "**HIS REAL MEESHO PAYMENTS FILE HAS TWO COLUMNS WITH ONE NAME** -- `Fixed Fee (Incl. GST)`, at columns 18 and 26, holding different figures, beside 41 good ones. `table.py` refused the whole FILE on a duplicate name, which would have made Meesho payments permanently unreadable over one column.",
+          "found": "2026-09-02, by pointing the reader at his real file",
+          "fixed": true,
+          "proved_by": "The refusal moved from reading the file to LOOKING THE NAME UP -- nothing guesses, which was always the point, but one bad name no longer loses 42 good columns. Putting the old behaviour back turns checks red in both files."
+        },
+        {
+          "what": "A second check written with a dead `if False else True` on the end -- green by construction. The second one written in a single day.",
+          "found": "2026-09-02, while writing the checks",
+          "fixed": true,
+          "proved_by": "Replaced with two that build a real bad zip and a real damaged workbook."
+        },
+        {
+          "what": "**THE CHECK HELPER ITSELF HID A FAULT.** It numbered each row by its position in the list rather than from its own cells, so a check could not write rows out of order -- the helper quietly put them back, and the check that needed them shuffled would have passed whatever the reader did.",
+          "found": "2026-09-02, by putting the fault back and watching nothing go red",
+          "fixed": true,
+          "proved_by": "The helper now takes a row's number from its own cell references. Reading rows in the order they appear rather than by number now turns two checks red."
+        },
+        {
+          "what": "**THE PROVING PASS CALLED A CRASH A SURVIVOR.** A malformed breakage stopped the checks file loading, so it printed no failures -- and that was recorded as 'nothing caught this', which is the opposite of what it meant. A prover that flatters itself is worse than none.",
+          "found": "2026-09-02",
+          "fixed": true,
+          "proved_by": "It now separates CRASHED from SURVIVED and says the breakage proved nothing."
+        }
+      ],
+      "state": {
+        "built": true,
+        "reviewed": false,
+        "run_for_real": false,
+        "instead": "66 checks, and they read HIS REAL SPREADSHEETS -- his Flipkart orders (39 columns, 63 rows), his Flipkart payments (74 columns, 77 rows, header on row 2, 16 sheets) and his Meesho payments (43 columns, 83 rows). **Proved by breaking it on purpose: twelve faults put back one at a time, twelve caught, no survivors** -- and two of those twelve found gaps in the checks rather than in the code. The spreadsheets the checks build are built by hand out of zip and XML, because one made by the same code that reads it would agree with itself about anything. Never run inside a real run, and no independent reviewer has read it."
       }
     }
   ]

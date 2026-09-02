@@ -62,7 +62,7 @@ Drive and no internet -- the same seam every door in this package is built on.
 
 import csv
 import io
-from dataclasses import dataclass
+from dataclasses import dataclass, field as dc_field
 from typing import Dict, Iterator, List, Optional, Sequence, Tuple
 
 # **THE TWO THINGS A PLATFORM USES TO SEPARATE COLUMNS.** Written once so nothing
@@ -117,6 +117,7 @@ class Row:
     line: int
     cells: Tuple[str, ...]
     _where: Dict[str, int]
+    _ambiguous: Dict[str, Tuple[int, ...]] = dc_field(default_factory=dict)
 
     def __getitem__(self, column: str) -> str:
         """What this row says in that column.
@@ -124,14 +125,25 @@ class Row:
         Refuses a column the file does not have, rather than answering blank.
         **A blank for a column that has MOVED is money quietly going missing**;
         a refusal is a Flipkart rename found the day it happens (D108).
+
+        **And refuses a name the file uses TWICE**, saying where both are, rather
+        than picking the first -- which is the coin toss this package exists to
+        refuse. Every other column in that file still reads.
         """
-        try:
-            at = self._where[column]
-        except KeyError:
+        at = self._where.get(column)
+        if at is None:
+            places = self._ambiguous.get(column)
+            if places is not None:
+                raise CannotRead(
+                    f"This file has {len(places)} columns called {column!r}, at "
+                    + " and ".join(str(p + 1) for p in places)
+                    + ". Which one is meant cannot be decided, so it is not read. "
+                    "Every other column in the file still is."
+                )
             raise CannotRead(
                 f"There is no column called {column!r} in this file. "
                 "It has: " + ", ".join(repr(n) for n in sorted(self._where)) + "."
-            ) from None
+            )
         return self.cells[at] if at < len(self.cells) else ""
 
     def get(self, column: str, missing: str = "") -> str:
@@ -148,6 +160,9 @@ class Row:
         return self.cells[at] if at < len(self.cells) else ""
 
     def has(self, column: str) -> bool:
+        """Is that column readable? **An ambiguous one is NOT**, deliberately --
+        it is there twice, and neither can be read, so saying yes would promise
+        a value that asking for it refuses to give."""
         return column in self._where
 
 
@@ -159,6 +174,10 @@ class Table:
     rows: Tuple[Row, ...]
     refused: Tuple[Refused, ...] = ()
     separator: str = TAB
+    # Names the file uses more than once, and where. **Kept rather than dropped**,
+    # so `says()` can report them: a column nothing can read is exactly the kind
+    # of thing that must never be silent (D108).
+    ambiguous: Dict[str, Tuple[int, ...]] = dc_field(default_factory=dict)
 
     def __len__(self) -> int:
         return len(self.rows)
@@ -178,10 +197,19 @@ class Table:
         mentions refusals only when there are some makes a clean read and a read
         nobody checked look identical.
         """
-        return (
+        said = (
             f"{len(self.rows)} rows read, {len(self.refused)} refused, "
             f"{len(self.columns)} columns, {self.separator_name}-separated"
         )
+        if self.ambiguous:
+            said += (
+                "; "
+                + ", ".join(
+                    f"{n!r} appears {len(p)} times and cannot be read"
+                    for n, p in sorted(self.ambiguous.items())
+                )
+            )
+        return said
 
 
 def as_text(content) -> str:
@@ -238,38 +266,45 @@ def what_separates(header_line: str) -> str:
     return TAB
 
 
-def where_each_column_is(names: Sequence[str]) -> Dict[str, int]:
-    """Column name to its place, refusing a header that cannot answer plainly.
+def where_each_column_is(
+    names: Sequence[str],
+) -> Tuple[Dict[str, int], Dict[str, Tuple[int, ...]]]:
+    """Column name to its place, and separately what could not be placed.
 
-    **TWO COLUMNS WITH ONE NAME IS REFUSED, NOT RESOLVED.** Which one a lookup
-    means would be a coin toss, and a coin toss in the money is worse than a
-    stop. This package already refuses ambiguity rather than picking: `find`
-    answers a count so a wrong button cannot be pressed by accident (D108).
+    **TWO COLUMNS WITH ONE NAME IS NEVER RESOLVED. Which one a lookup means would
+    be a coin toss, and a coin toss in the money is worse than a stop.** This
+    package refuses ambiguity rather than picking: `find` answers a count so a
+    wrong button cannot be pressed by accident (D108).
 
-    **A HEADER WITH NO NAMES AT ALL IS REFUSED TOO.** An empty header reads every
-    later row as having the wrong width, so a whole file would come back as
+    **BUT IT DOES NOT LOSE THE FILE, and that was learnt from his real data.**
+    His Meesho payments file has TWO columns called `Fixed Fee (Incl. GST)`, at
+    columns 17 and 25, holding different figures -- alongside 41 perfectly good
+    ones. Refusing the whole file makes Meesho payments unreadable for ever
+    because of one name. **So the ambiguous name is left out of the map and kept
+    aside, and the refusal happens when somebody actually asks for it** -- which
+    is where it bites. Same rule, paid for only where it is owed.
+
+    **A HEADER WITH NO NAMES AT ALL IS REFUSED, though.** An empty header reads
+    every later row as having the wrong width, so the whole file comes back as
     nothing but refusals -- true, but useless, and it hides the real cause.
     """
     tidy = [n.strip() for n in names]
-    real = [n for n in tidy if n]
-    if not real:
+    if not any(tidy):
         raise CannotRead("The first line of this file names no columns at all.")
-    seen: Dict[str, int] = {}
-    twice = []
+
+    everywhere: Dict[str, List[int]] = {}
     for at, name in enumerate(tidy):
         if not name:
             continue
-        if name in seen:
-            twice.append(name)
-            continue
-        seen[name] = at
-    if twice:
-        raise CannotRead(
-            "This file has more than one column called "
-            + ", ".join(repr(n) for n in sorted(set(twice)))
-            + ". Which one is meant cannot be decided, so nothing is read."
-        )
-    return seen
+        everywhere.setdefault(name, []).append(at)
+
+    where = {n: places[0] for n, places in everywhere.items() if len(places) == 1}
+    ambiguous = {
+        n: tuple(places) for n, places in everywhere.items() if len(places) > 1
+    }
+    if not where and not ambiguous:
+        raise CannotRead("The first line of this file names no columns at all.")
+    return where, ambiguous
 
 
 def _split_into_rows(text: str, separator: str) -> List[List[str]]:
@@ -325,10 +360,21 @@ def read(content, *, expect: Optional[Sequence[str]] = None) -> Table:
         raise CannotRead("This file is empty.")
 
     names = [n.strip() for n in rows[0]]
-    where = where_each_column_is(names)
+    where, ambiguous = where_each_column_is(names)
     columns = tuple(names)
 
     if expect:
+        # **A NEEDED COLUMN THAT IS THERE TWICE IS AS UNUSABLE AS ONE THAT IS NOT
+        # THERE**, and lumping them together would report "no such column" about
+        # a column the file plainly has -- a confident wrong answer.
+        doubled = [n for n in expect if n in ambiguous]
+        if doubled:
+            raise CannotRead(
+                "This file has more than one column called "
+                + ", ".join(repr(n) for n in doubled)
+                + ", and the reading needs that column. Which one is meant cannot "
+                "be decided, so nothing is read."
+            )
         missing = [n for n in expect if n not in where]
         if missing:
             raise CannotRead(
@@ -360,11 +406,14 @@ def read(content, *, expect: Optional[Sequence[str]] = None) -> Table:
                 )
             )
             continue
-        kept.append(Row(line=at, cells=tuple(cells), _where=where))
+        kept.append(
+            Row(line=at, cells=tuple(cells), _where=where, _ambiguous=ambiguous)
+        )
 
     return Table(
         columns=columns,
         rows=tuple(kept),
         refused=tuple(refused),
         separator=separator,
+        ambiguous=ambiguous,
     )
