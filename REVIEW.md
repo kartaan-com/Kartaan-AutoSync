@@ -80,6 +80,16 @@ caps its own history at `KEEP_RUN_DAYS`; this has no cap at all.
 this across runs yet** (finding 6). Capping it here would be guessing at a
 retention rule for a store that does not exist.
 
+**STILL OPEN, and now it really does grow — 2026-09-02.** Finding 6 is fixed, so
+the store exists. The cap is deliberately not in it, and the reason is not
+laziness: `KEEP_RUN_DAYS` can trim safely because nothing reads further back than
+the last day, and **nothing similar is true here.** Landed files are never
+removed from the folder, so dropping an id whose file is still there makes that
+file new again — and an old file re-read puts its old figures back over the newer
+ones that had already corrected them (finding 7 is exactly why that is not
+harmless). **Put to Jaiswal on 2026-09-02 with a recommendation rather than
+picked quietly.**
+
 ### 6. Nothing remembers which files have been read across runs
 
 `between_runs.Between` has no field for it. Adding one bumps its `SHAPE`, which
@@ -87,6 +97,20 @@ makes an existing record refuse and stop the run — deliberate on that file's
 part, and **costless today because no seller record exists anywhere.** Not done
 here: that file has its own contract and 60 checks, and working code is not
 touched without confirming first.
+
+**FIXED 2026-09-02, by one field and nothing else.** `Between.files_read` holds
+the Drive ids of the files that have been read, `SHAPE` went 1 → 2, and
+`with_files_read` takes back what `whats_new.now_read` hands over. **The claim
+that the bump is costless was checked rather than repeated:** there is no
+`autosync-state.json` anywhere in the seller's Drive, and the only two scheduled
+runs this repository has ever had both stopped at *"no platform is connected"*
+before any of this code ran. **It is a LIST OF FILE IDS AND NEVER A DATE**, and
+his own case is a check: three files land, the fourth fails, the fifth lands, the
+fourth arrives later — and it is read. A high-water date would skip it for ever
+and say nothing. *Proved by:* seven faults put back one at a time, six caught by
+a named check and **the seventh caught nothing — a gap in the checks, not in the
+code**, now closed by "a record holding the same file twice writes the same bytes
+as one holding it once".
 
 ### 7. D150 rule 2 cannot be enforced ACROSS runs with the columns that exist
 

@@ -1,995 +1,1001 @@
 {
-  "note": [
-    "The register of work for the FETCHING (kartaan-com/Kartaan-AutoSync).",
-    "",
-    "Kartaan-ERP has one of these and a tools/status.py that turns it into a",
-    "board. This repository has no such tool yet, so nothing generates anything",
-    "from this file. It is written by hand and read by a person.",
-    "",
-    "WHY IT EXISTS. This repository was split out of the ERP on 2026-08-31 (D148)",
-    "and the four register entries covering it -- `autosync`, `shared-place`,",
-    "`github-actions`, `extension` -- came out with it and were not written down",
-    "again anywhere. The only way to know what was built here was to read all of",
-    "it. That is what this closes.",
-    "",
-    "THE FOUR ENTRIES ARE SPLIT INTO SEVENTEEN, and the reader adds more. `autosync` was one entry covering",
-    "the report list, what is owed, the run log, landing, the day board, both",
-    "doors, the recipes, the runner and the alarms -- nine separate pieces with",
-    "one review record between them. Split, because a review of the day board",
-    "says nothing about the alarms.",
-    "",
-    "ONE OWNER PER FILE. `files` is what the piece IS, and no two pieces list the",
-    "same path -- two owners means two answers to 'has it been reviewed' about the",
-    "same bytes. `also_touches` is what a piece has to CHANGE without owning.",
-    "`rests_on` follows the imports, not the story.",
-    "",
-    "THE THREE HONEST COLUMNS. `state` answers three different questions that this",
-    "project has previously let collapse into one word:",
-    "  built          the code exists and its own checks pass",
-    "  reviewed       somebody who did not write it has read it, and when",
-    "  run_for_real   it has done its actual job, against real accounts and real",
-    "                 credentials, and produced a real file",
-    "",
-    "NOT ONE PIECE IN THIS REPOSITORY HAS EVER RUN FOR REAL. The nightly job has",
-    "never been installed in a seller's GitHub account, never held a real token,",
-    "never fetched a report, never landed a file and never written a row. Every",
-    "`run_for_real` below is false, and each says what WAS done instead so that",
-    "'checked' is never read as 'working'.",
-    "",
-    "TWO PIECES HAVE TOUCHED REALITY WITHOUT RUNNING, and it is worth saying",
-    "exactly how far:",
-    "  the extension  was loaded unpacked into his own Chrome on 2026-08-27 and",
-    "                 driven READ-ONLY against his real Meesho panel and his real",
-    "                 Flipkart dashboard. Nothing was clicked, submitted or",
-    "                 downloaded. It found seven faults no check could. It has",
-    "                 never fetched a file.",
-    "  the day board  and the report list were measured BY HAND against his real",
-    "                 Drive files -- 96 real Meesho payment files, 494 real Meesho",
-    "                 rows -- by scripts in the ERP's audit folder. This code did",
-    "                 not do that reading.",
-    "",
-    "THE CHECKS. 2,300 Python checks and 400 JavaScript checks pass, 2026-09-02,",
-    "AND A GATE NOW MAKES THEM RUN -- see `the-gate`. Before 2026-09-02 they were",
-    "green because a session remembered to, and 0 of the first 11 commits carried",
-    "any record that a person read the diff.",
-    "They are checks, not a run. Every door in this package has its transport",
-    "handed in, which is what lets them pass with no account, no token and no",
-    "internet -- and is also exactly why passing them proves nothing about a real",
-    "night.",
-    "",
-    "SEVEN PIECES HAVE BEEN PROVED BY BREAKING THEM ON PURPOSE -- the seven the",
-    "reader is made of, and no others. `tools/prove_checks.py` lives in the ERP and there is still no copy here",
-    "(open item 10 in the ERP's memory), so that one piece was done by hand: eight",
-    "eighty-eight faults put back one at a time; eighty-six caught by a NAMED check",
-    "and two by a second guard, proved by removing both. TEN OF THE EIGHTY-EIGHT",
-    "FOUND GAPS IN THE CHECKS RATHER THAN IN THE CODE -- including a check helper",
-    "that hid a fault, a proving pass that called a crash a survivor, and a rule",
-    "whose own check could not fail for it. That is the argument for doing this to",
-    "everything else. **Every other piece here has checks nobody has",
-    "ever watched fail.**",
-    "",
-    "THE READER IS STARTED, 2026-09-02. His go-ahead: Meesho, Flipkart and Amazon.",
-    "`reading-a-file` is the first piece of it and the floor the rest stands on. It",
-    "is also the first piece in this repository ever PROVED by breaking it on",
-    "purpose -- eight faults put back one at a time, eight caught, no survivors,",
-    "and two of the eight found real gaps in the checks rather than in the code.",
-    "",
-    "READING A SPREADSHEET IS DONE TOO, 2026-09-02, and it had to be: all 67",
-    "Flipkart order files and all 186 payments files are .xlsx, not text.",
-    "",
-    "WHAT A SALE IS, DONE TOO, 2026-09-02, with its columns and its name read out",
-    "of the ERP's own source and compared rather than retyped.",
-    "",
-    "THE COLUMN MAPS ARE DONE TOO, 2026-09-02. All three platforms' orders files",
-    "read against his real ones: 121 real sales, not one unreadable row.",
-    "",
-    "THE SHEET DOOR IS BUILT, 2026-09-02. His 121 real sales go in, and the same",
-    "files again write nothing at all -- not even a call. **But NO REAL CELL HAS",
-    "EVER BEEN WRITTEN: no seller's sheet exists, and nothing yet creates one",
-    "(D137 says Kartaan must, because `drive.file` cannot reach a sheet the seller",
-    "made by hand).**",
-    "",
-    "WHAT STARTS A READ IS BUILT TOO, 2026-09-02.",
-    "",
-    "STILL TO COME: nothing yet REMEMBERS which files have been read across runs --",
-    "`between_runs.Between` has no field for it, and adding one bumps its SHAPE;",
-    "whatever CREATES the seller's sheet; the PAYMENTS files,",
-    "which is where Flipkart's money lives since its orders file has none; and",
-    "D152's new columns, which cannot be added here until the ERP adds them too --",
-    "`sales_checks.py` pins the two lists, so whichever side moves first goes red.",
-    "",
-    "THE HOLE IN THE MIDDLE OF THE PRODUCT: THE READER IS ONE PIECE OLD. Files are",
-    "downloaded and landed in the seller's Drive, and NOTHING YET TURNS THEM INTO",
-    "NUMBERS -- `reading-a-file` turns a file into rows and stops there, on purpose.",
-    "Until the pieces above it exist, every one of Kartaan's twenty tabs still shows",
-    "an empty business. D119 settles that the reading belongs here and not in the",
-    "browser, AND its condition still stands: the browser readers in the ERP's",
-    "src/modules/listings are deleted the day this replaces them, and NOT BEFORE.",
-    "Nothing replaces them yet."
-  ],
-  "active": null,
-  "items": [
+ "note": [
+  "The register of work for the FETCHING (kartaan-com/Kartaan-AutoSync).",
+  "",
+  "Kartaan-ERP has one of these and a tools/status.py that turns it into a",
+  "board. This repository has no such tool yet, so nothing generates anything",
+  "from this file. It is written by hand and read by a person.",
+  "",
+  "WHY IT EXISTS. This repository was split out of the ERP on 2026-08-31 (D148)",
+  "and the four register entries covering it -- `autosync`, `shared-place`,",
+  "`github-actions`, `extension` -- came out with it and were not written down",
+  "again anywhere. The only way to know what was built here was to read all of",
+  "it. That is what this closes.",
+  "",
+  "THE FOUR ENTRIES ARE SPLIT INTO SEVENTEEN, and the reader adds more. `autosync` was one entry covering",
+  "the report list, what is owed, the run log, landing, the day board, both",
+  "doors, the recipes, the runner and the alarms -- nine separate pieces with",
+  "one review record between them. Split, because a review of the day board",
+  "says nothing about the alarms.",
+  "",
+  "ONE OWNER PER FILE. `files` is what the piece IS, and no two pieces list the",
+  "same path -- two owners means two answers to 'has it been reviewed' about the",
+  "same bytes. `also_touches` is what a piece has to CHANGE without owning.",
+  "`rests_on` follows the imports, not the story.",
+  "",
+  "THE THREE HONEST COLUMNS. `state` answers three different questions that this",
+  "project has previously let collapse into one word:",
+  "  built          the code exists and its own checks pass",
+  "  reviewed       somebody who did not write it has read it, and when",
+  "  run_for_real   it has done its actual job, against real accounts and real",
+  "                 credentials, and produced a real file",
+  "",
+  "NOT ONE PIECE IN THIS REPOSITORY HAS EVER RUN FOR REAL. The nightly job has",
+  "never been installed in a seller's GitHub account, never held a real token,",
+  "never fetched a report, never landed a file and never written a row. Every",
+  "`run_for_real` below is false, and each says what WAS done instead so that",
+  "'checked' is never read as 'working'.",
+  "",
+  "TWO PIECES HAVE TOUCHED REALITY WITHOUT RUNNING, and it is worth saying",
+  "exactly how far:",
+  "  the extension  was loaded unpacked into his own Chrome on 2026-08-27 and",
+  "                 driven READ-ONLY against his real Meesho panel and his real",
+  "                 Flipkart dashboard. Nothing was clicked, submitted or",
+  "                 downloaded. It found seven faults no check could. It has",
+  "                 never fetched a file.",
+  "  the day board  and the report list were measured BY HAND against his real",
+  "                 Drive files -- 96 real Meesho payment files, 494 real Meesho",
+  "                 rows -- by scripts in the ERP's audit folder. This code did",
+  "                 not do that reading.",
+  "",
+  "THE CHECKS. 2,300 Python checks and 400 JavaScript checks pass, 2026-09-02,",
+  "AND A GATE NOW MAKES THEM RUN -- see `the-gate`. Before 2026-09-02 they were",
+  "green because a session remembered to, and 0 of the first 11 commits carried",
+  "any record that a person read the diff.",
+  "They are checks, not a run. Every door in this package has its transport",
+  "handed in, which is what lets them pass with no account, no token and no",
+  "internet -- and is also exactly why passing them proves nothing about a real",
+  "night.",
+  "",
+  "SEVEN PIECES HAVE BEEN PROVED BY BREAKING THEM ON PURPOSE -- the seven the",
+  "reader is made of, and no others. `tools/prove_checks.py` lives in the ERP and there is still no copy here",
+  "(open item 10 in the ERP's memory), so that one piece was done by hand: eight",
+  "eighty-eight faults put back one at a time; eighty-six caught by a NAMED check",
+  "and two by a second guard, proved by removing both. TEN OF THE EIGHTY-EIGHT",
+  "FOUND GAPS IN THE CHECKS RATHER THAN IN THE CODE -- including a check helper",
+  "that hid a fault, a proving pass that called a crash a survivor, and a rule",
+  "whose own check could not fail for it. That is the argument for doing this to",
+  "everything else. **Every other piece here has checks nobody has",
+  "ever watched fail.**",
+  "",
+  "THE READER IS STARTED, 2026-09-02. His go-ahead: Meesho, Flipkart and Amazon.",
+  "`reading-a-file` is the first piece of it and the floor the rest stands on. It",
+  "is also the first piece in this repository ever PROVED by breaking it on",
+  "purpose -- eight faults put back one at a time, eight caught, no survivors,",
+  "and two of the eight found real gaps in the checks rather than in the code.",
+  "",
+  "READING A SPREADSHEET IS DONE TOO, 2026-09-02, and it had to be: all 67",
+  "Flipkart order files and all 186 payments files are .xlsx, not text.",
+  "",
+  "WHAT A SALE IS, DONE TOO, 2026-09-02, with its columns and its name read out",
+  "of the ERP's own source and compared rather than retyped.",
+  "",
+  "THE COLUMN MAPS ARE DONE TOO, 2026-09-02. All three platforms' orders files",
+  "read against his real ones: 121 real sales, not one unreadable row.",
+  "",
+  "THE SHEET DOOR IS BUILT, 2026-09-02. His 121 real sales go in, and the same",
+  "files again write nothing at all -- not even a call. **But NO REAL CELL HAS",
+  "EVER BEEN WRITTEN: no seller's sheet exists, and nothing yet creates one",
+  "(D137 says Kartaan must, because `drive.file` cannot reach a sheet the seller",
+  "made by hand).**",
+  "",
+  "WHAT STARTS A READ IS BUILT TOO, 2026-09-02.",
+  "",
+  "STILL TO COME: nothing yet REMEMBERS which files have been read across runs --",
+  "`between_runs.Between` has no field for it, and adding one bumps its SHAPE;",
+  "whatever CREATES the seller's sheet; the PAYMENTS files,",
+  "which is where Flipkart's money lives since its orders file has none; and",
+  "D152's new columns, which cannot be added here until the ERP adds them too --",
+  "`sales_checks.py` pins the two lists, so whichever side moves first goes red.",
+  "",
+  "THE HOLE IN THE MIDDLE OF THE PRODUCT: THE READER IS ONE PIECE OLD. Files are",
+  "downloaded and landed in the seller's Drive, and NOTHING YET TURNS THEM INTO",
+  "NUMBERS -- `reading-a-file` turns a file into rows and stops there, on purpose.",
+  "Until the pieces above it exist, every one of Kartaan's twenty tabs still shows",
+  "an empty business. D119 settles that the reading belongs here and not in the",
+  "browser, AND its condition still stands: the browser readers in the ERP's",
+  "src/modules/listings are deleted the day this replaces them, and NOT BEFORE.",
+  "Nothing replaces them yet."
+ ],
+ "active": null,
+ "items": [
+  {
+   "id": "report-list",
+   "name": "What a report IS",
+   "what": "One list, and it is the whole design (D100). Every report the fetching knows about -- which platform, which door, what it is called, how it is asked for, whether it can be asked for again for a past day. Adding a report is one entry here and nothing else. The single best thing in the working reference was that `config.js` was the only place a report was described; this is that, checked.",
+   "rests_on": [],
+   "files": [
+    "autosync/reports.py",
+    "autosync/reports_checks.py"
+   ],
+   "reviews": [
     {
-      "id": "report-list",
-      "name": "What a report IS",
-      "what": "One list, and it is the whole design (D100). Every report the fetching knows about -- which platform, which door, what it is called, how it is asked for, whether it can be asked for again for a past day. Adding a report is one entry here and nothing else. The single best thing in the working reference was that `config.js` was the only place a report was described; this is that, checked.",
-      "rests_on": [],
-      "files": [
-        "autosync/reports.py",
-        "autosync/reports_checks.py"
-      ],
-      "reviews": [
-        {
-          "round": "cycle 46",
-          "date": "2026-08-29",
-          "reviewers": 6,
-          "note": "Reviewed as part of the single `autosync` entry, before this repository existed. Six reviewers over the whole of it, not six over this piece."
-        }
-      ],
-      "findings": [
-        {
-          "what": "`me_payments.cannot_backfill` says Meesho payments cannot be fetched for a past period. D132 proved that untrue against his own Drive -- `05_2026.xlsx` holds 879 rows covering April and May, downloaded after both months ended. The sentence is SHOWN TO SELLERS.",
-          "found": "2026-08-29, by him",
-          "fixed": false,
-          "proved_by": null
-        }
-      ],
-      "state": {
-        "built": true,
-        "reviewed": "2026-08-29, inside a wider review",
-        "run_for_real": false,
-        "instead": "82 checks pass. The list was measured against his real Drive files by hand (D132), which is how the finding above was found -- but this file has never handed a report to a run."
-      }
-    },
-    {
-      "id": "what-is-owed",
-      "name": "What is owed, when it is late, and when to ask a person",
-      "what": "The catching-up. A deadline is counted in CALENDAR days from the day the data was owed, never in attempts -- the reference counted attempts, so a date stuck fifteen days still read 'day 2' and never escalated. `days_late()` takes two dates so nothing can stop the clock (D108). Also holds D110's asking for a day by hand: the same code the nightly run uses, never a second program, and everything refused is in the log BEFORE anything is fetched.",
-      "rests_on": [
-        "report-list"
-      ],
-      "files": [
-        "autosync/schedule.py",
-        "autosync/schedule_checks.py"
-      ],
-      "reviews": [
-        {
-          "round": "cycle 46",
-          "date": "2026-08-29",
-          "reviewers": 6,
-          "note": "Inside the single `autosync` entry."
-        }
-      ],
-      "findings": [
-        {
-          "what": "D132 requires the refusal of a by-hand Meesho payments request to be LIFTED. It has not been.",
-          "found": "2026-08-29, by him",
-          "fixed": false,
-          "proved_by": null
-        }
-      ],
-      "state": {
-        "built": true,
-        "reviewed": "2026-08-29, inside a wider review",
-        "run_for_real": false,
-        "instead": "70 checks pass. Nothing has ever been owed to it, because no run has ever happened."
-      }
-    },
-    {
-      "id": "run-log",
-      "name": "The run log",
-      "what": "Shape 2 of the contract (D100). Both doors write the same five things -- `at`, `run`, `report`, `level`, `message` -- so one screen reads both without knowing which door a line came from. A run is a context manager, so no way out can skip flushing its evidence (D108).",
-      "rests_on": [],
-      "files": [
-        "autosync/runlog.py",
-        "autosync/runlog_checks.py"
-      ],
-      "reviews": [
-        {
-          "round": "cycle 46",
-          "date": "2026-08-29",
-          "reviewers": 6,
-          "note": "Inside the single `autosync` entry."
-        }
-      ],
-      "findings": [
-        {
-          "what": "`runlog.Run` recorded a failed flush since it was written and nothing ever read it, so a run whose log never left the building finished green.",
-          "found": "2026-08-29, while building D114",
-          "fixed": true,
-          "proved_by": "autosync/runlog_checks.py"
-        }
-      ],
-      "state": {
-        "built": true,
-        "reviewed": "2026-08-29, inside a wider review",
-        "run_for_real": false,
-        "instead": "56 checks pass. No line has ever been written by a real run."
-      }
-    },
-    {
-      "id": "landing",
-      "name": "Where a file lands, and how far a marker may move",
-      "what": "Shape 4 of the contract (D100). The raw file lands untouched in the seller's own Drive before anything reads it, so a bad reading is fixable without re-fetching. Arrival is asked of the FILE, never of the job's own opinion, and a marker advances only as far as what is verifiably inside what arrived.",
-      "rests_on": [
-        "report-list"
-      ],
-      "files": [
-        "autosync/landing.py",
-        "autosync/landing_checks.py"
-      ],
-      "reviews": [
-        {
-          "round": "cycle 46",
-          "date": "2026-08-29",
-          "reviewers": 6,
-          "note": "Inside the single `autosync` entry."
-        }
-      ],
-      "findings": [],
-      "state": {
-        "built": true,
-        "reviewed": "2026-08-29, inside a wider review",
-        "run_for_real": false,
-        "instead": "92 checks pass. No file has ever landed anywhere."
-      }
-    },
-    {
-      "id": "day-board",
-      "name": "The day board -- expected against arrived",
-      "what": "Shape 3 of the contract (D100), and the engine behind D109's Data tab. `arrived / missing / blocked / arrived empty / needs somebody`, with 'nothing ran' as the loudest line -- which the reference could never say, because when nothing runs nothing is there to raise the alarm.",
-      "rests_on": [
-        "report-list",
-        "landing"
-      ],
-      "files": [
-        "autosync/board.py",
-        "autosync/board_checks.py"
-      ],
-      "reviews": [
-        {
-          "round": "cycle 46",
-          "date": "2026-08-29",
-          "reviewers": 6,
-          "note": "Inside the single `autosync` entry."
-        }
-      ],
-      "findings": [
-        {
-          "what": "The Data tab counted 'days missing' by the word alone, so the worst state on the board read as nought. Found by running his own Drive through it.",
-          "found": "2026-08-29, while building D114",
-          "fixed": true,
-          "proved_by": "autosync/board_checks.py"
-        }
-      ],
-      "state": {
-        "built": true,
-        "reviewed": "2026-08-29, inside a wider review",
-        "run_for_real": false,
-        "instead": "55 checks pass. His real Drive listing was pushed through it BY HAND once, on 2026-08-29, which is how the finding above was found. It has never been fed by a run."
-      }
-    },
-    {
-      "id": "amazon-door",
-      "name": "The Amazon door",
-      "what": "Amazon goes through its own API. `amazon.py` is PURE -- no sockets, no token, no network -- it takes what an answer said and decides what that means, so every rule Amazon's API makes true is checked with no account. `amazon_door.py` fetches one report end to end and even it does not open the connection: the transport is handed in.",
-      "rests_on": [
-        "report-list",
-        "run-log"
-      ],
-      "files": [
-        "autosync/amazon.py",
-        "autosync/amazon_checks.py",
-        "autosync/amazon_door.py",
-        "autosync/amazon_door_checks.py"
-      ],
-      "reviews": [
-        {
-          "round": "cycle 46",
-          "date": "2026-08-29",
-          "reviewers": 6,
-          "note": "Inside the single `autosync` entry."
-        }
-      ],
-      "findings": [],
-      "state": {
-        "built": true,
-        "reviewed": "2026-08-29, inside a wider review",
-        "run_for_real": false,
-        "instead": "224 checks pass, every one against a stand-in. NOT ONE REAL CALL HAS EVER BEEN MADE TO AMAZON'S API by this code. Rumee's SP-API access is approved and active; nothing here has used it."
-      }
-    },
-    {
-      "id": "browser-door",
-      "name": "The browser door -- the steps, written as data",
-      "what": "Meesho has no published API and Akamai sits in front of the portal, so those reports are fetched in the seller's own Chrome (D100, D107). `browser.py` says how a page is driven, written as DATA rather than as code, so a moved button is one entry to change. `browser_door.py` answers exactly what the Amazon door answers -- same states, same `say`, same `their_id` -- so the runner cannot tell them apart. Since D107 it is the checked SPECIFICATION and no longer drives a portal itself.",
-      "rests_on": [
-        "report-list",
-        "run-log"
-      ],
-      "files": [
-        "autosync/browser.py",
-        "autosync/browser_checks.py",
-        "autosync/browser_door.py",
-        "autosync/browser_door_checks.py"
-      ],
-      "reviews": [
-        {
-          "round": "cycle 46",
-          "date": "2026-08-29",
-          "reviewers": 6,
-          "note": "Inside the single `autosync` entry."
-        }
-      ],
-      "findings": [],
-      "state": {
-        "built": true,
-        "reviewed": "2026-08-29, inside a wider review",
-        "run_for_real": false,
-        "instead": "157 checks pass. D107 means this file is no longer the thing that walks a portal -- the extension is -- so it can never run for real. Its cost was named when it was chosen: the same walk described in two languages, with nothing mechanical comparing them."
-      }
-    },
-    {
-      "id": "recipes",
-      "name": "The click-by-click steps, decided in one place",
-      "what": "Phases 4 and 5 of D100, and the whole design in one file: adding a browser report is one entry here and nothing else. `tools/export_recipes.py` writes the steps out for the extension and for the report list the screens read, and refuses when what is on disk has drifted -- the steps are decided ONCE, in Python, where they are checked without a browser (D107).",
-      "rests_on": [
-        "browser-door",
-        "report-list"
-      ],
-      "files": [
-        "autosync/recipes.py",
-        "autosync/recipes_checks.py",
-        "tools/export_recipes.py",
-        "tools/export_recipes_checks.py",
-        "src/shared/definitions/reports.json"
-      ],
-      "also_touches": [
-        "extension/recipes.json"
-      ],
-      "reviews": [
-        {
-          "round": "cycle 46",
-          "date": "2026-08-29",
-          "reviewers": 6,
-          "note": "Inside the single `autosync` entry."
-        }
-      ],
-      "findings": [
-        {
-          "what": "The generator writes `src/shared/definitions/reports.json` into ITS OWN checkout, so the copy the ERP's screens read became a hand-copy nothing owned. A reviewer added a report called 'A stream that does not exist' and 179 checks across both repositories passed while the Data tab listed it to a seller.",
-          "found": "2026-08-31, by an independent reviewer",
-          "fixed": true,
-          "proved_by": "Kartaan-ERP src/shared/definitions/reports.test.js -- the comparison now lives on the side that READS the file, and refuses rather than skips when it cannot reach this repository."
-        }
-      ],
-      "state": {
-        "built": true,
-        "reviewed": "2026-08-29, inside a wider review; the drift finding came later, 2026-08-31",
-        "run_for_real": false,
-        "instead": "265 checks pass. The steps have been walked read-only against his real portals by the extension (see `extension`), but no recipe has ever fetched a file."
-      }
-    },
-    {
-      "id": "runner",
-      "name": "One run: work out what is owed, fetch it, land it, say what happened",
-      "what": "Phase 3. The piece that ties the spine to a door -- and the only place that knows both. `do_a_run(asked_for=...)` is also how D110's asking for a day by hand is served, so there is never a second program: the reference built a separate backfill and that is exactly where its three wrongly-dated duplicate files in Drive came from.",
-      "rests_on": [
-        "what-is-owed",
-        "run-log",
-        "landing",
-        "amazon-door",
-        "browser-door"
-      ],
-      "files": [
-        "autosync/runner.py",
-        "autosync/runner_checks.py"
-      ],
-      "reviews": [
-        {
-          "round": "cycle 46",
-          "date": "2026-08-29",
-          "reviewers": 6,
-          "note": "Inside the single `autosync` entry."
-        }
-      ],
-      "findings": [],
-      "state": {
-        "built": true,
-        "reviewed": "2026-08-29, inside a wider review",
-        "run_for_real": false,
-        "instead": "79 checks pass. It has never made one run."
-      }
-    },
-    {
-      "id": "alarms",
-      "name": "What gets told to somebody, and what does not",
-      "what": "Phase 3. The problem this file exists for, and the reference could not solve it: when NOTHING runs, nothing is there to raise the alarm. All three are told when something is missing -- the seller in full, Jaiswal the fact only (seller, report, date, reason, nothing on his storage), and a message out (D100).",
-      "rests_on": [
-        "day-board",
-        "run-log"
-      ],
-      "files": [
-        "autosync/alarms.py",
-        "autosync/alarms_checks.py"
-      ],
-      "reviews": [
-        {
-          "round": "cycle 46",
-          "date": "2026-08-29",
-          "reviewers": 6,
-          "note": "Inside the single `autosync` entry."
-        }
-      ],
-      "findings": [],
-      "state": {
-        "built": true,
-        "reviewed": "2026-08-29, inside a wider review",
-        "run_for_real": false,
-        "instead": "63 checks pass. NO ALARM HAS EVER BEEN SENT to anyone by any path. Whether the message actually arrives -- the address, the credential, the delivery -- is untested end to end."
-      }
-    },
-    {
-      "id": "the-run-that-starts-itself",
-      "name": "The run that starts itself, with nobody present",
-      "what": "D111, D113 and D120. Every piece of auto-sync existed and nothing joined them; this is the joining. The job wakes on a schedule in the seller's own GitHub Actions and `clock.py` refuses the ticks that are not due -- the hour is a FLOOR, not an appointment, because GitHub's own docs say a scheduled run can be delayed and a missed appointment is a day lost (D108). Four things survive a run and live in the seller's own Drive. A MISSING record and a DAMAGED one are not the same thing: missing is a first night, damaged STOPS the run, because read as empty it asks Amazon again for every report it is already building. `start.py` DECIDES NOTHING -- it reads the secrets and opens the connections; every rule is in `nightly.py` where it is checked. `transport.py` is the only file in the package that opens a connection.",
-      "rests_on": [
-        "runner",
-        "alarms",
-        "drive",
-        "database"
-      ],
-      "files": [
-        ".github/workflows/autosync.yml",
-        "autosync/nightly.py",
-        "autosync/nightly_checks.py",
-        "autosync/start.py",
-        "autosync/between_runs.py",
-        "autosync/between_runs_checks.py",
-        "autosync/clock.py",
-        "autosync/clock_checks.py",
-        "autosync/transport.py",
-        "autosync/transport_checks.py"
-      ],
-      "reviews": [
-        {
-          "round": "cycle 46",
-          "date": "2026-08-29",
-          "reviewers": 6,
-          "note": "Inside the single `github-actions` entry."
-        }
-      ],
-      "findings": [
-        {
-          "what": "D113: nothing carries the seller's chosen hour to the job. Superseded in part by D114 -- the job now READS the hour off the seller's own business record -- but the workflow has never been installed anywhere, so the path is unexercised.",
-          "found": "2026-08-29",
-          "fixed": false,
-          "proved_by": null
-        }
-      ],
-      "state": {
-        "built": true,
-        "reviewed": "2026-08-29, inside a wider review",
-        "run_for_real": false,
-        "instead": "336 checks pass, all with the transport handed in. THE WORKFLOW HAS NEVER RUN, in this repository or any seller's. `start.py` -- the one file that reads the GitHub Actions Secrets and opens the real connections -- HAS NO CHECKS FILE OF ITS OWN and has never been executed. That is the single largest untested surface here."
-      }
-    },
-    {
-      "id": "drive",
-      "name": "Putting a file in the seller's own Drive",
-      "what": "D100 and D131. The raw file lands untouched, before anything reads it. `drive.py` decides, `drive_door.py` does -- transport handed in, so every line is checked with no account and no internet. A write refused for storage says so, so a full Drive is reported as 'your Google Drive is full, today's files were not saved' rather than as the platform giving nothing (D108, D131). The run holds `drive.file` only, which never sees a file it did not create -- reading the seller's Drive quota would cost the same annual security assessment as full control of it, and that was refused.",
-      "rests_on": [
-        "landing"
-      ],
-      "files": [
-        "autosync/drive.py",
-        "autosync/drive_checks.py",
-        "autosync/drive_door.py",
-        "autosync/drive_door_checks.py"
-      ],
-      "reviews": [
-        {
-          "round": "cycle 46",
-          "date": "2026-08-29",
-          "reviewers": 6,
-          "note": "Inside the single `shared-place` entry."
-        }
-      ],
-      "findings": [],
-      "state": {
-        "built": true,
-        "reviewed": "2026-08-29, inside a wider review",
-        "run_for_real": false,
-        "instead": "112 checks pass against a stand-in transport. NOT ONE BYTE HAS EVER BEEN UPLOADED to a real Google Drive by this code. The Google app is still in Testing, so any refresh token it did hold would die after seven days."
-      }
-    },
-    {
-      "id": "database",
-      "name": "What the run writes into the seller's own database",
-      "what": "D114, widened by D136. The job asks for `datastore` alongside the `drive.file` it already holds and writes AS THE SELLER -- no new key anywhere. THE SCOPE BYPASSES `firestore.rules`: Google authorises it by IAM, so the narrowness is enforced by ONE FUNCTION IN THIS FILE and by nothing else -- `where_a_document_lives` refuses any collection not on the list, by name. Every moment goes in as TEXT, because a timestamp would be read as UTC and shown five and a half hours wrong. `True` is an `int` in Python, so booleans are asked about first. The chosen hour is READ and never written.",
-      "rests_on": [
-        "run-log",
-        "day-board"
-      ],
-      "files": [
-        "autosync/firestore.py",
-        "autosync/firestore_checks.py",
-        "autosync/firestore_door.py",
-        "autosync/firestore_door_checks.py"
-      ],
-      "reviews": [
-        {
-          "round": "cycle 46",
-          "date": "2026-08-29",
-          "reviewers": 6,
-          "note": "Inside the single `shared-place` entry."
-        },
-        {
-          "round": "cycle 47",
-          "date": "2026-08-31",
-          "reviewers": 1,
-          "note": "Reached sideways: the ERP's `ingestion` piece was reviewed and two of its five blocking findings were about the contract with THIS file."
-        }
-      ],
-      "findings": [
-        {
-          "what": "A log line's name was built with SIX parts here and FIVE on the page, so no line Kartaan made would ever have matched a line the run made -- and two different lines could land at one name, the second silently replacing the first. The check named for exactly that fault asserted the page contained one particular string, and PASSED while the two sides disagreed.",
-          "found": "2026-08-31, by an independent reviewer",
-          "fixed": true,
-          "proved_by": "autosync/firestore_checks.py -- 'a log line's name is built the same way on both sides' now reads BOTH sides out of their own source and compares them part by part. UNCOMMITTED as of 2026-09-02."
-        },
-        {
-          "what": "D136 supersedes D114's narrowness -- the run must write the seller's business records once the reader exists. `WHAT_IT_MAY_WRITE` is still the three names D114 allowed. Nothing is wrong today, because there is no reader; it becomes wrong the day there is one.",
-          "found": "2026-08-29",
-          "fixed": false,
-          "proved_by": null
-        }
-      ],
-      "state": {
-        "built": true,
-        "reviewed": "2026-08-29, and again sideways 2026-08-31",
-        "run_for_real": false,
-        "instead": "167 checks pass against a stand-in transport. NO DOCUMENT HAS EVER BEEN WRITTEN to a real Firestore by this code. The one lock keeping the seller's whole database safe from this job is a Python function that has never been exercised against Google."
-      }
-    },
-    {
-      "id": "extension",
-      "name": "The seller's own Chrome, carrying out the steps",
-      "what": "D107. The steps are decided in Python and only WALKED here -- the reference drove both portals from about 3,800 lines of JavaScript and nothing in it could be checked without a real browser and a real login. A run's own record goes in `storage.local`, because a run that vanished when Chrome restarted is what left ten real files unrecorded on 25 August. Listeners are declared at the top level, or after a restart they do not exist.",
-      "rests_on": [
-        "recipes"
-      ],
-      "files": [
-        "extension/manifest.json",
-        "extension/background.js",
-        "extension/background.test.js",
-        "extension/content.js",
-        "extension/catch-blob.js",
-        "extension/doors.js",
-        "extension/doors.test.js",
-        "extension/driver.js",
-        "extension/driver.test.js",
-        "extension/walk.js",
-        "extension/walk.test.js",
-        "extension/worker.js",
-        "extension/recipes.json",
-        "extension/recipes.test.js"
-      ],
-      "reviews": [
-        {
-          "round": "cycle 46",
-          "date": "2026-08-29",
-          "reviewers": 6
-        }
-      ],
-      "findings": [
-        {
-          "what": "Seven faults no check could have caught, found by loading it into his real Chrome: a wrong address does not fail -- Meesho serves a page that never finishes; a covering never stopped anything, it EXPLAINS a lookup that failed; Flipkart report types match as pressable things, not as words; Meesho's sidebar carries no role, no tabindex and no test id, so asked for a control it answers nothing at all.",
-          "found": "2026-08-27 and 2026-08-28, in his own Chrome",
-          "fixed": true,
-          "proved_by": "extension/driver.test.js and extension/walk.test.js"
-        },
-        {
-          "what": "A claim that the Meesho panel had no controls at all was taken from a page that had only half drawn. Corrected the next day. The correction matters more than the finding: a claim about a whole platform read off an unfinished page is exactly the mistake this door exists to stop being made about buttons.",
-          "found": "2026-08-28",
-          "fixed": true,
-          "proved_by": "extension/driver.test.js -- either signal counts, cursor or role, because a plain button has the ordinary cursor."
-        }
-      ],
-      "state": {
-        "built": true,
-        "reviewed": "2026-08-29",
-        "run_for_real": false,
-        "instead": "400 JavaScript checks pass. THE CLOSEST ANYTHING HERE HAS COME TO REAL: loaded unpacked into his own Chrome on 2026-08-27 and driven READ-ONLY against his real Meesho panel and his real Flipkart dashboard. NOTHING WAS CLICKED, SUBMITTED OR DOWNLOADED. It has never fetched a file, never signed in through it, never met a real Akamai challenge, and has never been published or installed as an extension."
-      }
-    },
-    {
-      "id": "test-harness",
-      "name": "The stand-ins the checks run against",
-      "what": "A pretend browser with no stylesheets and no drawing, and a pretend Chrome, so the extension's checks can run with no browser and no account. Anything about how something LOOKS is invisible to them.",
-      "rests_on": [],
-      "files": [
-        "test/fake-browser.js",
-        "test/fake-chrome.js"
-      ],
-      "reviews": [
-        {
-          "round": "cycle 46",
-          "date": "2026-08-29",
-          "reviewers": 6,
-          "note": "`fake-chrome.js` inside the `extension` entry. `fake-browser.js` was reviewed in the ERP, where the other copy still lives."
-        }
-      ],
-      "findings": [
-        {
-          "what": "`fake-browser.js` EXISTS IN BOTH REPOSITORIES and nothing joins the two copies. If one changes, the other does not know. Named in the README as known and not fixed.",
-          "found": "2026-08-31, at the split",
-          "fixed": false,
-          "proved_by": null
-        }
-      ],
-      "state": {
-        "built": true,
-        "reviewed": "2026-08-29",
-        "run_for_real": false,
-        "instead": "It is a stand-in. It cannot run for real -- that is its whole point, and also the reason a green suite here says nothing about a real night."
-      }
-    },
-    {
-      "id": "the-other-half",
-      "name": "The door into the other repositories",
-      "what": "D148. Two checks here are pinned against files that are not here -- `firestore_checks.py` reads Kartaan's own `sync.js` so the three collection names this job WRITES match the names Kartaan's screens READ, and `firestore_door_checks.py` pins the Google scope this door needs against the scope Kartaan-Server actually asks the seller for. One fact written down twice, in two languages, with nothing mechanical joining them. IT REFUSES RATHER THAN SKIPS: a check that quietly stops checking is worse than no check, because it is still counted.",
-      "rests_on": [],
-      "files": [
-        "autosync/the_other_half.py"
-      ],
-      "reviews": [],
-      "findings": [
-        {
-          "what": "**IT ACCEPTED THE ERP'S OLD FOLDER NAME** `Kartaan` alongside `Kartaan-ERP`, left over from D148's rename. A fallback nobody writes down is how two spellings of one thing survive for a year.",
-          "found": "2026-09-02, by the review (the ERP's own open item 12)",
-          "fixed": true,
-          "proved_by": "autosync/firestore_door_checks.py -- 'the door no longer accepts the old folder name'."
-        },
-        {
-          "what": "**IT READ THE OTHER REPOSITORY'S WORKING FILES, NOT ITS COMMITTED ONES**, so a check here could go green against work nobody had committed. It really bit: the ERP has seventeen new ledger columns written and not committed, so the column check was RED against a file that at the ERP's HEAD agreed exactly -- and a gate built while that was red would have refused the commit containing the gate.",
-          "found": "2026-09-02",
-          "fixed": true,
-          "proved_by": "It reads `git show HEAD:` and refuses when git cannot answer, with no fallback to disk; pointing it at a file not committed there refuses in words."
-        }
-      ],
-      "state": {
-        "built": true,
-        "reviewed": false,
-        "run_for_real": false,
-        "instead": "It runs every time the checks run, and has been seen to refuse when pointed at nothing. It has never been reviewed by anybody who did not write it."
-      }
-    },
-    {
-      "id": "readme",
-      "name": "What this repository is, and what is known and not fixed",
-      "what": "Why the fetching is its own repository (D36), what is in it, how to run the checks, where the credentials go, and the two things known to be wrong and not fixed.",
-      "rests_on": [],
-      "files": [
-        "README.md",
-        ".gitignore"
-      ],
-      "reviews": [],
-      "findings": [],
-      "state": {
-        "built": true,
-        "reviewed": false,
-        "run_for_real": false,
-        "instead": "Written at the split, 2026-08-31. Nobody has read it back against the code."
-      }
-    },
-    {
-      "id": "reading-a-file",
-      "name": "Turning a platform's file into rows",
-      "what": "The floor the whole reader stands on: take the bytes a platform handed over and say what rows are in them, or say why a row could not be read. It knows nothing about sales, settlements, SKUs or money, and it never hands back a number -- turning \"0\" into 0 is a decision about a FIELD, and D119 says the money rules are written once, somewhere else. **Written against his real files, not a description of them.** Four faults those files actually have: Amazon ends every line with CARRIAGE-RETURN CARRIAGE-RETURN NEWLINE, so the plain way of counting lines reports 93 orders where there are 46; all three Amazon files are named `.csv` and all three are TAB-separated, so what separates the columns is read out of the file and never off its name; Meesho's comma file quotes every field while Amazon's tab files contain not one quote character, so quoting is off for tab and on for comma; and **a row of the wrong width is named and kept, never dropped** -- the reference read its files with on_bad_lines='skip', which loses the row AND says nothing. **AND A HEADER IS NOT ALWAYS ON LINE 1 (added 2026-09-02):** a real Meesho returns file opens with a seven-line title block -- a blank line, the panel's name, the supplier's own details, a timestamp -- with the column names on LINE 8. Read from line 1 that file names no columns at all and the whole returns stream was unreadable. The separator is decided from the header's own line too, since a title block two cells wide says nothing about the columns below it.",
-      "rests_on": [],
-      "files": [
-        "autosync/table.py",
-        "autosync/table_checks.py"
-      ],
-      "reviews": [],
-      "findings": [
-        {
-          "what": "A check named 'a quote character in a tab file does not swallow the columns after it' COULD NOT FAIL for that fault. Its sample put the quote in the MIDDLE of a field (`9\" Bangle`), and a quote that is not the first character never opens a quoted field -- so the file read identically whether the rule was there or not. Exactly the shape of the log-line-name check this project already shipped: named for the fault, passing through it.",
-          "found": "2026-09-02, by putting the fault back and watching nothing go red",
-          "fixed": true,
-          "proved_by": "autosync/table_checks.py -- the sample now starts a field with a quote. Taking `quoting=csv.QUOTE_NONE` back out turns two checks red."
-        },
-        {
-          "what": "A check was written with a dead `if False else True` on the end, so it was green by construction and counted towards the total.",
-          "found": "2026-09-02, on the first run of the checks",
-          "fixed": true,
-          "proved_by": "It is deleted; the count went from 75 to 74 and had to be corrected."
-        },
-        {
-          "what": "**THE MEESHO RETURNS STREAM COULD NOT BE READ AT ALL.** `sheet.read` has taken a header row since it was written, because his Flipkart payments file puts category bands across row 1. The same fault in a TEXT file went unnoticed until a real returns file was opened.",
-          "found": "2026-09-02, by opening his real returns file",
-          "fixed": true,
-          "proved_by": "His real file now reads -- 22 columns, 101 rows, nothing refused, first data row on line 9. Taking the header row back out turns four checks red."
-        }
-      ],
-      "state": {
-        "built": true,
-        "reviewed": false,
-        "run_for_real": false,
-        "instead": "100 checks pass, and **35 of them read his REAL files** -- 46 real Amazon orders, 7 real returns, 15 real settlement lines, a real Meesho orders file, and a real Meesho returns file of 101 rows whose columns start on line 8. Pointed elsewhere they SAY they did not run and the count follows. **Proved by breaking it on purpose: thirteen faults, twelve caught by a named check and one by a second guard, proved by removing both.**"
-      }
-    },
-    {
-      "id": "reading-a-spreadsheet",
-      "name": "Reading a spreadsheet, with nothing installed",
-      "what": "**Most of his files are not text, and that was in nobody's plan until 2026-09-02.** All 67 Flipkart order files are `.xlsx`, and so is every payments file -- 99 Meesho and 87 Flipkart. Only Meesho orders and Amazon read as text, so without this Flipkart cannot be read at all. Nothing is installed to do it and nothing needs to be: an `.xlsx` is a zip of XML, so `zipfile` and `xml.etree` are enough. **It hands back the same `table.Table` a text file does**, so everything above cannot tell which arrived and the rules about refused rows and missing columns stay written once.",
-      "rests_on": [
-        "reading-a-file"
-      ],
-      "files": [
-        "autosync/sheet.py",
-        "autosync/sheet_checks.py"
-      ],
-      "reviews": [],
-      "findings": [
-        {
-          "what": "**HIS REAL MEESHO PAYMENTS FILE HAS TWO COLUMNS WITH ONE NAME** -- `Fixed Fee (Incl. GST)`, at columns 18 and 26, holding different figures, beside 41 good ones. `table.py` refused the whole FILE on a duplicate name, which would have made Meesho payments permanently unreadable over one column.",
-          "found": "2026-09-02, by pointing the reader at his real file",
-          "fixed": true,
-          "proved_by": "The refusal moved from reading the file to LOOKING THE NAME UP -- nothing guesses, which was always the point, but one bad name no longer loses 42 good columns. Putting the old behaviour back turns checks red in both files."
-        },
-        {
-          "what": "A second check written with a dead `if False else True` on the end -- green by construction. The second one written in a single day.",
-          "found": "2026-09-02, while writing the checks",
-          "fixed": true,
-          "proved_by": "Replaced with two that build a real bad zip and a real damaged workbook."
-        },
-        {
-          "what": "**THE CHECK HELPER ITSELF HID A FAULT.** It numbered each row by its position in the list rather than from its own cells, so a check could not write rows out of order -- the helper quietly put them back, and the check that needed them shuffled would have passed whatever the reader did.",
-          "found": "2026-09-02, by putting the fault back and watching nothing go red",
-          "fixed": true,
-          "proved_by": "The helper now takes a row's number from its own cell references. Reading rows in the order they appear rather than by number now turns two checks red."
-        },
-        {
-          "what": "**THE PROVING PASS CALLED A CRASH A SURVIVOR.** A malformed breakage stopped the checks file loading, so it printed no failures -- and that was recorded as 'nothing caught this', which is the opposite of what it meant. A prover that flatters itself is worse than none.",
-          "found": "2026-09-02",
-          "fixed": true,
-          "proved_by": "It now separates CRASHED from SURVIVED and says the breakage proved nothing."
-        }
-      ],
-      "state": {
-        "built": true,
-        "reviewed": false,
-        "run_for_real": false,
-        "instead": "66 checks, and they read HIS REAL SPREADSHEETS -- his Flipkart orders (39 columns, 63 rows), his Flipkart payments (74 columns, 77 rows, header on row 2, 16 sheets) and his Meesho payments (43 columns, 83 rows). **Proved by breaking it on purpose: twelve faults put back one at a time, twelve caught, no survivors** -- and two of those twelve found gaps in the checks rather than in the code. The spreadsheets the checks build are built by hand out of zip and XML, because one made by the same code that reads it would agree with itself about anything. Never run inside a real run, and no independent reviewer has read it."
-      }
-    },
-    {
-      "id": "what-a-sale-is",
-      "name": "What a sale IS, and the row it becomes",
-      "what": "**Sales do not go in the database. They go in a GOOGLE SHEET (D126)** -- a Sheet is for what the pipeline writes and Kartaan only reads; the database is for what Kartaan's own clicks change. His own numbers decided it: one document per sale means a screen opening reads thirty thousand of them, most of a day's free allowance, at his current 83 orders a day. **The columns are not invented here -- they belong to the ERP**, and are written out again only because Python cannot import JavaScript. A sale is named `platform::orderId::sku` from the sale itself, which is what makes the same file arriving twice change nothing. Nothing here writes anything anywhere: putting a row in a sheet is a door, and it is not built.",
-      "rests_on": [
-        "the-other-half"
-      ],
-      "files": [
-        "autosync/sales.py",
-        "autosync/sales_checks.py"
-      ],
-      "reviews": [],
-      "findings": [
-        {
-          "what": "**THE CHECK'S FIRST VERSION GAVE A CONFIDENT, SPECIFIC, WRONG ANSWER ABOUT REAL DATA.** Reading the ERP's column list with a plain quote-matching pattern, it reported that the two sides DISAGREED and named two columns called things like `s shelf it would come out different...`. Those were sentences out of the COMMENTS beside the list -- the ERP explains `taking` as \"the whole of D51's replay safety\", and that apostrophe opened a string as far as the pattern was concerned, swallowing `took` and inventing two columns that do not exist. The lists were identical all along.",
-          "found": "2026-09-02, on the first run of the checks",
-          "fixed": true,
-          "proved_by": "Comments are stripped before anything is read, at all three read sites. Dropping a real column, swapping two, or renaming a charge each turns the comparison red -- proved by doing all three."
-        }
-      ],
-      "state": {
-        "built": true,
-        "reviewed": false,
-        "run_for_real": false,
-        "instead": "60 checks. **The important ones read the ERP's own source and compare, name by name and in order** -- `sheet-store.js` for the columns, `charges.js` for the charge ids, `orders.js` for how a sale is named and what states it can be in. Neither list is typed out in the check. They REFUSE rather than skip when the ERP cannot be found, proved by pointing them at nothing. **Proved by breaking it on purpose: thirteen faults put back one at a time, thirteen caught, no survivors.** No sale has ever been written to a real sheet -- there is no sheet door yet."
-      }
-    },
-    {
-      "id": "which-column-is-what",
-      "name": "Which of a platform's own columns is the SKU, the quantity, the money",
-      "what": "**The only file that knows what Meesho, Flipkart and Amazon call things.** Above it a sale is a sale; below it a file is rows. One word for one thing, said once, so a seller comparing two platforms compares like with like -- and a renamed column is one entry changed here and nothing else. Every column name was read off HIS OWN FILES, not off a description of them. **A moved column stops the whole file ONCE, by name, checked against the header before a row is read** -- per row it would produce 63 identical complaints and bury the one fact that matters. **A row that cannot be read is refused by name and the rest are read.** **And a date is never guessed at**: all three orders files lead with the year, and a shape it does not know stops that row rather than dating it wrong -- because Amazon's settlement file writes day-first, where 1 September read backwards becomes 9 January.",
-      "rests_on": [
-        "reading-a-file",
-        "reading-a-spreadsheet",
-        "what-a-sale-is"
-      ],
-      "files": [
-        "autosync/orders.py",
-        "autosync/orders_checks.py"
-      ],
-      "reviews": [],
-      "findings": [
-        {
-          "what": "**FLIPKART'S ORDERS FILE HAS NO MONEY IN IT AT ALL.** Thirty-nine columns and not one is an amount -- no price, no GMV, no settlement. Counted on his real file, not assumed. So a Flipkart sale is read with its money BLANK, which means what it should: nobody has worked this out yet. The figure arrives later from the payments file as a second statement about the same sale. **This is why blank and nought had to be different things before this file could be written at all.**",
-          "found": "2026-09-02, by reading his real file",
-          "fixed": true,
-          "proved_by": "The money is never among the columns a file cannot do without; making it one turns a check red, and Flipkart would never read again."
-        },
-        {
-          "what": "**EVERY ONE OF HIS 63 REAL FLIPKART SKUs IS WRAPPED** as `\"\"\"SKU:DJ 14 Bahubali\"\"\"`. Left wrapped it matches no product he has. The wrapper is the file format's, not the seller's.",
-          "found": "2026-09-02",
-          "fixed": true,
-          "proved_by": "The wrapper comes off and NOTHING ELSE does -- not case, not spacing inside the name. The register already carries the fault that rule exists for: 'a tidy-up map sat inside an identity lookup, so 17 of 39 mapped SKUs could never match'. Adding any tidying turns a check red."
-        },
-        {
-          "what": "**THE PLATFORM'S OWN WORD FOR WHAT HAPPENED HAS NOWHERE TO GO.** Counted on his real August Meesho files: 209 SHIPPED, **42 CANCELLED**, 37 READY_TO_SHIP, 5 HOLD, 4 DELIVERED. Kartaan's ledger has no column for it, deliberately -- `sheet-store.js` says so in as many words. Putting it in `notes` would overwrite the seller's own typing (D136); dropping cancelled rows would mean a cancellation never corrects yesterday's sale. **Adding a column changes the pinned contract on both sides, and that is HIS decision, not one to be made in passing.**",
-          "found": "2026-09-02",
-          "fixed": false,
-          "proved_by": null
-        }
-      ],
-      "state": {
-        "built": true,
-        "reviewed": false,
-        "run_for_real": false,
-        "instead": "74 checks. **It reads all three of his real orders files: 12 real Meesho sales, 63 real Flipkart, 46 real Amazon -- 121 sales, and NOT ONE unreadable row.** The rows that must NOT read are built by hand, because his real files are clean and a check that only ever read them would say nothing about what happens when one is not. **Proved by breaking it on purpose: fourteen faults put back one at a time, fourteen caught, no survivors.** Not one of those sales has ever reached a sheet -- there is no sheet door yet."
-      }
-    },
-    {
-      "id": "the-sales-ledger",
-      "name": "What goes into the seller's sales ledger, and what is left alone",
-      "what": "**Where D150 and D152 live.** The ledger exists so one row explains one order without opening Kartaan. A row is one LINE of an order, not one order, so a return lands on the exact item that came back. **Rule 1: each report writes only the columns it knows about** -- a payments file landing three weeks late must not wipe a delivery date it knows nothing about. **Rule 2: where two claim the same column the newest file wins, by the FILE'S OWN DATA DATE**, so the order of fetching decides nothing. **Rule 3: two files of the same date disagreeing KEEP what is there and REPORT it** -- never a silent pick. **And saying nothing is not saying \"nothing\": a blank never overwrites a figure already there.** A sheet whose columns somebody dragged about is refused; a row with no id, or a sale on two rows, is named and neither written to nor added again.",
-      "rests_on": [
-        "what-a-sale-is",
-        "which-column-is-what"
-      ],
-      "files": [
-        "autosync/ledger.py",
-        "autosync/ledger_checks.py"
-      ],
-      "reviews": [],
-      "findings": [
-        {
-          "what": "**A REPORT THAT KNOWS A COLUMN BUT SAYS NOTHING FOR IT WOULD HAVE BLANKED WHAT WAS ALREADY THERE.** Rule 1 keeps a report out of columns it knows nothing about; this was the same fault one level down -- a payments file DOES know about the settlement, but the row it holds for one sale may carry no figure, and writing that blank wipes a real settlement written last week.",
-          "found": "2026-09-02, by a check named for rule 1 going red",
-          "fixed": true,
-          "proved_by": "autosync/ledger_checks.py -- 'A BLANK NEVER OVERWRITES A FIGURE THAT IS ALREADY THERE'."
-        },
-        {
-          "what": "**A SALE'S NAME WAS PARSED BACK OUT OF A SENTENCE MEANT FOR A PERSON** -- `why.split()[1]` on \"the sale X is already on row 2\" returns the word \"sale\". So the rule that stops a doubled name being written to did nothing at all.",
-          "found": "2026-09-02, by a check going red",
-          "fixed": true,
-          "proved_by": "`Unreadable` carries `name`; removing BOTH guards turns 'A SALE ON TWO ROWS IS REPORTED and NEITHER is written to' red."
-        },
-        {
-          "what": "**A SALE THE SHEET HELD TWICE WAS APPENDED AGAIN, making three rows.** Taking it out of what the sheet holds -- so neither row is written to -- made it look like a sale never seen before.",
-          "found": "2026-09-02, by the check named for exactly that",
-          "fixed": true,
-          "proved_by": "A doubled name is skipped both ways and reported once."
-        },
-        {
-          "what": "**RULE 2 CANNOT BE ENFORCED ACROSS RUNS with the columns that exist.** The ledger's 28 columns hold no record of WHICH FILE last wrote each value, so tomorrow's run cannot tell whether a cell came from an older or newer file than the one it holds. Harmless for ordinary nights -- a new file is newer by construction. **NOT harmless for a by-hand backfill (D110)**, where a deliberately old file is fetched after newer ones have written. Recency IS exact within one run. Fixing it needs a column that is not in D152's list.",
-          "found": "2026-09-02, while building it",
-          "fixed": false,
-          "proved_by": null
-        },
-        {
-          "what": "**TWO FILES OF ONE REPORT AND ONE DATE SILENTLY OVERWROTE EACH OTHER**, and D150 rule 3 says a same-date disagreement is KEPT and REPORTED. The rule was applied only when the reports differed -- but a day fetched again lands as a NEW FILE of the same report and the same date (D110), which `whats_new` correctly calls new. **And the first half of the fix was not enough: the sort still tied on the report, so a stable sort kept whatever order the files were handed over in and the order of FETCHING decided which figure stood** -- precisely what rule 2 exists to stop.",
-          "found": "2026-09-02, by the review of this repository (REVIEW.md findings 1 and 2)",
-          "fixed": true,
-          "proved_by": "autosync/ledger_checks.py -- 'RULE 3: TWO FILES OF ONE REPORT AND ONE DATE ARE TWO STATEMENTS', 'RULE 3: the order they were handed over in decides nothing', and 'but TWO ROWS OF ONE FILE are still one statement'."
-        }
-      ],
-      "state": {
-        "built": true,
-        "reviewed": false,
-        "run_for_real": false,
-        "instead": "57 checks, run against HIS REAL FILES: **121 real sales planned into an empty ledger, and the same three files again change nothing.** **Proved by breaking it on purpose: thirteen faults put back one at a time, twelve caught by a NAMED check and the thirteenth by a second guard, proved by removing both.** Three of the thirteen found gaps in the checks rather than in the code."
-      }
-    },
-    {
-      "id": "the-sheet-door",
-      "name": "Writing the sales ledger",
-      "what": "The doing half. **The transport is handed in**, so every line is checked with no Google and no internet -- and the stand-in RECORDS every call, so what is checked is the request that would really go out. **Every call is the one Kartaan already makes**, read off the ERP's own `sheet-store.js` rather than worked out again: one GET for the whole ledger, `:append` with RAW and INSERT_ROWS to add, `values:batchUpdate` with RAW to change. **It needs no permission the seller has not already given (D137)** -- `drive.file` is accepted by the Sheets API, which is why KARTAAN MUST HAVE CREATED THE SHEET and a pasted id is refused in words. **Changes go first and additions last**, because a plan's row numbers describe the sheet as it was read. It never removes a row, never writes to row 1, and makes NO call at all on a night with nothing to write.",
-      "rests_on": [
-        "the-sales-ledger",
-        "the-other-half"
-      ],
-      "files": [
-        "autosync/ledger_door.py",
-        "autosync/ledger_door_checks.py"
-      ],
-      "reviews": [],
-      "findings": [
-        {
-          "what": "**THE HEADER'S OWN CALL WAS UNCHECKED.** `write_the_header` and `carry_out` send the same two options, so a fault put into the header's call -- RAW turned into USER_ENTERED, INSERT_ROWS into OVERWRITE -- went unnoticed by every check in the file. OVERWRITE on the header would write column names over a seller's first sale.",
-          "found": "2026-09-02, by the proving pass, twice over",
-          "fixed": true,
-          "proved_by": "Three checks now read the header's own call; both breakages turn them red."
-        }
-      ],
-      "state": {
-        "built": true,
-        "reviewed": false,
-        "run_for_real": false,
-        "instead": "49 checks against a stand-in that records every request. **His 121 real sales were written through it end to end, and the same files again made NO write call at all.** Six checks pin the calls against the ERP's own `sheet-store.js` through the door, refusing rather than skipping when it is not there. **Proved by breaking it on purpose: ten faults, ten caught.** NOT ONE REAL CELL HAS EVER BEEN WRITTEN TO A REAL GOOGLE SHEET -- no sheet exists, and nothing yet creates one."
-      }
-    },
-    {
-      "id": "what-starts-a-read",
-      "name": "What starts a read",
-      "what": "**His rule, and the word 'solely' is his: a read starts on what NEW file is in the Drive folder, and on nothing else.** Never whether a fetch succeeded or failed -- D148 says why: one platform having a bad night must not cost the day's numbers. **It is enforced STRUCTURALLY:** the decision is handed the folder and what was already read, and nothing else, and the module cannot even import anything that knows whether a fetch worked. **Identity is Drive's own id, NEVER the name** -- `landing.py` names a file for the day its data is about, so a day fetched again lands under the same name, and keyed by name that correction would never be read (D110 exists because somebody naming a day by hand usually knows what arrived was wrong). **An empty file is new, is not data, is reported by name, and is NOT marked as read** -- so tomorrow's real file for that day is still new.",
-      "rests_on": [],
-      "files": [
-        "autosync/whats_new.py",
-        "autosync/whats_new_checks.py"
-      ],
-      "reviews": [],
-      "findings": [
-        {
-          "what": "**A THIRD CHECK WRITTEN WITH A DEAD `if False` ON THE END** -- green by construction. Third one on this project, all three mine.",
-          "found": "2026-09-02, on the first run",
-          "fixed": true,
-          "proved_by": "Replaced by two that really ask it; the empty-file breakage turns them red."
-        },
-        {
-          "what": "**A CHECK THAT SCANNED THE SOURCE FOR FORBIDDEN WORDS WAS THE WRONG CHECK.** It read the docstring too, so the sentence explaining that a day fetched again must still be read made it go red about the word 'fetch'. Prose is not code.",
-          "found": "2026-09-02",
-          "fixed": true,
-          "proved_by": "It now checks what the file can REACH -- that `runlog`, `board`, `schedule`, `reports`, `runner` and `nightly` are not importable here, so the rule cannot be broken by somebody passing the wrong thing."
-        },
-        {
-          "what": "**NOTHING YET REMEMBERS WHICH FILES HAVE BEEN READ ACROSS RUNS.** What survives a run is `between_runs.Between`, which has no field for it. Adding one means bumping its SHAPE, and a shape bump makes an existing record refuse and stop the run -- deliberate, on their side. No seller record exists anywhere yet, so the cost today is nil. **NOT DONE HERE: that file has its own contract and 60 checks, and touching working code is confirmed first.**",
-          "found": "2026-09-02",
-          "fixed": false,
-          "proved_by": null
-        },
-        {
-          "what": "**WHAT HAS BEEN READ GROWS FOR EVER.** `now_read` never drops an id -- about 7,000 a year at his volume, in a record that lives in the seller's own Drive. `between_runs.py` caps its own history at KEEP_RUN_DAYS; this has no cap. Not fixed: the cap belongs where the record lives, and nothing carries this across runs yet.",
-          "found": "2026-09-02, by the review",
-          "fixed": false,
-          "proved_by": null
-        }
-      ],
-      "state": {
-        "built": true,
-        "reviewed": false,
-        "run_for_real": false,
-        "instead": "42 checks. **Proved by breaking it on purpose: eight faults, seven caught by a NAMED check; the eighth was a no-op breakage -- the behaviour is protected structurally, confirmed by running it. It has never chosen a file in a real folder: nothing calls it yet.**"
-      }
-    },
-    {
-      "id": "the-gate",
-      "name": "The gate, so the checks are not run because somebody remembered to",
-      "what": "**2,206 checks passed here and NOTHING MADE THEM RUN**, and 0 of the first 11 commits carry any record that a person read the diff (D156). Follows Kartaan-Server's gate (cf648d9) rather than inventing a shape. **Every rule is in `tools/gate.py`, never in the hook** -- a rule written in a git hook is a rule nothing can test, and the ERP's hook once PRINTED that it had tagged a commit and never did, undetected across three commits. It refuses a commit that carries a credential, leaves the register disagreeing with disk, has any checks file red, or has nothing recording that somebody READ it. **The tag goes on in `commit-msg` because a pre-commit hook structurally cannot rewrite a message**, and the review record is consumed so it cannot be reused. `.github/workflows/pm_check.yml` is the half `--no-verify` cannot walk past.",
-      "rests_on": [],
-      "files": [
-        "tools/gate.py",
-        "tools/gate_checks.py",
-        ".githooks/pre-commit",
-        ".githooks/commit-msg",
-        "review_pass.template.json",
-        ".github/workflows/pm_check.yml"
-      ],
-      "reviews": [],
-      "findings": [
-        {
-          "what": "**THE JAVASCRIPT CHECKS WOULD NOT HAVE RUN.** The Server's gate sweeps only Python because it has only Python. Copied as-is, this gate would have reported green while 400 checks over the extension -- the half that runs in the seller's own Chrome -- never ran. The same shape as the Server's own gate not sweeping its `tools/`, which it found by reading what it printed.",
-          "found": "2026-09-02, while adapting it",
-          "fixed": true,
-          "proved_by": "tools/gate_checks.py -- 'THE JAVASCRIPT ONES ARE FOUND TOO'; and the register sweeps .js as well."
-        },
-        {
-          "what": "**THE WORKFLOW WOULD HAVE RUN IN EVERY SELLER'S GITHUB ACCOUNT.** D36 copies this repository into each one, and the workflow cannot pass there: its checks are pinned against two PRIVATE repositories a seller has no token for. Every seller would carry a permanent red cross for a rule about how Kartaan is developed. Guarded to `kartaan-com` only, with the cost of the guard stated in the file: a seller's copy has no gate on GitHub, which is right because nobody develops there.",
-          "found": "2026-09-02",
-          "fixed": true,
-          "proved_by": "tools/gate_checks.py -- 'IT RUNS ONLY IN KARTAAN'S OWN ORGANISATION'."
-        }
-      ],
-      "state": {
-        "built": true,
-        "reviewed": false,
-        "run_for_real": false,
-        "instead": "88 checks on the gate's own rules, including one that reads all THREE copies of `NOT_CODE` off disk -- Python, the commit-msg hook, and the workflow -- and holds them to each other. The workflow has never run: nothing has been pushed."
-      }
+     "round": "cycle 46",
+     "date": "2026-08-29",
+     "reviewers": 6,
+     "note": "Reviewed as part of the single `autosync` entry, before this repository existed. Six reviewers over the whole of it, not six over this piece."
     }
-  ]
+   ],
+   "findings": [
+    {
+     "what": "`me_payments.cannot_backfill` says Meesho payments cannot be fetched for a past period. D132 proved that untrue against his own Drive -- `05_2026.xlsx` holds 879 rows covering April and May, downloaded after both months ended. The sentence is SHOWN TO SELLERS.",
+     "found": "2026-08-29, by him",
+     "fixed": false,
+     "proved_by": null
+    }
+   ],
+   "state": {
+    "built": true,
+    "reviewed": "2026-08-29, inside a wider review",
+    "run_for_real": false,
+    "instead": "82 checks pass. The list was measured against his real Drive files by hand (D132), which is how the finding above was found -- but this file has never handed a report to a run."
+   }
+  },
+  {
+   "id": "what-is-owed",
+   "name": "What is owed, when it is late, and when to ask a person",
+   "what": "The catching-up. A deadline is counted in CALENDAR days from the day the data was owed, never in attempts -- the reference counted attempts, so a date stuck fifteen days still read 'day 2' and never escalated. `days_late()` takes two dates so nothing can stop the clock (D108). Also holds D110's asking for a day by hand: the same code the nightly run uses, never a second program, and everything refused is in the log BEFORE anything is fetched.",
+   "rests_on": [
+    "report-list"
+   ],
+   "files": [
+    "autosync/schedule.py",
+    "autosync/schedule_checks.py"
+   ],
+   "reviews": [
+    {
+     "round": "cycle 46",
+     "date": "2026-08-29",
+     "reviewers": 6,
+     "note": "Inside the single `autosync` entry."
+    }
+   ],
+   "findings": [
+    {
+     "what": "D132 requires the refusal of a by-hand Meesho payments request to be LIFTED. It has not been.",
+     "found": "2026-08-29, by him",
+     "fixed": false,
+     "proved_by": null
+    }
+   ],
+   "state": {
+    "built": true,
+    "reviewed": "2026-08-29, inside a wider review",
+    "run_for_real": false,
+    "instead": "70 checks pass. Nothing has ever been owed to it, because no run has ever happened."
+   }
+  },
+  {
+   "id": "run-log",
+   "name": "The run log",
+   "what": "Shape 2 of the contract (D100). Both doors write the same five things -- `at`, `run`, `report`, `level`, `message` -- so one screen reads both without knowing which door a line came from. A run is a context manager, so no way out can skip flushing its evidence (D108).",
+   "rests_on": [],
+   "files": [
+    "autosync/runlog.py",
+    "autosync/runlog_checks.py"
+   ],
+   "reviews": [
+    {
+     "round": "cycle 46",
+     "date": "2026-08-29",
+     "reviewers": 6,
+     "note": "Inside the single `autosync` entry."
+    }
+   ],
+   "findings": [
+    {
+     "what": "`runlog.Run` recorded a failed flush since it was written and nothing ever read it, so a run whose log never left the building finished green.",
+     "found": "2026-08-29, while building D114",
+     "fixed": true,
+     "proved_by": "autosync/runlog_checks.py"
+    }
+   ],
+   "state": {
+    "built": true,
+    "reviewed": "2026-08-29, inside a wider review",
+    "run_for_real": false,
+    "instead": "56 checks pass. No line has ever been written by a real run."
+   }
+  },
+  {
+   "id": "landing",
+   "name": "Where a file lands, and how far a marker may move",
+   "what": "Shape 4 of the contract (D100). The raw file lands untouched in the seller's own Drive before anything reads it, so a bad reading is fixable without re-fetching. Arrival is asked of the FILE, never of the job's own opinion, and a marker advances only as far as what is verifiably inside what arrived.",
+   "rests_on": [
+    "report-list"
+   ],
+   "files": [
+    "autosync/landing.py",
+    "autosync/landing_checks.py"
+   ],
+   "reviews": [
+    {
+     "round": "cycle 46",
+     "date": "2026-08-29",
+     "reviewers": 6,
+     "note": "Inside the single `autosync` entry."
+    }
+   ],
+   "findings": [],
+   "state": {
+    "built": true,
+    "reviewed": "2026-08-29, inside a wider review",
+    "run_for_real": false,
+    "instead": "92 checks pass. No file has ever landed anywhere."
+   }
+  },
+  {
+   "id": "day-board",
+   "name": "The day board -- expected against arrived",
+   "what": "Shape 3 of the contract (D100), and the engine behind D109's Data tab. `arrived / missing / blocked / arrived empty / needs somebody`, with 'nothing ran' as the loudest line -- which the reference could never say, because when nothing runs nothing is there to raise the alarm.",
+   "rests_on": [
+    "report-list",
+    "landing"
+   ],
+   "files": [
+    "autosync/board.py",
+    "autosync/board_checks.py"
+   ],
+   "reviews": [
+    {
+     "round": "cycle 46",
+     "date": "2026-08-29",
+     "reviewers": 6,
+     "note": "Inside the single `autosync` entry."
+    }
+   ],
+   "findings": [
+    {
+     "what": "The Data tab counted 'days missing' by the word alone, so the worst state on the board read as nought. Found by running his own Drive through it.",
+     "found": "2026-08-29, while building D114",
+     "fixed": true,
+     "proved_by": "autosync/board_checks.py"
+    }
+   ],
+   "state": {
+    "built": true,
+    "reviewed": "2026-08-29, inside a wider review",
+    "run_for_real": false,
+    "instead": "55 checks pass. His real Drive listing was pushed through it BY HAND once, on 2026-08-29, which is how the finding above was found. It has never been fed by a run."
+   }
+  },
+  {
+   "id": "amazon-door",
+   "name": "The Amazon door",
+   "what": "Amazon goes through its own API. `amazon.py` is PURE -- no sockets, no token, no network -- it takes what an answer said and decides what that means, so every rule Amazon's API makes true is checked with no account. `amazon_door.py` fetches one report end to end and even it does not open the connection: the transport is handed in.",
+   "rests_on": [
+    "report-list",
+    "run-log"
+   ],
+   "files": [
+    "autosync/amazon.py",
+    "autosync/amazon_checks.py",
+    "autosync/amazon_door.py",
+    "autosync/amazon_door_checks.py"
+   ],
+   "reviews": [
+    {
+     "round": "cycle 46",
+     "date": "2026-08-29",
+     "reviewers": 6,
+     "note": "Inside the single `autosync` entry."
+    }
+   ],
+   "findings": [],
+   "state": {
+    "built": true,
+    "reviewed": "2026-08-29, inside a wider review",
+    "run_for_real": false,
+    "instead": "224 checks pass, every one against a stand-in. NOT ONE REAL CALL HAS EVER BEEN MADE TO AMAZON'S API by this code. Rumee's SP-API access is approved and active; nothing here has used it."
+   }
+  },
+  {
+   "id": "browser-door",
+   "name": "The browser door -- the steps, written as data",
+   "what": "Meesho has no published API and Akamai sits in front of the portal, so those reports are fetched in the seller's own Chrome (D100, D107). `browser.py` says how a page is driven, written as DATA rather than as code, so a moved button is one entry to change. `browser_door.py` answers exactly what the Amazon door answers -- same states, same `say`, same `their_id` -- so the runner cannot tell them apart. Since D107 it is the checked SPECIFICATION and no longer drives a portal itself.",
+   "rests_on": [
+    "report-list",
+    "run-log"
+   ],
+   "files": [
+    "autosync/browser.py",
+    "autosync/browser_checks.py",
+    "autosync/browser_door.py",
+    "autosync/browser_door_checks.py"
+   ],
+   "reviews": [
+    {
+     "round": "cycle 46",
+     "date": "2026-08-29",
+     "reviewers": 6,
+     "note": "Inside the single `autosync` entry."
+    }
+   ],
+   "findings": [],
+   "state": {
+    "built": true,
+    "reviewed": "2026-08-29, inside a wider review",
+    "run_for_real": false,
+    "instead": "157 checks pass. D107 means this file is no longer the thing that walks a portal -- the extension is -- so it can never run for real. Its cost was named when it was chosen: the same walk described in two languages, with nothing mechanical comparing them."
+   }
+  },
+  {
+   "id": "recipes",
+   "name": "The click-by-click steps, decided in one place",
+   "what": "Phases 4 and 5 of D100, and the whole design in one file: adding a browser report is one entry here and nothing else. `tools/export_recipes.py` writes the steps out for the extension and for the report list the screens read, and refuses when what is on disk has drifted -- the steps are decided ONCE, in Python, where they are checked without a browser (D107).",
+   "rests_on": [
+    "browser-door",
+    "report-list"
+   ],
+   "files": [
+    "autosync/recipes.py",
+    "autosync/recipes_checks.py",
+    "tools/export_recipes.py",
+    "tools/export_recipes_checks.py",
+    "src/shared/definitions/reports.json"
+   ],
+   "also_touches": [
+    "extension/recipes.json"
+   ],
+   "reviews": [
+    {
+     "round": "cycle 46",
+     "date": "2026-08-29",
+     "reviewers": 6,
+     "note": "Inside the single `autosync` entry."
+    }
+   ],
+   "findings": [
+    {
+     "what": "The generator writes `src/shared/definitions/reports.json` into ITS OWN checkout, so the copy the ERP's screens read became a hand-copy nothing owned. A reviewer added a report called 'A stream that does not exist' and 179 checks across both repositories passed while the Data tab listed it to a seller.",
+     "found": "2026-08-31, by an independent reviewer",
+     "fixed": true,
+     "proved_by": "Kartaan-ERP src/shared/definitions/reports.test.js -- the comparison now lives on the side that READS the file, and refuses rather than skips when it cannot reach this repository."
+    }
+   ],
+   "state": {
+    "built": true,
+    "reviewed": "2026-08-29, inside a wider review; the drift finding came later, 2026-08-31",
+    "run_for_real": false,
+    "instead": "265 checks pass. The steps have been walked read-only against his real portals by the extension (see `extension`), but no recipe has ever fetched a file."
+   }
+  },
+  {
+   "id": "runner",
+   "name": "One run: work out what is owed, fetch it, land it, say what happened",
+   "what": "Phase 3. The piece that ties the spine to a door -- and the only place that knows both. `do_a_run(asked_for=...)` is also how D110's asking for a day by hand is served, so there is never a second program: the reference built a separate backfill and that is exactly where its three wrongly-dated duplicate files in Drive came from.",
+   "rests_on": [
+    "what-is-owed",
+    "run-log",
+    "landing",
+    "amazon-door",
+    "browser-door"
+   ],
+   "files": [
+    "autosync/runner.py",
+    "autosync/runner_checks.py"
+   ],
+   "reviews": [
+    {
+     "round": "cycle 46",
+     "date": "2026-08-29",
+     "reviewers": 6,
+     "note": "Inside the single `autosync` entry."
+    }
+   ],
+   "findings": [],
+   "state": {
+    "built": true,
+    "reviewed": "2026-08-29, inside a wider review",
+    "run_for_real": false,
+    "instead": "79 checks pass. It has never made one run."
+   }
+  },
+  {
+   "id": "alarms",
+   "name": "What gets told to somebody, and what does not",
+   "what": "Phase 3. The problem this file exists for, and the reference could not solve it: when NOTHING runs, nothing is there to raise the alarm. All three are told when something is missing -- the seller in full, Jaiswal the fact only (seller, report, date, reason, nothing on his storage), and a message out (D100).",
+   "rests_on": [
+    "day-board",
+    "run-log"
+   ],
+   "files": [
+    "autosync/alarms.py",
+    "autosync/alarms_checks.py"
+   ],
+   "reviews": [
+    {
+     "round": "cycle 46",
+     "date": "2026-08-29",
+     "reviewers": 6,
+     "note": "Inside the single `autosync` entry."
+    }
+   ],
+   "findings": [],
+   "state": {
+    "built": true,
+    "reviewed": "2026-08-29, inside a wider review",
+    "run_for_real": false,
+    "instead": "63 checks pass. NO ALARM HAS EVER BEEN SENT to anyone by any path. Whether the message actually arrives -- the address, the credential, the delivery -- is untested end to end."
+   }
+  },
+  {
+   "id": "the-run-that-starts-itself",
+   "name": "The run that starts itself, with nobody present",
+   "what": "D111, D113 and D120. Every piece of auto-sync existed and nothing joined them; this is the joining. The job wakes on a schedule in the seller's own GitHub Actions and `clock.py` refuses the ticks that are not due -- the hour is a FLOOR, not an appointment, because GitHub's own docs say a scheduled run can be delayed and a missed appointment is a day lost (D108). FIVE things survive a run and live in the seller's own Drive -- the fifth, added 2026-09-02, is WHICH FILES HAVE ALREADY BEEN READ, and it is a LIST OF FILE IDS and never a date: a file that fails and arrives days later is simply not in the list and is read, where a high-water date would skip it for ever and say nothing (D110). A MISSING record and a DAMAGED one are not the same thing: missing is a first night, damaged STOPS the run, because read as empty it asks Amazon again for every report it is already building. `start.py` DECIDES NOTHING -- it reads the secrets and opens the connections; every rule is in `nightly.py` where it is checked. `transport.py` is the only file in the package that opens a connection.",
+   "rests_on": [
+    "runner",
+    "alarms",
+    "drive",
+    "database"
+   ],
+   "files": [
+    ".github/workflows/autosync.yml",
+    "autosync/nightly.py",
+    "autosync/nightly_checks.py",
+    "autosync/start.py",
+    "autosync/between_runs.py",
+    "autosync/between_runs_checks.py",
+    "autosync/clock.py",
+    "autosync/clock_checks.py",
+    "autosync/transport.py",
+    "autosync/transport_checks.py"
+   ],
+   "reviews": [
+    {
+     "round": "cycle 46",
+     "date": "2026-08-29",
+     "reviewers": 6,
+     "note": "Inside the single `github-actions` entry."
+    }
+   ],
+   "findings": [
+    {
+     "what": "D113: nothing carries the seller's chosen hour to the job. Superseded in part by D114 -- the job now READS the hour off the seller's own business record -- but the workflow has never been installed anywhere, so the path is unexercised.",
+     "found": "2026-08-29",
+     "fixed": false,
+     "proved_by": null
+    },
+    {
+     "what": "**THE RECORD'S SHAPE WENT FROM 1 TO 2** to carry `files_read`. An existing shape-1 record now REFUSES and stops the run -- deliberate, and the reason the number exists. Costless only because no record exists: checked, not assumed. The day a seller has one, this costs them a night.",
+     "found": "2026-09-02",
+     "fixed": true,
+     "proved_by": "`between_runs_checks.py` -- 'a record written before this field existed refuses rather than reading as a first night', red when SHAPE is left at 1."
+    }
+   ],
+   "state": {
+    "built": true,
+    "reviewed": "2026-08-29, inside a wider review",
+    "run_for_real": false,
+    "instead": "336 checks pass, all with the transport handed in. THE WORKFLOW HAS NEVER RUN, in this repository or any seller's. `start.py` -- the one file that reads the GitHub Actions Secrets and opens the real connections -- HAS NO CHECKS FILE OF ITS OWN and has never been executed. That is the single largest untested surface here."
+   }
+  },
+  {
+   "id": "drive",
+   "name": "Putting a file in the seller's own Drive",
+   "what": "D100 and D131. The raw file lands untouched, before anything reads it. `drive.py` decides, `drive_door.py` does -- transport handed in, so every line is checked with no account and no internet. A write refused for storage says so, so a full Drive is reported as 'your Google Drive is full, today's files were not saved' rather than as the platform giving nothing (D108, D131). The run holds `drive.file` only, which never sees a file it did not create -- reading the seller's Drive quota would cost the same annual security assessment as full control of it, and that was refused.",
+   "rests_on": [
+    "landing"
+   ],
+   "files": [
+    "autosync/drive.py",
+    "autosync/drive_checks.py",
+    "autosync/drive_door.py",
+    "autosync/drive_door_checks.py"
+   ],
+   "reviews": [
+    {
+     "round": "cycle 46",
+     "date": "2026-08-29",
+     "reviewers": 6,
+     "note": "Inside the single `shared-place` entry."
+    }
+   ],
+   "findings": [],
+   "state": {
+    "built": true,
+    "reviewed": "2026-08-29, inside a wider review",
+    "run_for_real": false,
+    "instead": "112 checks pass against a stand-in transport. NOT ONE BYTE HAS EVER BEEN UPLOADED to a real Google Drive by this code. The Google app is still in Testing, so any refresh token it did hold would die after seven days."
+   }
+  },
+  {
+   "id": "database",
+   "name": "What the run writes into the seller's own database",
+   "what": "D114, widened by D136. The job asks for `datastore` alongside the `drive.file` it already holds and writes AS THE SELLER -- no new key anywhere. THE SCOPE BYPASSES `firestore.rules`: Google authorises it by IAM, so the narrowness is enforced by ONE FUNCTION IN THIS FILE and by nothing else -- `where_a_document_lives` refuses any collection not on the list, by name. Every moment goes in as TEXT, because a timestamp would be read as UTC and shown five and a half hours wrong. `True` is an `int` in Python, so booleans are asked about first. The chosen hour is READ and never written.",
+   "rests_on": [
+    "run-log",
+    "day-board"
+   ],
+   "files": [
+    "autosync/firestore.py",
+    "autosync/firestore_checks.py",
+    "autosync/firestore_door.py",
+    "autosync/firestore_door_checks.py"
+   ],
+   "reviews": [
+    {
+     "round": "cycle 46",
+     "date": "2026-08-29",
+     "reviewers": 6,
+     "note": "Inside the single `shared-place` entry."
+    },
+    {
+     "round": "cycle 47",
+     "date": "2026-08-31",
+     "reviewers": 1,
+     "note": "Reached sideways: the ERP's `ingestion` piece was reviewed and two of its five blocking findings were about the contract with THIS file."
+    }
+   ],
+   "findings": [
+    {
+     "what": "A log line's name was built with SIX parts here and FIVE on the page, so no line Kartaan made would ever have matched a line the run made -- and two different lines could land at one name, the second silently replacing the first. The check named for exactly that fault asserted the page contained one particular string, and PASSED while the two sides disagreed.",
+     "found": "2026-08-31, by an independent reviewer",
+     "fixed": true,
+     "proved_by": "autosync/firestore_checks.py -- 'a log line's name is built the same way on both sides' now reads BOTH sides out of their own source and compares them part by part. UNCOMMITTED as of 2026-09-02."
+    },
+    {
+     "what": "D136 supersedes D114's narrowness -- the run must write the seller's business records once the reader exists. `WHAT_IT_MAY_WRITE` is still the three names D114 allowed. Nothing is wrong today, because there is no reader; it becomes wrong the day there is one.",
+     "found": "2026-08-29",
+     "fixed": false,
+     "proved_by": null
+    }
+   ],
+   "state": {
+    "built": true,
+    "reviewed": "2026-08-29, and again sideways 2026-08-31",
+    "run_for_real": false,
+    "instead": "167 checks pass against a stand-in transport. NO DOCUMENT HAS EVER BEEN WRITTEN to a real Firestore by this code. The one lock keeping the seller's whole database safe from this job is a Python function that has never been exercised against Google."
+   }
+  },
+  {
+   "id": "extension",
+   "name": "The seller's own Chrome, carrying out the steps",
+   "what": "D107. The steps are decided in Python and only WALKED here -- the reference drove both portals from about 3,800 lines of JavaScript and nothing in it could be checked without a real browser and a real login. A run's own record goes in `storage.local`, because a run that vanished when Chrome restarted is what left ten real files unrecorded on 25 August. Listeners are declared at the top level, or after a restart they do not exist.",
+   "rests_on": [
+    "recipes"
+   ],
+   "files": [
+    "extension/manifest.json",
+    "extension/background.js",
+    "extension/background.test.js",
+    "extension/content.js",
+    "extension/catch-blob.js",
+    "extension/doors.js",
+    "extension/doors.test.js",
+    "extension/driver.js",
+    "extension/driver.test.js",
+    "extension/walk.js",
+    "extension/walk.test.js",
+    "extension/worker.js",
+    "extension/recipes.json",
+    "extension/recipes.test.js"
+   ],
+   "reviews": [
+    {
+     "round": "cycle 46",
+     "date": "2026-08-29",
+     "reviewers": 6
+    }
+   ],
+   "findings": [
+    {
+     "what": "Seven faults no check could have caught, found by loading it into his real Chrome: a wrong address does not fail -- Meesho serves a page that never finishes; a covering never stopped anything, it EXPLAINS a lookup that failed; Flipkart report types match as pressable things, not as words; Meesho's sidebar carries no role, no tabindex and no test id, so asked for a control it answers nothing at all.",
+     "found": "2026-08-27 and 2026-08-28, in his own Chrome",
+     "fixed": true,
+     "proved_by": "extension/driver.test.js and extension/walk.test.js"
+    },
+    {
+     "what": "A claim that the Meesho panel had no controls at all was taken from a page that had only half drawn. Corrected the next day. The correction matters more than the finding: a claim about a whole platform read off an unfinished page is exactly the mistake this door exists to stop being made about buttons.",
+     "found": "2026-08-28",
+     "fixed": true,
+     "proved_by": "extension/driver.test.js -- either signal counts, cursor or role, because a plain button has the ordinary cursor."
+    }
+   ],
+   "state": {
+    "built": true,
+    "reviewed": "2026-08-29",
+    "run_for_real": false,
+    "instead": "400 JavaScript checks pass. THE CLOSEST ANYTHING HERE HAS COME TO REAL: loaded unpacked into his own Chrome on 2026-08-27 and driven READ-ONLY against his real Meesho panel and his real Flipkart dashboard. NOTHING WAS CLICKED, SUBMITTED OR DOWNLOADED. It has never fetched a file, never signed in through it, never met a real Akamai challenge, and has never been published or installed as an extension."
+   }
+  },
+  {
+   "id": "test-harness",
+   "name": "The stand-ins the checks run against",
+   "what": "A pretend browser with no stylesheets and no drawing, and a pretend Chrome, so the extension's checks can run with no browser and no account. Anything about how something LOOKS is invisible to them.",
+   "rests_on": [],
+   "files": [
+    "test/fake-browser.js",
+    "test/fake-chrome.js"
+   ],
+   "reviews": [
+    {
+     "round": "cycle 46",
+     "date": "2026-08-29",
+     "reviewers": 6,
+     "note": "`fake-chrome.js` inside the `extension` entry. `fake-browser.js` was reviewed in the ERP, where the other copy still lives."
+    }
+   ],
+   "findings": [
+    {
+     "what": "`fake-browser.js` EXISTS IN BOTH REPOSITORIES and nothing joins the two copies. If one changes, the other does not know. Named in the README as known and not fixed.",
+     "found": "2026-08-31, at the split",
+     "fixed": false,
+     "proved_by": null
+    }
+   ],
+   "state": {
+    "built": true,
+    "reviewed": "2026-08-29",
+    "run_for_real": false,
+    "instead": "It is a stand-in. It cannot run for real -- that is its whole point, and also the reason a green suite here says nothing about a real night."
+   }
+  },
+  {
+   "id": "the-other-half",
+   "name": "The door into the other repositories",
+   "what": "D148. Two checks here are pinned against files that are not here -- `firestore_checks.py` reads Kartaan's own `sync.js` so the three collection names this job WRITES match the names Kartaan's screens READ, and `firestore_door_checks.py` pins the Google scope this door needs against the scope Kartaan-Server actually asks the seller for. One fact written down twice, in two languages, with nothing mechanical joining them. IT REFUSES RATHER THAN SKIPS: a check that quietly stops checking is worse than no check, because it is still counted.",
+   "rests_on": [],
+   "files": [
+    "autosync/the_other_half.py"
+   ],
+   "reviews": [],
+   "findings": [
+    {
+     "what": "**IT ACCEPTED THE ERP'S OLD FOLDER NAME** `Kartaan` alongside `Kartaan-ERP`, left over from D148's rename. A fallback nobody writes down is how two spellings of one thing survive for a year.",
+     "found": "2026-09-02, by the review (the ERP's own open item 12)",
+     "fixed": true,
+     "proved_by": "autosync/firestore_door_checks.py -- 'the door no longer accepts the old folder name'."
+    },
+    {
+     "what": "**IT READ THE OTHER REPOSITORY'S WORKING FILES, NOT ITS COMMITTED ONES**, so a check here could go green against work nobody had committed. It really bit: the ERP has seventeen new ledger columns written and not committed, so the column check was RED against a file that at the ERP's HEAD agreed exactly -- and a gate built while that was red would have refused the commit containing the gate.",
+     "found": "2026-09-02",
+     "fixed": true,
+     "proved_by": "It reads `git show HEAD:` and refuses when git cannot answer, with no fallback to disk; pointing it at a file not committed there refuses in words."
+    }
+   ],
+   "state": {
+    "built": true,
+    "reviewed": false,
+    "run_for_real": false,
+    "instead": "It runs every time the checks run, and has been seen to refuse when pointed at nothing. It has never been reviewed by anybody who did not write it."
+   }
+  },
+  {
+   "id": "readme",
+   "name": "What this repository is, and what is known and not fixed",
+   "what": "Why the fetching is its own repository (D36), what is in it, how to run the checks, where the credentials go, and the two things known to be wrong and not fixed.",
+   "rests_on": [],
+   "files": [
+    "README.md",
+    ".gitignore"
+   ],
+   "reviews": [],
+   "findings": [],
+   "state": {
+    "built": true,
+    "reviewed": false,
+    "run_for_real": false,
+    "instead": "Written at the split, 2026-08-31. Nobody has read it back against the code."
+   }
+  },
+  {
+   "id": "reading-a-file",
+   "name": "Turning a platform's file into rows",
+   "what": "The floor the whole reader stands on: take the bytes a platform handed over and say what rows are in them, or say why a row could not be read. It knows nothing about sales, settlements, SKUs or money, and it never hands back a number -- turning \"0\" into 0 is a decision about a FIELD, and D119 says the money rules are written once, somewhere else. **Written against his real files, not a description of them.** Four faults those files actually have: Amazon ends every line with CARRIAGE-RETURN CARRIAGE-RETURN NEWLINE, so the plain way of counting lines reports 93 orders where there are 46; all three Amazon files are named `.csv` and all three are TAB-separated, so what separates the columns is read out of the file and never off its name; Meesho's comma file quotes every field while Amazon's tab files contain not one quote character, so quoting is off for tab and on for comma; and **a row of the wrong width is named and kept, never dropped** -- the reference read its files with on_bad_lines='skip', which loses the row AND says nothing. **AND A HEADER IS NOT ALWAYS ON LINE 1 (added 2026-09-02):** a real Meesho returns file opens with a seven-line title block -- a blank line, the panel's name, the supplier's own details, a timestamp -- with the column names on LINE 8. Read from line 1 that file names no columns at all and the whole returns stream was unreadable. The separator is decided from the header's own line too, since a title block two cells wide says nothing about the columns below it.",
+   "rests_on": [],
+   "files": [
+    "autosync/table.py",
+    "autosync/table_checks.py"
+   ],
+   "reviews": [],
+   "findings": [
+    {
+     "what": "A check named 'a quote character in a tab file does not swallow the columns after it' COULD NOT FAIL for that fault. Its sample put the quote in the MIDDLE of a field (`9\" Bangle`), and a quote that is not the first character never opens a quoted field -- so the file read identically whether the rule was there or not. Exactly the shape of the log-line-name check this project already shipped: named for the fault, passing through it.",
+     "found": "2026-09-02, by putting the fault back and watching nothing go red",
+     "fixed": true,
+     "proved_by": "autosync/table_checks.py -- the sample now starts a field with a quote. Taking `quoting=csv.QUOTE_NONE` back out turns two checks red."
+    },
+    {
+     "what": "A check was written with a dead `if False else True` on the end, so it was green by construction and counted towards the total.",
+     "found": "2026-09-02, on the first run of the checks",
+     "fixed": true,
+     "proved_by": "It is deleted; the count went from 75 to 74 and had to be corrected."
+    },
+    {
+     "what": "**THE MEESHO RETURNS STREAM COULD NOT BE READ AT ALL.** `sheet.read` has taken a header row since it was written, because his Flipkart payments file puts category bands across row 1. The same fault in a TEXT file went unnoticed until a real returns file was opened.",
+     "found": "2026-09-02, by opening his real returns file",
+     "fixed": true,
+     "proved_by": "His real file now reads -- 22 columns, 101 rows, nothing refused, first data row on line 9. Taking the header row back out turns four checks red."
+    }
+   ],
+   "state": {
+    "built": true,
+    "reviewed": false,
+    "run_for_real": false,
+    "instead": "100 checks pass, and **35 of them read his REAL files** -- 46 real Amazon orders, 7 real returns, 15 real settlement lines, a real Meesho orders file, and a real Meesho returns file of 101 rows whose columns start on line 8. Pointed elsewhere they SAY they did not run and the count follows. **Proved by breaking it on purpose: thirteen faults, twelve caught by a named check and one by a second guard, proved by removing both.**"
+   }
+  },
+  {
+   "id": "reading-a-spreadsheet",
+   "name": "Reading a spreadsheet, with nothing installed",
+   "what": "**Most of his files are not text, and that was in nobody's plan until 2026-09-02.** All 67 Flipkart order files are `.xlsx`, and so is every payments file -- 99 Meesho and 87 Flipkart. Only Meesho orders and Amazon read as text, so without this Flipkart cannot be read at all. Nothing is installed to do it and nothing needs to be: an `.xlsx` is a zip of XML, so `zipfile` and `xml.etree` are enough. **It hands back the same `table.Table` a text file does**, so everything above cannot tell which arrived and the rules about refused rows and missing columns stay written once.",
+   "rests_on": [
+    "reading-a-file"
+   ],
+   "files": [
+    "autosync/sheet.py",
+    "autosync/sheet_checks.py"
+   ],
+   "reviews": [],
+   "findings": [
+    {
+     "what": "**HIS REAL MEESHO PAYMENTS FILE HAS TWO COLUMNS WITH ONE NAME** -- `Fixed Fee (Incl. GST)`, at columns 18 and 26, holding different figures, beside 41 good ones. `table.py` refused the whole FILE on a duplicate name, which would have made Meesho payments permanently unreadable over one column.",
+     "found": "2026-09-02, by pointing the reader at his real file",
+     "fixed": true,
+     "proved_by": "The refusal moved from reading the file to LOOKING THE NAME UP -- nothing guesses, which was always the point, but one bad name no longer loses 42 good columns. Putting the old behaviour back turns checks red in both files."
+    },
+    {
+     "what": "A second check written with a dead `if False else True` on the end -- green by construction. The second one written in a single day.",
+     "found": "2026-09-02, while writing the checks",
+     "fixed": true,
+     "proved_by": "Replaced with two that build a real bad zip and a real damaged workbook."
+    },
+    {
+     "what": "**THE CHECK HELPER ITSELF HID A FAULT.** It numbered each row by its position in the list rather than from its own cells, so a check could not write rows out of order -- the helper quietly put them back, and the check that needed them shuffled would have passed whatever the reader did.",
+     "found": "2026-09-02, by putting the fault back and watching nothing go red",
+     "fixed": true,
+     "proved_by": "The helper now takes a row's number from its own cell references. Reading rows in the order they appear rather than by number now turns two checks red."
+    },
+    {
+     "what": "**THE PROVING PASS CALLED A CRASH A SURVIVOR.** A malformed breakage stopped the checks file loading, so it printed no failures -- and that was recorded as 'nothing caught this', which is the opposite of what it meant. A prover that flatters itself is worse than none.",
+     "found": "2026-09-02",
+     "fixed": true,
+     "proved_by": "It now separates CRASHED from SURVIVED and says the breakage proved nothing."
+    }
+   ],
+   "state": {
+    "built": true,
+    "reviewed": false,
+    "run_for_real": false,
+    "instead": "66 checks, and they read HIS REAL SPREADSHEETS -- his Flipkart orders (39 columns, 63 rows), his Flipkart payments (74 columns, 77 rows, header on row 2, 16 sheets) and his Meesho payments (43 columns, 83 rows). **Proved by breaking it on purpose: twelve faults put back one at a time, twelve caught, no survivors** -- and two of those twelve found gaps in the checks rather than in the code. The spreadsheets the checks build are built by hand out of zip and XML, because one made by the same code that reads it would agree with itself about anything. Never run inside a real run, and no independent reviewer has read it."
+   }
+  },
+  {
+   "id": "what-a-sale-is",
+   "name": "What a sale IS, and the row it becomes",
+   "what": "**Sales do not go in the database. They go in a GOOGLE SHEET (D126)** -- a Sheet is for what the pipeline writes and Kartaan only reads; the database is for what Kartaan's own clicks change. His own numbers decided it: one document per sale means a screen opening reads thirty thousand of them, most of a day's free allowance, at his current 83 orders a day. **The columns are not invented here -- they belong to the ERP**, and are written out again only because Python cannot import JavaScript. A sale is named `platform::orderId::sku` from the sale itself, which is what makes the same file arriving twice change nothing. Nothing here writes anything anywhere: putting a row in a sheet is a door, and it is not built.",
+   "rests_on": [
+    "the-other-half"
+   ],
+   "files": [
+    "autosync/sales.py",
+    "autosync/sales_checks.py"
+   ],
+   "reviews": [],
+   "findings": [
+    {
+     "what": "**THE CHECK'S FIRST VERSION GAVE A CONFIDENT, SPECIFIC, WRONG ANSWER ABOUT REAL DATA.** Reading the ERP's column list with a plain quote-matching pattern, it reported that the two sides DISAGREED and named two columns called things like `s shelf it would come out different...`. Those were sentences out of the COMMENTS beside the list -- the ERP explains `taking` as \"the whole of D51's replay safety\", and that apostrophe opened a string as far as the pattern was concerned, swallowing `took` and inventing two columns that do not exist. The lists were identical all along.",
+     "found": "2026-09-02, on the first run of the checks",
+     "fixed": true,
+     "proved_by": "Comments are stripped before anything is read, at all three read sites. Dropping a real column, swapping two, or renaming a charge each turns the comparison red -- proved by doing all three."
+    }
+   ],
+   "state": {
+    "built": true,
+    "reviewed": false,
+    "run_for_real": false,
+    "instead": "60 checks. **The important ones read the ERP's own source and compare, name by name and in order** -- `sheet-store.js` for the columns, `charges.js` for the charge ids, `orders.js` for how a sale is named and what states it can be in. Neither list is typed out in the check. They REFUSE rather than skip when the ERP cannot be found, proved by pointing them at nothing. **Proved by breaking it on purpose: thirteen faults put back one at a time, thirteen caught, no survivors.** No sale has ever been written to a real sheet -- there is no sheet door yet."
+   }
+  },
+  {
+   "id": "which-column-is-what",
+   "name": "Which of a platform's own columns is the SKU, the quantity, the money",
+   "what": "**The only file that knows what Meesho, Flipkart and Amazon call things.** Above it a sale is a sale; below it a file is rows. One word for one thing, said once, so a seller comparing two platforms compares like with like -- and a renamed column is one entry changed here and nothing else. Every column name was read off HIS OWN FILES, not off a description of them. **A moved column stops the whole file ONCE, by name, checked against the header before a row is read** -- per row it would produce 63 identical complaints and bury the one fact that matters. **A row that cannot be read is refused by name and the rest are read.** **And a date is never guessed at**: all three orders files lead with the year, and a shape it does not know stops that row rather than dating it wrong -- because Amazon's settlement file writes day-first, where 1 September read backwards becomes 9 January.",
+   "rests_on": [
+    "reading-a-file",
+    "reading-a-spreadsheet",
+    "what-a-sale-is"
+   ],
+   "files": [
+    "autosync/orders.py",
+    "autosync/orders_checks.py"
+   ],
+   "reviews": [],
+   "findings": [
+    {
+     "what": "**FLIPKART'S ORDERS FILE HAS NO MONEY IN IT AT ALL.** Thirty-nine columns and not one is an amount -- no price, no GMV, no settlement. Counted on his real file, not assumed. So a Flipkart sale is read with its money BLANK, which means what it should: nobody has worked this out yet. The figure arrives later from the payments file as a second statement about the same sale. **This is why blank and nought had to be different things before this file could be written at all.**",
+     "found": "2026-09-02, by reading his real file",
+     "fixed": true,
+     "proved_by": "The money is never among the columns a file cannot do without; making it one turns a check red, and Flipkart would never read again."
+    },
+    {
+     "what": "**EVERY ONE OF HIS 63 REAL FLIPKART SKUs IS WRAPPED** as `\"\"\"SKU:DJ 14 Bahubali\"\"\"`. Left wrapped it matches no product he has. The wrapper is the file format's, not the seller's.",
+     "found": "2026-09-02",
+     "fixed": true,
+     "proved_by": "The wrapper comes off and NOTHING ELSE does -- not case, not spacing inside the name. The register already carries the fault that rule exists for: 'a tidy-up map sat inside an identity lookup, so 17 of 39 mapped SKUs could never match'. Adding any tidying turns a check red."
+    },
+    {
+     "what": "**THE PLATFORM'S OWN WORD FOR WHAT HAPPENED HAS NOWHERE TO GO.** Counted on his real August Meesho files: 209 SHIPPED, **42 CANCELLED**, 37 READY_TO_SHIP, 5 HOLD, 4 DELIVERED. Kartaan's ledger has no column for it, deliberately -- `sheet-store.js` says so in as many words. Putting it in `notes` would overwrite the seller's own typing (D136); dropping cancelled rows would mean a cancellation never corrects yesterday's sale. **Adding a column changes the pinned contract on both sides, and that is HIS decision, not one to be made in passing.**",
+     "found": "2026-09-02",
+     "fixed": false,
+     "proved_by": null
+    }
+   ],
+   "state": {
+    "built": true,
+    "reviewed": false,
+    "run_for_real": false,
+    "instead": "74 checks. **It reads all three of his real orders files: 12 real Meesho sales, 63 real Flipkart, 46 real Amazon -- 121 sales, and NOT ONE unreadable row.** The rows that must NOT read are built by hand, because his real files are clean and a check that only ever read them would say nothing about what happens when one is not. **Proved by breaking it on purpose: fourteen faults put back one at a time, fourteen caught, no survivors.** Not one of those sales has ever reached a sheet -- there is no sheet door yet."
+   }
+  },
+  {
+   "id": "the-sales-ledger",
+   "name": "What goes into the seller's sales ledger, and what is left alone",
+   "what": "**Where D150 and D152 live.** The ledger exists so one row explains one order without opening Kartaan. A row is one LINE of an order, not one order, so a return lands on the exact item that came back. **Rule 1: each report writes only the columns it knows about** -- a payments file landing three weeks late must not wipe a delivery date it knows nothing about. **Rule 2: where two claim the same column the newest file wins, by the FILE'S OWN DATA DATE**, so the order of fetching decides nothing. **Rule 3: two files of the same date disagreeing KEEP what is there and REPORT it** -- never a silent pick. **And saying nothing is not saying \"nothing\": a blank never overwrites a figure already there.** A sheet whose columns somebody dragged about is refused; a row with no id, or a sale on two rows, is named and neither written to nor added again.",
+   "rests_on": [
+    "what-a-sale-is",
+    "which-column-is-what"
+   ],
+   "files": [
+    "autosync/ledger.py",
+    "autosync/ledger_checks.py"
+   ],
+   "reviews": [],
+   "findings": [
+    {
+     "what": "**A REPORT THAT KNOWS A COLUMN BUT SAYS NOTHING FOR IT WOULD HAVE BLANKED WHAT WAS ALREADY THERE.** Rule 1 keeps a report out of columns it knows nothing about; this was the same fault one level down -- a payments file DOES know about the settlement, but the row it holds for one sale may carry no figure, and writing that blank wipes a real settlement written last week.",
+     "found": "2026-09-02, by a check named for rule 1 going red",
+     "fixed": true,
+     "proved_by": "autosync/ledger_checks.py -- 'A BLANK NEVER OVERWRITES A FIGURE THAT IS ALREADY THERE'."
+    },
+    {
+     "what": "**A SALE'S NAME WAS PARSED BACK OUT OF A SENTENCE MEANT FOR A PERSON** -- `why.split()[1]` on \"the sale X is already on row 2\" returns the word \"sale\". So the rule that stops a doubled name being written to did nothing at all.",
+     "found": "2026-09-02, by a check going red",
+     "fixed": true,
+     "proved_by": "`Unreadable` carries `name`; removing BOTH guards turns 'A SALE ON TWO ROWS IS REPORTED and NEITHER is written to' red."
+    },
+    {
+     "what": "**A SALE THE SHEET HELD TWICE WAS APPENDED AGAIN, making three rows.** Taking it out of what the sheet holds -- so neither row is written to -- made it look like a sale never seen before.",
+     "found": "2026-09-02, by the check named for exactly that",
+     "fixed": true,
+     "proved_by": "A doubled name is skipped both ways and reported once."
+    },
+    {
+     "what": "**RULE 2 CANNOT BE ENFORCED ACROSS RUNS with the columns that exist.** The ledger's 28 columns hold no record of WHICH FILE last wrote each value, so tomorrow's run cannot tell whether a cell came from an older or newer file than the one it holds. Harmless for ordinary nights -- a new file is newer by construction. **NOT harmless for a by-hand backfill (D110)**, where a deliberately old file is fetched after newer ones have written. Recency IS exact within one run. Fixing it needs a column that is not in D152's list.",
+     "found": "2026-09-02, while building it",
+     "fixed": false,
+     "proved_by": null
+    },
+    {
+     "what": "**TWO FILES OF ONE REPORT AND ONE DATE SILENTLY OVERWROTE EACH OTHER**, and D150 rule 3 says a same-date disagreement is KEPT and REPORTED. The rule was applied only when the reports differed -- but a day fetched again lands as a NEW FILE of the same report and the same date (D110), which `whats_new` correctly calls new. **And the first half of the fix was not enough: the sort still tied on the report, so a stable sort kept whatever order the files were handed over in and the order of FETCHING decided which figure stood** -- precisely what rule 2 exists to stop.",
+     "found": "2026-09-02, by the review of this repository (REVIEW.md findings 1 and 2)",
+     "fixed": true,
+     "proved_by": "autosync/ledger_checks.py -- 'RULE 3: TWO FILES OF ONE REPORT AND ONE DATE ARE TWO STATEMENTS', 'RULE 3: the order they were handed over in decides nothing', and 'but TWO ROWS OF ONE FILE are still one statement'."
+    }
+   ],
+   "state": {
+    "built": true,
+    "reviewed": false,
+    "run_for_real": false,
+    "instead": "57 checks, run against HIS REAL FILES: **121 real sales planned into an empty ledger, and the same three files again change nothing.** **Proved by breaking it on purpose: thirteen faults put back one at a time, twelve caught by a NAMED check and the thirteenth by a second guard, proved by removing both.** Three of the thirteen found gaps in the checks rather than in the code."
+   }
+  },
+  {
+   "id": "the-sheet-door",
+   "name": "Writing the sales ledger",
+   "what": "The doing half. **The transport is handed in**, so every line is checked with no Google and no internet -- and the stand-in RECORDS every call, so what is checked is the request that would really go out. **Every call is the one Kartaan already makes**, read off the ERP's own `sheet-store.js` rather than worked out again: one GET for the whole ledger, `:append` with RAW and INSERT_ROWS to add, `values:batchUpdate` with RAW to change. **It needs no permission the seller has not already given (D137)** -- `drive.file` is accepted by the Sheets API, which is why KARTAAN MUST HAVE CREATED THE SHEET and a pasted id is refused in words. **Changes go first and additions last**, because a plan's row numbers describe the sheet as it was read. It never removes a row, never writes to row 1, and makes NO call at all on a night with nothing to write.",
+   "rests_on": [
+    "the-sales-ledger",
+    "the-other-half"
+   ],
+   "files": [
+    "autosync/ledger_door.py",
+    "autosync/ledger_door_checks.py"
+   ],
+   "reviews": [],
+   "findings": [
+    {
+     "what": "**THE HEADER'S OWN CALL WAS UNCHECKED.** `write_the_header` and `carry_out` send the same two options, so a fault put into the header's call -- RAW turned into USER_ENTERED, INSERT_ROWS into OVERWRITE -- went unnoticed by every check in the file. OVERWRITE on the header would write column names over a seller's first sale.",
+     "found": "2026-09-02, by the proving pass, twice over",
+     "fixed": true,
+     "proved_by": "Three checks now read the header's own call; both breakages turn them red."
+    }
+   ],
+   "state": {
+    "built": true,
+    "reviewed": false,
+    "run_for_real": false,
+    "instead": "49 checks against a stand-in that records every request. **His 121 real sales were written through it end to end, and the same files again made NO write call at all.** Six checks pin the calls against the ERP's own `sheet-store.js` through the door, refusing rather than skipping when it is not there. **Proved by breaking it on purpose: ten faults, ten caught.** NOT ONE REAL CELL HAS EVER BEEN WRITTEN TO A REAL GOOGLE SHEET -- no sheet exists, and nothing yet creates one."
+   }
+  },
+  {
+   "id": "what-starts-a-read",
+   "name": "What starts a read",
+   "what": "**His rule, and the word 'solely' is his: a read starts on what NEW file is in the Drive folder, and on nothing else.** Never whether a fetch succeeded or failed -- D148 says why: one platform having a bad night must not cost the day's numbers. **It is enforced STRUCTURALLY:** the decision is handed the folder and what was already read, and nothing else, and the module cannot even import anything that knows whether a fetch worked. **Identity is Drive's own id, NEVER the name** -- `landing.py` names a file for the day its data is about, so a day fetched again lands under the same name, and keyed by name that correction would never be read (D110 exists because somebody naming a day by hand usually knows what arrived was wrong). **An empty file is new, is not data, is reported by name, and is NOT marked as read** -- so tomorrow's real file for that day is still new.",
+   "rests_on": [],
+   "files": [
+    "autosync/whats_new.py",
+    "autosync/whats_new_checks.py"
+   ],
+   "reviews": [],
+   "findings": [
+    {
+     "what": "**A THIRD CHECK WRITTEN WITH A DEAD `if False` ON THE END** -- green by construction. Third one on this project, all three mine.",
+     "found": "2026-09-02, on the first run",
+     "fixed": true,
+     "proved_by": "Replaced by two that really ask it; the empty-file breakage turns them red."
+    },
+    {
+     "what": "**A CHECK THAT SCANNED THE SOURCE FOR FORBIDDEN WORDS WAS THE WRONG CHECK.** It read the docstring too, so the sentence explaining that a day fetched again must still be read made it go red about the word 'fetch'. Prose is not code.",
+     "found": "2026-09-02",
+     "fixed": true,
+     "proved_by": "It now checks what the file can REACH -- that `runlog`, `board`, `schedule`, `reports`, `runner` and `nightly` are not importable here, so the rule cannot be broken by somebody passing the wrong thing."
+    },
+    {
+     "what": "**NOTHING REMEMBERED WHICH FILES HAD BEEN READ ACROSS RUNS.** What survives a run is `between_runs.Between`, and it had no field for it, so the list was rebuilt from nothing every night and every file in the folder looked new. FIXED 2026-09-02 by one field, `files_read`, and the SHAPE bump that goes with it. **The bump was checked before it was made, not assumed:** no `autosync-state.json` exists anywhere in the seller's Drive, and the only two scheduled runs this repository has ever had both stopped at 'no platform is connected' before any of this code ran.",
+     "found": "2026-09-02",
+     "fixed": true,
+     "proved_by": "`between_runs_checks.py` -- 'THE FOURTH FILE, ARRIVING AFTER THE FIFTH, IS READ ON THE NEXT NIGHT' and 'and the four already read are not read a second time'. Both go red when the list is not written, not read back, or replaced by a high-water mark."
+    },
+    {
+     "what": "**WHAT HAS BEEN READ GROWS FOR EVER.** `now_read` never drops an id, and as of 2026-09-02 that list now survives the night, so it really does grow -- roughly 7,000 file ids a year at his volume, in a file in the seller's own Drive. **NOT CAPPED, DELIBERATELY, AND PUT TO HIM 2026-09-02.** A cap here is not like `KEEP_RUN_DAYS`: dropping an id whose file is still sitting in the folder makes that file new again, and an old file re-read puts its old figures back over newer ones. So how far back to remember is his call, and it is asked rather than assumed.",
+     "found": "2026-09-02, by the review",
+     "fixed": false,
+     "proved_by": null
+    }
+   ],
+   "state": {
+    "built": true,
+    "reviewed": false,
+    "run_for_real": false,
+    "instead": "42 checks. **Proved by breaking it on purpose: eight faults, seven caught by a NAMED check; the eighth was a no-op breakage -- the behaviour is protected structurally, confirmed by running it. It has never chosen a file in a real folder: nothing calls it yet.**"
+   }
+  },
+  {
+   "id": "the-gate",
+   "name": "The gate, so the checks are not run because somebody remembered to",
+   "what": "**2,206 checks passed here and NOTHING MADE THEM RUN**, and 0 of the first 11 commits carry any record that a person read the diff (D156). Follows Kartaan-Server's gate (cf648d9) rather than inventing a shape. **Every rule is in `tools/gate.py`, never in the hook** -- a rule written in a git hook is a rule nothing can test, and the ERP's hook once PRINTED that it had tagged a commit and never did, undetected across three commits. It refuses a commit that carries a credential, leaves the register disagreeing with disk, has any checks file red, or has nothing recording that somebody READ it. **The tag goes on in `commit-msg` because a pre-commit hook structurally cannot rewrite a message**, and the review record is consumed so it cannot be reused. `.github/workflows/pm_check.yml` is the half `--no-verify` cannot walk past.",
+   "rests_on": [],
+   "files": [
+    "tools/gate.py",
+    "tools/gate_checks.py",
+    ".githooks/pre-commit",
+    ".githooks/commit-msg",
+    "review_pass.template.json",
+    ".github/workflows/pm_check.yml"
+   ],
+   "reviews": [],
+   "findings": [
+    {
+     "what": "**THE JAVASCRIPT CHECKS WOULD NOT HAVE RUN.** The Server's gate sweeps only Python because it has only Python. Copied as-is, this gate would have reported green while 400 checks over the extension -- the half that runs in the seller's own Chrome -- never ran. The same shape as the Server's own gate not sweeping its `tools/`, which it found by reading what it printed.",
+     "found": "2026-09-02, while adapting it",
+     "fixed": true,
+     "proved_by": "tools/gate_checks.py -- 'THE JAVASCRIPT ONES ARE FOUND TOO'; and the register sweeps .js as well."
+    },
+    {
+     "what": "**THE WORKFLOW WOULD HAVE RUN IN EVERY SELLER'S GITHUB ACCOUNT.** D36 copies this repository into each one, and the workflow cannot pass there: its checks are pinned against two PRIVATE repositories a seller has no token for. Every seller would carry a permanent red cross for a rule about how Kartaan is developed. Guarded to `kartaan-com` only, with the cost of the guard stated in the file: a seller's copy has no gate on GitHub, which is right because nobody develops there.",
+     "found": "2026-09-02",
+     "fixed": true,
+     "proved_by": "tools/gate_checks.py -- 'IT RUNS ONLY IN KARTAAN'S OWN ORGANISATION'."
+    }
+   ],
+   "state": {
+    "built": true,
+    "reviewed": false,
+    "run_for_real": false,
+    "instead": "88 checks on the gate's own rules, including one that reads all THREE copies of `NOT_CODE` off disk -- Python, the commit-msg hook, and the workflow -- and holds them to each other. The workflow has never run: nothing has been pushed."
+   }
+  }
+ ]
 }

@@ -1,6 +1,6 @@
 """What one run has to hand to the next, and where it is kept.
 
-**FOUR THINGS SURVIVE A RUN, and every one of them is a fault if it does not:**
+**FIVE THINGS SURVIVE A RUN, and every one of them is a fault if it does not:**
 
 | | |
 |---|---|
@@ -8,6 +8,15 @@
 | **When the last run started and finished** | This is what `clock.py` is handed. Lost, either two runs go at once, or a run that died is believed to still be going and nothing ever starts again. |
 | **Which days a run happened on** | `board.nothing_ran` is worked out from this and nothing else. Lost, the loudest alarm there is -- *nothing is fetching at all* -- can never fire, which is precisely the state the reference sat in for nine days. |
 | **Which alarms have already gone out** | Lost, every standing alarm is sent again every night. A channel that says the same thing every night is a channel people mute, and a muted channel is worse than none. |
+| **Which files have already been READ** | Lost, every file in the folder looks new every night, so every sale in the seller's whole history is worked out again from the beginning -- and an OLD file re-applied over a newer one puts back figures the newer one had already corrected. |
+
+**AND THAT LAST ONE IS A LIST OF FILES, NEVER A DATE.** His own case: the first,
+second and third file download, the fourth fails, the fifth downloads -- and the
+fourth arrives later. Kept as a list, the fourth is simply not in it and is read.
+Kept as *"the last date I read"*, the fourth is older than that date and is
+skipped **for ever, silently**. `process.py` in the reference keeps a marker per
+file for exactly this reason, and deliberately counts no rows with it: a quiet
+day with no rows is not a gap.
 
 **IT LIVES IN THE SELLER'S OWN DRIVE, beside the log, and that is D100 rather
 than a new idea.** His instruction, verbatim: *"I would not want to store that on
@@ -45,10 +54,22 @@ FILE_NAME = "autosync-state.json"
 # writable -- and it would fail on the one night it mattered.
 KEEP_RUN_DAYS = 60
 
-# The one version of this record there has ever been. Written so that the day it
-# changes, an older job reading a newer file says so instead of quietly reading
-# the fields it recognises and dropping the rest.
-SHAPE = 1
+# Which version of this record this job reads. Written so that the day it changes,
+# an older job reading a newer file says so instead of quietly reading the fields
+# it recognises and dropping the rest.
+#
+# **2 ADDED `files_read` (2026-09-02).** An older job reading a shape-2 record
+# would not see that field, would believe nothing had ever been read, and would
+# read every file in the folder again -- which is the very fault the field is
+# there to stop. So it refuses instead, and that refusal is the point of the
+# number.
+#
+# **BUMPING IT STOPS A RUN THAT HAS AN OLDER RECORD, and that was checked before
+# it was bumped rather than assumed:** there is no `autosync-state.json` anywhere
+# in the seller's Drive, and the only two scheduled runs this repository has ever
+# had both stopped at "no platform is connected" before any of this code ran. No
+# record exists to refuse. The day one does, this costs a night and needs saying.
+SHAPE = 2
 
 
 def _a_day(text) -> Optional[date]:
@@ -116,6 +137,19 @@ class Between:
     last_finished: Optional[datetime] = None
     run_days: Tuple[date, ...] = ()
     standing: Tuple[str, ...] = ()
+
+    # **THE DRIVE IDS OF THE FILES THAT HAVE BEEN READ. NEVER THEIR NAMES.**
+    # `whats_new` decides identity by Drive's own id and says why: a day fetched
+    # again lands under the SAME NAME (D110), so a list of names would never read
+    # the correction. This is the same list, kept where it survives the night.
+    #
+    # **IT IS NOT CAPPED, AND THAT IS SAID OUT LOUD RATHER THAN GUESSED AT.**
+    # `KEEP_RUN_DAYS` above trims the run history safely because nothing reads
+    # further back than the last day. Nothing similar is true here: dropping an id
+    # whose file is STILL SITTING IN THE FOLDER makes that file new again, and a
+    # re-read old file re-applies its old figures over newer ones. So how far back
+    # to remember is his to settle, not this file's to assume.
+    files_read: Tuple[str, ...] = ()
 
     def started(self, at: datetime) -> "Between":
         """The record as it stands the moment a run begins.
@@ -193,12 +227,28 @@ def _read(raw: bytes) -> Between:
             raise Damaged(f"{one!r} is written down as a day a run happened and is not a day.")
         days.append(when)
 
+    files_read: List[str] = []
+    for one in said.get("files_read") or ():
+        # **REFUSED, NOT SKIPPED, and this is the field where skipping is worst.**
+        # A dropped id is a file that becomes new again -- read a second time, and
+        # if it is an old file its old figures go back over the newer ones that
+        # had already corrected them. Silently. A whole line that will not read
+        # stops the run instead, where somebody can look at it.
+        if not isinstance(one, str) or not one.strip():
+            raise Damaged(
+                f"{one!r} is written down as a file that has been read and is not a file id. "
+                "Nothing has been started -- read past it, that file would be read again and "
+                "an older file's figures could go back over a newer file's."
+            )
+        files_read.append(one.strip())
+
     return Between(
         in_flight=in_flight,
         last_started=_a_moment(said.get("last_started"), "When the last run started"),
         last_finished=_a_moment(said.get("last_finished"), "When the last run finished"),
         run_days=tuple(sorted(set(days)))[-KEEP_RUN_DAYS:],
         standing=tuple(str(s) for s in said.get("standing") or ()),
+        files_read=tuple(sorted(set(files_read))),
     )
 
 
@@ -238,6 +288,7 @@ def write(state: Between) -> bytes:
             "last_finished": state.last_finished.isoformat() if state.last_finished else None,
             "run_days": [d.isoformat() for d in sorted(state.run_days)],
             "standing": sorted(state.standing),
+            "files_read": sorted(set(state.files_read)),
         },
         # **READABLE BY A PERSON, because it sits in the seller's own Drive.**
         # The one time anybody opens this file is the night something has gone
@@ -292,3 +343,19 @@ def with_in_flight(state: Between, in_flight) -> Between:
 def with_standing(state: Between, standing: Sequence[str]) -> Between:
     """The record updated with the alarms that have now been sent."""
     return replace(state, standing=tuple(standing))
+
+
+def with_files_read(state: Between, files_read: Sequence[str]) -> Between:
+    """The record updated with the files that have now been read.
+
+    **CALLED WITH WHAT `whats_new.now_read` HANDS BACK, which is what ACTUALLY
+    READ** -- never with what a run was about to attempt. Marking a file read
+    before reading it is how a run that dies halfway loses a day for good, and
+    that rule already lives in `whats_new`; this only has to not undo it.
+
+    Sorted and deduplicated on the way in as well as on the way out, so two runs
+    that read the same files leave the same record.
+    """
+    return replace(state, files_read=tuple(sorted({
+        str(one).strip() for one in (files_read or ()) if str(one).strip()
+    })))
