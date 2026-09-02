@@ -48,19 +48,21 @@
     "                 rows -- by scripts in the ERP's audit folder. This code did",
     "                 not do that reading.",
     "",
-    "THE CHECKS. 2,041 Python checks and 400 JavaScript checks pass, 2026-09-02.",
+    "THE CHECKS. 2,164 Python checks and 400 JavaScript checks pass, 2026-09-02.",
     "They are checks, not a run. Every door in this package has its transport",
     "handed in, which is what lets them pass with no account, no token and no",
     "internet -- and is also exactly why passing them proves nothing about a real",
     "night.",
     "",
-    "FOUR PIECES HAVE BEEN PROVED BY BREAKING THEM ON PURPOSE -- the four the reader",
-    "is made of, and no others. `tools/prove_checks.py` lives in the ERP and there is still no copy here",
+    "SIX PIECES HAVE BEEN PROVED BY BREAKING THEM ON PURPOSE -- the six the reader is",
+    "made of, and no others. `tools/prove_checks.py` lives in the ERP and there is still no copy here",
     "(open item 10 in the ERP's memory), so that one piece was done by hand: eight",
-    "forty-seven faults put back one at a time, forty-seven caught, no survivors.",
-    "SIX OF THE FORTY-SEVEN FOUND GAPS IN THE CHECKS RATHER THAN IN THE CODE --",
-    "including a check helper that hid a fault and a proving pass that called a",
-    "crash a survivor. That is the argument for doing this to everything else. **Every other piece here has checks nobody has",
+    "eighty-eight faults put back one at a time; eighty-six caught by a NAMED check",
+    "and two by a second guard, proved by removing both. TEN OF THE EIGHTY-EIGHT",
+    "FOUND GAPS IN THE CHECKS RATHER THAN IN THE CODE -- including a check helper",
+    "that hid a fault, a proving pass that called a crash a survivor, and a rule",
+    "whose own check could not fail for it. That is the argument for doing this to",
+    "everything else. **Every other piece here has checks nobody has",
     "ever watched fail.**",
     "",
     "THE READER IS STARTED, 2026-09-02. His go-ahead: Meesho, Flipkart and Amazon.",
@@ -78,11 +80,17 @@
     "THE COLUMN MAPS ARE DONE TOO, 2026-09-02. All three platforms' orders files",
     "read against his real ones: 121 real sales, not one unreadable row.",
     "",
-    "STILL TO COME, and neither is started: what makes a read START, which is",
-    "solely what NEW file is in the Drive folder; and the SHEET DOOR that actually",
-    "writes a row. **UNTIL THAT DOOR EXISTS NOTHING REACHES A SELLER'S SCREEN**,",
-    "however well the rest reads. And the PAYMENTS files are not read at all yet --",
-    "which is where Flipkart's money lives, since its orders file has none.",
+    "THE SHEET DOOR IS BUILT, 2026-09-02. His 121 real sales go in, and the same",
+    "files again write nothing at all -- not even a call. **But NO REAL CELL HAS",
+    "EVER BEEN WRITTEN: no seller's sheet exists, and nothing yet creates one",
+    "(D137 says Kartaan must, because `drive.file` cannot reach a sheet the seller",
+    "made by hand).**",
+    "",
+    "STILL TO COME: what makes a read START, which is solely what NEW file is in",
+    "the Drive folder; whatever CREATES the seller's sheet; the PAYMENTS files,",
+    "which is where Flipkart's money lives since its orders file has none; and",
+    "D152's new columns, which cannot be added here until the ERP adds them too --",
+    "`sales_checks.py` pins the two lists, so whichever side moves first goes red.",
     "",
     "THE HOLE IN THE MIDDLE OF THE PRODUCT: THE READER IS ONE PIECE OLD. Files are",
     "downloaded and landed in the seller's Drive, and NOTHING YET TURNS THEM INTO",
@@ -93,7 +101,7 @@
     "src/modules/listings are deleted the day this replaces them, and NOT BEFORE.",
     "Nothing replaces them yet."
   ],
-  "active": "which-column-is-what",
+  "active": "the-sheet-door",
   "items": [
     {
       "id": "report-list",
@@ -666,7 +674,7 @@
     {
       "id": "reading-a-file",
       "name": "Turning a platform's file into rows",
-      "what": "The floor the whole reader stands on: take the bytes a platform handed over and say what rows are in them, or say why a row could not be read. It knows nothing about sales, settlements, SKUs or money, and it never hands back a number -- turning \"0\" into 0 is a decision about a FIELD, and D119 says the money rules are written once, somewhere else. **Written against his real files, not a description of them.** Four faults those files actually have: Amazon ends every line with CARRIAGE-RETURN CARRIAGE-RETURN NEWLINE, so the plain way of counting lines reports 93 orders where there are 46; all three Amazon files are named `.csv` and all three are TAB-separated, so what separates the columns is read out of the file and never off its name; Meesho's comma file quotes every field while Amazon's tab files contain not one quote character, so quoting is off for tab and on for comma; and **a row of the wrong width is named and kept, never dropped** -- the reference read its files with on_bad_lines='skip', which loses the row AND says nothing.",
+      "what": "The floor the whole reader stands on: take the bytes a platform handed over and say what rows are in them, or say why a row could not be read. It knows nothing about sales, settlements, SKUs or money, and it never hands back a number -- turning \"0\" into 0 is a decision about a FIELD, and D119 says the money rules are written once, somewhere else. **Written against his real files, not a description of them.** Four faults those files actually have: Amazon ends every line with CARRIAGE-RETURN CARRIAGE-RETURN NEWLINE, so the plain way of counting lines reports 93 orders where there are 46; all three Amazon files are named `.csv` and all three are TAB-separated, so what separates the columns is read out of the file and never off its name; Meesho's comma file quotes every field while Amazon's tab files contain not one quote character, so quoting is off for tab and on for comma; and **a row of the wrong width is named and kept, never dropped** -- the reference read its files with on_bad_lines='skip', which loses the row AND says nothing. **AND A HEADER IS NOT ALWAYS ON LINE 1 (added 2026-09-02):** a real Meesho returns file opens with a seven-line title block -- a blank line, the panel's name, the supplier's own details, a timestamp -- with the column names on LINE 8. Read from line 1 that file names no columns at all and the whole returns stream was unreadable. The separator is decided from the header's own line too, since a title block two cells wide says nothing about the columns below it.",
       "rests_on": [],
       "files": [
         "autosync/table.py",
@@ -685,13 +693,19 @@
           "found": "2026-09-02, on the first run of the checks",
           "fixed": true,
           "proved_by": "It is deleted; the count went from 75 to 74 and had to be corrected."
+        },
+        {
+          "what": "**THE MEESHO RETURNS STREAM COULD NOT BE READ AT ALL.** `sheet.read` has taken a header row since it was written, because his Flipkart payments file puts category bands across row 1. The same fault in a TEXT file went unnoticed until a real returns file was opened.",
+          "found": "2026-09-02, by opening his real returns file",
+          "fixed": true,
+          "proved_by": "His real file now reads -- 22 columns, 101 rows, nothing refused, first data row on line 9. Taking the header row back out turns four checks red."
         }
       ],
       "state": {
         "built": true,
         "reviewed": false,
         "run_for_real": false,
-        "instead": "75 checks pass, and **28 of them read his REAL files** -- 46 real Amazon orders, 7 real returns, 15 real settlement lines, a real Meesho orders file. **THE ONLY PIECE IN THIS REPOSITORY PROVED BY BREAKING IT ON PURPOSE: eight faults put back one at a time, eight caught, no survivors.** Two of those eight found real gaps and are the findings above. It has still never run inside a real nightly run, and no independent reviewer has read it."
+        "instead": "100 checks pass, and **35 of them read his REAL files** -- 46 real Amazon orders, 7 real returns, 15 real settlement lines, a real Meesho orders file, and a real Meesho returns file of 101 rows whose columns start on line 8. Pointed elsewhere they SAY they did not run and the count follows. **Proved by breaking it on purpose: thirteen faults, twelve caught by a named check and one by a second guard, proved by removing both.**"
       }
     },
     {
@@ -805,6 +819,80 @@
         "reviewed": false,
         "run_for_real": false,
         "instead": "74 checks. **It reads all three of his real orders files: 12 real Meesho sales, 63 real Flipkart, 46 real Amazon -- 121 sales, and NOT ONE unreadable row.** The rows that must NOT read are built by hand, because his real files are clean and a check that only ever read them would say nothing about what happens when one is not. **Proved by breaking it on purpose: fourteen faults put back one at a time, fourteen caught, no survivors.** Not one of those sales has ever reached a sheet -- there is no sheet door yet."
+      }
+    },
+    {
+      "id": "the-sales-ledger",
+      "name": "What goes into the seller's sales ledger, and what is left alone",
+      "what": "**Where D150 and D152 live.** The ledger exists so one row explains one order without opening Kartaan. A row is one LINE of an order, not one order, so a return lands on the exact item that came back. **Rule 1: each report writes only the columns it knows about** -- a payments file landing three weeks late must not wipe a delivery date it knows nothing about. **Rule 2: where two claim the same column the newest file wins, by the FILE'S OWN DATA DATE**, so the order of fetching decides nothing. **Rule 3: two files of the same date disagreeing KEEP what is there and REPORT it** -- never a silent pick. **And saying nothing is not saying \"nothing\": a blank never overwrites a figure already there.** A sheet whose columns somebody dragged about is refused; a row with no id, or a sale on two rows, is named and neither written to nor added again.",
+      "rests_on": [
+        "what-a-sale-is",
+        "which-column-is-what"
+      ],
+      "files": [
+        "autosync/ledger.py",
+        "autosync/ledger_checks.py"
+      ],
+      "reviews": [],
+      "findings": [
+        {
+          "what": "**A REPORT THAT KNOWS A COLUMN BUT SAYS NOTHING FOR IT WOULD HAVE BLANKED WHAT WAS ALREADY THERE.** Rule 1 keeps a report out of columns it knows nothing about; this was the same fault one level down -- a payments file DOES know about the settlement, but the row it holds for one sale may carry no figure, and writing that blank wipes a real settlement written last week.",
+          "found": "2026-09-02, by a check named for rule 1 going red",
+          "fixed": true,
+          "proved_by": "autosync/ledger_checks.py -- 'A BLANK NEVER OVERWRITES A FIGURE THAT IS ALREADY THERE'."
+        },
+        {
+          "what": "**A SALE'S NAME WAS PARSED BACK OUT OF A SENTENCE MEANT FOR A PERSON** -- `why.split()[1]` on \"the sale X is already on row 2\" returns the word \"sale\". So the rule that stops a doubled name being written to did nothing at all.",
+          "found": "2026-09-02, by a check going red",
+          "fixed": true,
+          "proved_by": "`Unreadable` carries `name`; removing BOTH guards turns 'A SALE ON TWO ROWS IS REPORTED and NEITHER is written to' red."
+        },
+        {
+          "what": "**A SALE THE SHEET HELD TWICE WAS APPENDED AGAIN, making three rows.** Taking it out of what the sheet holds -- so neither row is written to -- made it look like a sale never seen before.",
+          "found": "2026-09-02, by the check named for exactly that",
+          "fixed": true,
+          "proved_by": "A doubled name is skipped both ways and reported once."
+        },
+        {
+          "what": "**RULE 2 CANNOT BE ENFORCED ACROSS RUNS with the columns that exist.** The ledger's 28 columns hold no record of WHICH FILE last wrote each value, so tomorrow's run cannot tell whether a cell came from an older or newer file than the one it holds. Harmless for ordinary nights -- a new file is newer by construction. **NOT harmless for a by-hand backfill (D110)**, where a deliberately old file is fetched after newer ones have written. Recency IS exact within one run. Fixing it needs a column that is not in D152's list.",
+          "found": "2026-09-02, while building it",
+          "fixed": false,
+          "proved_by": null
+        }
+      ],
+      "state": {
+        "built": true,
+        "reviewed": false,
+        "run_for_real": false,
+        "instead": "57 checks, run against HIS REAL FILES: **121 real sales planned into an empty ledger, and the same three files again change nothing.** **Proved by breaking it on purpose: thirteen faults put back one at a time, twelve caught by a NAMED check and the thirteenth by a second guard, proved by removing both.** Three of the thirteen found gaps in the checks rather than in the code."
+      }
+    },
+    {
+      "id": "the-sheet-door",
+      "name": "Writing the sales ledger",
+      "what": "The doing half. **The transport is handed in**, so every line is checked with no Google and no internet -- and the stand-in RECORDS every call, so what is checked is the request that would really go out. **Every call is the one Kartaan already makes**, read off the ERP's own `sheet-store.js` rather than worked out again: one GET for the whole ledger, `:append` with RAW and INSERT_ROWS to add, `values:batchUpdate` with RAW to change. **It needs no permission the seller has not already given (D137)** -- `drive.file` is accepted by the Sheets API, which is why KARTAAN MUST HAVE CREATED THE SHEET and a pasted id is refused in words. **Changes go first and additions last**, because a plan's row numbers describe the sheet as it was read. It never removes a row, never writes to row 1, and makes NO call at all on a night with nothing to write.",
+      "rests_on": [
+        "the-sales-ledger",
+        "the-other-half"
+      ],
+      "files": [
+        "autosync/ledger_door.py",
+        "autosync/ledger_door_checks.py"
+      ],
+      "reviews": [],
+      "findings": [
+        {
+          "what": "**THE HEADER'S OWN CALL WAS UNCHECKED.** `write_the_header` and `carry_out` send the same two options, so a fault put into the header's call -- RAW turned into USER_ENTERED, INSERT_ROWS into OVERWRITE -- went unnoticed by every check in the file. OVERWRITE on the header would write column names over a seller's first sale.",
+          "found": "2026-09-02, by the proving pass, twice over",
+          "fixed": true,
+          "proved_by": "Three checks now read the header's own call; both breakages turn them red."
+        }
+      ],
+      "state": {
+        "built": true,
+        "reviewed": false,
+        "run_for_real": false,
+        "instead": "49 checks against a stand-in that records every request. **His 121 real sales were written through it end to end, and the same files again made NO write call at all.** Six checks pin the calls against the ERP's own `sheet-store.js` through the door, refusing rather than skipping when it is not there. **Proved by breaking it on purpose: ten faults, ten caught.** NOT ONE REAL CELL HAS EVER BEEN WRITTEN TO A REAL GOOGLE SHEET -- no sheet exists, and nothing yet creates one."
       }
     }
   ]

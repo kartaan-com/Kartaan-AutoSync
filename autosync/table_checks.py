@@ -278,6 +278,45 @@ check("and a clean read still says how many were refused, rather than staying qu
       t is not None and "0 refused" in t.says())
 check("it says which separator it found", t is not None and "tab-separated" in t.says())
 
+# ------------------------------------------ a header that is not on line 1
+
+# **HIS REAL MEESHO RETURNS FILE IS SHAPED LIKE THIS**, and until this was added
+# that whole stream was unreadable: a blank line, a title, the supplier's own
+# details, a timestamp, another blank, and the column names on LINE 8.
+A_TITLE_BLOCK = (
+    f"{LF}"
+    f'"Meesho Supplier Panel"{LF}'
+    f'"Supplier ID","1234"{LF}'
+    f'"Download Date","1788172429000"{LF}'
+    f"{LF}"
+    f"S No,SKU,Return Reason{LF}"
+    f"1,AAA,damaged{LF}"
+    f"2,BBB,wrong item{LF}"
+)
+t = answered(lambda: tool.read(A_TITLE_BLOCK, header_row=6))
+check("the column names can be taken from a line that is not the first",
+      t is not None and t.columns == ("S No", "SKU", "Return Reason"))
+check("and the rows below them are read", t is not None and len(t.rows) == 2)
+check("THE TITLE BLOCK IS NOT READ AS DATA and not reported as bad rows",
+      t is not None and t.refused == ())
+check("each row still knows the line number a person would see",
+      t is not None and [r.line for r in t.rows] == [7, 8])
+check("THE SEPARATOR COMES OFF THE HEADER'S LINE, not off the title block",
+      t is not None and t.separator == tool.COMMA)
+check("read from line 1 the same file is refused, which is what it did before",
+      refused_by(lambda: tool.read(A_TITLE_BLOCK)))
+check("a header line beyond the end of the file is refused",
+      refused_by(lambda: tool.read(A_TITLE_BLOCK, header_row=99)))
+check("a header line of nought is refused",
+      refused_by(lambda: tool.read(A_TITLE_BLOCK, header_row=0)))
+check("and True is not a line number, whatever Python thinks",
+      refused_by(lambda: tool.read(A_TITLE_BLOCK, header_row=True)))
+check("asking for line 1 is exactly what it always did",
+      (lambda a, b: a is not None and b is not None and a.columns == b.columns
+       and len(a.rows) == len(b.rows))(
+          answered(lambda: tool.read(f"a{TAB}b{LF}1{TAB}2{LF}")),
+          answered(lambda: tool.read(f"a{TAB}b{LF}1{TAB}2{LF}", header_row=1))))
+
 # ------------------------------------------- and now against HIS REAL FILES
 
 REAL = {
@@ -316,6 +355,26 @@ for what, (path, columns, rows, separator, last, first) in REAL.items():
     check(f"his real {what}: every row can be looked up by name",
           real is not None and all(r[first] is not None for r in real.rows))
 
+# **THE FILE THAT COULD NOT BE READ AT ALL UNTIL 2026-09-02.** Its own title
+# block is seven lines long and its columns are on line 8.
+RETURNS = HIS_FILES / "meesho" / "returns" / "meesho_returns_2026-08-31.csv"
+if not RETURNS.is_file():
+    not_run.append(f"meesho returns -- {RETURNS} is not on this machine")
+    print(f"NOT RUN  his real meesho returns: {RETURNS} is not here")
+else:
+    real = answered(lambda: tool.read(RETURNS.read_bytes(), header_row=8))
+    check("his real meesho returns: it reads at all, which it could not before",
+          real is not None)
+    check("his real meesho returns: 22 columns", real is not None and len(real.columns) == 22)
+    check("his real meesho returns: 101 rows", real is not None and len(real.rows) == 101)
+    check("his real meesho returns: nothing was refused", real is not None and real.refused == ())
+    check("his real meesho returns: the title block was not read as data",
+          real is not None and real.rows[0].line == 9)
+    check("his real meesho returns: its return reason can be looked up by name",
+          real is not None and all(r.has("Return Reason") for r in real.rows))
+    check("HIS REAL MEESHO RETURNS FILE IS STILL REFUSED IF READ FROM LINE 1",
+          refused_by(lambda: tool.read(RETURNS.read_bytes())))
+
 if not_run:
     print()
     print(f"      {len(not_run)} check group(s) NOT RUN -- his real files are not on this machine:")
@@ -329,11 +388,12 @@ check(f"nothing above ended by throwing rather than by answering -- {THREW}", no
 # **THE COUNT KNOWS THE DIFFERENCE between here and a machine without his Drive.**
 # A single expected number would go red on one of them and be edited until it went
 # green on both, which is how a count stops meaning anything.
-WITH_HIS_FILES = 83
-WITHOUT = WITH_HIS_FILES - 7 * len(REAL)
-EXPECTED = WITHOUT if len(not_run) == len(REAL) else WITH_HIS_FILES
-if not_run and len(not_run) != len(REAL):
-    EXPECTED = WITH_HIS_FILES - 7 * len(not_run)
+# **EVERY REAL-FILE GROUP IS SEVEN CHECKS**, the four in REAL and the returns
+# file beside them, so one sum covers every combination rather than three
+# branches that were each right for a different machine.
+CHECKS_PER_REAL_FILE = 7
+WITH_HIS_FILES = 100
+EXPECTED = WITH_HIS_FILES - CHECKS_PER_REAL_FILE * len(not_run)
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

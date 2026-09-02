@@ -331,8 +331,32 @@ def _split_into_rows(text: str, separator: str) -> List[List[str]]:
         raise CannotRead(f"This file could not be split into rows: {wrong}") from None
 
 
-def read(content, *, expect: Optional[Sequence[str]] = None) -> Table:
+def read(
+    content,
+    *,
+    expect: Optional[Sequence[str]] = None,
+    header_row: int = 1,
+) -> Table:
     """Read a platform's file into rows.
+
+    `header_row` is which line the column names are on. **It is not always the
+    first, and a real file of his proves it:** `meesho_returns_2026-08-31.csv`
+    opens with a seven-line title block -- a blank line, `Meesho Supplier Panel`,
+    the supplier's id, name and email, a download timestamp, another blank -- and
+    **the column names are on line 8.** Read from line 1, that file names no
+    columns at all and the whole stream is unreadable.
+
+    `sheet.read` has taken this since it was written, because his Flipkart
+    payments file puts category bands across row 1. This is the same fault in a
+    text file, and it went unnoticed until a real returns file was opened.
+
+    **THE SEPARATOR IS DECIDED FROM THE HEADER ROW, not from line 1.** A title
+    block's lines are two cells wide and say nothing about how the real columns
+    are separated; asking them would read a comma file as one tall column.
+
+    **The rows ABOVE the header are not data and are not refusals** -- they are
+    somebody's title block, and reporting them as bad rows would put refusals on
+    every clean file of that shape.
 
     `expect` names columns the caller cannot do its job without. **They are
     checked ONCE, here, against the header -- not per row.** Checked per row, a
@@ -352,14 +376,30 @@ def read(content, *, expect: Optional[Sequence[str]] = None) -> Table:
     if not text.strip():
         raise CannotRead("This file is empty.")
 
-    header_line = text.split("\n", 1)[0]
-    separator = what_separates(header_line)
+    if not isinstance(header_row, int) or isinstance(header_row, bool) or header_row < 1:
+        raise CannotRead("The header row is a line number, counting from one.")
+
+    # **THE SEPARATOR COMES OFF THE HEADER'S OWN LINE.** Taken from line 1, a
+    # title block would decide it -- and his returns file's title block is two
+    # cells wide, which says nothing about the twenty-two columns below it.
+    lines = text.split("\n")
+    if len(lines) < header_row:
+        raise CannotRead(
+            f"This file has {len(lines)} lines, so there is no line {header_row} "
+            "to take the column names from."
+        )
+    separator = what_separates(lines[header_row - 1])
 
     rows = _split_into_rows(text, separator)
     if not rows:
         raise CannotRead("This file is empty.")
+    if len(rows) < header_row:
+        raise CannotRead(
+            f"This file has {len(rows)} rows, so there is no row {header_row} "
+            "to take the column names from."
+        )
 
-    names = [n.strip() for n in rows[0]]
+    names = [n.strip() for n in rows[header_row - 1]]
     where, ambiguous = where_each_column_is(names)
     columns = tuple(names)
 
@@ -390,7 +430,7 @@ def read(content, *, expect: Optional[Sequence[str]] = None) -> Table:
     kept: List[Row] = []
     refused: List[Refused] = []
     width = len(columns)
-    for at, cells in enumerate(rows[1:], start=2):
+    for at, cells in enumerate(rows[header_row:], start=header_row + 1):
         if not any(c.strip() for c in cells):
             continue
         if len(cells) != width:
