@@ -45,6 +45,31 @@ marked as read** either, so tomorrow's real file for that day is still new.
 
 ---
 
+**WHAT HAS BEEN READ IS CAPPED TO THE FOLDER, AND TO NOTHING ELSE. HIS
+DECISION, 2026-09-02: "cap on folder".**
+
+The list of what has been read cannot grow for ever, and the obvious cap -- keep
+the last so many days -- is the wrong one HERE, for a reason that does not apply
+to `between_runs.KEEP_RUN_DAYS`:
+
+**A LANDED FILE IS NEVER REMOVED FROM THE FOLDER.** So an id dropped while its
+file is still sitting there makes that file NEW again. It is read a second time,
+and being an old file it puts its old figures back over the newer ones that had
+already corrected them -- silently, because within one run recency is exact and
+across runs the ledger records no trace of which file last wrote a value.
+
+So an id is dropped **only when its file has actually gone from the folder.**
+The list is then a mirror of the folder: it can never be longer than the folder,
+it shrinks the night he tidies Drive, and no number had to be guessed at.
+
+**IT RESTS ON THE LISTING BEING THE WHOLE FOLDER, and that is said out loud
+because it is the one way this can go wrong.** A short listing looks exactly like
+a tidied folder from in here. `still_worth_remembering` refuses to forget
+anything at all when the folder comes back empty, which is the one case it can
+tell apart by itself; everything past that is the door's to get right.
+
+---
+
 **NOTHING HERE OPENS A FOLDER.** The listing is handed in, exactly as every door
 in this package has its transport handed in, so every rule below is checked with
 no Drive, no token and no internet.
@@ -162,6 +187,81 @@ def what_is_new(
         new.append(one)
 
     return WhatToRead(new=tuple(new), empty=tuple(empty), already=tuple(already))
+
+
+@dataclass(frozen=True)
+class StillRemembered:
+    """What is worth going on remembering, and what has been let go of."""
+
+    keep: Tuple[str, ...] = ()
+    forgotten: Tuple[str, ...] = ()
+    # Why nothing was let go of, when something would otherwise have been. Empty
+    # when there was no such reason.
+    refused_to_forget: str = ""
+
+    def says(self) -> str:
+        """One line for the run log. **Every count, even the noughts.**
+
+        Forgetting is the one thing in here that can quietly cause a re-read, so
+        how many were forgotten is said every night rather than only when it is
+        interesting -- a night that forgot six hundred and a night that forgot
+        none must not read the same.
+        """
+        said = f"{len(self.keep)} files still remembered as read, {len(self.forgotten)} let go of"
+        if self.refused_to_forget:
+            said += f"; nothing was let go of: {self.refused_to_forget}"
+        return said
+
+
+def still_worth_remembering(
+    in_the_folder: Sequence[InTheFolder],
+    already_read: Sequence[str],
+) -> StillRemembered:
+    """What stays in the record of what has been read. **HIS CAP: the folder.**
+
+    **THE SAME TWO THINGS `what_is_new` IS GIVEN, and deliberately so.** The rule
+    that nothing about a fetch can reach this decision holds here for the same
+    structural reason: there is no argument through which it could arrive.
+
+    **AN ID IS LET GO OF ONLY WHEN ITS FILE HAS GONE FROM THE FOLDER.** Not after
+    so many days -- a landed file is never removed, so a day-count would let go of
+    ids for files still sitting there, and each one would be read again and put
+    its old figures back over newer ones.
+
+    **AND A FOLDER THAT COMES BACK EMPTY IS NOT A FOLDER SOMEBODY EMPTIED.** It is
+    what a listing looks like when it failed, or when the wrong folder was asked
+    about. Letting go of everything on the strength of it would re-read the
+    seller's entire history the following night, so nothing is let go of and the
+    reason is said out loud. **It is the one bad listing this can tell apart by
+    itself; a listing that is merely SHORT looks exactly like a tidied folder from
+    in here, and that is the door's to get right, not this file's.**
+    """
+    remembered = {str(one).strip() for one in (already_read or ()) if str(one).strip()}
+
+    there: set = set()
+    for one in in_the_folder or ():
+        if not isinstance(one, InTheFolder):
+            raise CannotTell(
+                "A folder is a list of files this job understands, and one of "
+                f"these is a {type(one).__name__}. Nothing has been forgotten."
+            )
+        there.add(one.which)
+
+    if not there and remembered:
+        return StillRemembered(
+            keep=tuple(sorted(remembered)),
+            forgotten=(),
+            refused_to_forget=(
+                f"the folder came back with no files in it at all, and {len(remembered)} "
+                "were remembered as read. That is what a listing looks like when it "
+                "failed, and letting go of them would read the whole history again."
+            ),
+        )
+
+    return StillRemembered(
+        keep=tuple(sorted(remembered & there)),
+        forgotten=tuple(sorted(remembered - there)),
+    )
 
 
 def now_read(already_read: Sequence[str], files: Iterable[InTheFolder]) -> Tuple[str, ...]:

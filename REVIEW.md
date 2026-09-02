@@ -90,6 +90,19 @@ ones that had already corrected them (finding 7 is exactly why that is not
 harmless). **Put to Jaiswal on 2026-09-02 with a recommendation rather than
 picked quietly.**
 
+**ANSWERED AND FIXED THE SAME DAY. His words: "cap on folder".**
+`whats_new.still_worth_remembering` lets go of an id **only when its file has
+gone from the folder** — never after so many days. The list is then a mirror of
+the folder: it can never be longer than it, it shrinks the night he tidies Drive,
+and no number was guessed at. An empty folder listing lets go of **nothing**, and
+says why: that is what a listing looks like when it failed, and acting on it
+would re-read the seller's whole history. *Proved by:* eight faults put back;
+seven caught by a named check, **the eighth caught nothing** — the blanks check
+was looking at what was KEPT when the fault came out in what was LET GO OF, so a
+run log would have reported forgetting two files that never existed. Closed.
+
+**AND IT SURFACED A REAL FAULT ELSEWHERE — finding 10 below.**
+
 ### 6. Nothing remembers which files have been read across runs
 
 `between_runs.Between` has no field for it. Adding one bumps its `SHAPE`, which
@@ -138,6 +151,25 @@ D152 adds `status`, `isShopsy`, `cogs`, `packagingCost`, `adSpend`,
 **This side deliberately does not follow them** — matching uncommitted work in
 another folder is matching something that can still change. `sales_checks.py`
 pins the two lists, so whichever side moves alone goes red.
+
+---
+
+### 10. The folder listing is not paged, so it never sees a folder of 800 files
+
+`drive_door.what_has_arrived` and `what_is_already_there` both call Drive's
+`files.list` with **no page token and no page size**, and neither follows
+`nextPageToken`. Drive returns one page and this code takes it as the whole
+folder. His `flipkart\` folder holds roughly 800 files and `meesho\` roughly 470.
+
+**This is worse than a cap problem, and it was found while building the cap.**
+The reader would never even SEE the files past the first page, so they would
+never be read at all — the folder cap then compounds it, because a short listing
+looks exactly like a tidied folder and their ids would be let go of.
+
+**Not fixed here.** It is another piece's working code (`the-drive-door`), and
+nothing is wired to the reader yet, so nothing is broken tonight. **It must be
+fixed before the reader is joined to the nightly job**, and `whats_new` says so
+in its own words where the cap is written.
 
 ---
 

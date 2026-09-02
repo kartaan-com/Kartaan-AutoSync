@@ -66,6 +66,14 @@ check("what starts a read is given the folder and what was already read",
       TAKES == ["in_the_folder", "already_read"])
 check("AND NOTHING ELSE -- there is nowhere for a fetch's opinion to get in",
       len(TAKES) == 2)
+# **AND WHAT IS FORGOTTEN IS DECIDED ON THE SAME TWO THINGS.** A cap that could
+# be handed anything else -- a date, a run, a count -- is a cap that can be made
+# to forget a file that is still sitting in the folder.
+LETS_GO = list(inspect.signature(tool.still_worth_remembering).parameters)
+check("what is forgotten is decided on the folder and what was already read",
+      LETS_GO == ["in_the_folder", "already_read"])
+check("AND NOTHING ELSE -- no date, no count, nowhere for a day-cap to get in",
+      len(LETS_GO) == 2)
 # **A WORD-SCAN OF THE SOURCE WAS TRIED FIRST AND WAS THE WRONG CHECK.** It read
 # the docstring too, so the sentence explaining that a day fetched again must
 # still be read made the check go red about the word "fetch". Prose is not code.
@@ -194,9 +202,81 @@ check("and a file that turns up tomorrow is new",
           answered(lambda: tool.what_is_new(folder + [f("D")], remembered))))
 
 print()
+# ------------------- HIS CAP: THE FOLDER, AND NOTHING ELSE (2026-09-02)
+
+# **HIS WORDS: "cap on folder".** An id is let go of only when its file has gone.
+
+FOLDER = [f("id-1"), f("id-2"), f("id-3")]
+
+kept = answered(lambda: tool.still_worth_remembering(FOLDER, ["id-1", "id-2", "id-3"]))
+check("a file still in the folder is still remembered as read",
+      kept.keep == ("id-1", "id-2", "id-3"))
+check("and nothing is let go of while everything is still there", kept.forgotten == ())
+
+# **THE ONE THING THE CAP IS FOR.** He tidies Drive; the list shrinks with it.
+tidied = answered(lambda: tool.still_worth_remembering([f("id-3")], ["id-1", "id-2", "id-3"]))
+check("A FILE THAT HAS GONE FROM THE FOLDER IS LET GO OF", tidied.forgotten == ("id-1", "id-2"))
+check("and the ones still there are kept", tidied.keep == ("id-3",))
+check("so the list can never be longer than the folder",
+      len(tidied.keep) <= len([f("id-3")]))
+
+# **NOT A DAY-COUNT, AND THIS IS THE WHOLE REASON.** A landed file is never
+# removed, so a day-cap would let go of an id whose file is still sitting there
+# -- and that file, read again, puts its old figures back over newer ones.
+old_but_there = answered(lambda: tool.still_worth_remembering(
+    [f("id-1", "meesho_orders_2026-01-01.csv")], ["id-1"]))
+check("A FILE FROM MONTHS AGO IS STILL REMEMBERED WHILE IT IS STILL IN THE FOLDER",
+      old_but_there.forgotten == () and old_but_there.keep == ("id-1",))
+
+# **A FOLDER THAT COMES BACK EMPTY IS A LISTING THAT FAILED, not a folder
+# somebody emptied.** Letting go of everything would re-read the whole history.
+gone = answered(lambda: tool.still_worth_remembering([], ["id-1", "id-2"]))
+check("AN EMPTY FOLDER LISTING LETS GO OF NOTHING AT ALL", gone.forgotten == ())
+check("and everything is still remembered", gone.keep == ("id-1", "id-2"))
+check("and the reason is said, not left to be guessed at",
+      "listing looks like when it failed" in gone.refused_to_forget)
+check("and it says how many were saved from being forgotten",
+      "2 " in gone.refused_to_forget or " 2 " in gone.refused_to_forget)
+# But an empty folder on a first night is simply an empty folder.
+check("an empty folder with nothing remembered is not a refusal, just nothing",
+      answered(lambda: tool.still_worth_remembering([], [])).refused_to_forget == "")
+
+# **HOW MANY WERE LET GO OF IS SAID EVERY NIGHT**, or a night that forgot six
+# hundred reads the same as a night that forgot none.
+check("what was kept and what was let go of is said in one line",
+      tidied.says() == "1 files still remembered as read, 2 let go of")
+check("and a night that let go of nothing says so too",
+      "0 let go of" in kept.says())
+
+# An id remembered for a file that was never in the folder is let go of -- there
+# is nothing there for it to protect.
+check("an id for a file that is not in the folder at all is let go of",
+      answered(lambda: tool.still_worth_remembering(FOLDER, ["id-9"])).forgotten == ("id-9",))
+check("a folder holding something that is not a file is refused here too",
+      refused_by(lambda: tool.still_worth_remembering(["id-1"], [])))
+check("and blanks in what was remembered are dropped rather than kept for ever",
+      answered(lambda: tool.still_worth_remembering(FOLDER, ["", "  ", "id-1"])).keep == ("id-1",))
+# **FOUND BY PUTTING THE FAULT BACK, 2026-09-02.** Keeping the blanks left the
+# line above green, because a blank is not in the folder either so the
+# intersection dropped it anyway. It came out as something LET GO OF instead --
+# a run log reporting that it forgot two files that never existed.
+check("and blanks are not reported as files that were let go of either",
+      answered(lambda: tool.still_worth_remembering(FOLDER, ["", "  ", "id-1"])).forgotten == ())
+
+# **END TO END: HE TIDIES DRIVE AND THE TIDIED FILES ARE NOT READ AGAIN.**
+# The cap must not become the very re-read it exists to prevent.
+after_tidy = answered(lambda: tool.still_worth_remembering([f("id-3")], ["id-1", "id-2", "id-3"]))
+next_night = answered(lambda: tool.what_is_new([f("id-3")], after_tidy.keep))
+check("THE NIGHT AFTER A TIDY, WHAT IS LEFT IN THE FOLDER IS NOT READ AGAIN",
+      next_night.anything_to_do is False)
+# And if he ever puts one back, it is a file in the folder that nothing has read.
+check("and a tidied file put back IS read again, which is right -- nothing remembers it",
+      [one.which for one in answered(
+          lambda: tool.what_is_new([f("id-3"), f("id-1")], after_tidy.keep)).new] == ["id-1"])
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 42
+EXPECTED = 63
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

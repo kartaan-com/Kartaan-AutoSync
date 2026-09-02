@@ -949,8 +949,14 @@
      "proved_by": "`between_runs_checks.py` -- 'THE FOURTH FILE, ARRIVING AFTER THE FIFTH, IS READ ON THE NEXT NIGHT' and 'and the four already read are not read a second time'. Both go red when the list is not written, not read back, or replaced by a high-water mark."
     },
     {
-     "what": "**WHAT HAS BEEN READ GROWS FOR EVER.** `now_read` never drops an id, and as of 2026-09-02 that list now survives the night, so it really does grow -- roughly 7,000 file ids a year at his volume, in a file in the seller's own Drive. **NOT CAPPED, DELIBERATELY, AND PUT TO HIM 2026-09-02.** A cap here is not like `KEEP_RUN_DAYS`: dropping an id whose file is still sitting in the folder makes that file new again, and an old file re-read puts its old figures back over newer ones. So how far back to remember is his call, and it is asked rather than assumed.",
+     "what": "**WHAT HAS BEEN READ GREW FOR EVER.** `now_read` never dropped an id, and once the list survived the night it really did grow -- roughly 7,000 file ids a year at his volume, in a file in the seller's own Drive. **FIXED 2026-09-02, HIS DECISION, HIS WORDS: 'cap on folder'.** An id is let go of ONLY when its file has gone from the folder, never after so many days -- because a landed file is never removed, so a day-cap would let go of ids for files still sitting there, and each one read again would put its old figures back over newer ones. The list is now a mirror of the folder: never longer than it, and it shrinks the night he tidies Drive.",
      "found": "2026-09-02, by the review",
+     "fixed": true,
+     "proved_by": "`whats_new_checks.py` -- 'A FILE THAT HAS GONE FROM THE FOLDER IS LET GO OF', 'A FILE FROM MONTHS AGO IS STILL REMEMBERED WHILE IT IS STILL IN THE FOLDER' and 'AN EMPTY FOLDER LISTING LETS GO OF NOTHING AT ALL'. All three go red when the cap is made a day-count, or when an empty listing is read as a tidied folder."
+    },
+    {
+     "what": "**THE CAP RESTS ON THE FOLDER LISTING BEING THE WHOLE FOLDER, AND TODAY IT IS NOT.** `drive_door.what_has_arrived` calls Drive's files.list with no paging at all, so it returns at most Drive's default page and drops the rest silently. His flipkart folder holds ~800 files and meesho ~470. A short listing looks exactly like a tidied folder from inside `whats_new`, so the cap would let go of ids for files that are still there -- and, far worse, the reader would never even SEE those files to read them in the first place. **Found 2026-09-02 while building the cap. Not fixed here: it is another piece's working code.** The empty-listing refusal covers the one bad listing this file can tell apart by itself; a merely short one it cannot.",
+     "found": "2026-09-02",
      "fixed": false,
      "proved_by": null
     }
