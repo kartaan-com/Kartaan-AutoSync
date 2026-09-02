@@ -48,17 +48,17 @@
     "                 rows -- by scripts in the ERP's audit folder. This code did",
     "                 not do that reading.",
     "",
-    "THE CHECKS. 1,967 Python checks and 400 JavaScript checks pass, 2026-09-02.",
+    "THE CHECKS. 2,041 Python checks and 400 JavaScript checks pass, 2026-09-02.",
     "They are checks, not a run. Every door in this package has its transport",
     "handed in, which is what lets them pass with no account, no token and no",
     "internet -- and is also exactly why passing them proves nothing about a real",
     "night.",
     "",
-    "THREE PIECES HAVE BEEN PROVED BY BREAKING THEM ON PURPOSE -- `reading-a-file`,",
-    "`reading-a-spreadsheet` and `what-a-sale-is`, and no others. `tools/prove_checks.py` lives in the ERP and there is still no copy here",
+    "FOUR PIECES HAVE BEEN PROVED BY BREAKING THEM ON PURPOSE -- the four the reader",
+    "is made of, and no others. `tools/prove_checks.py` lives in the ERP and there is still no copy here",
     "(open item 10 in the ERP's memory), so that one piece was done by hand: eight",
-    "thirty-three faults put back one at a time, thirty-three caught, no survivors.",
-    "SIX OF THE THIRTY-THREE FOUND GAPS IN THE CHECKS RATHER THAN IN THE CODE --",
+    "forty-seven faults put back one at a time, forty-seven caught, no survivors.",
+    "SIX OF THE FORTY-SEVEN FOUND GAPS IN THE CHECKS RATHER THAN IN THE CODE --",
     "including a check helper that hid a fault and a proving pass that called a",
     "crash a survivor. That is the argument for doing this to everything else. **Every other piece here has checks nobody has",
     "ever watched fail.**",
@@ -75,11 +75,14 @@
     "WHAT A SALE IS, DONE TOO, 2026-09-02, with its columns and its name read out",
     "of the ERP's own source and compared rather than retyped.",
     "",
-    "STILL TO COME, and none of it is started: the PER-PLATFORM COLUMN MAPS (which",
-    "of Meesho's, Flipkart's and Amazon's own columns is the sku, the quantity, the",
-    "money); what makes a read START, which is solely what NEW file is in the Drive",
-    "folder; and the SHEET DOOR that actually writes a row. Until that last one",
-    "exists nothing reaches a seller's screen.",
+    "THE COLUMN MAPS ARE DONE TOO, 2026-09-02. All three platforms' orders files",
+    "read against his real ones: 121 real sales, not one unreadable row.",
+    "",
+    "STILL TO COME, and neither is started: what makes a read START, which is",
+    "solely what NEW file is in the Drive folder; and the SHEET DOOR that actually",
+    "writes a row. **UNTIL THAT DOOR EXISTS NOTHING REACHES A SELLER'S SCREEN**,",
+    "however well the rest reads. And the PAYMENTS files are not read at all yet --",
+    "which is where Flipkart's money lives, since its orders file has none.",
     "",
     "THE HOLE IN THE MIDDLE OF THE PRODUCT: THE READER IS ONE PIECE OLD. Files are",
     "downloaded and landed in the seller's Drive, and NOTHING YET TURNS THEM INTO",
@@ -90,7 +93,7 @@
     "src/modules/listings are deleted the day this replaces them, and NOT BEFORE.",
     "Nothing replaces them yet."
   ],
-  "active": "what-a-sale-is",
+  "active": "which-column-is-what",
   "items": [
     {
       "id": "report-list",
@@ -761,6 +764,47 @@
         "reviewed": false,
         "run_for_real": false,
         "instead": "60 checks. **The important ones read the ERP's own source and compare, name by name and in order** -- `sheet-store.js` for the columns, `charges.js` for the charge ids, `orders.js` for how a sale is named and what states it can be in. Neither list is typed out in the check. They REFUSE rather than skip when the ERP cannot be found, proved by pointing them at nothing. **Proved by breaking it on purpose: thirteen faults put back one at a time, thirteen caught, no survivors.** No sale has ever been written to a real sheet -- there is no sheet door yet."
+      }
+    },
+    {
+      "id": "which-column-is-what",
+      "name": "Which of a platform's own columns is the SKU, the quantity, the money",
+      "what": "**The only file that knows what Meesho, Flipkart and Amazon call things.** Above it a sale is a sale; below it a file is rows. One word for one thing, said once, so a seller comparing two platforms compares like with like -- and a renamed column is one entry changed here and nothing else. Every column name was read off HIS OWN FILES, not off a description of them. **A moved column stops the whole file ONCE, by name, checked against the header before a row is read** -- per row it would produce 63 identical complaints and bury the one fact that matters. **A row that cannot be read is refused by name and the rest are read.** **And a date is never guessed at**: all three orders files lead with the year, and a shape it does not know stops that row rather than dating it wrong -- because Amazon's settlement file writes day-first, where 1 September read backwards becomes 9 January.",
+      "rests_on": [
+        "reading-a-file",
+        "reading-a-spreadsheet",
+        "what-a-sale-is"
+      ],
+      "files": [
+        "autosync/orders.py",
+        "autosync/orders_checks.py"
+      ],
+      "reviews": [],
+      "findings": [
+        {
+          "what": "**FLIPKART'S ORDERS FILE HAS NO MONEY IN IT AT ALL.** Thirty-nine columns and not one is an amount -- no price, no GMV, no settlement. Counted on his real file, not assumed. So a Flipkart sale is read with its money BLANK, which means what it should: nobody has worked this out yet. The figure arrives later from the payments file as a second statement about the same sale. **This is why blank and nought had to be different things before this file could be written at all.**",
+          "found": "2026-09-02, by reading his real file",
+          "fixed": true,
+          "proved_by": "The money is never among the columns a file cannot do without; making it one turns a check red, and Flipkart would never read again."
+        },
+        {
+          "what": "**EVERY ONE OF HIS 63 REAL FLIPKART SKUs IS WRAPPED** as `\"\"\"SKU:DJ 14 Bahubali\"\"\"`. Left wrapped it matches no product he has. The wrapper is the file format's, not the seller's.",
+          "found": "2026-09-02",
+          "fixed": true,
+          "proved_by": "The wrapper comes off and NOTHING ELSE does -- not case, not spacing inside the name. The register already carries the fault that rule exists for: 'a tidy-up map sat inside an identity lookup, so 17 of 39 mapped SKUs could never match'. Adding any tidying turns a check red."
+        },
+        {
+          "what": "**THE PLATFORM'S OWN WORD FOR WHAT HAPPENED HAS NOWHERE TO GO.** Counted on his real August Meesho files: 209 SHIPPED, **42 CANCELLED**, 37 READY_TO_SHIP, 5 HOLD, 4 DELIVERED. Kartaan's ledger has no column for it, deliberately -- `sheet-store.js` says so in as many words. Putting it in `notes` would overwrite the seller's own typing (D136); dropping cancelled rows would mean a cancellation never corrects yesterday's sale. **Adding a column changes the pinned contract on both sides, and that is HIS decision, not one to be made in passing.**",
+          "found": "2026-09-02",
+          "fixed": false,
+          "proved_by": null
+        }
+      ],
+      "state": {
+        "built": true,
+        "reviewed": false,
+        "run_for_real": false,
+        "instead": "74 checks. **It reads all three of his real orders files: 12 real Meesho sales, 63 real Flipkart, 46 real Amazon -- 121 sales, and NOT ONE unreadable row.** The rows that must NOT read are built by hand, because his real files are clean and a check that only ever read them would say nothing about what happens when one is not. **Proved by breaking it on purpose: fourteen faults put back one at a time, fourteen caught, no survivors.** Not one of those sales has ever reached a sheet -- there is no sheet door yet."
       }
     }
   ]
