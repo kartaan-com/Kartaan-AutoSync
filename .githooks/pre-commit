@@ -21,4 +21,19 @@ cd "$(git rev-parse --show-toplevel)" || {
   exit 1
 }
 
+# ------------------------------------------ D173: SAYING THAT THIS HALF RAN
+#
+# **GIT DOES NOT RUN THIS HOOK ON A MERGE THAT GOES THROUGH CLEANLY**, and it
+# does run commit-msg -- measured with real hooks, 2026-09-03. So the half that
+# demands a review record is skipped there while the half that STAMPS THE TAG is
+# not. This leaves a note naming the TREE it approved, and commit-msg refuses to
+# stamp a merge with no such note. **Not a rule, so not in tools/gate.py: it is
+# the fact of WHICH HOOK GIT RAN, and only the hook git ran can record that.**
+IT_RAN="$(git rev-parse --git-dir)/kartaan-pre-commit-approved"
+rm -f "$IT_RAN"
+# **ON THE WAY OUT, AND ONLY ON A PASS**, naming a tree: a note left by a hook
+# that refused would say the opposite of what happened, and one naming no tree
+# would be a stale record of the very kind D173 is about.
+trap 'HOW_IT_WENT=$?; [ "$HOW_IT_WENT" -eq 0 ] && git write-tree > "$IT_RAN" 2>/dev/null; exit "$HOW_IT_WENT"' EXIT
+
 python tools/gate.py || exit 1

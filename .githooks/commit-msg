@@ -19,13 +19,129 @@ MSG_FILE="$1"
 ROOT="$(git rev-parse --show-toplevel)" || exit 1
 cd "$ROOT" || exit 1
 
+# --------------------------------- D173: A MERGE IS A COMMIT, AND IS ASKED THE SAME
+#
+# **THE QUESTION THIS ASKS: did the half of the gate that demands a review record
+# actually run for this commit?** Not: did the tag land. The tag is the surface,
+# and in the broken case the surface is green (D170).
+#
+# Measured with real hooks on 2026-09-03: on a merge that goes through cleanly git
+# runs THIS hook and does not run `pre-commit` -- so the record is demanded by
+# nobody and consumed here, and the merge reaches GitHub WEARING the tag with
+# nothing recording that anybody read it. Two such merges are already on the ERP's
+# master. **`.git/MERGE_HEAD` exists while a merge is being committed and at no
+# other time** -- measured on all five paths, including the two merge paths where
+# `pre-commit` DOES run, which is why the note below is asked for rather than the
+# merge simply refused.
+#
+# **AND ONLY THE MERGE IS DANGEROUS. DO NOT WIDEN THIS.** `cherry-pick`, `revert`
+# and `rebase` run NEITHER hook -- measured the same day -- so no tag is written
+# at all, they land untagged, and CI refuses them by name. **That is the safe
+# direction: a workflow trap, not a hole.** The merge is the only path where the
+# stamping half runs without the demanding half, which is what lets a stale record
+# produce a commit that LOOKS reviewed. Quietening the other three would turn
+# three loud failures into three silent ones, which is the trade this whole week
+# has been about getting the right way round.
+#
+# **AND WHAT THIS NOTE IS NOT: UNFORGEABLE. NOTHING LOCAL COULD BE.** Measured
+# 2026-09-03 -- hold the merge back with `--no-commit`, take the tree with `git
+# write-tree`, `git merge --abort`, write that tree into the note by hand, then
+# merge for real: it goes through wearing the tag with `pre-commit` never having
+# run. **That is not a weakness of this note in particular.** Anything a hook
+# writes, whoever can run the hook can write; and the same person can skip both
+# hooks with `--no-verify` and type the tag into the message, in fewer steps. **A
+# stated limit is worth more than a guard that looks stronger than it is.**
+#
+# What the note DOES do is turn an ACCIDENT into a deliberate act. Before it, a
+# review record left lying about was enough and nobody had to intend anything.
+# And what holds either way, planted note or not, is checked: **no tag is written
+# without a review record.**
+#
+# **THE DELIBERATE CASE IS NOT THIS LAYER'S TO CATCH**, and that is not new --
+# nothing read from a message can tell a forged tag from a real one, which this
+# file already says further down about ordinary commits. The same limit, not
+# another one.
+NOW_MERGING="$(git rev-parse --git-dir)/MERGE_HEAD"
+IT_RAN="$(git rev-parse --git-dir)/kartaan-pre-commit-approved"
+if [ -f "$NOW_MERGING" ]; then
+  THIS_TREE="$(git write-tree 2>/dev/null || true)"
+  ALREADY_READ="$(cat "$IT_RAN" 2>/dev/null || true)"
+  if [ -z "$THIS_TREE" ] || [ "$ALREADY_READ" != "$THIS_TREE" ]; then
+    printf '\n  BLOCKED: this is a merge, and the half of the gate that demands a review\n' >&2
+    printf '  record never ran on it. Git does not run pre-commit on a merge that goes\n' >&2
+    printf '  through cleanly, and it does run this hook -- so a record left over from an\n' >&2
+    printf '  earlier commit would be used up here and the review tag written onto a merge\n' >&2
+    printf '  nobody read (D173).\n\n' >&2
+    printf '  Make the merge so that it is asked the same question as any other commit:\n\n' >&2
+    printf '      git merge --no-commit --no-ff <branch>\n' >&2
+    printf '      git commit\n\n' >&2
+    exit 1
+  fi
+fi
+# ONE NOTE COVERS ONE COMMIT, exactly as one review record does -- so a note
+# cannot be reused by the next commit any more than a record can.
+rm -f "$IT_RAN"
+
 # **MUST STAY IDENTICAL TO NOT_CODE IN tools/gate.py AND IN
 # .github/workflows/pm_check.yml.** Three copies of one fact, and a check in
 # tools/gate_checks.py holds them to each other -- because the day they disagree,
 # one of them is letting a commit through that another would have stopped.
 NOT_CODE='(^|/)(README|LICENSE|CHANGELOG|NOTICE)(\.md)?$|^\.gitignore$|^\.gitattributes$|^review_pass\.json$|^review_pass\.template\.json$'
 
-CODE_STAGED="$(git diff --cached --name-only | grep -v -E "$NOT_CODE" || true)"
+# ASKED SO THAT A FAILURE IS NOT AN EMPTY ANSWER, the same way .githooks/pre-commit
+# asks it. There is no `set -e` here, so a git that cannot answer -- a damaged
+# index is enough -- left this empty, and an empty list means "no code, nothing to
+# tag" a line below: the commit lands untagged and this hook prints nothing at all.
+#
+# **IT WAS LEFT STANDING HERE WHILE BEING FIXED TWELVE LINES AWAY IN THE OTHER
+# HOOK**, found by an independent reviewer on 2026-09-02. `git merge` runs
+# commit-msg and NEVER runs pre-commit, so nothing else covers that path.
+if ! ALL_STAGED="$(git diff --cached --name-only)"; then
+  printf '\n  BLOCKED: git could not say what is staged, so this hook cannot tell\n' >&2
+  printf '  whether the commit needs a review tag. Refusing rather than guessing.\n\n' >&2
+  exit 1
+fi
+CODE_STAGED="$(printf '%s\n' "$ALL_STAGED" | grep -v -E "$NOT_CODE" || true)"
+# **WHAT THIS LINE CANNOT SEE, AND WHY IT IS LEFT THAT WAY.**
+#
+# An amend that stages nothing but an EXEMPT file -- .gitignore, a README, a file
+# under docs/ -- reaches here with no code staged and is let through, so the
+# rewritten message can drop the review tag of a commit that DOES carry code.
+#
+# **IT CANNOT BE CAUGHT HERE, AND THAT IS A LIMIT OF GIT, NOT AN OMISSION.**
+# Measured on 2026-09-02 by dumping the whole environment git hands a hook: it is
+# byte for byte identical for an ordinary commit and for an amend. There is no
+# GIT_REFLOG_ACTION, no marker file, nothing. So this hook cannot tell an amend
+# carrying an exempt file apart from an ordinary commit OF that exempt file --
+# and the second is a perfectly normal thing to do, which is why it may not be
+# refused.
+#
+# **AND THERE IS NO SAME-TREE REWRITE TEST IN THIS FILE.** This said there was one
+# above, and there is not: no `HEAD^{tree}` comparison, nowhere in this repository.
+#
+# **IT USED TO SAY "no `write-tree`" TOO, AND THAT STOPPED BEING TRUE ON
+# 2026-09-03**, when D173's merge fix added one at the top of this file -- to ask
+# whether the note `pre-commit` left is about THIS commit. **A different question
+# with the same plumbing**, and the sentence was corrected the day the code
+# contradicted it rather than left to be believed (D169).
+#
+# The sentence was copied from the ERP's hook along with the paragraph around it,
+# and it claimed a guard that is not here, inside the change whose whole purpose
+# was to stop this gate saying it does things it does not do. Found by an
+# independent reviewer, 2026-09-02, and this is the correction.
+#
+# WHAT ACTUALLY COVERS THE OTHER CASE HERE. A commit with nothing staged at all
+# never reaches this hook: `tools/gate.py` runs first and refuses an empty staged
+# list outright. So a message-only rewrite is REFUSED in this repository rather
+# than allowed through -- **D163's free path, which lets such a rewrite go and
+# keeps its tag, is built in the ERP and is NOT built here.** The decision log
+# says so in terms. This case, the exempt file, it genuinely cannot reach.
+#
+# **`.github/workflows/pm_check.yml` IS THE LAYER THAT CATCHES IT.** It walks every
+# commit in the pushed range and asks each one against its REAL parent, so an
+# amended commit that carries code and no tag is refused there. That is not a
+# consolation -- it is the half of the gate that does not depend on a signal the
+# platform declines to give. Do not read this as a hole nobody noticed.
 [ -z "$CODE_STAGED" ] && exit 0
 
 # tools/gate.py already refused this case. Reaching here without one means the
@@ -35,8 +151,103 @@ if [ ! -f review_pass.json ]; then
   exit 1
 fi
 
-if ! grep -q '\[PM-REVIEWED\]' "$MSG_FILE"; then
-  printf '\n[PM-REVIEWED]\n' >> "$MSG_FILE"
+# WHERE GIT WILL CUT, MEASURED RATHER THAN GUESSED.
+#
+# `git commit -v` puts the whole diff into THIS FILE below a scissors line and
+# throws everything from that line down away. A tag appended at the END of the
+# file therefore lands below the cut: this hook announced it and git dropped it.
+#
+# **THE FIRST TWO DRAFTS OF THIS FIX BOTH GOT IT WRONG, AND THE SECOND WAS WORSE
+# THAN THE FIRST.** Draft one appended blindly. Draft two TRUNCATED the file at
+# anything roughly resembling a scissors line -- which cut messages git would
+# have kept whole, silently deleting the author's own words, in the default
+# configuration with no -v anywhere. Both found by an independent reviewer,
+# 2026-09-02, and the second is the worse mistake: a gate that deletes work.
+#
+# WHAT GIT ACTUALLY DOES, measured against git 2.52 rather than remembered:
+#   - it cuts ONLY under `-v` or `--cleanup=scissors`;
+#   - and only at its comment character, one space, then EXACTLY 24 dashes,
+#     ` >8 `, 24 dashes. `------ >8 ------` is kept whole, in every mode.
+#
+# **THE COMMENT MARKER IS NOT ONE CHARACTER.** `core.commentChar` takes exactly
+# one, but `core.commentString` takes a string of any length, and git builds its
+# cut line from whichever is set. This line said "ANY single character" and was
+# anchored to one, which left the original bug alive under an ordinary setting:
+# measured against git 2.52 on 2026-09-02, `core.commentString=REM` writes
+#
+#   REM ------------------------ >8 ------------------------
+#
+# and a one-character pattern does not see it. The tag then went to the END of the
+# file, below the cut, git threw it away, and this hook printed that it had added
+# one -- Golden Rule 24 by name, inside the hook written to prevent it. Driven,
+# not read: found by an independent reviewer and reproduced here before the fix.
+#
+# So ANY marker of one character or more is allowed for. That is deliberately
+# looser than git: matching a line git would have kept only puts the tag higher up
+# the message, while missing one loses the tag altogether.
+#
+# **AND NOTHING IS EVER DELETED.** The tag is INSERTED above the cut, never
+# truncated to it. Getting the line wrong is then harmless in both directions --
+# which is exactly the property draft two did not have.
+CUT_LINE_RE='^.+ -{24} >8 -{24}[[:space:]]*$'
+
+cut_at() { grep -n -m1 -E "$CUT_LINE_RE" "$MSG_FILE" | cut -d: -f1; }
+
+# WHAT GIT WILL KEEP OF THIS MESSAGE, which is the only part worth asking about.
+# Draft two asked the whole file, so a tag sitting below the cut read as present
+# and the hook passed on a commit that landed untagged.
+kept() {
+  AT="$(cut_at)"
+  if [ -n "$AT" ]; then head -n "$(( AT - 1 ))" "$MSG_FILE"; else cat "$MSG_FILE"; fi
+}
+
+# NOTHING ABOVE THE CUT IS NOT A MESSAGE. Tagging here would manufacture a commit
+# whose entire message is the tag. Leave it alone: git refuses an empty message
+# and says so better than this hook could.
+[ "$(cut_at)" = "1" ] && exit 0
+
+# THE TAG IS A LINE OF ITS OWN, NEVER A SUBSTRING ANYWHERE IN THE MESSAGE.
+# Must stay identical to the test in .github/workflows/pm_check.yml, and a check
+# in tools/gate_checks.py holds the two to each other.
+#
+# Grepped for anywhere, a message that merely MENTIONS the bracketed tag in an
+# ordinary sentence -- one ABOUT the gate, or the diff that `git commit -v` puts
+# into this same file -- was judged already tagged. Nothing was appended, and the
+# line at the bottom announced that the tag had been added regardless. It
+# happened in the ERP on 2026-09-02, to the commit logging D156, which landed
+# untagged with the gate saying otherwise: Golden Rule 24 by name, inside the
+# hook written to prevent it. THIS GATE WAS COPIED FROM THAT ONE AND CARRIED THE
+# FAULT, which is D156's own warning -- a gate copied is not a gate proved.
+#
+# IT REACHED PAST THIS HOOK. pm_check.yml read the same substring the same way,
+# so the layer D156 calls the one that cannot be walked past was passable with
+# --no-verify and an ordinary sentence.
+#
+# A line that IS exactly the tag still counts, and nothing read from a message
+# can tell a deliberate forgery from the real thing. What this stops is the
+# accident -- which is what actually happened.
+TAG_LINE='^\[PM-REVIEWED\][[:space:]]*$'
+
+if ! kept | grep -qE "$TAG_LINE"; then
+  AT="$(cut_at)"
+  if [ -n "$AT" ]; then
+    { head -n "$(( AT - 1 ))" "$MSG_FILE"
+      printf '\n[PM-REVIEWED]\n'
+      tail -n "+$AT" "$MSG_FILE"
+    } > "$MSG_FILE.tagged" && mv "$MSG_FILE.tagged" "$MSG_FILE"
+  else
+    printf '\n[PM-REVIEWED]\n' >> "$MSG_FILE"
+  fi
+fi
+
+# AND SAY WHAT IS TRUE, NOT WHAT WAS MEANT -- asked of what git will KEEP. The
+# write above can fail (there is no `set -e` here) and the hook then went
+# straight on to announce a tag it had never written.
+if ! kept | grep -qE "$TAG_LINE"; then
+  printf '\n  BLOCKED: the tag could not be written into the part of the message git\n' >&2
+  printf '  will keep, so this commit would land unreviewed while the gate reported\n' >&2
+  printf '  otherwise.\n\n' >&2
+  exit 1
 fi
 
 rm -f review_pass.json
