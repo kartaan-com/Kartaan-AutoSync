@@ -357,7 +357,7 @@ BREAKINGS = (
     # ---- NOT_CODE: nothing counts as code, so every commit is skipped (round six).
     ("WHAT COUNTS AS CODE, EMPTIED -- an empty pattern makes `grep -v` throw every file "
      "away, so every commit hands the walk an empty list and is skipped. The whole walk "
-     "switches off. The same fault put back in the commit hook turns seven checks red; "
+     "switches off. The same fault put back in the commit hook turns eleven checks red; "
      "put back here it left every check in three repositories green (D171)",
      the_value_changed("NOT_CODE", "''"),
      REFUSES_THE_UNTAGGED),
