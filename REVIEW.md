@@ -1,3 +1,433 @@
+# What a review of this repository found
+
+Newest at the top. A review is of a moment, so each one is dated and nothing in
+an older one is edited afterwards.
+
+---
+
+## 2026-09-03 (fifth) — M3R on the D172 runner. NOT COMMITTED: the runner is right about the two blocks it runs, and everything around them still holds nothing.
+
+**Reviewed against** `D:\Kartaan-ERP\DECISION_LOG.md` — D170, D171, D172, D173,
+read there read-only. **Scope: this repository only.** I wrote no product code, I
+did not read the author's report before measuring, and every file I touched was
+restored and the restore verified by `sha256sum` against a copy taken first.
+**I refused to commit.**
+
+---
+
+### What holds. Run, not read.
+
+| | |
+|---|---|
+| `tools/gate_checks.py` | **103 pass** — 109 less the six reading checks |
+| `tools/gate_run_checks.py` | **35 pass** — 5 questions, 30 faults put back, all 30 caught |
+| Total | **138**, as claimed |
+| The register against disk | no refusals, with both new files owned by `the-gate` |
+
+**THE FIFTH QUESTION IS ASKING FOR THE RIGHT ANSWER ON A PUSH, AND I CHECKED IT
+RATHER THAN TAKING IT.** I walked all 18 commits with the workflow's own rule by
+hand. Seven sit inside the reach (`d538efd` onwards); **all seven carry the tag on
+a line of its own**, not merely in prose; there are **no merge commits at all**.
+So there is genuinely nothing behind the marker to hide, a refusal is not
+available to ask for, and demanding a PASS is correct. The author's claim that it
+"does not port cleanly" is true for the reason given.
+
+`tools/gate_run.py` itself is careful in the places that usually go wrong: real
+YAML parser, real bash with `-e`, real git, a **skipped** step modelled as the
+success GitHub counts it as, `walked` asserted separately so a gate that never ran
+cannot look like one that passed, and every `GIT_`-prefixed pointer swept rather
+than listed.
+
+---
+
+### FINDING 1 — BLOCKING. The gate can be switched off with one line, in three different places, and all 138 checks stay green.
+
+The runner reads `jobs`, finds the job by a step name, and runs the two `run:`
+blocks. **Nothing it does looks at anything else in the file**, and the reading
+checks that survive are `in WORKFLOW` substring tests. Three faults put back one at
+a time, each restored and verified byte for byte:
+
+| The line | What it does on GitHub | gate_checks | gate_run_checks |
+|---|---|---|---|
+| `if: github.repository_owner == 'kartaan-com'` **`&& false`** | the whole job never runs — tag walk, secret scan, every checks file | **103 pass** | **35 pass** |
+| **`continue-on-error: true`** added to `Every code commit carries the review tag` | the walk still refuses and the run stays green — the refusal becomes advice | **103 pass** | **35 pass** |
+| `on: push/pull_request` replaced by `on: workflow_dispatch:` | the workflow never fires on a push to `main` at all | **103 pass** | **35 pass** |
+
+The first one **still contains the exact string** `github.repository_owner ==
+'kartaan-com'`, so the check named *"IT RUNS ONLY IN KARTAAN'S OWN
+ORGANISATION"* passes while the job it names is dead. That is D172's own table —
+"a second assignment below the first", "`export` in front of it" — one level up
+from where the runner looks. **There is no last spelling outside the `run:` block
+either.**
+
+The second is the sharpest of the three: it is inside the very step this whole
+change exists to prove, it is one word of YAML, and it reads as a considerate
+thing to add.
+
+### FINDING 2 — BLOCKING. On a pull request the fifth question must fail, and all 30 fault checks then pass without proving anything.
+
+`actions/checkout@v4` on a `pull_request` checks out `refs/pull/N/merge` — a merge
+commit **GitHub** makes, whose message is `Merge <sha> into <sha>` and which
+carries no tag. `History` clones and detaches at that commit, and the fifth
+question walks the whole history up to it. Measured, with a real merge commit
+carrying GitHub's own message:
+
+```
+::error::commit 395b0c1... changes code and carries no [PM-REVIEWED] tag
+MISSING=1  ->  the walk REFUSES.   The fifth question demands a PASS.
+```
+
+The workflow's own tag walk is right about this — on a PR it uses
+`merge-base(base, head)..head`, so it never walks GitHub's merge commit. **The
+runner does not follow it there.** `History.base` is whatever is checked out.
+
+**And the consequence is larger than one red check.** A fault counts as caught
+when **any** of the five questions answers wrong, and `FASTEST_FIRST` reaches the
+fifth. With the fifth permanently wrong on a PR, **all 30 fault checks pass
+vacuously** — the file reports 34 of 35 green while proving nothing at all. This
+repository pushes straight to `main`, so it may never be seen; the workflow
+declares `pull_request:` regardless.
+
+### FINDING 3 — D173's merge is live in this repository's hooks, and question four asks the surface instead of the question.
+
+D173 says it in terms: *"Did anything demand that somebody read this — not did the
+tag land. The tag is the surface, and in exactly the broken case the surface is
+green."* Question four asks an **untagged** merge to be refused. That is the loud,
+safe case. The dangerous one is a merge that lands **tagged**, and CI cannot see
+it by design.
+
+Driven through this repository's real `commit-msg`, in a throwaway repository with
+git's pointers stripped, with a `review_pass.json` left over from an earlier gate
+run:
+
+```
+git merge --no-ff side          (the files merge cleanly)
+  PRE-COMMIT RAN                -- absent. It never ran.
+  COMMIT-MSG RAN
+  gate: [PM-REVIEWED] added, and the review record is used up.
+Merge made by the 'ort' strategy.   exit=0
+the message that landed:  an unreviewed merge, nobody read this
+                          [PM-REVIEWED]
+the review record:        CONSUMED
+parents:                  2
+```
+
+**A merge nobody read reached the commit wearing the review tag, and the workflow
+passes it** — correctly, by its own rule. The half that demands a record never
+ran. `.githooks/commit-msg` already knows *"`git merge` runs commit-msg and NEVER
+runs pre-commit"*, in a comment added by this same change; nothing anywhere asks
+the question, and it is not in "what is still not covered" either.
+
+### FINDING 4 — the note over the deleted six says the wrong thing about what is left.
+
+> *"What is left in this file about that workflow is what running it cannot say:
+> that what counts as code is spelled the same way in all three places."*
+
+**Twelve reading checks over that workflow are still in the file** — the secret
+scan, node, the recipes, the tracked record, the seller-account guard, the empty
+tree sentinel, the rewritten-history refusal, `GATE_BORN` being a real forty
+characters. Keeping them is defensible; they cover steps the runner does not run.
+Saying only one is left is not, and finding 1 is what one of the twelve costs.
+D170, and it is the same shape as D169's own fourth instance.
+
+### FINDING 5 — a `proved_by` in the register names a check that cannot fail for it.
+
+`tools/work.json`, `the-gate`, second finding: the seller-account guard is
+*"proved_by: tools/gate_checks.py -- 'IT RUNS ONLY IN KARTAAN'S OWN
+ORGANISATION'."* Finding 1 measured that check green with the guard switched off.
+
+### FINDING 6 — this round is not written down.
+
+`REVIEW.md`'s newest entry is the fourth, and it still closes with
+**"Nothing runs `.github/workflows/pm_check.yml` ... Not built, and not
+claimed."** It is built. Nothing in the file records the D172 work, the six
+deleted checks or the thirty faults, and the register carries no finding for it
+either. (This entry is mine, not the author's.)
+
+### FINDING 7 — small, and against this file's own rule.
+
+`run_the_gate` moves the clone's `HEAD` with `git update-ref` and **does not look
+at whether it worked**. It is the one subprocess in `gate_run.py` outside `_must`,
+in a file whose opening paragraph says it raises rather than guesses. Harmless
+today — `HEAD` already sits on a descendant, so the two ancestry guards answer the
+same either way — which is exactly why a failure here would never be noticed.
+
+### FINDING 8 — an observation, not a fault, and it should be written down before it becomes one.
+
+`TAG_ANCHORED_FROM` is `936b0e3` — **the current HEAD**. Every commit in this
+history is at or before it, so **the strict, anchored form governs no real commit
+at all today**, and the fifth question exercises only the loose branch against
+real history. The strict branch is genuinely exercised, but only against the probe
+commits. The file explains why the marker's value is unobservable here; unlike the
+`GATE_BORN` paragraph, that explanation has **no tripwire under it** — no check
+goes red the day a commit lands that mentions the tag without carrying it.
+
+---
+
+### Where I could not satisfy myself
+
+- **Only two steps of the workflow are ever run**, here or by the runner. The
+  secret scan, the sibling checkouts, the checks sweep and the board are still
+  read and not run — D171's own category. The runner says so; it is still true.
+- I checked the register's own rule and did not run the full sixty-file check
+  sweep.
+- **Nothing outside this repository was reviewed.** The ERP was read for D170 to
+  D173 and nothing else; the Server was not opened.
+- Everything was driven under `bash` on Windows against this machine's git, and
+  GitHub's behaviour on the job `if`, on `continue-on-error` and on
+  `refs/pull/N/merge` is taken from GitHub's documentation, not from a real run.
+
+---
+
+## 2026-09-02 (fourth) — M2R reviewed the replaced fix, and its six findings are closed
+
+**Reviewed against** `D:\Kartaan-ERP\DECISION_LOG.md`, which D40 calls binding.
+**M2R held all three repositories and wrote no code.** It read the diff cold, did
+not read the author's report, and measured git itself rather than the comments
+about it. **It refused to commit.** Everything below is what it found and what the
+author then did — and the author is not the reviewer, so **this change has NOT yet
+been independently reviewed.**
+
+---
+
+### What M2R confirmed by measuring, not reading
+
+Real commits against git 2.52: git cuts at **exactly** 24 dashes each side (23 and
+25 are kept whole); it cuts under `core.commentString=REM` and `core.commentChar=;`;
+it keeps everything in the default cleanup and under `--cleanup=whitespace`. The
+hook's pattern matches every case git cuts and none it keeps. **Two things nobody
+had written down:** `core.commentString=//` makes git write ONE slash, not two;
+and `--cleanup=scissors` only cuts **when the message is edited**, so `git commit
+-F` with scissors and no `-e` does not cut at all.
+
+It put **twelve faults back by hand in the ERP, four here, two in AutoSync.** Nine
+of the twelve turned exactly one named check red and named the right one. Four
+turned nothing red. Those four are findings 3 to 6.
+
+---
+
+### The six findings, and what was done
+
+| # | Finding | Closed by |
+|---|---|---|
+| 1 | `.githooks/commit-msg` said *"The tree test above catches the case where nothing at all changed"* — **and there is no tree test in this file, or anywhere in this repository.** The sentence was copied from the ERP with the paragraph around it, inside the change whose purpose was to stop this gate claiming what it does not do | The sentence is corrected and says what actually covers that case here: `tools/gate.py` refuses an empty staged list before this hook runs, and **D163's free path is the ERP's and is not built here.** A new check drives that refusal, so the claim is held by something |
+| 2 | *"they were reviewed and they carry the tag"* was still written in the workflow comment and in the check's own name, in all three repositories — **D164 withdrew that claim the same evening** and the log now says the opposite | Corrected in all six places to what D164 says: they WERE reviewed, a record was demanded and consumed for each, and the hook then found its own name in the author's prose and **appended nothing.** That is the bug caught in the act |
+| 3 | *"a message that merely looks like it has a cut line is not damaged"* **could not go red for the fault it names.** Nothing is ever deleted now, so a lookalike mistaken for a cut line costs nothing; loosened until it matched, every check stayed green | The check now asks **where the tag lands** — left alone it goes at the end, below the author's last word; mistaken for a cut line it goes above. Position is the only difference, and it is now the thing asserted |
+| 4 | (ERP) D163's tree comparison could be swapped for the `nothing is staged` test **the decision forbids by name**, green | (ERP) A `git` that answers the staged list emptily is put in front of the hook while the index really does differ from HEAD. The two questions are made to disagree, and the gate must refuse |
+| 5 | The refusal for a git that cannot say what is staged — **a reviewer's own finding, added by this change** — had no check at all. Deleted, all 109 checks stayed green | A new check drives the real hook against a **really damaged `.git/index`**, which is the case the hook's own comment names, and asks for the hook's own words |
+| 6 | *"anchored to a WHOLE LINE"* asked only that the pattern starts with `^` and ends with `$`. `^.*\[PM-REVIEWED\].*$` does both and anchors nothing: changed at both sites together, every check stayed green and the GitHub side went back to a substring test | The pattern is now **fed to the same `grep -qE` both sites use** — a sentence that merely mentions the tag must not match, the bare tag must |
+
+**Found while fixing 6:** handed to a Git-for-Windows tool as an argument, a
+pattern arrives with its backslashes eaten — the child was given
+`^[PM-REVIEWED]...`, a character class matching any one of those letters. Asked
+that way the check would have gone **red on correct code and green on the fault.**
+The pattern and the message are read from files now.
+
+---
+
+### Every check in this change, broken the way its own rule is written
+
+Nineteen faults were put back one at a time, each on its own, with every touched
+file restored and the restore verified byte for byte. **Not one of them left the
+checks green.** The four that used to are the four findings above.
+
+The four that turn on **two** named checks rather than one do so honestly — a
+cut-line pattern that recognises only `#` breaks both the `;` case and the `REM`
+case; a shortened anchor breaks both the pinning and the forty-character rule.
+
+### What is still not covered, said plainly
+
+**Nothing runs `.github/workflows/pm_check.yml`.** Findings 4 and 6 both existed
+because that file is only ever read as text. What would settle it: run that
+workflow's shell against a fabricated history. Not built, and not claimed.
+
+---
+
+## 2026-09-02 (third) — M1R: the replaced fix, and why it is still uncommitted
+
+## M1R — NOT COMMITTED. The hooks are right; the checks guarding them are not, and two decisions they cite do not exist.
+
+**Reviewed against** `D:\Kartaan-ERP\DECISION_LOG.md`, which D40 calls binding.
+This is a second review, of a **replaced** diff. Nothing from my earlier record was
+carried forward — every round below was run again from scratch against the code
+as it stands now.
+
+---
+
+### What holds. Driven, not read.
+
+Seven behaviours, run through the real hooks in throwaway repositories with git's
+own environment pointers stripped first:
+
+| | ERP | Server | AutoSync |
+|---|---|---|---|
+| `git commit -v` — tag reaches the **commit**, diff does not leak in | 1 / 0 | 1 / 0 | 1 / 0 |
+| A message that merely *looks* like it has a cut line is not damaged | survives | survives | survives |
+| A **real** 24-dash cut line, no `-v` — git keeps it, and so does the hook | survives | survives | survives |
+| Amend, same tree, HEAD tagged → tag carried + `[NO-CODE-CHANGE]` | 1 / 1 | **0 / 0** | **0 / 0** |
+| Amend, same tree, HEAD untagged → no tag invented | correct | — | — |
+| Broken index → the tag hook **refuses** | exit 1 | exit 1 | exit 1 |
+| Cut line on line 1 → left alone | correct | correct | correct |
+
+**My previous blocking finding is genuinely fixed.** The truncation is gone; the
+tag is inserted above the cut and nothing is deleted. **My previous finding 2 is
+also fixed** — a damaged index now makes the tag hook refuse instead of exiting 0
+silently, in all three.
+
+**The amend-cannot-be-detected comment is honest.** I checked it rather than
+believing it: I dumped every `GIT*` variable and the whole `.git` directory
+listing during a hook run, for an ordinary commit and for an amend. **Byte for
+byte identical, and no marker file.** The claim does not overclaim, and its
+pointer to `pm_check.yml` as the layer that catches it is sound — an amended
+commit still shows its code against its real parent, so a dropped tag is refused
+there.
+
+**Faults put back, named checks red:** the git-cannot-answer refusal removed
+(3 red), the cut line narrowed to `#` only (1 red), the tag no longer carried
+across a rewrite (1 red), `[NO-CODE-CHANGE]` removed (1 red), the D163 free path
+removed (3 red), the CI pattern back to a substring (2 red).
+
+---
+
+### FINDING 1 — BLOCKING. The worst regression this change has ever had can be put straight back, and every check still passes.
+
+Draft two of this fix silently deleted the author's own paragraphs from a commit
+message. That was the finding that stopped the last round. **I reintroduced it
+with a three-line edit:**
+
+```
+survived = 0   <-- the hook deleted the author's words
+  PM Discipline: [PM-REVIEWED] added, review record consumed.
+all 445 checks passed
+```
+
+Same result in all three: **Server 105 passed, AutoSync 103 passed**, with the
+data loss present.
+
+**Why nothing notices.** The check named *"AND A MESSAGE THAT MERELY LOOKS LIKE IT
+HAS A CUT LINE IS NOT DAMAGED"* feeds the hook `------ >8 ------` — six dashes.
+Neither git nor the hook cuts at that line, so the truncation path is never
+entered. **The check exercises the case where nothing happens.** No check in any
+of the three repositories puts a real 24-dash cut line inside a message git will
+keep — which is the only shape that can lose anything.
+
+By D156's own standard, this part is not finished: the fault goes back and no
+named check goes red.
+
+### FINDING 2 — LIVE. `core.commentString` with three or more characters loses the tag, exactly as before.
+
+The hook says it covers `core.commentChar`, `core.commentString` and `auto` by
+allowing "ANY single character". **`core.commentString` is not limited to one
+character.** Measured against real commits:
+
+| setting | what git writes | tag in the commit |
+|---|---|---|
+| `core.commentChar=#` | `# ---- >8 ----` | 1 |
+| `core.commentChar=;` | `; ---- >8 ----` | 1 |
+| `core.commentString=//` | `/ ---- >8 ----` (git keeps one char) | 1 |
+| **`core.commentString=REM`** | **`REM ---- >8 ----`** | **0** |
+
+`^. -{24}` cannot match three characters, so the hook finds no cut, appends at the
+end, git discards it — and the hook prints that it added the tag. **The original
+bug, in full, in a supported configuration.**
+
+The check named for this says *"`core.commentChar` **and** `core.commentString`
+are ordinary settings"* — and its fixture only ever sets `core.commentChar=;`. It
+tests the easy half of its own claim.
+
+### FINDING 3 — the CI's anchored rule can be switched off, and nothing notices.
+
+Change one line — `TAG_TEST="$TAG_ANCHORED"` to `TAG_TEST="$TAG_BEFORE_THAT"` —
+and **every** commit is judged by the loose substring rule for ever. The strict
+pattern stays in the file, correctly spelt, and entirely dead. **All checks green
+in all three repositories.** The checks assert the pattern's *spelling* and that
+the loose branch *exists*; nothing asserts which branch is reached.
+
+### FINDING 4 — the anchor can be moved, and nothing notices.
+
+I replaced `TAG_ANCHORED_FROM` with a different 40-character ancestor. **No check
+went red.** The checks pin that there is exactly one, that it is 40 characters,
+and that an ancestry test is performed — never *which commit*.
+
+So a commit failing the strict rule is fixed by moving the anchor past it: a
+one-hash diff, indistinguishable from a correction. D164 says a marker names
+where a rule started, "never which commits were let off" — **an unpinned movable
+marker is a let-off list, written as a range.** In the ERP, `GATE_BORN` — the
+stronger lever, which exempts commits outright — is pinned by nothing at all;
+`status_checks.py` mentions it only in a comment. Server and AutoSync do check
+theirs.
+
+### FINDING 5 — the anchor's stated reason is false for the only two commits it actually exempts.
+
+I walked all three histories rather than taking this from anyone:
+
+| repo | commits the anchor actually lets through |
+|---|---|
+| ERP | **none** — every code commit after `GATE_BORN` already passes the strict rule |
+| AutoSync | **none** — same |
+| Server | **exactly two**: `e374995`, `b1904b1` |
+
+**The anchor exists for those two commits and nothing else.** The comment and the
+check both justify it as *"they were reviewed and they carry the tag; the check
+got stricter, they did not get worse."* **They do not carry the tag** — they
+mention it in prose, one of them inside a quoted error message. That is the whole
+reason they need exempting. Both are substantial, self-documenting commits and
+were very probably reviewed, but that is not provable from the repository, and
+"they carry the tag" is plainly untrue of them.
+
+### FINDING 6 — D163 is built in one repository of three.
+
+`NO-CODE-CHANGE`, `write-tree`, `D163`: **zero occurrences** in
+`Kartaan-Server` and `Kartaan-AutoSync`, in the hook and in `tools/gate.py`.
+Driven there, an amend drops the review tag and records nothing (the table above).
+In practice their `gate.py` refuses every amend, so no tag is lost today — but the
+free path D163 describes does not exist, and the two conditions that protect it
+are absent.
+
+### FINDING 7 — the anchor does not reconcile the ERP's history, and three pushed commits still carry code with no tag at all.
+
+The anchor only relaxes strict to loose. It does nothing for commits carrying no
+tag under **either** rule, and the ERP has them, already pushed, after `GATE_BORN`:
+
+| commit | carries | tag |
+|---|---|---|
+| `0e241eb` | `src/modules/products/assign-file.js`, `catalogue.js`, … | none |
+| `89425a8` | `src/modules/products/assign-file-screen.js` | none |
+| `be4237b` (merge) | `firestore.rules`, `guides/costing.html`, `DECISION_LOG.md` | none |
+
+plus several `docs:` commits carrying `DECISION_LOG.md`, which became code when
+D99 scoped the `.md` exemption to paths. **The tag rule was tightened and given an
+anchor; the not-code rule was tightened and given none.** I could not determine
+whether CI has ever walked these — that needs the Actions history, which I cannot
+reach from here.
+
+### FINDING 8 — the code is built to two decisions that are not in the decision log.
+
+`.githooks/commit-msg`, `.githooks/pre-commit`, `.github/workflows/pm_check.yml`
+and `tools/status_checks.py` all cite **D163** and **D164** as their authority.
+`DECISION_LOG.md` ends at **D156**. There is no D157, D158, D159, D160, D161,
+D162, D163 or D164, in any of the three repositories.
+
+D40 makes that log binding and requires a logged entry — this is the rule the
+gate itself enforces, with a lock of its own, and the change is on the wrong side
+of it. **And I am still told to push per D158, which also does not exist.**
+
+---
+
+### Where I could not satisfy myself
+
+- **Nothing runs `pm_check.yml`.** Findings 3 and 4 are both consequences: the
+  workflow is only ever read as text, so which branch is taken and which commit
+  is named are unasked questions. What would settle it: a check that runs that
+  workflow's shell against a fabricated history.
+- **Whether CI has ever walked the untagged ERP commits in finding 7** — that
+  needs the GitHub Actions history.
+- Hooks were driven only under `bash` on Windows, against git 2.52.
+- The secret scan, the board locks and the register were not exercised. This
+  review is scoped to the tag, the cut line, the amend path and the anchor.
+
+---
+
 # One review of this repository as it stands — 2026-09-02
 
 **Why this exists.** Nine commits reached GitHub with no record that anybody read

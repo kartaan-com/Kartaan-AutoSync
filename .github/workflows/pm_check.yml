@@ -48,6 +48,18 @@ jobs:
         with:
           node-version: '20'
 
+      # THE ONE THING INSTALLED HERE, and what it is for.
+      # `tools/gate_run.py` proves the step below by RUNNING it against a
+      # history it makes (D172), and to run it it has to read this file as
+      # YAML. A real parser, never a home-made one: pulling a block scalar
+      # out with regular expressions is the matching-a-surface fault (D170)
+      # that the whole exercise replaces, and a parser written here would
+      # agree with itself. setup-python hands back a clean interpreter with
+      # nothing in it, so without this the gate's own checks report
+      # themselves red on every run.
+      - name: The parser the gate's own checks need
+        run: python -m pip install --quiet pyyaml
+
       - name: Determine what changed
         id: changed
         run: |
@@ -109,6 +121,92 @@ jobs:
             exit 1
           fi
 
+          # D164 -- WHERE THE ANCHORED FORM STARTS, AS ONE NAMED COMMIT.
+          #
+          # The tag used to be grepped for ANYWHERE in a message, so a commit whose
+          # prose merely mentioned it counted as carrying it. That was tightened to
+          # a whole line. **THE CHECK GOT STRICTER; THE OLD COMMITS DID NOT GET
+          # WORSE** -- but not for the reason first written here.
+          #
+          # **THEY DO NOT CARRY THE TAG.** This said they did, and D164 withdrew
+          # that on 2026-09-02 after a reviewer checked the messages themselves.
+          # What is true: a review record was demanded and consumed for each, so
+          # somebody DID read them -- then the hook found its own name inside the
+          # author's prose, concluded the tag was already there, and appended
+          # nothing. That is the bug caught in the act. The tag was never written;
+          # it was not written and later disallowed.
+          #
+          # Judging them by a rule written afterwards would turn a tightening into
+          # a pile of false failures, and history is not rewritten to suit a check.
+          #
+          # So the anchored form applies from ONE NAMED COMMIT onwards -- the same
+          # shape as GATE_BORN above, and for the same reason: a single commit in
+          # the open cannot quietly widen, whereas a LIST OF EXEMPT HASHES grows
+          # every time something fails and anything at all can hide in it.
+          #
+          # **BEFORE THIS COMMIT, THE ANCHORED FORM WAS NOT CHECKED.** Commits at or
+          # before it are asked the question that was actually being asked at the
+          # time: does the message contain the tag anywhere. That is weaker, it is
+          # said here plainly rather than buried, and it applies to a fixed and
+          # shrinking set of commits that can never grow.
+          TAG_ANCHORED_FROM=936b0e3fdc3984176c7c6b4f631285813e26a311
+          TAG_ANCHORED='^\[PM-REVIEWED\][[:space:]]*$'
+          TAG_BEFORE_THAT='\[PM-REVIEWED\]'
+
+          # **THE ANCHOR IS RESOLVED, AND THAT IS THE ONLY THING REFUSED ON HERE.**
+          # A marker naming nothing this repository has is a question nobody can
+          # ask, so the step stops rather than guessing -- `rev-parse --verify`
+          # fails and GitHub's `bash -e` ends it.
+          #
+          # **AND THIS LINE IS LOAD-BEARING TWICE OVER. DO NOT TIDY IT AWAY.**
+          #
+          # 1. The per-commit test below asks whether the ANCHOR is in the commit's
+          #    history. Asked that way round, an EMPTIED marker would fall to the
+          #    LOOSE side and the gate would go quietly weaker on every commit.
+          #    Resolving it first is what keeps an unusable marker a REFUSAL.
+          # 2. **AND `ANCHOR` IS WHERE THE TEST BELOW GETS ITS VALUE AT ALL.**
+          #    Delete this line and the marker is still there, spelled perfectly,
+          #    and the anchored rule is OFF for every commit in the repository --
+          #    `--is-ancestor "" "$THIS"` fails for everything and it all falls to
+          #    the loose side. **Measured 2026-09-03, and not by reading:** the
+          #    first draft of this comment claimed only (1), and deleting the line
+          #    while emptying nothing already stopped a mentions-only commit being
+          #    refused. That is the `CODE=""` shape of round six.
+          #
+          # Three faults in tools/gate_run_checks.py hold it: the marker emptied,
+          # the marker deleted, and THIS LINE deleted.
+          ANCHOR="$(git rev-parse --verify "$TAG_ANCHORED_FROM^{commit}")"
+
+          # ------------------------------------------------------------------------
+          # **WHAT USED TO BE HERE, AND WHY IT WENT: D164.** This demanded that the
+          # anchor be an ancestor of HEAD and failed the whole run when it was not.
+          #
+          # **MEASURED IN THE ERP, not argued about:** that workflow pins two
+          # commits, `GATE_BORN` is in the products branch's history and its
+          # `TAG_ANCHORED_FROM` is NOT -- so a branch 14 commits behind master,
+          # carrying 53 reviewed files, would have failed CI for a reason with
+          # nothing to do with whether anybody read it.
+          #
+          # **D164 IN TERMS: a check that tightens names the commit it starts from,
+          # and IT NEVER CONDEMNS HISTORY.** Failing a whole branch because the
+          # anchor is not in it condemns history wholesale, and it is D145's shape
+          # as well -- a gate refusing work that is not bad. A gate that is red on
+          # work nobody can fix is a gate everybody learns to ignore.
+          #
+          # **THE QUESTION IS PER COMMIT, NEVER PER BRANCH**, which is what D164
+          # already said in words. It is asked below, of each commit, and it needs
+          # nothing to be true of the branch the commit happens to sit on.
+          #
+          # **THE LIMIT, STATED PLAINLY RATHER THAN HIDDEN.** A branch started
+          # BEFORE the anchor gets the LOOSER question for its own commits -- their
+          # history does not contain the anchor, so the rule that applied when they
+          # were made is the rule they are asked. **That is a real gap and it is
+          # not pretended away.** It is caught where such branches land: at the
+          # merge into master, which descends from the anchor and is therefore
+          # asked the ANCHORED question about every file it carries -- and D173's
+          # fix is what makes a merge get asked at all. **A stated limit is worth
+          # more than a guard that looks stronger than it is.**
+          # ------------------------------------------------------------------------
           MISSING=0
           for sha in $(git rev-list "${{ steps.changed.outputs.range }}"); do
             THIS="$(git rev-parse --verify "$sha^{commit}")"
@@ -125,7 +223,33 @@ jobs:
             # could present an empty file list and skip this check entirely.
             FILES="$(git show -m --pretty=format: --name-only "$sha" | grep -v -E "$NOT_CODE" || true)"
             [ -z "$FILES" ] && continue
-            if ! git log -1 --format=%B "$sha" | grep -q '\[PM-REVIEWED\]'; then
+            # ANCHORED TO A WHOLE LINE, and spelled exactly as .githooks/commit-msg
+            # spells it. Grepped as a substring, a --no-verify commit whose message
+            # merely MENTIONS the bracketed tag in an ordinary sentence passed the
+            # one layer D156 says cannot be walked past. Found in the ERP on
+            # 2026-09-02, in the gate this one was copied from.
+            # **ASKED OF THE COMMIT, NEVER OF THE BRANCH (D164).** Does THIS commit
+            # have the anchor in its history? If it does, it was made after the rule
+            # tightened and gets the anchored form. If it does not -- because it is
+            # older, or because it sits on a branch that started before the anchor --
+            # it gets the question that was actually being asked when it was made.
+            #
+            # **THE OLD SPELLING ASKED IT ROUND THE OTHER WAY**, whether THIS was an
+            # ancestor of the anchor, which answers "no" for a divergent branch just
+            # as it does for a newer commit -- so every commit on a branch made
+            # before the anchor was judged by a rule that did not exist yet. That,
+            # plus the branch-wide refusal above it, is what D164 forbids.
+            #
+            # `--is-ancestor X X` is true, so the string test is what keeps the
+            # named commit itself on the OLD side -- it is the last one made under
+            # the loose rule, not the first under the new one. Same shape as the
+            # GATE_BORN test above, deliberately.
+            if [ "$THIS" != "$ANCHOR" ] && git merge-base --is-ancestor "$ANCHOR" "$THIS"; then
+              TAG_TEST="$TAG_ANCHORED"
+            else
+              TAG_TEST="$TAG_BEFORE_THAT"
+            fi
+            if ! git log -1 --format=%B "$sha" | grep -qE "$TAG_TEST"; then
               echo "::error::commit $sha changes code and carries no [PM-REVIEWED] tag -- nothing records that anybody read it"
               MISSING=1
             fi
@@ -145,7 +269,7 @@ jobs:
         run: |
           # Enforcement code that never entered the repository protects one
           # laptop. This is the half that survives --no-verify, so it asks.
-          for GATE in tools/gate.py tools/gate_checks.py tools/work.json \
+          for GATE in tools/gate.py tools/gate_checks.py tools/work.json tools/gate_run.py tools/gate_run_checks.py \
                       .githooks/pre-commit .githooks/commit-msg \
                       review_pass.template.json; do
             if ! git ls-files --error-unmatch "$GATE" >/dev/null 2>&1; then

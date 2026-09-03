@@ -983,6 +983,8 @@
    "files": [
     "tools/gate.py",
     "tools/gate_checks.py",
+    "tools/gate_run.py",
+    "tools/gate_run_checks.py",
     ".githooks/pre-commit",
     ".githooks/commit-msg",
     "review_pass.template.json",
@@ -1000,14 +1002,20 @@
      "what": "**THE WORKFLOW WOULD HAVE RUN IN EVERY SELLER'S GITHUB ACCOUNT.** D36 copies this repository into each one, and the workflow cannot pass there: its checks are pinned against two PRIVATE repositories a seller has no token for. Every seller would carry a permanent red cross for a rule about how Kartaan is developed. Guarded to `kartaan-com` only, with the cost of the guard stated in the file: a seller's copy has no gate on GitHub, which is right because nobody develops there.",
      "found": "2026-09-02",
      "fixed": true,
-     "proved_by": "tools/gate_checks.py -- 'IT RUNS ONLY IN KARTAAN'S OWN ORGANISATION'."
+     "proved_by": "tools/gate_run_checks.py -- the two faults that put a false condition on the job ('THE JOB GIVEN A CONDITION THAT IS FALSE HERE' and 'AND A CONDITION NOTHING CAN READ'), which switch the job off and turn the run red. **Corrected 2026-09-04:** this named tools/gate_checks.py -- 'IT RUNS ONLY IN KARTAAN'S OWN ORGANISATION'. A cold reader measured that check GREEN with `&& false` on the condition -- gate_checks.py stayed 113 pass while gate_run_checks.py went 47 red of 50. It read the guard's text and never asked whether the job still ran."
+    },
+    {
+     "what": "**NOTHING RAN THE WORKFLOW. SIX ROUNDS OF READING IT EACH CLOSED ONE SPELLING AND THE NEXT ROUND FOUND ANOTHER** -- a second assignment below the first, `export` in front of it, `NOT_CODE` emptied so nothing counts as code, `MISSING` reset so the walk names an untagged commit and passes anyway. There is no last spelling: a check that reads the file guesses which forms a future author might write. **And the shell is not the whole gate** -- `continue-on-error: true`, `push:` taken out of `on:`, and an `if` on the job that cannot be true each leave every line of shell perfect and the commit landing, and none of the three is inside a `run:` block. Replaced by tools/gate_run.py, which runs the workflow's own two steps through real bash against a real history made for the purpose, and asks the YAML as STRUCTURE whether anything can switch the answer off (D172, D170, D171).",
+     "found": "2026-09-03",
+     "fixed": true,
+     "proved_by": "tools/gate_run_checks.py -- 50 checks: 6 questions asked of the workflow as written, 41 faults put back one at a time with the answer required to stop being right, the two commits the loose and strict rules disagree about pinned by identity, and the throwaway clone proved really gone. **Each fault is judged by the ONE question that exists to detect it, never by any question (D175)** -- a question already wrong on the workflow as written attributes nothing and the faults naming it are reported RED."
     }
    ],
    "state": {
     "built": true,
     "reviewed": false,
     "run_for_real": false,
-    "instead": "88 checks on the gate's own rules, including one that reads all THREE copies of `NOT_CODE` off disk -- Python, the commit-msg hook, and the workflow -- and holds them to each other. The workflow has never run: nothing has been pushed."
+    "instead": "163 checks on the gate: 113 in tools/gate_checks.py over its own rules and its real hooks -- including one that reads all THREE copies of `NOT_CODE` off disk (Python, the commit-msg hook, the workflow) and holds them to each other -- and 50 in tools/gate_run_checks.py that RUN the workflow's two tag steps rather than reading them. **Counted 2026-09-04; this said 88, from before the runner existed.** The workflow has still never run ON GITHUB: nothing has been pushed."
    }
   }
  ]
