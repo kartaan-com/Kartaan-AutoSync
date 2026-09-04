@@ -37,14 +37,35 @@ in that order. **Here the loss lands on the exact item that came back.**
 
 ---
 
-**THE LIMIT OF RULE 2, STATED RATHER THAN GLOSSED -- and it needs a column that
-does not exist.**
+**RULE 3 NEEDS A MEMORY THAT OUTLIVES ONE CALL, AND FOR A WHILE IT DID NOT HAVE
+ONE. That is the fault this file was repaired for.**
+
+The rule is decided in `decided_on`: which file last claimed each column of each
+sale, and on what day. Written as state inside `plan`, it started empty on every
+call -- and **the job calls `plan` once per file**, because a sale lands one file
+at a time and that is what makes marking a file read safe. So `before` was always
+`None`, the tie could never be seen, and the two files that make a tie were never
+in one call to be compared. **The seller's figure was decided silently by which
+Drive id happened to sort higher, and no disagreement was ever reported.**
+Measured through the real chain, not reasoned about.
+
+**So the memory is now the RUN'S, not the call's.** `plan` takes
+`WhatTheNightHasDecided` and writes into it; whoever runs the night makes ONE and
+hands the same one to every file. **The handover did not change** -- one file at
+a time, still -- and the rule now sees both halves of a tie because what the
+first file decided is still there when the second arrives.
+
+---
+
+**THE LIMIT OF RULE 2, STATED RATHER THAN GLOSSED -- and it needs four columns
+that do not exist.**
 
 Recency is enforced **within one run**, exactly: the readings are sorted by data
-date and applied oldest first, so the newest genuinely wins whatever order the
-files were fetched in.
+date and applied oldest first, and what the run has already decided is carried
+from file to file, so the newest genuinely wins whatever order the files were
+fetched in.
 
-**Across runs it cannot be.** The ledger's 28 columns hold no record of WHICH
+**Across runs it cannot be.** The ledger's 45 columns hold no record of WHICH
 FILE last wrote each value, so a run tomorrow cannot tell whether what is in a
 cell came from a file older or newer than the one it is holding. Today that is
 almost always harmless -- a new file is newer than what came before it, by
@@ -52,9 +73,9 @@ construction. **It is NOT harmless for a by-hand backfill (D110)**, where a
 deliberately old file is fetched after newer ones have already written.
 
 **Nothing here pretends otherwise.** A backfill's readings are applied like any
-other, and the one thing that would fix it is a column saying which file each
-value came from. That is not in D152's list and is written down as an open
-question rather than invented here.
+other, and the one thing that would fix it is D157's four date-marker columns --
+`WHICH_FILE_LAST_WROTE` below. Until they exist, **writing to the seller's sheet
+is refused rather than done badly**: see `what_the_sheet_cannot_yet_say`.
 
 ---
 
@@ -71,6 +92,62 @@ from table import CannotRead
 
 # The first row of the sheet is the column names, so a sale is on row 2 or later.
 THE_HEADER_IS_ROW = 1
+
+# **D157'S FOUR DATE-MARKER COLUMNS, NAMED HERE SO THAT THEIR ABSENCE CAN BE
+# CHECKED RATHER THAN REMEMBERED.**
+#
+# Each one holds the data date of the newest file OF THAT KIND that has touched
+# the row. With them, a run tomorrow can tell whether the file in its hand is
+# older than what is already in the cell, and rule 2 holds across nights as well
+# as within one. Without them it cannot, and a late file dated the 4th quietly
+# puts its figure over a correction the 5th made -- **in the money, with nothing
+# anywhere saying so.**
+#
+# **THE NAMES ARE THE ERP'S TO SET, AND THESE ARE THE NAMES THIS LOOKS FOR.**
+# `sales.COLUMNS` is pinned to the ERP's committed column list, so the day the
+# ERP adds these four, this side follows and the refusal below goes away by
+# itself. If the ERP lands them under different names, this keeps refusing and
+# says exactly what it was looking for -- which is the loud answer, and the one
+# to want.
+WHICH_FILE_LAST_WROTE = ("ordersOn", "paymentsOn", "returnsOn", "claimsOn")
+
+
+def what_the_sheet_cannot_yet_say(columns: Sequence[str] = COLUMNS) -> Tuple[str, ...]:
+    """Which of D157's four date markers the ledger still has no column for.
+
+    **EMPTY MEANS THE SHEET CAN BE WRITTEN TO SAFELY**, and that is the whole
+    reason this is a function and not a sentence in a report: a sentence has to
+    be remembered, and this is asked every night by the thing it stops.
+    """
+    return tuple(one for one in WHICH_FILE_LAST_WROTE if one not in tuple(columns))
+
+
+class WhatTheNightHasDecided:
+    """Which file last claimed each column of each sale, for THIS run.
+
+    **IT BELONGS TO THE RUN, NOT TO ONE CALL, AND THAT IS THE WHOLE POINT.**
+    Kept inside `plan`, it began empty every time -- and the job calls `plan` once
+    per file, because a sale lands one file at a time and that is what makes
+    marking a file read safe. Two files of one report and one date therefore never
+    met, rule 3 never fired, and which figure the seller ended up with was decided
+    by which Drive id happened to sort higher. **Nothing said a word about it.**
+
+    So the caller makes ONE of these for the night and hands the same one to every
+    file. The handover is unchanged; the memory is what crosses it.
+    """
+
+    def __init__(self):
+        self._by: Dict[Tuple[str, str], Tuple[str, str]] = {}
+
+    def what_decided(self, name: str, column: str) -> Optional[Tuple[str, str]]:
+        """The day and the file that last claimed this column, or None."""
+        return self._by.get((name, column))
+
+    def now_decided(self, name: str, column: str, on: str, statement: str) -> None:
+        self._by[(name, column)] = (on, statement)
+
+    def __len__(self) -> int:
+        return len(self._by)
 
 
 class LedgerRefused(CannotRead):
@@ -102,6 +179,12 @@ class Disagreement:
     """Two equally-current statements about one column, neither picked.
 
     **KEPT AND REPORTED, NEVER RESOLVED (D150).** What is in the sheet stays.
+
+    **AND BOTH FILES ARE NAMED, because the whole worth of reporting a tie is
+    that somebody can go and answer it.** The two sides of a tie are the same
+    report of the same day -- that is what makes it a tie -- so saying only
+    `me_orders of 2026-09-05` says it twice and points at neither. `kept_from`
+    and `also_from` are Drive's own ids, which is what a person opens.
     """
 
     name: str
@@ -110,13 +193,23 @@ class Disagreement:
     also_said: str
     from_report: str
     on: str
+    # Which file wrote what is standing, and which file disagrees with it. Left
+    # empty by a caller that does not know, and then simply not said.
+    kept_from: str = ""
+    also_from: str = ""
 
     def __str__(self) -> str:
-        return (
+        said = (
             f"{self.name}: {self.column} says {self.kept!r} and {self.from_report} "
             f"of {self.on} says {self.also_said!r}. Both are as current as each "
             "other, so nothing was changed."
         )
+        if self.kept_from and self.also_from:
+            said += (
+                f" The two files are {self.kept_from} (which is the one standing) "
+                f"and {self.also_from}."
+            )
+        return said
 
 
 @dataclass(frozen=True)
@@ -147,6 +240,11 @@ class Reading:
     # `whats_new.InTheFolder.which` is what goes here. Left empty, the report's
     # name stands in and two files of one report and one date are indistinguishable
     # again -- so the caller that has it should pass it.
+    #
+    # **AND CARRYING IT IS ONLY HALF THE RULE.** It tells two files apart; it does
+    # not put them in front of each other. The job hands one file per call to
+    # `plan`, so the other half is `so_far` -- the run's own memory of what has
+    # been decided, which is what makes a tie visible at all.
     which: str = ""
 
     @property
@@ -286,12 +384,24 @@ def _what_a_sale_says(sale: Sale, knows: Sequence[str]) -> Dict[str, str]:
     return {c: by_column[c] for c in knows if c in by_column}
 
 
-def plan(values: Sequence[Sequence[str]], readings: Sequence[Reading]) -> Plan:
+def plan(
+    values: Sequence[Sequence[str]],
+    readings: Sequence[Reading],
+    so_far: Optional[WhatTheNightHasDecided] = None,
+) -> Plan:
     """What to add, what to change, and what nobody could decide.
 
     **THE READINGS ARE APPLIED OLDEST FIRST**, so the newest file's word is the
     one left standing (D150). Sorting here rather than asking the caller to is
     the point: an order of fetching must never decide what a figure is.
+
+    **`so_far` IS THE RUN'S MEMORY, AND WITHOUT IT RULE 3 CANNOT FIRE.** The job
+    hands one file at a time, so a call that starts with an empty memory has
+    nothing to compare a second file's claim against -- the tie is invisible and
+    the second file silently wins. Left out, this makes its own and the behaviour
+    is the old one, which is right for a caller that really does hold every
+    reading at once and wrong for the one that does not. **`ledger_sheet` makes
+    one per night.**
     """
     held, row_of, unreadable = what_the_sheet_holds(values)
 
@@ -304,8 +414,9 @@ def plan(values: Sequence[Sequence[str]], readings: Sequence[Reading]) -> Plan:
 
     # What this run has decided so far, and which day's file decided it -- so a
     # same-day clash can be told from an ordinary overwrite by a newer file.
+    # **HANDED IN, so that it survives the one-file-at-a-time handover.**
     now: Dict[str, Dict[str, str]] = {n: dict(v) for n, v in held.items()}
-    decided_on: Dict[Tuple[str, str], Tuple[str, str]] = {}
+    decided_on = so_far if so_far is not None else WhatTheNightHasDecided()
     fresh: List[str] = []
     disagreements: List[Disagreement] = []
     changed: Dict[str, bool] = {}
@@ -356,7 +467,7 @@ def plan(values: Sequence[Sequence[str]], readings: Sequence[Reading]) -> Plan:
                 # 1 went red because the fix was not here.**
                 if str(value) == "" and str(was) != "":
                     continue
-                before = decided_on.get((name, column))
+                before = decided_on.what_decided(name, column)
                 if (before is not None and before[0] == reading.on
                         and before[1] != reading.one_statement):
                     if str(was) != str(value):
@@ -365,12 +476,17 @@ def plan(values: Sequence[Sequence[str]], readings: Sequence[Reading]) -> Plan:
                             name=name, column=column, kept=str(was),
                             also_said=str(value), from_report=reading.report,
                             on=reading.on,
+                            # **WHO SAID WHAT, out of the run's own memory.**
+                            # `before` is the file that put the standing figure
+                            # there; without it the report names one report twice
+                            # and points at neither file.
+                            kept_from=before[1], also_from=reading.one_statement,
                         ))
                     continue
                 if str(was) != str(value):
                     now[name][column] = value
                     changed[name] = True
-                decided_on[(name, column)] = (reading.on, reading.one_statement)
+                decided_on.now_decided(name, column, reading.on, reading.one_statement)
 
     append: List[Tuple[str, ...]] = []
     update: List[Tuple[int, Tuple[str, ...]]] = []

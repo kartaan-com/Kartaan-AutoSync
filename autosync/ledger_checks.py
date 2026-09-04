@@ -195,14 +195,16 @@ check("RULE 3: two files of the SAME DATE disagreeing keeps what is there",
       p is not None and p.append[0][AT["gmv"]] == "100")
 check("RULE 3: and the disagreement is REPORTED, never silently picked",
       p is not None and len(p.disagreements) == 1)
+# **GUARDED ON THERE BEING ONE.** Reached straight, a fault that stops rule 3
+# firing makes these THROW rather than go red, and the file dies half way through
+# with no count and nothing said about anything below. Found by putting that
+# fault back.
+_said = p.disagreements[0] if p is not None and p.disagreements else None
 check("RULE 3: the report names the sale, the column and both figures",
-      p is not None and p.disagreements[0].name == "meesho::O1::A"
-      and p.disagreements[0].column == "gmv"
-      and p.disagreements[0].kept == "100"
-      and p.disagreements[0].also_said == "200")
+      _said is not None and _said.name == "meesho::O1::A"
+      and _said.column == "gmv" and _said.kept == "100" and _said.also_said == "200")
 check("RULE 3: and says who said the other thing, and when",
-      p is not None and "payments" in str(p.disagreements[0])
-      and "2026-08-28" in str(p.disagreements[0]))
+      _said is not None and "payments" in str(_said) and "2026-08-28" in str(_said))
 check("RULE 3: two files of the same date AGREEING is not a disagreement",
       (lambda x: x is not None and x.disagreements == ())(
           answered(lambda: tool.plan([], [
@@ -239,6 +241,83 @@ check("RULE 3: one report saying it twice in one file is not a disagreement",
           answered(lambda: tool.plan([], [
               a_reading("orders", "2026-08-28",
                         [a_sale("O1", gmv=100), a_sale("O1", gmv=200)])]))))
+
+# ---- RULE 3 ACROSS THE ONE-FILE-AT-A-TIME HANDOVER, WHICH IS HOW THE JOB RUNS
+
+# **EVERY CHECK ABOVE HANDS `plan` BOTH FILES AT ONCE, AND THE JOB NEVER DOES.**
+# A sale lands one file at a time -- that is what makes marking a file read safe
+# -- so `plan` is called once per file and the memory it decides rule 3 in used to
+# start empty every time. The tie was invisible, nothing was reported, and which
+# figure the seller ended up with was settled by which Drive id sorted higher.
+# **So the rule is driven here the way the job drives it: two calls, and the
+# sheet in between holding what the first one wrote.**
+def two_calls(first, second, carrying):
+    """Two files, one at a time, into a sheet that keeps what it is given."""
+    one = tool.plan([], [first], carrying)
+    rows = HEADER + [list(r) for r in one.append]
+    return one, tool.plan(rows, [second], carrying)
+
+
+A_FILE = tool.Reading(report="meesho orders", on="2026-08-30", knows=ORDERS_KNOWS,
+                      which="file-one", sales=(a_sale("O1", gmv=100),))
+ANOTHER = tool.Reading(report="meesho orders", on="2026-08-30", knows=ORDERS_KNOWS,
+                       which="file-two", sales=(a_sale("O1", gmv=200),))
+
+night = tool.WhatTheNightHasDecided()
+first, second = two_calls(A_FILE, ANOTHER, night)
+check("RULE 3 FIRES ONE FILE AT A TIME: the tie is REPORTED, not resolved",
+      second is not None and len(second.disagreements) == 1)
+check("RULE 3 one file at a time: and what is already in the sheet is KEPT",
+      second is not None and second.update == () and second.append == ())
+# **GUARDED ON THERE BEING ONE AT ALL.** Reached straight, a fault that stops the
+# tie firing makes these THROW rather than go red -- and a check file that dies
+# half way through has no count and says nothing about the checks below it.
+_tie = second.disagreements[0] if second is not None and second.disagreements else None
+check("RULE 3 one file at a time: the report names BOTH files, not one report twice",
+      _tie is not None and "file-one" in str(_tie) and "file-two" in str(_tie))
+check("RULE 3 one file at a time: and says which of the two is the one standing",
+      _tie is not None and _tie.kept_from == "file-one" and _tie.also_from == "file-two")
+
+# **AND THE OTHER WAY ROUND KEEPS THE OTHER FIGURE AND STILL REPORTS.** The point
+# of rule 3 is not which figure survives -- it is that nobody chose it silently.
+other_way = tool.WhatTheNightHasDecided()
+_, back = two_calls(ANOTHER, A_FILE, other_way)
+check("RULE 3 one file at a time: the other order reports it too",
+      back is not None and len(back.disagreements) == 1
+      and back.disagreements[0].kept == "200" and back.disagreements[0].also_said == "100")
+
+# **WITHOUT THE RUN'S MEMORY IT CANNOT FIRE, AND THAT IS SHOWN RATHER THAN
+# ASSERTED.** This is the fault as it stood: a fresh memory for each file.
+forgets_between_files = tool.plan(
+    HEADER + [list(r) for r in tool.plan([], [A_FILE]).append], [ANOTHER])
+check("with a fresh memory per file the tie is invisible and the second file wins",
+      forgets_between_files.disagreements == ()
+      and forgets_between_files.update[0][1][AT["gmv"]] == "200")
+
+check("a night's memory starts empty and remembers what the night decided",
+      len(tool.WhatTheNightHasDecided()) == 0 and len(night) > 0)
+check("and a DIFFERENT DAY is not a tie -- the newer file still wins outright",
+      (lambda x: x is not None and x.disagreements == ()
+       and x.update[0][1][AT["gmv"]] == "200")(
+          answered(lambda: two_calls(
+              A_FILE,
+              tool.Reading(report="meesho orders", on="2026-08-31", knows=ORDERS_KNOWS,
+                           which="file-two", sales=(a_sale("O1", gmv=200),)),
+              tool.WhatTheNightHasDecided())[1])))
+
+# ---- D157'S FOUR DATE COLUMNS: NAMED, SO THAT THEIR ABSENCE IS A FACT
+
+check("the four date-marker columns D157 asked for are named in one place",
+      tool.WHICH_FILE_LAST_WROTE
+      == ("ordersOn", "paymentsOn", "returnsOn", "claimsOn"))
+check("NONE OF THE FOUR EXISTS YET, and this says so rather than a report saying it",
+      tool.what_the_sheet_cannot_yet_say() == tool.WHICH_FILE_LAST_WROTE)
+check("and the day they are in the ledger's columns, nothing is missing",
+      tool.what_the_sheet_cannot_yet_say(
+          tuple(sales.COLUMNS) + tool.WHICH_FILE_LAST_WROTE) == ())
+check("three of the four is not good enough, and the fourth is named",
+      tool.what_the_sheet_cannot_yet_say(
+          tuple(sales.COLUMNS) + tool.WHICH_FILE_LAST_WROTE[:3]) == ("claimsOn",))
 
 # ------------------------------------------------- what the sheet already holds
 
@@ -348,7 +427,7 @@ if not_run:
 print()
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-WITH_HIS_FILES = 62
+WITH_HIS_FILES = 74
 EXPECTED = WITH_HIS_FILES - (9 if not_run else 0)
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
