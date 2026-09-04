@@ -17,6 +17,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import between_runs as tool  # noqa: E402
 
+# The opening of a record of the shape this job reads. **WORKED OUT FROM THE JOB,
+# NEVER TYPED.** Every fixture below said `"shape": 2` in words, so the day the
+# shape moved, nine checks failed for a reason that had nothing to do with what
+# they are named for -- and the obvious repair is to type the new number nine
+# times and wait for it to happen again. That is D169's shape: a fact written down
+# in words beside the thing that owns it.
+SHAPE_IS = f'{{"shape": {tool.SHAPE}'.encode("utf-8")
+
 ran = 0
 failures = []
 THREW = []
@@ -88,7 +96,7 @@ check("and it names both shapes",
 # ------------------------------------------- what Amazon is building
 
 WITH_ONE = (
-    b'{"shape": 2, "in_flight": [{"report": "az_orders", "day": "2026-08-27", '
+    SHAPE_IS + b', "in_flight": [{"report": "az_orders", "day": "2026-08-27", '
     b'"theirs": "5555"}], "run_days": [], "standing": []}'
 )
 check("what Amazon is building is read back under its report and its day",
@@ -97,24 +105,24 @@ check("what Amazon is building is read back under its report and its day",
 # **REFUSED, NOT SKIPPED.** Skipping one line is how a report Amazon is already
 # building gets asked for a second time -- the single thing this record is for.
 for missing, what in (
-    (b'{"shape": 2, "in_flight": [{"day": "2026-08-27", "theirs": "5555"}]}', "no report"),
-    (b'{"shape": 2, "in_flight": [{"report": "az_orders", "theirs": "5555"}]}', "no day"),
-    (b'{"shape": 2, "in_flight": [{"report": "az_orders", "day": "2026-08-27"}]}', "nothing Amazon calls it"),
-    (b'{"shape": 2, "in_flight": [{"report": "az_orders", "day": "not a day", "theirs": "5"}]}', "a day that is not a day"),
-    (b'{"shape": 2, "in_flight": ["az_orders"]}', "a line that is not a record"),
+    (SHAPE_IS + b', "in_flight": [{"day": "2026-08-27", "theirs": "5555"}]}', "no report"),
+    (SHAPE_IS + b', "in_flight": [{"report": "az_orders", "theirs": "5555"}]}', "no day"),
+    (SHAPE_IS + b', "in_flight": [{"report": "az_orders", "day": "2026-08-27"}]}', "nothing Amazon calls it"),
+    (SHAPE_IS + b', "in_flight": [{"report": "az_orders", "day": "not a day", "theirs": "5"}]}', "a day that is not a day"),
+    (SHAPE_IS + b', "in_flight": ["az_orders"]}', "a line that is not a record"),
 ):
     check(f"a line with {what} refuses the whole record rather than being skipped",
           isinstance(refused(lambda m=missing: tool.read(m)), tool.Damaged))
 
 check("an incomplete line says which line it was, or nobody can mend it",
       "az_orders" in str(refused(lambda: tool.read(
-          b'{"shape": 2, "in_flight": [{"report": "az_orders", "theirs": "5555"}]}'))))
+          SHAPE_IS + b', "in_flight": [{"report": "az_orders", "theirs": "5555"}]}'))))
 check("and it says it is a line about what Amazon is building",
       "Amazon is building" in str(refused(lambda: tool.read(
-          b'{"shape": 2, "in_flight": [{"report": "az_orders", "theirs": "5555"}]}'))))
+          SHAPE_IS + b', "in_flight": [{"report": "az_orders", "theirs": "5555"}]}'))))
 
 check("a day a run happened that is not a day refuses",
-      isinstance(refused(lambda: tool.read(b'{"shape": 2, "run_days": ["never"]}')), tool.Damaged))
+      isinstance(refused(lambda: tool.read(SHAPE_IS + b', "run_days": ["never"]}')), tool.Damaged))
 
 # ------------------------------------------- there and back again
 
@@ -392,9 +400,61 @@ kept = answered(lambda: tool.read(tool.write(tool.with_files_read(
     tool.empty(), whats_new.now_read((), with_empty.new)))).files_read)
 check("a file that arrived empty is not written down as read", "id-6" not in kept)
 
+# ------------------------------------------- which spreadsheet the ledger is
+#
+# **THE ADDRESS OF THE SELLER'S HISTORY.** Without it, a renamed sheet and a
+# deleted-and-emptied sheet both look exactly like a seller who never had one --
+# so the run makes a new empty ledger and writes into that, silently (D184).
+
+check("a first night has no sales ledger, and that is not a fault",
+      tool.empty().ledger_sheet is None)
+
+named = answered(lambda: tool.with_the_ledger(tool.empty(), "  1AbCsheet  "))
+check("the ledger's address is written down when it is made", named.ledger_sheet == "1AbCsheet")
+check("and it survives the trip to Drive and back",
+      answered(lambda: tool.read(tool.write(named)).ledger_sheet) == "1AbCsheet")
+check("writing it down does not disturb the record it came from",
+      tool.empty().ledger_sheet is None)
+
+# **A RUN MAY NOT MOVE A SELLER'S HISTORY TO A DIFFERENT SHEET IN ONE LINE**, and
+# the night it did would look like every other night.
+check("pointing the ledger at a different spreadsheet refuses",
+      isinstance(refused(lambda: tool.with_the_ledger(named, "2SomethingElse")), tool.Damaged))
+check("and the refusal names both, so somebody can see what was about to happen",
+      "1AbCsheet" in str(refused(lambda: tool.with_the_ledger(named, "2SomethingElse")))
+      and "2SomethingElse" in str(refused(lambda: tool.with_the_ledger(named, "2SomethingElse"))))
+check("writing it down again with the same address is not a move",
+      answered(lambda: tool.with_the_ledger(named, "1AbCsheet")).ledger_sheet == "1AbCsheet")
+
+# **FORGETTING IT IS THE SAME FAULT WEARING A DIFFERENT COAT.** Forgotten, the
+# next run believes no ledger was ever made and makes a second one.
+for blank, what in ((None, "nothing"), ("", "an empty address"), ("   ", "spaces")):
+    check(f"asked to forget the ledger with {what}, it refuses",
+          isinstance(refused(lambda b=blank: tool.with_the_ledger(named, b)), tool.Damaged))
+
+# **PRESENT AND UNREADABLE IS DAMAGE, NOT A FIRST NIGHT.** Read past, the run
+# would go looking by name and could make a second, empty ledger beside the one
+# holding the seller's history.
+for written, what in (
+    (SHAPE_IS + b', "ledger_sheet": 123}', "a number"),
+    (SHAPE_IS + b', "ledger_sheet": ""}', "an empty address"),
+    (SHAPE_IS + b', "ledger_sheet": "   "}', "spaces"),
+    (SHAPE_IS + b', "ledger_sheet": ["a"]}', "a list"),
+):
+    check(f"a ledger address written down as {what} refuses the whole record",
+          isinstance(refused(lambda w=written: tool.read(w)), tool.Damaged))
+check("and the refusal says what reading past it would have cost",
+      "second" in str(refused(lambda: tool.read(SHAPE_IS + b', "ledger_sheet": 123}'))))
+
+# **A RECORD FROM BEFORE THIS FIELD EXISTED REFUSES.** An older job reading a
+# newer record is the same argument the shape number was bumped for, from the
+# other side -- and this one loses a history rather than a night.
+check("a record written before the ledger had an address refuses rather than reading as a first night",
+      isinstance(refused(lambda: tool.read(b'{"shape": 2, "files_read": []}')), tool.Damaged))
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 83
+EXPECTED = 99
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

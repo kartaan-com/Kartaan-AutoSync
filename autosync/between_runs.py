@@ -69,7 +69,15 @@ KEEP_RUN_DAYS = 60
 # in the seller's Drive, and the only two scheduled runs this repository has ever
 # had both stopped at "no platform is connected" before any of this code ran. No
 # record exists to refuse. The day one does, this costs a night and needs saying.
-SHAPE = 2
+#
+# **3 ADDED `ledger_sheet` (2026-09-04).** Which spreadsheet the seller's sales
+# ledger is. An older job reading a shape-3 record would not see it, would believe
+# no ledger had ever been made, and would go looking by name -- and where the
+# seller had renamed or deleted theirs it would quietly MAKE A SECOND ONE and
+# write tonight's sales into it. That is the exact silence D184 forbids, so an
+# older job refuses instead. **The same argument as `files_read`, and worse: this
+# one loses a history rather than a night.**
+SHAPE = 3
 
 
 def _a_day(text) -> Optional[date]:
@@ -150,6 +158,23 @@ class Between:
     # re-read old file re-applies its old figures over newer ones. So how far back
     # to remember is his to settle, not this file's to assume.
     files_read: Tuple[str, ...] = ()
+
+    # **WHICH SPREADSHEET THE SELLER'S SALES LEDGER IS.** Not a setting and not a
+    # preference: it is the ADDRESS OF THEIR HISTORY, and it is written down the
+    # moment the sheet is made.
+    #
+    # **WITHOUT IT, TWO ORDINARY THINGS LOSE A HISTORY IN SILENCE.** A seller who
+    # renames their sheet, and a seller who deletes it and empties the bin, both
+    # look exactly like a seller who has never had one -- so the run would make a
+    # new empty ledger beside the old one and start writing into that, with
+    # nothing anywhere saying so. Remembered, both stop the run and say what has
+    # happened (D184).
+    #
+    # **IT LIVES HERE BECAUSE EVERYTHING THIS RUN REMEMBERS LIVES HERE (D100),**
+    # in the seller's own Drive, in his own words: *"let it be in seller's
+    # drive"*. It needs no permission the seller has not already given, and it
+    # does not widen the one lock `firestore_door` has.
+    ledger_sheet: Optional[str] = None
 
     def started(self, at: datetime) -> "Between":
         """The record as it stands the moment a run begins.
@@ -242,6 +267,20 @@ def _read(raw: bytes) -> Between:
             )
         files_read.append(one.strip())
 
+    # **MISSING IS FINE. PRESENT AND NOT AN ADDRESS IS DAMAGE.** No ledger has
+    # been made yet on a seller's first night, and that is what `None` says. But a
+    # line that is there and unreadable must never be read past: read past, the
+    # run believes no ledger was ever made, goes looking by name, and on a
+    # renamed or deleted sheet makes a SECOND one and writes the seller's night
+    # into it.
+    which_sheet = said.get("ledger_sheet")
+    if which_sheet is not None and (not isinstance(which_sheet, str) or not which_sheet.strip()):
+        raise Damaged(
+            f"{which_sheet!r} is written down as the seller's sales ledger and is not "
+            "the address of a spreadsheet. Nothing has been started -- read past it, a "
+            "second, empty ledger could be made beside the one holding their history."
+        )
+
     return Between(
         in_flight=in_flight,
         last_started=_a_moment(said.get("last_started"), "When the last run started"),
@@ -249,6 +288,7 @@ def _read(raw: bytes) -> Between:
         run_days=tuple(sorted(set(days)))[-KEEP_RUN_DAYS:],
         standing=tuple(str(s) for s in said.get("standing") or ()),
         files_read=tuple(sorted(set(files_read))),
+        ledger_sheet=which_sheet.strip() if isinstance(which_sheet, str) else None,
     )
 
 
@@ -289,6 +329,7 @@ def write(state: Between) -> bytes:
             "run_days": [d.isoformat() for d in sorted(state.run_days)],
             "standing": sorted(state.standing),
             "files_read": sorted(set(state.files_read)),
+            "ledger_sheet": state.ledger_sheet,
         },
         # **READABLE BY A PERSON, because it sits in the seller's own Drive.**
         # The one time anybody opens this file is the night something has gone
@@ -359,3 +400,33 @@ def with_files_read(state: Between, files_read: Sequence[str]) -> Between:
     return replace(state, files_read=tuple(sorted({
         str(one).strip() for one in (files_read or ()) if str(one).strip()
     })))
+
+
+def with_the_ledger(state: Between, which: Optional[str]) -> Between:
+    """The record updated with which spreadsheet the seller's sales ledger is.
+
+    **IT IS WRITTEN DOWN ONCE AND NEVER CHANGED TO A DIFFERENT ONE.** A run that
+    could move this could move a seller's whole history to an empty sheet in one
+    line, and the night that happened would look like every other night. So a
+    second, different address is REFUSED: the only ways the ledger legitimately
+    changes are the seller restoring theirs or asking for it to be written again,
+    and both of those are decisions, not a run's (D184).
+
+    **BLANKING IT IS REFUSED FOR THE SAME REASON.** Forgetting the address is how
+    the next run believes no ledger was ever made and makes a second one.
+    """
+    address = str(which or "").strip()
+    if not address:
+        raise Damaged(
+            "Something asked to forget which spreadsheet the seller's sales ledger "
+            "is. Forgotten, the next run would believe none had ever been made and "
+            "could make a second, empty one beside the one holding their history."
+        )
+    if state.ledger_sheet and state.ledger_sheet != address:
+        raise Damaged(
+            "Something asked to point the seller's sales ledger at a different "
+            f"spreadsheet ({state.ledger_sheet} -> {address}). Their whole history "
+            "is in the first one, so nothing has been changed. A ledger only moves "
+            "because the seller asked it to."
+        )
+    return replace(state, ledger_sheet=address)
