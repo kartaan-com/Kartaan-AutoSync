@@ -5,6 +5,155 @@ an older one is edited afterwards.
 
 ---
 
+## 2026-09-04 (sixth) — A6R on M7's three commits. IT HOLDS: nothing found lets a bad commit through. Two findings, both prose, both left to the author.
+
+**Reviewed against** `D:\Kartaan-ERP\DECISION_LOG.md` — D166, D169, D170, D172,
+D175, D179, D180, D181, read there read-only, and D158 for the push. **Scope:
+`D:\Kartaan-AutoSync` only**, the three commits `05f418b`, `f2dd79d`, `b1cd092`.
+**I repaired nothing** (D166). Every fault I put back went into a copy of the
+repository in scratch; this folder was never written to until this entry.
+
+**THE TREE DID NOT MOVE.** 121 files fingerprinted by content on entry and again
+before this was written — all 121 byte-identical, working tree clean, `HEAD` at
+`b1cd092` throughout (D181).
+
+**THE BAR I WAS GIVEN:** only something that lets a bad commit through blocks.
+Neither finding below can. Both are sentences in comments that no check reads.
+
+---
+
+### What holds, measured on the committed tree
+
+| | |
+|---|---|
+| `tools/gate_checks.py` | **113 pass, 0 red** |
+| `tools/gate_run_checks.py` | **50 pass, 0 red** |
+| The register's `163 checks` | **113 + 50 = 163.** Counted, not read |
+| `41 faults` / `6 questions` | Counted off the file's own `BREAKINGS` and `ASKED` by parsing it, not by trusting the prose |
+
+---
+
+### FINDING A — THE UNCHECKED `update-ref` WAS A REAL HOLE, AND I RE-DROVE IT MYSELF RATHER THAN TAKE IT
+
+The fifth round (M3R, below) filed it *"small"* and *"harmless today"*. **It was
+not.** The author said so, and I did not take the author's word for it either.
+
+A move that cannot work put back in place of the real one — `git update-ref HEAD`
+pointed at a well-formed forty-character id this repository does not have — in
+two copies that differ by nothing but the five lines that ask whether it worked:
+
+| The copy | The run |
+|---|---|
+| **With the check** (as committed) | **47 RED of 50**, exit 1 |
+| **With those five lines deleted** | **all 50 GREEN**, exit 0 |
+
+**That is the whole difference between a run that stops and a run that lies.**
+Without the check, `HEAD` stays wherever the clone left it and every one of the
+fifty questions is asked of the wrong commit, confidently, in green. It is
+D175's shape — a prover that cannot fail — in the prover written to close D175.
+**The correction is right, and the round that called it cosmetic was wrong.**
+
+### The other four counts, each measured against what is there
+
+| The claim | How I measured it | Answer |
+|---|---|---|
+| 41 faults, not thirty-eight | parsed `BREAKINGS` | **41** |
+| six questions, not five | parsed `ASKED` | **6** |
+| eleven checks red from the commit-hook fault, not seven | emptied `NOT_CODE` in `.githooks/commit-msg`, ran `gate_checks.py` | **11 red, 102 pass** |
+| runner-first is 12 red, not 9 | built the runner-first tree — `936b0e3` plus `f2dd79d`'s six files, hooks left as they were — and ran `gate_checks.py` | **12 red, 101 pass** |
+| merge-fix-first leaves commit one green | ran `gate_checks.py` on `05f418b` itself | **91 pass, 0 red** |
+
+**And the order the commits were actually made in matches the order that was
+measured.** `05f418b` (00:36) is the parent of `f2dd79d` (00:57), which is the
+parent of `b1cd092` (01:38). The merge fix went first. Had the runner gone first,
+commit one would have carried 12 red checks — the twelve that drive the real
+hooks through D173's merge, which did not exist yet.
+
+---
+
+### FINDING B — non-blocking. The ERP count of 25 is true of the sentence as written and is not the number the argument needs.
+
+`tools/gate_run_checks.py:44` says the ERP has **twenty-five** commits *"already
+in the history and carrying no tag"*, where it first said eleven. Measured in
+`D:\Kartaan-ERP` read-only, walking `master` with that repository's own
+`GATE_BORN`, its own anchor and its own exemption list:
+
+| What was counted | How many |
+|---|---|
+| Commits at or after `GATE_BORN` whose message carries no tag | **25** |
+| **Of those, the ones that change code** — the only ones the walk ever asks for a tag | **11** |
+| The other 14 | touch nothing but exempt files, so the walk skips them whatever the marker says |
+
+The paragraph exists to say what a `GATE_BORN` moved forward could **hide there
+and cannot here**. A commit the walk skips hides nothing, so the number that
+carries the argument is **11** — the number the entry had before it was
+corrected. 25 is a true count of a wider set than the sentence is about. **This
+is D169 from the other side: the number was measured, and what the sentence
+CLAIMS was not re-asked.**
+
+**It cannot let a bad commit through** — no check reads it, and the ERP's own
+gate is unaffected either way. Left to the author.
+
+**The other half of the same sentence I checked, and it holds.** *"This
+repository has none"* is true under **both** definitions: all 10 AutoSync commits
+at or after `d538efd` carry `[PM-REVIEWED]` on a line of its own, and there is no
+untagged commit in reach of any kind. The comparison is not resting on two
+different questions.
+
+### FINDING C — non-blocking. THE THIRD INSTANCE. `b1cd092` fixed the second; there is a third, of exactly the same shape.
+
+`b1cd092` exists because a count was corrected in the file's opening and the
+identical sentence 200 lines below was left standing. **The same thing happened
+to the other count in the same batch**, and neither sweep caught it:
+
+`tools/gate_run_checks.py:430`
+
+> *"every commit this rule reaches already carries the tag, which the last of
+> **the five questions** above measures"*
+
+**There are six.** The file says so at line 185 (*"any of the six above"*) and the
+register says `6 questions`. Both were corrected; this one was not.
+
+**And it is worse than a stale number, because it points at the wrong question.**
+The question that measures *"every commit the rule reaches passes"* is the
+**fifth** of the six — *"AND EVERY COMMIT THE RULE ALREADY REACHES PASSES"*, the
+whole history walked as a first push. When there were five it was the last one and
+the sentence was right. With six, **"the last" is now question six**, the
+divergent-branch question, which measures something else entirely. A reader sent
+to it finds no such measurement and has no way to tell which of the two is wrong.
+
+Introduced by `f2dd79d`, this round. **It cannot let a bad commit through** —
+which question judges that fault is decided in code (`PASSES_THE_REVIEWED`) and
+is not touched by the sentence. Left to the author.
+
+**I swept for a fourth and did not find one.** Every count in the five changed
+files naming checks, faults, questions, commits, places, copies, hooks or steps
+was pulled out and grouped by what it claims; the only outlier was line 430.
+`REVIEW.md`'s "5 questions / 30 faults" sit inside dated entries this file
+forbids editing, and the "four checks pinned to the siblings" pair predates this
+round (`d538efd`).
+
+---
+
+### Where I could not satisfy myself
+
+- **The intermittent crash in the prover did not happen to me.** Six full runs of
+  `gate_run_checks.py` and `gate_checks.py`, and not one `WinError 267`. I did
+  not reproduce it, so I cannot say what it is; the author's account of it stands
+  as the only measurement of it, and it makes the prover REFUSE rather than pass.
+- **Nothing was run on GitHub.** Everything is bash on Windows against this
+  machine's git. GitHub's behaviour on a skipped job, on `continue-on-error` and
+  on `refs/pull/N/merge` is still taken from documentation.
+- **I did not count leftover temporary folders as evidence of anything.** Windows
+  deletes them lazily; a finished run settles to nought or one, and the author's
+  own near-miss on this is what stopped me making the same claim.
+- **The ERP was opened read-only**, to read eight decisions and to measure that
+  one count. The Server was not opened.
+- **I read the three commits and the files they touch.** Nothing else in this
+  repository was re-reviewed; it has been read cold three times already.
+
+---
+
 ## 2026-09-03 (fifth) — M3R on the D172 runner. NOT COMMITTED: the runner is right about the two blocks it runs, and everything around them still holds nothing.
 
 **Reviewed against** `D:\Kartaan-ERP\DECISION_LOG.md` — D170, D171, D172, D173,
