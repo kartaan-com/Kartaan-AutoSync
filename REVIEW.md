@@ -1693,3 +1693,228 @@ The one thing that stood between this folder and a landing was a reader who did
 not write any of it. **That is what this entry is.** Committed as units, each
 one standing on its own imports, each through the gate with its own review
 record and no `--no-verify`, then pushed (D158). Nothing was faked.
+
+---
+
+## 2026-09-04 (eleventh) — A17R on `b4e402e`, the author's own six. **IT HOLDS: nothing found lets a bad commit through. Three findings and two notes, every one non-blocking, every one left to the author (D166, D180).**
+
+**Reviewed against** `D:\Kartaan-ERP\DECISION_LOG.md` — D148, D152, D157, D166,
+D169, D170, D174, D175, D176, D180, D190, read there read-only, and D158 for the
+push. **Scope: `D:\Kartaan-AutoSync` only**, the one commit `b4e402e`, not pushed.
+**I repaired nothing** (D166).
+
+**THE TREE DID NOT MOVE** (D181). `HEAD` at `b4e402e` on entry and again before
+this was written, 93 tracked files, working tree clean both times. Unlike the
+sixth and tenth entries I drove the faults in this folder rather than in a copy —
+every file was restored from a byte-for-byte backup and its md5 checked against
+the original before the next fault went in, and `git status` was empty after each.
+
+**THE BAR I WAS GIVEN:** only something that lets a bad commit through blocks.
+Nothing below can. Three findings are prose or an unwatched error path; two are
+smaller than that.
+
+---
+
+### 1. THE COUNTS, RUN, AND EACH READ FROM ITS OWN LAST LINE FIRST (D175)
+
+| | |
+|---|---|
+| `autosync` | **30 check files, 2,509 checks, 0 red** |
+| `tools/export_recipes_checks.py` | **61** |
+| `tools/gate_checks.py` | **113** |
+| `tools/gate_run_checks.py` | **50** — 224 in `tools` |
+| `extension` | **400** |
+
+All three of the commit's numbers match what I ran. No file ended on anything but
+its own summary line.
+
+---
+
+### 2. THE RE-RULING ON FINDING 5 IS RIGHT, AND I DROVE BOTH SAVES MYSELF
+
+A15R called it *a guard nobody watches*. The author called it *a guard that does
+nothing*. **Confirmed at `988f34d` directly**, before any fault: the guard sits at
+`nightly.py:335`, and **fifty-one lines below it** a second
+`save_state(between_runs.write(state))` with no question asked of it at all.
+
+Driven on the committed tree, one at a time:
+
+| fault put back | the run's last line | what went red |
+|---|---|---|
+| first guard neutered — `wrong_with_it = None` | `2 FAILED (183 checks)` | A RUN THAT FINISHED BEFORE IT STARTED IS NEVER WRITTEN DOWN, and *and it is our own defect, said in words rather than swallowed* |
+| second guard neutered — `cannot_be_saved = None` | `1 FAILED (183 checks)` | A RUN THAT FINISHED BEFORE IT STARTED IS NEVER WRITTEN DOWN |
+
+**The second row is the author's claim reproduced exactly.** The first guard still
+fires and its fault line is still appended — which is why the second check stays
+green on that row — and the impossible record lands anyway. The refusal cost a
+fault line and prevented nothing, and `read` would have taken the impossible
+finish back as fact on the next run.
+
+That is a reader's ruling overturned by driving it, for the second time in this
+repository. **The author is not the third.**
+
+---
+
+### 3. THE EIGHT SECRET NAMES HOLD IN EVERY DIRECTION I COULD BREAK THEM
+
+Three hand-written copies of one list, and D190 asks that each pair be held both
+ways. Five faults, one at a time, each restored before the next:
+
+| fault put back | the run's last line | what went red |
+|---|---|---|
+| `DRIVE_FOLDER_ID` dropped from the gate — handed over, never gated | `1 FAILED (183 checks)` | EVERY SECRET THE WORKFLOW REFUSES TO RUN WITHOUT IS HANDED TO THE RUN, AND EVERY ONE HANDED OVER IS ONE IT REFUSES TO RUN WITHOUT |
+| `DRIVE_FOLDER_ID` dropped from `env` — gated, never handed over | `2 FAILED (183 checks)` | that one, and the `start.py` join |
+| `start.py` stops asking for `FIREBASE_PROJECT_ID` | `1 FAILED (183 checks)` | AND EVERY ONE HANDED OVER IS ONE THE RUN ASKS FOR, AND EVERY ONE IT ASKS FOR IS HANDED OVER |
+| `start.py` asks for `MEESHO_TOKEN`, which nothing hands it | `1 FAILED (183 checks)` | the same one, from the other side |
+| one value in `env` wired to a different secret of the same family | `3 FAILED (183 checks)` | *every value handed to the run is set from the secret of the same name*, and both joins |
+
+**This is the shape that let a credential pattern sit unwatched in
+`Kartaan-Server` (D190), and here it is closed in both directions on both joins.**
+The last row is the question nobody had asked before: a name that is present,
+spelled right, and wired to the wrong secret.
+
+---
+
+### 4. FINDING — THE LEDGER'S WIDTH IS NOW HELD IN ONE PLACE OF SIX. NON-BLOCKING.
+
+The commit says the register said 28, five other places said 45, *"nothing held
+any of them to `len(sales.COLUMNS)`. Something does now."* **What is held is the
+register. The other five are not.**
+
+Driven: `The ledger's 45 columns` changed to `28` in `autosync/ledger.py`, then
+the whole suite — **30 files, 2,509 checks, 0 red.** The same drift, in the same
+shape, in a file nothing reads for it.
+
+And those sites are not out of reach. Three of them state the width in a phrasing
+the new pattern **already parses** — `ledger.py:68`, `reading.py:456`,
+`reading_checks.py:829` — and the check simply is not pointed at them; the fourth,
+`nightly_checks.py:1129`, is not.
+
+**Why it is not blocking:** prose, not behaviour, and there is a real tripwire
+underneath it. `sales_checks.py:295` pins `len(tool.COLUMNS) == 45` against the
+ERP's committed `sheet-store.js`, so the day D157's four date markers land that
+check goes red and somebody must touch the number. What nothing holds is whether
+they sweep the other five while they are there — **which is D169 exactly, and D169
+is the entry the new check's own comment cites.**
+
+---
+
+### 5. FINDING — THE STATED LIMIT ON THAT CHECK IS NARROWER THAN THE REAL HOLE. NON-BLOCKING.
+
+The comment records the escape as *"a sentence that gives the ledger's width
+without using the word `ledger` within the same clause"*. Driven against
+`tools/work.json`, one wrong width at a time:
+
+| the wrong width written as | word `ledger` in the clause | caught |
+|---|---|---|
+| `the ledger's 28 columns` | yes | **yes** |
+| `the sales ledger is 28 columns wide` | yes | **yes** |
+| `28 columns in the ledger` | **yes** | **no** |
+| `the ledger, which the seller reads without opening Kartaan, has 28 columns` | **yes** | **no** |
+| `the sheet is 28 columns wide` | no | no — the limit as recorded |
+
+**Rows three and four use the word and still escape.** The pattern only reads
+forwards from `ledger`, and only across forty characters. So the recorded limit
+describes a smaller hole than the one that is really there.
+
+D180 permits a finding being left undone; what it asks for is **a reason somebody
+else can weigh**, and a limit stated narrower than it is cannot be weighed. That is
+D180's own argument about a check that tells a future reader where to stop looking,
+one level up.
+
+**AND ON WHETHER THE NUMBER CAN BE HELD TO SOMETHING STRONGER, WHICH I WAS ASKED
+TO JUDGE: YES, AND D180 IS NOT THE RIGHT ANSWER HERE.** The comment's reason —
+*"the register has no field carrying the number"* — is a fact about the register's
+shape today, not a limit on what can be done to it. `tools/work.json` is JSON and
+the gate already reads it. A field on the ledger piece's `state` holding the width,
+pinned to `len(sales.COLUMNS)`, would take the number **out of prose entirely** and
+make it the kind of fact that cannot drift; the sentence sweep would then sit on
+top of it as best-effort rather than as the only thing there is. **A number living
+only in prose is how item one of this same commit came to be wrong**, and the fix
+chosen leaves it living only in prose. Changing the register is the author's to do,
+not mine (D166).
+
+---
+
+### 6. FINDING — TWO MORE REFUSALS IN THE SAME FILE HAVE NEVER BEEN RUN BY ANYTHING. NON-BLOCKING.
+
+**It is in the file this commit just gave fifteen checks to.**
+`the_other_half.py:108` (git could not be run at all) and `:116` (the file is not
+committed at `HEAD` in the other repository). Neither has ever been executed.
+
+I established that rather than assumed it: every line of `autosync/` and `tools/`
+traced under all **33** checks files, and those two lines appear in nothing. Then I
+drove both by hand — **both print in full, no crash** — so this is an absent alarm,
+not a broken path.
+
+**And `:116` is the most important of the file's four refusals.** The
+folder-missing case is the obvious one, and it is the one the new checks cover. The
+not-committed case is the one the file's whole design rests on — *"it reads what is
+COMMITTED, never what is on disk"* — and the docstring records it really firing on
+2026-09-02 against seventeen uncommitted ledger columns. **It is the refusal most
+likely to meet a real person, and it is the one with nothing watching it.**
+
+Not blocking, for the author's own stated reason about the other two: a refusal
+that breaks still exits 1, so the gate still refuses and nothing bad is let
+through. What is lost is the words.
+
+---
+
+### 7. TWO NOTES, SMALLER THAN FINDINGS
+
+- **The server refusal prints an instruction nobody should type.** It says to set
+  the folder with two backslashes after the drive letter, out of `SLASH + SLASH`
+  in the concatenation, where the ERP refusal beside it prints one. Driven:
+  Windows tolerates it, the path resolves and the file reads, so it costs nothing
+  but the look of it. **The new check cannot see it** — `folders_named` replaces
+  every backslash with a slash before comparing, so it reads the folder name and
+  never the separator.
+- **One blank line between `how_the_night_ends` and `_try`** in `nightly.py`,
+  where the file uses two everywhere else.
+
+---
+
+### 8. WHAT I LOOKED FOR AND FOUND NOTHING WRONG WITH
+
+- **The `wanted` class is gone repository-wide, not only in the two refusals.**
+  Every `.py` file walked as a syntax tree for a name loaded and bound nowhere in
+  its module: **0**. Both original refusals driven for real — the whole sentence,
+  no `NameError`.
+- **`start.py`'s rule moved without changing.** Same order, same exit codes, same
+  lines printed. `how_the_night_ends` driven through all four of its cases.
+- **D174 on all seven touched files.** No file was rewritten: the largest deletion
+  in the commit is 18 lines, in `start.py`, where 18 lines really were removed.
+  Each file is internally consistent in its line endings and none flipped.
+- **The width is not a hand-typed number where it decides anything.**
+  `sales.COLUMNS` is built from the ERP's committed `sheet-store.js` through
+  `readFromKartaan`, which reads `git show HEAD:` and refuses rather than falling
+  back to the disk.
+- **Security.** Nothing this commit adds holds, sends or names a secret. The one
+  place it comes near them, `nightly_checks.py` reads the workflow as text to
+  compare eight **names**; no value is read, and that file has never held one.
+
+---
+
+### 9. WHAT THIS REVIEW COULD NOT SETTLE
+
+- **Nothing here has ever reached Google or Amazon**, so every refusal and every
+  save is proved against handed-in transports. `start.py` still has no checks file
+  and has still never been executed. The commit does not claim otherwise, and the
+  register says so.
+- **The gate's own error paths.** The same trace found **twenty-five** `raise`
+  lines in `tools/gate.py` and `tools/gate_run.py` that no check has ever
+  executed. They are older than this unit and outside it, and I did not drive
+  them. Recorded so the next reader does not have to re-find them.
+- **Whether the ERP names the four date-marker columns as this repository guessed.**
+  If it does not, the refusal keeps firing and says what it looked for, which is
+  the loud direction.
+
+---
+
+### 10. AND SO IT IS COMMITTED
+
+`b4e402e` had no reader who did not write it, and its own record said so rather
+than pretending otherwise. **That is what this entry is.** It holds: three findings
+and two notes, not one of them able to let a bad commit through, all five left for
+the author (D166, D180). This entry goes through the gate with its own review
+record and no `--no-verify`, and `b4e402e` goes up with it (D158).
