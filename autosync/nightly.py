@@ -382,13 +382,23 @@ def one_tick(
         state = between_runs.with_standing(
             state, [a.key for a in changed.raised + changed.still]
         )
-        try:
-            save_state(between_runs.write(state))
-        except Exception as wrong:  # noqa: BLE001
-            # **NOT FATAL, AND NOT SILENT.** The worst this costs is the same
-            # alarm going out again tomorrow. Losing what Amazon is building
-            # would cost more, and that was already saved above.
-            faults.append(f"Which alarms have gone out could not be recorded: {wrong}")
+        # **THE SAME QUESTION IS ASKED HERE, BECAUSE THIS WRITES THE SAME
+        # RECORD.** For one round the guard fifty lines above refused a record
+        # that finished before it started -- and this line then wrote that very
+        # record anyway. So the refusal cost a fault line and prevented nothing:
+        # `read` still took the impossible finish back as fact on the next run.
+        # **Neuter either of the two and the same named check goes red.**
+        cannot_be_saved = between_runs.why_it_cannot_be_saved(state)
+        if cannot_be_saved:
+            faults.append(f"Which alarms have gone out could not be recorded: {cannot_be_saved}")
+        else:
+            try:
+                save_state(between_runs.write(state))
+            except Exception as wrong:  # noqa: BLE001
+                # **NOT FATAL, AND NOT SILENT.** The worst this costs is the same
+                # alarm going out again tomorrow. Losing what Amazon is building
+                # would cost more, and that was already saved above.
+                faults.append(f"Which alarms have gone out could not be recorded: {wrong}")
     except Exception as wrong:  # noqa: BLE001
         faults.append(f"The board and the alarms could not be worked out: {wrong}")
 
@@ -416,6 +426,38 @@ def one_tick(
         what_was_read=what_was_read,
     )
 
+
+def how_the_night_ends(
+    tick: Tick, could_not_write_sales: Optional[str],
+) -> Tuple[Tuple[str, ...], int]:
+    """What the job says last, and the number it exits with.
+
+    **IT LIVES HERE BECAUSE `start.py` CANNOT BE DRIVEN.** That file needs a real
+    Amazon account, a real Google account and a real network, so a rule written
+    there is a rule nobody ever watches fail. This one was exactly that for a
+    round: it sat in `start.main`, read by no check anywhere -- the same blind
+    spot that left the whole sales ledger finished at both ends and called by
+    nothing.
+
+    **A NIGHT THAT COULD NOT WRITE THE SALES LEDGER NEVER REPORTS SUCCESS.** Two
+    runs of this job have already "succeeded" in eleven seconds while doing
+    nothing, and that is the failure this whole repository is written against.
+
+    **AND IT IS SAID IN FULL, LINE BY LINE, WHERE A PERSON WILL SEE IT.** What
+    comes back from the writing half is D184's five steps in the seller's own
+    words -- restore it first, the offer to write the history again, what that
+    cannot put back, and that no second sheet is made in its place. A one-line
+    "the ledger failed" would send somebody looking in the wrong place.
+
+    **RED ONLY FOR OUR OWN DEFECTS OTHERWISE (D108).** A report Amazon would not
+    give up is recorded, alarmed and on the board, and the job did its work --
+    turning that red as well is how a red tick stops meaning anything.
+    """
+    if could_not_write_sales:
+        return tuple(
+            f"ALARM  {one}" for one in could_not_write_sales.splitlines()
+        ), 1
+    return (), 1 if tick.is_a_defect else 0
 
 def _try(faults: List[str], doing, called: str, *what) -> None:
     """Do one thing that writes a record for a screen, and never let it stop the run.

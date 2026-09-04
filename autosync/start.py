@@ -173,24 +173,16 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
 
     print(tick.summary())
 
-    # **A NIGHT THAT COULD NOT WRITE THE SALES LEDGER NEVER REPORTS SUCCESS.**
-    # Two runs of this job have already "succeeded" in eleven seconds while doing
-    # nothing, and that is the failure this whole repository is written against.
-    #
-    # **IT IS SAID IN FULL, LINE BY LINE, WHERE A PERSON WILL SEE IT.** What comes
-    # back is D184's five steps in the seller's own words -- restore it first, the
-    # offer to write the history again, what that cannot put back, and that no
-    # second sheet is made in its place. A one-line "the ledger failed" would send
-    # somebody looking in the wrong place.
-    if could_not_write_sales:
-        for one in could_not_write_sales.splitlines():
-            print(f"ALARM  {one}")
-        return 1
-
-    # **RED ONLY FOR OUR OWN DEFECTS (D108).** A report Amazon would not give up
-    # is recorded, alarmed and on the board, and the job did its work -- turning
-    # that red as well is how a red tick stops meaning anything.
-    return 1 if tick.is_a_defect else 0
+    # **WHAT IS SAID LAST, AND THE NUMBER THIS JOB EXITS WITH, IS DECIDED IN
+    # `nightly.how_the_night_ends`.** It was decided here for one round -- a
+    # night that could not write the sales ledger returning 1 -- and nothing
+    # anywhere read this file, so that rule was never once watched fail. **A rule
+    # nobody asks about is a comment (D170).** It is in `nightly.py` now, where
+    # `nightly_checks.py` puts it back and watches its own named check go red.
+    lines, code = nightly.how_the_night_ends(tick, could_not_write_sales)
+    for one in lines:
+        print(one)
+    return code
 
 
 if __name__ == "__main__":  # pragma: no cover

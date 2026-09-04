@@ -28,11 +28,11 @@ counted in the tally. So this raises, and says exactly what to do about it.
 
 **HOW TO POINT IT AT THE OTHER HALF:**
 
-    set KARTAAN=D:\\Kartaan          (Windows)
-    export KARTAAN=~/Kartaan         (anywhere else)
+    set KARTAAN=D:\\Kartaan-ERP      (Windows)
+    export KARTAAN=~/Kartaan-ERP     (anywhere else)
 
-and if that is not set, a sibling folder called `Kartaan` next to this one is
-tried, which is the ordinary way somebody has both checked out.
+and if that is not set, a sibling folder called `Kartaan-ERP` next to this one
+is tried, which is the ordinary way somebody has both checked out.
 """
 
 import os
@@ -141,7 +141,7 @@ def readFromServer(*parts):
             'This pins the Google scope this door NEEDS against the scope the '
             'seller is actually ASKED for.')
     raise SystemExit(
-        f"{NEWLINE}CANNOT CHECK THIS: {'/'.join(parts)} is not at {wanted}."
+        f"{NEWLINE}CANNOT CHECK THIS: {'/'.join(parts)} is not at {root}."
         + NEWLINE + NEWLINE
         + "  This pins the Google scope this door NEEDS against the scope the"
         + NEWLINE
@@ -174,14 +174,14 @@ def readFromKartaan(*parts):
             'This pins something written down in BOTH repositories, with nothing '
             'mechanical joining them.')
     raise SystemExit(
-        f"\nCANNOT CHECK THIS: {'/'.join(parts)} is not at {wanted}.\n\n"
+        f"\nCANNOT CHECK THIS: {'/'.join(parts)} is not at {root}.\n\n"
         "  This check pins something written down in BOTH repositories -- Kartaan\n"
         "  and Kartaan AutoSync -- with nothing mechanical joining them. Without\n"
         "  it, the two can drift and the first anybody knows is a screen that is\n"
         "  silently empty.\n\n"
         "  Point it at the other half and run again:\n"
-        "      set KARTAAN=D:\\Kartaan        (Windows)\n"
-        "      export KARTAAN=~/Kartaan       (anywhere else)\n\n"
+        "      set KARTAAN=D:\\Kartaan-ERP        (Windows)\n"
+        "      export KARTAAN=~/Kartaan-ERP       (anywhere else)\n\n"
         "  It is NOT skipped when it cannot be found. A check that quietly stops\n"
         "  checking is worse than no check, because it is still counted.\n"
     )

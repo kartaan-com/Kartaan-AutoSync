@@ -478,13 +478,31 @@
      "found": "2026-09-02",
      "fixed": true,
      "proved_by": "`between_runs_checks.py` -- 'a record written before this field existed refuses rather than reading as a first night', red when SHAPE is left at 1."
+    },
+    {
+     "what": "**`start.py` GAINED A RULE AND NOTHING ANYWHERE COULD WATCH IT FAIL.** *A night that could not write the sales ledger never reports success* was written into `start.main` -- the one file that needs a real Amazon account, a real Google account and a real network, so nothing drives it and it has no checks file. **A rule nobody asks about is a comment (D170).** It is the same blind spot that left the whole sales ledger finished at both ends and called by nothing.",
+     "found": "2026-09-04, by an independent cold reader (A15R). Non-blocking.",
+     "fixed": true,
+     "proved_by": "**The rule moved to `nightly.how_the_night_ends`, where it can be driven**, and `start.py` now only prints what it is handed. `nightly_checks.py` -- 'A NIGHT THAT COULD NOT WRITE THE SALES LEDGER NEVER REPORTS SUCCESS' and 'and what it could not do is said LINE BY LINE, not squeezed into one', plus the three ordinary cases. Driven: the exit code turned to 0, 1 red, the named one."
+    },
+    {
+     "what": "**THE GUARD AT `one_tick` THAT REFUSED AN IMPOSSIBLE RECORD DID NOTHING AT ALL -- AND ANSWERING WHICH KIND OF NOTHING IS THE FINDING.** A reviewer measured that deleting it turned nothing red and reported it as a guard nobody watches. **Measured again here, it is worse than that: fifty lines further down the SAME record was written again, unguarded.** So the refusal cost a fault line and prevented nothing -- `between_runs.write` still put down a run that finished before it started, and `read` still took it back as fact on the next run. A guard with no alarm AND no effect.",
+     "found": "2026-09-04, reported by an independent cold reader (A15R) as unwatched; measured here as ineffective as well. Non-blocking -- it needs the machine's clock to step backwards mid-run.",
+     "fixed": true,
+     "proved_by": "`nightly_checks.py` -- 'A RUN THAT FINISHED BEFORE IT STARTED IS NEVER WRITTEN DOWN', driven through `one_tick` with a clock that steps back two hours after the run has started. **Both saves now ask the same question, so neutering EITHER turns that one named check red** (D190, in both directions). It was RED against the code as the reviewer left it, which is what proved the second save was the real fault."
+    },
+    {
+     "what": "**THE EIGHT SECRET NAMES ARE TYPED THREE TIMES AND NOTHING READ `autosync.yml` AT ALL.** The workflow's *is this repository set up to fetch?* gate names all eight, its `env` block names all eight again, and `start.py` asks for all eight by name -- three hand-written copies of one list, agreeing by luck. **A name in the gate and not in `env` is a night that starts and then cannot read what it needs; a name in `env` and not in the gate is a repository declared ready without it.** Both are silent. This is the shape that let a credential pattern sit unwatched in the Server (D190).",
+     "found": "2026-09-04, by an independent cold reader (A15R). Non-blocking -- all three agree today, measured.",
+     "fixed": true,
+     "proved_by": "`nightly_checks.py` -- 'EVERY SECRET THE WORKFLOW REFUSES TO RUN WITHOUT IS HANDED TO THE RUN, AND EVERY ONE HANDED OVER IS ONE IT REFUSES TO RUN WITHOUT' and 'AND EVERY ONE HANDED OVER IS ONE THE RUN ASKS FOR, AND EVERY ONE IT ASKS FOR IS HANDED OVER', **both directions of both joins (D190)**, plus 'every value handed to the run is set from the secret of the same name' -- `GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_SECRET }}` reads perfectly well. What `start.py` asks for is read out of the PARSED file, never searched for. Three lists emptied and four names crossed, one at a time: each turned its own named check red, and an empty list cannot pass."
     }
    ],
    "state": {
     "built": true,
     "reviewed": "2026-08-29, inside a wider review",
     "run_for_real": false,
-    "instead": "336 checks pass, all with the transport handed in. THE WORKFLOW HAS NEVER RUN, in this repository or any seller's. `start.py` -- the one file that reads the GitHub Actions Secrets and opens the real connections -- HAS NO CHECKS FILE OF ITS OWN and has never been executed. That is the single largest untested surface here."
+    "instead": "421 checks pass, all with the transport handed in. THE WORKFLOW HAS NEVER RUN, in this repository or any seller's. `start.py` still HAS NO CHECKS FILE OF ITS OWN and has never been executed -- it is the one file that reads the GitHub Actions Secrets and opens the real connections, and it remains the single largest untested surface here. **What changed 2026-09-04: it no longer DECIDES anything.** The one rule it had gained moved to `nightly.how_the_night_ends`, and `nightly_checks.py` now reads `start.py` as a parsed file and `autosync.yml` as text, so the eight secret names are held to each other in both directions."
    }
   },
   {
@@ -661,7 +679,8 @@
    "what": "D148. Two checks here are pinned against files that are not here -- `firestore_checks.py` reads Kartaan's own `sync.js` so the three collection names this job WRITES match the names Kartaan's screens READ, and `firestore_door_checks.py` pins the Google scope this door needs against the scope Kartaan-Server actually asks the seller for. One fact written down twice, in two languages, with nothing mechanical joining them. IT REFUSES RATHER THAN SKIPS: a check that quietly stops checking is worse than no check, because it is still counted.",
    "rests_on": [],
    "files": [
-    "autosync/the_other_half.py"
+    "autosync/the_other_half.py",
+    "autosync/the_other_half_checks.py"
    ],
    "reviews": [],
    "findings": [
@@ -676,13 +695,25 @@
      "found": "2026-09-02",
      "fixed": true,
      "proved_by": "It reads `git show HEAD:` and refuses when git cannot answer, with no fallback to disk; pointing it at a file not committed there refuses in words."
+    },
+    {
+     "what": "**BOTH REFUSALS CRASHED BEFORE THEY COULD PRINT.** `readFromServer` and `readFromKartaan` each built their sentence around `wanted`, which is defined nowhere in the file -- so a reader who had not checked the other repository out got a bare `NameError` where the explanation of which fact was unpinned, and what to set, should have been. **This file had no checks file of its own**, and no check anywhere had ever taken either path: an error path nobody has ever run is the most common shape in this project (D171).",
+     "found": "2026-09-04, by an independent cold reader (A15R). Non-blocking -- the gate still refused with exit 1, so nothing bad was let through; what was lost was the words.",
+     "fixed": true,
+     "proved_by": "autosync/the_other_half_checks.py -- 'a missing ERP folder is REFUSED IN WORDS, not crashed on' and 'a missing server folder is REFUSED IN WORDS, not crashed on'. Driven: `wanted` put back in each refusal in turn, 4 red each time, the named check among them, and the file restored byte for byte."
+    },
+    {
+     "what": "**FOUR SENTENCES STILL TOLD A READER TO SET THE FOLDER D148 RENAMED.** The module docstring said `set KARTAAN=D:\\\\Kartaan`, `export KARTAAN=~/Kartaan` and promised a sibling folder called `Kartaan`; `readFromKartaan`'s refusal said the first two again. `whereKartaanIs` has looked for `Kartaan-ERP` only since 2026-09-02, so every one of them sent somebody to a folder nothing tries. **The one check that existed searched the source for a PHRASE** rather than asking what each sentence CLAIMED -- D169's own named mistake, and D170's.",
+     "found": "2026-09-04, by an independent cold reader (A15R). Non-blocking.",
+     "fixed": true,
+     "proved_by": "autosync/the_other_half_checks.py -- 'the module says how to point it at the ERP, and names the folder it looks in', 'the ERP refusal says how to point it there, and names that same folder', and 'the sentence about a sibling folder names the folder that is really tried'. **The folder name is never typed in the check: it is asked of `whereKartaanIs()` itself**, so a fifth hand-written copy is not what holds the other four. Each of the three faults put back in turn: 1 red each, the named one, and the empty case cannot pass -- an instruction list with nothing in it fails (D190)."
     }
    ],
    "state": {
     "built": true,
     "reviewed": false,
     "run_for_real": false,
-    "instead": "It runs every time the checks run, and has been seen to refuse when pointed at nothing. It has never been reviewed by anybody who did not write it."
+    "instead": "15 checks in `the_other_half_checks.py`, written 2026-09-04 because it had none -- and both its refusals were broken. They DRIVE the refusal by pointing it at a folder that does not exist and reading the sentence that comes back, rather than reading the source. It has still never been reviewed by anybody who did not write it."
    }
   },
   {
@@ -886,7 +917,7 @@
      "proved_by": "A doubled name is skipped both ways and reported once."
     },
     {
-     "what": "**RULE 2 CANNOT BE ENFORCED ACROSS RUNS with the columns that exist.** The ledger's 28 columns hold no record of WHICH FILE last wrote each value, so tomorrow's run cannot tell whether a cell came from an older or newer file than the one it holds. Harmless for ordinary nights -- a new file is newer by construction. **NOT harmless for a by-hand backfill (D110)**, where a deliberately old file is fetched after newer ones have written. Recency IS exact within one run. Fixing it needs a column that is not in D152's list.",
+     "what": "**LEFT, WITH A REASON (D180) -- RULE 2 CANNOT BE ENFORCED ACROSS RUNS WITH THE COLUMNS THAT EXIST.** The ledger's 45 columns hold no record of WHICH FILE last wrote each value, so tomorrow's run cannot tell whether a cell came from an older or newer file than the one it holds. Harmless for ordinary nights -- a new file is newer by construction. **NOT harmless for a by-hand backfill (D110)**, where a deliberately old file is fetched after newer ones have written. Recency IS exact within one run. **THE COLUMNS THAT WOULD FIX IT ARE NAMED NOW: D157 asked for four date markers and `ledger.WHICH_FILE_LAST_WROTE` holds them -- `ordersOn`, `paymentsOn`, `returnsOn`, `claimsOn`.** They are pinned to the ERP's own column list, so the ERP builds them or this repository's check goes red; building them here is not this piece's job. **AND THE WRITING HALF NOW REFUSES BECAUSE OF IT:** `ledger_sheet.why_it_must_not_write_yet` asks `ledger.what_the_sheet_cannot_yet_say` and will not touch Google at all while any of the four is missing -- so nothing is written badly in the meantime, and **the refusal lifts itself the day they land**, because `sales.COLUMNS` is pinned to the ERP's committed list. Left because it cannot be closed in this repository. Decided by A16, 2026-09-04. **This sentence said 28 for two days after the answer became 45, and nothing held it to `len(sales.COLUMNS)`. Something does now: `sales_checks.py` -- 'THE REGISTER SAYS HOW WIDE THE LEDGER IS, AND EVERY PLACE IT SAYS SO IS THE WIDTH IT REALLY IS'.**",
      "found": "2026-09-02, while building it",
      "fixed": false,
      "proved_by": null

@@ -294,6 +294,36 @@ check("the whole tab's range covers every column",
 check("and it is 45 columns wide today, which is AS",
       len(tool.COLUMNS) == 45 and tool.the_whole_tab() == "orders!A:AS")
 
+# **AND THE WORK REGISTER SAYS HOW WIDE THE LEDGER IS TOO, IN WORDS, AND NOTHING
+# HELD IT TO THIS.** `tools/work.json` said 28 for two days after the answer
+# became 45. Five other places had been corrected and that one was missed --
+# **the third hand-written copy of one number found in this repository** (D169:
+# a correction is finished when everything repeating the withdrawn claim is
+# corrected too; D190: where a list governs behaviour, something holds the two
+# to each other).
+#
+# **THE QUESTION IS "IS ANY WIDTH THE REGISTER STATES FOR THE LEDGER WRONG?"**,
+# not "does the number 45 appear". Other counts in that file are real and
+# different -- his Flipkart payments are 74 columns wide, a brand-new Google
+# spreadsheet is 26 -- so only a width said of the LEDGER is asked about.
+#
+# **WHAT THIS DOES NOT REACH, said rather than glossed (D180):** a sentence that
+# gives the ledger's width without using the word "ledger" within the same
+# clause escapes it. The register has no field carrying the number, so there is
+# nothing stronger to hold than the sentences that state it.
+REGISTER = Path(__file__).resolve().parent.parent / "tools" / "work.json"
+check("the work register can be read at all", REGISTER.is_file())
+SAID_IN_THE_REGISTER = REGISTER.read_text(encoding="utf-8") if REGISTER.is_file() else ""
+WIDTHS_CLAIMED = [
+    int(one) for one in
+    re.findall(r"ledger(?:'s| is| has)?[^.]{0,40}?(\d+) columns", SAID_IN_THE_REGISTER)
+]
+# **BOTH DIRECTIONS.** Without the first half, deleting every such sentence would
+# leave this green while the register said nothing at all about the ledger.
+check("THE REGISTER SAYS HOW WIDE THE LEDGER IS, AND EVERY PLACE IT SAYS SO IS "
+      "THE WIDTH IT REALLY IS",
+      bool(WIDTHS_CLAIMED) and all(one == len(tool.COLUMNS) for one in WIDTHS_CLAIMED))
+
 # **WHICH COLUMNS ARE FIGURES IS THE ERP'S LIST TOO, and it is read, not typed.**
 # A sheet hands back TEXT for everything, so a column the ERP turns back into a
 # number and this side does not is a figure that arrives as the string "0" and
@@ -358,7 +388,7 @@ check("two sales on one order but different SKUs are two rows",
 print()
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 69
+EXPECTED = 71
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

@@ -12,6 +12,8 @@ than only what came back at the end.
 Run: python autosync/nightly_checks.py
 """
 
+import ast
+import re
 import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -1189,9 +1191,135 @@ check("and nothing is let go of on the strength of it",
       == ("d-1", "d-2", "d-3", "d-4", "d-5"))
 check("and the fetching itself still happened", tick.ran is True and dead.fetched != [])
 
+# ------------------------------ a run that finished before it started (D190)
+
+# **THE GUARD AT `one_tick` HAD NOTHING WATCHING IT.** Neuter it and every one of
+# the checks above stayed green -- and it is not an inert guard either. Without
+# it `between_runs.write` puts down a record saying a run finished before it
+# started, `read` takes that back as fact on the next run, and the clock is then
+# deciding on the strength of something that never happened.
+#
+# **This is D190's absent alarm rather than a dead one.** No tool that breaks a
+# line and asks which checks notice can find a guard nobody ever wrote a check
+# for, because there is no check to stay green.
+
+
+class ClockWentBackwards(Harness):
+    """A machine whose clock steps back between the start of a run and its end.
+
+    **IT IS THE ONLY WAY THIS IS REACHED FROM A REAL NIGHT.** `one_tick` asks the
+    time once at the top and again at the bottom, and everything in between
+    assumes the second is later.
+    """
+
+    def __init__(self, *rest, **named):
+        super().__init__(*rest, **named)
+        self._asked = 0
+
+    def now(self):
+        self._asked += 1
+        return AT if self._asked == 1 else AT - timedelta(hours=2)
+
+
+backwards = ClockWentBackwards()
+tick = backwards.go()
+left_behind = between_runs.read(backwards.saved[-1])
+check("A RUN THAT FINISHED BEFORE IT STARTED IS NEVER WRITTEN DOWN",
+      left_behind.last_finished is None
+      or left_behind.last_finished >= left_behind.last_started)
+check("and it is our own defect, said in words rather than swallowed",
+      tick is not None and tick.is_a_defect is True
+      and any("The run's own record was not saved" in one for one in tick.our_faults))
+
+# ---------------------------------- what the job says last, and its exit code
+
+# **THIS RULE LIVED IN `start.py` FOR A ROUND, WHERE NOTHING COULD EVER WATCH IT
+# FAIL.** That file needs a real Amazon account, a real Google account and a real
+# network. A rule nobody asks about is a comment (D170).
+
+D184_SAYS = ("The seller's ledger has gone.\n"
+             "Restore it from the Drive bin first.\n"
+             "Nothing here writes a second sheet in its place.")
+
+lines, code = tool.how_the_night_ends(tool.Tick(ran=True), D184_SAYS)
+check("A NIGHT THAT COULD NOT WRITE THE SALES LEDGER NEVER REPORTS SUCCESS",
+      code == 1)
+check("and what it could not do is said LINE BY LINE, not squeezed into one",
+      lines == tuple(f"ALARM  {one}" for one in D184_SAYS.splitlines())
+      and len(lines) == 3)
+
+check("a night with one of our own defects is red",
+      tool.how_the_night_ends(tool.Tick(ran=True, our_faults=("Drive would not answer",)),
+                              None) == ((), 1))
+check("a night with neither is green, and says nothing extra",
+      tool.how_the_night_ends(tool.Tick(ran=True), None) == ((), 0))
+check("and a tick that decided not to run at all is green too",
+      tool.how_the_night_ends(tool.Tick(ran=False, why_not="too early"), None) == ((), 0))
+
+# -------------------- the eight secret names, written down in three places
+
+# **NOTHING ANYWHERE READ `autosync.yml`.** The eight names are typed out three
+# times -- the workflow's own "is this repository set up to fetch?" gate, the
+# workflow's `env` block, and `start.py`'s eight `_needed` calls -- and nothing
+# held any of the three to another. All three agreed by luck.
+#
+# **D190: WHERE A LIST GOVERNS BEHAVIOUR, SOMETHING HOLDS THE TWO LISTS TO EACH
+# OTHER, IN BOTH DIRECTIONS.** A name in the gate and not in `env` is a night
+# that starts and then cannot read what it needs; a name in `env` and not in the
+# gate is a repository declared ready without it. Both are silent.
+
+WORKFLOW = Path(__file__).resolve().parent.parent / ".github" / "workflows" / "autosync.yml"
+check("the workflow the seller's own repository runs can be read at all",
+      WORKFLOW.is_file())
+SAID_IN_THE_WORKFLOW = WORKFLOW.read_text(encoding="utf-8") if WORKFLOW.is_file() else ""
+
+# What the gate refuses to run without.
+GATED_ON = tuple(re.findall(r"secrets\.([A-Z0-9_]+)\s*!=\s*''", SAID_IN_THE_WORKFLOW))
+# What the run is actually handed, and under which name. **The pair matters:**
+# `GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_SECRET }}` reads perfectly well.
+HANDED_OVER = tuple(re.findall(
+    r"^\s*([A-Z0-9_]+):\s*\$\{\{\s*secrets\.([A-Z0-9_]+)\s*\}\}\s*$",
+    SAID_IN_THE_WORKFLOW, re.M))
+
+# **WHAT THE RUN ASKS FOR IS ASKED OF THE CODE, not searched for in it.** Every
+# `nightly._needed("X")` in `start.py`, read out of the parsed file, so a name
+# built up out of pieces cannot pass for one.
+START = ast.parse((Path(__file__).resolve().parent / "start.py").read_text(encoding="utf-8"))
+ASKED_FOR = tuple(
+    node.args[0].value
+    for node in ast.walk(START)
+    if isinstance(node, ast.Call)
+    and isinstance(node.func, ast.Attribute) and node.func.attr == "_needed"
+    and node.args and isinstance(node.args[0], ast.Constant)
+    and isinstance(node.args[0].value, str)
+)
+
+# **NONE OF THE THREE MAY BE EMPTY.** Without this every comparison below passes
+# by having nothing to compare -- which is the whole shape D190 is about.
+check("the workflow refuses to run without some named secrets", len(GATED_ON) > 4)
+check("and hands some named secrets to the run", len(HANDED_OVER) > 4)
+check("and the run asks for some named secrets", len(ASKED_FOR) > 4)
+
+check("no name is written twice in any one of the three lists",
+      len(set(GATED_ON)) == len(GATED_ON)
+      and len(set(ASKED_FOR)) == len(ASKED_FOR)
+      and len({name for name, _ in HANDED_OVER}) == len(HANDED_OVER))
+
+check("every value handed to the run is set from the secret of the same name",
+      all(under == secret for under, secret in HANDED_OVER))
+
+FROM_SECRETS = {secret for _, secret in HANDED_OVER}
+check("EVERY SECRET THE WORKFLOW REFUSES TO RUN WITHOUT IS HANDED TO THE RUN, "
+      "AND EVERY ONE HANDED OVER IS ONE IT REFUSES TO RUN WITHOUT",
+      set(GATED_ON) == FROM_SECRETS)
+check("AND EVERY ONE HANDED OVER IS ONE THE RUN ASKS FOR, AND EVERY ONE IT ASKS "
+      "FOR IS HANDED OVER",
+      set(ASKED_FOR) == FROM_SECRETS)
+
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 168
+EXPECTED = 183
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
