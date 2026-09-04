@@ -836,9 +836,362 @@ check("and says what that costs -- it is on no screen", "not on any screen" in "
 check("and the fetching itself still happened", tick.ran is True and h.fetched != [])
 check("and its summary says it too", "out of the building" in tick.summary())
 
+# ------------------- HIS CASE, THROUGH THE REAL CHAIN THIS TIME
+
+# **THIS IS THE SAME CASE `between_runs_checks.py` ALREADY CHECKS, AND THAT IS
+# THE POINT.** There it is driven by calling `whats_new` and `between_runs`
+# directly -- which proved the two files agree with each other and proved nothing
+# about the run, because **until this session nothing in this package called
+# `whats_new` at all.** Every one of those checks would have stayed green with
+# the reading never wired to anything. So it is driven here through
+# `one_tick` itself: a real folder, a real record written to Drive and read back
+# the next night, and the real reading in between.
+#
+# 1st, 2nd, 3rd downloaded. The 4th fails. The 5th downloads. Later the 4th
+# arrives.
+
+import ledger  # noqa: E402
+import ledger_door  # noqa: E402
+import ledger_sheet  # noqa: E402
+import sales as the_sheet  # noqa: E402
+import whats_new  # noqa: E402
+
+
+def _a_meesho_file(*rows):
+    header = ("Sub Order No,SKU,Quantity,Order Date,Reason for Credit Entry,"
+              "Supplier Discounted Price (Incl GST and Commision)")
+    return ("\n".join([header] + list(rows)) + "\n").encode("utf-8")
+
+
+def _in_the_folder(which, name):
+    return whats_new.InTheFolder(which=which, name=name, size=100)
+
+
+FIRST_THREE_AND_FIFTH = [
+    _in_the_folder("d-1", "meesho_me_orders_2026-09-01.csv"),
+    _in_the_folder("d-2", "meesho_me_orders_2026-09-02.csv"),
+    _in_the_folder("d-3", "meesho_me_orders_2026-09-03.csv"),
+    _in_the_folder("d-5", "meesho_me_orders_2026-09-05.csv"),
+]
+THE_FOURTH = _in_the_folder("d-4", "meesho_me_orders_2026-09-04.csv")
+BODIES = {
+    "d-1": _a_meesho_file("SO-1,DJ 14,1,2026-09-01 10:00:00,SHIPPED,100"),
+    "d-2": _a_meesho_file("SO-2,DJ 14,1,2026-09-02 10:00:00,SHIPPED,100"),
+    "d-3": _a_meesho_file("SO-3,DJ 14,1,2026-09-03 10:00:00,SHIPPED,100"),
+    # The fifth corrects the first sale's quantity to nine.
+    "d-5": _a_meesho_file("SO-1,DJ 14,9,2026-09-05 10:00:00,SHIPPED,100"),
+    # The fourth arrives later and still says one.
+    "d-4": _a_meesho_file("SO-1,DJ 14,1,2026-09-04 10:00:00,SHIPPED,100"),
+}
+
+
+class TheSellersDrive:
+    """The folders and the ledger, as far as a tick can tell."""
+
+    def __init__(self, files, into=None):
+        self.files = list(files)
+        self.recorded = []
+        # **WHERE THE SALES ACTUALLY GO, when a check needs a real one.** Left
+        # out, this only remembers that it was called -- enough for every rule
+        # about MARKING a file read, and exactly what hid the ordering fault.
+        self._into = into
+
+    def in_the_folder(self, report_id):
+        return list(self.files) if report_id == "me_orders" else []
+
+    def bring_it_back(self, file_id):
+        return BODIES[file_id]
+
+    def record(self, readings):
+        self.recorded.extend(readings)
+        if self._into is not None:
+            self._into(readings)
+
+    def wiring(self):
+        return dict(what_is_in_the_folder=self.in_the_folder,
+                    bring_the_file_back=self.bring_it_back,
+                    record_the_sales=self.record)
+
+
+class ANightLater(Harness):
+    """The same harness, one night on. **Two nights cannot be the same moment**:
+    the clock refuses a second run on the day the last one finished, which is
+    exactly what it is there for."""
+
+    def __init__(self, state_bytes=None, nights=1):
+        super().__init__(state_bytes)
+        self._nights = nights
+
+    def now(self):
+        return AT + timedelta(days=self._nights)
+
+
+night_one_drive = TheSellersDrive(FIRST_THREE_AND_FIFTH)
+night_one = Harness()
+tick = night_one.go(**night_one_drive.wiring())
+check("A TICK READS WHAT IS NEW IN THE FOLDER -- until now nothing did",
+      tick is not None and tick.what_was_read is not None
+      and len(tick.what_was_read.read_tonight) == 4)
+check("and what it read is written into the record the run leaves behind",
+      between_runs.read(night_one.saved[-1]).files_read == ("d-1", "d-2", "d-3", "d-5"))
+check("and the record on Drive holds a list of file ids, never a high-water date",
+      "2026-09" not in "".join(between_runs.read(night_one.saved[-1]).files_read))
+check("and the night's summary says what it read", "Read 4 of 4 new file(s)" in tick.summary())
+check("and reading a folder is not our own defect", tick.is_a_defect is False)
+
+# **THE NEXT NIGHT, READING THE RECORD BACK OFF DRIVE.**
+night_two_drive = TheSellersDrive(FIRST_THREE_AND_FIFTH + [THE_FOURTH])
+night_two = ANightLater(night_one.saved[-1])
+tick = night_two.go(**night_two_drive.wiring())
+check("THE FOURTH FILE, ARRIVING AFTER THE FIFTH, IS READ ON THE NEXT NIGHT",
+      tick is not None and tick.what_was_read is not None
+      and tick.what_was_read.read_tonight == ("d-4",))
+check("and the four already read are not read a second time",
+      len(night_two_drive.recorded) == 1)
+check("and all five are now in the record the run leaves behind",
+      between_runs.read(night_two.saved[-1]).files_read
+      == ("d-1", "d-2", "d-3", "d-4", "d-5"))
+
+# **AND THE LATE FOURTH'S OLDER FIGURES DO NOT WIN -- DRIVEN AS THE JOB RUNS.**
+#
+# **THIS USED TO POOL BOTH NIGHTS' READINGS INTO ONE `ledger.plan` CALL AGAINST
+# AN EMPTY SHEET, and it was green.** That proved `plan`'s own sort, which was
+# already committed and already true, and proved nothing about the chain a tick
+# actually walks: `read_what_is_new` hands `record_the_sales` ONE file at a time
+# (that is what makes the marking safe), and the writing half reads the sheet
+# back and plans again for each one -- so the sort is handed a list of one, every
+# time, and **the order Drive happened to list the folder in decided the figure.**
+# A check whose green answer does not mean its own name is worse than no check
+# (D175).
+#
+# So the tick below writes into a real recorder, a real `LedgerDoor` and a sheet
+# that keeps what it was written. **The stand-in is written out again here rather
+# than shared with `reading_checks.py`** for the same reason the files and bodies
+# above are: a check file that imports another check file runs it.
+
+
+class PretendLedgerSheet:
+    """A Google Sheets that KEEPS WHAT IT WAS TOLD.
+
+    A stand-in answering every write with `{}` leaves every plan looking right
+    and the sheet empty, which is how a chain planning against a stale reading
+    passes. So `:append` really appends and `values:batchUpdate` really
+    overwrites the row it names.
+    """
+
+    def __init__(self):
+        self.rows = [list(the_sheet.COLUMNS)]
+
+    def __call__(self, method, path, query=None, body=None):
+        if method == "GET" and "/values/" not in path:
+            return {"sheets": [{"properties": {"title": the_sheet.THE_TAB}}]}
+        if method == "GET":
+            return {"values": [list(r) for r in self.rows]}
+        if ":append" in path:
+            self.rows += [list(r) for r in (body or {}).get("values", ())]
+            return {}
+        if "values:batchUpdate" in path:
+            for one in (body or {}).get("data", ()):
+                at = int(one["range"].split("!A")[1].split(":")[0])
+                self.rows[at - 1] = list(one["values"][0])
+            return {}
+        return {}
+
+    def qty_for(self, name):
+        at_id = the_sheet.COLUMNS.index("id")
+        at_qty = the_sheet.COLUMNS.index("qty")
+        for row in self.rows[1:]:
+            if len(row) > at_qty and row[at_id] == name:
+                return row[at_qty]
+        return None
+
+
+def a_sales_ledger(the_sheet=None):
+    """THE REAL WRITING HALF, over a sheet that keeps what it is given.
+
+    **THIS USED TO BE THREE LINES THAT LOOKED LIKE `ledger_sheet.recording_into`
+    AND WERE NOT IT**, written out rather than imported because that half was not
+    safe to land until D157's four date-marker columns exist. That reasoning is
+    gone: the writing half now REFUSES to run until they do, so it can land.
+
+    **AND THE COPY HAD ALREADY STOPPED BEING A COPY, which is the whole lesson.**
+    The real one makes ONE memory of what the night has decided and hands it to
+    every file, which is how D150's rule 3 fires across a one-file-at-a-time
+    handover. These three lines made a fresh empty one per file, so a tie between
+    two files of one report and one day could never be seen.
+
+    **HANDED A SHEET, THIS IS A SECOND NIGHT AGAINST THE SAME LEDGER**, with a new
+    night's memory -- which is what a second run really has.
+    """
+    keeping = the_sheet if the_sheet is not None else PretendLedgerSheet()
+    door = ledger_door.LedgerDoor(keeping, "the-sellers-own-ledger")
+    told = []
+    return keeping, ledger_sheet.recording_into(door, told.append), told
+
+
+THE_SALE = "meesho::SO-1::DJ 14"
+
+# **THE HALF THAT CAN BE FIXED: A TICK THAT FINDS BOTH FILES NEW.** The fourth
+# failed on its own night, so it and the fifth are both sitting there when this
+# run looks -- and Drive answers a listing in its own order, newest first.
+newest_first, into_the_ledger, _ = a_sales_ledger()
+one_run_drive = TheSellersDrive(FIRST_THREE_AND_FIFTH + [THE_FOURTH],
+                                into=into_the_ledger)
+tick = Harness().go(**one_run_drive.wiring())
+check("a tick that finds all five files reads all five",
+      tick is not None and tick.what_was_read is not None
+      and len(tick.what_was_read.read_tonight) == 5)
+check("THE FOURTH'S OLDER FIGURE DOES NOT OVERWRITE THE FIFTH'S",
+      newest_first.qty_for(THE_SALE) == "9")
+
+# **AND LISTED THE OTHER WAY ROUND IT MUST SAY THE SAME THING**, or the answer is
+# luck rather than a rule. One file at a time in Drive's order, one of these two
+# says 9 and the other says 1.
+oldest_first, other_ledger, _ = a_sales_ledger()
+other_way_drive = TheSellersDrive(
+    FIRST_THREE_AND_FIFTH[:3] + [THE_FOURTH, FIRST_THREE_AND_FIFTH[3]],
+    into=other_ledger)
+tick = Harness().go(**other_way_drive.wiring())
+check("and listed the other way round all five are still read",
+      tick is not None and len(tick.what_was_read.read_tonight) == 5)
+check("AND THE ORDER DRIVE LISTED THEM IN DECIDES NOTHING",
+      oldest_first.qty_for(THE_SALE) == newest_first.qty_for(THE_SALE) == "9")
+check("and the days come off the files themselves, not off the nights they arrived",
+      sorted(r.on for r in one_run_drive.recorded)
+      == ["2026-09-01", "2026-09-02", "2026-09-03", "2026-09-04", "2026-09-05"])
+
+
+# **AND THE ID DRIVE GAVE THE FILE DECIDES NOTHING EITHER.** The ids above read
+# `d-1` to `d-5` so a check about days can be read, and that made them sort in
+# the same order as the days -- so a sort keyed on Drive's id passed everything
+# above. **A real Drive id is an opaque string with no order in it.** Driven once
+# more with ids whose alphabetical order is the reverse of their days, and listed
+# in that order: keyed on the id the fourth's 1 would stand. Found by putting
+# that fault back and watching nothing go red.
+opaque, opaque_ledger, _ = a_sales_ledger()
+BACKWARDS = [_in_the_folder("a-1c", "meesho_me_orders_2026-09-05.csv"),
+             _in_the_folder("z-9f", "meesho_me_orders_2026-09-04.csv")]
+BODIES["a-1c"] = BODIES["d-5"]
+BODIES["z-9f"] = BODIES["d-4"]
+backwards_drive = TheSellersDrive(BACKWARDS, into=opaque_ledger)
+tick = Harness().go(**backwards_drive.wiring())
+check("both files are read whatever their ids look like",
+      tick is not None and tick.what_was_read is not None
+      and len(tick.what_was_read.read_tonight) == 2)
+check("AND THE ID DRIVE GAVE THE FILE DECIDES NOTHING EITHER",
+      opaque.qty_for(THE_SALE) == "9")
+
+# ---- HIS RE-FETCH-BY-HAND CASE, THROUGH A WHOLE TICK (D110, D150 rule 3)
+#
+# **A DAY FETCHED AGAIN LANDS AS A SECOND FILE UNDER THE SAME NAME**, so two files
+# of one report and one data date is the thing he does by hand, not a curiosity.
+# D150 rule 3: keep what is there, REPORT the disagreement, never a silent pick.
+#
+# **IT COULD NOT FIRE, AND THE CODE SAID IT COULD.** A sale lands one file at a
+# time, so the memory `plan` decides the rule in started empty on every call and
+# the two files never met: measured, both listing orders gave the same silent
+# answer and reported nought disagreements. What settled the seller's quantity was
+# which Drive id sorted higher.
+BODIES["same-day-first"] = _a_meesho_file("SO-1,DJ 14,9,2026-09-05 10:00:00,SHIPPED,100")
+BODIES["same-day-again"] = _a_meesho_file("SO-1,DJ 14,1,2026-09-05 10:00:00,SHIPPED,100")
+FETCHED_TWICE = [_in_the_folder("same-day-first", "meesho_me_orders_2026-09-05.csv"),
+                 _in_the_folder("same-day-again", "meesho_me_orders_2026-09-05.csv")]
+
+tied, into_the_tie, tie_told = a_sales_ledger()
+tie_drive = TheSellersDrive(FETCHED_TWICE, into=into_the_tie)
+tie_night = Harness()
+tick = tie_night.go(**tie_drive.wiring())
+tie_said = [one for one in tie_told if "DISAGREEMENT" in one]
+check("a tick reads both files of the same day, because both are new",
+      tick is not None and tick.what_was_read is not None
+      and len(tick.what_was_read.read_tonight) == 2)
+check("TWO FILES OF ONE REPORT AND ONE DAY: WHAT THE FIRST ONE WROTE IS KEPT",
+      tied.qty_for(THE_SALE) == {"same-day-first": "9", "same-day-again": "1"}[
+          tie_drive.recorded[0].which])
+check("AND THE TICK REPORTS THE DISAGREEMENT -- never a silent pick (D150 rule 3)",
+      len(tie_said) == 1)
+check("and the report names both files, so somebody can go and answer it",
+      tie_said and "same-day-first" in tie_said[0] and "same-day-again" in tie_said[0])
+# **A REPORTED DISAGREEMENT IS NOT A FILE THAT FAILED.** It was opened, understood
+# and its sales reached the sheet. Left unmarked it would be read again every
+# night for ever and report the same tie every night.
+check("and both files are still written down as read, tie or no tie",
+      between_runs.read(tie_night.saved[-1]).files_read
+      == ("same-day-again", "same-day-first"))
+
+# **THE HALF THAT CANNOT BE FIXED HERE, PINNED RATHER THAN HIDDEN -- D180.**
+#
+# When the fourth arrives on a LATER night, the fifth's 9 is already in the sheet
+# and the fourth is the only reading this run has to sort. `ledger.plan` tells
+# newer from older by the data date a READING carries, and **a row in the sheet
+# carries no date at all** -- 45 columns and not one says which day's file last
+# wrote each figure. So the fourth's 1 goes over the fifth's 9 and nothing
+# anywhere can tell that it should not have. D157's second half asked for four
+# such columns and they were never built.
+#
+# **This asserts today's WRONG answer on purpose**, so it goes red the day those
+# columns land rather than waiting for somebody to remember.
+across_nights, over_two_nights, _ = a_sales_ledger()
+first_night_drive = TheSellersDrive(FIRST_THREE_AND_FIFTH, into=over_two_nights)
+first_night = Harness()
+tick = first_night.go(**first_night_drive.wiring())
+check("on the first night the fifth's correction lands in the sheet",
+      tick is not None and across_nights.qty_for(THE_SALE) == "9")
+
+# **A SECOND NIGHT IS A SECOND RUN**, and it remembers nothing of what last
+# night decided -- only what is written in the sheet. That is exactly why the
+# fault below cannot be fixed here.
+_, the_next_night, _ = a_sales_ledger(across_nights)
+second_night_drive = TheSellersDrive(FIRST_THREE_AND_FIFTH + [THE_FOURTH],
+                                     into=the_next_night)
+tick = ANightLater(first_night.saved[-1]).go(**second_night_drive.wiring())
+check("and on the next night the fourth is the only file read",
+      tick is not None and tick.what_was_read.read_tonight == ("d-4",))
+check("ACROSS TWO NIGHTS THE OLDER FILE STILL WINS -- D180, AND IT CANNOT BE "
+      "FIXED WITHOUT THE FOUR DATE COLUMNS D157 ASKED FOR",
+      across_nights.qty_for(THE_SALE) == "1")
+
+# **THE THIRD NIGHT: nothing new, and it must not read like a night that read
+# everything.** Two runs have already "succeeded" in eleven and forty-seven
+# seconds while doing nothing at all.
+night_three = ANightLater(night_two.saved[-1], nights=2)
+tick = night_three.go(**TheSellersDrive(FIRST_THREE_AND_FIFTH + [THE_FOURTH]).wiring())
+check("once every file has been read none is read again the night after",
+      tick is not None and tick.what_was_read.read_tonight == ())
+check("AND THAT NIGHT DOES NOT SAY WHAT A NIGHT THAT READ EVERYTHING SAYS",
+      "Read 0 of 0 new file(s)" in tick.summary()
+      and "5 already read" in tick.summary())
+
+# **AND A TICK WITH NO FOLDER HANDED IN SAYS SO, EVERY NIGHT.** That is where
+# this stands until the seller's sales ledger exists, and it is the one state
+# that must never be quiet.
+bare = Harness()
+tick = bare.go()
+check("a tick given no folder still says what it read, which is nothing",
+      tick is not None and "Read nothing" in tick.summary())
+check("and nothing about that is our own defect", tick.is_a_defect is False)
+
+# **A FOLDER THAT WOULD NOT LIST IS OUR OWN DEFECT (D108).** What is new cannot
+# be worked out without it, and nothing is let go of.
+
+
+class ADeadFolder(TheSellersDrive):
+    def in_the_folder(self, report_id):
+        raise RuntimeError("Drive would not answer")
+
+
+dead = ANightLater(night_two.saved[-1], nights=3)
+tick = dead.go(**ADeadFolder([]).wiring())
+check("a folder that could not be listed is our own defect", tick.is_a_defect is True)
+check("and it says so in words about what is new", "What is new" in "  ".join(tick.our_faults))
+check("and nothing is let go of on the strength of it",
+      between_runs.read(dead.saved[-1]).files_read
+      == ("d-1", "d-2", "d-3", "d-4", "d-5"))
+check("and the fetching itself still happened", tick.ran is True and dead.fetched != [])
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 137
+EXPECTED = 168
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

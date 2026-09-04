@@ -49,6 +49,7 @@ from typing import Callable, List, Optional, Sequence, Tuple
 
 import between_runs
 import clock
+import reading
 import runlog
 import runner
 from landing import Arrived
@@ -79,6 +80,12 @@ class Tick:
     # **WHAT WENT WRONG ON OUR SIDE, and only ours.** A report failing is not in
     # here; it is in `happened.failed`, on the board, and in an alarm.
     our_faults: Tuple[str, ...] = ()
+    # **WHAT THE NIGHT READ, and it is always said even when it is nothing.**
+    # Two runs have already "succeeded" in eleven and forty-seven seconds while
+    # doing nothing, and a summary that mentioned the reading only when there
+    # was some would make that night and a night that read the whole folder look
+    # identical.
+    what_was_read: Optional[reading.WhatTheNightRead] = None
 
     @property
     def is_a_defect(self) -> bool:
@@ -88,6 +95,8 @@ class Tick:
         if not self.ran:
             return f"Did not run: {self.why_not}"
         said = self.happened.summary() if self.happened else "Ran."
+        if self.what_was_read is not None:
+            said += "  " + self.what_was_read.says()
         if self.our_faults:
             said += "  " + "  ".join(self.our_faults)
         return said
@@ -107,6 +116,13 @@ def one_tick(
     ask_the_hour: Optional[Callable[[], object]] = None,
     save_board: Optional[Callable[[Sequence], None]] = None,
     save_run: Optional[Callable[..., None]] = None,
+    # **THE READING HALF, HANDED IN LIKE EVERYTHING ELSE.** What is in a report's
+    # folder, how to fetch one file back, and the one place a sale can land. All
+    # three together or the reading says in words that it did not happen -- see
+    # `reading.read_what_is_new`.
+    what_is_in_the_folder: Optional[Callable[[str], Sequence]] = None,
+    bring_the_file_back: Optional[Callable[[str], bytes]] = None,
+    record_the_sales: Optional[Callable[[Sequence], None]] = None,
 ) -> Tick:
     """Wake up, decide whether a run is due, and if it is, do one.
 
@@ -261,6 +277,57 @@ def one_tick(
         refused=tuple(say_first),
     )
 
+    # **AND NOW WHAT IS NEW IN THE FOLDER IS READ. Until this line nothing in
+    # this package called `whats_new` at all**, so the list of what had been read
+    # stayed empty for ever and every night worked out what was new from nothing.
+    #
+    # **IT IS AFTER THE FETCHING SO THAT WHAT LANDED TONIGHT IS READ TONIGHT, and
+    # it is not JOINED to it.** His rule is that reading is *"solely based on what
+    # is new"* in the folder -- never on whether a fetch succeeded -- and that
+    # stays true here because `read_what_is_new` is handed the folder and the
+    # record and nothing else. One platform having a bad night still cannot cost
+    # the day's numbers (D148).
+    #
+    # **WHAT IT READ GOES INTO THE RECORD BEFORE THE RECORD IS SAVED, one line
+    # below.** Worked out after the save, a night's reading would be done again
+    # from scratch tomorrow -- which is the very fault this whole step exists to
+    # close.
+    #
+    # **AND IT SITS BEFORE `finished()` RATHER THAN AFTER IT, WHICH IS A TRADE
+    # AND IS WRITTEN DOWN AS ONE.** Until `finished()` is saved the record still
+    # says a run is going, so no second tick can start while this is downloading
+    # -- and two at once reading one folder would write every sale twice. The
+    # cost is that what Amazon is building waits for the reading before it is
+    # saved, so a job killed mid-reading loses it. Both losses are reported by
+    # name below. **Putting the reading after the finished-save would swap one
+    # for the other, and the swap is worth somebody's judgement rather than a
+    # session's: it would need its own save and would open exactly the
+    # two-runs-at-once window the clock exists to shut.**
+    try:
+        what_was_read = reading.read_what_is_new(
+            already_read=state.files_read,
+            what_is_in_the_folder=what_is_in_the_folder,
+            bring_it_back=bring_the_file_back,
+            record_the_sales=record_the_sales,
+        )
+    except Exception as wrong:  # noqa: BLE001 - reported, never swallowed
+        # **THE RECORD IS LEFT EXACTLY AS IT WAS.** Anything else here either
+        # forgets a file that is still in the folder, or writes down as read a
+        # file whose sales went nowhere.
+        what_was_read = None
+        faults.append(f"What is new in the folder could not be worked out: {wrong}")
+    else:
+        state = between_runs.with_files_read(state, what_was_read.files_read)
+        # **A FOLDER NOBODY COULD LIST IS OUR OWN DEFECT (D108).** What is new
+        # cannot be decided without it. A single file that would not read is the
+        # platform's: named, counted, and left green.
+        if what_was_read.is_a_defect:
+            faults.append(
+                "What is new could not be worked out for every folder, so nothing was "
+                "let go of and some files may not have been read: "
+                + "  ".join(what_was_read.could_not_list)
+            )
+
     # **THE MEMORY IS PUT BACK FIRST, before anything is worked out or sent.**
     # What Amazon is building is the one thing that costs something to lose, and
     # every line between here and the save is another line that could throw.
@@ -346,6 +413,7 @@ def one_tick(
         happened=happened,
         alarms_sent=sent,
         our_faults=tuple(faults),
+        what_was_read=what_was_read,
     )
 
 
@@ -395,6 +463,51 @@ def _arrivals_from_drive(transport, inside: str) -> Callable[[str], Sequence[Arr
         ]
 
     return arrivals
+
+
+def _the_folder_itself(transport, inside: str) -> Callable[[str], Sequence]:
+    """What is really sitting in one report's folder, for the reading half.
+
+    **THE SAME LISTING `arrivals` USES, ASKED A DIFFERENT QUESTION.** That one
+    asks whether a day arrived and needs a name and a size. This one asks which
+    files have not been read, and identity there is **Drive's own id, never the
+    name** -- a day fetched again lands under the same name (D110), and keyed by
+    name the correction would never be read.
+
+    **THE SIZE IS CARRIED THROUGH because a nought-byte file is the third
+    thing:** not new data and not already done. `whats_new` reports it and
+    refuses to write it down as read, so tomorrow's real file for that day is
+    still new.
+
+    **IT DOES NOT CATCH ANYTHING.** A folder that will not list is `reading`'s to
+    report as our own defect, and swallowing it here would leave it looking like
+    a folder somebody emptied.
+    """
+    from drive_door import what_has_arrived  # noqa: PLC0415
+    from whats_new import InTheFolder  # noqa: PLC0415
+
+    def in_the_folder(report_id: str) -> Sequence:
+        folder_id = _drive_folder(transport, inside, report_id)
+        return [
+            InTheFolder(
+                which=str(one.get("id") or ""),
+                name=str(one.get("name") or ""),
+                size=int(one.get("size") or 0),
+            )
+            for one in what_has_arrived(transport, folder_id)
+        ]
+
+    return in_the_folder
+
+
+def _one_file_back(transport) -> Callable[[str], bytes]:
+    """One file's bytes, by Drive's own id. **The id, never the name.**"""
+    from drive_door import bring_the_file_back  # noqa: PLC0415
+
+    def bring_it_back(file_id: str) -> bytes:
+        return bring_the_file_back(transport, file_id)
+
+    return bring_it_back
 
 
 def _state_in_drive(transport, inside: str) -> Tuple[Callable[[], Optional[bytes]], Callable[[bytes], None]]:

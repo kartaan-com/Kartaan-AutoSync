@@ -28,6 +28,7 @@ from typing import List, Sequence
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import clock  # noqa: E402
+import ledger_sheet  # noqa: E402
 import nightly  # noqa: E402
 
 
@@ -58,9 +59,14 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
     # and grants nothing; what grants anything is the Google permission below,
     # which the seller gave and which now covers their own database too.
     their_project = nightly._needed("FIREBASE_PROJECT_ID")
-    # **ONE CONNECTION, ONE REFRESH TOKEN, TWO GOOGLE SERVICES.** Drive and
-    # Firestore are the same seller's same permission; a second way of holding
-    # that token would be a second place it could leak.
+    # **ONE CONNECTION, ONE REFRESH TOKEN, THREE GOOGLE SERVICES.** Drive,
+    # Firestore and now Sheets are the same seller's same permission; a second way
+    # of holding that token would be a second place it could leak.
+    #
+    # **AND THE THIRD IS WHY THE SALES LEDGER COSTS NO NEW PERMISSION (D137).**
+    # `drive.file` reaches only the files this app created -- so the ledger has to
+    # be MADE by this connection, and it is: the same object below both makes it
+    # and writes to it, which is what makes the everyday permission carry.
     google = Google(
         client_id=nightly._needed("GOOGLE_CLIENT_ID"),
         client_secret=nightly._needed("GOOGLE_CLIENT_SECRET"),
@@ -96,6 +102,22 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
             say=say,
             asked_already=asked_already,
         )
+
+    # **WHERE A SALE GOES, AND THIS IS THE JOIN THAT WAS MISSING.** For two days
+    # every part of the sales ledger was finished and none of them was called by
+    # anything: the door, the ERP's own half, and the id that nothing supplied.
+    #
+    # **IT IS RESOLVED BEFORE THE RUN, not on the first sale.** A seller whose
+    # ledger has gone must be told at the start of the night, not a hundred files
+    # in -- and told once, rather than once for every file.
+    #
+    # **AND EVERY RULE IN IT IS IN `ledger_sheet.the_writing_half`, WHERE IT CAN
+    # BE DRIVEN.** This file needs a real Google account, so a rule written here
+    # is a rule nobody ever watches fail -- which is exactly how the ledger came
+    # to be finished at both ends and called by nothing.
+    record_the_sales, could_not_write_sales = ledger_sheet.the_writing_half(
+        google, read_state, save_state, say,
+    )
 
     def send(lines: Sequence[str]) -> None:
         # **WHERE AN ALARM GOES IS NOT DECIDED HERE and is not decided yet.** D100
@@ -133,12 +155,38 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
         # fetched at two in the morning for ever with nothing saying so.
         ask_the_hour=lambda: what_they_chose(google, their_project),
         send=send,
+        # **WHAT IS NEW IN THE SELLER'S FOLDER.** Both of these are real and both
+        # are used tonight: the folders are listed and the night's summary says
+        # how many files are sitting there unread.
+        what_is_in_the_folder=nightly._the_folder_itself(google, inside),
+        bring_the_file_back=nightly._one_file_back(google),
+        # **AND THE ONE PLACE A SALE LANDS.** `None` when the seller's ledger could
+        # not be reached, AND `None` today for a second reason: the writing half
+        # refuses to run at all until D157's four date-marker columns exist, and
+        # says so by name. Either way `read_what_is_new` answers it the same -- no
+        # file opened, none marked read, and the night's summary saying so.
+        record_the_sales=record_the_sales,
         # Set only by somebody pressing the button in GitHub. The workflow passes
         # it through; nothing on a schedule ever sets it.
         even_if_not_due=os.environ.get("EVEN_IF_NOT_DUE", "").strip().lower() == "true",
     )
 
     print(tick.summary())
+
+    # **A NIGHT THAT COULD NOT WRITE THE SALES LEDGER NEVER REPORTS SUCCESS.**
+    # Two runs of this job have already "succeeded" in eleven seconds while doing
+    # nothing, and that is the failure this whole repository is written against.
+    #
+    # **IT IS SAID IN FULL, LINE BY LINE, WHERE A PERSON WILL SEE IT.** What comes
+    # back is D184's five steps in the seller's own words -- restore it first, the
+    # offer to write the history again, what that cannot put back, and that no
+    # second sheet is made in its place. A one-line "the ledger failed" would send
+    # somebody looking in the wrong place.
+    if could_not_write_sales:
+        for one in could_not_write_sales.splitlines():
+            print(f"ALARM  {one}")
+        return 1
+
     # **RED ONLY FOR OUR OWN DEFECTS (D108).** A report Amazon would not give up
     # is recorded, alarmed and on the board, and the job did its work -- turning
     # that red as well is how a red tick stops meaning anything.
