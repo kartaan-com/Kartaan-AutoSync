@@ -815,3 +815,881 @@ opens the real connections — has no checks file of its own and has never been
 executed.
 
 Everything above is a review of code that is checked and has never been used.
+
+---
+
+## 2026-09-04 (seventh) — A10R on the two uncommitted units, A8 (the reading) and A9 (the sales ledger). **A9 HOLDS. A8 DOES NOT. NOTHING COMMITTED.**
+
+**Reviewed against** `D:\Kartaan-ERP\DECISION_LOG.md` — D137, D150, D151, D152,
+D157, D161, D166, D174, D175, D176, D183, D184, read there read-only. **Scope:
+`D:\Kartaan-AutoSync` only.** **I repaired nothing** (D166). Every fault I put
+back went into a throwaway copy in scratch; this folder was never written to
+until this entry.
+
+**THE TREE DID NOT MOVE.** The ten files under review fingerprinted by content on
+entry and again before this was written — all ten byte-identical, `git status`
+unchanged, `HEAD` at `e7d8b89` throughout (D181).
+
+**All 29 checks files in `autosync/` are green — 70 + 155 + 99 + 87 in the four
+under review — and every run was read from its last line first (D175).** Green is
+not why this stops. Finding A below is a check that is green and whose name is not
+true of the run it describes.
+
+---
+
+### THE SPLIT IS REAL, AND I VERIFIED IT RATHER THAN TAKING IT
+
+A8 owns `reading.py`, `reading_checks.py`, `nightly.py`, `nightly_checks.py`,
+`tools/work.json`. A9 owns `ledger_sheet.py`, `ledger_sheet_checks.py`,
+`between_runs.py`, `between_runs_checks.py`. **`between_runs.py` is not shared —
+all six changed places are A9's.** `start.py` is shared, and it does **not**
+separate by hunk: A8's `what_is_in_the_folder=` and `bring_the_file_back=` and
+A9's `record_the_sales=` land together in `@@ -133,12 +155,36 @@`. They separate
+by line, so two commits are constructible by hand.
+
+**AND THE ORDER IS FORCED: A9 CANNOT GO FIRST.** A9's `start.py` passes
+`record_the_sales=` into `nightly.one_tick`, and that parameter is A8's. A commit
+of A9 alone raises `TypeError` on the first run. **So a defect in A8 blocks both.**
+
+---
+
+### FINDING A — BLOCKING. THE ORDER DRIVE LISTS FILES IN DECIDES THE SELLER'S FIGURES, AND THE CHECK THAT SAYS OTHERWISE PROVES SOMETHING ELSE
+
+`ledger.py:294` says, in its own words: *"an order of fetching must never decide
+what a figure is."* `ledger.plan` enforces that by sorting its readings oldest
+first, so the newest data date wins (D150 rule 2).
+
+**IT NEVER HAS MORE THAN ONE READING TO SORT.** `reading.py` calls
+`record_the_sales([reading])` — one file at a time, which is correct and is what
+makes the marking safe. `ledger_sheet.recording_into` then does
+`rows = door.everything()` and `ledger.plan(rows, readings)` **once per file**.
+So the sort is handed a list of one, every time, and sorts nothing.
+
+Driven, on his own case — the 5th says the quantity is 9, the older 4th says 1:
+
+| how Drive listed them | per-file plan (**production**) | one pooled plan (**the check**) |
+|---|---|---|
+| 4th then 5th | 9 | 9 |
+| **5th then 4th** | **1** | 9 |
+
+And across two nights, which is his case exactly — the 5th read one night, the
+late 4th the next, against the sheet the first night wrote: **the sheet ends at 1.
+The 9 is gone.**
+
+**THE CHECK NAMED FOR THIS IS GREEN AND TESTS A CONFIGURATION THAT NEVER OCCURS.**
+`reading_checks.py:526` and `nightly_checks.py:954`, both called *"THE FOURTH'S
+OLDER FIGURE DOES NOT OVERWRITE THE FIFTH'S"*, pool **both nights'** readings into
+a **single** `ledger.plan` call against an **empty** sheet:
+
+```
+everything = list(first_four.recorded) + list(late.recorded)
+plan = answered(lambda: ledger.plan([list(sales.COLUMNS)], everything))
+```
+
+That proves `plan`'s internal sort, which is real and was already committed. It
+proves nothing about the chain the two units build. **This is D175's shape one
+level up: not a fault caught by the wrong question, but a question whose green
+answer does not mean what its name says — and it says it about money.**
+
+**IT IS NEWLY REACHABLE BECAUSE OF THIS WORK.** Before it, nothing called the
+reader and nothing wrote to the ledger, so the overwrite could not happen. The
+half that reads the late file (A8) and the half that writes it (A9) are each
+sound alone; the defect is in the join, which is why neither unit's own checks
+see it.
+
+**AND THE FIX IS ALREADY WRITTEN DOWN AND IS NOT BUILT.** D157's second half
+requires *"four columns, each holding the data date of the newest file of that
+kind that has touched the row"*, and says in terms that the rule *"cannot be
+enforced across runs today because nothing records which file wrote a value."*
+`ledger.COLUMNS` is 45 wide and **none of them is such a marker.** With markers on
+the row, a per-file plan could refuse an older file's figure on its own.
+
+**Not repaired, not designed here** (D166). Whether the answer is the markers, or
+pooling a night's readings into one plan, is the author's and it has a cost either
+way.
+
+---
+
+### FINDING B — BLOCKING FOR THE COMMIT, ALREADY KNOWN: `nightly_checks.py` LINE ENDINGS
+
+Measured against `HEAD`, not by looking:
+
+| file | worktree | in HEAD |
+|---|---|---|
+| **`nightly_checks.py`** | **0 CRLF / 1007 LF** | **847 CRLF** |
+| `ledger_sheet.py` (new, A9) | **0 CRLF / 619 LF** | — |
+| `ledger_sheet_checks.py` (new, A9) | **0 CRLF / 581 LF** | — |
+| `reading.py`, `reading_checks.py` (new, A8) | CRLF | — |
+| `nightly.py`, `between_runs*.py`, `start.py` | CRLF | CRLF |
+
+`nightly_checks.py` is flipped CRLF → LF, so 161 real lines read as 1,854. **I read
+it with `git diff -w` rather than skimming it** (D174): the whole change is **161
+insertions and exactly ONE deletion — `EXPECTED = 137`**, replaced by
+`EXPECTED = 155`. **No check was removed and nothing is hiding in the noise.** It
+must still be put back to CRLF before that unit is committed.
+
+**AND ONE NOBODY HAS RECORDED: A9's two new files are LF while every other file in
+this repository is CRLF.** A new file has no diff for a removal to hide in, so it
+is smaller than the above — but this repository has **no `.gitattributes`**
+(`git check-attr text` → `unspecified`), so nothing normalises it and the next
+edit of either file by a session on a different setting produces exactly the diff
+D174 exists to prevent.
+
+---
+
+### FINDING C — NOT BLOCKING. THE SELLER IS TOLD THREE THINGS AND FOUR ARE TRUE
+
+A9's D184 measurement is correct and I checked it against the 45 columns rather
+than reading it: **all 45 measured, none missed, none spare — 28 come back from
+the platform files, 14 from Kartaan's own records, 3 cannot come back** (`notes`,
+`adSpend`, `rev`). Removing one column's entry makes
+`what_a_rebuild_cannot_put_back` refuse in words. That guard holds.
+
+**But `netPnl` and `returnPnl` are measured as coming back with TODAY'S answer
+rather than the day's (D151 snapshots), and the seller is never told.**
+`what_to_tell_them_about_a_deleted_ledger` emits only `CANNOT_COME_BACK`, so step
+4 names three columns. A seller reading *"what writing it again cannot put back:
+notes, adSpend, rev"* would reasonably believe their profit column comes back as
+it was. It will not. **D184's step 5 warns against a ledger that reappears with a
+different history in it; two columns of that difference are measured and unsaid.**
+
+---
+
+### WHAT I DROVE MYSELF, AND WHAT HELD
+
+| | |
+|---|---|
+| **A8's central rule** — a file is written down as read **only** when its sales landed | **HOLDS**, four ways: landing raises → not marked; the next night re-reads it and the sales land; one file of three failing loses exactly that one; baseline marks it |
+| **A9's 26-vs-45** | **HOLDS.** `columnCount` is set **in** the creating call and is `len(sales.COLUMNS)` — no number typed anywhere. A 26-wide sheet is refused **loudly** at the first write, in Google's own words, and never written to |
+| **A9's 14 faults** | **Re-drove 8 of my own, all caught by the check NAMED for it** (D175) — the un-widened grid, a binned ledger read as "no ledger", two ledgers of one name, a wrong header accepted, a gone ledger answered by making a new one, and three of A8's. One earlier attempt of mine reported "not caught" and **the injection was wrong, not the code** — twice: a field name I guessed, and a replacement that broke the file's syntax |
+| **A9's SHAPE 2 → 3** | **HOLDS.** A shape-2 record is refused in words; a shape-3 record with no ledger reads as a first night; forgetting the address and moving it to a different sheet are both refused |
+| **The open question — one Google application or two** | **THE READING IS RIGHT.** One `GOOGLE_CLIENT_ID` enters this repository, in `start.py:71`. Creating and writing both come from the same handed-in `transport`, and no function in the writing path takes a second identity — so the **nightly job is unaffected by the answer**. What breaks on "two" is the **page**, which cannot open the sheet at all. **And one thing the reports do not say: the record that holds the id is itself a Drive file this app created, so a second application cannot read the id either** |
+
+---
+
+### WHAT I DID NOT SATISFY MYSELF ABOUT
+
+- **Nothing here has ever touched a real Google account.** No sheet has been
+  created, no seller's Drive listed, no sale written. Every finding above is from
+  driving the code with the transport handed in, which is what makes that
+  possible — and it is still a review of code that has never run for real.
+- **`tools/work.json` will be false the moment both commits land.** Its entry says
+  *"`record_the_sales` is deliberately NOT handed in by `start.py`"* — A9 now hands
+  it in — and it files the check in Finding A as the proof of his case. A8's commit
+  carries that text and A9's commit does not correct it.
+- **`reviews: []`** in the new register entry. I have not written into it; that is
+  the author's file to correct (D166).
+
+---
+
+### THE ANSWER
+
+**A9 holds on everything I was asked to test and everything I drove.** It is
+blocked only because it cannot be committed before A8, and A8 has Finding A in it.
+
+**NOTHING COMMITTED. NOTHING PUSHED. NOTHING REPAIRED.** Findings A and B go back
+to their author; C is a sentence in the seller's own words and is theirs too.
+
+
+## 2026-09-04 (eighth) — A11, the AUTHOR of the reading, answering A10R's Finding A. **THE CHECK THAT DENIED IT NOW MEANS ITS NAME. HALF THE FAULT IS FIXED; THE OTHER HALF CANNOT BE FIXED HERE AND IS LEFT OUT LOUD (D180).**
+
+**This is not a review.** It is the author's repair of the one blocking finding
+A10R left, written here because that is where the finding is. A fresh reviewer
+still has to read it, and nothing below is committed.
+
+---
+
+### 1. THE CHECK WAS LYING, AND IT WAS PUT RIGHT BEFORE ANYTHING WAS FIXED
+
+`THE FOURTH'S OLDER FIGURE DOES NOT OVERWRITE THE FIFTH'S` existed twice
+(`reading_checks.py`, `nightly_checks.py`) and both copies **pooled both nights'
+readings into ONE `ledger.plan` call against an EMPTY sheet.** That proves
+`plan`'s own sort — already committed, already true — and nothing about the chain
+these files build, because **the job never hands `plan` more than one reading.**
+
+Both were rewritten to run the way the job runs: the reading hands files over one
+at a time, the writing half reads the sheet back and plans again for each one,
+and **the sheet actually keeps what it was written.** A stand-in that answers
+every write with `{}` leaves every plan looking perfectly right and the sheet
+empty, which is how a chain planning against a stale reading passes.
+
+**Then they were run against the code as it stood, and they went red** — both
+copies, before a line of the fix existed (D175).
+
+| driven, on his own D157 case | the sheet ends up saying |
+|---|---|
+| one run, folder listed fourth-then-fifth | **9** — right, by luck |
+| one run, folder listed fifth-then-fourth | **1** — the correction destroyed |
+| the fifth one night, the fourth the next | **1** — his exact case |
+
+### 2. WHAT IS FIXED: WITHIN ONE RUN, THE ORDER DRIVE ANSWERED IN DECIDES NOTHING
+
+`reading.read_what_is_new` now gathers tonight's new files from **all three
+folders together** and hands them over **oldest first, by the day each file is
+about**, before the handover rather than during it (`reading._oldest_first`).
+The one-file-at-a-time handover is untouched — it is what makes the marking safe.
+
+All three rows above now answer **9, 9, 1**: the two one-run cases agree, and the
+across-nights case is the half that cannot be fixed here.
+
+**Proved by breaking it on purpose, six ways, in a throwaway copy — never in the
+tree (D176, D178).**
+
+| the fault put back | what happened |
+|---|---|
+| no sort at all | **RED**, both named checks, both files |
+| sorted newest-first | **RED**, both named checks, both files |
+| sorted on Drive's id | **RED**, `AND THE ID DRIVE GAVE THE FILE DECIDES NOTHING EITHER` |
+| the sort is there and the loop walks the folders anyway | **RED**, both named checks, both files |
+| sorted on the file's NAME | nothing went red — **and it is not a fault** |
+| each folder sorted on its own | nothing went red — **and it is not a fault** |
+
+**The third row found a hole in the CHECKS, not in the code**, and it is the one
+worth carrying: the fixtures' ids read `d-1` … `d-5`, so they happened to sort in
+the same order as the days and a sort keyed on Drive's id passed everything. **A
+real Drive id has no order in it.** A drive with ids running backwards to their
+days was added, and it catches it.
+
+**The last two survived and were not forced into a red**, because neither changes
+a figure this package can produce, and saying so is worth more than a fake:
+
+- **sorting on the file's name** — this package names a landed file itself, from
+  the data date (D110), so for every file that can reach here the two orders are
+  the same string. A weaker key, not a wrong answer.
+- **sorting each folder on its own** — a sale is named `platform::orderId::sku`
+  and each orders report carries exactly one platform, so two folders' files can
+  never write the same row. Sorting them as one list is one rule instead of
+  three, and it is what will matter the day returns and payments files — same
+  platform, different report — can be read.
+
+### 3. WHAT REMAINS, AND IT IS NOT A DETAIL: THE ACROSS-NIGHTS CASE
+
+**When the late fourth arrives on a LATER night, the fifth's 9 is already in the
+sheet and the fourth is the only reading the run has to sort.** `ledger.plan`
+tells newer from older by the data date a READING carries, and **no row in the
+sheet carries a date at all** — 45 columns and not one says which day's file last
+wrote each figure. So the fourth's 1 goes over the fifth's 9 and **nothing
+anywhere can tell that it should not have.**
+
+**D157's second half asked for four date-marker columns and they were never
+built.** They are pinned to the ERP's own column list, so the ERP moves first or
+this repository's check on the sheet's shape goes red. **Not built here.**
+
+It is recorded on its own line in `tools/work.json` in D180's state — *left, with
+a reason* — and it is checked: `ACROSS TWO NIGHTS THE OLDER FILE STILL WINS —
+D180, AND IT CANNOT BE FIXED WITHOUT THE FOUR DATE COLUMNS D157 ASKED FOR`
+**asserts today's wrong answer on purpose**, in both files, so it goes red the day
+those columns land rather than waiting for somebody to remember.
+
+**THE SHEET WRITING IS NOT SAFE TO LAND UNTIL THOSE FOUR COLUMNS EXIST.**
+
+### 4. THE LINE ENDINGS, AND WHAT THE DIFF SAYS NOW
+
+`nightly_checks.py` was 0 CRLF / 1007 LF against a HEAD of 847 CRLF, so ~160
+lines of change read as 1,854. **Put back to CRLF before anything else was
+touched** (D174). Its diff now reads **304 insertions / 1 deletion**, and
+`git diff -w` says exactly the same — nothing is hiding in the noise. The one
+deletion is the expected-count line.
+
+### 5. THE CHECKS ARE NOT CHAINED TO WORK THAT CANNOT LAND
+
+The rewritten checks first imported `ledger_sheet.recording_into` — the real
+writing half — which would have chained this unit to the one that is **not safe
+to land** (§3). They now build those same three lines over the **committed**
+`ledger_door.LedgerDoor` and `ledger.plan`, and the unit was proved to stand
+alone: HEAD plus these four files, **with neither of A9's new files present**,
+runs **241 checks and all pass.**
+
+### 6. NOT COMMITTED, AND THE GATE SAYS WHY IN TWO PLACES
+
+```
+BLOCKED: the work register does not match what is here:
+    autosync/ledger_sheet.py exists and no piece of work owns it.
+    autosync/ledger_sheet_checks.py exists and no piece of work owns it.
+```
+
+**The register sweeps what is on DISK, not what is staged**, so this blocks every
+commit in this tree, mine included, until A9's piece has an entry. **That is A9's
+own record to write, and A10R did not name it** — it is the one thing on A9's
+repair list that was missed.
+
+**And behind it, a second block that is by design:** the gate wants a
+`review_pass.json` naming a reviewer who is not the author, there is none, and
+**I am the author.** D162 says the reviewer must be a fresh session that did not
+write the code. So this unit was never mine to commit.
+
+### 7. WHAT THE REGISTER WAS SAYING THAT WAS NO LONGER TRUE
+
+A10R's last section said `tools/work.json` would be false the moment both commits
+land. Two things in the `reading-what-is-new` entry are corrected, in place:
+
+- it filed the lying check as the proof of his case — **the claim is withdrawn in
+  the entry itself**, and the ordering finding beneath it names what proves it now;
+- it said `record_the_sales` is *"deliberately NOT handed in by `start.py`"*,
+  which stopped being true in the same batch.
+
+`reviews: []` is still empty. **That is the reviewer's line, not mine.**
+
+## 2026-09-04 (ninth) — A14, answering the cold reader's two blocking findings. **THE TIE RULE FIRES. THE WRITING HALF REFUSES. BOTH PROVED BY BREAKING THEM. NOTHING COMMITTED — the gate refuses the one thing an author cannot sign.**
+
+**A14 wrote the code below, so A14 is not its reader.** This entry is the author
+answering, in the shape A11's is: what was measured, what was changed, what was
+put back to watch it go red, and what is still open.
+
+---
+
+## 1. D150 RULE 3 COULD NOT FIRE, AND THREE PLACES SAID IT COULD
+
+**The case is his own (D110): a day fetched again lands as a second file under
+the same name.** Two files, one report, one data date, disagreeing. The rule is
+*keep what is there and REPORT it, never a silent pick*.
+
+**Measured first, through the real chain — `read_what_is_new` into
+`recording_into` into `plan` into a `LedgerDoor` over a sheet that keeps its
+rows:**
+
+| listed | the seller's quantity ends | disagreements reported |
+|---|---|---|
+| the 9-file then the 1-file | **1** | **0** |
+| the 1-file then the 9-file | **1** | **0** |
+
+**Both orders answer the same thing and neither says a word.** The figure is not
+decided by the files; it is decided by whichever Drive id sorts higher, because
+that is what breaks the same-day tie in the handover. Silent, and in the money.
+
+**THE CAUSE IS ONE WORD: WHOSE MEMORY.** `ledger.plan` decides the rule in
+`decided_on` — which file last claimed which column of which sale. That was
+state inside the call, and **the job calls `plan` once per file**, because a sale
+lands one file at a time and that is what makes marking a file read safe. So it
+began empty every time, `before` was always `None`, and the two halves of a tie
+were never in one call to be compared. `recording_into`'s
+`for one in what.disagreements: speak(...)` was dead code under a comment reading
+*"REPORTED, NEVER SWALLOWED."*
+
+**AND `a_reading`'s OWN NOTE NAMED THIS CASE AS THE REASON IT CARRIES DRIVE'S
+ID** — which reads to the next person as though it were handled. Carrying the id
+buys determinism, not rule 3. That sentence is corrected where it stands, and it
+now says which half it is and where the other half lives.
+
+**THE FIX DID NOT TOUCH THE HANDOVER.** One file at a time, still. What crosses
+it is the memory: `ledger.WhatTheNightHasDecided`, made **once per night** by
+`ledger_sheet.recording_into` and handed to every file. `plan` takes it as
+`so_far` and writes into it; left out, it makes its own and behaves exactly as
+before, which is right for a caller that really does hold every reading at once.
+
+**Driven again, the same three ways:**
+
+| listed | quantity ends | disagreements reported |
+|---|---|---|
+| the 9-file then the 1-file | **9** | **1** |
+| the 1-file then the 9-file | **9** | **1** |
+
+Nothing is overwritten, and the report says so out loud:
+
+    SALES LEDGER DISAGREEMENT  meesho::SO-1::DJ 14: qty says '9' and me_orders
+    of 2026-09-05 says '1'. Both are as current as each other, so nothing was
+    changed. The two files are aaa (which is the one standing) and zzz.
+
+**THE REPORT NAMES BOTH FILES, and that is not decoration.** The two sides of a
+tie are the same report of the same day — that is what makes it a tie — so
+"me_orders of 2026-09-05" says it twice and points at neither. `Disagreement`
+carries `kept_from` and `also_from`, which are Drive's own ids, which is what a
+person opens.
+
+**And both files are still written down as read.** A reported disagreement is not
+a file that failed: it was opened, understood, and its sales reached the sheet.
+Left unmarked it would be read again every night for ever and report the same tie
+every night.
+
+---
+
+## 2. THE BATCH LANDED WHAT ITS OWN RECORD SAID COULD NOT LAND
+
+`tools/work.json` said, on its own line: **"UNTIL THEY EXIST, WRITING TO THE
+SELLER'S SHEET IS NOT SAFE TO LAND."** `start.py` wired the writing half in
+anyway. **The record was not softened and the work was not unwired. The code now
+refuses.**
+
+`ledger.what_the_sheet_cannot_yet_say` asks `sales.COLUMNS` for D157's four
+date-marker columns — `ordersOn`, `paymentsOn`, `returnsOn`, `claimsOn`, each
+holding the data date of the newest file of that kind that touched the row. While
+any is missing, `ledger_sheet.the_writing_half` refuses **before it touches
+Google at all** — so no sheet is made that would then be refused — and hands back
+this, which `start.py` already prints line by line as an ALARM:
+
+    NOTHING HAS BEEN WRITTEN TO THE SELLER'S SALES LEDGER TONIGHT, AND NO FILE
+    HAS BEEN MARKED AS READ. This is Kartaan refusing, not Google.
+    1. WHY. The sheet has no column saying which day's file last wrote each
+       figure. Without that, a file that arrives late -- say the 4th, turning up
+       after the 5th has already corrected a quantity -- puts its older figure
+       back over the newer one, in the money, with nothing anywhere saying so.
+    2. WHAT IS MISSING, by name: ordersOn, paymentsOn, returnsOn, claimsOn. ...
+    3. NOTHING IS LOST WHILE THIS STANDS. The seller's platform reports still
+       land in their own Drive every night, and every one of them is still
+       waiting to be read. Not one file is written down as read, so not one is
+       skipped later.
+    4. IT ENDS BY ITSELF. The day those four columns are in the ledger's columns,
+       this stops refusing and the night writes. Nobody has to remember to come
+       back.
+
+**THE FETCHING IS NOT REFUSED.** Files still land in the seller's own Drive. What
+stops is reading and, above all, marking — which `read_what_is_new` already
+answers safely (D157, D184).
+
+**AND IT LIFTS ITSELF.** `sales.COLUMNS` is pinned to the ERP's committed column
+list, so the day those four land the refusal goes away with nobody remembering to
+delete anything. **The names are the ERP's to set; these are the names this looks
+for.** If the ERP lands them under different names, this keeps refusing and says
+exactly what it looked for — which is the loud answer, and the one to want.
+
+**Both sides are driven**, not one taken on trust: the refusal today, and — with
+the one line that refuses stood down and put back at the end — the writing half
+finding, making and filling the ledger the day the columns exist. A refusal
+nobody has watched lift is a refusal that could be permanent by accident.
+
+---
+
+## 3. THE SECOND ACCIDENTAL FIXTURE, AND A REASON THAT WAS FALSE
+
+**Every ordering fixture used ONE folder, and every multi-folder fixture put every
+file on ONE day.** Inside one folder every landed name carries one fixed prefix,
+so sorting on the NAME and sorting on the DAY are the same string. A name sort
+passed all 78.
+
+**And the reason the check file recorded for that survivor was measurably false.**
+It said *"for every file that can reach here the two orders are the same string."*
+Landed names are `{platform}_{report}_{date}`:
+
+    by DAY :  meesho 09-01, flipkart 09-03, amazon 09-05, meesho 09-06
+    by NAME:  amazon 09-05, flipkart 09-03, meesho 09-01, meesho 09-06
+
+**The fixture is fixed:** four files, four days, three folders, whose day order
+differs from the name order, from the folder-then-day order **and** from Drive's
+id order. **And it checks the HANDOVER ORDER directly**, because that is what the
+rule is about — no figure this package can produce today feels a cross-platform
+ordering, since a sale is `platform::orderId::sku` and each orders report carries
+exactly one platform.
+
+**The sentence is fixed too**, and it now says what was measured, which reason
+actually protects both injections, and **the date that protection ends**: the day
+a second report of ONE platform can be read — returns and payments, same
+platform, different report, different folder. Then
+`meesho_me_orders_2026-09-05` sorts before `meesho_me_returns_2026-09-04` by name
+and after it by day, both write the same row, and the name sort is simply wrong.
+
+---
+
+## 4. AND THE CHECK FILES HELD A COPY THAT HAD STOPPED BEING A COPY
+
+`reading_checks.py` and `nightly_checks.py` each wrote out three lines that
+*looked* like `ledger_sheet.recording_into` rather than importing it, on the
+reasoning that the writing half could not be committed. **That reasoning is gone —
+it refuses instead of not landing — and the copy had already drifted:** the real
+one makes one night's memory and hands it to every file; the three lines made a
+fresh empty one per file. **A check driving a copy of the thing it is named for is
+the whole of how this fault stayed invisible.** Both now import the real thing,
+and a second night gets a fresh recorder against the same sheet, because a second
+run really does remember nothing.
+
+---
+
+## PROVED BY BREAKING IT — TEN FAULTS, ALL TEN RED, NONE SURVIVED
+
+Put back one at a time in a **throwaway copy of `autosync/`** in the scratchpad.
+The tree was never edited.
+
+| put back | what went red |
+|---|---|
+| `plan` makes its own memory on every call (the fault as it stood) | **15** across all four files, led by *TWO FILES OF ONE REPORT AND ONE DAY: WHAT THE FIRST ONE WROTE IS KEPT* |
+| the writing half makes the memory per FILE instead of per night | **13** -- the same, less the two that call `plan` directly |
+| the writing half never asks whether it may write | **9** -- every refusal check |
+| the four columns reported as already there | **12**, including *the refusal is back where it was, and still refuses* |
+| files handed over sorted on the file's NAME | **2** -- *EVERY FOLDER'S FILES ARE HANDED OVER AS ONE LIST, OLDEST DAY FIRST*, and the same-day tie no longer answering the same either way |
+| each folder sorted on its own | **1** -- that same one |
+| sorted on Drive's own id | **4** -- that one, the two named for the id, and the figure inside one platform |
+| no sort at all | **9**, across both files |
+| a disagreement stops naming which two files disagreed | **4**, the ones named for it |
+| a disagreement picked silently instead of reported | **10**, across all four files |
+
+**The first two are the fault the reader found.** The fifth and sixth are the two
+that the day before's exercise had recorded as **not-faults** — they survived
+because the one-folder fixture could not feel them. They do not survive now.
+
+**AND TWO RUNS FOUND A HOLE IN THE CHECKS RATHER THAN IN THE CODE.** Two checks
+reached `disagreements[0]` straight, so a fault that stops the tie firing made
+them **throw rather than go red** — and a check file that dies half way through
+has no count and says nothing about anything below it. One was mine, one was
+already committed. Both are guarded now, and the injection harness was changed to
+show a crash instead of hiding it behind the FAILs above it.
+
+---
+
+## EVERY COUNT BELOW WAS RUN, AND READ OFF THE RUN'S OWN LAST LINE
+
+Never off a file's `EXPECTED` constant — four wrong counts on this project this
+week were read that way.
+
+| | |
+|---|---|
+| `autosync` | **29 check files, 2,477 checks, all green** (was 2,427) |
+| `ledger_checks.py` | 62 to **74** |
+| `ledger_sheet_checks.py` | 87 to **106** |
+| `reading_checks.py` | 78 to **92** |
+| `nightly_checks.py` | 163 to **168** |
+| `tools/gate_checks.py` | **113** green |
+| `tools/export_recipes_checks.py` | **61** green |
+| `extension` | 5 files, **400** checks green |
+
+**D174 clean.** `git diff -w --numstat` equals the plain one on every file
+touched. Line endings are unchanged per file: `reading.py`, `reading_checks.py`,
+`nightly_checks.py` and `start.py` are pure CRLF as they were; `ledger.py`,
+`ledger_sheet.py` and their checks are pure LF as they were.
+
+---
+
+## THE REGISTER, AND THE THREE STALE THINGS THE READER NAMED
+
+- **`landing` added to `reading-what-is-new`'s `rests_on`.** It is imported and it
+  was missing, against the register's own stated rule — and it is the most
+  load-bearing of the lot: `landing.data_date_in` **is** the ordering key.
+- **The third stale sentence in the register's note is corrected where it
+  stands.** It said nothing yet remembers which files have been read across runs
+  and that adding a field would bump `SHAPE`. Both halves are false: the field is
+  `files_read` and `SHAPE` went to 3 on 2026-09-02 — and this is the piece that
+  actually fills it.
+- **The stale count is corrected, by running.** It claimed *"27 more in
+  `nightly_checks.py`"*; `EXPECTED` had moved 137 to 163, which is 26, and both
+  numbers were stale by the time a reader checked them.
+- **`NOBODY HAS EVER WATCHED THESE CHECKS FAIL` is withdrawn** on
+  `making-the-ledger`, because now somebody has.
+
+---
+
+## WHAT IS STILL OPEN, AND NOTHING HERE WAITS ON JAISWAL
+
+1. **THE ERP BUILDS D157'S FOUR DATE-MARKER COLUMNS.** Until then the writing
+   half refuses, loudly, by name — and the across-nights tripwire in both check
+   files still asserts today's wrong answer on purpose, so it reddens the day
+   they land. **The four columns are already his decision; they need the ERP to
+   build them, not him to choose again.**
+2. **A9's finding C**, unchanged and untouched: `netPnl` and `returnPnl` come back
+   with today's answer rather than the day's, and the seller is never told.
+3. **A READER WHO IS NOT THE AUTHOR.** `reviews: []` is still empty on both
+   entries. That is the reviewer's line, not mine.
+
+---
+
+## NOT COMMITTED, AND THE GATE'S OWN WORDS FOR WHY
+
+    BLOCKED: nothing records that anybody READ this commit:
+      there is no review_pass.json.
+
+A14 wrote all of it, and the gate refuses a record whose `written_by` and
+`reviewer` are the same words — *"that is not a review"* (D162). The cold reader
+read the state before this work, not this work. **Nothing was faked and
+`--no-verify` was not used.**
+
+---
+
+## 2026-09-04 (tenth) — A15R on the whole uncommitted batch (A9's ledger, A11's reading, A14's two answers). **IT HOLDS: nothing found lets a bad commit through. Six findings, every one non-blocking, every one left to the author (D166, D180).**
+
+**Reviewed against** `D:\Kartaan-ERP\DECISIONS.md` — D150, D157, D158, D161,
+D166, D169, D174, D175, D176, D180, D181, read there read-only. **Scope:
+`D:\Kartaan-AutoSync` only.** **I repaired nothing** (D166). Every fault I put
+back went into a throwaway copy of `autosync/` in scratch; this folder was never
+written to until this entry.
+
+**THE TREE DID NOT MOVE.** 93 files fingerprinted by content on entry and again
+before this was written — all 93 byte-identical, nothing gone, nothing new
+(D181).
+
+**THE BAR I WAS GIVEN:** only something that lets a bad commit through blocks.
+Everything else is recorded and left (D180). Nothing below meets that bar.
+
+**I WAS TOLD TWO FINDINGS WERE CLOSED. I DID NOT READ THE CLAIM — I DROVE BOTH,
+with my own fixtures, through the running job rather than through the author's
+harness.**
+
+---
+
+## 1. THE TIE RULE FIRES, AND IT IS REPORTED RATHER THAN RESOLVED
+
+Driven through `reading.read_what_is_new` — the real reader, the real
+`ledger_sheet.recording_into`, a real `LedgerDoor`, and a sheet that keeps what
+it is written. Two files of ONE report (`me_orders`) and ONE data date
+(`2026-09-05`), one saying the quantity is 1 and one saying 9. Built from the
+real Meesho orders header.
+
+| listed | quantity left in the sheet | disagreements said | files marked read |
+|---|---|---|---|
+| id-AAA then id-ZZZ | `1` | **1** | 2, one at a time |
+| id-ZZZ then id-AAA | `1` | **1** | 2, one at a time |
+
+The sentence the seller's log gets, verbatim:
+
+> SALES LEDGER DISAGREEMENT  meesho::M-77::RING-77: qty says '1' and me_orders
+> of 2026-09-05 says '9'. Both are as current as each other, so nothing was
+> changed. The two files are id-AAA-fetched-first (which is the one standing)
+> and id-ZZZ-fetched-again.
+
+**Kept, said out loud, both files named by Drive's own id, and the same answer
+whichever way Drive lists them.** The one-file-at-a-time handover is untouched —
+both files are still marked read separately, which is what makes the marking
+safe. D150 rule 3, met.
+
+**AND I WENT PAST WHAT THE CHECKS COVER, because two files is the easy case:**
+
+| what I drove | what happened |
+|---|---|
+| THREE files of one report and one date (1, 9, 5) | `1` kept, **2 disagreements reported**, all three still marked read |
+| a tie, then a genuinely NEWER file (the 6th, saying 7) | **`7` won outright** and the tie was **still** reported — rule 2 and rule 3 at once |
+| the same three listed backwards | identical: `7`, one disagreement |
+
+A newer file still wins, and a tie is still not a quarrel that swallows the
+correction. Neither of those two rows has a check named for it.
+
+---
+
+## 2. THE REFUSAL FIRES BEFORE GOOGLE, AND IT TAKES ITSELF AWAY
+
+`ledger_sheet.the_writing_half` was handed a transport that **records and then
+raises on any attribute touched at all**, so anything reaching Google would say
+so by name.
+
+| asked | measured |
+|---|---|
+| does it refuse? | yes — `record_the_sales` came back `None` |
+| was Google touched? | **nothing. Not one attribute, no search, no sheet made** |
+| was the seller's record written? | **no** |
+| does it name all four columns? | `ordersOn`, `paymentsOn`, `returnsOn`, `claimsOn` — all four, by name, in step 2 of four numbered steps |
+| does the fetching carry on? | **29 reports fetched** in a whole `one_tick`, under the refusal |
+| is any file marked read? | **none.** `files_read` came back empty with a new file sitting in the folder, and the night said so: *"1 file(s) are sitting in the folder unread and will still be there when there is"* |
+
+**AND IT LIFTS ITSELF — I did not take the claim on trust, because
+monkey-patching `sales.COLUMNS` in a live process proves nothing here:
+`ledger.py:90` binds `COLUMNS` at import.** So I did it the way the ERP will:
+edited `COLUMNS` in a **throwaway copy of `sales.py`** and ran a **fresh
+process**.
+
+| | `what_the_sheet_cannot_yet_say()` | writing |
+|---|---|---|
+| the tree as it stands | all four missing | **refused** |
+| the copy, with the ERP's four columns landed | nothing missing | **allowed** |
+
+Nobody has to remember to come back and delete anything.
+
+**AND THE DAY IT LANDS, THE REPOSITORY SHOUTS.** I ran all 29 check files in
+that same copy: **47 checks go red**, including `sales_checks.py` — *"and the
+whole column list matches, end to end"* — and the across-nights tripwire in both
+`reading_checks.py` and `nightly_checks.py`, which asserts today's wrong answer
+on purpose. The tripwire is real, and I watched it fire.
+
+---
+
+## 3. THE TEN FAULTS, PUT BACK AGAIN BY ME — ALL TEN RED, NO SURVIVORS, NO CRASHES
+
+Not the author's harness. Mine: a throwaway copy of `autosync/`, one fault at a
+time, all 29 check files run each time, **line endings honoured on every edit
+(D174)** and an injection that does not match exactly refuses rather than
+quietly doing nothing.
+
+**The baseline was measured first: 0 red, 0 crashes.** An earlier run of my own
+harness showed four check files crashing — that was my harness, not the code,
+and finding 1 below is what it turned up.
+
+| put back | red | led by |
+|---|---|---|
+| `plan` makes its own memory every call | **19** | *RULE 3 FIRES ONE FILE AT A TIME: the tie is REPORTED, not resolved* |
+| the writing half makes the memory per FILE | **13** | the same, less the two that call `plan` directly |
+| the writing half never asks whether it may write | **9** | *WHILE THE FOUR DATE COLUMNS DO NOT EXIST THERE IS NOWHERE TO PUT A SALE* |
+| the four columns reported as already there | **12** | *AND GOOGLE IS NOT TOUCHED AT ALL — no search, no sheet made* |
+| **files handed over sorted on the file's NAME** | **2** | *EVERY FOLDER'S FILES ARE HANDED OVER AS ONE LIST, OLDEST DAY FIRST* |
+| **each folder sorted on its own** | **1** | that same one |
+| sorted on Drive's own id | **4** | *AND THE ID DRIVE GAVE THE FILE DECIDES NOTHING EITHER* |
+| no sort at all | **9** | *THE FOURTH'S OLDER FIGURE DOES NOT OVERWRITE THE FIFTH'S* |
+| a disagreement stops naming which two files | **5** | *the report names BOTH files, not one report twice* |
+| a disagreement picked silently | **17** | *AND THE DISAGREEMENT IS REPORTED, not resolved* |
+
+**Every one was caught by a check NAMED for it (D175), not by something else
+going red on the way past.**
+
+**THE TWO IN BOLD ARE THE ONES A READER RECORDED AS NOT-FAULTS.** That judgement
+was wrong and I confirmed it is wrong: both go red now, both under the check
+named for them. The one-folder fixture is what had been hiding them.
+
+**AND I SWEPT WIDER THAN THE TEN.** Every guard in `ledger.py`,
+`ledger_sheet.py`, `reading.py` and `nightly.py` neutered one at a time, all 29
+check files run each time:
+
+| file | nothing caught it |
+|---|---|
+| `reading.py` | **0** |
+| `ledger.py` | 2, both measured inert |
+| `ledger_sheet.py` | 1, measured inert |
+| `nightly.py` | **1 — finding 5 below, and it is not inert** |
+
+---
+
+## 4. THE THIRD HAND-WRITTEN COPY — AND IT IS IN THE REGISTER THE GATE TRUSTS
+
+I was asked to go looking for one. It is `tools/work.json`, `the-sales-ledger`,
+the fourth finding, still open:
+
+> *"RULE 2 CANNOT BE ENFORCED ACROSS RUNS with the columns that exist. **The
+> ledger's 28 columns** hold no record of WHICH FILE last wrote each value...
+> Fixing it needs a column that is not in D152's list."*
+
+**The ledger has 45 columns.** Measured: `len(sales.COLUMNS)` is 45. Five other
+places in this repository say 45 — `ledger.py:68`, `reading.py:456`,
+`reading_checks.py:829`, `nightly_checks.py:1127`, and `work.json`'s own
+`reading-what-is-new` entry. **This one site was left, and it is the only "28
+columns" anywhere in the file.**
+
+**It is a hand-written copy of `reading-what-is-new`'s finding that stopped
+being a copy, and it is stale in three ways, not one:**
+
+1. the count — 28 against a measured 45;
+2. *"a column that is not in D152's list"* — D157 named the four, and
+   `ledger.WHICH_FILE_LAST_WROTE` holds their names in code today;
+3. **it does not say that the writing half now REFUSES because of it** — which
+   is the single most important fact about this finding, and the thing that
+   makes this batch safe to land at all.
+
+D169 exactly: *"a reference that survives a correction is worse than one that
+breaks: it reads correctly and sends the reader somewhere false."* The register
+entry beside it was corrected; this one was not swept. **A correction that names
+no sweep is half a correction.**
+
+**Not blocking:** the gate reads a finding's `proved_by`, never its prose, and
+this finding is not marked fixed so it needs none. Nothing about it lets a
+commit through. **Left for the author (D166) — I do not edit the record I am
+reviewing.**
+
+---
+
+## 5. THE OTHER FIVE FINDINGS — none blocking, all left
+
+### FINDING 1 — the two refusals whose whole point is the message crash before printing a word.
+
+`autosync/the_other_half.py`, lines 144 and 177. Both raise a `SystemExit` whose
+text interpolates `wanted`, and **`wanted` is defined nowhere in the file.**
+Driven: `KARTAAN` pointed at a folder that does not exist gives
+
+> NameError: name 'wanted' is not defined
+
+Four check files reach it — `sales_checks.py`, `firestore_checks.py`,
+`firestore_door_checks.py`, `ledger_door_checks.py`. The file's own docstring
+says *"THE MESSAGE IS THE POINT. `FileNotFoundError: sync.js` tells somebody
+nothing about a contract between two repositories."* A bare `NameError` tells
+them less.
+
+**Not blocking, and I checked rather than assumed:** the exit code is still 1
+and `tools/gate.py`'s `run_one` refuses on a non-zero return code, so the gate
+stops the commit either way. What is lost is the four paragraphs telling
+somebody what to do about it.
+
+### FINDING 2 — the same file still points at a folder name D148 withdrew, in four places.
+
+`whereKartaanIs()` looks for **`Kartaan-ERP`**, and its own docstring records
+that the `Kartaan` fallback *"came out on 2026-09-02, and a check goes red if it
+comes back."* But the module docstring (three times) and `readFromKartaan`'s
+refusal message still tell the reader to set `KARTAAN` to `D:\Kartaan`, and
+still say a sibling folder called `Kartaan` is tried. `sales_checks.py:25-26`
+already says `Kartaan-ERP`.
+
+**The check meant to sweep this — `firestore_door_checks.py:293` — searches for
+the code fallback as a PHRASE rather than asking what each site CLAIMS.** That
+is D169's own named mistake, repeated inside the check written to stop it.
+Compounded by finding 1: nobody has ever seen this message, so nobody has ever
+noticed it is wrong.
+
+### FINDING 3 — `start.py` gained a rule and nothing in this repository watches it fail.
+
+The new block that turns a refused sales ledger into `ALARM` lines and a return
+code of 1 is a rule about what a night does. **Nothing reads or drives
+`start.py`** — there is no `start_checks.py`, and no check anywhere reads its
+source. Measured by search. The file's own docstring says *"IT DECIDES NOTHING.
+Every rule about what a run does... is in `nightly.py`, where it is proved by
+being broken on purpose"*, and the same batch quotes D171 twice for exactly
+this. **It is the identical blind spot that left the sales ledger finished at
+both ends and called by nothing** — the fault this batch exists to close,
+reappearing one file up. A check reading the source, as
+`firestore_door_checks.py:291` already does for another file, would cover it.
+
+### FINDING 4 — an observation, and it should be written down before it becomes one.
+
+The eight GitHub secret names are written down **three times**: the `if` guard in
+`.github/workflows/autosync.yml`, the `env:` block in the same file, and
+`start.py`'s `_needed` calls. **I measured all three and they agree today** —
+same eight, no drift. But nothing joins them, and **nothing anywhere reads
+`.github/workflows/autosync.yml` at all**: `gate_checks.py`'s `WORKFLOW` is
+`pm_check.yml`. `NOT_CODE` is the same shape — three copies of one fact — and it
+has a check holding the three to each other. This has none. It is the workflow
+that actually runs the seller's night.
+
+### FINDING 5 — a guard nothing catches, and it is not inert.
+
+`autosync/nightly.py:336`, the check on whether the run's own record may be
+saved. Neutered, **not one check goes red.** It is the only thing between a
+broken clock and the seller's Drive, and I measured what it holds back:
+`between_runs.write()` will cheerfully write a record whose run finished two
+hours before it started, and `read()` takes it straight back as fact.
+`why_it_cannot_be_saved`'s own docstring says the cost — *"written down it would
+make `clock.py` refuse every later run for a day on the strength of something
+that never happened."*
+
+**It is already committed and is not this batch's work** — `HEAD` at `2a6f658`
+has the same three lines — which is why it is recorded rather than treated as a
+reason to hold the batch. D176's deployment line covers it.
+
+### The three inert survivors, named so nobody re-finds them
+
+`ledger.py:339` (a wholly blank sheet row is passed over — neutered it becomes a
+reported unreadable row, noise rather than money), `ledger.py:448` (`id` skipped
+— the values cannot differ, so it is belt-and-braces), `ledger_sheet.py:332` (a
+`None` reply — the check below refuses it anyway, with a worse sentence).
+
+---
+
+## 6. EVERY COUNT BELOW WAS RUN, AND READ OFF THE RUN'S OWN LAST LINE
+
+| | |
+|---|---|
+| `autosync` | **29 check files, 2,477 checks, all green** — matches the author's claim exactly |
+| `tools/gate_checks.py` | **113** |
+| `tools/gate_run_checks.py` | **50** |
+| `tools/export_recipes_checks.py` | **61** |
+| `extension` | **400** — 85 + 30 + 131 + 26 + 128 |
+
+**D174 checked on every touched file:** `git diff --numstat` equals
+`git diff -w --numstat` on all nine, and `REVIEW.md` showed **573 insertions and
+0 deletions** before this entry — a true append, not a rewritten file.
+
+---
+
+## 7. WHAT THIS REVIEW COULD NOT SETTLE
+
+- **Nothing here has ever reached Google**, so the refusal, the tie report and
+  the reading are all proved against handed-in transports and never against a
+  real account. That is the standing fact of this whole repository, not a gap in
+  this batch.
+- **`SHAPE` went 2 to 3.** The read is strict equality both ways, so a new job
+  meeting an old record refuses too — and it never repairs itself, because it
+  refuses before it can write a shape-3 record over the shape-2 one. The comment
+  says *"this costs a night"*; measured, it costs **every** night until somebody
+  deletes the file by hand. It costs nothing today only because no
+  `autosync-state.json` exists anywhere — **and I could not verify that myself**,
+  since it needs the seller's Drive. Recorded, not blocking, and the refusing
+  direction is the safe one.
+- **The four column names are a guess at the ERP's.** If the ERP lands them
+  under other names the refusal keeps firing and says what it looked for. That
+  is the loud failure and it is deliberate.
+
+---
+
+## 8. AND SO IT IS COMMITTED
+
+The one thing that stood between this folder and a landing was a reader who did
+not write any of it. **That is what this entry is.** Committed as units, each
+one standing on its own imports, each through the gate with its own review
+record and no `--no-verify`, then pushed (D158). Nothing was faked.
