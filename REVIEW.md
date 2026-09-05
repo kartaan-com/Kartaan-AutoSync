@@ -5,6 +5,104 @@ an older one is edited afterwards.
 
 ---
 
+## 2026-09-05 (eighth) -- A20R on `442599c`, the fresh pair of eyes A20 asked for before it could be pushed. **SAFE TO PUSH.** Seventeen faults driven; none of the three new checks can fail. **And it caught a wrong number in the entry below this one.**
+
+`442599c` was committed on 2026-09-05 and deliberately left unpushed: A20 wrote
+every line and read its own diff, and D158 requires an **independent** review
+before anything goes to GitHub. This is that read, done when two later commits
+needed it out of the way.
+
+**Read at** `abd8536`, 93 tracked files, clean. **Reviewed against**
+`D:\Kartaan-ERP\DECISION_LOG.md` -- D40, D158, D166, D169, D170, D174, D175,
+D180, D190, D192, read there read-only. **Repaired nothing** (D166).
+**Fingerprint of all 93 tracked files, sha256 over path plus bytes:**
+`1e026c5c...1ab28e6` **before the work and the identical value after**, `git
+status` clean both times. Every fault went into a throwaway copy.
+
+### The counts, run in Python and not in a shell loop
+
+**A20's own lesson, applied to the instrument that judged A20:** a Git Bash loop
+hit its fork limit part way through and printed RED for a file that was never
+STARTED. This sweeper reports NOT RUN and RED as two different things.
+
+| suite | files | count | red | failed to start |
+|---|---|---|---|---|
+| `extension/*.test.js` | 5 | **414** | 0 | 0 |
+| `autosync/*_checks.py` | 30 | **2,519** | 0 | 0 |
+| `tools/*_checks.py` | 3 | **224** | 0 | 0 |
+| **everything** | **38** | **3,157** | **0** | **0** |
+
+### SEVENTEEN FAULTS DRIVEN. ALL THREE NEW CHECKS CAN FAIL, AND EACH REDDENS ALONE
+
+Seven single-fault runs each reddened **exactly one** check out of 81 and left
+the other 80 green -- D175 satisfied properly, not by "something went red".
+Gutting the field to a stub reddens the presence check and only it; widening the
+exemption list without the limit reddens the both-directions check and only it;
+aiming the pointer at another file reddens the pointer check and only it. All ten
+of A20's own claimed faults reproduced word for word, **including the two whose
+expected answer was GREEN** and the cut-out that prints `checks went missing --
+78 ran, 81 expected`.
+
+Every byte count A20 claimed is exact, measured in Python on the bytes and never
+with grep: `work.json` 1,214 to 1,234 CRLF with 0 bare LF both sides;
+`sales_checks.py` 481 to 538 bare LF with 0 CRLF both sides; the diff 58/1 and
+22/2 (D174 clean). Extension was **400** at `442599c`, exactly as claimed.
+
+### FINDING -- **IT CAUGHT A WRONG NUMBER IN THE ENTRY BELOW THIS ONE, AND NOTHING HAD ASKED IT TO**
+
+Reviewing `442599c`, A20R noticed that the record and the tree disagreed about a
+**different** commit: the tree said 414 extension checks, the seventh entry said
+412, and `active.md` said **432**. **432 was an arithmetic slip** -- 412 plus the
+two new manifest checks is 414 -- **and it had been copied into three files at
+once.** Corrected in all three, out loud (D169). *A review of one commit finding
+a fault in the record of another is the argument for independent reads in one
+line.*
+
+### FOUR MORE, NONE OF THEM BLOCKING, ALL ABOUT WHAT IS **NOT** HELD
+
+The bar is "does it let a bad commit through". None of these do. All four are the
+same shape: **the thing this commit was ABOUT is held, and the reasons for it are
+not.**
+
+| what was driven | what the checks said |
+|---|---|
+| swapped 44 and 74 in the `sales_checks.py` comment, so it states the **opposite** of what the code does | **all 81 green.** The comment is a second, unheld copy of the limit |
+| moved the field to the far end of `work.json` | **all 81 green.** **Placement is the entire justification of this commit** -- that the limit sits where somebody widening the list is standing -- and nothing holds it |
+| deleted the four signpost lines beside the exemption list | **all 81 green.** The words a person actually meets can vanish silently while the field they point at stays held |
+| changed the register's `81 checks` to 99 | **all 81 green.** The number this commit just un-staled is read by no check, and will go stale a fourth time |
+
+**And one that is D169's own subject:** the comment states the limit in full and
+then, eight lines later, says *"AND THE LIMIT IS NOT RECORDED IN THIS COMMENT,
+BECAUSE NOBODY MEETS A COMMENT"* -- a confident sentence untrue of the eight
+lines above it. A20's memory shows it knew and left it.
+
+### What was looked for and not found
+
+- **Working code touched needlessly:** none. The only two removals are the
+  required `EXPECTED` 78 to 81 and the declared correction of a stale count.
+  Every removed line was read.
+- **Secrets:** nothing. Grepped for token shapes, for `googleapis` and Drive
+  hosts, and for the seller strings this repository has leaked before -- the
+  panel slug and the Drive folder id included. The only personal string anywhere
+  is the author email in git's own metadata, already on every pushed commit.
+- **A check that cannot fail:** none in this diff. Each of the three also reddens
+  when `work.json` is deleted or made unreadable, and refuses rather than skips.
+
+### What it could not settle
+
+- Whether the pointer check reddens for a **wrong-case** path on the Linux
+  GitHub runner. It is case-insensitive on Windows, so it is looser here than it
+  will be there.
+- Whether the sentence in the register is TRUE to a person reading it. The check
+  holding it is a presence check, so 300 characters of nonsense would pass. A20R
+  read it and found it accurate, but only a human read settles that.
+- A verdict at an hour (D192): the sweep ran 18:41 IST, outside the
+  18:30-UTC-to-midnight window. Nothing this commit adds reads a clock.
+- **"Nothing in this repository has ever run for real, so 3,157 green checks
+  still prove nothing about a real night."** Its words, and worth keeping.
+
+---
+
 ## 2026-09-05 (seventh) -- A25R on A25's download-cancel commit. IT HOLDS as code. **One of its three claims was held by nothing at all**, and three of its comments said things that were not true.
 
 **Reviewed against** `D:\Kartaan-ERP\DECISION_LOG.md` -- D175, D190, D174, D169,
@@ -68,7 +166,17 @@ when it is taken away.** It did not.
 `background.test.js` and both were driven to red by removing the host: *the host
 the file really lives on is allowed*, and *and it still does not ask for every
 address there is* -- the second so that "allow everything" cannot be the answer.
-Extension total 412 -> 432.
+Extension total 412 -> **414**.
+
+**AND THAT NUMBER WAS WRONG WHEN THIS ENTRY WAS COMMITTED. It said 432.** 412
+plus two is 414; 432 is an arithmetic slip A25 made and then repeated into
+`active.md` and `KARTAAN-STATUS.md`, so the same wrong figure stood in three
+places at once. **A20R caught it while reviewing a DIFFERENT commit** -- it
+noticed the record and the tree disagreed and said so, though nothing had asked
+it to. Measured at HEAD: background 90 + doors 39 + driver 131 + recipes 26 +
+walk 128 = **414**. Corrected here rather than quietly overwritten (D169), and
+the lesson is the plain one: **a check count is measured, never added up in your
+head** -- which is the whole reason the register pins these numbers at all.
 
 ### FINDING B -- THREE COMMENTS STATED THINGS THAT ARE NOT TRUE OF THE CODE BESIDE THEM
 
