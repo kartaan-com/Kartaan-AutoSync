@@ -1918,3 +1918,221 @@ than pretending otherwise. **That is what this entry is.** It holds: three findi
 and two notes, not one of them able to let a bad commit through, all five left for
 the author (D166, D180). This entry goes through the gate with its own review
 record and no `--no-verify`, and `b4e402e` goes up with it (D158).
+
+---
+
+## 2026-09-05 (twelfth) — A19R on `2c120d7`, the author's answer to A17R's findings A and B. **IT HOLDS: the number that was only prose is a field, the pin goes to the thing that knows, and the half that mattered is genuinely held. Two findings, both non-blocking, both left to the author (D166, D180).**
+
+**Reviewed against** `D:\Kartaan-ERP\DECISION_LOG.md` — D152, D166, D169, D174,
+D175, D176, D180, D190, D192, read there read-only, and D158 for the push.
+**Scope: `D:\Kartaan-AutoSync` only**, the one commit `2c120d7`, not pushed.
+**I repaired nothing** (D166), including the finding I could have closed by adding
+one line to a list.
+
+**THE TREE DID NOT MOVE** (D181). `HEAD` at `2c120d7` on entry and again before
+this was written, 93 tracked files, `git status` empty both times. Every fault was
+driven in this folder rather than in a copy, every file restored from its own
+bytes and its md5 compared against the original before the next fault went in.
+
+**THE BAR I WAS GIVEN:** only something that lets a bad commit through blocks.
+Neither finding below can.
+
+**THE HOUR, AND IT IS NOT A FORMALITY (D192).** I ran everything between **09:18
+and 09:50 IST on 2026-09-05** — outside the 18:30 UTC to midnight IST window where
+a check that builds its moment from the machine's calendar goes red against a
+correct screen. **So this sweep is a verdict at that hour and not a verdict on the
+code.** Nothing this commit adds reads a clock or a calendar — the seven new checks
+read text, JSON and `len(sales.COLUMNS)` — so the window cannot reach *them*. It
+can still reach the other 2,438 checks I ran green, and I did not run in it.
+
+---
+
+### 1. THE COUNTS, RUN, AND EACH READ FROM ITS OWN LAST LINE FIRST (D175)
+
+| | |
+|---|---|
+| `autosync` | **30 check files, 2,516 checks, 0 red** |
+| `tools/export_recipes_checks.py` | **61** |
+| `tools/gate_checks.py` | **113** |
+| `tools/gate_run_checks.py` | **50** — **224** in `tools` |
+| `extension` | **400** — 85 + 30 + 131 + 26 + 128 across five files |
+
+**33 checks files, 0 red, and not one of them ended on anything but its own
+summary line** — I checked that before reading any number above it, and a file
+whose last line was not `all N checks passed` would have counted nothing. All
+three of the commit's numbers match what I ran, and the `2,509` it names as the
+previous figure is the `71 -> 78` in `sales_checks.py` and nothing else.
+
+---
+
+### 2. THE PLACE THAT ESCAPED, AND THE OTHER FIVE — THIRTEEN FAULTS, THIRTEEN NAMED REDS
+
+A wrong width in `autosync/ledger.py` used to leave all 2,509 checks green. I put
+one there myself first, then went round the other five one at a time. **Each was
+caught by the check NAMED for it (D175), never by whichever question happened to
+answer wrong**, and every file was restored byte for byte with its md5 compared:
+
+| the fault I put back | where | the check that went red |
+|---|---|---|
+| `45` -> `44` | `autosync/ledger.py` | `autosync/ledger.py SAYS HOW WIDE THE LEDGER IS...` |
+| `45` -> `44` | `autosync/reading.py` | `autosync/reading.py SAYS HOW WIDE THE LEDGER IS...` |
+| `45` -> `44` | `autosync/reading_checks.py` | `autosync/reading_checks.py SAYS HOW WIDE...` |
+| `45` -> `44` | `autosync/nightly_checks.py` | `autosync/nightly_checks.py SAYS HOW WIDE...` |
+| `45` -> `44` **in the field** | `tools/work.json` | `THE REGISTER CARRIES THE LEDGER'S WIDTH IN A FIELD OF ITS OWN...` |
+| `45` -> `44` | `autosync/sales_checks.py` | `and it is 45 columns wide today, which is AS` |
+| **the field DELETED** | `tools/work.json` | `THE REGISTER CARRIES THE LEDGER'S WIDTH IN A FIELD OF ITS OWN...` |
+| **the accounting list renamed away** | `tools/work.json` | `AND EVERY OTHER COLUMN COUNT IN THE REGISTER IS ONE THE REGISTER ITSELF ACCOUNTS FOR...` |
+| **the sentence DELETED** | `autosync/ledger.py` | `autosync/ledger.py SAYS HOW WIDE THE LEDGER IS...` |
+| **the sentence DELETED** | `autosync/reading.py` | `autosync/reading.py SAYS HOW WIDE THE LEDGER IS...` |
+| `44`, number BEFORE the word | `tools/work.json` prose | `THE REGISTER SAYS HOW WIDE THE LEDGER IS, AND EVERY PLACE IT SAYS SO...` |
+| `44`, **no `ledger` in the sentence** | `tools/work.json` prose | `AND EVERY OTHER COLUMN COUNT IN THE REGISTER IS ONE THE REGISTER ITSELF ACCOUNTS FOR...` |
+| `44`, **no `ledger` in the sentence** | `autosync/ledger.py` prose | `autosync/ledger.py SAYS HOW WIDE THE LEDGER IS...` |
+
+**BOTH DIRECTIONS, AND THAT IS THE HALF THAT USUALLY GETS MISSED.** Deleting the
+sentence is as red as making it wrong, in every one of the six — so a place that
+simply stops saying the width cannot go quiet, which is what would otherwise leave
+the number unheld the next time somebody wrote it back.
+
+**AND THE HALF THAT MATTERED IS GENUINELY HELD.** A17R's finding was that a width
+worded without the word `ledger` beside it slips past. Rows twelve and thirteen are
+exactly that fault, in the register and in `ledger.py`, and both go red — the
+register's through the accounting list, `ledger.py`'s because that file is scanned
+whole and states no other column count. **The claim the D180 deferral said could
+not be met is met.**
+
+**TWO OF MY OWN INJECTIONS WERE BAD FAULTS AND I RE-DROVE THEM.** My first attempt
+at rows twelve and thirteen put a bare string where JSON wanted a key, so `and it
+reads as JSON, which is what makes a field possible at all` went red as well — a
+true answer to a question I had not meant to ask. Re-driven inside the register's
+own prose array with the JSON left valid, the named check goes red on its own. **A
+fault that breaks the file it is testing proves the parser, not the check**, and I
+was not going to file the first run as evidence.
+
+---
+
+### 3. THE PIN GOES TO THE THING THAT KNOWS, AND IT IS NOT A SIXTH COPY
+
+I was asked to satisfy myself that `len(sales.COLUMNS)` is the list that knows,
+rather than a number retyped or a sentence parsed somewhere else. **It is, and the
+hop between it and the ERP is itself held by a check.**
+
+`sales_checks.py:174` compares `tool.COLUMNS` name by name and in order against
+`THEIR_PLAIN` and `THEIR_CHARGES`, which `the_other_half.readFromKartaan` reads out
+of the ERP's **committed** `src/shared/data/sheet-store.js`,
+`definitions/charges.js` and `definitions/orders.js` — through `git show HEAD:`,
+refusing rather than falling back to whatever is loose on disk. So the width is
+pinned to a list that is pinned to the ERP. **A column added, renamed, removed or
+reordered on either side turns this red the same day**, and the number cannot drift
+from the thing it counts without something saying so.
+
+---
+
+### 4. FINDING — THE REGISTER'S `no ledger` HALF HAS A FIVE-NUMBER BLIND SPOT. NON-BLOCKING.
+
+The new check exempts every count the register accounts for: `22`, `26`, `39`,
+`43`, `74`. **A wrong width written into the register's prose without the word
+`ledger`, whose number happens to be one of those five, is not caught.** Driven:
+
+| the wrong width written into `tools/work.json` prose | caught |
+|---|---|
+| `the sheet the seller reads is 44 columns wide today` | **yes** — red on the named check |
+| `the sheet the seller reads is 74 columns wide today` | **no — all 78 green** |
+
+**The four source files do not share it.** The same `74` sentence put into
+`ledger.py` goes red, because those files carry no accounting list and every
+column count in them is asked about directly. **The hole is the register's alone,
+and it is the price of the exemption that makes the register's half work at all.**
+
+**WHY IT DOES NOT BLOCK, and I want the reason weighed rather than taken:** the
+register's prose is documentation, not behaviour — a wrong sentence there misleads
+a reader, it does not make the ledger wrong, and the width that decides anything is
+the field, which is pinned. The escape needs the wrong number to land on one of
+five values *and* the sentence to avoid a word it would naturally use.
+
+**AND THE CODE DOES NOT OVERCLAIM IT.** `sales_checks.py:363` says *"a count that
+is neither the ledger's width nor one listed there is a count nobody has accounted
+for"* — which is exactly and only what it does. **The register's own entry is a
+hair broader**: *"a wrong width in a sentence that never says 'ledger' is caught as
+a number nobody accounts for"*. Read strictly that sentence is self-limiting; read
+as prose it reads wider than the five-number exemption allows. **D169's whole
+subject is a confident sentence outliving the thing it describes**, so I am naming
+it rather than letting it sit. **Left for the author.**
+
+---
+
+### 5. NOTE — THE ACCOUNTING LIST IS THE WHOLE OF THE EXEMPTION, AND IT GROWS BY HAND
+
+Each entry in `other_column_counts_this_register_states` describes itself in words
+that contain its own count (`"22": "his real Meesho returns file -- 22 columns..."`),
+so the list accounts for its own text. That is necessary and it works. **What
+follows from it is that every number added to that list is a number that stops
+being asked about anywhere in the register** — the exemption widens by one each
+time, silently, and nothing marks the difference between "this is a real count of
+something else" and "this is how the check was quieted". The commit says the price
+out loud in the other direction (a new count turns it red until listed); this is
+the same price seen from the far side. **Not a fault today, and not blocking.**
+
+---
+
+### 6. WHAT I LOOKED FOR AND FOUND NOTHING WRONG WITH
+
+- **THE WITHDRAWN D180 DEFERRAL IS GONE, NOT SITTING BESIDE THE FIX (D169).** The
+  deferral lived in one place only — the comment at `sales_checks.py`, removed in
+  this commit's 18 deleted lines and replaced by an explicit withdrawal. It was
+  never a `left_with_a_reason` entry in the register; I checked `55eb1aa`'s
+  `work.json` for it and it is not there. The three surviving occurrences of *"there
+  is nothing stronger to hold"* are all quotations **of a claim being withdrawn**:
+  two in this commit, and A17R's own finding in this file, which is the argument
+  that produced the withdrawal. Removing those would hide that a correction
+  happened, which is the opposite of what D169 asks.
+- **NO LINE-ENDING CHANGE SURVIVED INTO THE COMMIT (D174).** Measured on the stored
+  blobs, not the working copy: `sales_checks.py` **400 of 400 CRLF at `55eb1aa`,
+  481 of 481 at `2c120d7`**; `work.json` **1,188 of 1,188 and 1,214 of 1,214**. Both
+  files pure CRLF on both sides, so the text-mode flip that hit `sales_checks.py`
+  mid-work did not reach the commit. `git diff` against `--ignore-cr-at-eol` gives
+  the identical `99/18` and `27/1`. `git diff -w` reports `28/2` on `work.json` —
+  **one line more, not fewer**, which is a different alignment of the closing `],`
+  and not a whitespace-only edit hiding in the diff; I read every `-w` line to be
+  sure.
+- **THE NEW CHECKS ARE REACHED, NOT MERELY GREEN (D190).** I neutered the four-file
+  loop so it ran over nothing. **`FAIL checks went missing -- 74 ran, 78 expected`.**
+  The absent-alarm case is held by the count guard, which is the second question
+  D190 says nobody asks.
+- **THE CHECK DEGRADES LOUDLY, NOT QUIETLY.** A register that cannot be read, cannot
+  be parsed as JSON, carries no field, or carries no accounting list each reddens a
+  check rather than skipping one — `bool(ACCOUNTED_FOR)` and `bool(WIDTHS_CLAIMED)`
+  are both asserted, so an empty result is a failure and not a pass. A named source
+  file that goes missing is red too, through `bool(said)`.
+- **SECURITY.** Nothing this commit adds holds, sends or names a secret. It adds one
+  integer and five short descriptive strings to a register the gate already reads,
+  and seven checks that read files already in the repository. **This repository is
+  copied into every seller's own GitHub account** — after this commit their copy
+  contains one number and five sentences about spreadsheet widths, and nothing else
+  changed.
+
+---
+
+### 7. WHAT THIS REVIEW COULD NOT SETTLE
+
+- **THE HOUR (D192).** My sweep ran at 09:18-09:50 IST, so the 18:30 UTC to midnight
+  IST window is untested by me for the whole 2,516. It cannot touch this commit's
+  own checks, which read no clock; I cannot speak for the rest.
+- **THE TWENTY-FIVE `raise` LINES A17R FOUND** in `tools/gate.py` and
+  `tools/gate_run.py` that no check has ever executed are still there and still
+  outside this unit. I did not drive them.
+- **`the_other_half.py:108` AND `:116`** — A17R's absent alarms in the file this
+  commit's pin depends on — are unchanged and still uncovered. **The pin at section
+  3 runs through `:116`'s design**, so it is worth naming here even though it is
+  older than this unit and outside it.
+
+---
+
+### 8. AND SO IT IS COMMITTED
+
+`2c120d7` had no reader who did not write it, and it holds. **The number that lived
+only in prose is a field, the field is pinned to the list the ERP owns, all six
+places are asked about by their own names, and the fault A17R said could not be
+caught is caught in both of the places it can be written.** Two findings, neither
+able to let a bad commit through, both left to the author (D166, D180). This entry
+goes through the gate with its own review record and no `--no-verify`, and
+`2c120d7` goes up with it (D158).
