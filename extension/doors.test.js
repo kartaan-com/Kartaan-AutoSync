@@ -521,9 +521,14 @@ function aFetch(answers) {
   check('and the tab is the selected tab of that window',
     browser.tabs().find((one) => one.id === tab.id).active === true);
   /* **WRITTEN DOWN, because the worker that made it is shut down thirty seconds
-   * later and everything it held in a variable goes with it.** */
+   * later and everything it held in a variable goes with it -- but written in
+   * the storage that does NOT outlive the session**, because a window number
+   * means nothing outside the session that issued it. */
   check('and both are written where the worker being shut down cannot lose them',
-    browser.stored()[OUR_WINDOW] === window.id && browser.stored()[OUR_TAB] === tab.id);
+    browser.storedForTheSession()[OUR_WINDOW] === window.id
+    && browser.storedForTheSession()[OUR_TAB] === tab.id);
+  check('and NOT where they would outlive the session that gave them meaning',
+    browser.stored()[OUR_WINDOW] === undefined && browser.stored()[OUR_TAB] === undefined);
 }
 
 {
@@ -579,10 +584,57 @@ function aFetch(answers) {
   check('a window the seller closed is replaced rather than reported as broken',
     second && second.windowId !== first.windowId);
   check('and the new one is remembered in place of the old',
-    browser.stored()[OUR_WINDOW] === second.windowId);
+    browser.storedForTheSession()[OUR_WINDOW] === second.windowId);
 }
 
-const EXPECTED = 60;
+{
+  /* **THE ONE THAT WOULD HAVE NAVIGATED THE SELLER'S OWN PAGE AWAY FROM UNDER
+   * THEM (A26R, and driven to the letter by A26R3).**
+   *
+   * A window number and a tab number mean something only within one browser
+   * session; Chrome hands them out again from the start next time. So the
+   * sequence below needs nothing unusual at all:
+   *
+   *   the extension runs and remembers window 100, tab 1
+   *   -> the seller switches the extension OFF
+   *   -> the seller closes Chrome and opens it again the next morning
+   *   -> Chrome gives the seller's OWN first window 100 and their first tab 1
+   *   -> the seller switches the extension back on
+   *
+   * **AN EARLIER FIX CLEARED THESE ON `chrome.runtime.onStartup`, AND IT DOES
+   * NOT COVER THAT.** `onStartup` fired while the extension was switched off, so
+   * it reached nobody, and there is no event at all for an extension being
+   * switched back on. Their inbox would have been made the selected tab and then
+   * walked to a portal page.
+   *
+   * **KEEPING THEM IN `session` STORAGE IS WHAT CLOSES IT**, because Chrome
+   * clears that "if the extension is disabled, reloaded, updated, and when the
+   * browser restarts" -- every one of the moments above, with nothing having to
+   * remember to do anything. */
+  const browser = installFakeChrome();
+  const ours = await aTabToWalkIn(browser.chrome);
+  check('within one session our own tab is remembered and reused',
+    (await aTabToWalkIn(browser.chrome)).id === ours.id);
+
+  /* Switched off, Chrome closed and opened, switched back on. **The numbering
+   * starts again, which is the whole reason those numbers stop meaning what
+   * they meant.** */
+  browser.theBrowserRestarted();
+
+  /* And now those very numbers belong to the seller. */
+  const theirs = await browser.chrome.windows.create({ url: 'https://mail.google.com/' });
+  const theirTab = theirs.tabs[0];
+
+  const got = await aTabToWalkIn(browser.chrome);
+  check('after the extension is switched off and Chrome restarted, their tab is NOT taken',
+    got.id !== theirTab.id);
+  check('and their page is left exactly where it was',
+    browser.tabs().find((one) => one.id === theirTab.id).url === 'https://mail.google.com/');
+  check('and their window is not the one the walk runs in',
+    got.windowId !== theirs.id);
+}
+
+const EXPECTED = 65;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

@@ -139,6 +139,15 @@ export function installFakeChrome({ now = () => 0 } = {}) {
   const onTabRemoved = new Listeners(owner);
 
   const local = new FakeStore(owner);
+  /* **AND A SECOND ONE THAT DOES NOT OUTLIVE THE SESSION, because Chrome has
+   * two and they differ in exactly the way that matters here.** `local` is
+   * cleared only when the extension is REMOVED. `session` is cleared, in
+   * Chrome's own words, "if the extension is disabled, reloaded, updated, and
+   * when the browser restarts" -- which is the whole set of moments after which
+   * a window number or a tab number stops meaning what it meant. A stand-in with
+   * only one of these could not tell the two apart, and a number kept in the
+   * wrong one points at the seller's own inbox the next morning. */
+  const session = new FakeStore(owner);
 
   const chrome = {
     runtime: {
@@ -196,7 +205,7 @@ export function installFakeChrome({ now = () => 0 } = {}) {
       },
     },
 
-    storage: { local },
+    storage: { local, session },
 
     /* **WINDOWS, BECAUSE WHICH WINDOW A TAB IS IN DECIDES WHETHER CHROME
      * THROTTLES IT** -- and throttling is the difference between this product
@@ -370,6 +379,39 @@ export function installFakeChrome({ now = () => 0 } = {}) {
       const out = {};
       for (const [name, value] of local._held) out[name] = aCopyOf(value);
       return out;
+    },
+
+    /** What is in the storage that does not outlive the session. */
+    storedForTheSession() {
+      const out = {};
+      for (const [name, value] of session._held) out[name] = aCopyOf(value);
+      return out;
+    },
+
+    /** Do what Chrome does when the extension is switched off, reloaded or
+     *  updated: **the session storage goes and the local storage stays.** The
+     *  windows and tabs are untouched, because the browser did not restart --
+     *  and their numbers therefore still mean what they meant. */
+    theSessionEnded() {
+      session._held.clear();
+    },
+
+    /** Do what a browser restart does, which is the harsher one and the one that
+     *  matters: the session storage goes, every window and tab goes with it,
+     *  **AND THE NUMBERING STARTS AGAIN FROM THE BEGINNING.**
+     *
+     *  **THAT LAST PART IS THE WHOLE POINT AND A STAND-IN WITHOUT IT IS USELESS
+     *  HERE.** A stand-in that kept counting upwards could never issue last
+     *  night's number to somebody else's window, so a check named "the seller's
+     *  own tab is not taken" could never fail -- which is worse than no check,
+     *  because it reads as covering the one fault that destroys a seller's
+     *  page. This model was corrected after exactly that was found. */
+    theBrowserRestarted() {
+      session._held.clear();
+      windows.clear();
+      tabs.clear();
+      nextWindowId = 100;
+      nextTabId = 1;
     },
 
     /** Every alarm there is. */

@@ -36,7 +36,7 @@
  */
 
 import { catchTheNextFile } from './catch-blob.js';
-import { ARMED_FOR_MS, aTabToWalkIn, forgetOurWindow, goTo } from './doors.js';
+import { ARMED_FOR_MS, aTabToWalkIn, goTo } from './doors.js';
 import { FAILED } from './walk.js';
 
 /* The one name the daily alarm has. Written once: two spellings of an alarm's
@@ -400,6 +400,46 @@ export async function startAWalk(chrome, {
 }
 
 /**
+ * Write down a walk that nobody is ever going to finish.
+ *
+ * **UNTIL THIS EXISTED, NOTHING ANYWHERE TURNED AN ABANDONED WALK INTO A
+ * RECORDED FAILURE (A26R3).** A walk's answer was only ever written by the page
+ * saying `walk-done` or by the tab being closed. If the page could not speak at
+ * all -- the message failing, the worker gone, the page torn down between two
+ * lines -- the record simply sat there saying nothing. Past its fifteen minutes
+ * `theWalkInFlight` stopped handing it back, and that was the end of it: no
+ * answer, no line, no report, and nothing anywhere saying why.
+ *
+ * **THAT IS THE FAULT `background.js` OPENS BY NAMING** -- "a run that was
+ * interrupted wrote nothing down" -- arriving by a door nobody had watched.
+ *
+ * **IT HANGS OFF THE ALARM THAT WAKES THIS WORKER EVERY TWO MINUTES**, which is
+ * the only thing that reliably happens when nothing else is happening. That is
+ * the second job that alarm now does, and it is the more useful one.
+ */
+export async function sweepUpAnAbandonedWalk(chrome, { at = Date.now() } = {}) {
+  const held = await chrome.storage.local.get(THE_WALK);
+  const walk = held[THE_WALK] || null;
+  if (!walk || walk.answer) return null;
+  if (at < walk.carryOnUntil) return null;
+  return endTheWalk(chrome, {
+    tabId: walk.tabId,
+    at,
+    answer: {
+      state: FAILED,
+      reportId: walk.reportId || null,
+      dataDate: walk.dataDate || null,
+      /* **SAID AS WHAT IT IS.** "It stopped and never said why" is a different
+       * problem from any of the named ones, and reporting it as one of those
+       * would send somebody to look at the portal. */
+      say: 'This report stopped part way through and never said what happened. '
+        + 'Nothing has been written for it, and the run gave up waiting.',
+      pageWas: '',
+    },
+  });
+}
+
+/**
  * A secret nothing but this extension can know, for one file.
  *
  * **THIS IS WHAT STOPS A PORTAL PAGE PUTTING ITS OWN BYTES IN THE SELLER'S
@@ -626,18 +666,16 @@ export function wireUp(chrome, { onDue, answer = null, whenATabGoes = null }) {
   }
   chrome.runtime.onInstalled.addListener(() => bothClocks(chrome));
   chrome.runtime.onStartup.addListener(() => bothClocks(chrome));
-  /* **AND WHICH WINDOW WAS OURS IS FORGOTTEN THE MOMENT CHROME STARTS.** Chrome
-   * numbers windows and tabs from scratch every session and storage does not, so
-   * last night's number is this morning's something else -- very often something
-   * of the seller's own. Kept, it would be made the selected tab and then walked
-   * to a portal page, destroying whatever they had open. See `forgetOurWindow`. */
-  chrome.runtime.onStartup.addListener(() => forgetOurWindow(chrome));
   chrome.alarms.onAlarm.addListener(async (alarm) => {
     /* **THE CLOCK IS PUT BACK EVEN HERE.** An alarm firing proves it existed a
      * moment ago and proves nothing about the next one -- an update between now
      * and tomorrow clears it, and this is the last moment anything is listening.
      */
     await bothClocks(chrome);
+    /* **AND ON EVERY WAKING, NOT ONLY THE DAILY ONE.** A walk nobody is going to
+     * finish has to be written down by something, and this is the only thing
+     * that happens when nothing else is happening. */
+    await sweepUpAnAbandonedWalk(chrome);
     if (alarm && alarm.name !== DAILY) return;
     await onDue();
   });

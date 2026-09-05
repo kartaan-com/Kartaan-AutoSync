@@ -28,6 +28,7 @@ import {
   EVERY_TWO_MINUTES,
   STAY_AWAKE,
   makeSureTheWorkerIsWoken,
+  sweepUpAnAbandonedWalk,
   FINISHED,
   NEEDS_SIGNING_IN,
   RUNNING,
@@ -1050,27 +1051,31 @@ const LATER = '2026-08-27T16:04:00.000Z';
 }
 
 {
-  /* **CHROME STARTING FORGETS WHICH WINDOW WAS OURS, AND THIS IS NOT TIDYING UP
-   * (A26R).** Chrome numbers windows and tabs from scratch every session;
-   * storage does not. Last night's tab number is this morning's something else,
-   * very often something of the seller's own -- and `aTabToWalkIn` would make it
-   * the selected tab and then walk it to a portal page, destroying whatever they
-   * had open, and running the walk in THEIR window beside their other tabs,
-   * which is the throttled arrangement the window exists to avoid. */
+  /* **WHICH WINDOW WAS OURS CANNOT OUTLIVE THE SESSION THAT GAVE THE NUMBER
+   * MEANING (A26R, A26R3).** The full case, and why `onStartup` was not enough,
+   * is driven in `doors.test.js`. What is checked here is that nothing in the
+   * wiring puts it back into storage that outlives a session. */
   const browser = installFakeChrome();
   const ours = await aTabToWalkIn(browser.chrome);
-  check('while Chrome is running, our window is remembered',
-    browser.stored()[OUR_WINDOW] === ours.windowId && browser.stored()[OUR_TAB] === ours.id);
-
   await wireUp(browser.chrome, { onDue: async () => {} });
-  await browser.chrome.runtime.onStartup.happened();
-  check('and Chrome starting forgets it, because the numbers mean something else now',
-    browser.stored()[OUR_WINDOW] === undefined && browser.stored()[OUR_TAB] === undefined);
-
-  /* **AND WHAT IT DOES INSTEAD IS OPEN A NEW ONE, not refuse.** */
-  const after = await aTabToWalkIn(browser.chrome);
-  check('and the next walk opens a window of its own rather than borrowing one',
-    after.windowId !== undefined && browser.stored()[OUR_WINDOW] === after.windowId);
+  check('our own window is remembered only for as long as the numbers mean anything',
+    browser.storedForTheSession()[OUR_WINDOW] === ours.windowId
+    && browser.stored()[OUR_WINDOW] === undefined);
+  /* **AND NOTHING HAS TO REMEMBER TO CLEAR IT**, which is the point of putting
+   * it there: an earlier fix hung it on `chrome.runtime.onStartup`, and that
+   * fires at nobody when the extension is switched off. */
+  browser.theSessionEnded();
+  check('and it is gone once the session that gave it meaning has ended',
+    browser.storedForTheSession()[OUR_WINDOW] === undefined);
+  /* **WHILE THE WALK ITSELF STAYS IN `local`**, because a walk in flight must
+   * survive the worker being shut down mid-step, which is a different thing
+   * from the session ending. */
+  await beginTheWalk(browser.chrome, {
+    tabId: 1, reportId: 'me_orders', dataDate: '2026-09-05', startedAt: Date.now(),
+  });
+  browser.shutTheWorkerDown();
+  check('while the walk in flight is kept where the worker being shut down cannot lose it',
+    browser.stored()[THE_WALK].reportId === 'me_orders');
 }
 
 {
@@ -1104,7 +1109,51 @@ const LATER = '2026-08-27T16:04:00.000Z';
     watching.seen().length === 1);
 }
 
-const EXPECTED = 138;
+{
+  /* **A WALK NOBODY IS GOING TO FINISH IS WRITTEN DOWN, and until this existed
+   * NOTHING ANYWHERE DID THAT (A26R3).** A walk's answer was only ever written
+   * by the page saying `walk-done` or by the tab being closed. A page that could
+   * not speak at all -- the message failing, the worker gone, the page torn down
+   * between two lines -- left the record sitting saying nothing, for ever. That
+   * is "a run that was interrupted wrote nothing down", arriving by a door
+   * nobody had watched. */
+  const browser = installFakeChrome();
+  const began = 1000;
+  await beginTheWalk(browser.chrome, {
+    tabId: 1, reportId: 'me_orders', dataDate: '2026-09-05', startedAt: began,
+  });
+
+  check('a walk still within its time is left alone',
+    (await sweepUpAnAbandonedWalk(browser.chrome, { at: began + 1000 })) === null
+    && browser.stored()[THE_WALK].answer === null);
+
+  const swept = await sweepUpAnAbandonedWalk(browser.chrome, { at: began + A_WALK_LASTS_MS });
+  check('but one that has run out of time is written down rather than left silent',
+    swept !== null && browser.stored()[THE_WALK].answer.state === 'failed');
+  check('and it says it stopped and never said why, against the report it was for',
+    browser.stored()[THE_WALK].answer.say.includes('never said what happened')
+    && browser.stored()[THE_WALK].answer.reportId === 'me_orders');
+  /* **AND IT IS NOT SWEPT TWICE.** A second answer written over the first would
+   * turn a real failure into this one. */
+  check('and a walk that already has an answer is not written over',
+    (await sweepUpAnAbandonedWalk(browser.chrome, { at: began + A_WALK_LASTS_MS + 1 })) === null);
+}
+
+{
+  /* **AND IT REALLY HANGS OFF THE ALARM THAT WAKES THIS WORKER**, which is the
+   * only thing that happens when nothing else is happening. */
+  const browser = installFakeChrome();
+  await wireUp(browser.chrome, { onDue: async () => {} });
+  await beginTheWalk(browser.chrome, {
+    tabId: 1, reportId: 'me_orders', dataDate: '2026-09-05', startedAt: 0,
+  });
+  await browser.chrome.alarms.onAlarm.happened({ name: STAY_AWAKE });
+  check('being woken is what notices a walk nobody is going to finish',
+    browser.stored()[THE_WALK].answer !== null
+    && browser.stored()[THE_WALK].answer.state === 'failed');
+}
+
+const EXPECTED = 143;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

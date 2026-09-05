@@ -37,11 +37,31 @@
   if (window.__kartaanAutoSync) return;
   window.__kartaanAutoSync = true;
 
-  const { pageDoor, theCatcherSaid } = await import(chrome.runtime.getURL('driver.js'));
-  const {
-    theWalk, NeedsSigningIn, capture, hasNotFinished,
-  } = await import(chrome.runtime.getURL('walk.js'));
-  const book = await (await fetch(chrome.runtime.getURL('recipes.json'))).json();
+  /* **THESE THREE ARE INSIDE THE GUARD, AND THEY WERE NOT (A26R3).** They are
+   * awaits, they are the first thing this file does, and the header above admits
+   * Chrome's documentation does not say whether a content script may import like
+   * this at all. Outside a guard, one of them failing rejects the whole file at
+   * the top with `window.__kartaanAutoSync` already set, so nothing retries --
+   * no message, no record, no line. It would fail on every page identically and
+   * so announce itself the first time it was really loaded, which is the only
+   * reason it never cost a silent night. The guard was one line too low. */
+  let pageDoor;
+  let theCatcherSaid;
+  let theWalk;
+  let NeedsSigningIn;
+  let capture;
+  let hasNotFinished;
+  let book;
+  try {
+    ({ pageDoor, theCatcherSaid } = await import(chrome.runtime.getURL('driver.js')));
+    ({
+      theWalk, NeedsSigningIn, capture, hasNotFinished,
+    } = await import(chrome.runtime.getURL('walk.js')));
+    book = await (await fetch(chrome.runtime.getURL('recipes.json'))).json();
+  } catch (wrong) {
+    console.error('Kartaan Auto-sync: its own files could not be loaded into this page.', wrong);
+    return;
+  }
 
   /* **THE SIGNS OF BEING SIGNED OUT COME FROM THE RECIPE FILE**, not from here.
    * This file knows no platform. Until the Python declares them, the door cannot

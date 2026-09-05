@@ -64,7 +64,38 @@ export const ARMED_FOR_MS = 15 * 60 * 1000;
 
 /* What our own window and our own tab are called in storage. **Written down
  * rather than remembered, because the worker that made the window is shut down
- * thirty seconds later and everything it held in a variable goes with it.** */
+ * thirty seconds later and everything it held in a variable goes with it.**
+ *
+ * **AND THEY LIVE IN `session` STORAGE, NOT `local`, WHICH IS THE WHOLE OF
+ * WHETHER THIS PRODUCT CAN NAVIGATE THE SELLER'S OWN PAGE AWAY FROM UNDER THEM
+ * (A26R, A26R3).**
+ *
+ * A window number and a tab number mean something only for as long as one
+ * browser session. Chrome hands them out again from the start next time. So a
+ * number kept anywhere that outlives the session is a number that will one day
+ * point at something of the seller's own -- their inbox -- and this file would
+ * make it the selected tab and then walk it to a portal page, destroying
+ * whatever they had open. And the walk would then be running in THEIR window
+ * beside their other tabs, which is the throttled arrangement this file exists
+ * to avoid, reached silently.
+ *
+ * **`local` IS CLEARED ONLY WHEN THE EXTENSION IS REMOVED. `session` IS CLEARED,
+ * IN CHROME'S OWN WORDS, "IF THE EXTENSION IS DISABLED, RELOADED, UPDATED, AND
+ * WHEN THE BROWSER RESTARTS."** That is exactly the set of moments after which
+ * these two numbers stop meaning what they meant -- so this is not a tidying-up
+ * that something has to remember to do, it is the numbers being kept somewhere
+ * that cannot outlive them.
+ *
+ * **AN EARLIER VERSION CLEARED THEM ON `chrome.runtime.onStartup` INSTEAD, AND
+ * THAT WAS NOT ENOUGH -- said out loud rather than quietly replaced (D169).**
+ * `onStartup` fires when a profile starts. If the seller has switched the
+ * extension OFF, it fires at nobody; there is no event at all for an extension
+ * being switched back on. So: off, close Chrome, open Chrome, on -- and last
+ * night's numbers are this morning's Gmail. A26R3 drove exactly that and got the
+ * seller's own tab handed back and navigated away.
+ *
+ * It also needs no new permission (`storage` already covers it) and is not
+ * exposed to content scripts, so the portal's page cannot see it either. */
 export const OUR_WINDOW = 'kartaan-autosync-window';
 export const OUR_TAB = 'kartaan-autosync-tab';
 
@@ -73,30 +104,6 @@ export const OUR_TAB = 'kartaan-autosync-tab';
  * Update" button at all, and the walk then truthfully reports a button that
  * genuinely is not there. */
 const WINDOW_SIZE = { width: 1000, height: 700 };
-
-/**
- * Forget which window and tab were ours.
- *
- * **CALLED WHEN CHROME STARTS, AND IT IS NOT TIDYING UP -- IT STOPS THIS
- * PRODUCT NAVIGATING THE SELLER'S OWN PAGE AWAY FROM UNDER THEM (A26R).**
- *
- * Chrome numbers windows and tabs from scratch every session. Storage does not:
- * it survives the browser being closed. So the number written here last night is,
- * this morning, whatever window and tab happen to have been given those numbers
- * -- and that is very often something of the seller's own. Left as it was, this
- * would hand back their inbox, make it the selected tab, and then walk it to a
- * portal page. Their page destroyed, and the walk then running in THEIR window
- * beside their other tabs, which is the throttled arrangement this whole file
- * exists to avoid -- reached by accident, silently.
- *
- * **THE REFERENCE CANNOT HIT THIS AND SO HAS NOTHING TO COPY.** It only ever
- * calls `chrome.tabs.create` into its remembered window, so a stale number costs
- * it a stray tab. Reusing a TAB is Kartaan's own idea, and this is the cost of
- * it.
- */
-export async function forgetOurWindow(chrome) {
-  await chrome.storage.local.remove([OUR_WINDOW, OUR_TAB]);
-}
 
 /**
  * A tab to walk in: the only tab of our own window, never the seller's.
@@ -145,7 +152,7 @@ export async function forgetOurWindow(chrome) {
  * them is not selected -- which is the throttled case, arrived at by tidiness.
  */
 export async function aTabToWalkIn(chrome, { address = 'about:blank' } = {}) {
-  const held = await chrome.storage.local.get([OUR_WINDOW, OUR_TAB]);
+  const held = await chrome.storage.session.get([OUR_WINDOW, OUR_TAB]);
   const ourWindow = held[OUR_WINDOW];
   const ourTab = held[OUR_TAB];
 
@@ -187,7 +194,7 @@ export async function aTabToWalkIn(chrome, { address = 'about:blank' } = {}) {
     ...WINDOW_SIZE,
   });
   const tab = (made.tabs && made.tabs[0]) || null;
-  await chrome.storage.local.set({ [OUR_WINDOW]: made.id, [OUR_TAB]: tab && tab.id });
+  await chrome.storage.session.set({ [OUR_WINDOW]: made.id, [OUR_TAB]: tab && tab.id });
   return tab;
 }
 
