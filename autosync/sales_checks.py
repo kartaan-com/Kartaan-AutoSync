@@ -382,6 +382,63 @@ check("AND EVERY OTHER COLUMN COUNT IN THE REGISTER IS ONE THE REGISTER ITSELF "
 if UNACCOUNTED:
     print(f"      counted in words and listed nowhere: {UNACCOUNTED}")
 
+# **AND WHAT THAT EXEMPTION CANNOT CATCH, WRITTEN WHERE SOMEBODY WILL MEET
+# IT -- WHICH IS NOT HERE.** The exemption above is a WHOLE-FILE one: a count
+# the register accounts for is never asked about again, wherever in the file
+# it is written. So a wrong ledger width typed into the register's prose,
+# worded with no mention of the ledger AND equal to one of those accounted
+# counts, passes. **Driven rather than reasoned: 44 reddens the check above
+# and names the number; 74 leaves every check in this file green.**
+#
+# **IT IS LEFT OPEN ON PURPOSE, AND OUT LOUD** (D180). The width that decides
+# anything is the FIELD, held to the ERP's own column list; this prose is
+# documentation and cannot move a cell. Both ways of closing it -- an anchor
+# word demanded beside every exempt number, or a count of how often each is
+# written -- redden on ordinary edits to the one file here that is rewritten
+# by hand every session, and the obvious repair for such a red is to widen
+# the exemption. **Closing the smaller hole would have made the larger one
+# easier to fall into**, and the larger one is that the exemption grows by
+# hand with nothing telling a real count from a number added to buy quiet.
+#
+# **AND THE LIMIT IS NOT RECORDED IN THIS COMMENT, BECAUSE NOBODY MEETS A
+# COMMENT.** The last limit this check carried was written in a comment and
+# was afterwards quoted as though a comment were somewhere anybody stands
+# (D169). This one lives in `tools/work.json` BESIDE THE EXEMPTION ITSELF,
+# so the person widening the exemption -- the single act that makes the hole
+# bigger -- cannot do it without reading what it costs. The three checks
+# below are what keep it there, keep it true, and keep it pointed here.
+THE_LIMIT = REGISTER_SAYS.get("and_what_that_exemption_cannot_catch") \
+    if isinstance(REGISTER_SAYS, dict) else None
+# **THIS FIRST ONE IS A PRESENCE CHECK AND SAYS SO** (D170: a check that
+# matches a surface is checking spelling, and must admit it). It asks whether
+# the limit is still written down beside the exemption -- not whether what it
+# says is true. Gutting the sentence to a stub is the same as deleting it, so
+# it has to still be the length of an explanation.
+check("THE REGISTER RECORDS, BESIDE THE EXEMPTION ITSELF, WHAT THAT EXEMPTION "
+      "CANNOT CATCH",
+      isinstance(THE_LIMIT, dict)
+      and isinstance(THE_LIMIT.get("the_limit"), str)
+      and len(THE_LIMIT.get("the_limit", "")) > 300)
+# **AND THIS ONE HOLDS THE TWO LISTS TO EACH OTHER, BOTH DIRECTIONS** (D190),
+# so the exemption cannot be widened -- or narrowed -- without the limit
+# beside it being opened and brought along.
+check("AND THE NUMBERS IT SAYS ARE EXEMPT ARE EXACTLY THE NUMBERS THAT REALLY "
+      "ARE EXEMPT, SO THE EXEMPTION CANNOT GROW OR SHRINK QUIETLY",
+      isinstance(THE_LIMIT, dict)
+      and bool(THE_LIMIT.get("the_numbers_exempt_today"))
+      and sorted(str(one) for one in THE_LIMIT["the_numbers_exempt_today"])
+      == sorted(str(one) for one in ACCOUNTED_FOR))
+# **AND THE POINTER IN THAT FIELD IS HELD TOO**, because this commit is about
+# claims nobody tests and it must not add one. The register says which file
+# holds the limit to the exemption; the file it names is asked to be this one,
+# so moving or renaming these checks without telling the register reddens.
+check("AND THE FILE THE REGISTER NAMES AS HOLDING ALL THAT IS THE FILE THAT "
+      "REALLY DOES",
+      isinstance(THE_LIMIT, dict)
+      and (Path(__file__).resolve().parent.parent / str(THE_LIMIT.get(
+          "and_these_are_held_to_the_list_above_in_both_directions_by") or ""))
+      == Path(__file__).resolve())
+
 # **AND THE FOUR SOURCE FILES THAT STATE THE WIDTH IN WORDS.** Each is asked
 # about BY NAME (D175), because "a wrong width somewhere reddened something" is
 # not the same answer as "a wrong width in ledger.py reddened ledger.py's own
@@ -469,7 +526,7 @@ check("two sales on one order but different SKUs are two rows",
 print()
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 78
+EXPECTED = 81
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

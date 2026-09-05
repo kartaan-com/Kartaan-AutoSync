@@ -124,7 +124,12 @@
   "about EVERY column count written in here without needing the word 'ledger'",
   "to appear beside it: a count that is neither the ledger's width nor one",
   "listed there is a count nobody has accounted for, and it goes red. Adding a",
-  "new one to the prose means adding its line here, which is the point."
+  "new one to the prose means adding its line here, which is the point.",
+  "",
+  "AND WHAT THAT EXEMPTION CANNOT CATCH IS WRITTEN IN THE FIELD AFTER IT.",
+  "Read it before adding a line to the list. An exempt number stops being",
+  "asked about anywhere in this file, so something real is given up each",
+  "time the list grows."
  ],
  "the_ledger_is_this_many_columns_wide": 45,
  "other_column_counts_this_register_states": {
@@ -133,6 +138,13 @@
   "39": "his real Flipkart orders file -- 39 columns, 63 rows",
   "43": "his real Meesho payments file -- 43 columns, 83 rows",
   "74": "his real Flipkart payments file -- 74 columns, 77 rows, header on row 2"
+ },
+ "and_what_that_exemption_cannot_catch": {
+  "the_limit": "A wrong ledger width typed into this register's PROSE escapes when it is worded so that it never mentions the ledger AND happens to equal one of the counts listed above. That exemption is a WHOLE-FILE one -- an accounted count is never asked about again, wherever in here it is written -- and being whole-file is exactly what lets the sweep work with no word to anchor on. DRIVEN, not reasoned: a wrong width of 44 written into a sentence that never says the word turns that check red and names the number; the same sentence saying 74 leaves every check in that file green. It is a known and accepted limit, NOT a wall -- do not re-derive it as impossible, and do not put it back as a deferral.",
+  "why_it_is_left_open_rather_than_closed": "The width that DECIDES anything is the_ledger_is_this_many_columns_wide above, held to the ERP's own column list; this prose is documentation and cannot move a single cell. Both ways of closing it -- demanding an anchor word beside every exempt number, or recording how many times each is written -- go red on ordinary edits to this file, the one file here rewritten by hand every session. And the obvious repair for such a red is to widen the list above, which is the price named next. Closing the smaller hole would have made the larger one easier to fall into.",
+  "the_price_of_widening_the_list_above": "Every number added there stops being asked about anywhere in this file, for good. Nothing tells a genuine count of something else from a number added to buy quiet, so the reason belongs in its line and that line is read by a person, not by a check.",
+  "the_numbers_exempt_today": ["22", "26", "39", "43", "74"],
+  "and_these_are_held_to_the_list_above_in_both_directions_by": "autosync/sales_checks.py"
  },
  "active": null,
  "items": [
@@ -860,13 +872,21 @@
      "found": "2026-09-05, by an independent cold reader (A17R), findings A and B. Non-blocking.",
      "fixed": true,
      "proved_by": "`autosync/sales_checks.py` -- five checks: \"THE REGISTER CARRIES THE LEDGER'S WIDTH IN A FIELD OF ITS OWN, AND IT IS THE WIDTH THE LEDGER REALLY IS\", \"THE REGISTER SAYS HOW WIDE THE LEDGER IS, AND EVERY PLACE IT SAYS SO IS THE WIDTH IT REALLY IS\", \"AND EVERY OTHER COLUMN COUNT IN THE REGISTER IS ONE THE REGISTER ITSELF ACCOUNTS FOR, SO A WRONG WIDTH NEED NOT SAY THE WORD 'ledger' TO BE CAUGHT\", and one named for each of the four source files (\"autosync/ledger.py SAYS HOW WIDE THE LEDGER IS, AND IT IS THE WIDTH IT REALLY IS\", and the same for reading.py, reading_checks.py and nightly_checks.py). **Proved by breaking it on purpose: THIRTEEN wrong widths put in one at a time -- one into each of the six places, the number written BEFORE the word 'ledger' rather than after, a width in a sentence with no 'ledger' in it at all in both the register and ledger.py, and the sentence and the field DELETED rather than made wrong. Thirteen of thirteen caught by the check NAMED for them, every file restored byte for byte and the restore checked by hash.**"
+    },
+    {
+     "what": "**LEFT ON PURPOSE, NOT CLOSED (D180).** The fix above exempts every column count this register accounts for, everywhere in the file. So a wrong ledger width typed into this register's prose, worded so it never says the word AND equal to one of those accounted counts, still passes. The whole of it -- what escapes, why it is left, and what adding a number to that list costs -- is written in `and_what_that_exemption_cannot_catch`, at the top of this file directly beneath the list itself, because that is where somebody widening the list is standing. It is NOT in a comment: the last limit lived in a comment and was quoted afterwards as though a comment were somewhere anybody stands (D169).",
+     "found": "2026-09-05, by an independent cold reader (A19R), finding 1. Non-blocking.",
+     "fixed": false,
+     "left_because": "The width that DECIDES anything is the field, held to the ERP's own column list, so this prose cannot move a cell. Both ways of closing it go red on ordinary edits to this file -- the one file here rewritten by hand every session -- and the obvious repair for such a red is to widen the exemption, which is the larger weakness. Closing the smaller hole would have made the larger one easier to fall into.",
+     "left_by": "A20, 2026-09-05. Non-blocking when it was raised, so it is the author's to leave (D180). Overturnable by the control session or by Jaiswal.",
+     "proved_by": "Driven, not reasoned. `autosync/sales_checks.py`: a wrong width of 44 in prose with no mention of the ledger reddens \"AND EVERY OTHER COLUMN COUNT IN THE REGISTER IS ONE THE REGISTER ITSELF ACCOUNTS FOR...\" and prints the number; the same sentence saying 74 leaves every check in the file green. And the limit itself is held by three checks named for it, so it cannot quietly go missing or go stale the way the last one did -- ten faults put back one at a time, ten caught by the check named for them, the tree restored byte for byte."
     }
    ],
    "state": {
     "built": true,
     "reviewed": false,
     "run_for_real": false,
-    "instead": "60 checks. **The important ones read the ERP's own source and compare, name by name and in order** -- `sheet-store.js` for the columns, `charges.js` for the charge ids, `orders.js` for how a sale is named and what states it can be in. Neither list is typed out in the check. They REFUSE rather than skip when the ERP cannot be found, proved by pointing them at nothing. **Proved by breaking it on purpose: thirteen faults put back one at a time, thirteen caught, no survivors.** No sale has ever been written to a real sheet -- there is no sheet door yet."
+    "instead": "**81 checks, counted off the run's own last line (D175). CORRECTED 2026-09-05: this said 60, which was true when it was written and had been left behind twice since -- once by the width work and once by the limit beside it.** **The important ones read the ERP's own source and compare, name by name and in order** -- `sheet-store.js` for the columns, `charges.js` for the charge ids, `orders.js` for how a sale is named and what states it can be in. Neither list is typed out in the check. They REFUSE rather than skip when the ERP cannot be found, proved by pointing them at nothing. **Proved by breaking it on purpose: thirteen faults put back one at a time, thirteen caught, no survivors.** No sale has ever been written to a real sheet -- there is no sheet door yet."
    }
   },
   {
