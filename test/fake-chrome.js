@@ -119,6 +119,8 @@ export function installFakeChrome({ now = () => 0 } = {}) {
   const alarms = new Map();
   const tabs = new Map();
   const downloads = [];
+  const cancelled = [];
+  const erased = [];
   const putIntoPages = [];
   let nextTabId = 1;
   let calls = 0;
@@ -246,6 +248,21 @@ export function installFakeChrome({ now = () => 0 } = {}) {
         owner._noteACall();
         return downloads.map((one) => ({ ...one }));
       },
+      /* **CALLBACK-SHAPED, LIKE CHROME'S OWN, and that is the whole point of
+       * having it here.** A promise-shaped stand-in would let a `cancel` that
+       * was awaited pass a check that exists to prove nothing is awaited. What
+       * is recorded is WHEN it was called, in order, so a check can look before
+       * anything has been waited for and see it already done. */
+      cancel(id, then) {
+        owner._noteACall();
+        cancelled.push(id);
+        if (then) then();
+      },
+      erase({ id }, then) {
+        owner._noteACall();
+        erased.push(id);
+        if (then) then([id]);
+      },
     },
   };
 
@@ -289,6 +306,18 @@ export function installFakeChrome({ now = () => 0 } = {}) {
         await Promise.resolve();
       }
       return reply;
+    },
+
+    /** Which downloads have been cancelled, in the order they were cancelled.
+     *  **READ WITHOUT AWAITING ANYTHING** by the check that proves the cancel
+     *  happens inside the event rather than a moment later. */
+    cancelledDownloads() {
+      return [...cancelled];
+    },
+
+    /** Which downloads have been erased from the seller's own downloads list. */
+    erasedDownloads() {
+      return [...erased];
     },
 
     /** Every tab there is. */

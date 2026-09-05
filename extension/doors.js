@@ -32,6 +32,25 @@ const LOOK_AGAIN_MS = 200;
 /* What a download address that cannot be asked for twice begins with. */
 const BUILT_IN_THE_PAGE = 'blob:';
 
+/* How long an armed walk may go on expecting its file, in milliseconds.
+ *
+ * **THE ARM HAS TO RUN OUT, and this is the number that makes it run out.**
+ * Without a limit, a walk that armed and then never produced a file would leave
+ * the cancel armed for the rest of the day, and the next thing the SELLER
+ * downloaded by hand would vanish in front of them.
+ *
+ * **FIFTEEN, BECAUSE THE LONGEST WALK THAT CAN EXIST IS 10.58 MINUTES.** That is
+ * `me_orders` -- **not `fk_orders`, which an earlier version of this comment
+ * named and got wrong** (A25R). A walk runs a recipe's ask list OR its take
+ * list, never both, so `fk_orders` at its longest is 5.5 minutes and the two
+ * halves must never be added together.
+ *
+ * **THE REFERENCE IS NOT THE SAME SHAPE, AND SAYING IT WAS WOULD BE WRONG.** It
+ * bounds its own uncaptured-download fallback at FIVE minutes and arms seconds
+ * before the click; this arms at the start of the walk, because that is the only
+ * message this product sends before the click, and so it has further to reach. */
+const ARMED_FOR_MS = 15 * 60 * 1000;
+
 /**
  * Go to an address in the working tab, and wait for the page to finish drawing.
  *
@@ -72,9 +91,36 @@ export async function goTo(chrome, { tabId, address, patienceSeconds, now = () =
  *
  * Answers something that can be asked what it saw, and told to stop watching.
  */
-export function watchForDownloads(chrome) {
+export function watchForDownloads(chrome, { now = () => Date.now() } = {}) {
   const seen = [];
-  const heard = (item) => { seen.push({ ...item }); };
+  let expectingUntil = 0;
+  const heard = (item) => {
+    /* **THE CANCEL IS THE FIRST THING, AND NOTHING IS WAITED FOR BEFORE IT.**
+     * This is the whole trick, and it is invisible unless you look for it: with
+     * "Ask where to save each file" switched on, Chrome puts the Save-as window
+     * up the moment it has nowhere to put the file, and a seller who has that
+     * setting on would hang there FOR EVER, silently, while the platform records
+     * the download as done. Cancelling inside the event, before a single `await`,
+     * gets there first and no window ever appears. The reference's own comment
+     * says it in one line: "no await, so cancel() fires BEFORE Chrome has a
+     * chance to show the Save-As dialog." **Anything added above this line that
+     * waits for anything undoes it.** */
+    if (now() < expectingUntil) {
+      /* **CONSUMED, so this arms for ONE file and not for the day.** A walk that
+       * armed and produced nothing must not still be armed when the seller
+       * downloads something of their own. */
+      expectingUntil = 0;
+      chrome.downloads.cancel(item.id, () => {
+        /* Erased as well, so a download the seller never asked for does not sit
+         * in their own downloads list looking like a failure. */
+        chrome.downloads.erase({ id: item.id }, () => {});
+      });
+    }
+    /* **RECORDED WHETHER IT WAS CANCELLED OR NOT.** The bytes are never read
+     * from the download -- Chrome cannot hand them over -- so what is kept here
+     * is the address, and the address survives the cancel. */
+    seen.push({ ...item });
+  };
   chrome.downloads.onCreated.addListener(heard);
   return {
     /** Everything that has started since the watching began. */
@@ -83,6 +129,14 @@ export function watchForDownloads(chrome) {
      *  file, so that a download from an earlier step is not taken for this
      *  one. */
     forget: () => { seen.length = 0; },
+    /** A walk is starting and one of its steps will produce a file, so the next
+     *  download is ours to take rather than the seller's own.
+     *
+     *  **ARMED BEFORE THE CLICK, never after it.** After it is a race against
+     *  the platform's own server, and losing that race is the Save-as window
+     *  going up -- which is exactly what waiting for the download to appear in a
+     *  list and acting a moment later does, every time. */
+    expectAFile: () => { expectingUntil = now() + ARMED_FOR_MS; },
   };
 }
 

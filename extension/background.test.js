@@ -42,6 +42,7 @@ import {
   wireUp,
 } from './background.js';
 import { CAUGHT, TOO_BIG, catchTheNextFile } from './catch-blob.js';
+import { watchForDownloads } from './doors.js';
 import { readFileSync } from 'node:fs';
 
 process.on('uncaughtException', (err) => {
@@ -363,7 +364,7 @@ const LATER = '2026-08-27T16:04:00.000Z';
     answer: answerThePage(browser.chrome, {
       goTo: async (_chrome, where) => { went.push(where); },
       takeTheFile: async () => new Uint8Array([1, 2, 3]),
-      watching: { forget: () => {}, seen: () => [] },
+      watching: { forget: () => {}, seen: () => [], expectAFile: () => {} },
       say: (line) => said.push(line),
       secret: () => 'a-secret',
     }),
@@ -403,7 +404,7 @@ const LATER = '2026-08-27T16:04:00.000Z';
     answer: answerThePage(broken.chrome, {
       goTo: async () => { throw new Error('the page never finished drawing'); },
       takeTheFile: async () => null,
-      watching: { forget: () => {}, seen: () => [] },
+      watching: { forget: () => {}, seen: () => [], expectAFile: () => {} },
       say: () => {},
       secret: () => 'a-secret',
     }),
@@ -504,9 +505,75 @@ const LATER = '2026-08-27T16:04:00.000Z';
   check('and the page half still is', inPages.includes('content.js'));
   check('and nothing else runs in the page\u2019s own world by default',
     !(manifest.content_scripts || []).some((one) => one.world === 'MAIN'));
+
+  /* **THE REPORT DOES NOT LIVE ON THE PORTAL'S OWN HOST, AND NOTHING ASKED THIS
+   * UNTIL A25R.** Meesho hands its stock file over as a plain cross-origin
+   * `.xlsx` on Google's storage host -- measured on his live panel 2026-09-05,
+   * one anchor click, host `storage.googleapis.com`, and the re-fetch answered
+   * 200 with 44,593 bytes. **Without this line in the manifest that re-fetch is
+   * refused even though the address is right**, and every report fails with the
+   * platform blamed for it. It is half of what the cancel exists to make
+   * possible, and it was held by no question at all: A25R deleted the host, then
+   * emptied the whole list, and all 412 checks stayed green. */
+  const hosts = manifest.host_permissions || [];
+  check('the host the file really lives on is allowed',
+    hosts.some((one) => one.startsWith('https://storage.googleapis.com/')));
+  /* **AND STILL NOT EVERYTHING.** The reference asks for `<all_urls>`; a product
+   * copied into every seller's own account asks for the hosts it can name. */
+  check('and it still does not ask for every address there is',
+    !hosts.includes('<all_urls>') && hosts.length <= 4);
 }
 
-const EXPECTED = 85;
+/* --------------- arming the download cancel, which is one line and load-bearing */
+
+{
+  /* **THE WIRE FROM THE WALK TO THE CANCEL, PROVED END TO END.** `doors.js` can
+   * cancel a download inside the event and its own checks say so -- but if
+   * nothing ever ARMS it, all of that is dead code and the Save-as window still
+   * goes up. This asks the background the one message the page half sends before
+   * a walk starts, with the REAL watcher behind it, and then starts a download.
+   *
+   * **AND IT IS THIS MESSAGE BECAUSE IT IS THE ONLY ONE EARLY ENOUGH.** Every
+   * other message the page half sends arrives after the click that produces the
+   * file. */
+  const browser = installFakeChrome();
+  await browser.chrome.tabs.create({ url: 'https://supplier.meesho.com/' });
+  /* The catcher this message also puts into the page needs a page to be put
+   * into. Lent for this block and handed back at the end of it, the same way the
+   * catcher's own checks above do it. */
+  const itsOwnURL = globalThis.URL;
+  globalThis.window = {
+    location: { origin: 'https://supplier.meesho.com' },
+    postMessage: () => {},
+  };
+  globalThis.URL = { createObjectURL: () => 'blob:https://supplier.meesho.com/abc' };
+  const watching = watchForDownloads(browser.chrome);
+  wireUp(browser.chrome, {
+    onDue: async () => {},
+    answer: answerThePage(browser.chrome, {
+      goTo: async () => {},
+      takeTheFile: async () => null,
+      watching,
+      say: () => {},
+      secret: () => 'a-secret',
+    }),
+  });
+
+  await browser.aDownloadStarted({ id: 1, url: 'https://storage.example.invalid/before.xlsx' });
+  check('before a walk arms anything, a download is left alone',
+    browser.cancelledDownloads().length === 0);
+
+  const armed = await browser.aPageAsked({ do: 'arm-the-catcher' });
+  check('arming the catcher is answered with its secret', armed && armed.secret === 'a-secret');
+  await browser.aDownloadStarted({ id: 2, url: 'https://storage.example.invalid/ours.xlsx' });
+  check('and it armed the download cancel as well, so the Save-as window never appears',
+    browser.cancelledDownloads().length === 1 && browser.cancelledDownloads()[0] === 2);
+
+  globalThis.window = undefined;
+  globalThis.URL = itsOwnURL;
+}
+
+const EXPECTED = 90;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

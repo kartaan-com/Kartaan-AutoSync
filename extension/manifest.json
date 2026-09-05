@@ -15,7 +15,8 @@
   ],
   "host_permissions": [
     "https://supplier.meesho.com/*",
-    "https://seller.flipkart.com/*"
+    "https://seller.flipkart.com/*",
+    "https://storage.googleapis.com/*"
   ],
   "content_scripts": [
     {

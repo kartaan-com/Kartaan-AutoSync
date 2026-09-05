@@ -312,7 +312,105 @@ function aFetch(answers) {
     browser.chrome.downloads.onCreated.many === 1);
 }
 
-const EXPECTED = 30;
+/* ------------------------------- cancelling the download as it starts */
+
+/* **THE ONE THING IN THIS FILE THAT IS ABOUT WHEN, NOT WHAT.**
+ *
+ * A download Chrome has nowhere to put is a download Chrome asks about, in a
+ * Save-as window, and a seller with "Ask where to save each file" switched on is
+ * then waiting on a window nobody is there to click -- for ever, silently, while
+ * the platform records the file as downloaded. Cancelling it INSIDE the event,
+ * before a single `await`, gets there first. Cancelling it a moment later, off a
+ * list, is always too late.
+ *
+ * The stand-in's `cancel` is callback-shaped exactly so that these can look
+ * before anything has been waited for and see it already done.
+ */
+
+{
+  const browser = installFakeChrome();
+  const watching = watchForDownloads(browser.chrome);
+  watching.expectAFile();
+
+  /* **NOT AWAITED, AND THAT IS THE CHECK.** Everything the listener did
+   * synchronously has already happened by the time this call hands back its
+   * promise. An `await` put in front of the cancel would move it past this
+   * line, and this check would go red -- which is the only reason it is written
+   * this way. */
+  const dispatching = browser.aDownloadStarted({ url: 'https://storage.example.invalid/r.xlsx' });
+  check('the download is cancelled inside the event, before anything is waited for',
+    browser.cancelledDownloads().length === 1);
+  await dispatching;
+  check('and it is erased as well, so it leaves nothing in the seller own list',
+    browser.erasedDownloads().length === 1);
+  /* **AND THE ADDRESS SURVIVES THE CANCEL.** Cancelling throws away the bytes,
+   * which were never readable anyway; what the fetch needs is the address, and
+   * it is taken before anything is cancelled. */
+  check('and the address is still there to be asked for a second time',
+    watching.seen()[0].url === 'https://storage.example.invalid/r.xlsx');
+}
+
+{
+  /* **A DOWNLOAD NOBODY ARMED IS THE SELLER OWN, AND IT IS NEVER TOUCHED.**
+   * Cancelling one of those is a file vanishing in front of them with no
+   * explanation -- a worse fault than the one this whole thing exists to fix. */
+  const browser = installFakeChrome();
+  const watching = watchForDownloads(browser.chrome);
+  await browser.aDownloadStarted({ url: 'https://anywhere.example.invalid/his-own.pdf' });
+  check('a download nothing armed is left alone', browser.cancelledDownloads().length === 0);
+  check('and it is still remembered, the way it always was', watching.seen().length === 1);
+}
+
+{
+  /* **ARMED FOR ONE FILE, NOT FOR THE DAY.** A walk takes one file; the arm is
+   * used up by it. Anything the seller downloads afterwards is theirs. */
+  const browser = installFakeChrome();
+  const watching = watchForDownloads(browser.chrome);
+  watching.expectAFile();
+  await browser.aDownloadStarted({ id: 1, url: 'https://storage.example.invalid/ours.xlsx' });
+  await browser.aDownloadStarted({ id: 2, url: 'https://anywhere.example.invalid/his-own.pdf' });
+  check('the file the walk asked for is cancelled', browser.cancelledDownloads().includes(1));
+  check('and the next one, which is the seller own, is not',
+    !browser.cancelledDownloads().includes(2));
+}
+
+{
+  /* **AND THE ARM RUNS OUT.** A walk that armed and then never produced a file
+   * -- the asking half of a two-phase report does exactly that -- must not still
+   * be armed hours later when the seller downloads an invoice by hand. */
+  let at = 0;
+  const browser = installFakeChrome();
+  const watching = watchForDownloads(browser.chrome, { now: () => at });
+  watching.expectAFile();
+  at = 15 * 60 * 1000;
+  await browser.aDownloadStarted({ url: 'https://anywhere.example.invalid/much-later.pdf' });
+  check('an arm nobody used runs out rather than lasting the day',
+    browser.cancelledDownloads().length === 0);
+}
+
+{
+  /* **CANCELLED AND STILL FETCHED, which is the whole point of cancelling.**
+   * Chrome never hands over the bytes of a download; the address is asked for a
+   * second time with the seller own cookies, and that is where the file comes
+   * from. */
+  const browser = installFakeChrome();
+  const watching = watchForDownloads(browser.chrome);
+  const clock = aClock();
+  const bytes = new Uint8Array([7, 7, 7]);
+  const { fetch, asked } = aFetch({ 'https://storage.example.invalid/real.xlsx': bytes });
+  watching.expectAFile();
+  await browser.aDownloadStarted({
+    url: 'https://supplier.example.invalid/asked-for',
+    finalUrl: 'https://storage.example.invalid/real.xlsx',
+  });
+  const got = await takeTheFile(browser.chrome, watching, {
+    patienceSeconds: 60, fetch, now: clock.now, rest: clock.rest,
+  });
+  check('a cancelled download still gives up its bytes, from the address',
+    got.length === 3 && asked[0].address === 'https://storage.example.invalid/real.xlsx');
+}
+
+const EXPECTED = 39;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

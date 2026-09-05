@@ -264,6 +264,16 @@ async function carryOut(chrome, parts, asked, tabId) {
     return { went: true };
   }
   if (asked.do === 'arm-the-catcher') {
+    /* **THE DOWNLOAD IS ARMED HERE TOO, and here is the EARLIEST place.** This
+     * is the one message the page half sends before the walk starts. `go` and
+     * `say` also arrive before the click and would do -- **an earlier version of
+     * this comment called this the only such point, and that was not true**
+     * (A25R) -- but they arrive again and again, and an arm that is re-set every
+     * few seconds never runs out. Armed on the take-file message instead --
+     * after the click has already gone -- the platform's own server is being
+     * raced, and losing that race is Chrome's Save-as window going up on a
+     * seller nobody is watching. */
+    watching.expectAFile();
     return { secret: await armTheCatcher(chrome, { tabId, secret: secret() }) };
   }
   if (asked.do === 'take-file') {
