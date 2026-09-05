@@ -5,6 +5,117 @@ an older one is edited afterwards.
 
 ---
 
+## 2026-09-05 (seventh) -- A25R on A25's download-cancel commit. IT HOLDS as code. **One of its three claims was held by nothing at all**, and three of its comments said things that were not true.
+
+**Reviewed against** `D:\Kartaan-ERP\DECISION_LOG.md` -- D175, D190, D174, D169,
+D40, read there read-only. **Scope: the six staged files of one commit.** I
+repaired nothing (D166). Every fault I drove went into a throwaway copy under my
+own scratch directory; this folder was never written to. Read at `442599c`, 93
+tracked files, restored byte for byte and checked by sha256 before and after.
+
+---
+
+### The counts, run, each read off its own last line
+
+| suite | count | red |
+|---|---|---|
+| extension, 5 files | **412** (was 400) | 0 |
+| `autosync/*_checks.py`, 30 files | **2,519** | 0 |
+| `tools/*_checks.py`, 3 files | **224** | 0 |
+| **everything** | **3,155** over 38 files | **0 red, 0 that failed to start** |
+
+autosync and tools match A20's recorded numbers exactly, so nothing outside the
+extension moved. All six touched files pure LF, 0 CRLF -- measured in Python on
+the bytes, not with grep (A19R's broken instrument). 238 added / 7 removed, which
+is the size of the change and not a line-ending rewrite (D174 clean).
+
+---
+
+### TWELVE FAULTS DRIVEN. TEN CAUGHT BY THE CHECK NAMED FOR THEM, ONE ONLY BY THE RUN ABORTING, **TWO NOT CAUGHT AT ALL**
+
+**The author's two claimed red checks are true, and I drove them rather than
+taking them on trust:**
+
+| fault put in | run | result |
+|---|---|---|
+| `heard` made `async` with one `await` in front of the cancel | `doors.test.js` | **1 FAILED of 39** -- the single red is *the download is cancelled inside the event, before anything is waited for* |
+| `watching.expectAFile();` deleted from `background.js` | `background.test.js` | **1 FAILED of 88** -- the single red is *and it armed the download cancel as well* |
+
+Each reddened exactly ONE check and it was the check NAMED for it (D175). Cutting
+the five new `doors.test.js` blocks out was caught by *checks went missing -- 30
+ran, 39 expected* (D190: reached, not merely green).
+
+---
+
+### FINDING A -- **THE MANIFEST CHANGE WAS HELD BY NOTHING, AND IT IS THE HALF THAT DECIDES WHETHER ANYTHING LANDS AT ALL**
+
+`host_permissions` was read by **nothing** in this repository. `background.test.js`
+opened the manifest and asked about `permissions` and `content_scripts`, and never
+about `host_permissions`.
+
+| what I did | what the checks said |
+|---|---|
+| deleted the new `storage.googleapis.com` line | **all 412 green** |
+| emptied `host_permissions` entirely | **all 412 green** |
+
+The symptom of either is the exact one A23 spent a whole session diagnosing: the
+re-fetch refused, the walk reporting *"the platform would not hand it over"*, and
+a night that quietly lands nothing. **A commit whose stated purpose is "the
+re-fetch is refused without it" ought to leave behind a question that goes red
+when it is taken away.** It did not.
+
+**FIXED BEFORE THE COMMIT LANDED.** Two checks were added to
+`background.test.js` and both were driven to red by removing the host: *the host
+the file really lives on is allowed*, and *and it still does not ask for every
+address there is* -- the second so that "allow everything" cannot be the answer.
+Extension total 412 -> 432.
+
+### FINDING B -- THREE COMMENTS STATED THINGS THAT ARE NOT TRUE OF THE CODE BESIDE THEM
+
+All three were corrected before the commit, and the corrections say what was
+wrong rather than quietly replacing it (D169).
+
+| the comment said | what is actually so |
+|---|---|
+| *"The longest recipe here -- fk_orders -- adds up to about ten and a half minutes"* | `walk.js:209` runs a recipe's `toAsk` **or** its `toTake`, never both. `fk_orders`' longest single walk is **5.5 min**; the longest that can exist is **`me_orders` at 10.58 min**. The conclusion survived by luck -- 15 still clears it -- but the arithmetic beside the number was wrong, and the next person to change a patience would have checked it against the wrong recipe |
+| `arm-the-catcher` is *"the only point that is ahead of the click"* | `go` and `say` are ahead of it too. It is the **earliest**, and the reason to prefer it is that the others arrive again and again, so an arm re-set every few seconds would never run out |
+| *"The reference bounds its own fallback the same way, for the same reason"* | The reference bounds its at **five** minutes and arms **seconds before the click**; this arms at the start of the walk and holds fifteen. Same intent, different shape |
+
+### FINDING C -- NOTHING DISARMS THE CANCEL WHEN A WALK ENDS
+
+The five two-phase Flipkart recipes produce no file at all in their ask walk, by
+design. Each one arms and then finishes, leaving the cancel live over the
+seller's own downloads for the rest of the fifteen minutes. It is bounded and it
+is one file, so it cannot run away. **Left, and recorded, rather than fixed.**
+
+### What I looked for and did NOT find
+
+- **Working code touched that did not need to be:** none. `fake-chrome.js` is 29
+  additions and 0 removals; all seven deleted lines in the whole diff are lines
+  replaced in place, three of them stand-ins that had to gain `expectAFile` so
+  they do not behave better than the real watcher.
+- **A stand-in gentler than Chrome in a way that hides a defect:** the callback
+  shape is load-bearing -- making `cancel` promise-shaped turns the timing check
+  red, so that check genuinely depends on it. Two ways it is still gentler and
+  neither is read by anything in `extension/`: its callback fires synchronously
+  where Chrome's does not, and it can never fail or set `lastError`.
+- **Secrets:** clean. Every address in the new checks is a reserved `.invalid`
+  domain; no token, key, panel slug or query string anywhere in the diff; and the
+  new code logs **nothing at all** -- the reference logs 120 characters of every
+  download URL and this does not.
+
+### What this review could not settle
+
+- **Whether the cancel wins on a profile where "Ask where to save each file" is
+  ON.** His is OFF, so the live run proved the download was cancelled, erased,
+  and never reached disk -- but not that no dialog would have appeared. One run
+  on a profile with that setting on would settle it.
+- **No check covers an armed download whose address is a `blob:`.** The blob
+  branch is checked unarmed and the arming does not touch it, so this is a gap in
+  coverage rather than a defect in behaviour.
+
+---
+
 ## 2026-09-04 (sixth) — A6R on M7's three commits. IT HOLDS: nothing found lets a bad commit through. Two findings, both prose, both left to the author.
 
 **Reviewed against** `D:\Kartaan-ERP\DECISION_LOG.md` — D166, D169, D170, D172,
