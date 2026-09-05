@@ -118,7 +118,11 @@ class Listeners {
 export function installFakeChrome({ now = () => 0 } = {}) {
   const alarms = new Map();
   const tabs = new Map();
+  const windows = new Map();
+  let nextWindowId = 100;
   const downloads = [];
+  const reloaded = [];
+  const sentToPages = [];
   const cancelled = [];
   const erased = [];
   const putIntoPages = [];
@@ -132,6 +136,7 @@ export function installFakeChrome({ now = () => 0 } = {}) {
   const onAlarm = new Listeners(owner);
   const onMessage = new Listeners(owner);
   const onDownloadCreated = new Listeners(owner);
+  const onTabRemoved = new Listeners(owner);
 
   const local = new FakeStore(owner);
 
@@ -193,26 +198,115 @@ export function installFakeChrome({ now = () => 0 } = {}) {
 
     storage: { local },
 
+    /* **WINDOWS, BECAUSE WHICH WINDOW A TAB IS IN DECIDES WHETHER CHROME
+     * THROTTLES IT** -- and throttling is the difference between this product
+     * working at two in the morning and not. Chrome throttles a tab's timers
+     * when a DIFFERENT TAB IS SELECTED IN THAT TAB'S WINDOW, or when that WINDOW
+     * IS MINIMISED. Screen focus is not the trigger. So a stand-in that did not
+     * model windows at all could not tell the working arrangement from the
+     * broken one. */
+    windows: {
+      async create({ url, focused, state, width, height }) {
+        owner._noteACall();
+        const id = nextWindowId++;
+        const tabId = nextTabId++;
+        tabs.set(tabId, { id: tabId, url, status: 'loading', windowId: id, active: true });
+        windows.set(id, { id, focused: Boolean(focused), state: state || 'normal', width, height });
+        return { ...windows.get(id), tabs: [{ ...tabs.get(tabId) }] };
+      },
+      async get(id) {
+        owner._noteACall();
+        /* **THROWS WHEN IT IS GONE, the way Chrome's does.** A stand-in that
+         * answered nothing would let code treat a closed window as an open one
+         * and open every report in a window that no longer exists. */
+        if (!windows.has(id)) throw new Error(`There is no window ${id}.`);
+        return { ...windows.get(id) };
+      },
+      async update(id, how) {
+        owner._noteACall();
+        if (!windows.has(id)) throw new Error(`There is no window ${id}.`);
+        windows.set(id, { ...windows.get(id), ...how });
+        return { ...windows.get(id) };
+      },
+      async remove(id) {
+        owner._noteACall();
+        windows.delete(id);
+        for (const [tabId, tab] of [...tabs]) if (tab.windowId === id) tabs.delete(tabId);
+      },
+    },
+
     tabs: {
-      async create({ url }) {
+      onRemoved: onTabRemoved,
+      async create({ url, windowId, active }) {
         owner._noteACall();
         const id = nextTabId++;
-        tabs.set(id, { id, url, status: 'loading' });
+        if (windowId !== undefined && !windows.has(windowId)) {
+          throw new Error(`There is no window ${windowId}.`);
+        }
+        /* **A NEW SELECTED TAB DESELECTS THE OTHERS IN ITS WINDOW**, which is
+         * the whole of how a tab becomes throttled. */
+        if (active && windowId !== undefined) {
+          for (const [other, tab] of [...tabs]) {
+            if (tab.windowId === windowId) tabs.set(other, { ...tab, active: false });
+          }
+        }
+        tabs.set(id, { id, url, status: 'loading', windowId, active: Boolean(active) });
         return { ...tabs.get(id) };
       },
-      async update(id, { url }) {
+      async update(id, { url, active }) {
         owner._noteACall();
         if (!tabs.has(id)) throw new Error(`There is no tab ${id}.`);
+        if (active !== undefined) {
+          const it = tabs.get(id);
+          for (const [other, tab] of [...tabs]) {
+            if (tab.windowId === it.windowId) tabs.set(other, { ...tab, active: false });
+          }
+          tabs.set(id, { ...tabs.get(id), active: Boolean(active) });
+          if (url === undefined) return { ...tabs.get(id) };
+        }
+        /* **AND TELLING A TAB WHERE TO GO IS NOT ALWAYS A PAGE LOAD, WHICH IS
+         * THE HARSHEST THING IN THIS FILE.** If the new address agrees with the
+         * old one up to the `#`, a browser scrolls: the address bar moves, the
+         * page stays, its scripts stay, and nothing is put into it again. Every
+         * Flipkart address in the recipe file is `index.html#something`, so this
+         * is not an edge -- it is thirteen of the seventeen reports.
+         *
+         * **A STAND-IN THAT RELOADED HERE WOULD HAVE PASSED THE WHOLE OF D200
+         * GREEN** while every Flipkart walk stalled for ever in front of a
+         * seller, at night, saying nothing. */
+        const upToTheHash = (one) => String(one || '').split('#')[0];
+        const held = tabs.get(id);
+        if (upToTheHash(held.url) === upToTheHash(url)) {
+          tabs.set(id, { ...held, url });
+          return { ...tabs.get(id) };
+        }
         /* **A REAL TAB DOES NOT FINISH THE MOMENT IT IS TOLD WHERE TO GO.** It
          * says it is loading, and something has to wait. A stand-in that jumped
          * straight to finished would let code that never waits pass every check
          * and then read every button as missing on a page that was still blank. */
-        tabs.set(id, { ...tabs.get(id), url, status: 'loading' });
+        tabs.set(id, { ...held, url, status: 'loading' });
         return { ...tabs.get(id) };
+      },
+      /* **RELOADING IS THE ONE THING THAT ALWAYS LOADS.** It is how anything
+       * gets a real page out of an address that differs only after the `#`. */
+      async reload(id) {
+        owner._noteACall();
+        if (!tabs.has(id)) throw new Error(`There is no tab ${id}.`);
+        reloaded.push(id);
+        tabs.set(id, { ...tabs.get(id), status: 'loading' });
+      },
+      /* **AND A MESSAGE SENT TO A PAGE IS RECORDED, NOT DELIVERED.** The page
+       * half is not here; what a check needs to see is that the message was sent
+       * at all, and what was already written down by the time it was. */
+      sendMessage(id, said) {
+        owner._noteACall();
+        sentToPages.push({ tabId: id, said: aCopyOf(said) });
+        return Promise.resolve(undefined);
       },
       async remove(id) {
         owner._noteACall();
         tabs.delete(id);
+        await onTabRemoved.happened(id, { windowId: 1, isWindowClosing: false });
       },
       async get(id) {
         owner._noteACall();
@@ -320,6 +414,24 @@ export function installFakeChrome({ now = () => 0 } = {}) {
       return [...erased];
     },
 
+    /** Which tabs have been really reloaded, in order. **What separates a page
+     *  that was drawn again from an address bar that merely moved.** */
+    reloadedTabs() {
+      return [...reloaded];
+    },
+
+    /** Everything the background has said to a page, in order. */
+    sentToPages() {
+      return sentToPages.map((one) => ({ ...one }));
+    },
+
+    /** Every window there is, and what state it is in. **A minimised window is
+     *  a throttled window**, so this is what a check about running unattended
+     *  reads. */
+    windows() {
+      return [...windows.values()].map((one) => ({ ...one }));
+    },
+
     /** Every tab there is. */
     tabs() {
       return [...tabs.values()].map((one) => ({ ...one }));
@@ -351,6 +463,7 @@ export function installFakeChrome({ now = () => 0 } = {}) {
       onAlarm._heard = [];
       onMessage._heard = [];
       onDownloadCreated._heard = [];
+      onTabRemoved._heard = [];
     },
 
     /** Do to the alarms what a browser restart or an extension update does. */

@@ -12,7 +12,7 @@
  * and wiring is proved by loading it.
  */
 
-import { aFreshSecret, answerThePage, wireUp } from './background.js';
+import { aFreshSecret, answerThePage, startAWalk, wireUp } from './background.js';
 import { goTo, takeTheFile, watchForDownloads } from './doors.js';
 
 /* **THE CLOCK IS SET ON THE WAY PAST, EVERY TIME THIS WAKES.** Google's own
@@ -25,6 +25,17 @@ import { goTo, takeTheFile, watchForDownloads } from './doors.js';
  * begins; started later, the address is already gone and the only way back to it
  * is the long way round, which arrives at nothing on a `blob:` address. */
 const watching = watchForDownloads(chrome);
+
+/* **THE ONE HANDLE, AND IT IS HOW A WALK IS STARTED BY HAND UNTIL THE QUEUE
+ * EXISTS.** Until `onDue` has a queue behind it, nothing in this product starts
+ * a walk, so nothing could ever be run against a real portal -- and a thing that
+ * has never done its job is not a thing anybody should be asked to review.
+ *
+ * **IT IS NOT A WAY IN FOR ANYTHING.** A service worker's own global is not
+ * reachable from a web page, from a content script, or from another extension.
+ * The only thing that can see this is the DevTools console of this extension's
+ * own worker, which is to say the person whose browser it is. */
+self.startAWalk = (how) => startAWalk(chrome, how);
 
 wireUp(chrome, {
   answer: answerThePage(chrome, {

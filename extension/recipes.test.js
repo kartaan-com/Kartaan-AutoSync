@@ -19,7 +19,9 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { NeedsSigningIn, LANDED, FAILED, STILL_WAITING, theWalk, whyStepIsRefused } from './walk.js';
+import {
+  NeedsSigningIn, LANDED, FAILED, STILL_WAITING, hasNotFinished, theWalk, whyStepIsRefused,
+} from './walk.js';
 
 process.on('uncaughtException', (err) => {
   console.log(`FAIL  the checks stopped part way through: ${(err && err.message) || String(err)}`);
@@ -100,12 +102,60 @@ check('and the words each failure means', Object.keys(BOOK.whatItMeans).length >
       .every((r) => r.readyInMinutes === 0));
 }
 
+/* --------------- what a walk landing somewhere unexpected runs into (D200) */
+
+{
+  /* **EVERY `go` IS FOLLOWED BY SOMETHING THAT LOOKS BEFORE IT TOUCHES
+   * ANYTHING, and that is what protects a walk that lands in the wrong place.**
+   * A walk now resumes on whatever page Chrome drew, and Chrome may have drawn
+   * something nobody expected -- a redirect, an interstitial, a promotion, the
+   * platform's own error page. The step after a `go` is the guard: a `wait-for`
+   * looks and does not click, so a page that is not the one asked for fails by
+   * name, with four hundred characters of what was really there, instead of the
+   * step after it clicking blind on a stranger's page.
+   *
+   * **THE REFERENCE GUARDS THE SAME THING WITH `isOnTargetPage`**, asked before
+   * it navigates and again when the reloaded page picks the job back up. Here
+   * the recipe carries the guard, which is better: it is data, and it says what
+   * being in the right place looks like for that one page. */
+  const unguarded = [];
+  for (const [name, recipe] of Object.entries(BOOK.recipes)) {
+    for (const which of ['toAsk', 'toTake']) {
+      const steps = recipe[which] || [];
+      steps.forEach((one, at) => {
+        if (one.do !== 'go') return;
+        const next = steps[at + 1];
+        if (!next || next.do !== 'wait-for') unguarded.push(`${name}.${which}[${at}]`);
+      });
+    }
+  }
+  check(`every go is followed by something that looks before anything is touched -- ${unguarded}`,
+    unguarded.length === 0);
+}
+
+{
+  /* **AND THE ONE THAT WOULD HAVE STALLED SILENTLY FOR EVER.** Every Flipkart
+   * address is `index.html#something`: the page never changes, only the part
+   * after the `#`. Telling a tab to go between two of those does not reload
+   * anything, so the content script is never put in again and nothing ever asks
+   * where the walk was. `doors.js` forces a real load for exactly this, and this
+   * pins the fact it is forced for -- if Flipkart ever moves off hash addresses,
+   * this check is where somebody finds out. */
+  const flipkartGos = Object.values(BOOK.recipes)
+    .flatMap((r) => [...(r.toAsk || []), ...(r.toTake || [])])
+    .filter((one) => one.do === 'go' && String(one.address).includes('seller.flipkart.com'));
+  check('every Flipkart page is reached by an address that differs only after the #',
+    flipkartGos.length > 0
+    && flipkartGos.every((one) => String(one.address).split('#')[0]
+      === 'https://seller.flipkart.com/index.html'));
+}
+
 /* --------------------------------- and one of them is really driven */
 
 function aPortal(how = {}) {
-  const it = { went: [], clicked: [], ranges: [], tookFile: 0 };
+  const it = { went: [], clicked: [], ranges: [], tookFile: 0, handedOver: [], turns: 0 };
   it.door = {
-    async go(address) { it.went.push(address); },
+    async go(address, patience, nextAt) { it.went.push(address); it.handedOver.push(nextAt); },
     async needs_signing_in() { return Boolean(how.signedOut); },
     async overlays() { return []; },
     async find(kind, what) { return how.matches && what in how.matches ? how.matches[what] : 1; },
@@ -117,11 +167,45 @@ function aPortal(how = {}) {
   return it;
 }
 
+/**
+ * Walk a REAL recipe the way the extension really walks one: in TURNS.
+ *
+ * **THESE ARE HIS OWN RECIPES, AND THEY ARE WHY THIS MATTERS MOST HERE (D200).**
+ * Going somewhere destroys the page the walk is running in, so a walk hands back
+ * "carrying on, from step N" and the page Chrome draws next starts again at N.
+ * **Every one of the seventeen real recipes begins with a `go`, and `me_orders`
+ * has a second one half way through** -- so a harness that called the walk once
+ * was testing something the product cannot do, on every single recipe.
+ */
+function aWalk(portal) {
+  return async (reportId, day, rest = {}) => {
+    let startAt = 0;
+    for (let turn = 0; turn < 40; turn += 1) {
+      portal.turns += 1;
+      /* Built again every turn, exactly as the page half is: nothing a previous
+       * page held survives into the next one. */
+      const walking = theWalk({ door: portal.door, book: BOOK, say: () => {} });
+      // eslint-disable-next-line no-await-in-loop
+      const answer = await walking(reportId, day, { panel: PANEL, startAt, ...rest });
+      if (!hasNotFinished(answer)) return answer;
+      startAt = answer.at;
+    }
+    throw new Error(`${reportId} kept carrying on and never finished`);
+  };
+}
+
 {
   const portal = aPortal();
-  const walking = theWalk({ door: portal.door, book: BOOK, say: () => {} });
-  const got = await walking('me_orders', DAY, { panel: PANEL });
+  const got = await aWalk(portal)('me_orders', DAY);
   check('his real Meesho orders recipe walks all the way through', got.state === LANDED);
+  /* **AND IT REALLY DID SPAN THREE PAGES.** His orders recipe goes to the orders
+   * page, asks for the export, and goes back to that same address to collect it.
+   * A walk that survived only its first teardown would land every other report
+   * and die on this one -- at night, on the report that matters most. */
+  check('and it really did take three pages, because that recipe goes somewhere twice',
+    portal.turns === 3 && portal.went.length === 2);
+  check('and the place was handed over at each teardown',
+    portal.handedOver.length === 2 && portal.handedOver.every((one) => Number.isInteger(one)));
   /* **THE SELLER'S OWN PANEL IS FILLED IN, and the placeholder is gone.** A
    * placeholder left in the address is a page that does not exist. */
   check('the seller\'s own panel name went into the address',
@@ -156,8 +240,7 @@ function aPortal(how = {}) {
     asking.length === 1 && asking[0].rangeDays === 2);
 
   const portal = aPortal();
-  const walking = theWalk({ door: portal.door, book: BOOK, say: () => {} });
-  const asked = await walking('fk_orders', DAY, { panel: '' });
+  const asked = await aWalk(portal)('fk_orders', DAY, { panel: '' });
   check('and asking for it is a success rather than a failure', asked.state === STILL_WAITING);
   check('with the range ending on the day being fetched',
     portal.ranges[0][0] === '2026-08-25' && portal.ranges[0][1] === DAY);
@@ -177,8 +260,7 @@ function aPortal(how = {}) {
 {
   /* The failure sentences really reach the walk, rather than being invented. */
   const portal = aPortal({ matches: { 'Download Orders Data': 0 } });
-  const walking = theWalk({ door: portal.door, book: BOOK, say: () => {} });
-  const got = await walking('me_orders', DAY, { panel: PANEL });
+  const got = await aWalk(portal)('me_orders', DAY);
   check('a missing button uses the words from the recipe file',
     got.say.includes(BOOK.whatItMeans['found-nothing']));
   check('and names the thing in the words a person reads',
@@ -187,10 +269,9 @@ function aPortal(how = {}) {
 
 {
   const portal = aPortal({ signedOut: true });
-  const walking = theWalk({ door: portal.door, book: BOOK, say: () => {} });
   let itsOwnKind = false;
   try {
-    await walking('me_orders', DAY, { panel: PANEL });
+    await aWalk(portal)('me_orders', DAY);
   } catch (wrong) {
     itsOwnKind = wrong instanceof NeedsSigningIn;
   }
@@ -198,7 +279,7 @@ function aPortal(how = {}) {
     itsOwnKind === true);
 }
 
-const EXPECTED = 26;
+const EXPECTED = 30;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

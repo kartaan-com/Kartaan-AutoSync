@@ -16,7 +16,9 @@
  */
 
 import { installFakeChrome } from '../test/fake-chrome.js';
-import { goTo, takeTheFile, watchForDownloads } from './doors.js';
+import {
+  OUR_TAB, OUR_WINDOW, aTabToWalkIn, goTo, sameDocumentAs, takeTheFile, watchForDownloads,
+} from './doors.js';
 
 process.on('uncaughtException', (err) => {
   console.log(`FAIL  the checks stopped part way through: ${(err && err.message) || String(err)}`);
@@ -98,6 +100,83 @@ function aClock() {
     wrong.includes('had not finished drawing'));
   check('and it names the address', wrong.includes('/slow'));
   check('and how long it waited', wrong.includes('20 seconds'));
+}
+
+/* -------------------------- D200: telling a tab where to go is not always a load */
+
+/* **THE WHOLE OF FLIPKART SITS ON THIS.** Every Flipkart address in the recipe
+ * file is `https://seller.flipkart.com/index.html#...` -- the page is always
+ * `index.html` and the part naming the report is after the `#`. A browser going
+ * between two such addresses SCROLLS: the address bar moves, the page stays, and
+ * the content script is never put into it again. Nothing then asks the
+ * background where the walk was, and the walk stops for ever, silently, at
+ * night, with nobody watching. The reference met this and forces a reload. */
+
+check('two addresses that agree up to the # are the same page',
+  sameDocumentAs('https://seller.flipkart.com/index.html#a',
+    'https://seller.flipkart.com/index.html#b'));
+/* **THE SAME ADDRESS TWICE COUNTS, and it is not hypothetical**: his real
+ * `me_orders` goes to the orders page, asks for the export, and goes back to
+ * that same address to collect it. */
+check('and so is the very same address twice',
+  sameDocumentAs('https://supplier.meesho.com/panel/x/orders/',
+    'https://supplier.meesho.com/panel/x/orders/'));
+check('while a different page is a different page',
+  !sameDocumentAs('https://supplier.meesho.com/panel/x/orders/',
+    'https://supplier.meesho.com/panel/x/returns/'));
+/* **UNSURE IS ANSWERED NO.** Chrome hands over no address at all for a tab the
+ * extension has no permission for, and reloading such a tab is not ours to do. */
+check('and a tab whose address Chrome will not hand over is not assumed to be the same',
+  !sameDocumentAs(undefined, 'https://seller.flipkart.com/index.html#a'));
+
+{
+  const browser = installFakeChrome();
+  const tab = await browser.chrome.tabs.create({ url: 'https://seller.flipkart.com/index.html#one' });
+  browser.theTabFinishedDrawing(tab.id);
+  const clock = aClock();
+  setTimeout(() => browser.theTabFinishedDrawing(tab.id), 0);
+  const landed = await goTo(browser.chrome, {
+    tabId: tab.id, address: 'https://seller.flipkart.com/index.html#two', patienceSeconds: 30,
+    now: clock.now, rest: async (ms) => { clock.goForward(ms); await new Promise((d) => setTimeout(d, 0)); },
+  });
+  check('moving between two Flipkart reports really draws the page again',
+    browser.reloadedTabs().join(',') === String(tab.id));
+  check('and it lands at the report that was asked for',
+    landed.url === 'https://seller.flipkart.com/index.html#two');
+}
+
+{
+  /* His real `me_orders`: back to the address it is already on, to collect the
+   * export it asked for a moment ago. */
+  const browser = installFakeChrome();
+  const here = 'https://supplier.meesho.com/panel/v3/new/fulfillment/x/orders/';
+  const tab = await browser.chrome.tabs.create({ url: here });
+  browser.theTabFinishedDrawing(tab.id);
+  const clock = aClock();
+  setTimeout(() => browser.theTabFinishedDrawing(tab.id), 0);
+  await goTo(browser.chrome, {
+    tabId: tab.id, address: here, patienceSeconds: 30,
+    now: clock.now, rest: async (ms) => { clock.goForward(ms); await new Promise((d) => setTimeout(d, 0)); },
+  });
+  check('and going back to the page it is already on draws it again too',
+    browser.reloadedTabs().length === 1);
+}
+
+{
+  /* **AND AN ORDINARY MOVE IS LEFT ALONE.** Reloading on top of a real page load
+   * would draw every Meesho page twice, which is a second export asked for on a
+   * platform that counts them. */
+  const browser = installFakeChrome();
+  const tab = await browser.chrome.tabs.create({ url: 'https://supplier.meesho.com/panel/x/home' });
+  browser.theTabFinishedDrawing(tab.id);
+  const clock = aClock();
+  setTimeout(() => browser.theTabFinishedDrawing(tab.id), 0);
+  await goTo(browser.chrome, {
+    tabId: tab.id, address: 'https://supplier.meesho.com/panel/x/orders/', patienceSeconds: 30,
+    now: clock.now, rest: async (ms) => { clock.goForward(ms); await new Promise((d) => setTimeout(d, 0)); },
+  });
+  check('a move to a genuinely different page is not drawn a second time',
+    browser.reloadedTabs().length === 0);
 }
 
 {
@@ -410,7 +489,100 @@ function aFetch(answers) {
     got.length === 3 && asked[0].address === 'https://storage.example.invalid/real.xlsx');
 }
 
-const EXPECTED = 39;
+/* ------------------ D200: the window this product runs in at two in the morning */
+
+/* **ONE SENTENCE OF CHROME'S DECIDES WHETHER THIS PRODUCT WORKS UNATTENDED:**
+ *
+ *   **CHROME THROTTLES A TAB'S TIMERS WHEN A DIFFERENT TAB IS SELECTED IN THAT
+ *   TAB'S WINDOW, OR WHEN THAT WINDOW IS MINIMISED. IT IS NOT TRIGGERED BY
+ *   SCREEN FOCUS, AND NOT BY WHETHER ANYBODY IS SITTING THERE.**
+ *   (developer.chrome.com/blog/timer-throttling-in-chrome-88)
+ *
+ * Walking whatever tab we are handed puts the walk in the seller's own window,
+ * as one of their many unselected tabs -- the throttled case. The reference
+ * measured the cost: a fifteen-second wait silently taking NINE MINUTES OR MORE.
+ * A walk under that reports a perfectly good page as a missing button, at night,
+ * with nobody there to see it was fine. */
+
+{
+  const browser = installFakeChrome();
+  const tab = await aTabToWalkIn(browser.chrome);
+  const window = browser.windows()[0];
+  check('a walk gets a window of its own rather than one of the seller own tabs',
+    browser.windows().length === 1 && tab.windowId === window.id);
+  /* **UNFOCUSED, because focus is not what throttling watches** -- so there is
+   * nothing to be gained by taking the screen from somebody using their
+   * computer, and everything to lose. */
+  check('and it never takes the screen: the window is made unfocused',
+    window.focused === false);
+  /* **AND NOT MINIMISED, because that IS what throttling watches.** */
+  check('and it is not minimised, which is the state that would be throttled',
+    window.state === 'normal');
+  check('and the tab is the selected tab of that window',
+    browser.tabs().find((one) => one.id === tab.id).active === true);
+  /* **WRITTEN DOWN, because the worker that made it is shut down thirty seconds
+   * later and everything it held in a variable goes with it.** */
+  check('and both are written where the worker being shut down cannot lose them',
+    browser.stored()[OUR_WINDOW] === window.id && browser.stored()[OUR_TAB] === tab.id);
+}
+
+{
+  /* **THE SAME TAB NEXT TIME.** A tab per report leaves a window filling up with
+   * dead tabs -- and the moment there are two, one of them is not selected,
+   * which is the throttled case reached by tidiness. */
+  const browser = installFakeChrome();
+  const first = await aTabToWalkIn(browser.chrome);
+  const again = await aTabToWalkIn(browser.chrome);
+  check('the next report walks in the same tab rather than piling up new ones',
+    again.id === first.id && browser.windows().length === 1);
+  check('and there is still only one tab in that window',
+    browser.tabs().filter((one) => one.windowId === first.windowId).length === 1);
+}
+
+{
+  /* **PUT BACK IF SOMEBODY MINIMISED IT.** A minimised window is a throttled
+   * window whatever else is true of it, so a walk starting into one would be
+   * slowed from its first step. */
+  const browser = installFakeChrome();
+  const first = await aTabToWalkIn(browser.chrome);
+  await browser.chrome.windows.update(first.windowId, { state: 'minimized' });
+  await aTabToWalkIn(browser.chrome);
+  const window = browser.windows()[0];
+  check('a window somebody minimised is put back, because minimised is throttled',
+    window.state === 'normal');
+  check('and putting it back still does not take the screen', window.focused === false);
+}
+
+{
+  /* **AND IF SOMETHING ELSE IS OPENED IN OUR WINDOW, OURS IS MADE THE SELECTED
+   * ONE AGAIN.** An unselected tab is a throttled tab whatever window it is in,
+   * so being in our own window is not on its own enough. */
+  const browser = installFakeChrome();
+  const ours = await aTabToWalkIn(browser.chrome);
+  await browser.chrome.tabs.create({
+    url: 'https://example.invalid/', windowId: ours.windowId, active: true,
+  });
+  check('something else opened in our window takes the selection away',
+    browser.tabs().find((one) => one.id === ours.id).active === false);
+  await aTabToWalkIn(browser.chrome);
+  check('and the next walk takes it back rather than running throttled',
+    browser.tabs().find((one) => one.id === ours.id).active === true);
+}
+
+{
+  /* **A WINDOW THE SELLER CLOSED IS NOT A FAILURE.** Another one is made.
+   * Treating it as a fault would stop a night's run over somebody tidying up. */
+  const browser = installFakeChrome();
+  const first = await aTabToWalkIn(browser.chrome);
+  await browser.chrome.windows.remove(first.windowId);
+  const second = await aTabToWalkIn(browser.chrome);
+  check('a window the seller closed is replaced rather than reported as broken',
+    second && second.windowId !== first.windowId);
+  check('and the new one is remembered in place of the old',
+    browser.stored()[OUR_WINDOW] === second.windowId);
+}
+
+const EXPECTED = 60;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

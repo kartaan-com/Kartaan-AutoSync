@@ -7,7 +7,18 @@
  *   - **going somewhere tears down whatever is running in the old page.** A page
  *     cannot walk itself to the next address and still be there afterwards to say
  *     what happened, so the background does it and waits for the new page to
- *     finish drawing;
+ *     finish drawing.
+ *
+ *     **AND FOR MONTHS NOTHING RECONCILED THAT SENTENCE WITH THE WALK LIVING IN
+ *     THE PAGE (D200).** It was right all along and the walk was built as though
+ *     it were not: three walks died on his own Meesho panel on 5 September with
+ *     "the message channel closed before a response was received", which is this
+ *     very teardown seen from the other side. A walk is now a sequence of turns,
+ *     one per page, and the place between them is held in storage by
+ *     `background.js`. **Nobody is waiting on this call to come back** -- the
+ *     page that made it is already gone. What it still does is notice a page
+ *     that never draws, so that a walk which can never be picked up again is
+ *     ended and named rather than left hanging;
  *   - **nothing inside a page may read the bytes of a download.** And nor may the
  *     background: `chrome.downloads` manages downloads and cannot read one. The
  *     only way to the bytes is to take the download's own address as it starts
@@ -49,7 +60,136 @@ const BUILT_IN_THE_PAGE = 'blob:';
  * bounds its own uncaptured-download fallback at FIVE minutes and arms seconds
  * before the click; this arms at the start of the walk, because that is the only
  * message this product sends before the click, and so it has further to reach. */
-const ARMED_FOR_MS = 15 * 60 * 1000;
+export const ARMED_FOR_MS = 15 * 60 * 1000;
+
+/* What our own window and our own tab are called in storage. **Written down
+ * rather than remembered, because the worker that made the window is shut down
+ * thirty seconds later and everything it held in a variable goes with it.** */
+export const OUR_WINDOW = 'kartaan-autosync-window';
+export const OUR_TAB = 'kartaan-autosync-tab';
+
+/* How big to make it. Big enough that the portal draws its DESKTOP layout: a
+ * narrow window makes Meesho draw its phone layout, which has no "Bulk Stock
+ * Update" button at all, and the walk then truthfully reports a button that
+ * genuinely is not there. */
+const WINDOW_SIZE = { width: 1000, height: 700 };
+
+/**
+ * Forget which window and tab were ours.
+ *
+ * **CALLED WHEN CHROME STARTS, AND IT IS NOT TIDYING UP -- IT STOPS THIS
+ * PRODUCT NAVIGATING THE SELLER'S OWN PAGE AWAY FROM UNDER THEM (A26R).**
+ *
+ * Chrome numbers windows and tabs from scratch every session. Storage does not:
+ * it survives the browser being closed. So the number written here last night is,
+ * this morning, whatever window and tab happen to have been given those numbers
+ * -- and that is very often something of the seller's own. Left as it was, this
+ * would hand back their inbox, make it the selected tab, and then walk it to a
+ * portal page. Their page destroyed, and the walk then running in THEIR window
+ * beside their other tabs, which is the throttled arrangement this whole file
+ * exists to avoid -- reached by accident, silently.
+ *
+ * **THE REFERENCE CANNOT HIT THIS AND SO HAS NOTHING TO COPY.** It only ever
+ * calls `chrome.tabs.create` into its remembered window, so a stale number costs
+ * it a stray tab. Reusing a TAB is Kartaan's own idea, and this is the cost of
+ * it.
+ */
+export async function forgetOurWindow(chrome) {
+  await chrome.storage.local.remove([OUR_WINDOW, OUR_TAB]);
+}
+
+/**
+ * A tab to walk in: the only tab of our own window, never the seller's.
+ *
+ * **THIS IS THE WHOLE OF WHETHER THIS PRODUCT WORKS AT TWO IN THE MORNING, AND
+ * IT IS ONE SENTENCE OF CHROME'S:**
+ *
+ *   **CHROME THROTTLES A TAB'S TIMERS WHEN A DIFFERENT TAB IS SELECTED IN THAT
+ *   TAB'S WINDOW, OR WHEN THAT WINDOW IS MINIMISED. IT IS NOT TRIGGERED BY
+ *   SCREEN FOCUS, AND NOT BY WHETHER ANYBODY IS SITTING THERE.**
+ *   (developer.chrome.com/blog/timer-throttling-in-chrome-88)
+ *
+ * That single fact is why walking whatever tab we are handed does not work
+ * unattended and this does. At night the seller's own window is full of their
+ * own tabs; ours would be one of the unselected ones, and every wait in the walk
+ * would be stretched. **The reference measured what that costs: a fifteen-second
+ * wait silently taking NINE MINUTES OR MORE.** A walk under that reports a
+ * perfectly good page as a missing button.
+ *
+ * **SO THE TAB IS THE ONLY TAB OF A WINDOW OF OUR OWN, and that window is made
+ * UNFOCUSED and NOT MINIMISED.** Unfocused, because it must never take the
+ * screen away from somebody who is using their computer -- and it does not need
+ * to, because focus is not what throttling watches. Not minimised, because that
+ * IS what throttling watches.
+ *
+ * **AND WHAT THE REFERENCE ACTUALLY DOES IS NOT QUITE THIS, WHICH AN EARLIER
+ * VERSION OF THIS COMMENT GOT WRONG AND IS CORRECTED HERE RATHER THAN QUIETLY
+ * (D169, found by A26R).** `getOrCreateRumeeTab` is the shape copied, but it is
+ * the reference's SECOND choice: `openTabForJob` looks for a portal tab the
+ * seller already has open and BORROWS it, and only opens its own window when
+ * there is none. So always using a window of our own is an improvement ON the
+ * reference, not a copy of it -- **which also means it is new, and the months of
+ * nightly running do not vouch for it.**
+ *
+ * **AND THE NINE-MINUTE MEASUREMENT IS OF THE BORROWED TAB, NOT OF AN UNFOCUSED
+ * WINDOW.** It is what an unselected tab in the seller's own window costs, which
+ * is the case this avoids -- it is not evidence about the case this creates.
+ * **There is also a third trigger nobody here has measured:** Windows tells
+ * Chrome when a window is completely covered by another, and Chrome throttles
+ * that the same way. A window like this one sitting behind a maximised one at
+ * two in the morning is exactly that, and whether it is throttled is NOT KNOWN.
+ * Said plainly rather than assumed either way.
+ *
+ * **AND THE SAME TAB IS USED AGAIN NEXT TIME.** A tab per report leaves a
+ * window filling up with dead tabs, and the moment there are two of them one of
+ * them is not selected -- which is the throttled case, arrived at by tidiness.
+ */
+export async function aTabToWalkIn(chrome, { address = 'about:blank' } = {}) {
+  const held = await chrome.storage.local.get([OUR_WINDOW, OUR_TAB]);
+  const ourWindow = held[OUR_WINDOW];
+  const ourTab = held[OUR_TAB];
+
+  if (ourWindow !== undefined && ourWindow !== null) {
+    try {
+      const window = await chrome.windows.get(ourWindow);
+      /* **PUT BACK IF SOMEBODY MINIMISED IT, because minimised is throttled.**
+       * Still not focused: putting a window back on screen is not the same as
+       * taking somebody's screen, and only one of those is needed. */
+      if (window.state === 'minimized') {
+        await chrome.windows.update(ourWindow, { state: 'normal', focused: false });
+      }
+      if (ourTab !== undefined && ourTab !== null) {
+        const tab = await chrome.tabs.get(ourTab);
+        if (tab.windowId === ourWindow) {
+          /* **MADE THE SELECTED TAB, every time.** If anything else was ever
+           * opened in this window, ours is no longer the selected one -- and an
+           * unselected tab is a throttled tab whatever window it is in. */
+          await chrome.tabs.update(ourTab, { active: true });
+          return tab;
+        }
+      }
+      const made = await chrome.tabs.create({ url: address, windowId: ourWindow, active: true });
+      await chrome.storage.local.set({ [OUR_TAB]: made.id });
+      return made;
+    } catch (wrong) {
+      /* The window or the tab has been closed. Said plainly rather than
+       * treated as a failure: a seller closing a window is not a fault. */
+    }
+  }
+
+  const made = await chrome.windows.create({
+    url: address,
+    /* **NEVER TAKES THE SCREEN.** See above: focus is not what throttling
+     * watches, so there is nothing to be gained by stealing it. */
+    focused: false,
+    /* **AND NEVER MINIMISED, which IS what throttling watches.** */
+    state: 'normal',
+    ...WINDOW_SIZE,
+  });
+  const tab = (made.tabs && made.tabs[0]) || null;
+  await chrome.storage.local.set({ [OUR_WINDOW]: made.id, [OUR_TAB]: tab && tab.id });
+  return tab;
+}
 
 /**
  * Go to an address in the working tab, and wait for the page to finish drawing.
@@ -64,7 +204,27 @@ const ARMED_FOR_MS = 15 * 60 * 1000;
 export async function goTo(chrome, { tabId, address, patienceSeconds, now = () => Date.now(),
                                      rest = pause }) {
   if (!address) throw new Error('There is nowhere to go: no address was given.');
+  /* **READ BEFORE, because where the tab already is decides whether telling it
+   * where to go is a real page load at all.** See `sameDocumentAs` below. */
+  const before = await chrome.tabs.get(tabId);
   await chrome.tabs.update(tabId, { url: address });
+  /* **AND IF THAT WAS NOT A REAL PAGE LOAD, MAKE ONE.** This is the whole of
+   * Flipkart. Every Flipkart address in the recipe file is
+   * `https://seller.flipkart.com/index.html#...` -- the page is always
+   * `index.html` and the part that says WHICH report is after the `#`. Telling a
+   * tab to go to an address that differs only after the `#` moves the address
+   * bar and does not reload anything, so the content script is never put into
+   * the page again, so nothing ever asks the background where the walk was, and
+   * the walk stops for ever with no error anywhere. Silent, unattended, at
+   * night.
+   *
+   * **THE REFERENCE HIT THIS AND WROTE IT DOWN**, in its own words at
+   * `background.js:345`: "chrome.tabs.update only triggers a full page reload
+   * when the base URL (origin + pathname) changes... Chrome performs a
+   * same-document hashchange -- page does NOT reload, manifest content scripts
+   * are NOT re-injected, CONTENT_READY never fires -> silent stall." It forces a
+   * reload for exactly this reason and has done for months. */
+  if (sameDocumentAs(before && before.url, address)) await chrome.tabs.reload(tabId);
   const giveUpAt = now() + Math.max(0, Number(patienceSeconds) || 0) * 1000;
   for (;;) {
     const tab = await chrome.tabs.get(tabId);
@@ -137,6 +297,14 @@ export function watchForDownloads(chrome, { now = () => Date.now() } = {}) {
      *  going up -- which is exactly what waiting for the download to appear in a
      *  list and acting a moment later does, every time. */
     expectAFile: () => { expectingUntil = now() + ARMED_FOR_MS; },
+    /** The walk is over, so the next download is the SELLER'S and none of ours.
+     *
+     *  **WITHOUT THIS THE CANCEL STAYS ARMED FOR THE REST OF THE FIFTEEN
+     *  MINUTES**, and the next thing the seller downloaded by hand would vanish
+     *  in front of them with no explanation. A25R found this open and nothing
+     *  could close it, because nothing in the background knew when a walk had
+     *  ended. The walk saying so is what makes it closable. */
+    stopExpecting: () => { expectingUntil = 0; },
   };
 }
 
@@ -198,6 +366,29 @@ export async function takeTheFile(chrome, watching, {
     }
     await rest(LOOK_AGAIN_MS);
   }
+}
+
+/**
+ * Would going from one address to the other leave the same page in place?
+ *
+ * **IT ASKS ABOUT THE PART BEFORE THE `#`, AND NOTHING ELSE.** Two addresses
+ * that agree up to the `#` are the same document to a browser: going between
+ * them scrolls, it does not load. The page, its scripts and everything the
+ * extension put in it all stay exactly as they were.
+ *
+ * **AND THE SAME ADDRESS TWICE COUNTS.** The real `me_orders` goes to the orders
+ * page, asks for the export, and then goes to that same address again to collect
+ * it -- so "am I being asked to go where I already am" is not a hypothetical.
+ *
+ * **UNSURE IS ANSWERED NO.** Without host permission for the tab it is on,
+ * Chrome does not hand over its address at all. Answering yes there would reload
+ * a page nobody asked to reload; answering no leaves the ordinary path, which is
+ * what a tab the extension has no business in should get.
+ */
+export function sameDocumentAs(wasAt, goingTo) {
+  if (!wasAt || !goingTo) return false;
+  const upToTheHash = (one) => String(one).split('#')[0];
+  return upToTheHash(wasAt) === upToTheHash(goingTo);
 }
 
 function pause(ms) {

@@ -25,6 +25,9 @@ import { installFakeChrome } from '../test/fake-chrome.js';
 import {
   DAILY,
   EVERY_DAY_IN_MINUTES,
+  EVERY_TWO_MINUTES,
+  STAY_AWAKE,
+  makeSureTheWorkerIsWoken,
   FINISHED,
   NEEDS_SIGNING_IN,
   RUNNING,
@@ -40,9 +43,16 @@ import {
   stillOwedFrom,
   theRun,
   wireUp,
+  A_WALK_LASTS_MS,
+  THE_WALK,
+  beginTheWalk,
+  endTheWalk,
+  startAWalk,
+  theWalkInFlight,
+  theWalkMovedOn,
 } from './background.js';
 import { CAUGHT, TOO_BIG, catchTheNextFile } from './catch-blob.js';
-import { watchForDownloads } from './doors.js';
+import { OUR_TAB, OUR_WINDOW, aTabToWalkIn, watchForDownloads } from './doors.js';
 import { readFileSync } from 'node:fs';
 
 process.on('uncaughtException', (err) => {
@@ -63,6 +73,14 @@ process.on('exit', (code) => {
   console.log('FAIL  the checks stopped before the end -- something they waited on never came back');
   process.exitCode = 1;
 });
+
+/** Is the named alarm really set? **NAMED RATHER THAN COUNTED.** Counting
+ *  alarms said "the clock is set" about any alarm at all, and went red the day a
+ *  second, unrelated alarm was added -- which is a check measuring the wrong
+ *  thing and saying so only by accident. */
+function theAlarm(browser, name) {
+  return browser.alarms().find((one) => one.name === name) || null;
+}
 
 function check(name, passed) {
   ran++;
@@ -126,7 +144,7 @@ const LATER = '2026-08-27T16:04:00.000Z';
   const browser = installFakeChrome();
   let due = 0;
   await wireUp(browser.chrome, { onDue: async () => { due += 1; } });
-  check('wiring the worker up sets the clock on the way past', browser.alarms().length === 1);
+  check('wiring the worker up sets the clock on the way past', theAlarm(browser, DAILY) !== null);
 
   browser.forgetTheAlarms();
   check('and here the alarm is gone, with Chrome still running', browser.alarms().length === 0);
@@ -137,25 +155,29 @@ const LATER = '2026-08-27T16:04:00.000Z';
   browser.shutTheWorkerDown();
   await wireUp(browser.chrome, { onDue: async () => { due += 1; } });
   check('the next time the worker wakes, the clock is put back',
-    browser.alarms().length === 1 && browser.alarms()[0].name === DAILY);
+    theAlarm(browser, DAILY) !== null);
 }
 
 {
   const browser = installFakeChrome();
   let due = 0;
   await wireUp(browser.chrome, { onDue: async () => { due += 1; } });
-  check('the profile launching is listened for', browser.chrome.runtime.onStartup.many === 1);
+  /* **THAT SOMETHING IS LISTENING, NOT HOW MANY.** Counting listeners said "the
+   * profile launching is listened for" about the NUMBER of them, and went red
+   * the day a second, unrelated thing was hung off the same event -- a check
+   * measuring the wrong thing, saying so only by accident. */
+  check('the profile launching is listened for', browser.chrome.runtime.onStartup.many >= 1);
   check('and the extension being installed or updated too',
-    browser.chrome.runtime.onInstalled.many === 1);
+    browser.chrome.runtime.onInstalled.many >= 1);
   check('and the alarm itself', browser.chrome.alarms.onAlarm.many === 1);
 
   browser.forgetTheAlarms();
   await browser.chrome.runtime.onStartup.happened();
-  check('a profile launching with no alarm puts it back', browser.alarms().length === 1);
+  check('a profile launching with no alarm puts it back', theAlarm(browser, DAILY) !== null);
 
   browser.forgetTheAlarms();
   await browser.chrome.runtime.onInstalled.happened({ reason: 'update' });
-  check('and so does an update', browser.alarms().length === 1);
+  check('and so does an update', theAlarm(browser, DAILY) !== null);
 }
 
 {
@@ -172,7 +194,7 @@ const LATER = '2026-08-27T16:04:00.000Z';
   browser.forgetTheAlarms();
   await browser.chrome.alarms.onAlarm.happened({ name: DAILY });
   check('and the alarm going off also puts the clock back for next time',
-    browser.alarms().length === 1);
+    theAlarm(browser, DAILY) !== null);
 
   await browser.chrome.alarms.onAlarm.happened({ name: 'something-else' });
   check('somebody else\'s alarm does not start a run', due === 2);
@@ -573,7 +595,516 @@ const LATER = '2026-08-27T16:04:00.000Z';
   globalThis.URL = itsOwnURL;
 }
 
-const EXPECTED = 90;
+/* ------------------------------- D200: the walk that outlives its own page */
+
+/* **THE FAULT.** The walk runs inside the portal's own page, and its first step
+ * is to GO somewhere -- which destroys that page. Three walks died on his own
+ * Meesho panel on 5 September with "the message channel closed before a response
+ * was received", which is what that teardown looks like from this side. So the
+ * place in the walk has to live HERE, in storage, which is the only thing that
+ * survives both the page and this worker. */
+
+{
+  const browser = installFakeChrome();
+  const started = 1000;
+  await beginTheWalk(browser.chrome, {
+    tabId: 7, reportId: 'me_orders', dataDate: '2026-09-05', panel: 'x', startedAt: started,
+  });
+  check('a walk in flight is written where a page cannot lose it',
+    browser.stored()[THE_WALK].reportId === 'me_orders');
+  check('and the step it should be picked up at is nought to begin with',
+    browser.stored()[THE_WALK].at === 0);
+
+  const mine = await theWalkInFlight(browser.chrome, { tabId: 7, at: started + 1000 });
+  check('the tab the walk is in gets it back', mine && mine.reportId === 'me_orders');
+  /* **EVERY PORTAL PAGE THE SELLER OPENS ASKS THIS.** Answered loosely, an
+   * ordinary page somebody opened for themselves starts clicking through a
+   * report of its own accord. */
+  check('and no other tab does',
+    (await theWalkInFlight(browser.chrome, { tabId: 8, at: started + 1000 })) === null);
+  /* **AND IT RUNS OUT.** A tab closed mid-walk, or a page that never draws,
+   * would otherwise leave this here for ever -- and the next portal page that
+   * happened to open with that same tab number would pick up an old night's walk
+   * and start clicking. */
+  check('and a walk that has run out of time is not picked up by anybody',
+    (await theWalkInFlight(browser.chrome, { tabId: 7, at: started + A_WALK_LASTS_MS })) === null);
+
+  await theWalkMovedOn(browser.chrome, { tabId: 7, at: 4 });
+  check('moving the place on writes it down', browser.stored()[THE_WALK].at === 4);
+  check('and moving it on for some other tab does nothing at all',
+    (await theWalkMovedOn(browser.chrome, { tabId: 8, at: 99 })) === null
+    && browser.stored()[THE_WALK].at === 4);
+
+  /* **THE PLACE SURVIVES THE WORKER BEING SHUT DOWN, which is the whole reason
+   * it is in storage.** Chrome kills an idle service worker after thirty
+   * seconds; a Meesho orders export takes five minutes and goes somewhere twice
+   * on the way. Anything held in a variable here is gone before the second page
+   * has finished drawing. */
+  browser.shutTheWorkerDown();
+  const after = await theWalkInFlight(browser.chrome, { tabId: 7, at: started + 1000 });
+  check('and the place survives Chrome shutting the worker down mid-walk',
+    after && after.at === 4 && after.reportId === 'me_orders');
+
+  await endTheWalk(browser.chrome, {
+    tabId: 7, answer: { state: 'landed', reportId: 'me_orders' }, at: started + 2000,
+  });
+  check('ending the walk leaves the answer behind rather than throwing it away',
+    browser.stored()[THE_WALK].answer.state === 'landed');
+  check('and a finished walk is not picked up again by the next page that loads',
+    (await theWalkInFlight(browser.chrome, { tabId: 7, at: started + 2100 })) === null);
+}
+
+{
+  /* **THE ORDERING THAT IS THE WHOLE OF D200: the place is written BEFORE the
+   * page is sent anywhere.** Written after, the page that would have written it
+   * has already been destroyed, nothing ever asks where the walk was, and the
+   * walk stops for ever -- silently, at night, with nobody watching. */
+  const browser = installFakeChrome();
+  await browser.chrome.tabs.create({ url: 'https://supplier.meesho.com/panel/x/orders/' });
+  let placeWhenItWentSomewhere = 'the page was sent away before the place was written';
+  const watching = watchForDownloads(browser.chrome);
+  wireUp(browser.chrome, {
+    onDue: async () => {},
+    answer: answerThePage(browser.chrome, {
+      /* Read at the very moment the page is being destroyed. */
+      goTo: async () => {
+        const held = await browser.chrome.storage.local.get(THE_WALK);
+        placeWhenItWentSomewhere = held[THE_WALK] && held[THE_WALK].at;
+      },
+      takeTheFile: async () => null,
+      watching,
+      say: () => {},
+      secret: () => 'a-secret',
+    }),
+  });
+  await beginTheWalk(browser.chrome, {
+    tabId: 1, reportId: 'me_orders', dataDate: '2026-09-05', startedAt: Date.now(),
+  });
+  await browser.aPageAsked({
+    do: 'go', address: 'https://supplier.meesho.com/panel/x/o', patience: 5, at: 7,
+  });
+  check('the place is already written down at the moment the page is sent away',
+    placeWhenItWentSomewhere === 7);
+}
+
+{
+  /* **A PAGE THAT NEVER DRAWS ENDS THE WALK, because there is nobody else left
+   * to end it.** The page that asked is already gone, so a failure thrown at its
+   * caller is thrown at nothing: the walk would sit in storage until its time ran
+   * out, and the day's report would simply be missing with no word anywhere. */
+  const browser = installFakeChrome();
+  await browser.chrome.tabs.create({ url: 'https://supplier.meesho.com/panel/x/orders/' });
+  const watching = watchForDownloads(browser.chrome);
+  wireUp(browser.chrome, {
+    onDue: async () => {},
+    answer: answerThePage(browser.chrome, {
+      goTo: async () => {
+        throw new Error('The page at https://x had not finished drawing after 30 seconds.');
+      },
+      takeTheFile: async () => null,
+      watching,
+      say: () => {},
+      secret: () => 'a-secret',
+    }),
+  });
+  await beginTheWalk(browser.chrome, {
+    tabId: 1, reportId: 'me_orders', dataDate: '2026-09-05', startedAt: Date.now(),
+  });
+  await browser.aPageAsked({
+    do: 'go', address: 'https://x', patience: 30, at: 1,
+    reportId: 'me_orders', dataDate: '2026-09-05',
+  });
+  const stuck = browser.stored()[THE_WALK];
+  check('a page that never draws ends the walk rather than leaving it hanging',
+    stuck.answer && stuck.answer.state === 'failed');
+  check('and the failure says the page never drew, against the report it was for',
+    stuck.answer.say.includes('had not finished drawing')
+    && stuck.answer.reportId === 'me_orders');
+}
+
+{
+  /* **THE ANSWER COMES BACK AS ITS OWN MESSAGE, NOT AS A REPLY**, because the
+   * reply to the message that started the walk went down with the first page.
+   * **And the download-cancel is disarmed with it** -- left armed, the next file
+   * the seller downloaded by hand would vanish in front of them. A25R found this
+   * open and nothing could close it, because nothing here knew a walk had
+   * ended. */
+  const browser = installFakeChrome();
+  await browser.chrome.tabs.create({ url: 'https://supplier.meesho.com/panel/x/orders/' });
+  const watching = watchForDownloads(browser.chrome);
+  wireUp(browser.chrome, {
+    onDue: async () => {},
+    answer: answerThePage(browser.chrome, {
+      goTo: async () => {},
+      takeTheFile: async () => null,
+      watching,
+      say: () => {},
+      secret: () => 'a-secret',
+    }),
+  });
+  await beginTheWalk(browser.chrome, {
+    tabId: 1, reportId: 'me_orders', dataDate: '2026-09-05', startedAt: Date.now(),
+  });
+  watching.expectAFile();
+  await browser.aPageAsked({
+    do: 'walk-done', answer: { state: 'landed', reportId: 'me_orders', size: 44593 },
+  });
+  check('a walk saying it is done writes its answer where a run can read it',
+    browser.stored()[THE_WALK].answer.size === 44593);
+  await browser.aDownloadStarted({ id: 9, url: 'https://storage.example.invalid/the-sellers.xlsx' });
+  check('and the cancel is disarmed, so the next download the seller starts is left alone',
+    browser.cancelledDownloads().length === 0);
+}
+
+{
+  /* **A TAB CLOSED MID-WALK IS A NAMED FAILURE, NOT A SILENT HANG.** Nothing
+   * will ever ask where that walk was again. Without this the record sits saying
+   * "running" until its time runs out and the day's report is simply missing. */
+  const browser = installFakeChrome();
+  const tab = await browser.chrome.tabs.create({ url: 'https://supplier.meesho.com/panel/x/o/' });
+  const watching = watchForDownloads(browser.chrome);
+  wireUp(browser.chrome, {
+    onDue: async () => {},
+    answer: answerThePage(browser.chrome, {
+      goTo: async () => {},
+      takeTheFile: async () => null,
+      watching,
+      say: () => {},
+      secret: () => 's',
+    }),
+  });
+  await beginTheWalk(browser.chrome, {
+    tabId: tab.id, reportId: 'me_orders', dataDate: '2026-09-05', startedAt: Date.now(),
+  });
+  await browser.chrome.tabs.remove(tab.id);
+  const ended = browser.stored()[THE_WALK];
+  check('a tab closed part way through a walk ends it rather than leaving it hanging',
+    ended.answer && ended.answer.state === 'failed');
+  check('and it says the tab was closed, against the report it was fetching',
+    ended.answer.say.includes('was closed') && ended.answer.reportId === 'me_orders');
+}
+
+{
+  /* **AND CLOSING SOME OTHER TAB DOES NOTHING.** The seller has their own tabs
+   * open; closing one of them must not end a walk going on elsewhere. */
+  const browser = installFakeChrome();
+  const walkTab = await browser.chrome.tabs.create({ url: 'https://supplier.meesho.com/p/o/' });
+  const otherTab = await browser.chrome.tabs.create({ url: 'https://supplier.meesho.com/p/home' });
+  const watching = watchForDownloads(browser.chrome);
+  wireUp(browser.chrome, {
+    onDue: async () => {},
+    answer: answerThePage(browser.chrome, {
+      goTo: async () => {},
+      takeTheFile: async () => null,
+      watching,
+      say: () => {},
+      secret: () => 's',
+    }),
+  });
+  await beginTheWalk(browser.chrome, {
+    tabId: walkTab.id, reportId: 'me_orders', dataDate: '2026-09-05', startedAt: Date.now(),
+  });
+  await browser.chrome.tabs.remove(otherTab.id);
+  check('closing one of the seller other tabs leaves the walk alone',
+    browser.stored()[THE_WALK].answer === null);
+}
+
+{
+  /* **AND THE PAGE HALF CAN ASK FOR IT.** This is the message every portal page
+   * the seller opens sends, and the answer is almost always nothing. */
+  const browser = installFakeChrome();
+  await browser.chrome.tabs.create({ url: 'https://supplier.meesho.com/panel/x/orders/' });
+  const watching = watchForDownloads(browser.chrome);
+  wireUp(browser.chrome, {
+    onDue: async () => {},
+    answer: answerThePage(browser.chrome, {
+      goTo: async () => {},
+      takeTheFile: async () => null,
+      watching,
+      say: () => {},
+      secret: () => 's',
+    }),
+  });
+  check('an ordinary portal page asking is told there is nothing to carry on',
+    ((await browser.aPageAsked({ do: 'resume?' })) || {}).walk === null);
+  await beginTheWalk(browser.chrome, {
+    tabId: 1, reportId: 'me_orders', dataDate: '2026-09-05', at: 4, startedAt: Date.now(),
+  });
+  const carryOn = (await browser.aPageAsked({ do: 'resume?' })).walk;
+  check('and the page the last go landed on is told where to pick the walk up',
+    carryOn && carryOn.reportId === 'me_orders' && carryOn.at === 4);
+}
+
+{
+  /* **THE SLOW NIGHT, AND IT IS THE ONE THAT COULD NEVER FAIL WHILE SOMEBODY WAS
+   * WATCHING.** "The page finished drawing" means Chrome finished fetching
+   * everything on it -- adverts and trackers included. The page half runs long
+   * before that, at `document_idle`. So on a heavy portal on a slow connection
+   * the walk can be several steps further on while Chrome still calls the tab
+   * busy, and the go's own patience runs out on a walk that is working
+   * perfectly. Ending it there kills a good walk, at night, on a slow line, and
+   * never once on a fast one. */
+  const browser = installFakeChrome();
+  await browser.chrome.tabs.create({ url: 'https://supplier.meesho.com/panel/x/orders/' });
+  const watching = watchForDownloads(browser.chrome);
+  wireUp(browser.chrome, {
+    onDue: async () => {},
+    answer: answerThePage(browser.chrome, {
+      goTo: async () => {
+        /* The page really drew and really took the walk up -- and only THEN did
+         * Chrome give up on the last advert. */
+        await browser.aPageAsked({ do: 'resume?' });
+        throw new Error('The page at https://x had not finished drawing after 30 seconds.');
+      },
+      takeTheFile: async () => null,
+      watching,
+      say: () => {},
+      secret: () => 'a-secret',
+    }),
+  });
+  await beginTheWalk(browser.chrome, {
+    tabId: 1, reportId: 'me_orders', dataDate: '2026-09-05', startedAt: Date.now(),
+  });
+  await browser.aPageAsked({
+    do: 'go', address: 'https://x', patience: 30, at: 1,
+    reportId: 'me_orders', dataDate: '2026-09-05',
+  });
+  check('a walk a page has already taken up is not killed by the go running out of patience',
+    browser.stored()[THE_WALK].answer === null);
+  check('and it is still there for that page to finish',
+    (await theWalkInFlight(browser.chrome, { tabId: 1 })) !== null);
+}
+
+{
+  /* **THE BOOKS ARE OPENED BEFORE THE PAGE IS TOLD ANYTHING.** The walk's very
+   * first step is a `go`, so the page being asked to start can be destroyed
+   * within a second of hearing. With no record written by then, `go` has nothing
+   * to move on, the next page asks where the walk was and is told nothing, and
+   * the walk is over before it began -- which reads exactly like the fault all
+   * of this exists to fix. */
+  const browser = installFakeChrome();
+  const openAt = 'https://supplier.meesho.com/panel/v3/new/';
+  /* The window our walk gets is made by the product, so let it finish drawing
+   * the way a real one does. */
+  const started = startAWalk(browser.chrome, {
+    reportId: 'me_catalog', dataDate: '2026-09-05', panel: 'xuptj', openAt, patience: 30,
+  });
+  for (let round = 0; round < 40; round += 1) {
+    // eslint-disable-next-line no-await-in-loop
+    await Promise.resolve();
+    for (const one of browser.tabs()) browser.theTabFinishedDrawing(one.id);
+  }
+  await started;
+
+  check('starting a walk opens a window of our own rather than using the seller own',
+    browser.windows().length === 1 && browser.windows()[0].focused === false
+    && browser.windows()[0].state === 'normal');
+  check('and the walk was written down before that window went anywhere near the portal',
+    browser.stored()[THE_WALK].reportId === 'me_catalog'
+    && browser.stored()[THE_WALK].at === 0);
+  check('and the seller own panel name was written with it',
+    browser.stored()[THE_WALK].panel === 'xuptj');
+  /* **NOTHING IS PUSHED AT THE PAGE.** An earlier version messaged the tab the
+   * instant it was made -- at a blank page, where our own half is not running
+   * and nothing was listening. The page asks; it is never told. */
+  check('and nothing was pushed at a page that was not there to hear it',
+    browser.sentToPages().length === 0);
+  check('and the walk is there for the first page to ask for',
+    (await theWalkInFlight(browser.chrome, { tabId: browser.stored()[THE_WALK].tabId })) !== null);
+  check('and the tab it is in really went to the portal',
+    browser.tabs().find((one) => one.id === browser.stored()[THE_WALK].tabId).url === openAt);
+  /* **AND WHERE IT STARTS FROM IS THE RECIPE'S BUSINESS, NOT THIS FILE'S.** */
+  check('a walk with nowhere to start from is refused rather than guessed at',
+    (await said(() => startAWalk(browser.chrome, { reportId: 'x', dataDate: 'y' })))
+      .includes('which portal page to start from'));
+}
+
+{
+  /* **THE BOOKS ARE OPEN BEFORE THE TAB IS SENT AT THE PORTAL, and this stands
+   * at the exact moment it happens rather than looking afterwards.** The page
+   * asks for its walk the instant it loads. Written after, the first page has
+   * already asked and been told nothing, and the walk is over before it began --
+   * which reads exactly like the fault all of this exists to fix. */
+  const browser = installFakeChrome();
+  let writtenWhenItWentToThePortal = 'the tab was sent at the portal with the books still shut';
+  await startAWalk(browser.chrome, {
+    reportId: 'me_catalog',
+    dataDate: '2026-09-05',
+    openAt: 'https://supplier.meesho.com/panel/v3/new/',
+    go: async () => {
+      const held = await browser.chrome.storage.local.get(THE_WALK);
+      writtenWhenItWentToThePortal = held[THE_WALK] ? held[THE_WALK].reportId : 'nothing written';
+    },
+  });
+  check('the walk is already written down at the moment the tab is sent at the portal',
+    writtenWhenItWentToThePortal === 'me_catalog');
+}
+
+{
+  /* **ONLY THE PAGE THAT CURRENTLY HAS THE WALK MAY END IT, and this is a fault
+   * his own Chrome reported while this was being built:** "The page keeping the
+   * extension port is moved into back/forward cache, so the message channel is
+   * closed."
+   *
+   * A page the walk has LEFT is not always destroyed. Chrome may freeze it in
+   * the back/forward cache instead, with its `go` message still half-said. Thaw
+   * it -- the seller pressing Back is enough -- and that message fails, the walk
+   * inside that old page throws, and the OLD page reports a failure for a walk a
+   * NEWER page is running perfectly. The day's report would be filed as broken
+   * while it was in fact being fetched. */
+  const browser = installFakeChrome();
+  await browser.chrome.tabs.create({ url: 'https://supplier.meesho.com/p/o/' });
+  const watching = watchForDownloads(browser.chrome);
+  wireUp(browser.chrome, {
+    onDue: async () => {},
+    answer: answerThePage(browser.chrome, {
+      goTo: async () => {},
+      takeTheFile: async () => null,
+      watching,
+      say: () => {},
+      secret: () => 's',
+    }),
+  });
+  await beginTheWalk(browser.chrome, {
+    tabId: 1, reportId: 'me_orders', dataDate: '2026-09-05', at: 0, startedAt: Date.now(),
+  });
+  /* The first page hands the walk on at step 4, and the page that lands there
+   * takes it up. */
+  await browser.aPageAsked({ do: 'go', address: 'https://x', patience: 5, at: 4 });
+  await browser.aPageAsked({ do: 'resume?' });
+
+  /* Now the frozen first page thaws and says the walk failed. */
+  const refused = await browser.aPageAsked({
+    do: 'walk-done', from: 0,
+    answer: { state: 'failed', reportId: 'me_orders', say: 'the message channel closed' },
+  });
+  check('a page the walk has left cannot end the walk that is still running',
+    refused && refused.ended === false && refused.stale === true);
+  check('and the walk is untouched, still there for the page that really has it',
+    browser.stored()[THE_WALK].answer === null);
+
+  /* And the page that really has it is heard. */
+  const heard = await browser.aPageAsked({
+    do: 'walk-done', from: 4, answer: { state: 'landed', reportId: 'me_orders', size: 44593 },
+  });
+  check('while the page that really has the walk is heard',
+    heard && heard.ended === true && browser.stored()[THE_WALK].answer.size === 44593);
+}
+
+/* ------------------------------ D200: something has to wake this worker at all */
+
+{
+  /* **`makeSureTheClockIsSet` IS ASKED EVERY TIME THIS WORKER STARTS, WHICH IS
+   * THE RIGHT SHAPE -- BUT NOTHING STARTS A WORKER THAT NOTHING IS WAKING.** If
+   * the daily alarm is cleared while Chrome is running, the one thing that would
+   * have woken this worker tomorrow is the thing that has gone, so the check
+   * that would have put it back never runs. That is the nine-day outage, and the
+   * shape above narrows it rather than closing it. */
+  const browser = installFakeChrome();
+  const made = await makeSureTheWorkerIsWoken(browser.chrome);
+  check('something is asked to wake this worker regularly', made === true);
+  check('and it goes off every two minutes',
+    theAlarm(browser, STAY_AWAKE).periodInMinutes === EVERY_TWO_MINUTES);
+  /* **CHROME REFUSES ANYTHING UNDER HALF A MINUTE**, in its own words, so an
+   * alarm asked for too often is an alarm that never arrives. */
+  check('and that is comfortably above the half minute Chrome refuses to honour',
+    EVERY_TWO_MINUTES >= 0.5);
+  check('and it is asked to survive a browser restart',
+    theAlarm(browser, STAY_AWAKE).persistAcrossSessions === true);
+  check('and asking twice does not make a second one',
+    (await makeSureTheWorkerIsWoken(browser.chrome)) === false);
+}
+
+{
+  /* **THE OUTAGE, CLOSED.** The daily alarm is cleared while Chrome runs.
+   * Neither lifecycle event fires. But something still wakes this worker -- and
+   * waking is when the daily alarm is put back. */
+  const browser = installFakeChrome();
+  await wireUp(browser.chrome, { onDue: async () => {} });
+  check('wiring the worker up asks for both alarms, not just the daily one',
+    theAlarm(browser, DAILY) !== null && theAlarm(browser, STAY_AWAKE) !== null);
+
+  browser.forgetTheAlarms();
+  check('and here they are both gone, with Chrome still running',
+    browser.alarms().length === 0);
+
+  /* Whatever wakes it next -- and with a two-minute alarm something will --
+   * puts the daily clock back. */
+  await browser.chrome.alarms.create(STAY_AWAKE, { periodInMinutes: EVERY_TWO_MINUTES });
+  await browser.chrome.alarms.onAlarm.happened({ name: STAY_AWAKE });
+  check('and the waking alarm going off puts the daily clock back',
+    theAlarm(browser, DAILY) !== null);
+}
+
+{
+  /* **AND IT IS NOT THE DAILY RUN.** A worker woken every two minutes that also
+   * ran the night's fetch would fetch every report seven hundred times a day. */
+  const browser = installFakeChrome();
+  let due = 0;
+  await wireUp(browser.chrome, { onDue: async () => { due += 1; } });
+  await browser.chrome.alarms.onAlarm.happened({ name: STAY_AWAKE });
+  check('being woken is not the same as being due, so nothing is fetched',
+    due === 0);
+  await browser.chrome.alarms.onAlarm.happened({ name: DAILY });
+  check('while the daily alarm really is the one that fetches', due === 1);
+}
+
+{
+  /* **CHROME STARTING FORGETS WHICH WINDOW WAS OURS, AND THIS IS NOT TIDYING UP
+   * (A26R).** Chrome numbers windows and tabs from scratch every session;
+   * storage does not. Last night's tab number is this morning's something else,
+   * very often something of the seller's own -- and `aTabToWalkIn` would make it
+   * the selected tab and then walk it to a portal page, destroying whatever they
+   * had open, and running the walk in THEIR window beside their other tabs,
+   * which is the throttled arrangement the window exists to avoid. */
+  const browser = installFakeChrome();
+  const ours = await aTabToWalkIn(browser.chrome);
+  check('while Chrome is running, our window is remembered',
+    browser.stored()[OUR_WINDOW] === ours.windowId && browser.stored()[OUR_TAB] === ours.id);
+
+  await wireUp(browser.chrome, { onDue: async () => {} });
+  await browser.chrome.runtime.onStartup.happened();
+  check('and Chrome starting forgets it, because the numbers mean something else now',
+    browser.stored()[OUR_WINDOW] === undefined && browser.stored()[OUR_TAB] === undefined);
+
+  /* **AND WHAT IT DOES INSTEAD IS OPEN A NEW ONE, not refuse.** */
+  const after = await aTabToWalkIn(browser.chrome);
+  check('and the next walk opens a window of its own rather than borrowing one',
+    after.windowId !== undefined && browser.stored()[OUR_WINDOW] === after.windowId);
+}
+
+{
+  /* **A CHECK THAT SAYS WHAT IS TRUE RATHER THAN WHAT IS WANTED (A26R).**
+   *
+   * The armed download-cancel lives in a VARIABLE in this worker, and it has to
+   * -- the cancel must happen with no `await` in front of it or Chrome's Save-as
+   * window is already up. But Chrome shuts this worker down after thirty seconds
+   * of quiet, and during a `wait-for` step NOTHING reaches this worker at all:
+   * `driver.js` never touches `chrome`, so every look, click and page read
+   * happens in the page. `me_orders` waits up to 60 seconds at step 7 and
+   * `fk_orders` up to 120 at step 3.
+   *
+   * **SO THE ARM IS LOST ACROSS THE LONGEST RECIPES, AND THAT IS A DEPARTURE
+   * FROM D196**, which was set the same day this was written and says a Save-as
+   * window on an unattended seller is "the worst failure this product can have".
+   * **IT IS NOT FIXED HERE AND THIS CHECK DOES NOT PRETEND IT IS.** It pins the
+   * fault so that whoever fixes it sees this go red, rather than leaving a check
+   * that reads as covering something it never touches. */
+  const browser = installFakeChrome();
+  let watching = watchForDownloads(browser.chrome);
+  watching.expectAFile();
+  browser.shutTheWorkerDown();
+  /* What Chrome does next: starts the worker again, and `worker.js`'s top-level
+   * line builds a brand new watcher with nothing armed. */
+  watching = watchForDownloads(browser.chrome);
+  await browser.aDownloadStarted({ id: 1, url: 'https://storage.example.invalid/ours.xlsx' });
+  check('KNOWN FAULT, not fixed: the armed cancel does NOT survive the worker being shut down',
+    browser.cancelledDownloads().length === 0);
+  check('and the address is still caught, so the file itself is not lost -- only the cancel is',
+    watching.seen().length === 1);
+}
+
+const EXPECTED = 138;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

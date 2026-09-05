@@ -14,6 +14,23 @@
  * the recipe says so. A walk living in the background would be killed a tenth of
  * the way through, every time.
  *
+ * **BUT A WALK IS BIGGER THAN ONE PAGE, AND FOR THE SAME KIND OF REASON (D200).**
+ * Its first step is to GO somewhere, and going somewhere destroys the page it is
+ * running in. `doors.js` has said so in its own header from the beginning --
+ * "going somewhere tears down whatever is running in the old page" -- and
+ * nothing here reconciled that with the walk living in the page. Three walks
+ * died on his own Meesho panel on 5 September saying "the message channel closed
+ * before a response was received", which is that teardown seen from the other
+ * side.
+ *
+ * **SO A WALK IS A SEQUENCE OF TURNS, ONE PER PAGE.** A `go` ends the turn: the
+ * walk says which step comes next, the background writes that number where
+ * neither the page nor the worker can lose it, and the page Chrome draws next
+ * asks for it and carries on. The reference has worked this way for months --
+ * its own `goToPage` returns false meaning "I have navigated; the reload will
+ * re-fire me", and the job it is walking lives in the background, never in the
+ * page.
+ *
  * **IT ANSWERS THE SAME FOUR WORDS THE AMAZON DOOR ANSWERS.** That is the whole
  * of D100: one report list, one log, one board, and the door a detail underneath.
  * A report moving to an API is one word in the report list and nothing here
@@ -30,6 +47,27 @@ export const LANDED = 'landed';
 export const NOTHING_TO_FETCH = 'nothing-to-fetch';
 export const STILL_WAITING = 'still-waiting';
 export const FAILED = 'failed';
+
+/* **WHAT A WALK SAYS WHEN IT HAS NOT FINISHED, AND IT IS DELIBERATELY NOT ONE OF
+ * THE FOUR WORDS ABOVE.** A walk now spans several pages -- going somewhere ends
+ * the page's turn -- so there has to be a way of saying "the walk is alive and
+ * somewhere else now" that the runner can never mistake for an outcome.
+ *
+ * **IT IS SAID WITH NO `state` AT ALL, and that is the safety.** Everything the
+ * runner reads asks for `state` first. A fifth spelling of "it worked" is a
+ * report the runner cannot read; a thing with no `state` is a thing the runner
+ * cannot read AS an outcome, which is what is wanted. It never leaves the page
+ * half: `content.js` takes it and says nothing to anybody. */
+export const CARRYING_ON = 'carrying-on';
+
+function carryingOn(at) {
+  return { carryingOn: CARRYING_ON, at };
+}
+
+/** Is this a walk that has moved to another page rather than an outcome? */
+export function hasNotFinished(answer) {
+  return Boolean(answer && answer.carryingOn === CARRYING_ON);
+}
 
 /* What a step can be. These cross the wire in every recipe, so they are the
  * Python spellings exactly. */
@@ -306,6 +344,10 @@ export function theWalk({ door, book, say }) {
    */
   return async function walk(reportId, dataDate, {
     panel = '', askedAlready = null, fileName = '', dayInWords = '',
+    /* **WHERE TO PICK THE WALK UP, because the page that started it is gone.**
+     * Nought on the first turn. After a `go`, the background holds the next
+     * number and hands it to whichever page Chrome draws next. */
+    startAt = 0,
   } = {}) {
     let plan;
     try {
@@ -324,13 +366,28 @@ export function theWalk({ door, book, say }) {
       return anAnswer(FAILED, reportId, dataDate, { say: wrong.message });
     }
 
-    for (const step of plan.steps) {
+    for (let at = 0; at < plan.steps.length; at += 1) {
+      const step = plan.steps[at];
       const wrong = whyStepIsRefused(step);
       if (wrong) {
         return anAnswer(FAILED, reportId, dataDate, { say: `This recipe is wrong: ${wrong}` });
       }
 
-      /* **ASKED FIRST, EVERY STEP, AND IT IS NOT THIS REPORT'S FAULT.** */
+      /* **THE STEPS AN EARLIER PAGE ALREADY WALKED ARE STILL READ, AND STILL
+       * REFUSED IF THEY ARE WRONG -- they are simply not done again.** A recipe
+       * being wrong is a fault in this product whichever turn notices it, and a
+       * walk that resumed past the bad step would report the fault on some later
+       * night and not on this one. What is skipped is the DOING, because it has
+       * already been done in a page that no longer exists. */
+      if (at < startAt) continue;
+
+      /* **ASKED FIRST, EVERY STEP, AND IT IS NOT THIS REPORT'S FAULT.**
+       *
+       * **THIS IS ALSO WHAT CATCHES A SESSION THAT EXPIRED HALF WAY THROUGH A
+       * WALK.** A walk now spans several pages, and the portal can sign the
+       * seller out between any two of them -- the first step of the new page
+       * asks again, before anything is clicked, and the answer is the same
+       * "somebody has to sign in" it would have been at the start. */
       if (await door.needs_signing_in()) {
         throw new NeedsSigningIn(
           'The panel is asking to be signed in to. Nothing can be fetched from it until somebody '
@@ -339,8 +396,23 @@ export function theWalk({ door, book, say }) {
       }
 
       if (step.do === GO) {
-        await door.go(step.address, step.patience);
-        continue;
+        /* **GOING SOMEWHERE ENDS THIS PAGE'S TURN, AND THAT IS THE WHOLE OF
+         * D200.** The walk runs inside the portal's own page. Telling the
+         * background to go somewhere destroys that page -- so there is no
+         * "afterwards" here to continue in, and the `continue` that used to be
+         * on this line could never have run. Three walks died on his own panel
+         * with "the message channel closed before a response was received",
+         * which is what a page being torn down mid-sentence looks like from the
+         * other side.
+         *
+         * **SO THE PLACE IN THE WALK IS HANDED OVER BEFORE THE PAGE GOES**, and
+         * the page that Chrome draws next asks for it and carries on from there.
+         * The reference answers this the same way and has for months: its own
+         * `goToPage` returns false meaning "I have navigated; the reload will
+         * re-fire me", and the job it is walking lives in the background, not in
+         * the page. */
+        await door.go(step.address, step.patience, at + 1);
+        return carryingOn(at + 1);
       }
 
       if (step.do === PICK_RANGE) {

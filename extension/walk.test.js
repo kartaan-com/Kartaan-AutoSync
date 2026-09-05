@@ -26,6 +26,7 @@ import {
   NeedsSigningIn,
   STILL_WAITING,
   capture,
+  hasNotFinished,
   daysBefore,
   theWalk,
   whatIsCovering,
@@ -89,6 +90,25 @@ const BOOK = {
         step({ do: 'click', find: find('Export data'), why: 'asking for the export' }),
         step({ do: 'take-file', find: find('Download'), patience: 300,
           why: 'taking the finished file' }),
+      ],
+    },
+    /* **TWO PAGES, WHICH IS THE SHAPE THE REAL `me_orders` HAS.** Its take list
+     * goes to the orders page, asks for the export, and then GOES BACK to the
+     * same address to collect it -- so a real walk of it spans three pages and
+     * two teardowns. Nothing in this file could see that before D200, because
+     * the harness walked a recipe in one go and the product cannot. */
+    me_two_pages: {
+      readyInMinutes: 0,
+      toAsk: [],
+      toTake: [
+        step({ do: 'go', address: 'https://supplier.example.invalid/panel/{panel}/orders',
+          why: 'opening the orders page' }),
+        step({ do: 'wait-for', find: find('Download Orders Data'), why: 'waiting for it to draw' }),
+        step({ do: 'click', find: find('Export data'), why: 'asking for the export' }),
+        step({ do: 'go', address: 'https://supplier.example.invalid/panel/{panel}/orders',
+          patience: 60, why: 'going back for the finished file' }),
+        step({ do: 'wait-for', find: find('Download'), why: 'waiting for the file to be offered' }),
+        step({ do: 'take-file', find: find('Download'), patience: 300, why: 'taking it' }),
       ],
     },
     /* **A DAY AND A PANEL NAMED TWICE IN ONE ADDRESS (cycle 46, R6#15).** No
@@ -187,13 +207,23 @@ const BOOK = {
 function aPortal(how = {}) {
   const it = {
     went: [], clicked: [], ranges: [], stepsSeen: 0, patienceTold: [], tookFile: 0,
+    handedOver: [], turns: 0,
   };
   it.door = {
-    async go(address, patience) {
+    async go(address, patience, nextAt) {
       it.went.push(address);
       it.patienceTold.push(['go', patience]);
+      /* **WHAT THE REAL BACKGROUND IS HANDED, and it is recorded because it is
+       * the only thing that survives the page.** Everything else this stand-in
+       * remembers would be lost with the page in front of a seller; this number
+       * is the walk's whole memory. */
+      it.handedOver.push(nextAt);
     },
     async needs_signing_in() {
+      /* **SIGNED OUT PART WAY THROUGH, which is a case that could not exist
+       * before D200 and now can.** A walk spans several pages; the portal can
+       * end the session between any two of them. */
+      if (how.signedOutFromTurn !== undefined) return it.turns >= how.signedOutFromTurn;
       return Boolean(how.signedOut);
     },
     async overlays() {
@@ -256,16 +286,44 @@ function aPortal(how = {}) {
   return it;
 }
 
-function aWalk(portal) {
-  const walking = theWalk({ door: portal.door, book: BOOK, say: (line) => SAID.push(line) });
+/**
+ * Walk a report the way the extension really walks one: in TURNS.
+ *
+ * **THIS IS NOT A CONVENIENCE, IT IS THE STAND-IN BEING HONEST (D200).** A walk
+ * no longer runs to the end inside one page. Going somewhere destroys the page
+ * that asked, so the walk hands back "carrying on, from step N", and the page
+ * Chrome draws next starts again at N. A harness that called the walk once and
+ * expected an outcome would be testing a product that does not exist -- and
+ * would have gone green on the very fault that killed three walks on his own
+ * panel.
+ *
+ * So this loop IS `content.js` and the background, in miniature: the number is
+ * the only thing carried across, a fresh walk is built each turn, and nothing
+ * the previous turn held survives.
+ */
+function aWalk(portal, book = BOOK) {
   return async (reportId, day, rest = {}) => {
-    try {
-      return await walking(reportId, day, { panel: PANEL, ...rest });
-    } catch (wrong) {
-      if (wrong instanceof NeedsSigningIn) throw wrong;
-      THREW.push(`${reportId}: ${wrong && wrong.message}`);
-      return NOTHING;
+    let startAt = 0;
+    for (let turn = 0; turn < 40; turn += 1) {
+      portal.turns += 1;
+      /* **BUILT AGAIN EVERY TURN, exactly as the page half is.** Sharing one
+       * walk across turns would let a variable carry state that a real page
+       * loses, which is the kindness that hides this whole class of fault. */
+      const walking = theWalk({ door: portal.door, book, say: (line) => SAID.push(line) });
+      let answer;
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        answer = await walking(reportId, day, { panel: PANEL, startAt, ...rest });
+      } catch (wrong) {
+        if (wrong instanceof NeedsSigningIn) throw wrong;
+        THREW.push(`${reportId}: ${wrong && wrong.message}`);
+        return NOTHING;
+      }
+      if (!hasNotFinished(answer)) return answer;
+      startAt = answer.at;
     }
+    THREW.push(`${reportId}: it kept carrying on and never finished`);
+    return NOTHING;
   };
 }
 
@@ -686,8 +744,12 @@ check('asked to step back by nothing at all, it answers the day itself',
     got.say.includes("seller's own data"));
   /* **WHILE FLIPKART NEEDS NONE.** A requirement of one platform must not be
    * applied to the other. */
+  /* **WALKED IN TURNS, because a Flipkart recipe really goes somewhere** and a
+   * single call now answers "carrying on" rather than an outcome. Left as one
+   * call this read as a failure, which is the harness lying about the product. */
+  const fk = aPortal();
   check('while a Flipkart one needs no panel name at all',
-    (await walking('fk_orders', DAY, { panel: '', askedAlready: DAY })).state === LANDED);
+    (await aWalk(fk)('fk_orders', DAY, { panel: '', askedAlready: DAY })).state === LANDED);
 }
 
 {
@@ -706,15 +768,119 @@ check('asked to step back by nothing at all, it answers the day itself',
    * reassuring sentence nobody can trace back is worse than an awkward one. */
   const thin = { recipes: BOOK.recipes, whatItMeans: {}, buildsInThePageSince: {} };
   const portal = aPortal({ matches: { 'Download Orders Data': 0 } });
-  const walking = theWalk({ door: portal.door, book: thin, say: () => {} });
-  const got = await walking('me_orders', DAY, { panel: PANEL });
+  const got = await aWalk(portal, thin)('me_orders', DAY);
   check('a failure the recipe file has no words for says exactly that',
     got.say.includes('no explanation in the recipe file'));
 }
 
+/* ------------------------------------- D200: a walk that outlives its own page */
+
+/* **THE FAULT THESE EXIST FOR.** The walk runs inside the portal's own page and
+ * its first `go` destroys that page. Three walks died on his own Meesho panel on
+ * 5 September with "the message channel closed before a response was received",
+ * which is what a page torn down mid-sentence looks like from the other side.
+ * Every check below would have gone red on the old shape. */
+
+{
+  const portal = aPortal();
+  const walking = theWalk({ door: portal.door, book: BOOK, say: () => {} });
+  const first = await walking('me_orders', DAY, { panel: PANEL });
+  check('going somewhere ends the turn rather than carrying on in a page that is gone',
+    hasNotFinished(first));
+  /* **NO `state` AT ALL, and that is the safety rather than a tidiness.**
+   * Everything downstream reads `state` first. A thing without one cannot be
+   * filed as an outcome by anybody, however carelessly it is passed on. */
+  check('and it is not any kind of answer -- it carries no state for anything to read',
+    first.state === undefined);
+  check('and it says where the next page picks the walk up', first.at === 1);
+  check('and the walk really did go somewhere before saying so', portal.went.length === 1);
+  check('and it handed that same number to the background, which is all that survives',
+    portal.handedOver.join(',') === '1');
+  /* **NOTHING PAST THE `go` RAN.** In a real Chrome nothing COULD have; a walk
+   * that clicked here would be clicking in a page that no longer exists. */
+  check('and nothing after it was done, because there was no page left to do it in',
+    portal.clicked.length === 0 && portal.tookFile === 0);
+}
+
+check('a walk still going is told apart from one that landed',
+  hasNotFinished({ carryingOn: 'carrying-on', at: 3 })
+  && !hasNotFinished({ state: LANDED })
+  && !hasNotFinished(null));
+
+{
+  /* **PICKED UP WHERE IT WAS LEFT, and the steps before it are NOT done again.**
+   * Done again, the download menu the first page opened is opened a second time
+   * -- which closes it -- and the export is asked for twice. */
+  const portal = aPortal();
+  const walking = theWalk({ door: portal.door, book: BOOK, say: () => {} });
+  const got = await walking('me_orders', DAY, { panel: PANEL, startAt: 1 });
+  check('a walk picked up part way through finishes', got.state === LANDED);
+  check('and it does not go anywhere a second time', portal.went.length === 0);
+  check('and it clicks each thing once, not twice',
+    portal.clicked.join(',') === 'Download Orders Data,Export data,Download');
+}
+
+{
+  /* **THREE PAGES AND TWO TEARDOWNS, which is the real `me_orders`.** A walk
+   * that survived only its FIRST teardown would pass every other check here and
+   * still die on the one recipe that goes somewhere twice -- and that is exactly
+   * the shape of "it worked once while somebody watched". */
+  const portal = aPortal();
+  const got = await aWalk(portal)('me_two_pages', DAY);
+  check('a recipe that goes somewhere twice still lands', got.state === LANDED);
+  check('and it took three pages to do it, one per turn', portal.turns === 3);
+  check('and the place was handed over at each teardown, never the same number twice',
+    portal.handedOver.join(',') === '1,4');
+  check('and nothing was clicked twice across the three pages',
+    portal.clicked.join(',') === 'Export data,Download');
+}
+
+{
+  /* **THE SESSION ENDING BETWEEN TWO PAGES IS NOT A BROKEN BUTTON.** It is the
+   * one failure that is nobody's report's fault, and calling it anything else
+   * buries the only thing a person has to do. */
+  /* **THE THIRD PAGE, so two pages of real work have already happened.** Caught
+   * on the very first page this would prove nothing about a walk in flight. */
+  const portal = aPortal({ signedOutFromTurn: 3 });
+  let said = '';
+  try {
+    await aWalk(portal)('me_two_pages', DAY);
+  } catch (wrong) {
+    said = wrong instanceof NeedsSigningIn ? wrong.message : `the wrong kind: ${wrong.message}`;
+  }
+  check('a session that expires half way through a walk is caught on the next page',
+    said.includes('asking to be signed in to'));
+  check('and it is caught before anything on that page is clicked, the earlier work done',
+    portal.clicked.join(',') === 'Export data');
+}
+
+{
+  /* **A RECIPE THAT IS WRONG BEFORE THE RESUME POINT IS STILL REFUSED.** The
+   * steps already walked are still read: a fault in the product must be found on
+   * the night it exists, not on whichever later night a walk happens to start
+   * from step nought. */
+  const portal = aPortal();
+  const bent = {
+    ...BOOK,
+    recipes: {
+      ...BOOK.recipes,
+      me_two_pages: {
+        ...BOOK.recipes.me_two_pages,
+        toTake: BOOK.recipes.me_two_pages.toTake.map(
+          (one, at) => (at === 0 ? { ...one, do: 'teleport' } : one)
+        ),
+      },
+    },
+  };
+  const walking = theWalk({ door: portal.door, book: bent, say: () => {} });
+  const got = await walking('me_two_pages', DAY, { panel: PANEL, startAt: 4 });
+  check('a bad step before the resume point is still a refusal, not skipped past',
+    got.state === FAILED && got.say.includes('This recipe is wrong'));
+}
+
 check(`nothing above ended by throwing rather than by answering -- ${THREW}`, THREW.length === 0);
 
-const EXPECTED = 128;
+const EXPECTED = 145;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

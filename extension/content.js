@@ -38,7 +38,9 @@
   window.__kartaanAutoSync = true;
 
   const { pageDoor, theCatcherSaid } = await import(chrome.runtime.getURL('driver.js'));
-  const { theWalk, NeedsSigningIn } = await import(chrome.runtime.getURL('walk.js'));
+  const {
+    theWalk, NeedsSigningIn, capture, hasNotFinished,
+  } = await import(chrome.runtime.getURL('walk.js'));
   const book = await (await fetch(chrome.runtime.getURL('recipes.json'))).json();
 
   /* **THE SIGNS OF BEING SIGNED OUT COME FROM THE RECIPE FILE**, not from here.
@@ -52,6 +54,12 @@
    * stock file is one of these: pressing Download makes the page fetch the
    * spreadsheet itself and hand the bytes straight to the browser, so there is no
    * address anybody can ask for a second time. */
+  /* **WHAT THIS PAGE IS WALKING, held here so the `go` message can name it.**
+   * A `go` destroys the page, and the background may have to write down that the
+   * next page never drew -- which it cannot do against a report it was never
+   * told the name of. */
+  const walking = { busy: false, reportId: null, dataDate: null };
+
   let waitingFor = null;
   let caught = null;
   window.addEventListener('message', (said) => {
@@ -84,8 +92,19 @@
     /* The two the background answers, asked for by message. Nothing here waits
      * on the background staying awake: Chrome starts it again when a message
      * arrives, which is why the run's own record lives in storage and not in a
-     * variable. */
-    go: (address, patience) => chrome.runtime.sendMessage({ do: 'go', address, patience }),
+     * variable.
+     *
+     * **AND THIS ONE IS THE LAST THING THIS PAGE EVER DOES (D200).** Going
+     * somewhere destroys this page. The number handed over with it is where the
+     * page Chrome draws next picks the walk up, and it is the only thing that
+     * survives -- so it goes ACROSS with the message, not into a variable here.
+     * **This call is not expected to come back.** Awaited, it is torn down
+     * half-said, which is precisely the "message channel closed before a
+     * response was received" that killed three walks on his own panel. Nothing
+     * after it in this page will run, and nothing after it needs to. */
+    go: (address, patience, at) => chrome.runtime.sendMessage({
+      do: 'go', address, patience, at, reportId: walking.reportId, dataDate: walking.dataDate,
+    }),
     /* **WHICHEVER ARRIVES.** Most files come down as a download, and the
      * background asks the platform for that address a second time. Meesho's
      * stock file never does, and is caught here instead. Both are the same
@@ -122,27 +141,156 @@
     say: (line) => chrome.runtime.sendMessage({ do: 'say', line }),
   });
 
+  /** Say something to the other half, and never fail because of it.
+   *
+   *  **A MESSAGE THAT CANNOT BE DELIVERED IS NOT A REASON TO LOSE WHAT IT WAS
+   *  CARRYING.** The page can be torn down mid-sentence -- that is the ordinary
+   *  case here, not the odd one -- and the background can be starting up. */
+  const said = async (what) => {
+    try {
+      return await chrome.runtime.sendMessage(what);
+    } catch (wrong) {
+      console.error('Kartaan Auto-sync: could not say what happened.', wrong);
+      return null;
+    }
+  };
+
+  /** What a walk ending is worth saying, whichever way it ended.
+   *
+   *  **AND WHAT THE PAGE LOOKED LIKE GOES WITH IT.** The walk's own failures
+   *  have carried the page from the beginning -- "the evidence travels with the
+   *  failure; written somewhere else to be correlated later is written somewhere
+   *  nobody ever looks". **A failure the DOOR throws rather than the walk naming
+   *  carried nothing**, and the first live `me_orders` run proved what that
+   *  costs: "0 date boxes were found" with an empty page beside it, and no way
+   *  to tell a changed portal from a page that had not finished drawing without
+   *  running the whole thing again. */
+  const howItEnded = async (asked, wrong) => ({
+    state: 'failed',
+    reportId: asked.reportId,
+    dataDate: asked.dataDate,
+    /* **SIGNING IN IS ITS OWN KIND AND MUST STAY THAT WAY ACROSS THE MESSAGE.**
+     * A message carries no kinds of error, so it is said in a word the other
+     * side can read back. */
+    needsSigningIn: wrong instanceof NeedsSigningIn,
+    say: wrong.message,
+    /* **AND READING IT MUST NOT BE THE THING THAT FAILS**, for the same reason
+     * the saying-so must not: this is the recovery. */
+    pageWas: await whatThePageLookedLike(),
+  });
+
+  /** The page as words, trimmed the way the walk trims it, or nothing. */
+  const whatThePageLookedLike = async () => {
+    try {
+      return capture(await door.page_text());
+    } catch (wrong) {
+      return '';
+    }
+  };
+
+  /**
+   * Walk one turn of a report, and say how it ended -- unless it did not end.
+   *
+   * **A TURN, NOT A WALK, AND THAT IS D200.** The walk's first step is to go
+   * somewhere, and going somewhere destroys this page. So a turn either finishes
+   * the report or hands back "carrying on, from step N" -- and in that second
+   * case this page is already being torn down and there is nobody left to tell
+   * anything to. Saying nothing is the correct thing to do.
+   */
+  const takeATurn = async (asked) => {
+    walking.reportId = asked.reportId;
+    walking.dataDate = asked.dataDate;
+    /* **WHICH STEP THIS PAGE PICKED THE WALK UP AT, and it goes back with every
+     * word this page says.** A page the walk has already left is not always
+     * destroyed -- Chrome may freeze it in the back/forward cache instead, and
+     * thawing it makes its half-said `go` fail and its walk throw. Without this
+     * number that old page would report a failure for a walk a newer page is
+     * running perfectly. His own Chrome named it while this was being built:
+     * "The page keeping the extension port is moved into back/forward cache, so
+     * the message channel is closed." */
+    const startedAt = Number(asked.at || 0);
+    await armTheCatcher();
+    let came;
+    try {
+      /* **THE BACKGROUND CALLS IT `at` AND THE WALK CALLS IT `startAt`, and the
+       * two have to be joined here by name.** Handed straight across, the walk
+       * sees no `startAt`, begins at nought, and walks the whole recipe again on
+       * every page -- which on Meesho means the export asked for a second time
+       * and on Flipkart means one of a seller's twenty daily requests burnt for
+       * nothing. It would have looked exactly like working. */
+      came = await walk(asked.reportId, asked.dataDate, { ...asked, startAt: startedAt });
+    } catch (wrong) {
+      stopCatching();
+      const ended = await howItEnded(asked, wrong);
+      /* **THE SAYING-SO MUST NOT BE THE THING THAT FAILS.** This IS the recovery;
+       * if it throws, the failure it was reporting is lost with it and the walk
+       * ends in silence (A26R). */
+      await said({ do: 'walk-done', answer: ended, from: startedAt });
+      return ended;
+    }
+    /* **THE ONE ANSWER THAT IS NOT AN ANSWER.** It carries no `state`, so
+     * nothing downstream can file it as an outcome even by accident. This page
+     * is going; the next one asks where the walk was and carries on. */
+    if (hasNotFinished(came)) return came;
+    stopCatching();
+    /* **SENT AS ITS OWN MESSAGE, NOT AS A REPLY.** The reply to the message that
+     * started this walk went down with the first page, several pages ago. */
+    await said({ do: 'walk-done', answer: came, from: startedAt });
+    return came;
+  };
+
   chrome.runtime.onMessage.addListener((asked, from, answer) => {
     if (!asked || asked.do !== 'walk') return false;
-    armTheCatcher()
-      .then(() => walk(asked.reportId, asked.dataDate, asked))
-      .then((came) => { stopCatching(); answer(came); })
-      .catch((wrong) => {
-        stopCatching();
-        answer({
-          state: 'failed',
-          reportId: asked.reportId,
-          dataDate: asked.dataDate,
-          /* **SIGNING IN IS ITS OWN KIND AND MUST STAY THAT WAY ACROSS THE
-           * MESSAGE.** A message carries no kinds of error, so it is said in a
-           * word the other side can read back. */
-          needsSigningIn: wrong instanceof NeedsSigningIn,
-          say: wrong.message,
-          pageWas: '',
-        });
-      });
+    /* **REFUSED IF THIS PAGE IS ALREADY WALKING.** A second walk in one page
+     * would click the same recipe twice and download the same day into two
+     * differently-named copies -- the fault the guard at the top of this file
+     * exists for, arriving by a different door. */
+    if (walking.busy) {
+      answer({ state: 'failed', reportId: asked.reportId, dataDate: asked.dataDate,
+        say: 'This page is already walking a report.', pageWas: '' });
+      return true;
+    }
+    walking.busy = true;
+    takeATurn(asked).then(answer).catch(async (wrong) => answer(await howItEnded(asked, wrong)));
     /* Answering later is what this true means. Left off, Chrome closes the
      * channel the moment this returns and the answer is thrown away. */
     return true;
   });
+
+  /* **AND THE ONE THING THIS FILE DOES WITHOUT BEING ASKED (D200).**
+   *
+   * Every portal page the seller opens runs this file -- it is a manifest
+   * content script on both portals. So every one of them asks the background the
+   * same question: is there a walk in flight that belongs to this tab? Almost
+   * always the answer is nothing, and nothing is what an ordinary page the
+   * seller opened for themselves must get.
+   *
+   * **WHEN IT IS NOT NOTHING, THIS PAGE IS THE ONE THE LAST `go` LANDED ON**,
+   * and it carries on from the step the background is holding. That is the whole
+   * of how a walk outlives the page that started it. The reference does the same
+   * thing on every page load and has for months.
+   *
+   * **NOTHING IS AWAITED BY ANYBODY HERE**, so a failure has nowhere to go but a
+   * line in the log -- which is why the walk itself reports through
+   * `walk-done` rather than by being returned to a caller. */
+  /* **AND NOTHING HERE MAY THROW WITHOUT A WORD, BECAUSE THIS IS NOW THE ONLY
+   * WAY A WALK EVER STARTS (A26R).** Nothing pushes a walk at a page any more --
+   * every page asks. So this call is the whole of it, and there is no caller
+   * above to catch anything: a rejection here would end the walk in silence, the
+   * record would sit with no answer until its fifteen minutes ran out, and the
+   * day's report would be missing with no line anywhere saying why. That is the
+   * exact fault `background.js` opens by naming -- "a run that was interrupted
+   * wrote nothing down". */
+  try {
+    const askedForOne = await chrome.runtime.sendMessage({ do: 'resume?' });
+    const carryOn = askedForOne && askedForOne.walk;
+    if (carryOn && !walking.busy) {
+      walking.busy = true;
+      await takeATurn(carryOn);
+    }
+  } catch (wrong) {
+    /* Said where a person can see it. There is nowhere else to say it from:
+     * whatever failed is the way of speaking to the other half. */
+    console.error('Kartaan Auto-sync: this page could not take up its walk.', wrong);
+  }
 })();
