@@ -294,35 +294,116 @@ check("the whole tab's range covers every column",
 check("and it is 45 columns wide today, which is AS",
       len(tool.COLUMNS) == 45 and tool.the_whole_tab() == "orders!A:AS")
 
-# **AND THE WORK REGISTER SAYS HOW WIDE THE LEDGER IS TOO, IN WORDS, AND NOTHING
-# HELD IT TO THIS.** `tools/work.json` said 28 for two days after the answer
-# became 45. Five other places had been corrected and that one was missed --
-# **the third hand-written copy of one number found in this repository** (D169:
-# a correction is finished when everything repeating the withdrawn claim is
+# ---- how wide the ledger is, in every place that says so -------------------
+#
+# **ONE NUMBER IS WRITTEN DOWN IN SIX PLACES AND ONLY ONE OF THEM WAS HELD.**
+# `tools/work.json` said 28 for two days after the answer became 45 -- **the
+# third hand-written copy of one number found in this repository** (D169: a
+# correction is finished when everything repeating the withdrawn claim is
 # corrected too; D190: where a list governs behaviour, something holds the two
-# to each other).
+# to each other). The check written for that read the register's SENTENCES, and
+# nothing at all was pointed at the other five: **a wrong width in
+# `autosync/ledger.py` left all thirty checks files green.**
 #
-# **THE QUESTION IS "IS ANY WIDTH THE REGISTER STATES FOR THE LEDGER WRONG?"**,
-# not "does the number 45 appear". Other counts in that file are real and
-# different -- his Flipkart payments are 74 columns wide, a brand-new Google
-# spreadsheet is 26 -- so only a width said of the LEDGER is asked about.
+# **THE LIMIT THE PREVIOUS ANSWER RECORDED UNDER D180 IS WITHDRAWN, NOT KEPT
+# BESIDE THE FIX.** It said a width worded without the word "ledger" beside it
+# slips past, and that *"the register has no field carrying the number, so there
+# is nothing stronger to hold"*. **That described the register's shape on the
+# day, not a limit on it.** `tools/work.json` is JSON and the gate already reads
+# it, so the width is a FIELD now, pinned to `len(sales.COLUMNS)` -- the list the
+# ERP owns and this file compares against. **A number living only in prose is how
+# the 28 came to be wrong in the first place**, and leaving it living only in
+# prose was the wrong answer.
 #
-# **WHAT THIS DOES NOT REACH, said rather than glossed (D180):** a sentence that
-# gives the ledger's width without using the word "ledger" within the same
-# clause escapes it. The register has no field carrying the number, so there is
-# nothing stronger to hold than the sentences that state it.
+# **SO THE WORD "ledger" IS NOT ASKED FOR ANYWHERE BELOW.**
+#   - The register states the width in a field, and every OTHER column count it
+#     states in words is listed in a field of its own -- so a count that is
+#     neither is a count nobody has accounted for, whatever words surround it.
+#   - The four source files that state the width in words state no other column
+#     count at all, so every column count in them is asked about directly.
+#
+# **THE PRICE, SAID PLAINLY:** writing a genuinely new column count into the
+# register's prose, or any column count into one of those four files, turns this
+# red until the register lists it. That is the check doing its job, and D167
+# already settled that brittleness is what catching things costs.
 REGISTER = Path(__file__).resolve().parent.parent / "tools" / "work.json"
 check("the work register can be read at all", REGISTER.is_file())
 SAID_IN_THE_REGISTER = REGISTER.read_text(encoding="utf-8") if REGISTER.is_file() else ""
-WIDTHS_CLAIMED = [
-    int(one) for one in
-    re.findall(r"ledger(?:'s| is| has)?[^.]{0,40}?(\d+) columns", SAID_IN_THE_REGISTER)
+try:
+    REGISTER_SAYS = json.loads(SAID_IN_THE_REGISTER)
+except ValueError:
+    REGISTER_SAYS = None
+check("and it reads as JSON, which is what makes a field possible at all",
+      isinstance(REGISTER_SAYS, dict))
+
+# **THE FIELD.** Not a sentence parsed and not a number retyped somewhere nobody
+# reads: the register carries the width, and it is held to the thing that knows.
+THE_WIDTH_FIELD = "the_ledger_is_this_many_columns_wide"
+check("THE REGISTER CARRIES THE LEDGER'S WIDTH IN A FIELD OF ITS OWN, AND IT IS "
+      "THE WIDTH THE LEDGER REALLY IS",
+      isinstance(REGISTER_SAYS, dict)
+      and REGISTER_SAYS.get(THE_WIDTH_FIELD) == len(tool.COLUMNS))
+
+A_COLUMN_COUNT = re.compile(r"(\d+)\s+columns")
+
+
+def _column_counts_in(text):
+    """Every "<number> columns" written in `text`, as numbers."""
+    return [int(one) for one in A_COLUMN_COUNT.findall(text)]
+
+
+# **AND THE SENTENCES THAT STILL SAY IT.** Read a clause at a time and in BOTH
+# directions -- the old pattern only read forwards from the word "ledger" and
+# only forty characters, so "28 columns in the ledger" escaped it while using
+# the very word it looked for.
+CLAUSES_ABOUT_THE_LEDGER = [
+    one for one in re.split(r"[.\n]", SAID_IN_THE_REGISTER) if "ledger" in one.lower()
 ]
+WIDTHS_CLAIMED = [n for one in CLAUSES_ABOUT_THE_LEDGER for n in _column_counts_in(one)]
 # **BOTH DIRECTIONS.** Without the first half, deleting every such sentence would
 # leave this green while the register said nothing at all about the ledger.
 check("THE REGISTER SAYS HOW WIDE THE LEDGER IS, AND EVERY PLACE IT SAYS SO IS "
       "THE WIDTH IT REALLY IS",
       bool(WIDTHS_CLAIMED) and all(one == len(tool.COLUMNS) for one in WIDTHS_CLAIMED))
+
+# **AND NO COLUMN COUNT ANYWHERE IN THE REGISTER IS ONE NOBODY HAS ACCOUNTED
+# FOR.** This is the half that needs no word beside the number: a wrong width
+# written into a sentence that never mentions the ledger is still a number that
+# is neither the ledger's width nor one of the counts the register lists.
+ACCOUNTED_FOR = REGISTER_SAYS.get("other_column_counts_this_register_states", {}) \
+    if isinstance(REGISTER_SAYS, dict) else {}
+UNACCOUNTED = sorted({
+    n for n in _column_counts_in(SAID_IN_THE_REGISTER)
+    if n != len(tool.COLUMNS) and str(n) not in ACCOUNTED_FOR
+})
+check("AND EVERY OTHER COLUMN COUNT IN THE REGISTER IS ONE THE REGISTER ITSELF "
+      "ACCOUNTS FOR, SO A WRONG WIDTH NEED NOT SAY THE WORD 'ledger' TO BE CAUGHT",
+      bool(ACCOUNTED_FOR) and not UNACCOUNTED)
+if UNACCOUNTED:
+    print(f"      counted in words and listed nowhere: {UNACCOUNTED}")
+
+# **AND THE FOUR SOURCE FILES THAT STATE THE WIDTH IN WORDS.** Each is asked
+# about BY NAME (D175), because "a wrong width somewhere reddened something" is
+# not the same answer as "a wrong width in ledger.py reddened ledger.py's own
+# question". **None of them states any other column count**, so no word anchor is
+# needed and none is used -- reword the sentence however you like and the number
+# is still asked about. Both directions again: a file that stops saying it at all
+# is as wrong as one that says it wrongly, because the number would then be
+# unheld the next time somebody wrote it back.
+ALSO_WRITTEN_DOWN_IN = (
+    "autosync/ledger.py",
+    "autosync/reading.py",
+    "autosync/reading_checks.py",
+    "autosync/nightly_checks.py",
+)
+HERE = Path(__file__).resolve().parent.parent
+for where in ALSO_WRITTEN_DOWN_IN:
+    written = HERE / where
+    said = _column_counts_in(written.read_text(encoding="utf-8")) if written.is_file() else []
+    check(f"{where} SAYS HOW WIDE THE LEDGER IS, AND IT IS THE WIDTH IT REALLY IS",
+          bool(said) and all(one == len(tool.COLUMNS) for one in said))
+    if said and any(one != len(tool.COLUMNS) for one in said):
+        print(f"      {where} says {said}, and the ledger is {len(tool.COLUMNS)}")
 
 # **WHICH COLUMNS ARE FIGURES IS THE ERP'S LIST TOO, and it is read, not typed.**
 # A sheet hands back TEXT for everything, so a column the ERP turns back into a
@@ -388,7 +469,7 @@ check("two sales on one order but different SKUs are two rows",
 print()
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 71
+EXPECTED = 78
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

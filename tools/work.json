@@ -112,8 +112,28 @@
   "an empty business. D119 settles that the reading belongs here and not in the",
   "browser, AND its condition still stands: the browser readers in the ERP's",
   "src/modules/listings are deleted the day this replaces them, and NOT BEFORE.",
-  "Nothing replaces them yet."
+  "Nothing replaces them yet.",
+  "",
+  "TWO FIELDS BELOW CARRY NUMBERS THIS REGISTER ALSO STATES IN WORDS, and they",
+  "are here because a number that lives only in a sentence is how this register",
+  "came to say the ledger was twenty-eight columns wide for two days after the",
+  "answer became forty-five. `the_ledger_is_this_many_columns_wide` is held to",
+  "`len(sales.COLUMNS)` -- the list the ERP owns and this repository copies --",
+  "by `autosync/sales_checks.py`, so it cannot drift from the thing it counts.",
+  "`other_column_counts_this_register_states` is what lets that same file ask",
+  "about EVERY column count written in here without needing the word 'ledger'",
+  "to appear beside it: a count that is neither the ledger's width nor one",
+  "listed there is a count nobody has accounted for, and it goes red. Adding a",
+  "new one to the prose means adding its line here, which is the point."
  ],
+ "the_ledger_is_this_many_columns_wide": 45,
+ "other_column_counts_this_register_states": {
+  "22": "his real Meesho returns file -- 22 columns, 101 rows, header on line 8",
+  "26": "a brand-new Google spreadsheet, which is why the grid is widened before anything is written",
+  "39": "his real Flipkart orders file -- 39 columns, 63 rows",
+  "43": "his real Meesho payments file -- 43 columns, 83 rows",
+  "74": "his real Flipkart payments file -- 74 columns, 77 rows, header on row 2"
+ },
  "active": null,
  "items": [
   {
@@ -834,6 +854,12 @@
      "found": "2026-09-02, on the first run of the checks",
      "fixed": true,
      "proved_by": "Comments are stripped before anything is read, at all three read sites. Dropping a real column, swapping two, or renaming a charge each turns the comparison red -- proved by doing all three."
+    },
+    {
+     "what": "**ONE NUMBER WRITTEN DOWN IN SIX PLACES AND ONLY ONE OF THEM HELD.** The ledger's width is stated in `autosync/ledger.py`, `autosync/reading.py`, `autosync/reading_checks.py`, `autosync/nightly_checks.py`, this register and `sales_checks.py` itself. The check written for it on 2026-09-04 read only this register's SENTENCES, so **a wrong width in `autosync/ledger.py` left every one of the thirty checks files green -- 2,509 checks, 0 red.** All six are asked about now, each BY ITS OWN NAME (D175).\n\n**AND THE LIMIT RECORDED BESIDE THAT FIX UNDER D180 IS WITHDRAWN, NOT LEFT STANDING.** It said a width worded without the word 'ledger' beside it slips past, and that *\"the register has no field carrying the number, so there is nothing stronger to hold\"*. **That described this register's shape on the day, not a limit on it.** This file is JSON and the gate already reads it, so the width is a FIELD now -- `the_ledger_is_this_many_columns_wide` -- pinned to `len(sales.COLUMNS)`, the list the ERP owns. `other_column_counts_this_register_states` accounts for every other count written in here, so a wrong width in a sentence that never says 'ledger' is caught as a number nobody accounts for. **A number living only in prose is how this register came to say twenty-eight for two days after the answer became forty-five**, and leaving it living only in prose was the wrong answer to that.",
+     "found": "2026-09-05, by an independent cold reader (A17R), findings A and B. Non-blocking.",
+     "fixed": true,
+     "proved_by": "`autosync/sales_checks.py` -- five checks: \"THE REGISTER CARRIES THE LEDGER'S WIDTH IN A FIELD OF ITS OWN, AND IT IS THE WIDTH THE LEDGER REALLY IS\", \"THE REGISTER SAYS HOW WIDE THE LEDGER IS, AND EVERY PLACE IT SAYS SO IS THE WIDTH IT REALLY IS\", \"AND EVERY OTHER COLUMN COUNT IN THE REGISTER IS ONE THE REGISTER ITSELF ACCOUNTS FOR, SO A WRONG WIDTH NEED NOT SAY THE WORD 'ledger' TO BE CAUGHT\", and one named for each of the four source files (\"autosync/ledger.py SAYS HOW WIDE THE LEDGER IS, AND IT IS THE WIDTH IT REALLY IS\", and the same for reading.py, reading_checks.py and nightly_checks.py). **Proved by breaking it on purpose: THIRTEEN wrong widths put in one at a time -- one into each of the six places, the number written BEFORE the word 'ledger' rather than after, a width in a sentence with no 'ledger' in it at all in both the register and ledger.py, and the sentence and the field DELETED rather than made wrong. Thirteen of thirteen caught by the check NAMED for them, every file restored byte for byte and the restore checked by hash.**"
     }
    ],
    "state": {
