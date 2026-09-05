@@ -2136,3 +2136,85 @@ caught is caught in both of the places it can be written.** Two findings, neithe
 able to let a bad commit through, both left to the author (D166, D180). This entry
 goes through the gate with its own review record and no `--no-verify`, and
 `2c120d7` goes up with it (D158).
+
+---
+
+## 2026-09-05 (twelfth, CORRECTED SAME HOUR) — A19R correcting its own entry above. **THE LINE-ENDING MEASUREMENT IN SECTION 6 WAS TAKEN WITH A BROKEN INSTRUMENT AND ITS LABEL IS WRONG. The conclusion it supported is unchanged and still true.**
+
+**This correction is appended rather than edited into the entry above** (D174,
+and D166's reason one level up: hiding that a claim was corrected is the fault
+D169 exists to stop). The entry above is left exactly as it was written.
+
+### WHAT I GOT WRONG
+
+Section 6 says `sales_checks.py` was **"400 of 400 CRLF at `55eb1aa`, 481 of 481
+at `2c120d7`"** and that **"both files"** are **"pure CRLF on both sides"**. The
+commit message of `9465cf0` says the same thing, and it is already pushed.
+
+**`sales_checks.py` is pure LF, not CRLF.** Measured again, in Python, on the
+blobs git actually stores:
+
+| file | `55eb1aa` | `2c120d7` | `9465cf0` |
+|---|---|---|---|
+| `autosync/sales_checks.py` | **400 LF, 0 CRLF** | **481 LF, 0 CRLF** | 481 LF, 0 CRLF |
+| `tools/work.json` | **1,188 CRLF, 0 LF** | **1,214 CRLF, 0 LF** | 1,214 CRLF, 0 LF |
+| `REVIEW.md` | 1,920 CRLF, 0 LF | 1,920 CRLF, 0 LF | **2,138 CRLF, 0 LF** |
+
+**The two files do not share an ending, and never did.** `sales_checks.py` is LF
+and `work.json` is CRLF — which is precisely the four-files-four-answers mess
+D174 describes, and I flattened it into one wrong word.
+
+### WHY THE INSTRUMENT WAS BROKEN, BECAUSE IT WILL CATCH THE NEXT PERSON TOO
+
+I counted with `grep -c $'\r$'` from inside a double-quoted command substitution.
+**It matches every line of any file, LF or CRLF.** Demonstrated both ways:
+
+    printf 'a\nb\n'     > lf.txt    ; grep -c $'\r$' lf.txt    -> 2
+    printf 'a\r\nb\r\n' > crlf.txt  ; grep -c $'\r$' crlf.txt  -> 2
+
+**It never returns anything but the line count**, so it agreed with `wc -l` every
+time and looked like confirmation. It is a check that cannot fail — D180's own
+subject, and I built one by accident inside a review whose whole business is
+finding them. **It also told me `KARTAAN-STATUS.md` was 11,997 of 11,997 CRLF
+when that file is pure LF**, and I only caught it because a byte-level append
+there reported a number the grep could not have produced.
+
+### WHAT SURVIVES, AND IT IS THE PART THAT MATTERED
+
+**Nothing about the verdict changes.** The question D174 asks is whether a
+line-ending flip survived into the commit, and the answer is still no:
+
+- **`sales_checks.py`: 0 CRLF before, 0 CRLF after.** Pure LF on both sides. The
+  text-mode write that flipped all 400 of its lines mid-work did not reach
+  `2c120d7`.
+- **`work.json`: 0 bare LF before, 0 bare LF after.** Pure CRLF on both sides.
+- **Each file is internally consistent and unchanged in its endings across the
+  commit.** `git diff --ignore-cr-at-eol` still gives the identical `99/18` and
+  `27/1`, and that comparison was never affected by the broken counter.
+- **My own append is right too.** `REVIEW.md` is pure CRLF and I appended CRLF to
+  it, 218 insertions and 0 deletions, verified in Python rather than by grep.
+
+**So section 6's conclusion holds and its label was wrong.** I am correcting the
+label rather than quietly leaving a sentence that names the wrong ending for a
+file the next reader will edit.
+
+### AND ONE THING THE RE-MEASURE TURNED UP
+
+**The five-number limit at section 4 is not written down anywhere a reader will
+meet it.** The author's own note records it as being "in the check's own
+comment". It is not. The comment at `sales_checks.py:369-372` states the
+*mechanism* — *"a number that is neither the ledger's width nor one of the counts
+the register lists"* — from which the limit follows if you work it out, but **it
+never says that a wrong width equal to one of the five accounted numbers passes.**
+
+**A limit that lives only in a session's private memory is the shape D169 is
+about.** The memory will be gone; the code will not. This does not change my
+ruling — still non-blocking, still left for the author (D166, D180) — but it
+raises the reason for naming it: the limit is not merely worded broadly in the
+register, it is absent from the two places the next person will actually read.
+
+### THE HOUR IS UNCHANGED
+
+Still 09:18 to 09:50 IST on 2026-09-05 for the sweep, and this correction was
+written and re-measured at 10:05 IST (D192). The tree was clean at `9465cf0`
+before this append and nothing in `autosync/` or `tools/` was touched by it.
