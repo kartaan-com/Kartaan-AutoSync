@@ -125,6 +125,32 @@ PLAIN_FIELDS = (
     "claimRecovered",
     "netPnl",
     "returnPnl",
+    # **THE FOUR DATE MARKERS (D157), AT THE END, AFTER `returnPnl`, NEVER IN THE
+    # MIDDLE.** A sheet is read by column POSITION: a column slotted into the
+    # middle moves every column after it, and each row's figures land one place
+    # over -- in the money, silently, with nothing anywhere saying so.
+    #
+    # **THE ORDER IS THE ERP'S AND IT WAS READ OFF ITS COMMIT, NOT COPIED FROM AN
+    # INSTRUCTION.** `Kartaan-ERP` `fc82dc7` on `ledger-columns` has them in this
+    # order in `sheet-store.js`. **The instruction that asked for this work gave
+    # `returnsOn` and `paymentsOn` the other way round**, and typing that would
+    # have put every returns date in the payments column and every payments date
+    # in returns -- which is the very fault the paragraph above is about. The
+    # ERP's own checks prove against "the four reordered, two swapped"; nothing
+    # proves it across these two repositories, which is why it is written here.
+    #
+    # **WHAT THEY HOLD:** the DATA DATE of the newest file OF THAT KIND that has
+    # touched the row. Without them D150 rule 2 -- newest file wins -- cannot
+    # hold across two runs: nothing records WHICH file wrote a value, so a file
+    # for the 4th arriving after the 5th has been read puts its older figure back
+    # over the correction.
+    #
+    # **NOTHING HERE WRITES THEM YET.** This declares the columns and their
+    # order. What puts a date in one is whatever reads a file.
+    "ordersOn",
+    "returnsOn",
+    "paymentsOn",
+    "claimsOn",
 )
 
 # **ONE COLUMN PER CHARGE A PLATFORM CAN MAKE**, in the ERP's own order.
@@ -276,6 +302,20 @@ class Sale:
     claim_recovered: Optional[object] = None
     net_pnl: Optional[object] = None
     return_pnl: Optional[object] = None
+    # **THE FOUR DATE MARKERS (D157).** Each holds the DATA DATE of the newest
+    # file OF THAT KIND that has touched this row. **In the ERP's order, which is
+    # the order the columns are in** -- not because anything here reads them by
+    # position, but because two lists of one thing that are ordered differently
+    # are two lists somebody will one day reconcile by eye.
+    #
+    # **NOTHING FILLS THEM YET, AND THAT IS DELIBERATE.** The columns exist so a
+    # row can say which file last wrote it; putting a date in one belongs with
+    # whatever reads a file. Left as None they are written as blank, exactly like
+    # every other field nobody has set.
+    orders_on: Optional[str] = None
+    returns_on: Optional[str] = None
+    payments_on: Optional[str] = None
+    claims_on: Optional[str] = None
     charges: Dict[str, object] = field(default_factory=dict)
 
     def __post_init__(self):
@@ -344,6 +384,14 @@ FROM_FIELD = {
     "claimRecovered": "claim_recovered",
     "netPnl": "net_pnl",
     "returnPnl": "return_pnl",
+    # **THE FOUR DATE MARKERS.** Named here as well as declared above, because
+    # `the_row_for` asks this map for every column and refuses a column it has no
+    # field for -- which is how adding them to the column list alone was caught
+    # rather than writing a blank column and saying nothing.
+    "ordersOn": "orders_on",
+    "returnsOn": "returns_on",
+    "paymentsOn": "payments_on",
+    "claimsOn": "claims_on",
 }
 
 

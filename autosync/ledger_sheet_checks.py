@@ -591,11 +591,26 @@ class ADriveFile:
         self.holding = raw
 
 
-# ---- 0. IT REFUSES TO WRITE AT ALL WHILE D157'S FOUR DATE COLUMNS DO NOT EXIST
+# ---- 0. IT REFUSES TO WRITE AT ALL IF D157'S FOUR DATE COLUMNS ARE NOT THERE
 #
 # **THE REGISTER SAID WRITING WAS NOT SAFE TO LAND UNTIL THOSE COLUMNS EXIST, AND
 # `start.py` WIRED THE WRITING IN ANYWAY.** Both could not be true. This is the
 # code meeting the record.
+#
+# **AND ON 2026-09-06 THE COLUMNS LANDED AND THE REFUSAL LIFTED BY ITSELF**, as
+# `work.json` said it would -- `sales.COLUMNS` is pinned to the ERP's committed
+# list, the ERP added the four, and `what_the_sheet_cannot_yet_say()` went empty
+# with nothing here changed to make it.
+#
+# **SO THESE CHECKS ARE NOW DRIVEN RATHER THAN WAITED FOR.** The four are taken
+# away for the length of this block and put straight back. That is the whole
+# point of keeping them: **the refusal is not finished business, it is a guard,
+# and a guard nobody has watched fire is a guard that could have stopped working
+# the day the thing it guards against became possible again.** If the ERP ever
+# drops one of the four, this is what stands between that and a sale written into
+# a column that is not there.
+_the_columns_are_really_there = ledger.what_the_sheet_cannot_yet_say
+ledger.what_the_sheet_cannot_yet_say = lambda *a, **k: ledger.WHICH_FILE_LAST_WROTE
 
 no_columns_yet = ADriveFile(holding=None)
 never_asked = PretendDrive()
@@ -634,18 +649,22 @@ check("WITH THE WRITING REFUSED, NO FILE IS OPENED AND NONE IS MARKED READ",
 check("and nothing already written down as read is forgotten either",
       refused_night is not None and refused_night.files_read == ("a-file-read-before",))
 
+# **THE FOUR GO STRAIGHT BACK, and everything below runs against the ledger as it
+# really is now.** Until 2026-09-06 the opposite was needed: the refusal was the
+# real state and had to be stood down for the rest of this file to run at all.
+ledger.what_the_sheet_cannot_yet_say = _the_columns_are_really_there
 
-# ---- AND THE DAY THOSE COLUMNS LAND, IT WRITES. Driven, not assumed.
+
+# ---- AND WITH THOSE COLUMNS THERE, IT WRITES. Driven, not assumed.
 #
-# **EVERYTHING BELOW IS THE WRITING HALF DOING ITS JOB**, which today it refuses
-# to start. So the one line that refuses is stood down for the rest of this file
-# and put back at the end -- and both states are driven rather than one of them
-# being taken on trust. A refusal nobody has watched lift is a refusal that could
-# be permanent by accident.
-_really = ledger.what_the_sheet_cannot_yet_say
-ledger.what_the_sheet_cannot_yet_say = lambda *a, **k: ()
+# **THIS IS NO LONGER A PRETENCE.** It asks the real function, against the real
+# column list, with nothing patched -- and it is the check that says the refusal
+# has genuinely lifted rather than being switched off for the convenience of the
+# file. A refusal nobody has watched lift is a refusal that could be permanent by
+# accident; this one has now been watched, both ways, in the same run.
 check("with the four columns in the ledger, nothing refuses any more",
-      tool.why_it_must_not_write_yet() == "")
+      ledger.what_the_sheet_cannot_yet_say() == ()
+      and tool.why_it_must_not_write_yet() == "")
 
 # 1. FIRST NIGHT: no record, no ledger. One is made and its address written down.
 first_night = ADriveFile(holding=None)
@@ -711,15 +730,39 @@ check("and no ledger is made on the strength of a record nobody could read",
 # **PUT BACK, AND CHECKED THAT IT REALLY IS BACK.** A stand-in left in place would
 # make every run of this file after today's silently answer a question nobody
 # asked.
-ledger.what_the_sheet_cannot_yet_say = _really
-check("the refusal is back where it was, and still refuses",
-      tool.why_it_must_not_write_yet() != ""
-      and ledger.what_the_sheet_cannot_yet_say() == ledger.WHICH_FILE_LAST_WROTE)
+# **NOTHING TO PUT BACK ANY MORE.** The four columns are real, so this file no
+# longer runs with the refusal switched off -- it takes them away for one block
+# near the top and restores them there. Left as a line rather than deleted so
+# that anybody looking for the old stand-down finds out where it went.
+assert ledger.what_the_sheet_cannot_yet_say is _the_columns_are_really_there
+# **AND THE LAST WORD OF THIS FILE IS THAT THE GUARD IS STILL LOADED.** It used
+# to say "the refusal is back where it was, and still refuses" -- true until
+# 2026-09-06 and false from the moment the ERP landed the four. What is worth
+# asserting now is that the real function is what is in place at the end, so no
+# check below the top block ever ran against a stood-down refusal.
+check("the real column list is what the rest of this file ran against, not a stand-in",
+      ledger.what_the_sheet_cannot_yet_say is _the_columns_are_really_there
+      and ledger.what_the_sheet_cannot_yet_say() == ())
+# **AND EACH OF THE FOUR ON ITS OWN STILL STOPS IT.** Three of four is not good
+# enough: a sale written with one marker missing is a row nothing can later tell
+# was written by an older file.
+def _without(one):
+    """What the ledger would refuse if that single column went missing."""
+    ledger.what_the_sheet_cannot_yet_say = lambda *a, **k: (one,)
+    try:
+        return tool.why_it_must_not_write_yet()
+    finally:
+        ledger.what_the_sheet_cannot_yet_say = _the_columns_are_really_there
+
+
+check("and taking any ONE of the four away still stops the writing, by name",
+      all(_without(one) != "" and one in _without(one)
+          for one in ledger.WHICH_FILE_LAST_WROTE))
 
 print()
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 106
+EXPECTED = 107
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

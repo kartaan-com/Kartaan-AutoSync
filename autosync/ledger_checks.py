@@ -310,14 +310,29 @@ check("and a DIFFERENT DAY is not a tie -- the newer file still wins outright",
 check("the four date-marker columns D157 asked for are named in one place",
       tool.WHICH_FILE_LAST_WROTE
       == ("ordersOn", "returnsOn", "paymentsOn", "claimsOn"))
-check("NONE OF THE FOUR EXISTS YET, and this says so rather than a report saying it",
-      tool.what_the_sheet_cannot_yet_say() == tool.WHICH_FILE_LAST_WROTE)
-check("and the day they are in the ledger's columns, nothing is missing",
+# **ALL FOUR NOW EXIST, AND THAT IS THE ANSWER THIS PAIR OF CHECKS USED TO
+# CARRY IN THE OPPOSITE DIRECTION.** Until 2026-09-06 the first of them said
+# "NONE OF THE FOUR EXISTS YET" -- today's answer written down as a check, which
+# is right and is also why it had to be rewritten the day the answer changed
+# rather than deleted for going red. The ERP landed its half, `sales.COLUMNS` is
+# pinned to the ERP's committed list, and this went empty with nothing here
+# touched to make it.
+check("ALL FOUR NOW EXIST, so nothing is missing and nothing is refused",
+      tool.what_the_sheet_cannot_yet_say() == ())
+check("and it is asking the real column list, not agreeing with itself",
+      all(one in sales.COLUMNS for one in tool.WHICH_FILE_LAST_WROTE))
+# **THREE OF FOUR IS STILL NOT GOOD ENOUGH, AND THE MISSING ONE IS STILL NAMED.**
+# The guard has to keep working: a sale written with one marker missing is a row
+# nothing can later tell was written by an older file. Driven by taking each of
+# the four away in turn rather than by waiting for one to be absent.
+check("take any ONE of the four away and it is missed, by name",
+      all(tool.what_the_sheet_cannot_yet_say(
+          tuple(c for c in sales.COLUMNS if c != one)) == (one,)
+          for one in tool.WHICH_FILE_LAST_WROTE))
+check("and take all four away and all four are named, in the ERP's order",
       tool.what_the_sheet_cannot_yet_say(
-          tuple(sales.COLUMNS) + tool.WHICH_FILE_LAST_WROTE) == ())
-check("three of the four is not good enough, and the fourth is named",
-      tool.what_the_sheet_cannot_yet_say(
-          tuple(sales.COLUMNS) + tool.WHICH_FILE_LAST_WROTE[:3]) == ("claimsOn",))
+          tuple(c for c in sales.COLUMNS if c not in tool.WHICH_FILE_LAST_WROTE))
+      == tool.WHICH_FILE_LAST_WROTE)
 
 # ------------------------------------------------- what the sheet already holds
 
@@ -427,7 +442,7 @@ if not_run:
 print()
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-WITH_HIS_FILES = 74
+WITH_HIS_FILES = 75
 EXPECTED = WITH_HIS_FILES - (9 if not_run else 0)
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")

@@ -453,7 +453,7 @@ def _oldest_first(
     discovered: a file arriving on a LATER NIGHT than one it is older than.**
     Tonight's files can be sorted because tonight holds them all; last night's
     figures are in the sheet, and **no row in that sheet says which day's file
-    wrote it** -- the ledger has 45 columns and not one of them is a date marker.
+    wrote it** -- the ledger has 49 columns and four of them are date markers.
     So the late fourth still overwrites the fifth across two nights. D157's second
     half asked for four such columns and they were never built (D180). The check
     named for that case asserts today's wrong answer on purpose, so it goes red

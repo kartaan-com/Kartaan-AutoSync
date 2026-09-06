@@ -90,7 +90,7 @@ SPREADSHEET = "application/vnd.google-apps.spreadsheet"
 
 # **HOW WIDE THE GRID IS MADE, AND IT IS NOT DECORATION.** A new Google
 # spreadsheet is twenty-six columns wide and this ledger has more than that. Every
-# write in `ledger_door` addresses `orders!A:AS`, and a range wider than the grid
+# write in `ledger_door` addresses `orders!A:AW`, and a range wider than the grid
 # is refused by Sheets with *"exceeds grid limits"* -- so a sheet created without
 # this line would be made successfully, would look perfectly right, and would
 # refuse the first sale ever written into it.
@@ -617,6 +617,17 @@ WHERE_A_COLUMN_COMES_BACK_FROM: Dict[str, Tuple[str, str]] = {
     # seller should be told about, and it is not a loss.
     "netPnl": (FROM_KARTAAN, "worked out again, as it stands today rather than as it stood then"),
     "returnPnl": (FROM_KARTAAN, "worked out again, today's answer for the same reason"),
+    # **D157'S FOUR DATE MARKERS.** Each says which day's file last touched the
+    # row. **They come back from the files**: a rebuild reads those same files in
+    # the same order and sets the same markers as it goes, so nothing about them
+    # is lost with the sheet. Said here rather than left out -- a column nobody
+    # measured would simply not appear in what the seller is told they lose,
+    # which is the warning-written-from-imagination D184 forbids, and the refusal
+    # above names any column that reaches this file without an answer.
+    "ordersOn": (FROM_THE_FILES, "set again as the orders report is read"),
+    "returnsOn": (FROM_THE_FILES, "set again as the returns report is read"),
+    "paymentsOn": (FROM_THE_FILES, "set again as the payments report is read"),
+    "claimsOn": (FROM_THE_FILES, "set again as the claims report is read"),
     # ---- and the three that genuinely cannot come back
     "notes": (
         CANNOT_COME_BACK,

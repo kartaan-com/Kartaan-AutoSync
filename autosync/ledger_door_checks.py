@@ -19,6 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import ledger  # noqa: E402
 import ledger_door as tool  # noqa: E402
+from urllib.parse import quote  # noqa: E402
 import sales  # noqa: E402
 from the_other_half import readFromKartaan  # noqa: E402
 
@@ -161,7 +162,7 @@ check("with RAW, so Google does not reinterpret a figure",
 check("and INSERT_ROWS, so it never writes over what is there",
       add["query"].get("insertDataOption") == "INSERT_ROWS")
 check("the range in the path is the whole tab, worked out from the columns",
-      "orders%21A%3AAS" in add["path"])
+      quote(sales.the_whole_tab(), safe="") in add["path"])
 check("the row sent has one cell per column",
       len(add["body"]["values"][0]) == len(sales.COLUMNS))
 
@@ -173,7 +174,7 @@ up = [c for c in g.calls if c["path"].endswith("values:batchUpdate")][-1]
 check("changing uses batchUpdate, as the ERP does", up["method"] == "POST")
 check("with RAW there too", up["body"].get("valueInputOption") == "RAW")
 check("the range names the row that sale is really on",
-      up["body"]["data"][0]["range"] == "orders!A2:AS2")
+      up["body"]["data"][0]["range"] == sales.the_range_for(2))
 check("and the sheet now holds the new figure",
       g.rows[1][AT["gmv"]] == "150")
 check("the ledger still holds one row for that sale, not two", len(g.rows) == 2)
@@ -257,7 +258,7 @@ check("the header is sent RAW too, so Google does not reinterpret a column name"
 check("and with INSERT_ROWS, so writing it can never overwrite a sale",
       head["query"].get("insertDataOption") == "INSERT_ROWS")
 check("it goes to the ledger's own tab, not somewhere else",
-      "orders%21A%3AAS" in head["path"])
+      quote(sales.the_whole_tab(), safe="") in head["path"])
 
 # --------------------------------------- pinned to the ERP's own calls
 

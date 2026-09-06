@@ -65,7 +65,7 @@ date and applied oldest first, and what the run has already decided is carried
 from file to file, so the newest genuinely wins whatever order the files were
 fetched in.
 
-**Across runs it cannot be.** The ledger's 45 columns hold no record of WHICH
+**Across runs it cannot be.** The ledger's 49 columns hold no record of WHICH
 FILE last wrote each value, so a run tomorrow cannot tell whether what is in a
 cell came from a file older or newer than the one it is holding. Today that is
 almost always harmless -- a new file is newer than what came before it, by

@@ -291,8 +291,13 @@ check("the last column's letter is worked out from how many there are",
       and tool.column_letter(27) == "AA" and tool.column_letter(28) == "AB")
 check("the whole tab's range covers every column",
       tool.the_whole_tab() == f"orders!A:{tool.column_letter(len(tool.COLUMNS))}")
-check("and it is 45 columns wide today, which is AS",
-      len(tool.COLUMNS) == 45 and tool.the_whole_tab() == "orders!A:AS")
+# **THIS NUMBER IS TODAY'S ANSWER, NOT A RULE, AND IT MOVES WHEN THE LEDGER
+# DOES.** It was 45 and AS until D157's four date markers landed on 2026-09-06.
+# It is written out rather than derived ON PURPOSE: derived from `COLUMNS` it
+# would agree with any width at all, including a wrong one, and the whole point
+# of it is to make somebody who changes the width say so here as well.
+check("and it is 49 columns wide today, which is AW",
+      len(tool.COLUMNS) == 49 and tool.the_whole_tab() == "orders!A:AW")
 
 # ---- how wide the ledger is, in every place that says so -------------------
 #
@@ -482,8 +487,16 @@ D152 = ("status", "isShopsy", "cogs", "packagingCost", "adSpend", "returnReason"
         "earringCondition", "boxCondition", "chainCondition", "itemLoss",
         "packingLoss", "chainLoss", "claimId", "claimStatus", "claimRecovered",
         "netPnl", "returnPnl")
-check("D152's seventeen are at the END, after rev, in his order",
-      tool.PLAIN_FIELDS[-17:] == D152)
+# **D152's SEVENTEEN ARE NO LONGER LAST, AND WHAT THIS CHECK PROTECTS IS
+# UNCHANGED.** D157's four date markers went in after them on 2026-09-06, at the
+# very end, which is where the ERP put its own four. What mattered then and still
+# matters is that the seventeen are TOGETHER, IN HIS ORDER, and that nothing has
+# been slipped in among them -- a column moved into the middle shifts every
+# column after it and each row's figures land one place over.
+check("D152's seventeen are together and in his order, with nothing among them",
+      tool.PLAIN_FIELDS[-21:-4] == D152)
+check("and D157's four date markers are what follows them, at the very end",
+      tool.PLAIN_FIELDS[-4:] == ("ordersOn", "returnsOn", "paymentsOn", "claimsOn"))
 check("and every one of them can be written from a field that exists",
       all(hasattr(tool.Sale(platform="p", order_id="o"), tool.FROM_FIELD[c]) for c in D152))
 check("THE THREE LOSSES ARE THREE COLUMNS, never one lump (D152)",
@@ -497,7 +510,7 @@ check("a nonsense column count is refused rather than answered",
       refused_by(lambda: tool.column_letter(0)))
 check("and True is not a column count, whatever Python thinks",
       refused_by(lambda: tool.column_letter(True)))
-check("one row's range is that row only", tool.the_range_for(2) == "orders!A2:AS2")
+check("one row's range is that row only", tool.the_range_for(2) == "orders!A2:AW2")
 check("writing a sale to row 1 is REFUSED -- that row is the column names",
       refused_by(lambda: tool.the_range_for(1)))
 
@@ -526,7 +539,7 @@ check("two sales on one order but different SKUs are two rows",
 print()
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 81
+EXPECTED = 82
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

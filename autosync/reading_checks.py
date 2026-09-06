@@ -826,7 +826,7 @@ check("and both files are written down as read, tie or no tie",
 # When the fourth arrives on a LATER night, the fifth's 9 is already in the sheet
 # and the fourth is the only reading this run has. `ledger.plan` decides newer
 # from older by the data date a READING carries, and **a row in the sheet carries
-# no date at all** -- the ledger has 45 columns and not one of them says which
+# no date at all** -- the ledger has 49 columns and four of them say which
 # day's file last wrote each figure. So the fourth's 1 goes over the fifth's 9
 # and nothing anywhere can tell that it should not have.
 #
