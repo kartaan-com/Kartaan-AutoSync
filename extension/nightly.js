@@ -141,7 +141,14 @@ export async function oneWasAskedFor(chrome) {
 export async function thatOneIsBeingTried(chrome, reportId) {
   const night = await theNight(chrome);
   if (!night) throw new Error('Nothing can be attempted against a night that is not going.');
-  const moved = { ...night, left: night.left.filter((one) => one !== reportId) };
+  /* **AND WHICH ONE IT IS, BECAUSE OTHERWISE IT IS IN NEITHER LIST.** Taking a
+   * report off `left` the moment it is attempted is what makes a retry loop
+   * impossible -- but it also means a report being walked right now is neither
+   * owed nor done, and a summary built from those two lists would not mention it
+   * at all. On the night of 6 September the opposite fault showed: `fk_views`
+   * was walking, was still in `left`, and the summary called it "never
+   * reached". It had reached; it was in the middle of the job. */
+  const moved = { ...night, doing: reportId, left: night.left.filter((one) => one !== reportId) };
   await chrome.storage.local.set({ [THE_NIGHT]: moved });
   return moved;
 }
@@ -152,12 +159,28 @@ export async function thatOneIsBeingTried(chrome, reportId) {
  * **WRITTEN AS IT HAPPENS, NOT AT THE END.** The reference kept the whole run in
  * memory and wrote it out when it finished, so an interruption took the lot.
  */
-export async function thatOneIsDone(chrome, { reportId, state, say = '', size = 0, at }) {
+export async function thatOneIsDone(chrome, {
+  reportId, state, say = '', size = 0, at, pageWas = '',
+}) {
   const night = await theNight(chrome);
   if (!night) throw new Error('Nothing can be recorded against a night that is not going.');
   const moved = {
     ...night,
-    done: [...night.done, { reportId, state, say, size, at }],
+    /* **WHAT THE PAGE ACTUALLY WAS IS KEPT, AND THE NIGHT OF 6 SEPTEMBER IS WHY.**
+     * Nine reports failed on three different Flipkart pages looking for three
+     * different things, and all nine were one cause. **The walk had ALREADY
+     * captured four hundred characters of what was really on each page** --
+     * `walk.js` does it in `gaveUp`, and it says there that the evidence must
+     * travel with the failure because written anywhere else it is written where
+     * nobody looks. **And this line threw it away, nine times.**
+     *
+     * The page said "Oops! We can't seem to find the page you're looking for."
+     * Had one of those nine sentences reached the morning, the cause would have
+     * been obvious at a glance instead of costing a night and a live
+     * investigation. */
+    done: [...night.done, { reportId, state, say, size, at, pageWas }],
+    /* Finished, so nothing is being walked -- until the next one starts. */
+    doing: night.doing === reportId ? null : night.doing,
     left: night.left.filter((one) => one !== reportId),
   };
   await chrome.storage.local.set({ [THE_NIGHT]: moved });
@@ -198,14 +221,28 @@ export function howTheNightWent(night) {
   const landed = night.done.filter((one) => one.state === 'landed');
   const bytes = landed.reduce((all, one) => all + (Number(one.size) || 0), 0);
   const lines = [
-    `${night.done.length} of ${night.done.length + night.left.length} reports were reached.`,
+    /* **THE ONE BEING WALKED IS PART OF THE TOTAL (A26R5).** It is in neither
+     * list -- that is what makes a retry loop impossible -- so a count built
+     * from the two lists dropped it, and the first line of the summary said
+     * "0 of 2" on a three-report night. The line below names it; this one has
+     * to count it. */
+    `${night.done.length} of ${night.done.length + night.left.length
+      + (night.doing ? 1 : 0)} reports were reached.`,
     `${landed.length} produced a real file, ${bytes} bytes in all.`,
     `${night.spent} of the ${night.mayAskFor} allowed Flipkart requests were spent.`,
   ];
-  if (night.left.length) lines.push(`Never reached: ${night.left.join(', ')}.`);
+  /* **THREE STATES, NOT TWO, AND THE MIDDLE ONE IS THE ONE THAT MISLED.** A
+   * report being walked right now has not failed and has not been skipped, and
+   * calling it either is how one report in progress was read as a tenth
+   * failure. */
+  if (night.doing) lines.push(`Being fetched right now: ${night.doing}.`);
+  if (night.left.length) lines.push(`Not started: ${night.left.join(', ')}.`);
   for (const one of night.done) {
     lines.push(`  ${one.reportId}: ${one.state}${one.size ? ` (${one.size} bytes)` : ''}`
       + `${one.say ? ` -- ${one.say}` : ''}`);
+    /* **AND UNDER IT, WHAT WAS ACTUALLY THERE.** A summary that says only what
+     * was looked for cannot tell one cause from nine. */
+    if (one.pageWas) lines.push(`      the page said: ${one.pageWas}`);
   }
   return lines.join('\n');
 }
@@ -247,6 +284,8 @@ export async function carryTheNightOn(chrome, {
       state: walk.answer.state,
       say: walk.answer.say || '',
       size: Number(walk.answer.size) || 0,
+      /* **CARRIED, NOT DROPPED.** See `thatOneIsDone`. */
+      pageWas: walk.answer.pageWas || '',
       at,
     });
     /* **AND THE WALK IS CLEARED, or the next call reads this same finished walk

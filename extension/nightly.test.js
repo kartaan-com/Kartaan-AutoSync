@@ -208,6 +208,7 @@ check('and nor does anything on Meesho', !spendsTheAllowance('me_orders'));
   });
   await thatOneIsDone(browser.chrome, {
     reportId: 'fk_claims', state: 'failed', say: 'nothing matched Download', at: 3,
+    pageWas: 'Oops! We can\'t seem to find the page you\'re looking for.',
   });
   const ended = await endTheNight(browser.chrome, { why: 'the seller was signed out', at: 4 });
   const words = howTheNightWent(ended);
@@ -218,11 +219,109 @@ check('and nor does anything on Meesho', !spendsTheAllowance('me_orders'));
   check('and how much of the seller allowance went', words.includes('0 of the 0 allowed'));
   /* **IT SAYS WHAT DID NOT HAPPEN AS WELL AS WHAT DID.** A summary listing only
    * what ran reads as a clean night whether or not it was one. */
-  check('and names what was never reached at all', words.includes('Never reached: fk_views'));
+  /* **"NEVER REACHED" WAS THE WRONG WORDS AND IT COST AN HOUR (6 September).**
+   * `fk_views` was being walked at that very moment and the summary called it
+   * never reached, so a report doing its job read as a tenth failure. A report
+   * that has not been started yet is NOT STARTED; one being walked is said
+   * separately; and they are different things. */
+  check('and names what was never started, in those words', words.includes('Not started: fk_views'));
   check('and names each report with what became of it',
     words.includes('fk_ads_daily: landed (1200 bytes)')
     && words.includes('fk_claims: failed -- nothing matched Download'));
+  /* **AND WHAT THE PAGE ACTUALLY WAS, WHICH IS THE WHOLE LESSON OF 6 SEPTEMBER.**
+   * Nine reports failed on three different pages looking for three different
+   * things. The walk had captured "Oops! We can't seem to find the page you're
+   * looking for" every time, and the night threw it away every time -- so nine
+   * failures with one cause arrived looking like nine faults. */
+  check('and under each failure, what the page actually said',
+    words.includes('the page said: Oops!'));
   check('and the night keeps why it ended', ended.why === 'the seller was signed out');
+}
+
+{
+  /* **THE ONE LINE THIS WHOLE CHANGE EXISTS FOR, AND IT HAD NO CHECK AT ALL
+   * (A26R5).** `carryTheNightOn` carries `pageWas` off the walk's answer and
+   * into the night's record -- one line -- and every check for the new evidence
+   * reached it by calling `thatOneIsDone` DIRECTLY with the page already in
+   * hand. Deleting that line left all 654 checks green, and the seller's night
+   * silently goes back to throwing the evidence away, which is the exact
+   * regression this change was written to prevent.
+   *
+   * **THIS REPOSITORY'S OWN HANDOVER CALLS THAT ITS WORST RECURRING FAULT, AND
+   * THIS CHANGE SHIPPED ONE.** So this check walks it the way the night does:
+   * the walk answers with a page, and the record is read back afterwards. */
+  const browser = installFakeChrome();
+  const walk = aWalkThat();
+  await startTheNight(browser.chrome, {
+    doing: ['fk_ads_daily'], mayAskFor: 0, at: 1, openAt: 'https://x/',
+  });
+  await carryTheNightOn(browser.chrome, { ...walk, at: 2 });
+  walk.itFinished({
+    state: 'failed',
+    reportId: 'fk_ads_daily',
+    say: 'could not find "the other reports tab"',
+    pageWas: 'Oops! We cannot seem to find the page you are looking for.',
+  });
+  await carryTheNightOn(browser.chrome, { ...walk, at: 3 });
+  const kept = (await theNight(browser.chrome)).done[0];
+  check('the page the walk saw is carried from the walk into the night record',
+    kept.pageWas === 'Oops! We cannot seem to find the page you are looking for.');
+  check('and it comes out again in what a person reads at breakfast',
+    howTheNightWent(await theNight(browser.chrome)).includes('the page said: Oops!'));
+}
+
+{
+  /* **A REPORT BEING WALKED RIGHT NOW IS IN NEITHER LIST, AND MUST STILL BE
+   * NAMED.** Taking it off the owed list the moment it is attempted is what
+   * makes a retry loop impossible -- and it is also how a report in progress
+   * could vanish from the summary altogether. */
+  const browser = installFakeChrome();
+  const walk = aWalkThat();
+  await startTheNight(browser.chrome, {
+    doing: ['fk_ads_daily', 'fk_claims'], mayAskFor: 0, at: 1, openAt: 'https://x/',
+  });
+  await carryTheNightOn(browser.chrome, { ...walk, at: 2 });
+  const mid = howTheNightWent(await theNight(browser.chrome));
+  check('a report being walked right now is named as being fetched',
+    mid.includes('Being fetched right now: fk_ads_daily'));
+  /* **AND IT IS COUNTED IN THE TOTAL (A26R5).** The first line used to say "0 of
+   * 1 reports were reached" on a two-report night with one walking -- the report
+   * in flight vanished from the count while the list one line below named it.
+   * That first line is the one a person reads. */
+  check('and the total counts it rather than dropping it',
+    mid.includes('of 2 reports'));
+  check('and it is not called never-started while it is being walked',
+    !mid.includes('Not started: fk_ads_daily'));
+  check('while the one behind it is correctly not started yet',
+    mid.includes('Not started: fk_claims'));
+
+  walk.itFinished({ state: 'landed', reportId: 'fk_ads_daily', size: 5 });
+  await carryTheNightOn(browser.chrome, { ...walk, at: 3 });
+  const after = howTheNightWent(await theNight(browser.chrome));
+  check('and once it finishes it is no longer said to be being fetched',
+    !after.includes('Being fetched right now: fk_ads_daily'));
+}
+
+{
+  /* **AND THE CASE THAT ACTUALLY PROVES IT: THE LAST REPORT OF THE NIGHT.**
+   * With another report behind it, the next one overwrites the name anyway --
+   * so the check above passes whether or not anything clears it. Driven, it
+   * stayed green with the clearing removed. **A night of ONE report is the only
+   * shape where the clearing is the thing being tested**, and a summary still
+   * claiming a report is being fetched at breakfast is a night that reads as
+   * hung when it finished hours ago. */
+  const browser = installFakeChrome();
+  const walk = aWalkThat();
+  await startTheNight(browser.chrome, {
+    doing: ['fk_ads_daily'], mayAskFor: 0, at: 1, openAt: 'https://x/',
+  });
+  await carryTheNightOn(browser.chrome, { ...walk, at: 2 });
+  walk.itFinished({ state: 'landed', reportId: 'fk_ads_daily', size: 5 });
+  await carryTheNightOn(browser.chrome, { ...walk, at: 3 });
+  const ended = howTheNightWent(await theNight(browser.chrome));
+  check('the last report of the night stops being named as in progress when it ends',
+    !ended.includes('Being fetched right now'));
+  check('and it is named as done instead', ended.includes('fk_ads_daily: landed'));
 }
 
 check('a summary of no night at all says so rather than falling over',
@@ -460,7 +559,7 @@ function aWalkThat() {
       .includes('a night that is not going'));
 }
 
-const EXPECTED = 58;
+const EXPECTED = 68;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

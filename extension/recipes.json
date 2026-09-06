@@ -14,7 +14,7 @@
         {
           "do": "go",
           "find": null,
-          "address": "https://seller.flipkart.com/index.html#dashboard/advertising/reports",
+          "address": "https://seller.flipkart.com/index.html#dashboard/ads/reports/others",
           "patience": 30,
           "why": "opening the ads reports page for Consolidated Daily Report",
           "rangeDays": 1
@@ -92,7 +92,7 @@
         {
           "do": "go",
           "find": null,
-          "address": "https://seller.flipkart.com/index.html#dashboard/advertising/reports",
+          "address": "https://seller.flipkart.com/index.html#dashboard/ads/reports/others",
           "patience": 30,
           "why": "opening the ads reports page for Consolidated FSN Report",
           "rangeDays": 1
@@ -170,7 +170,7 @@
         {
           "do": "go",
           "find": null,
-          "address": "https://seller.flipkart.com/index.html#dashboard/advertising/reports",
+          "address": "https://seller.flipkart.com/index.html#dashboard/ads/reports/others",
           "patience": 30,
           "why": "opening the ads reports page for Keyword Report",
           "rangeDays": 1
@@ -248,7 +248,7 @@
         {
           "do": "go",
           "find": null,
-          "address": "https://seller.flipkart.com/index.html#dashboard/advertising/reports",
+          "address": "https://seller.flipkart.com/index.html#dashboard/ads/reports/others",
           "patience": 30,
           "why": "opening the ads reports page for Campaign Order Report",
           "rangeDays": 1
@@ -326,7 +326,7 @@
         {
           "do": "go",
           "find": null,
-          "address": "https://seller.flipkart.com/index.html#dashboard/advertising/reports",
+          "address": "https://seller.flipkart.com/index.html#dashboard/ads/reports/others",
           "patience": 30,
           "why": "opening the ads reports page for Overall Performance Report",
           "rangeDays": 1
@@ -404,7 +404,7 @@
         {
           "do": "go",
           "find": null,
-          "address": "https://seller.flipkart.com/index.html#dashboard/advertising/reports",
+          "address": "https://seller.flipkart.com/index.html#dashboard/ads/reports/others",
           "patience": 30,
           "why": "opening the ads reports page for Placement Performance Report",
           "rangeDays": 1
@@ -482,7 +482,7 @@
         {
           "do": "go",
           "find": null,
-          "address": "https://seller.flipkart.com/index.html#dashboard/advertising/reports",
+          "address": "https://seller.flipkart.com/index.html#dashboard/ads/reports/others",
           "patience": 30,
           "why": "opening the ads reports page for Search Term Report",
           "rangeDays": 1
@@ -560,7 +560,7 @@
         {
           "do": "go",
           "find": null,
-          "address": "https://seller.flipkart.com/index.html#claims",
+          "address": "https://seller.flipkart.com/index.html#dashboard/payments/spf",
           "patience": 30,
           "why": "opening the claims page",
           "rangeDays": 1
@@ -651,7 +651,7 @@
         {
           "do": "go",
           "find": null,
-          "address": "https://seller.flipkart.com/index.html#dashboard/listings/my-listings",
+          "address": "https://seller.flipkart.com/index.html#dashboard/listings-management",
           "patience": 30,
           "why": "opening the listings page",
           "rangeDays": 1
@@ -703,7 +703,7 @@
         {
           "do": "go",
           "find": null,
-          "address": "https://seller.flipkart.com/index.html#dashboard/listings/my-listings",
+          "address": "https://seller.flipkart.com/index.html#dashboard/listings-management",
           "patience": 30,
           "why": "coming back for the listing file",
           "rangeDays": 1

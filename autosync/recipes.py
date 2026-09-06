@@ -121,15 +121,46 @@ SERVICES = "https://supplier.meesho.com/panel/v3/new/services/{panel}"
 # Flipkart is a single page that routes on the part after the hash. Deep-linking
 # works and does not upset it -- unlike Meesho, it has no aggressive bot
 # protection, which is why its own reports are reachable this way.
+#
+# **BUT IT ONLY ROUTES TO ROUTES THAT EXIST, AND A WRONG ONE FAILS SILENTLY AND
+# CONVINCINGLY.** Flipkart does not refuse an address it does not know: it draws
+# a complete, signed-in page carrying the whole sidebar, and quietly puts
+# `#dashboard/page-not-found` in the address bar. Nothing about it looks broken
+# to a walk that only asks whether the button it wants is there. **Every address
+# below has been driven against his real account and seen to land where it says.**
 FLIPKART = "https://seller.flipkart.com/index.html#{where}"
 
 REPORTS_CENTRE = FLIPKART.format(where="dashboard/metrics/report-centre")
 TRAFFIC = FLIPKART.format(
     where="dashboard/growth/seller-insights?businessVertical=ALL&section=purchase_funnel"
 )
-ADS_REPORTS = FLIPKART.format(where="dashboard/advertising/reports")
-CLAIMS = FLIPKART.format(where="claims")
-LISTINGS = FLIPKART.format(where="dashboard/listings/my-listings")
+# **THESE THREE WERE WRONG, AND THEY COST A WHOLE NIGHT (2026-09-06).** Nine of
+# ten reports failed within twenty minutes of each other -- seven ads reports
+# looking for "the other reports tab", claims looking for "the claims tab",
+# listings looking for "the downloads menu". Three different pages, three
+# different targets, one cause: **every one of these addresses redirects to
+# `#dashboard/page-not-found`.** The walk arrived at a real, signed-in, fully
+# drawn Flipkart page that simply was not the page it asked for, and then looked
+# for a tab that was not on it.
+#
+# **MEASURED ON HIS OWN ACCOUNT, NOT INFERRED**, and measured twice so that the
+# obvious rival explanation could be ruled out rather than argued with. The
+# reference's own comment at `content/flipkart.js:492` says Flipkart "routes to
+# 404 when a deep hash URL is opened in a fresh background tab (Angular auth
+# hasn't initialised yet)" -- **which would have been a satisfying answer and is
+# not this one.** On an already-bootstrapped tab the old addresses still went to
+# not-found, and on a brand new tab the new ones did not. The addresses were
+# simply stale. **The reference's comment is itself out of date, which is the
+# third documentation-versus-reality drift found in it in three days.**
+#
+# **AND THE PART THAT IS STILL TRUE AND WORTH KEEPING FROM IT:** on a fresh tab
+# the page routes immediately but its CONTENT takes between ten and twenty-five
+# seconds to draw. Every `wait-for` after a `go` has to outlast that, and the
+# reason it does is that the walk runs in a window of its own where Chrome does
+# not throttle it.
+ADS_REPORTS = FLIPKART.format(where="dashboard/ads/reports/others")
+CLAIMS = FLIPKART.format(where="dashboard/payments/spf")
+LISTINGS = FLIPKART.format(where="dashboard/listings-management")
 
 
 def _reports_centre(kind: str, sub_kind: str, why_it_is: str) -> Recipe:

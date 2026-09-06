@@ -309,7 +309,7 @@ check("and a DIFFERENT DAY is not a tie -- the newer file still wins outright",
 
 check("the four date-marker columns D157 asked for are named in one place",
       tool.WHICH_FILE_LAST_WROTE
-      == ("ordersOn", "paymentsOn", "returnsOn", "claimsOn"))
+      == ("ordersOn", "returnsOn", "paymentsOn", "claimsOn"))
 check("NONE OF THE FOUR EXISTS YET, and this says so rather than a report saying it",
       tool.what_the_sheet_cannot_yet_say() == tool.WHICH_FILE_LAST_WROTE)
 check("and the day they are in the ledger's columns, nothing is missing",

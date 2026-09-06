@@ -109,7 +109,17 @@ THE_HEADER_IS_ROW = 1
 # itself. If the ERP lands them under different names, this keeps refusing and
 # says exactly what it was looking for -- which is the loud answer, and the one
 # to want.
-WHICH_FILE_LAST_WROTE = ("ordersOn", "paymentsOn", "returnsOn", "claimsOn")
+# **IN THE ERP'S OWN ORDER, WHICH IS THE ORDER THE COLUMNS ARE IN.** Nothing
+# here reads them by position -- the refusal below asks only whether each name
+# is PRESENT -- so this tuple could be in any order and still be correct.
+# **IT IS IN THIS ONE BECAUSE IT IS PRINTED TO A PERSON.** `ledger_sheet` joins
+# it straight into the nightly alarm that tells somebody which columns to add,
+# and that sentence is copied. It said `paymentsOn` before `returnsOn` until
+# 2026-09-06, and that order had already been copied out of this repository into
+# an instruction once (A26R5 found it still being printed). A sheet is read by
+# column POSITION: swapped, every returns date lands in the payments column.
+# Read off `Kartaan-ERP` `fc82dc7:src/shared/data/sheet-store.js:219-222`.
+WHICH_FILE_LAST_WROTE = ("ordersOn", "returnsOn", "paymentsOn", "claimsOn")
 
 
 def what_the_sheet_cannot_yet_say(columns: Sequence[str] = COLUMNS) -> Tuple[str, ...]:
