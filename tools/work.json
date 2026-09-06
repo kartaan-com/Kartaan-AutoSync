@@ -637,8 +637,12 @@
     "extension/catch-blob.js",
     "extension/doors.js",
     "extension/doors.test.js",
+    "extension/drive.js",
+    "extension/drive.test.js",
     "extension/driver.js",
     "extension/driver.test.js",
+    "extension/nightly.js",
+    "extension/nightly.test.js",
     "extension/walk.js",
     "extension/walk.test.js",
     "extension/worker.js",
@@ -668,9 +672,9 @@
    ],
    "state": {
     "built": true,
-    "reviewed": "2026-08-29",
-    "run_for_real": false,
-    "instead": "400 JavaScript checks pass. THE CLOSEST ANYTHING HERE HAS COME TO REAL: loaded unpacked into his own Chrome on 2026-08-27 and driven READ-ONLY against his real Meesho panel and his real Flipkart dashboard. NOTHING WAS CLICKED, SUBMITTED OR DOWNLOADED. It has never fetched a file, never signed in through it, never met a real Akamai challenge, and has never been published or installed as an extension."
+    "reviewed": "2026-09-05 and 2026-09-06, FOUR independent reads (A26R, A26R2 which ran out of budget part way, A26R3, A26R4). Every one of the three that finished found a fault that would otherwise have shipped: a stale tab id that would have navigated the seller's own tab away, a decision number already in use, and a retry loop that could have spent a seller's whole daily Flipkart allowance on one report.",
+    "run_for_real": "PARTLY, and only the walking half. On 2026-09-05, unattended, in a window nobody was looking at: me_catalog landed 44,600 real bytes off his real Meesho panel. Both of me_orders' `go` steps were proved to destroy their own page and be picked up again by the next one. NOTHING ELSE HERE HAS RUN FOR REAL.",
+    "instead": "628 JavaScript checks pass, each count read off that file's own last line and never added up by hand -- a count taken the wrong way said 635 on the same day and a reviewer caught it. THE DRIVE HALF HAS NEVER UPLOADED ONE BYTE: `drive.js` is 66 checks against a stand-in Drive, NOTHING IMPORTS IT, and there is no interactive path by which a seller could connect a Drive for the first time. THE NIGHT RUNNER HAS NEVER RUN A NIGHT: `nightly.js` is 58 checks and not one real report has been walked by it -- and its worst fault, the retry loop above, was found by a reviewer driving it rather than by any of these checks. Still never published, never installed as an extension, never met a real Akamai challenge, and it has never signed anybody in."
    }
   },
   {

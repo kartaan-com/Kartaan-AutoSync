@@ -115,13 +115,15 @@ class Listeners {
 /**
  * Put a stand-in Chrome in place, and hand back the handle a check drives it by.
  */
-export function installFakeChrome({ now = () => 0 } = {}) {
+export function installFakeChrome({ now = () => 0, identityIsOn = true, refuseTheToken = null } = {}) {
   const alarms = new Map();
   const tabs = new Map();
   const windows = new Map();
   let nextWindowId = 100;
   const downloads = [];
   const reloaded = [];
+  const askedForTokens = [];
+  const forgottenTokens = [];
   const sentToPages = [];
   const cancelled = [];
   const erased = [];
@@ -206,6 +208,32 @@ export function installFakeChrome({ now = () => 0 } = {}) {
     },
 
     storage: { local, session },
+
+    /* **CHROME KEEPS THE SELLER'S GOOGLE PERMISSION, NOT US, AND THIS IS AS
+     * AWKWARD ABOUT IT AS CHROME IS.** It answers through a CALLBACK and reports
+     * a failure by setting `runtime.lastError` rather than by throwing -- so
+     * code that only catches exceptions sails past a refusal with no token and
+     * uploads nothing, silently. It is also switched OFF here unless a check
+     * turns it on, because that is the extension's real state today: no OAuth
+     * client of its own yet. */
+    identity: identityIsOn ? {
+      getAuthToken({ interactive }, then) {
+        owner._noteACall();
+        askedForTokens.push({ interactive });
+        if (refuseTheToken) {
+          chrome.runtime.lastError = { message: refuseTheToken };
+          then(undefined);
+          chrome.runtime.lastError = undefined;
+          return;
+        }
+        then(`token-${askedForTokens.length}`);
+      },
+      removeCachedAuthToken({ token }, then) {
+        owner._noteACall();
+        forgottenTokens.push(token);
+        if (then) then();
+      },
+    } : undefined,
 
     /* **WINDOWS, BECAUSE WHICH WINDOW A TAB IS IN DECIDES WHETHER CHROME
      * THROTTLES IT** -- and throttling is the difference between this product
@@ -465,6 +493,18 @@ export function installFakeChrome({ now = () => 0 } = {}) {
     /** Everything the background has said to a page, in order. */
     sentToPages() {
       return sentToPages.map((one) => ({ ...one }));
+    },
+
+    /** Every time Chrome was asked for a Google token, and whether it was asked
+     *  in a way that could put a window in front of a sleeping seller. */
+    askedForTokens() {
+      return askedForTokens.map((one) => ({ ...one }));
+    },
+
+    /** Which tokens Chrome itself was told to forget. **Forgetting it only in
+     *  our own store is how a dead token comes straight back.** */
+    forgottenTokens() {
+      return [...forgottenTokens];
     },
 
     /** Every window there is, and what state it is in. **A minimised window is

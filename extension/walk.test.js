@@ -27,6 +27,7 @@ import {
   STILL_WAITING,
   capture,
   hasNotFinished,
+  looksLikeAPage,
   daysBefore,
   theWalk,
   whatIsCovering,
@@ -878,9 +879,37 @@ check('a walk still going is told apart from one that landed',
     got.state === FAILED && got.say.includes('This recipe is wrong'));
 }
 
+/* ------------------------ a sign-in page is not a report, however big it is */
+
+/* **`doors.js` NAMES THIS THE WORST POSSIBLE OUTCOME IN ITS OWN WORDS**: a
+ * portal that has signed the browser out answers a file address with its sign-in
+ * page, at 200 -- and it is a file, it has a size, and everything downstream
+ * believes the day arrived. A26R4 found that the new page-side retry had
+ * reopened exactly that door. */
+const asBytes = (text) => new TextEncoder().encode(text);
+
+check('a page served where a report was asked for is recognised as a page',
+  looksLikeAPage(asBytes('<!DOCTYPE html><html><body>Sign in')));
+check('and so is one with no doctype', looksLikeAPage(asBytes('<html lang="en">')));
+/* **LEADING SPACE AND CAPITALS ARE HOW THIS GETS PAST A LOOSER TEST.** */
+check('and one that begins with whitespace or capitals',
+  looksLikeAPage(asBytes('\n  <!doctype HTML>')));
+check('and any other markup a portal might answer with',
+  looksLikeAPage(asBytes('<?xml version="1.0"?><error>')));
+
+/* **AND EVERY REAL FILE THIS PRODUCT FETCHES IS LEFT ALONE.** A guard that
+ * refused a real report would lose the day just as surely as one that let a page
+ * through, and it would be blamed on the platform. */
+check('a spreadsheet is not a page', !looksLikeAPage(new Uint8Array([80, 75, 3, 4, 20, 0])));
+check('a csv is not a page', !looksLikeAPage(asBytes('Order Id,SKU,Quantity\n123,ABC,2')));
+check('and a csv whose first column happens to be angle-bracketed is judged on its first byte',
+  !looksLikeAPage(asBytes('Date,Views\n2026-09-05,9200')));
+check('and nothing at all is not a page either, because it is a different failure',
+  !looksLikeAPage(new Uint8Array(0)) && !looksLikeAPage(null));
+
 check(`nothing above ended by throwing rather than by answering -- ${THREW}`, THREW.length === 0);
 
-const EXPECTED = 145;
+const EXPECTED = 153;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

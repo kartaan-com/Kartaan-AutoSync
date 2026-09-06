@@ -51,6 +51,7 @@
   let NeedsSigningIn;
   let capture;
   let hasNotFinished;
+  let looksLikeAPage;
   let book;
   try {
     ({ pageDoor, theCatcherSaid } = await import(chrome.runtime.getURL('driver.js')));
@@ -151,6 +152,49 @@
         return new Uint8Array(await held.arrayBuffer());
       }
       if (answer && answer.bytes) return new Uint8Array(answer.bytes);
+      if (answer && answer.couldNotFetch && answer.address) {
+        /* **THE OTHER HALF WAS REFUSED, SO THIS ONE TRIES (D198, rumee DOCS.md
+         * section 11 Method 7).** The reference moved only the catching and
+         * cancelling of a download into its background and left the fetching
+         * here on purpose -- its background fetch fails CORS on some Flipkart
+         * CDN endpoints, confirmed for its claims report, and this page can
+         * often read what that half cannot.
+         *
+         * **AND IF THIS IS REFUSED TOO, THE REASON IS THE ONE THE BACKGROUND
+         * GAVE, not a second one.** Two different messages for one wall is how
+         * a single cause reads as two problems. */
+        try {
+          const held = await fetch(answer.address, { credentials: 'include' });
+          if (held.ok) {
+            const bytes = new Uint8Array(await held.arrayBuffer());
+            /* **A 200 IS NOT PROOF IT IS THE REPORT, AND THIS RETRY IS EXACTLY
+             * WHERE THAT BITES (A26R4).** A portal that has signed the seller
+             * out answers a file address with its sign-in page, cheerfully, at
+             * 200. Before this fallback existed that case was a clean failure;
+             * widening it to "the page fetches too" would have turned it into a
+             * sign-in page recorded as the day's report -- which `doors.js` calls
+             * the worst possible outcome in its own words, because it is a file,
+             * it has a size, and everything downstream believes the day arrived.
+             *
+             * **THIS IS A GUARD, NOT THE ANSWER.** The Python half sniffs the
+             * real bytes properly (`landing.the_file_that_matters`) and this
+             * half still has no counterpart -- that gap is written down rather
+             * than papered over here. */
+            if (!looksLikeAPage(bytes)) return bytes;
+            throw new Error(
+              'What came back was a web page, not a report -- the platform has almost '
+              + 'certainly signed this browser out.'
+            );
+          }
+        } catch (wrong) {
+          if (String(wrong.message).includes('not a report')) throw wrong;
+          /* Anything else falls through to the sentence below, deliberately. */
+        }
+        throw new Error(
+          'The platform would not hand the file over a second time, to either half: '
+          + answer.couldNotFetch
+        );
+      }
       return answer;
     },
   });

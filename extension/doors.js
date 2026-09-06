@@ -349,12 +349,33 @@ export async function takeTheFile(chrome, watching, {
        * the platform answers with its sign-in page, and a sign-in page saved as a
        * report is the worst possible outcome: it is a file, it has a size, and
        * everything downstream believes the day arrived. */
-      const answer = await fetch(address, { credentials: 'include' });
+      let answer = null;
+      let refused = '';
+      try {
+        answer = await fetch(address, { credentials: 'include' });
+      } catch (wrong) {
+        /* **A FETCH THAT THROWS HERE IS ALMOST ALWAYS CORS, AND IT IS NOT THE
+         * END OF THE REPORT.** See below. */
+        refused = (wrong && wrong.message) || String(wrong);
+      }
       if (!answer || !answer.ok) {
-        throw new Error(
-          `The platform would not hand over ${address} a second time`
-          + `${answer && answer.status ? ` (it said ${answer.status})` : ''}.`
-        );
+        /* **THE PAGE IS ASKED TO FETCH IT INSTEAD, AND THIS IS NOT A GUESS**
+         * (D198; the reference's own DOCS.md section 11, Method 7). It moved
+         * ONLY the catching and cancelling of a download into its background
+         * half and deliberately left the FETCHING in the page, saying why in one
+         * line: its content script "does its OWN fetch(url, credentials
+         * include) -- NOT background's fetch, because background's fetch fails
+         * CORS on some FK CDN endpoints (confirmed for FK_CLAIMS)".
+         *
+         * **SO A REFUSAL HERE HANDS BACK AN ADDRESS RATHER THAN A FAILURE**, and
+         * the page half gets one more go from an origin the CDN will answer.
+         * Reported as a failure instead, a report that is perfectly fetchable is
+         * lost every night behind a message blaming the platform. */
+        return {
+          couldNotFetch: refused
+            || `the platform said ${(answer && answer.status) || 'nothing'}`,
+          address,
+        };
       }
       const holds = new Uint8Array(await answer.arrayBuffer());
       /* A file of nothing is not a file. Said here as well as in the walk,

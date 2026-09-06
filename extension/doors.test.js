@@ -274,16 +274,50 @@ function aFetch(answers) {
 }
 
 {
+  /* **A PLATFORM REFUSING THIS HALF IS NOT THE END OF THE REPORT, AND THAT IS
+   * NOT A GUESS (D198; the reference's DOCS.md section 11, Method 7).** It moved
+   * only the CATCHING and CANCELLING of a download into its background half and
+   * deliberately left the FETCHING in the page, in one line: its content script
+   * "does its OWN fetch(url, credentials include) -- NOT background's fetch,
+   * because background's fetch fails CORS on some FK CDN endpoints (confirmed
+   * for FK_CLAIMS)".
+   *
+   * **THIS CHECK USED TO REQUIRE A FAILURE HERE, AND THAT WAS WRONG.** Every
+   * Flipkart report whose file sits on one of those endpoints would have been
+   * lost every night behind a message blaming the platform, while the page half
+   * one layer away could have fetched it perfectly. */
   const browser = installFakeChrome();
   const watching = watchForDownloads(browser.chrome);
   const clock = aClock();
   await browser.aDownloadStarted({ url: 'https://seller.example.invalid/gone.csv' });
-  const wrong = await said(() => takeTheFile(browser.chrome, watching, {
+  const got = await takeTheFile(browser.chrome, watching, {
     patienceSeconds: 60, fetch: aFetch({}).fetch, now: clock.now, rest: clock.rest,
-  }));
-  check('a platform that will not hand it over a second time says so',
-    wrong.includes('would not hand over'));
-  check('and says what it answered instead', wrong.includes('404'));
+  });
+  check('a platform that refuses THIS half is not reported as a failure',
+    got !== null && typeof got === 'object' && !(got instanceof Uint8Array));
+  check('the address is handed back so the page half can try from its own origin',
+    got.address === 'https://seller.example.invalid/gone.csv');
+  check('and what the platform said is carried with it, not thrown away',
+    String(got.couldNotFetch).includes('404'));
+}
+
+{
+  /* **AND A FETCH THAT THROWS IS THE SAME CASE, NOT A DIFFERENT ONE.** A browser
+   * refusing a cross-origin read throws rather than answering, and treating only
+   * a bad status as recoverable would miss the very case this exists for. */
+  const browser = installFakeChrome();
+  const watching = watchForDownloads(browser.chrome);
+  const clock = aClock();
+  await browser.aDownloadStarted({ url: 'https://cdn.example.invalid/report.xlsx' });
+  const got = await takeTheFile(browser.chrome, watching, {
+    patienceSeconds: 60,
+    fetch: async () => { throw new TypeError('Failed to fetch'); },
+    now: clock.now,
+    rest: clock.rest,
+  });
+  check('a fetch the browser refuses outright is handed on rather than reported broken',
+    got.address === 'https://cdn.example.invalid/report.xlsx'
+    && got.couldNotFetch.includes('Failed to fetch'));
 }
 
 {
@@ -634,7 +668,7 @@ function aFetch(answers) {
     got.windowId !== theirs.id);
 }
 
-const EXPECTED = 65;
+const EXPECTED = 67;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

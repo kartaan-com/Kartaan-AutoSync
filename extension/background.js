@@ -38,6 +38,7 @@
 import { catchTheNextFile } from './catch-blob.js';
 import { ARMED_FOR_MS, aTabToWalkIn, goTo } from './doors.js';
 import { FAILED } from './walk.js';
+import { carryTheNightOn } from './nightly.js';
 
 /* The one name the daily alarm has. Written once: two spellings of an alarm's
  * name is one alarm created and a different one looked for, and nothing would
@@ -544,7 +545,12 @@ async function carryOut(chrome, parts, asked, tabId) {
       return { ended: false, stale: true };
     }
     watching.stopExpecting();
-    return { ended: Boolean(await endTheWalk(chrome, { tabId, answer: asked.answer })) };
+    const ended = Boolean(await endTheWalk(chrome, { tabId, answer: asked.answer }));
+    /* **THE NIGHT IS MOVED ON THE MOMENT A WALK ENDS**, rather than waiting up
+     * to two minutes for the alarm. The alarm is the safety net, not the
+     * mechanism. */
+    if (ended && parts.carryOn) await parts.carryOn();
+    return { ended };
   }
   if (asked.do === 'go') {
     watching.forget();
@@ -626,7 +632,7 @@ async function carryOut(chrome, parts, asked, tabId) {
  * The real worker calls it once, at the top of the file, with nothing in
  * between.
  */
-export function wireUp(chrome, { onDue, answer = null, whenATabGoes = null }) {
+export function wireUp(chrome, { onDue, answer = null, whenATabGoes = null, carryOn = null }) {
   /* **THE PAGE HALF'S ONE WAY BACK.** Registered at the top level like every
    * other listener, because a listener added inside a function does not exist
    * until something calls that function -- and after a restart nothing has. */
@@ -676,6 +682,12 @@ export function wireUp(chrome, { onDue, answer = null, whenATabGoes = null }) {
      * finish has to be written down by something, and this is the only thing
      * that happens when nothing else is happening. */
     await sweepUpAnAbandonedWalk(chrome);
+    /* **AND THE NIGHT IS MOVED ON HERE TOO, not only when a walk says it is
+     * done.** A night that could only advance on one message is a night that
+     * stalls for ever the one time that message does not arrive -- and nobody is
+     * awake to notice. This is the only thing that reliably happens when nothing
+     * else is happening. */
+    if (carryOn) await carryOn();
     if (alarm && alarm.name !== DAILY) return;
     await onDue();
   });

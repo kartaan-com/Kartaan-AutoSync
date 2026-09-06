@@ -482,6 +482,36 @@ export function theWalk({ door, book, say }) {
   };
 }
 
+/**
+ * Do these bytes begin like a web page rather than like a file?
+ *
+ * **THIS IS HERE RATHER THAN IN `content.js` BECAUSE IT CAN BE WRONG, AND
+ * ANYTHING THAT CAN BE WRONG IS CHECKED.** That is the rule at the top of
+ * `content.js`, and a guard against a seller's sign-in page being filed as their
+ * day's report is not the place to make an exception to it.
+ *
+ * **WHAT IT IS FOR.** A portal that has signed the browser out answers a file
+ * address with its sign-in page, cheerfully, at 200. `doors.js` names that the
+ * worst possible outcome in its own words: it is a file, it has a size, and
+ * everything downstream believes the day arrived.
+ *
+ * **THE NARROWEST TEST THAT CATCHES IT.** It asks one question -- does this
+ * start with markup -- and nothing about what kind of file it might be instead.
+ * A spreadsheet begins `PK`, a CSV begins with a column name, a zip begins `PK`.
+ * None of them begin with `<`.
+ *
+ * **AND IT IS NOT THE ANSWER, only a guard.** The Python half sniffs the real
+ * bytes properly (`landing.the_file_that_matters`, which also unwraps a zip
+ * holding one spreadsheet and refuses what is not a report at all) and this half
+ * still has no counterpart. Said here rather than left to be assumed.
+ */
+export function looksLikeAPage(bytes) {
+  if (!bytes || !bytes.length) return false;
+  const opening = new TextDecoder('utf-8', { fatal: false })
+    .decode(bytes.slice(0, 200)).trim().toLowerCase();
+  return opening.startsWith('<');
+}
+
 /** A day, some days earlier, written the way the platforms write one. */
 export function daysBefore(day, howMany) {
   if (!howMany) return day;
