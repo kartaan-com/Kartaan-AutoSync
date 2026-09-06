@@ -842,6 +842,20 @@ else:
                        "-c", "core.hooksPath=hooks", "merge", "--no-ff",
                        "-m", "a merge nobody read", "side")
 
+        def _hold_back(where):
+            """Start the merge and keep it uncommitted, WITH AN IDENTITY.
+
+            **`git merge` DEMANDS A COMMITTER BEFORE IT WILL START**, `--no-commit`
+            and all, and the two calls here were the only git children in this file
+            that did not carry one. On a machine with a global `user.email` -- every
+            machine this was written on -- they worked; on the GitHub runner, which
+            has none, the merge refused outright, nothing was ever held back, and
+            the check below went red for a reason that had nothing to do with the
+            hook it was asking about. Red on the runner from 2026-09-05.
+            """
+            return _in(where, "git", "-c", "user.name=t", "-c", "user.email=t@t",
+                       "merge", "--no-commit", "--no-ff", "side")
+
         def _commit(where, message):
             return _in(where, "git", "-c", "user.name=t", "-c", "user.email=t@t",
                        "-c", "core.hooksPath=hooks", "commit", "-q", "-m", message)
@@ -888,14 +902,20 @@ else:
 
         # ---- and the way through, which has to exist.
         _held = _two_branches("merge-held-back")
-        _in(_held, "git", "merge", "--no-commit", "--no-ff", "side")
+        _holding = _hold_back(_held)
         _the_note(_held).write_text(
             _in(_held, "git", "write-tree").stdout.strip() + "\n", encoding="utf-8")
         _said = _commit(_held, "the merge, read like any other commit")
         _landed = _message_of(_held)
         check(
             MERGING[4],
-            _said.returncode == 0
+            # **THE SETUP IS ASSERTED, NOT ASSUMED.** A held-back merge that never
+            # started leaves nothing staged, so the commit below fails and this
+            # check goes red -- looking exactly like a verdict about the hook when
+            # it is a verdict about `git merge` having no committer. Named here so
+            # the next reader is told which of the two happened.
+            _holding.returncode == 0
+            and _said.returncode == 0
             and _parents(_held) == 2
             and len(TAG_ON_ITS_OWN_LINE.findall(_landed)) == 1
             and not (_held / "review_pass.json").exists()
@@ -951,12 +971,14 @@ else:
         # the hook says so instead of pretending.
         _planted = _two_branches("a-note-planted-by-hand")
         (_planted / "review_pass.json").unlink()
-        _in(_planted, "git", "merge", "--no-commit", "--no-ff", "side")
+        _planting = _hold_back(_planted)
         _tree = _in(_planted, "git", "write-tree").stdout.strip()
         _in(_planted, "git", "merge", "--abort")
         _the_note(_planted).write_text(_tree + "\n", encoding="utf-8")
         _merge(_planted)
-        check(MERGING[8], "[PM-REVIEWED]" not in _message_of(_planted))
+        check(MERGING[8],
+              _planting.returncode == 0
+              and "[PM-REVIEWED]" not in _message_of(_planted))
 
     finally:
         _WENT = gate_run.take_it_away(_gate_there)

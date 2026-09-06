@@ -1109,6 +1109,12 @@
     "found": "2026-09-07, by the independent reviewer of the executable-mode fix",
     "fixed": false,
     "what_is_needed": "OPEN. Not fixed here: it is a different fault from the file mode, those four checks were green before this change and are green after it, and touching them belongs in its own piece of work with its own review. **The fix is to require the hook's OWN refusal words** the way `MERGING[0]` and `DRIVEN[4]` already do, and then to put the mode back to 100644 and require all twelve to go red rather than eight."
+   },
+   {
+    "what": "**AND UNDERNEATH THE MODE, A SECOND FAULT THE MODE HAD BEEN HIDING: TWO `git merge` CALLS WITH NO COMMITTER.** With the hooks executable, seven of the eight went green and `MERGING[4]` stayed red on the runner alone. `git merge` demands a committer identity BEFORE it will start, `--no-commit` and all, and those two calls were the only git children in tools/gate_checks.py that did not carry one -- every other commit in the file passes `-c user.name=t -c user.email=t@t` explicitly. On any machine with a global `user.email` they worked. **The GitHub runner has none**, so the merge refused outright, nothing was ever held back, the commit that follows found nothing staged, and the check reported red as though it were a verdict about the hook. It was a verdict about the fixture. `MERGING[8]` made the same call and passed anyway, which is the vacuous-pass fault above, met in the wild.",
+    "found": "2026-09-07, from the one check still red after the mode fix",
+    "fixed": true,
+    "proved_by": "Both calls now go through `_hold_back()`, which carries the identity, and the merge's OWN return code is now part of what `MERGING[4]` and `MERGING[8]` assert, so a setup that never started can no longer look like anything but red. **Driven on Linux with no global git identity -- the runner's exact condition:** all 114 pass; with the identity taken off that one helper again, `MERGING[4]` AND `MERGING[8]` both go red and nothing else moves. Before the setup assertion `MERGING[8]` stayed green through it."
     }
    ],
    "state": {
