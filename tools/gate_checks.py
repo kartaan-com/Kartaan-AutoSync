@@ -555,6 +555,66 @@ _BASH = shutil.which("bash")
 check("the hooks can actually be run, so the checks below mean something",
       _BASH is not None)
 
+# **AND GIT RECORDS THEM EXECUTABLE.** Read out of the INDEX, never off disk:
+# `core.filemode` is false on Windows, so the working-tree bit there is a
+# fiction git neither stores nor restores, and the mode in the index is the only
+# thing a clone on any other machine actually receives.
+#
+# **WHAT A MISSING BIT DOES IS WORSE THAN A RED RUN.** Installed the way this
+# repository installs itself -- `core.hooksPath=.githooks` -- git SKIPS a hook
+# that is not executable, prints a hint, and exits 0: the commit lands untagged
+# with nothing having asked for a review, which is precisely the gate being off.
+# Measured 2026-09-07 on Linux, both modes, against this very hook. Both hooks
+# stood at 100644 from the day this repository was split out, so the gate had
+# never once run on Linux or macOS, and eight of the driven checks below had
+# been red on the runner since 2026-09-05.
+#
+# **NOT `every check that makes a real commit` -- that sentence stood here and
+# was wrong.** TWELVE checks below drive a real commit through the wrapper that
+# `exec`s this hook, and only eight of them went red. `MERGING[1]`, `[2]`, `[3]`
+# and `[8]` ask for a REFUSAL -- a non-zero return, one parent, no tag -- and a
+# hook that could not start at all satisfies every one of those. They were green
+# for the whole three days the gate was off, VACUOUSLY. `MERGING[0]` is the only
+# one of the refusal checks that went red, and only because it also demands the
+# hook's OWN words. That is the trap `DRIVEN[4]`'s comment already names, still
+# open in its three siblings, and it is written down in `tools/work.json` rather
+# than fixed here because it is a different fault from this one.
+#
+# The ERP's two hooks were 100755 and its identical checks passed throughout,
+# which is what made the mode rather than the hook text the difference.
+#
+# **ASKED THROUGH `_in`, LIKE EVERY OTHER GIT CHILD IN THIS FILE**, so the
+# pointers git hands down are stripped: with `GIT_INDEX_FILE` or `GIT_DIR` set,
+# `cwd` is ignored and `ls-files` answers about somebody else's index. And a git
+# that is not on the machine is reported RED rather than allowed to throw,
+# because this is the first git this file runs and an exception here would take
+# the fifty checks below down with it, unreported.
+_MODE_OF = {}
+try:
+    _LS = _in(ROOT, "git", "ls-files", "-s", "--",
+              ".githooks/commit-msg", ".githooks/pre-commit")
+    _LS_RC = _LS.returncode
+    for _row in _LS.stdout.splitlines():
+        _bits = _row.split(maxsplit=3)
+        # `mode SP oid SP stage TAB path`. **THE STAGE IS NOT DECORATION:** on an
+        # unmerged index the same path appears at stages 1, 2 and 3, and keeping
+        # the last row seen let a 100755 side of a conflict answer for a 100644
+        # one. Only stage 0 -- what would actually be committed -- counts.
+        if len(_bits) == 4 and _bits[2] == "0":
+            _MODE_OF[_bits[3].strip().replace("\\", "/")] = _bits[0]
+except OSError as _no_git:  # noqa: BLE001
+    _LS_RC = -1
+check(
+    "AND GIT RECORDS BOTH HOOKS EXECUTABLE AT STAGE 0 -- read out of the index, "
+    "because `core.filemode` is false on Windows and the bit on disk there is a "
+    "fiction. At 100644 `core.hooksPath` makes git SKIP the hook, hint, and exit 0: "
+    "the commit lands untagged and unreviewed, which is the gate switched off rather "
+    "than red. Both stood at 100644 from the split until 2026-09-07",
+    _LS_RC == 0
+    and set(_MODE_OF) == {".githooks/commit-msg", ".githooks/pre-commit"}
+    and all(_mode == "100755" for _mode in _MODE_OF.values()),
+)
+
 if _BASH is None:
     for _name in DRIVEN + EXTRA_DRIVEN + MERGING:
         check(_name, False)
@@ -1021,7 +1081,7 @@ check(
 # tests it -- which is the whole of D170 arriving from the direction of a comment.
 # **A reading check kept for a reason is not a weakness; a note that hides one is.**
 
-EXPECTED = 113
+EXPECTED = 114
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

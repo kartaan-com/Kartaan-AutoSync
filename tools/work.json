@@ -1097,13 +1097,25 @@
      "found": "2026-09-03",
      "fixed": true,
      "proved_by": "tools/gate_run_checks.py -- 50 checks: 6 questions asked of the workflow as written, 41 faults put back one at a time with the answer required to stop being right, the two commits the loose and strict rules disagree about pinned by identity, and the throwaway clone proved really gone. **Each fault is judged by the ONE question that exists to detect it, never by any question (D175)** -- a question already wrong on the workflow as written attributes nothing and the faults naming it are reported RED."
+   },
+   {
+    "what": "**BOTH HOOKS WERE 100644 AND SO THE GATE HAD NEVER RUN ON LINUX OR macOS.** The mode, not one character of hook text. `core.filemode` is false on Windows, where the bit on disk is a fiction git does not store, so every commit made here ran the gate and nothing local could ever show it. Installed the way this repository installs itself -- `core.hooksPath=.githooks` -- git SKIPS a hook that is not executable, prints a hint and EXITS 0: the commit lands untagged, unreviewed, and green. **That is the gate switched off, not the gate red**, and it is worse than the CI failure that exposed it. Driven both ways on Linux against this very hook on 2026-09-07.",
+    "found": "2026-09-07, from eight red checks on the runner",
+    "fixed": true,
+    "proved_by": "`git update-index --chmod=+x` on both hooks -- the blob ids are unchanged, so no line of either hook moved. Guarded by tools/gate_checks.py -- 'AND GIT RECORDS BOTH HOOKS EXECUTABLE', which reads the INDEX rather than disk because the working-tree bit on Windows says nothing. **The guard was put back to red to prove it can fail:** at 100644 it is the only check of the 114 that goes red here, which is exactly why nothing caught this -- the eight driven checks it broke are green on Windows and were red only on the runner."
+   },
+   {
+    "what": "**FOUR OF THE MERGE CHECKS PASSED VACUOUSLY FOR THE WHOLE THREE DAYS THE GATE WAS OFF, AND STILL CAN.** Found by an independent reviewer on the 100755 diff, not by the runner. Twelve checks drive a real commit through the wrapper that `exec`s the hook; at 100644 the `exec` failed and only EIGHT went red. `MERGING[1]`, `[2]`, `[3]` and `[8]` ask for a REFUSAL -- non-zero return, one parent, no tag in the message -- and a hook that never started satisfies every one of those without the gate doing anything. `MERGING[0]` was the only refusal check to go red, and only because it ALSO demands the hook's own words. This is exactly the trap `DRIVEN[4]`'s own comment names three lines above them -- 'any failure to start it at all would otherwise satisfy this' -- left open in its siblings. **The eight red checks were the symptom; these four are the ones that should have gone red and did not.**",
+    "found": "2026-09-07, by the independent reviewer of the executable-mode fix",
+    "fixed": false,
+    "what_is_needed": "OPEN. Not fixed here: it is a different fault from the file mode, those four checks were green before this change and are green after it, and touching them belongs in its own piece of work with its own review. **The fix is to require the hook's OWN refusal words** the way `MERGING[0]` and `DRIVEN[4]` already do, and then to put the mode back to 100644 and require all twelve to go red rather than eight."
     }
    ],
    "state": {
     "built": true,
     "reviewed": false,
     "run_for_real": false,
-    "instead": "163 checks on the gate: 113 in tools/gate_checks.py over its own rules and its real hooks -- including one that reads all THREE copies of `NOT_CODE` off disk (Python, the commit-msg hook, the workflow) and holds them to each other -- and 50 in tools/gate_run_checks.py that RUN the workflow's two tag steps rather than reading them. **Counted 2026-09-04; this said 88, from before the runner existed.** The workflow has still never run ON GITHUB: nothing has been pushed."
+    "instead": "164 checks on the gate: 114 in tools/gate_checks.py over its own rules and its real hooks -- including one that reads all THREE copies of `NOT_CODE` off disk (Python, the commit-msg hook, the workflow) and holds them to each other -- and 50 in tools/gate_run_checks.py that RUN the workflow's two tag steps rather than reading them. **Counted 2026-09-04; this said 88, from before the runner existed.** **Recounted 2026-09-07** when the executable-mode check below was added. The workflow HAS now run on GitHub and was RED from 2026-09-05 to 2026-09-06: it stopped at its first checks step, so the ERP, server, checks-file, register and recipe steps after it never ran at all in any of those four runs."
    }
   },
   {
