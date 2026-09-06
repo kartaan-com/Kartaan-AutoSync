@@ -25,6 +25,15 @@ await self.howTheNightWent()
 
 ---
 
+## NOTHING BELOW IS ON GITHUB
+
+**Five commits are unpushed** (`main...origin/main [ahead 5]`), including the
+columns. Everything this document reports as landed exists only on this machine.
+Pushing is his decision and he had not given it in this session — a peer session
+relayed that he had, and a relayed authorisation is not one.
+
+---
+
 ## WHAT WORKS NOW, AND WHAT HAS ACTUALLY BEEN PROVED
 
 **Proved live, unattended, in a window nobody was looking at (2026-09-05):**
@@ -32,7 +41,9 @@ await self.howTheNightWent()
 Both of `me_orders`' `go` steps were separately proved to destroy their own page
 and be picked up again by the next one.
 
-**Never proved:** the Drive half. **Nothing imports `extension/drive.js`.** No
+**Never proved:** the Drive half. **Nothing in the product imports
+`extension/drive.js`** — only its own `drive.test.js` does, and its 65 checks
+pass against a stand-in. No
 file has ever reached a real Google Drive from this extension, and there is no
 interactive path by which a seller could connect one for the first time. "A real
 report reaches Drive unattended" has been impossible since before I started and
@@ -40,73 +51,63 @@ is still impossible.
 
 ---
 
-## THE COLUMNS COMMIT — WRITTEN, WAITING ON ONE THING
+## THE COLUMNS — DONE, AND THE REFUSAL HAS LIFTED
 
-**GO SIGNAL: `Kartaan-ERP` master carrying commit `fc82dc7`.** Not before.
-
-**Why not before:** `autosync/sales_checks.py:82` reads the ERP's *working tree*
-and compares `PLAIN_FIELDS` name by name **and in order**. Until the ERP half is
-on master, adding the columns here turns **fifteen checks red**. I did it, saw
-the fifteen, and reverted. `tools/work.json:1158` says the ERP moves first by
-design, and `fc82dc7`'s own message says the red in between is deliberate:
-two landings, forced order.
-
-### The four names, and the trap
+**This is the thing that changed today and the next session should know it
+first.** The ledger writing had refused to touch Google since it was built, and
+that refusal is why no sale has ever reached a sheet. It was waiting on four
+columns. The ERP landed its half (`fc82dc7`), this repository landed the other,
+and the refusal ended **by itself**:
 
 ```
-ordersOn
-returnsOn      <- NOT paymentsOn
-paymentsOn
-claimsOn
+ledger.what_the_sheet_cannot_yet_say()    ()     was all four
+ledger_sheet.why_it_must_not_write_yet()  ''     was a paragraph
 ```
 
-**Take them from `fc82dc7:src/shared/data/sheet-store.js:219-222` and from
-nowhere else.** Three places in this repository carry them with `returnsOn` and
-`paymentsOn` SWAPPED:
+Nothing was written to make that happen — `sales.COLUMNS` is pinned to the ERP's
+committed list, so it lifts the day they land, exactly as `work.json` said it
+would a day before it did.
 
-- `tools/work.json:970` and `:1221` — **I corrected both.**
-- **`autosync/ledger.py:112` was the real source** — `WHICH_FILE_LAST_WROTE`.
-  `ledger_checks.py:312` only pinned it, so a session sent to fix the order would
-  have opened the checks file and found a mirror. **I left it swapped at first**,
-  reasoning that the refusal is a membership test and never asks position, which
-  is true. **A reviewer showed that is not the point:** `ledger_sheet.py:496`
-  joins that tuple straight into the nightly ALARM — *"2. WHAT IS MISSING, by
-  name: …"* — the sentence printed to the very person whose job is to add those
-  columns, and that order had already been copied out of this repository into an
-  instruction once. **Now in the ERP's order**, with the reason beside it.
-  `REVIEW.md` still carries the old order in three places and that is correct:
-  it is an append-only dated record quoting real output.
+**WHAT IS STILL NOT TRUE: nothing has ever been written to a real Google Sheet.**
+The refusal stopping is not the write happening. And **nothing fills the four
+columns yet** — deliberately, matching the ERP's half: the columns are declared,
+and what puts a date in one belongs with whatever reads a file. **Until something
+does, D150 rule 2 is enforceable in principle and not yet in fact.** That is the
+next piece of this thread.
 
-A sheet is read by column POSITION. The swapped order puts every returns date in
-the payments column and every payments date in returns, in the money, silently.
-I was handed the swapped order twice and caught it both times by reading the
-commit.
+### What to carry from how it was done
 
-### What the commit contains
+**The order was `ordersOn, returnsOn, paymentsOn, claimsOn`, and THREE places in
+this repository had `returnsOn` and `paymentsOn` swapped** — `work.json:970`,
+`work.json:1221`, and `ledger.py:112`, the last of which is joined straight into
+the nightly alarm that tells a person which columns to add. **The instruction
+asking for the work had them swapped too.** Only the ERP's own committed file was
+right. All three are corrected now.
 
-| file | change |
-|---|---|
-| `autosync/sales.py` | four names at the END of `PLAIN_FIELDS` after `returnPnl`, **never in the middle**; four fields on `Sale`; four in `FROM_FIELD` |
-| `autosync/ledger_sheet.py` | four in `WHERE_A_COLUMN_COMES_BACK_FROM`, or it refuses by name |
-| `autosync/ledger_checks.py` | **two checks assert the four DO NOT EXIST** and must be rewritten with it |
-| width | 45 -> 49, `A:AS` -> `A:AW`, **DERIVED, never typed** |
+**AND `REVIEW.md` STILL CARRIES THE SWAPPED ORDER IN THREE PLACES — `:1433`,
+`:1445`, `:1683` — AND THAT IS CORRECT. DO NOT EDIT IT.** It is an append-only
+dated record quoting real output from the day it was wrong. **This sentence was
+in an earlier draft of this document, I deleted it while rewriting, and a
+reviewer caught that the deletion turned a known-and-explained residue into a
+trap:** grep for the swapped order, find three hits, read "all corrected", and
+either edit an append-only record or copy the order out of `:1445`, which reads
+like the alarm's own output.
 
-**`PLAIN_FIELDS` alone is not enough** — `the_row_for` maps every column to a
-field and raises `KeyError` without them. I found that by doing it.
+**If you ever carry these names anywhere, take them from `Kartaan-ERP`
+`src/shared/data/sheet-store.js` and from nothing else.**
 
-**The width is written in ELEVEN places**, not the six I was given:
-`ledger.py:68`, `ledger_sheet.py:93`, `reading.py:456`, `reading_checks.py:829`,
-`nightly_checks.py:1129`, `sales_checks.py:294`, `sales_checks.py:295`,
-`work.json:134`, `work.json:1158`, `work.json:1193`, `work.json:1213`.
+**The width was written in FOURTEEN places, not the eleven I first counted** —
+three more turned up in `ledger_door_checks.py` as hand-typed ranges. Everything
+is derived now except one number that cannot be: `work.json`'s
+`the_ledger_is_this_many_columns_wide`, held to `len(sales.COLUMNS)` by
+`sales_checks.py`.
 
-**One number cannot derive and must be typed:** `work.json`'s
-`the_ledger_is_this_many_columns_wide`. `sales_checks.py` holds it to
-`len(sales.COLUMNS)`, which is what makes it one number rather than a second
-copy. **Say that in the commit message** — the next person will see a hand-typed
-49 and reach for it.
-
-**When it lands, watch `ledger_sheet.why_it_must_not_write_yet()`. If it still
-refuses, WHAT IT REFUSES ON IS WORTH MORE THAN THE COMMIT.**
+**Twelve checks encoded the old answer and were rewritten with the change, never
+deleted for going red.** The interesting group: `ledger_sheet_checks.py` used to
+stand the refusal DOWN so the rest of the file could run. It now takes the
+columns AWAY for one block and puts them back — **the refusal is driven rather
+than waited for, because a guard nobody has watched fire is a guard that could
+have stopped working the day it was needed again.**
 
 ---
 
@@ -149,8 +150,9 @@ it does not run. That is a product decision, not a code one.
    step **nothing reaches the worker at all** (`driver.js` never touches
    `chrome`). `me_orders` waits 60s at step 7. **A reviewer proved it: worker died
    between arm and click, cancelled 0, erased 0.** Two checks in
-   `background.test.js` PIN this as a known fault and will go red when it is
-   fixed. The real answer is probably the reference's PRIMARY layer, which this
+   `background.test.js` PIN this as a known fault. **Only one of the two reddens
+   when it is fixed** -- the other says the address is still caught, which stays
+   true either way, so do not read the pair as a matched set. The real answer is probably the reference's PRIMARY layer, which this
    product still lacks: `content/intercept.js:305-324` patches
    `HTMLAnchorElement.prototype.click` in the MAIN world and SUPPRESSES the click.
 
