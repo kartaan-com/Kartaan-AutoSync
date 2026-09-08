@@ -429,6 +429,61 @@ tool.recording_into(LedgerDoor(PretendSheets(rows=list(THE_HEADER)), "s"), say=h
 check("what was written is said in the run's own words", any("added" in one for one in heard))
 
 
+# ---- THE RECOVERY THIS PROMISED AND DID NOT HAVE (A32)
+#
+# **`ledger.older_than_the_row` SAID, IN ITS OWN WORDS, THAT LEAVING A ROW ALONE
+# WAS "the recoverable half of the mistake, because a file left alone is never
+# written down as read". IT WAS NOT TRUE.** `record_the_sales` spoke the line and
+# returned normally, and `reading.read_what_is_new` marked the file read like any
+# other. So somebody could put a typed-over cell back and the file that was
+# waiting on it would never be opened again -- the sale in it lost for good, with
+# nothing anywhere saying so. Found by an independent reviewer.
+#
+# **AND THE TWO REASONS A ROW IS LEFT ALONE NEEDED TELLING APART FIRST**, because
+# only one of them is anybody's to fix (Golden Rule 29).
+_MARKED = ("platform", "orderId", "on", "sku", "qty", "gmv", "ordersOn")
+
+
+def _a_sheet_last_written_by(marker):
+    rows = list(THE_HEADER)
+    row = [""] * len(sales.COLUMNS)
+    row[sales.COLUMNS.index("id")] = A_SALE.id
+    row[sales.COLUMNS.index("qty")] = "9"
+    row[sales.COLUMNS.index("ordersOn")] = marker
+    return rows + [row]
+
+
+def _the_older_file(day="2026-09-01"):
+    return ledger.Reading(
+        report="ms_orders", on=day, knows=_MARKED, which="the-late-file",
+        sales=(sales.Sale(platform="meesho", order_id="M-1", sku="RING-1", qty=1,
+                          gmv=499, orders_on=day),))
+
+
+_said = []
+_typed_over = tool.recording_into(
+    LedgerDoor(PretendSheets(rows=_a_sheet_last_written_by("yesterday")), "s"),
+    say=_said.append)
+check("A FILE HELD BACK BY A MARKER CELL SOMEBODY TYPED OVER IS REFUSED, "
+      "WHICH IS THE ONLY WAY IT IS EVER READ AGAIN",
+      refused(lambda: _typed_over([_the_older_file()])) is not None)
+check("and the run log says the cell is unreadable and that somebody must put it back",
+      any("not a date" in one and "PUT THAT CELL BACK" in one for one in _said))
+check("and it says the file has not been written down as read",
+      any("NOT been written down as read" in one for one in _said))
+
+_ordinary = []
+_genuinely_older = tool.recording_into(
+    LedgerDoor(PretendSheets(rows=_a_sheet_last_written_by("2026-09-05")), "s"),
+    say=_ordinary.append)
+check("BUT RULE 2 WORKING IS NOT REFUSED -- a genuinely older file is old for ever, "
+      "and re-reading it every night would say the same thing every night",
+      refused(lambda: _genuinely_older([_the_older_file()])) is None)
+check("and its line says there is nothing to do, rather than reading like the other one",
+      any("nothing to do" in one for one in _ordinary)
+      and not any("PUT THAT CELL BACK" in one for one in _ordinary))
+
+
 # ---- D150 RULE 3, THROUGH THE ONE-FILE-AT-A-TIME HANDOVER THIS FILE OWNS
 #
 # **THE LOOP BELOW THAT REPORTS A DISAGREEMENT WAS DEAD CODE.** `plan` decides
@@ -655,6 +710,151 @@ check("and nothing already written down as read is forgotten either",
 ledger.what_the_sheet_cannot_yet_say = _the_columns_are_really_there
 
 
+# --- AND THE OTHER HALF OF THE SAME GUARD: THE COLUMN EXISTING IS NOT THE
+# --- COLUMN BEING FILLED (D157).
+#
+# **THIS IS THE FAULT THE REFUSAL ABOVE WALKED INTO ITSELF.** It asked whether
+# the four column NAMES were in the ledger's column list. It never asked whether
+# anything PUT A DATE IN ONE -- so it lifted itself the moment the ERP landed
+# the names, on 2026-09-06, while every row written was still a row that could
+# not say which day's file produced it. **The harm it exists to stop was exactly
+# as possible as before, with nothing refusing.**
+#
+# **SO THE SECOND HALF ASKS THE PROPERTY, and it asks it by DRIVING the rule
+# that decides it** -- a made-up sale with all four markers filled is put
+# through rule 1 with each readable report's own `knows`, and what comes out the
+# other side is read. Nothing here reads a list of names.
+_what_can_really_be_read = reading.WHAT_CAN_BE_READ
+reading.WHAT_CAN_BE_READ = (
+    reading.HowToRead("me_orders", ("platform", "orderId", "qty")),
+)
+_said_nothing = tool.why_it_must_not_write_yet()
+check("A REPORT AN OLDER FILE COULD STILL UNDO IS REFUSED",
+      _said_nothing != "")
+check("and the refusal names the report, so somebody knows which reader to mend",
+      "me_orders" in _said_nothing)
+check("and it says what the harm is -- the older figure going over the newer one",
+      "older figure back over the newer one" in _said_nothing)
+check("and it names the four markers, so it is plain what a row has to carry",
+      all(one in _said_nothing for one in ledger.WHICH_FILE_LAST_WROTE))
+check("and it says it is Kartaan refusing and that no file is marked read",
+      "not Google" in _said_nothing
+      and "NO FILE HAS BEEN MARKED AS READ" in _said_nothing)
+check("and it says it ends by itself, so it is a guard and not a wall",
+      "IT ENDS BY ITSELF" in _said_nothing)
+# **ONE BAD READER AMONG GOOD ONES STILL REFUSES.** Two of three reports filling
+# a marker is two thirds of a ledger somebody can trust and one third nobody can
+# tell was written by an older file -- and the bad third is invisible.
+reading.WHAT_CAN_BE_READ = _what_can_really_be_read[:2] + (
+    reading.HowToRead("az_orders", ("platform", "orderId", "qty")),
+)
+check("one bad reader among good ones still refuses, and names only that one",
+      (lambda why: why != "" and "az_orders" in why and "me_orders" not in why)(
+          tool.why_it_must_not_write_yet()))
+reading.WHAT_CAN_BE_READ = _what_can_really_be_read
+
+# **AND THE REFUSAL IS DRIVEN BY THE BEHAVIOUR, NOT BY A COLUMN NAME. THIS IS
+# THE ONE THAT CAUGHT THE VERSION BEFORE IT.** An independent reviewer took the
+# assignment out of `orders.py` -- so every row would be written with a blank
+# marker -- and all 114 checks stayed green while the guard went on saying the
+# night could write. **The question it asked reduced to "is the name in the
+# list".** So the fault is put back here, from the other end: `plan` is stood
+# down from reading the marker, which is the half a name can never see.
+_the_real_plan = ledger.plan
+
+
+def _a_plan_that_ignores_the_marker(values, readings, so_far=None):
+    """`plan` with the across-nights rule taken out, and nothing else changed."""
+    was = ledger.older_than_the_row
+    ledger.older_than_the_row = lambda row, reading: None
+    try:
+        return _the_real_plan(values, readings, so_far)
+    finally:
+        ledger.older_than_the_row = was
+
+
+ledger.plan = _a_plan_that_ignores_the_marker
+check("A `plan` THAT STOPPED READING THE MARKER BACK IS REFUSED, "
+      "THOUGH EVERY COLUMN NAME IS STILL THERE",
+      tool.why_it_must_not_write_yet() != ""
+      and ledger.what_the_sheet_cannot_yet_say() == ())
+check("and it names every report, because the fault is not one reader's",
+      all(one.report_id in tool.why_it_must_not_write_yet()
+          for one in reading.WHAT_CAN_BE_READ))
+ledger.plan = _the_real_plan
+assert ledger.plan is _the_real_plan
+
+# **AND STOPPING IT IN SILENCE IS NOT STOPPING IT EITHER.** A by-hand backfill
+# (D110) is a deliberately old file somebody fetched on purpose: ignored without
+# a word, it looks exactly like a backfill that worked.
+def _a_plan_that_says_nothing(values, readings, so_far=None):
+    what = _the_real_plan(values, readings, so_far)
+    return ledger.Plan(
+        append=what.append, update=what.update, disagreements=what.disagreements,
+        unreadable=what.unreadable, touched=what.touched, left_alone=(),
+    )
+
+
+ledger.plan = _a_plan_that_says_nothing
+check("AND AN OLDER FILE STOPPED IN SILENCE IS REFUSED TOO -- stopping is not enough",
+      tool.why_it_must_not_write_yet() != "")
+ledger.plan = _the_real_plan
+
+# ==================== AND THE OTHER HALF, WHICH NOTHING IN THIS FILE COULD SEE
+#
+# **EVERY STAND-DOWN ABOVE PATCHES `ledger.plan` OR `ledger.older_than_the_row`,
+# AND NOT ONE OF THEM CAN REACH A READER.** That is exactly why the third
+# generation of this guard passed while the reader half was broken: an
+# independent reviewer took `orders_on=data_date` out of `orders.py` and all 118
+# checks in this file stayed green, and did the same by making `reading.a_reading`
+# claim every file was one fixed day. The guard's own words said it "ANSWERS THE
+# TWO HALVES AT ONCE"; it answered one and asserted the other as a name in a list.
+#
+# **SO BOTH OF THE REVIEWER'S MUTATIONS ARE PUT BACK HERE, THROUGH THE REAL
+# READER.** `reading.a_reading` calls `orders.read_orders`, so standing that down
+# is standing down the half no column name has ever been able to see.
+import orders  # noqa: E402
+
+_the_real_reader = orders.read_orders
+
+
+def _a_reader_that_fills_no_marker(rows, platform, data_date=None):
+    """`read_orders` with `orders_on=data_date` taken back out."""
+    return _the_real_reader(rows, platform, data_date=None)
+
+
+def _a_reader_that_says_one_fixed_day(rows, platform, data_date=None):
+    """`a_reading` handing down a constant instead of the file's own day."""
+    return _the_real_reader(rows, platform, data_date="2026-09-08")
+
+
+orders.read_orders = _a_reader_that_fills_no_marker
+check("A READER THAT PUTS NO DAY IN THE MARKER IS REFUSED, "
+      "THOUGH `plan` STILL READS IT BACK PERFECTLY",
+      tool.why_it_must_not_write_yet() != ""
+      and ledger.what_the_sheet_cannot_yet_say() == ()
+      and ledger.would_an_older_file_be_stopped(reading.WHAT_ORDERS_KNOWS))
+check("and it names every report, because no reader fills one",
+      all(one.report_id in tool.why_it_must_not_write_yet()
+          for one in reading.WHAT_CAN_BE_READ))
+orders.read_orders = _the_real_reader
+
+orders.read_orders = _a_reader_that_says_one_fixed_day
+check("A MARKER CLAIMING EVERY FILE IS THE SAME DAY IS REFUSED TOO -- "
+      "a day that is not the FILE'S day decides the comparison wrongly",
+      tool.why_it_must_not_write_yet() != "")
+orders.read_orders = _the_real_reader
+assert orders.read_orders is _the_real_reader
+
+# **AND WITH THE REAL READERS AND THE REAL `plan` BACK IT SAYS NOTHING**, which
+# is the whole shape of this refusal: it takes itself away the day the thing it
+# wants is true, and nobody has to remember to come back and delete it.
+check("AND WITH THE REAL READERS AND THE REAL PLAN IN PLACE IT REFUSES NOTHING",
+      tool.why_it_must_not_write_yet() == "")
+assert reading.WHAT_CAN_BE_READ is _what_can_really_be_read
+assert ledger.plan is _the_real_plan
+
+
 # ---- AND WITH THOSE COLUMNS THERE, IT WRITES. Driven, not assumed.
 #
 # **THIS IS NO LONGER A PRETENCE.** It asks the real function, against the real
@@ -762,7 +962,7 @@ check("and taking any ONE of the four away still stops the writing, by name",
 print()
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 107
+EXPECTED = 126
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

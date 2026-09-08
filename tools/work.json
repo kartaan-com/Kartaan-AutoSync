@@ -528,6 +528,12 @@
      "found": "2026-09-04, by an independent cold reader (A15R). Non-blocking -- all three agree today, measured.",
      "fixed": true,
      "proved_by": "`nightly_checks.py` -- 'EVERY SECRET THE WORKFLOW REFUSES TO RUN WITHOUT IS HANDED TO THE RUN, AND EVERY ONE HANDED OVER IS ONE IT REFUSES TO RUN WITHOUT' and 'AND EVERY ONE HANDED OVER IS ONE THE RUN ASKS FOR, AND EVERY ONE IT ASKS FOR IS HANDED OVER', **both directions of both joins (D190)**, plus 'every value handed to the run is set from the secret of the same name' -- `GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_SECRET }}` reads perfectly well. What `start.py` asks for is read out of the PARSED file, never searched for. Three lists emptied and four names crossed, one at a time: each turned its own named check red, and an empty list cannot pass."
+    },
+    {
+     "what": "**THE SELLER'S CHOSEN HOUR HAS NEVER REACHED THE SCHEDULE SINCE D120, AND IT BREAKS EVERY SELLER.** The cron line is the ONLY thing that wakes this job -- `clock.why_not_now` can refuse a tick, it has nothing to start one with -- and the workflow's own comment claimed the opposite: that a workflow whose line was never rewritten still fetches at the hour the seller can see rather than at the one written there. **That sentence was false and it is what hid this.** One tick a day at 20:53 UTC is 02:23 in his time, and the chosen hour is a FLOOR, so **every seller who chose an hour from 3 to 23 never fetches, on any day** -- 21 of the 24 hours a seller can choose. Driven against `clock.why_not_now` hour by hour, not argued. What they are told is 'It is 02:23 and fetching is set for 11:00 or later', which reads exactly like a tick that will succeed later today. There is no later tick today. **HIS OWN D120 WORDS WERE 'once a day at any schedule which user has set': once a day was built, at the schedule the user set was not.**\n\n**NOT REPAIRED, AND WHY NOT NOW.** The three ways out are all his and none of them is a line of YAML. (1) Wake every hour again -- reverses D120 and costs about 720 of the free 2,000 minutes a month, which is the exact cost he decided against. (2) Build the onboarding step that writes his hour into the cron line -- the thing this workflow already claims happens, and which does not exist; it is a piece of onboarding, not of this file. (3) Let something rewrite a seller's workflow -- D113 refused standing write permission on a seller's repository and was right, because anything that can write a workflow can write one that carries their secrets away. **WHAT A33 DID DO:** took the false sentence out, wrote the real behaviour in its place, and pinned the fault with a check that reads the cron line and drives every hour through `clock.why_not_now` -- so the day it is repaired that check goes red and somebody has to change it deliberately, which is the only thing that stops the hole being quietly re-believed closed.",
+     "found": "2026-09-08",
+     "fixed": false,
+     "proved_by": "autosync/nightly_checks.py -- 'KNOWN FAULT, NOT FIXED: the workflow wakes at ONE hour of his day...', which reads EVERY cron entry rather than the first (an independent reviewer defeated the first version by adding a second line, which is the wake-hourly repair itself), expands `*`, lists and steps, and drives every hour a seller can choose through `clock.why_not_now`. Driven against five repairs on 2026-09-08 -- a second cron line, hourly, moved to his chosen hour, an hour list, and a step -- and it goes red on all five. **An earlier wording of this finding said hours 3 to 23 never fetch 'on any day'; that is not honest for the hour or two just above the tick, because the floor exists precisely because GitHub can DELAY a scheduled run. It is the twenty hours well above the tick that can never be reached, and that is what the check now asserts.**"
     }
    ],
    "state": {
@@ -658,6 +664,30 @@
    ],
    "findings": [
     {
+     "what": "**NOTHING ANYWHERE ASKED FOR THE SELLER'S DRIVE PERMISSION INTERACTIVELY, so no seller could ever grant it a first time.** Every ask is deliberately quiet, because a night runs with nobody watching and an account-chooser at two in the morning waits for ever. **But a permission that has never been granted cannot be had quietly at all** -- so with the wiring complete the run would have said 'the seller's Drive is not connected' every night, for ever, correctly and uselessly.",
+     "found": "2026-09-08, by grepping for an interactive ask and finding none",
+     "fixed": true,
+     "proved_by": "`self.connectTheDrive` in `worker.js` -- the only interactive ask in the extension, and a handle rather than a way in, exactly like `startAWalk` and `startTheNight` beside it. **NOT A SUBSTITUTE FOR ONBOARDING:** it is reachable only from the DevTools console of this extension's own worker, which is to say the person whose browser it is. A real connect screen is its own piece of work and is not built."
+    },
+    {
+     "what": "**THE SIGN-IN-PAGE GUARD EXISTED AND SAT ON ONE OF THREE PATHS.** A portal that has signed the browser out answers a file address with its sign-in page, cheerfully, at 200 -- `doors.js` calls it the worst possible outcome in its own words, because it is a file, it has a size, and everything downstream believes the day arrived. `looksLikeAPage` was applied only to `content.js`'s own fallback fetch; the background's fetch and the blob the page catches went straight past it. **That cost nothing while the bytes were being dropped on the floor. The moment they started reaching the seller's Drive it became the difference between a clean failure and a sign-in page filed as the day's report.**",
+     "found": "2026-09-08, while wiring the Drive sender -- by asking what the wiring made newly possible rather than what it added",
+     "fixed": true,
+     "proved_by": "Asked once, in `walk.js`, at the one point every byte path passes through. `walk.test.js` -- 'A SIGN-IN PAGE IS NOT PUT IN THE DRIVE AS THE DAY'S REPORT', 'and it says the browser has been signed out, not that the report is broken'. Standing the guard down turns all three red."
+    },
+    {
+     "what": "**NOTHING ANYWHERE SAID WHAT A LANDED FILE IS CALLED, AND THE NAME IS THE ONLY THING JOINING THE TWO HALVES.** `landing.data_date_in` takes the day out of the NAME and `reading.a_reading` REFUSES a file with no day in it -- so a file put away under a name this side invented would sit in the seller's Drive for ever, unreadable, while the ledger stayed empty and nothing said why.",
+     "found": "2026-09-08, while wiring the Drive sender",
+     "fixed": true,
+     "proved_by": "The platform and the file type of every walkable report now cross in `recipes.json`, generated from `reports.py`. `export_recipes_checks.py` -- 'THE NAME THE JAVASCRIPT WOULD BUILD IS THE NAME PYTHON BUILDS, REPORT BY REPORT', compared against `landing.file_name_for` itself rather than restating the rule; `recipes.test.js` -- 'EVERY RECIPE THE EXTENSION CAN WALK HAS A FILE NAME TO PUT IT AWAY UNDER'."
+    },
+    {
+     "what": "**THE WALK TOOK THE FILE, COUNTED THE BYTES, REPORTED `landed`, AND DROPPED THEM ON THE FLOOR.** `extension/drive.js` -- finished, 65 checks, proved against a stand-in Drive -- was imported by NOTHING but its own test file. So not one byte had ever reached a real Google Drive from the browser half. **`me_orders` and `fk_orders` are browser-sourced, so a seller who had set everything up correctly would still have seen Amazon and nothing else**: the nightly run was reading folders the browser had never put anything in. D171 again, and it looked identical to working.",
+     "found": "2026-09-08",
+     "fixed": true,
+     "proved_by": "`walk.test.js` -- 'THE FILE THE WALK TOOK IS ACTUALLY PUT SOMEWHERE', 'A WALK WITH NOWHERE TO PUT THE FILE IS REFUSED' and 'A FILE THAT COULD NOT BE PUT IN THE DRIVE IS NOT REPORTED AS LANDED'; `background.test.js` -- 'THE BACKGROUND PUTS A FILE THE PAGE HANDS IT INTO THE DRIVE' and 'a background with no way to reach the Drive says so rather than saying nothing'; `recipes.test.js` -- 'HIS REAL MEESHO ORDERS RECIPE PUTS THE FILE AWAY, it does not drop it'."
+    },
+    {
      "what": "Seven faults no check could have caught, found by loading it into his real Chrome: a wrong address does not fail -- Meesho serves a page that never finishes; a covering never stopped anything, it EXPLAINS a lookup that failed; Flipkart report types match as pressable things, not as words; Meesho's sidebar carries no role, no tabindex and no test id, so asked for a control it answers nothing at all.",
      "found": "2026-08-27 and 2026-08-28, in his own Chrome",
      "fixed": true,
@@ -668,6 +698,66 @@
      "found": "2026-08-28",
      "fixed": true,
      "proved_by": "extension/driver.test.js -- either signal counts, cursor or role, because a plain button has the ordinary cursor."
+    },
+    {
+     "what": "**THE PER-FILE SECRET WAS STORED WHERE THE PORTAL'S OWN PAGE COULD JUST READ IT** -- `URL.createObjectURL.kartaanArmedFor`, a plain property on the very function this extension installs into the page's own world. Any advert, tag manager or injected script on `supplier.meesho.com` or `seller.flipkart.com` could read it, and **it did not have to win a race**: `content.js` arms at the start of every walk turn, long before any Download is pressed, and takes the FIRST message it accepts. A forged CSV then went through `land-the-file` and `drive.js` REPLACED the genuine file of that day under the genuine report name, which the Python read into the seller's ledger as real sales. **The secret is now held in a closure and written nowhere the page can look.** Fixed by A32; PROVED BOTH WAYS by A33 rather than read: a page script was driven against the old file and against the new one, walking everything reachable on the installed function (own keys, the prototype chain, getters) and posting whatever it found at `driver.theCatcherSaid`. Old file: secret found in plain sight, forged file ACCEPTED. New file: nothing found, forged file REFUSED.",
+     "found": "2026-09-07",
+     "fixed": true,
+     "proved_by": "extension/background.test.js -- 'nothing a page script can read off the catcher carries the secret', driven by reading every own key of the installed function; and 'the second secret is no more readable than the first' after a re-arm."
+    },
+    {
+     "what": "**THE DAY WAS NEVER ASKED ANYTHING BEFORE IT BECAME A FILE NAME.** It arrives as an argument to `startTheNight`, crosses the night's record and the background's messages, and comes out in two places: the address a step goes to, and the NAME the file is put away under. `theFileName` checked only that it was not empty, so `05/09/2026` made `me_orders_05/09/2026.csv` -- and `landing.data_date_in` reads a day back with a four-two-two ISO pattern and answers None for that one. **A file whose name has no day in it is a file no reader can ever reach**, which is exactly what `landing.undated` exists for: seven real files sat like that for six weeks. `whyTheDayIsRefused` now refuses it at the top of the walk, before one of the seller's rationed report requests is spent, and `theFileName` asks the same question rather than carrying a second copy of it.",
+     "found": "2026-09-08",
+     "fixed": true,
+     "proved_by": "extension/walk.test.js -- 'A WALK GIVEN A DAY THE RUN CANNOT READ BACK FAILS BEFORE IT FETCHES'; taking the guard back out turns walk.test.js red."
+    },
+    {
+     "what": "**NOTHING REFUSED A FILE TOO BIG TO CARRY ON THE LANDING PATH.** `content.js` sends `bytes: [...body]` and a message is turned into text on the way -- one number and one comma per byte -- so a 40 MB catch crosses as roughly 160 MB and nothing anywhere refused it. **The catcher already refused a file that size** (`catch-blob.TOO_BIG`) and the take-file half, which is the OTHER way a file arrives, did not: one of the two ways was capped and the other was not. Latent -- his real files are one to a hundred kilobytes -- which is why it needed writing down rather than leaving to be noticed. `walk.TOO_BIG_TO_CARRY` refuses one before it is sent, and `background.js` refuses one that arrived anyway, because a boundary that trusts the other half is not one.",
+     "found": "2026-09-08",
+     "fixed": true,
+     "proved_by": "extension/walk.test.js -- 'A FILE TOO BIG TO CARRY ACROSS IS REFUSED, AND SAYS HOW BIG IT WAS'; extension/background.test.js -- 'a file bigger than this will carry is refused, and says how big it was'."
+    },
+    {
+     "what": "**THE ONE BOUNDARY WHERE A NAME CROSSES FROM THE HALF THAT RUNS BESIDE THE PORTAL'S OWN CODE INTO THE HALF THAT HOLDS THE SELLER'S DRIVE PERMISSION ASKED NOTHING OF WHAT CROSSED IT.** `background.js`'s `land-the-file` passed `reportId` and `fileName` straight through: `reportId` becomes the name of a folder in the seller's Drive AND goes into a Drive search inside a quoted string, `fileName` becomes the name the file is put away under and is what the nightly run reads the day back out of. `whyTheseAreNotNames` now asks both for the shape this product actually writes -- `me_orders`, and platform_report_YYYY-MM-DD.extension with a real day in it -- rather than for the absence of something dangerous, because a list of forbidden characters is a list somebody adds to after each one is found.",
+     "found": "2026-09-08",
+     "fixed": true,
+     "proved_by": "extension/background.test.js -- five refused names driven through the real message plus 'and not one of them reached the Drive at all', with 'a name this product really writes still lands' so a guard that refused everything could not pass."
+    },
+    {
+     "what": "**A DRIVE SEARCH IS A LANGUAGE AND EVERY NAME WAS DROPPED INTO IT WHOLE.** `drive.folderFor` built its search with the name interpolated raw, so a name holding a quote closes its own value and what follows is read as more of the search. `asAQuotedValue` now writes a value the way Drive's own documentation says to -- a backslash before a quote, a doubled backslash for a backslash -- and `autosync/drive_door.as_a_quoted_value` is the same rule under the same name, because a rule that DIFFERS between the two halves is a bug in one of them and a rule SPELT differently is a bug nobody ever finds. Second lock: `background.js` refuses anything that is not `me_orders`-shaped before a name gets this far.",
+     "found": "2026-09-08",
+     "fixed": true,
+     "proved_by": "extension/drive.test.js -- 'the search Drive is really sent carries the escaped name', driven through `folderFor` rather than asserted about the helper alone; autosync/drive_door_checks.py carries the same checks for the Python half."
+    },
+    {
+     "what": "**THE SECRET STOPS A PAGE FORGING A MESSAGE. IT DOES NOT STOP A PAGE MAKING THE GENUINE CATCHER FIRE, AND THIS DIFF IS WHAT MAKES THAT REACH THE SELLER'S DRIVE.** `content.js` arms at the start of EVERY walk turn, for every report, before any click; the wrapper then posts the genuine secret for the FIRST blob the page creates whose type is not image, video or audio, and `content.js` takes the first message it accepts. **So any script on `supplier.meesho.com` or `seller.flipkart.com` -- the portal, an advert, a tag manager -- that calls `URL.createObjectURL(new Blob([...], {type: 'text/csv'}))` during that window has its bytes accepted as the report**, sent to `land-the-file`, and written into Drive under the genuine report name, which the Python reads as real sales. **No replacement of `URL.createObjectURL` is needed**, so the hole the file's own header DOES admit is the harder of the two and the easier one was not written down. The same path fires by accident on ordinary portal code: a blob worker script, a font, a PDF preview, a non-report CSV export all pass the type filter. Found by an independent reviewer on 2026-09-08, reasoned from the source and the message flow.",
+     "found": "2026-09-08, by the independent reviewer of this diff",
+     "fixed": false,
+     "what_is_needed": "OPEN, AND IT IS THE MOST IMPORTANT THING IN THIS REGISTER. **NOT CLOSED HERE BECAUSE THE REPAIR IS A DECISION THAT WAS ALREADY TAKEN THE OTHER WAY, NOT A REPAIR.** The two ways out are (1) arm only after the take-file click, which `background.js`'s own comment rejects in writing -- 'the platform's own server is being raced, and losing that race is Chrome's Save-as window going up on a seller nobody is watching' -- and (2) accept only the blob the recipe's own click produced, which changes what crosses to `content.js` and is the piece `catch-blob.js` already names as its own work. A third, arming only for the reports that need it, was checked and REFUSED: `buildsInThePageSince` is a diagnostic note and does not name `me_catalog`, which is the one report proved to need the catcher, so gating on it would silently break the only report that works. A fourth, preferring the background's re-fetch over the page's blob rather than racing them, is the most promising and touches `content.js` -- the one file in this extension with no checks of its own, which its own header says can only be proved by loading it in a real Chrome. **Golden Rule 4 and Rule 20 both say that is not a change to make on a hypothesis at the end of a session.** WHAT MAKES IT SURVIVABLE MEANWHILE: the extension has never been published or installed, and `connectTheDrive` -- the only interactive Drive ask -- is reachable only from the extension's own service-worker DevTools console, so no seller can connect a Drive at all. **Nothing may be put in front of a seller until this is closed.**"
+    },
+    {
+     "what": "**A `fileName` OR A `dayInWords` HANDED IN BY THE CALLER BYPASSES THE DAY GUARD ON THE WALK SIDE.** `walk.js` takes `fileName || theFileName(...)`, and `content.js` spreads the whole incoming message into the walk's options, so a `fileName` in the message wins outright; `dayInWords` reaches a step's address and its `find.near` with nothing asking anything of it at all. `background.whyTheseAreNotNames` stands between a bad `fileName` and Drive, so the seller's folder is protected; a bad `dayInWords` reaches only the portal's own address bar. Found by an independent reviewer on 2026-09-08.",
+     "found": "2026-09-08, by the independent reviewer of this diff",
+     "fixed": false,
+     "what_is_needed": "OPEN. Not closed here: the message these come in on is sent by this extension's own background half to its own content script, there is no `externally_connectable` in the manifest, and the one that reaches Drive is already refused at the boundary. It is a robustness gap rather than a hole, and closing it means deciding whether `fileName` may be handed in at all -- which is a question about the walk's shape, not a guard."
+    },
+    {
+     "what": "**THE TWO DRIVE HALVES DO NOT AGREE, IN THE FILE PAIR THAT SAYS THEY DO.** `autosync/drive_door._every_file` refuses a listing Drive itself calls incomplete, and refuses a page marker that comes back a second time. `extension/drive.everyFile` asks for neither field and has neither guard. **It matters here exactly:** an incomplete search makes `folderFor` see 0 folders where 2 exist, so it makes a THIRD and tonight's files land somewhere other than last night's -- which is the very fault the `found.length > 1` refusal two lines below it exists to prevent. Found by an independent reviewer on 2026-09-08.",
+     "found": "2026-09-08, by the independent reviewer of this diff",
+     "fixed": false,
+     "what_is_needed": "OPEN. Not closed here: it is a different fault from the escaping this diff fixed, it was there before this diff and is unchanged by it, and it needs the `incompleteSearch` field added to the `fields` mask -- Google's own documentation on partial responses says a mask returns ONLY what it names, which is how the Python half learnt this the expensive way. The fix is to carry `incompleteSearch` in the mask and mirror both of the Python's two refusals, and it belongs in its own piece with its own review."
+    },
+    {
+     "what": "**`whyTheseAreNotNames` NEVER CHECKS THAT THE NAME AND THE REPORT AGREE.** A `land-the-file` naming `me_orders` and carrying `flipkart_fk_payments_2026-09-08.xlsx` is allowed, which puts a Flipkart-named file in the `me_orders` folder, and `reading` matches by folder. Found by an independent reviewer on 2026-09-08, who also drove all seventeen real report ids and their real file names through both rules -- all seventeen pass, and quote, slash, `..`, space and newline variants are all refused.",
+     "found": "2026-09-08, by the independent reviewer of this diff",
+     "fixed": false,
+     "what_is_needed": "OPEN, and small. Not reachable from a page -- there is no `externally_connectable` -- so it is robustness rather than a hole. The fix is one more line asking that the name's middle part is the report it is being put away for, and it wants its own check driven against all seventeen recipes."
+    },
+    {
+     "what": "**`connectTheDrive` IS THE WHOLE OF ONBOARDING AND NO SELLER CAN FIND IT.** Every other Drive ask is quiet, so until somebody opens THE EXTENSION'S OWN SERVICE-WORKER DEVTOOLS CONSOLE and types `connectTheDrive()`, every night fails with 'the seller's Drive is not connected', correctly and uselessly, for ever. The comment above it says so honestly; the product surfaces it nowhere. Confirmed by an independent reviewer on 2026-09-08.",
+     "found": "2026-09-08, by the independent reviewer of this diff",
+     "fixed": false,
+     "what_is_needed": "OPEN. A proper onboarding screen is its own piece of work and always was. Recorded here because it is the reason nothing in this diff can reach a real seller yet -- which is also what makes the open catcher finding above survivable for now."
     }
    ],
    "state": {
@@ -866,6 +956,12 @@
    "reviews": [],
    "findings": [
     {
+     "what": "**THE FOUR DATE-MARKER COLUMNS EXISTED AND NOTHING ANYWHERE PUT A DATE IN ONE.** They landed in the ERP's column list on 2026-09-06, this file followed the same day, and every refusal built around them lifted itself on the strength of the NAMES being present. **A grep for the four fields across `autosync/` outside this file returned nothing on 2026-09-08.** So every row ever planned carried four blank markers -- and a column that exists and is never filled is not the safeguard, it is the appearance of one.",
+     "found": "2026-09-08, by measuring rather than by reading the comment beside them",
+     "fixed": true,
+     "proved_by": "`orders_checks.py` -- 'A SALE CARRIES THE DAY OF THE FILE IT CAME OUT OF', and the three named for HIS REAL MEESHO, FLIPKART and AMAZON orders files. Taking `orders_on=data_date` out of `orders.py` turns seven red, three of them against his own real files."
+    },
+    {
      "what": "**THE CHECK'S FIRST VERSION GAVE A CONFIDENT, SPECIFIC, WRONG ANSWER ABOUT REAL DATA.** Reading the ERP's column list with a plain quote-matching pattern, it reported that the two sides DISAGREED and named two columns called things like `s shelf it would come out different...`. Those were sentences out of the COMMENTS beside the list -- the ERP explains `taking` as \"the whole of D51's replay safety\", and that apostrophe opened a string as far as the pattern was concerned, swallowing `took` and inventing two columns that do not exist. The lists were identical all along.",
      "found": "2026-09-02, on the first run of the checks",
      "fixed": true,
@@ -909,6 +1005,18 @@
    "reviews": [],
    "findings": [
     {
+     "what": "**THE FILE'S OWN DAY WENT STRAIGHT INTO THE SHEET UNCHECKED.** Every other date in this package goes through `the_day_in`, which refuses a shape it does not know rather than dating a row wrong. The new `data_date` did not -- and it is the string the across-nights comparison is made ON, so something that is not a date decides whether an older file may overwrite, wrongly and silently.",
+     "found": "2026-09-08, by an independent reviewer (A31R, finding 12)",
+     "fixed": true,
+     "proved_by": "`orders_checks.py` -- 'A FILE'S DAY THAT IS NOT A DAY STOPS THE FILE, it is not written verbatim' and 'and a day-first one is refused too, not read backwards'."
+    },
+    {
+     "what": "**A SALE CARRIED NO RECORD OF WHICH DAY'S FILE PRODUCED IT.** `read_orders` built every sale with all four of D157's date markers blank, so nothing downstream could tell a statement from the 4th from one from the 5th. **The row's own `on` is when the sale HAPPENED; nothing anywhere said which STATEMENT the figures came out of.**",
+     "found": "2026-09-08",
+     "fixed": true,
+     "proved_by": "`orders_checks.py` -- 'and it is the FILE'S day, not the day the sale itself happened' and 'every platform's reader carries it, not only Meesho'. Filling the marker from the clock instead of from the file turns six red."
+    },
+    {
      "what": "**FLIPKART'S ORDERS FILE HAS NO MONEY IN IT AT ALL.** Thirty-nine columns and not one is an amount -- no price, no GMV, no settlement. Counted on his real file, not assumed. So a Flipkart sale is read with its money BLANK, which means what it should: nobody has worked this out yet. The figure arrives later from the payments file as a second statement about the same sale. **This is why blank and nought had to be different things before this file could be written at all.**",
      "found": "2026-09-02, by reading his real file",
      "fixed": true,
@@ -949,6 +1057,24 @@
    "reviews": [],
    "findings": [
     {
+     "what": "**A DATE MARKER SOMEBODY HAD TYPED OVER WOULD HAVE DECIDED THE COMPARISON, AND HALF THE WRONG ANSWERS ARE THE SILENT OVERWRITE.** A sheet is a thing a person can open and edit, and this cell is what decides whether an older file may put its figure over a newer one. Compared as text, 'yesterday' sorts after every real date and '1/9/26' sorts before every one.",
+     "found": "2026-09-08, by asking where the two sides of the comparison come from",
+     "fixed": true,
+     "proved_by": "An unreadable marker is treated as NEWER, so the row is left alone and reported -- the recoverable half of the mistake, because a file left alone is never written down as read. `ledger_checks.py` -- three checks, one per shape of typed-over cell. Standing the readability test down turns two red."
+    },
+    {
+     "what": "**A REPORT COULD DECLARE A DATE MARKER AND WRITE NOTHING INTO IT.** A declaration nothing fills reads, downstream and to any reviewer, exactly like the marker being handled -- the same shape as the fault above, one level up. One sale of sixty missing its marker leaves one row nothing can later tell was written by an older file, invisible among the fifty-nine that are right.",
+     "found": "2026-09-08",
+     "fixed": true,
+     "proved_by": "`ledger_checks.py` -- 'A READING THAT SAYS IT WRITES A DATE MARKER AND CARRIES NO DATE IS REFUSED' and 'one sale of many missing the marker still refuses the whole reading'."
+    },
+    {
+     "what": "**AN OLDER FILE COULD STILL PUT ITS FIGURE BACK OVER A NEWER ONE ACROSS TWO NIGHTS -- D180.** Rule 2 was enforced only WITHIN one run, by sorting. A run tomorrow reads only the sheet, and the sheet held no record of which day's file had written a cell -- so the fourth day's file, arriving on a night after the fifth's correction was already written, overwrote it. **In the money, with nothing anywhere saying so.** That is what D157's four date markers were asked for.",
+     "found": "2026-09-04, pinned by a check asserting the WRONG answer on purpose; closed 2026-09-08",
+     "fixed": true,
+     "proved_by": "`reading_checks.py` and `nightly_checks.py` -- 'ACROSS TWO NIGHTS THE FOURTH'S OLDER FIGURE NO LONGER WINS -- D180 CLOSED'. **Both asserted the wrong answer on purpose for four days and went red the day this landed, which is exactly what they were written for.** Taking `older_than_the_row` back out reddens them again, together with 'and the marker is not rolled backwards to the older file's day'."
+    },
+    {
      "what": "**A REPORT THAT KNOWS A COLUMN BUT SAYS NOTHING FOR IT WOULD HAVE BLANKED WHAT WAS ALREADY THERE.** Rule 1 keeps a report out of columns it knows nothing about; this was the same fault one level down -- a payments file DOES know about the settlement, but the row it holds for one sale may carry no figure, and writing that blank wipes a real settlement written last week.",
      "found": "2026-09-02, by a check named for rule 1 going red",
      "fixed": true,
@@ -977,6 +1103,12 @@
      "found": "2026-09-02, by the review of this repository (REVIEW.md findings 1 and 2)",
      "fixed": true,
      "proved_by": "autosync/ledger_checks.py -- 'RULE 3: TWO FILES OF ONE REPORT AND ONE DATE ARE TWO STATEMENTS', 'RULE 3: the order they were handed over in decides nothing', and 'but TWO ROWS OF ONE FILE are still one statement'."
+    },
+    {
+     "what": "**`_what_the_sheet_remembers` RESTS ON 'A FILE IS NEVER READ TWICE', AND A32'S OWN NEW REFUSAL BREAKS THAT.** `ledger_sheet.recording_into` carries the plan out FIRST and raises `LedgerRefused` afterwards, so the rows are written and the file is deliberately left unread and opened again the next night -- which is the whole point of that refusal. On the re-read the sheet's marker equals the reading's own day, `_what_the_sheet_remembers` calls it a tie, and if anybody corrected a figure by hand in between, the run log prints a FALSE disagreement naming two files where there is one: 'qty says 7 and me_orders of 2026-09-04 says 9 ... The two files are a file read on an earlier night'. Driven by an independent reviewer on 2026-09-08; the figures survived intact in every case driven. **The defect is the invariant and the misleading line, not the money** -- and it is Golden Rule 22 exactly: two changes landed in one tree and neither accounted for the other.",
+     "found": "2026-09-08, by the independent reviewer of this diff",
+     "fixed": false,
+     "what_is_needed": "OPEN. The invariant in `ledger.py`'s comment is now false and must be corrected whichever way this goes. The repair itself is to tell a report meeting its OWN earlier writing apart from a genuinely different file of the same day -- which the sheet cannot do from a day alone, so it needs either the run to remember which files it refused, or the marker to record more than the day. Both are decisions, not guards."
     }
    ],
    "state": {
@@ -1097,24 +1229,24 @@
      "found": "2026-09-03",
      "fixed": true,
      "proved_by": "tools/gate_run_checks.py -- 50 checks: 6 questions asked of the workflow as written, 41 faults put back one at a time with the answer required to stop being right, the two commits the loose and strict rules disagree about pinned by identity, and the throwaway clone proved really gone. **Each fault is judged by the ONE question that exists to detect it, never by any question (D175)** -- a question already wrong on the workflow as written attributes nothing and the faults naming it are reported RED."
-   },
-   {
-    "what": "**BOTH HOOKS WERE 100644 AND SO THE GATE HAD NEVER RUN ON LINUX OR macOS.** The mode, not one character of hook text. `core.filemode` is false on Windows, where the bit on disk is a fiction git does not store, so every commit made here ran the gate and nothing local could ever show it. Installed the way this repository installs itself -- `core.hooksPath=.githooks` -- git SKIPS a hook that is not executable, prints a hint and EXITS 0: the commit lands untagged, unreviewed, and green. **That is the gate switched off, not the gate red**, and it is worse than the CI failure that exposed it. Driven both ways on Linux against this very hook on 2026-09-07.",
-    "found": "2026-09-07, from eight red checks on the runner",
-    "fixed": true,
-    "proved_by": "`git update-index --chmod=+x` on both hooks -- the blob ids are unchanged, so no line of either hook moved. Guarded by tools/gate_checks.py -- 'AND GIT RECORDS BOTH HOOKS EXECUTABLE', which reads the INDEX rather than disk because the working-tree bit on Windows says nothing. **The guard was put back to red to prove it can fail:** at 100644 it is the only check of the 114 that goes red here, which is exactly why nothing caught this -- the eight driven checks it broke are green on Windows and were red only on the runner."
-   },
-   {
-    "what": "**FOUR OF THE MERGE CHECKS PASSED VACUOUSLY FOR THE WHOLE THREE DAYS THE GATE WAS OFF, AND STILL CAN.** Found by an independent reviewer on the 100755 diff, not by the runner. Twelve checks drive a real commit through the wrapper that `exec`s the hook; at 100644 the `exec` failed and only EIGHT went red. `MERGING[1]`, `[2]`, `[3]` and `[8]` ask for a REFUSAL -- non-zero return, one parent, no tag in the message -- and a hook that never started satisfies every one of those without the gate doing anything. `MERGING[0]` was the only refusal check to go red, and only because it ALSO demands the hook's own words. This is exactly the trap `DRIVEN[4]`'s own comment names three lines above them -- 'any failure to start it at all would otherwise satisfy this' -- left open in its siblings. **The eight red checks were the symptom; these four are the ones that should have gone red and did not.**",
-    "found": "2026-09-07, by the independent reviewer of the executable-mode fix",
-    "fixed": false,
-    "what_is_needed": "OPEN. Not fixed here: it is a different fault from the file mode, those four checks were green before this change and are green after it, and touching them belongs in its own piece of work with its own review. **The fix is to require the hook's OWN refusal words** the way `MERGING[0]` and `DRIVEN[4]` already do, and then to put the mode back to 100644 and require all twelve to go red rather than eight."
-   },
-   {
-    "what": "**AND UNDERNEATH THE MODE, A SECOND FAULT THE MODE HAD BEEN HIDING: TWO `git merge` CALLS WITH NO COMMITTER.** With the hooks executable, seven of the eight went green and `MERGING[4]` stayed red on the runner alone. `git merge` demands a committer identity BEFORE it will start, `--no-commit` and all, and those two calls were the only git children in tools/gate_checks.py that did not carry one -- every other commit in the file passes `-c user.name=t -c user.email=t@t` explicitly. On any machine with a global `user.email` they worked. **The GitHub runner has none**, so the merge refused outright, nothing was ever held back, the commit that follows found nothing staged, and the check reported red as though it were a verdict about the hook. It was a verdict about the fixture. `MERGING[8]` made the same call and passed anyway, which is the vacuous-pass fault above, met in the wild.",
-    "found": "2026-09-07, from the one check still red after the mode fix",
-    "fixed": true,
-    "proved_by": "Both calls now go through `_hold_back()`, which carries the identity, and the merge's OWN return code is now part of what `MERGING[4]` and `MERGING[8]` assert, so a setup that never started can no longer look like anything but red. **Driven on Linux with no global git identity -- the runner's exact condition:** all 114 pass; with the identity taken off that one helper again, `MERGING[4]` AND `MERGING[8]` both go red and nothing else moves. Before the setup assertion `MERGING[8]` stayed green through it."
+    },
+    {
+     "what": "**BOTH HOOKS WERE 100644 AND SO THE GATE HAD NEVER RUN ON LINUX OR macOS.** The mode, not one character of hook text. `core.filemode` is false on Windows, where the bit on disk is a fiction git does not store, so every commit made here ran the gate and nothing local could ever show it. Installed the way this repository installs itself -- `core.hooksPath=.githooks` -- git SKIPS a hook that is not executable, prints a hint and EXITS 0: the commit lands untagged, unreviewed, and green. **That is the gate switched off, not the gate red**, and it is worse than the CI failure that exposed it. Driven both ways on Linux against this very hook on 2026-09-07.",
+     "found": "2026-09-07, from eight red checks on the runner",
+     "fixed": true,
+     "proved_by": "`git update-index --chmod=+x` on both hooks -- the blob ids are unchanged, so no line of either hook moved. Guarded by tools/gate_checks.py -- 'AND GIT RECORDS BOTH HOOKS EXECUTABLE', which reads the INDEX rather than disk because the working-tree bit on Windows says nothing. **The guard was put back to red to prove it can fail:** at 100644 it is the only check of the 114 that goes red here, which is exactly why nothing caught this -- the eight driven checks it broke are green on Windows and were red only on the runner."
+    },
+    {
+     "what": "**FOUR OF THE MERGE CHECKS PASSED VACUOUSLY FOR THE WHOLE THREE DAYS THE GATE WAS OFF, AND STILL CAN.** Found by an independent reviewer on the 100755 diff, not by the runner. Twelve checks drive a real commit through the wrapper that `exec`s the hook; at 100644 the `exec` failed and only EIGHT went red. `MERGING[1]`, `[2]`, `[3]` and `[8]` ask for a REFUSAL -- non-zero return, one parent, no tag in the message -- and a hook that never started satisfies every one of those without the gate doing anything. `MERGING[0]` was the only refusal check to go red, and only because it ALSO demands the hook's own words. This is exactly the trap `DRIVEN[4]`'s own comment names three lines above them -- 'any failure to start it at all would otherwise satisfy this' -- left open in its siblings. **The eight red checks were the symptom; these four are the ones that should have gone red and did not.**",
+     "found": "2026-09-07, by the independent reviewer of the executable-mode fix",
+     "fixed": false,
+     "what_is_needed": "OPEN. Not fixed here: it is a different fault from the file mode, those four checks were green before this change and are green after it, and touching them belongs in its own piece of work with its own review. **The fix is to require the hook's OWN refusal words** the way `MERGING[0]` and `DRIVEN[4]` already do, and then to put the mode back to 100644 and require all twelve to go red rather than eight."
+    },
+    {
+     "what": "**AND UNDERNEATH THE MODE, A SECOND FAULT THE MODE HAD BEEN HIDING: TWO `git merge` CALLS WITH NO COMMITTER.** With the hooks executable, seven of the eight went green and `MERGING[4]` stayed red on the runner alone. `git merge` demands a committer identity BEFORE it will start, `--no-commit` and all, and those two calls were the only git children in tools/gate_checks.py that did not carry one -- every other commit in the file passes `-c user.name=t -c user.email=t@t` explicitly. On any machine with a global `user.email` they worked. **The GitHub runner has none**, so the merge refused outright, nothing was ever held back, the commit that follows found nothing staged, and the check reported red as though it were a verdict about the hook. It was a verdict about the fixture. `MERGING[8]` made the same call and passed anyway, which is the vacuous-pass fault above, met in the wild.",
+     "found": "2026-09-07, from the one check still red after the mode fix",
+     "fixed": true,
+     "proved_by": "Both calls now go through `_hold_back()`, which carries the identity, and the merge's OWN return code is now part of what `MERGING[4]` and `MERGING[8]` assert, so a setup that never started can no longer look like anything but red. **Driven on Linux with no global git identity -- the runner's exact condition:** all 114 pass; with the identity taken off that one helper again, `MERGING[4]` AND `MERGING[8]` both go red and nothing else moves. Before the setup assertion `MERGING[8]` stayed green through it."
     }
    ],
    "state": {
@@ -1148,6 +1280,18 @@
    ],
    "reviews": [],
    "findings": [
+    {
+     "what": "**TWO CHECKS INDEXED INTO A LIST THAT A REFUSAL CAN LEAVE EMPTY, so they CRASHED instead of going red** -- and a checks file that dies where it stands prints no count and says nothing about everything below it, including the D180 check. This is a fault this register already records as closed once (a proving pass that called a crash a survivor), arriving by a new door: the ledger refusal created a 'the reading produced nothing' state those indexes were never written for.",
+     "found": "2026-09-08, by an independent reviewer (A31R, finding 6)",
+     "fixed": true,
+     "proved_by": "Both guarded. `reading_checks.py` and `nightly_checks.py` -- 'TWO FILES OF ONE REPORT AND ONE DAY: WHAT THE FIRST ONE WROTE IS KEPT' now goes RED rather than throwing when the reading is made to refuse."
+    },
+    {
+     "what": "**A FILE REFUSED BY OUR OWN LEDGER WAS COUNTED AS THE PLATFORM'S FAULT AND THE NIGHT REPORTED GREEN.** `is_a_defect` asked only whether a folder could not be listed. If our own code stopped filling a marker, every file would be refused every night, the seller's folder would fill up unread for ever, and the run would look perfectly healthy -- Golden Rule 29 exactly.",
+     "found": "2026-09-08, by an independent reviewer (A31R, finding 7)",
+     "fixed": true,
+     "proved_by": "`reading_checks.py` -- 'AND THE NIGHT IS OUR OWN DEFECT, not a quiet count of the platform's' and 'and the night says out loud that it was Kartaan's ledger that refused'. The whole case is DRIVEN: the reader is stood down from filling its marker and a real night is run through `read_what_is_new`."
+    },
     {
      "what": "**NOTHING CALLED `with_files_read`, SO THE RECORD'S LIST OF WHAT HAD BEEN READ WAS ALWAYS EMPTY.** The field, its SHAPE bump and its checks were all in place and green since 2026-09-02, and `whats_new.py` was imported by nothing but checks files -- D171 again, four times over. Every night worked out what was new from nothing.",
      "found": "2026-09-04",
@@ -1226,6 +1370,18 @@
    ],
    "reviews": [],
    "findings": [
+    {
+     "what": "**THE NEW HALF OF THE REFUSAL SHADOWED THE OLD ONE AND WOULD HAVE PRINTED A FALSE SENTENCE.** Asked first, it answered a dropped ERP column with 'the columns themselves are in the ledger; what is missing is anything putting a date in one' -- pointing somebody at the wrong repository, with the branch that names the missing column unreachable.",
+     "found": "2026-09-08, by an independent reviewer (A31R, finding 5)",
+     "fixed": true,
+     "proved_by": "The ERP's column list is asked about FIRST. `ledger_sheet_checks.py` -- 'and the refusal NAMES ALL FOUR of the columns that are missing' and 'and taking any ONE of the four away still stops the writing, by name', both with the real reader list in place."
+    },
+    {
+     "what": "**THE REFUSAL THAT HELD BACK WRITING LIFTED ITSELF ON THE APPEARANCE OF THE FIX, TWICE.** It asked whether D157's four column NAMES were in `sales.COLUMNS`, so it lifted on 2026-09-06 the moment the ERP landed them, while nothing anywhere put a date in one. **The first repair asked whether a row would CARRY a marker, and reproduced the same shape one level up**: planting a marker on a made-up sale and asking whether it comes back reduces, for any working rule 1, to asking whether the name is in `knows`. An independent reviewer proved it by taking the assignment out of `orders.py` and watching every check stay green. **A guard that lifts on the appearance of the thing it wants is worse than no guard, because it also tells everybody the thing is now handled.** It now asks the behaviour: for every report a run can read, would a file OLDER than the row actually be stopped, and said out loud.",
+     "found": "2026-09-08; the first half by measuring, the second half by an independent reviewer (A31R, findings 1, 3 and 4) the same day",
+     "fixed": true,
+     "proved_by": "`ledger_sheet_checks.py` -- 'A `plan` THAT STOPPED READING THE MARKER BACK IS REFUSED, THOUGH EVERY COLUMN NAME IS STILL THERE' and 'AND AN OLDER FILE STOPPED IN SILENCE IS REFUSED TOO -- stopping is not enough'. Both stand `plan` itself down rather than editing a list of names, which is the half a spelling can never see."
+    },
     {
      "what": "**THE SELLER IS TOLD THREE COLUMNS ARE LOST AND FOUR THINGS ARE TRUE.** `what_a_rebuild_cannot_put_back` emits only `CANNOT_COME_BACK`, so step 4 of what a seller reads names `notes`, `adSpend` and `rev`. But `netPnl` and `returnPnl` are measured as coming back **with TODAY's answer rather than the day's** -- they are D151 snapshots, written as they stood and worked out again from records that have moved on. The measurement says so in its own comment; the seller is never told. A seller reading 'what writing it again cannot put back: notes, adSpend, rev' would reasonably believe their profit column comes back as it was. It will not, and D184's step 5 is a warning against exactly that -- a ledger that reappears with a different history in it.",
      "found": "2026-09-04, by an independent reviewer (A10R), who checked it against the ledger's full width as it then stood rather than reading the claim. Not blocking.",

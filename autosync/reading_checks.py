@@ -21,6 +21,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import orders as orders_reader  # noqa: E402
 import reading as tool  # noqa: E402
 import reports  # noqa: E402
 import sales  # noqa: E402
@@ -571,11 +572,20 @@ class PretendLedgerSheet:
         return {}
 
     def qty_for(self, name):
+        return self.cell_for(name, "qty")
+
+    def cell_for(self, name, column):
+        """One cell of one sale, read back out of what the seller would see.
+
+        **READ BACK OUT OF THE SHEET, never off the plan.** A plan says what it
+        meant to write; this says what is actually in the row -- which is the
+        only place a column that is declared and never filled shows up as blank.
+        """
         at_id = sales.COLUMNS.index("id")
-        at_qty = sales.COLUMNS.index("qty")
+        at = sales.COLUMNS.index(column)
         for row in self.rows[1:]:
-            if len(row) > at_qty and row[at_id] == name:
-                return row[at_qty]
+            if len(row) > at and row[at_id] == name:
+                return row[at]
         return None
 
 
@@ -623,6 +633,32 @@ check("all five files are read in the one run",
       was_one_run is not None and len(was_one_run.read_tonight) == 5)
 check("THE FOURTH'S OLDER FIGURE DOES NOT OVERWRITE THE FIFTH'S",
       newest_first.qty_for(THE_SALE) == "9")
+
+# ---------------------------------- THE ROW SAYS WHICH DAY'S FILE WROTE IT (D157)
+
+# **THE COLUMN EXISTING IS NOT THE COLUMN BEING FILLED, and for two days those
+# two were read as one thing.** The ERP landed `ordersOn` in its column list on
+# 2026-09-06, every refusal built around the four lifted itself the same day --
+# and nothing anywhere ever put a date in one. Every row written was still a row
+# that could not say which day's file produced it.
+#
+# **READ OUT OF THE SHEET, NOT OUT OF THE PLAN.** A plan that meant to write it
+# and a sheet that holds it are the same sentence and different facts.
+check("A WRITTEN ROW SAYS WHICH DAY'S ORDERS FILE PRODUCED IT",
+      newest_first.cell_for(THE_SALE, "ordersOn") == "2026-09-05")
+# **THE NEWEST FILE'S DAY, not the first one's and not tonight's.** Five files
+# touched this sale and the fifth is the one whose figures are standing, so the
+# marker has to be the fifth's -- a marker left at the oldest file's day is worse
+# than none, because it says an older statement is what is in the row.
+check("and it is the day of the file whose figures are standing, not the first one's",
+      newest_first.cell_for(THE_SALE, "ordersOn")
+      == max(one.name.split("_")[-1].split(".")[0] for one in FIRST_THREE_AND_FIFTH))
+# **AND NOTHING INVENTS THE OTHER THREE.** No returns, payments or claims file is
+# read by anything, so a date in one of those columns would be a date nobody
+# measured. **Blank is honest; a wrong date is the fault D157 exists to prevent.**
+check("and the three markers no file has been read for stay blank, not guessed",
+      all(newest_first.cell_for(THE_SALE, one) == ""
+          for one in ("returnsOn", "paymentsOn", "claimsOn")))
 
 # **AND LISTED THE OTHER WAY ROUND IT MUST SAY THE SAME THING**, or the answer is
 # luck. This is the one that tells an ordering fix from a coincidence: with the
@@ -797,8 +833,14 @@ WHAT_EACH_SAID = {"fetched-first": "9", "fetched-again": "1"}
 was_tie, tie_night, qty_tie, told_tie = a_day_fetched_twice(SAME_DAY_FILES)
 check("both files of the same day are read, because both are new",
       was_tie is not None and len(was_tie.read_tonight) == 2)
+# **NOTHING BELOW INDEXES INTO A LIST THAT COULD BE EMPTY.** A check that CRASHES
+# is not a check answering: the file dies where it stands, prints no count, and
+# says nothing at all about everything under it. Found by a reviewer, who made
+# the reading refuse and watched this line throw `IndexError` instead of going
+# red -- taking the D180 check below down with it, unread.
+_tie_first = tie_night.recorded[0].which if tie_night.recorded else None
 check("TWO FILES OF ONE REPORT AND ONE DAY: WHAT THE FIRST ONE WROTE IS KEPT",
-      qty_tie == WHAT_EACH_SAID[tie_night.recorded[0].which])
+      _tie_first is not None and qty_tie == WHAT_EACH_SAID[_tie_first])
 check("AND THE DISAGREEMENT IS REPORTED -- never a silent pick (D150 rule 3)",
       len(told_tie) == 1)
 check("and the report names both files, so somebody can go and answer it",
@@ -811,7 +853,8 @@ check("and it names the sale and the column that disagree",
 _, back_night, qty_back, told_back = a_day_fetched_twice(list(reversed(SAME_DAY_FILES)))
 check("listed the other way round it keeps the same figure and reports the same tie",
       qty_back == qty_tie and len(told_back) == len(told_tie)
-      and back_night.recorded[0].which == tie_night.recorded[0].which)
+      and _tie_first is not None and back_night.recorded
+      and back_night.recorded[0].which == _tie_first)
 
 # **BOTH FILES ARE STILL WRITTEN DOWN AS READ.** A reported disagreement is not a
 # file that failed: it was opened, understood, and its sales reached the sheet.
@@ -821,18 +864,23 @@ check("and both files are written down as read, tie or no tie",
       was_tie is not None and was_tie.files_read == ("fetched-again", "fetched-first"))
 
 
-# **THE HALF THAT CANNOT BE FIXED HERE, PINNED RATHER THAN HIDDEN -- D180.**
+# **THE HALF THAT COULD NOT BE FIXED HERE UNTIL 2026-09-08 -- D180, NOW CLOSED.**
 #
 # When the fourth arrives on a LATER night, the fifth's 9 is already in the sheet
 # and the fourth is the only reading this run has. `ledger.plan` decides newer
-# from older by the data date a READING carries, and **a row in the sheet carries
-# no date at all** -- the ledger has 49 columns and four of them say which
-# day's file last wrote each figure. So the fourth's 1 goes over the fifth's 9
-# and nothing anywhere can tell that it should not have.
+# from older by the data date a READING carries, and **a row in the sheet carried
+# no date at all** -- the ledger has 49 columns, four of which are supposed to
+# say which day's file last wrote each figure. So the fourth's 1 went over the
+# fifth's 9 and nothing anywhere could tell that it should not have.
 #
-# D157's second half already asked for four such columns and they were never
-# built. **This check asserts today's WRONG answer on purpose**, so that it goes
-# red the day those columns land and nobody has to remember to come back.
+# **The check below asserted the WRONG answer on purpose from 2026-09-04**, so
+# that it would go red the day the fix landed rather than waiting for anybody to
+# remember. **It went red on 2026-09-08 and this is it turned round.**
+#
+# **THE COLUMNS LANDING WAS NOT THE FIX.** The ERP put the four names in its
+# column list on 2026-09-06 and this check stayed green for two more days,
+# because a column nothing fills and a column that does not exist are the same
+# column to a run reading it back.
 across_nights, over_two_nights, _ = a_sales_ledger()
 night_one = Folder(files={"me_orders": list(FIRST_THREE_AND_FIFTH)},
                    bodies=BODIES, into=over_two_nights)
@@ -840,22 +888,92 @@ was_first = night_one.go()
 check("on the first night the fifth's correction lands in the sheet",
       was_first is not None and across_nights.qty_for(THE_SALE) == "9")
 
+check("and the row says which day's file wrote that correction",
+      across_nights.cell_for(THE_SALE, "ordersOn") == "2026-09-05")
+
 # **A NEW NIGHT IS A NEW RUN**, and it remembers nothing of what last night
-# decided -- only what is written in the sheet. That is the whole of why the
-# fault below cannot be fixed here.
-_, the_next_night, _ = a_sales_ledger(across_nights)
+# decided -- only what is written in the sheet. **That is why the marker had to
+# be in the sheet: it is the run's only memory of which day's file wrote a
+# figure, and until 2026-09-08 nothing put one there.**
+_, the_next_night, _across_told = a_sales_ledger(across_nights)
 night_two = Folder(files={"me_orders": FIRST_THREE_AND_FIFTH + [THE_FOURTH]},
                    bodies=BODIES, into=the_next_night)
 was_second = night_two.go(already=was_first.files_read)
 check("and on the next night the fourth is the only file read",
       was_second is not None and was_second.read_tonight == ("d-4",))
-check("ACROSS TWO NIGHTS THE OLDER FILE STILL WINS -- D180, AND IT CANNOT BE "
-      "FIXED WITHOUT THE FOUR DATE COLUMNS D157 ASKED FOR",
-      across_nights.qty_for(THE_SALE) == "1")
+# **THIS CHECK ASSERTED THE WRONG ANSWER ON PURPOSE FROM 2026-09-04 TO
+# 2026-09-08, and it is the reason it was written that way.** It said the older
+# file still wins, so that it would go red the day the fix landed rather than
+# waiting for anybody to remember. **It went red on 2026-09-08 and this is it
+# turned round.**
+#
+# **THE COLUMNS LANDING WAS NOT THE FIX, and that is worth writing down here
+# because it was believed twice.** The ERP put the four names in its column list
+# on 2026-09-06 and this check stayed green, because a column nothing fills and a
+# column that does not exist are the same column to a run reading it back.
+check("ACROSS TWO NIGHTS THE FOURTH'S OLDER FIGURE NO LONGER WINS -- D180 CLOSED",
+      across_nights.qty_for(THE_SALE) == "9")
+check("and the marker is not rolled backwards to the older file's day either",
+      across_nights.cell_for(THE_SALE, "ordersOn") == "2026-09-05")
+# **AND IT IS SAID OUT LOUD, NEVER QUIETLY DROPPED.** A by-hand backfill (D110)
+# is a deliberately old file somebody fetched on purpose; a night that ignored it
+# in silence would look exactly like a night that applied it.
+_told_second = [one for one in _across_told if "OLDER THAN THE ROW" in one]
+check("AND THE NIGHT SAYS THE OLDER FILE WAS LEFT ALONE, rather than dropping it quietly",
+      len(_told_second) == 1)
+check("and what it says names the sale, the report and both days",
+      len(_told_second) == 1 and THE_SALE in _told_second[0]
+      and "2026-09-04" in _told_second[0] and "2026-09-05" in _told_second[0])
+
+# ------- A READER THAT STOPPED FILLING ITS MARKER, DRIVEN THROUGH A WHOLE NIGHT
+#
+# **THE CLAIM "NOTHING IS LOST" IS MADE IN FOUR PLACES AND WAS DRIVEN IN NONE.**
+# `ledger.Reading` refuses a reading that names a date marker and carries no
+# date; three files, `ledger.py`, `ledger_checks.py` and the night's own refusal
+# text, all say that `read_what_is_new` then names the file and leaves it for
+# tomorrow. **An independent reviewer traced it by eye and said so: in a project
+# whose standard is "driven, not assumed", that was the one new claim taken on
+# trust.** This drives it.
+_the_real_reader = orders_reader.read_orders
+
+
+def _a_reader_that_forgets_the_marker(rows, platform, data_date=None):
+    """`read_orders` with the marker assignment taken out, and nothing else."""
+    return _the_real_reader(rows, platform)
+
+
+orders_reader.read_orders = _a_reader_that_forgets_the_marker
+_lost, _lost_ledger, _ = a_sales_ledger()
+_lost_night = Folder(files={"me_orders": [a_file("m-1", "meesho_me_orders_2026-09-01.csv")]},
+                     bodies={"m-1": BODIES["d-1"]}, into=_lost_ledger)
+_was_lost = _lost_night.go()
+orders_reader.read_orders = _the_real_reader
+assert orders_reader.read_orders is _the_real_reader
+
+check("A READER THAT STOPPED FILLING ITS MARKER HAS ITS FILE REFUSED",
+      _was_lost is not None and len(_was_lost.the_ledger_refused) == 1)
+check("AND THE FILE IS NOT WRITTEN DOWN AS READ -- it is opened again tomorrow",
+      _was_lost is not None and _was_lost.read_tonight == ()
+      and _was_lost.files_read == ())
+check("and not one sale reached the sheet",
+      _lost.qty_for("meesho::SO-1::DJ 14") is None)
+check("and the file is named, so somebody knows which one to go and look at",
+      _was_lost is not None and "meesho_me_orders_2026-09-01.csv" in
+      _was_lost.the_ledger_refused[0])
+check("and the reason names the marker that was missing",
+      _was_lost is not None and "ordersOn" in _was_lost.the_ledger_refused[0])
+# **AND THE NIGHT IS NOT GREEN.** Counted among the platform's unreadable files,
+# a night where our own rule refused every file would report perfectly well while
+# the seller's folder filled up for ever -- Golden Rule 29.
+check("AND THE NIGHT IS OUR OWN DEFECT, not a quiet count of the platform's",
+      _was_lost is not None and _was_lost.is_a_defect
+      and _was_lost.could_not_read == ())
+check("and the night says out loud that it was Kartaan's ledger that refused",
+      _was_lost is not None and "KARTAAN'S OWN LEDGER REFUSED A FILE" in _was_lost.says())
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 92
+EXPECTED = 106
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

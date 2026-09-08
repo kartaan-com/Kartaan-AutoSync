@@ -97,6 +97,46 @@ check("and the refusal says why the date matters",
           _catch(lambda: a_reading("orders", "", []))))
 check("a reading claiming a column the ledger does not have is refused",
       refused_by(lambda: a_reading("orders", "2026-08-01", [], knows=("nonsense",))))
+
+# ------------------------- A MARKER DECLARED AND NOT CARRIED (D157)
+
+# **A REPORT MAY SAY IT WRITES `ordersOn` AND THEN WRITE NOTHING INTO IT, and
+# that is the exact shape of the fault D157 already cost two days to.** The
+# columns landed in the ERP, every refusal built on their NAMES lifted itself
+# the same day, and no code anywhere put a date in one. A declaration nothing
+# fills is worth less than no declaration at all: it reads, to everything
+# downstream and to any reviewer, as the marker being handled.
+#
+# **REFUSED WHERE THE READING IS BUILT, so the file is never marked as read** --
+# `read_what_is_new` catches this, names the file and leaves it for tomorrow,
+# which is what happens to every file it cannot read.
+_MARKED = ("platform", "orderId", "qty", "ordersOn")
+check("A READING THAT SAYS IT WRITES A DATE MARKER AND CARRIES NO DATE IS REFUSED",
+      refused_by(lambda: a_reading("orders", "2026-08-01",
+                                   [a_sale("SO-1", qty=1)], knows=_MARKED)))
+check("and the refusal names the marker and the sale, so it can be gone and looked at",
+      (lambda e: e is not None and "ordersOn" in str(e) and "SO-1" in str(e))(
+          _catch(lambda: a_reading("orders", "2026-08-01",
+                                   [a_sale("SO-1", qty=1)], knows=_MARKED))))
+check("and one carrying the date is accepted",
+      a_reading("orders", "2026-08-01",
+                [a_sale("SO-1", qty=1, orders_on="2026-08-01")],
+                knows=_MARKED) is not None)
+# **ONE SALE WITHOUT IT IS ENOUGH.** A file of sixty rows where one carries no
+# marker is a row in the sheet nothing can later tell was written by an older
+# file, and it is invisible among the fifty-nine that are right.
+check("one sale of many missing the marker still refuses the whole reading",
+      refused_by(lambda: a_reading("orders", "2026-08-01", [
+          a_sale("SO-1", qty=1, orders_on="2026-08-01"),
+          a_sale("SO-2", qty=1),
+      ], knows=_MARKED)))
+# **AND A READING THAT NAMES NO MARKER IS NOT REFUSED HERE.** Whether a report
+# is entitled to write to the sheet at all with no marker is a different
+# question, asked once a night by `ledger_sheet.why_it_must_not_write_yet` over
+# the whole list of readable reports -- not row by row here, where every
+# narrower check of `plan` would trip on it.
+check("a reading that names no date marker at all is still built",
+      a_reading("orders", "2026-08-01", [a_sale("SO-1", qty=1)]) is not None)
 check("and the refusal lists the columns there are",
       (lambda e: e is not None and "settlement" in str(e))(
           _catch(lambda: a_reading("orders", "2026-08-01", [], knows=("nonsense",)))))
@@ -440,9 +480,160 @@ if not_run:
     print("      1 group NOT RUN -- his real files are not on this machine. Not a pass.")
 
 print()
+# ------------------- AN OLDER FILE DOES NOT UNDO A NEWER ONE, ACROSS RUNS (D157)
+
+# **THE WHOLE OF D157'S SECOND HALF, and until 2026-09-08 there was no memory in
+# the sheet to enforce it with.** His own case: the 4th's file fails, the 5th's
+# lands and corrects a quantity from one to nine, and the 4th turns up a night
+# later still saying one. `plan` is handed one file at a time, so the sort that
+# fixes this within a run has nothing to sort -- the sheet's own marker is the
+# only thing that can tell the run which day's file wrote what is there.
+_MARKED = ("platform", "orderId", "qty", "ordersOn")
+
+
+def _a_sheet_written_by(day, how_many="9"):
+    """A sheet holding one sale, last written by a file of that day."""
+    row = {one: "" for one in sales.COLUMNS}
+    row["id"] = "meesho::O1::A"
+    row["qty"] = how_many
+    row["ordersOn"] = day
+    return as_sheet([[row[one] for one in sales.COLUMNS]])
+
+
+def _the_older_file_says(day, how_many="1"):
+    return tool.Reading(
+        report="me_orders", on=day, knows=_MARKED, which="the-late-file",
+        sales=(a_sale("O1", qty=how_many, orders_on=day),))
+
+
+_late = answered(lambda: tool.plan(_a_sheet_written_by("2026-09-05"),
+                                   [_the_older_file_says("2026-09-04")]))
+check("A FILE OLDER THAN THE ROW DOES NOT OVERWRITE IT -- D157, HIS OWN CASE",
+      _late is not None and _late.update == () and _late.append == ())
+check("AND IT IS SAID OUT LOUD, never quietly dropped",
+      _late is not None and len(_late.left_alone) == 1)
+check("and what it says names the sale, both days and the file",
+      _late is not None and len(_late.left_alone) == 1
+      and "meesho::O1::A" in str(_late.left_alone[0])
+      and "2026-09-04" in str(_late.left_alone[0])
+      and "2026-09-05" in str(_late.left_alone[0])
+      and "the-late-file" in str(_late.left_alone[0]))
+check("and the night's one line counts it, rather than reporting a quiet nought",
+      _late is not None and "1 left alone as older than the row" in _late.says())
+# **A NEWER FILE STILL WINS, or this is a wall rather than a rule.**
+_newer = answered(lambda: tool.plan(_a_sheet_written_by("2026-09-04", "1"),
+                                    [_the_older_file_says("2026-09-05", "9")]))
+check("and a file NEWER than the row still writes, so this is a rule not a wall",
+      _newer is not None and len(_newer.update) == 1 and _newer.left_alone == ())
+# **AND THE OLDER FILE STILL ADDS WHAT ONLY IT HAS.** D157 in his own words: the
+# 4th is read; where the 5th has written something newer the 4th leaves it;
+# **where nothing is there the 4th fills it in.**
+_only_the_old_one_has_it = tool.Reading(
+    report="me_orders", on="2026-09-04", knows=_MARKED, which="the-late-file",
+    sales=(a_sale("O1", qty="1", orders_on="2026-09-04"),
+           a_sale("O2", qty="7", orders_on="2026-09-04")))
+_both = answered(lambda: tool.plan(_a_sheet_written_by("2026-09-05"),
+                                   [_only_the_old_one_has_it]))
+check("AND THE OLDER FILE STILL ADDS THE SALE ONLY IT HAS -- it is not thrown away",
+      _both is not None and len(_both.append) == 1 and _both.update == ()
+      and len(_both.left_alone) == 1)
+# **AN EQUAL DATE IS NOT OLD, AND THAT IS DELIBERATE RATHER THAN AN OVERSIGHT.**
+# Two files of ONE day disagreeing is D150 rule 3, and rule 3 is decided over the
+# RUN'S OWN MEMORY of which FILE said what -- the sheet records only the day, so
+# answering a tie from the DATE alone would be inventing an AGE the sheet cannot
+# state. **Found by breaking it: turning `<` into `<=` here left every check in
+# this file green while three in `reading_checks.py` and six in
+# `nightly_checks.py` went red.** A rule this file owns must be checked in this
+# file, or a proving pass reports it as caught by something that only noticed the
+# knock-on.
+#
+# **AND UNTIL A32 THE SENTENCE ABOVE WAS ONLY HALF SAID, AND THE MISSING HALF WAS
+# MONEY.** "A tie is rule 3's" was true, and rule 3 never got the tie: it is
+# decided over `WhatTheNightHasDecided`, **which starts empty every night**. So
+# this same pair -- a sheet holding qty 9 written by a file of the 5th, a
+# DIFFERENT file also of the 5th arriving on a later night -- met no tie at all
+# and simply overwrote. Driven by an independent reviewer: `left_alone` 0,
+# `disagreements` 0, quantity 9 became quantity 1, and nothing anywhere said so.
+# **This check ASSERTED that overwrite** (`len(update) == 1`), which is how it
+# stayed green through the fault. It now asserts what D150 rule 3 actually says:
+# keep what is there, change nothing, and SAY SO. `ledger._what_the_sheet_
+# remembers` is what supplies the missing side.
+_same_day = answered(lambda: tool.plan(_a_sheet_written_by("2026-09-04", "1"),
+                                       [_the_older_file_says("2026-09-04", "9")]))
+check("A FILE OF THE SAME DAY IS NOT 'OLDER' -- a tie is rule 3's, not this rule's",
+      _same_day is not None and _same_day.left_alone == ())
+_QTY = sales.COLUMNS.index("qty")
+check("AND ACROSS TWO NIGHTS THAT TIE IS KEPT AND REPORTED, not silently overwritten",
+      _same_day is not None and len(_same_day.disagreements) == 1
+      and all(row[_QTY] == "1" for _, row in _same_day.update))
+check("and what it says names the sale, the column, both figures and both sides",
+      _same_day is not None and len(_same_day.disagreements) == 1
+      and "meesho::O1::A" in str(_same_day.disagreements[0])
+      and "'1'" in str(_same_day.disagreements[0])
+      and "'9'" in str(_same_day.disagreements[0])
+      and tool.THE_SHEET_REMEMBERS in str(_same_day.disagreements[0])
+      and "the-late-file" in str(_same_day.disagreements[0]))
+# **AND A SALE THE SHEET HAS NEVER SEEN IS STILL APPENDED ON A TIE.** Rule 3 keeps
+# what is THERE; where nothing is there it keeps nothing, and the file's own sale
+# is the only statement about it.
+_tie_but_new = answered(lambda: tool.plan(
+    _a_sheet_written_by("2026-09-04", "1"),
+    [tool.Reading(report="me_orders", on="2026-09-04", knows=_MARKED,
+                  which="the-late-file",
+                  sales=(a_sale("O2", qty="7", orders_on="2026-09-04"),))]))
+check("a sale only the tying file has is still added, so a tie is not a wall",
+      _tie_but_new is not None and len(_tie_but_new.append) == 1
+      and _tie_but_new.disagreements == ())
+# **AND A NIGHT'S OWN SECOND FILE STILL MEETS RULE 3 THE WAY IT ALWAYS DID, AND
+# THE RUN'S OWN MEMORY IS ASKED FIRST.** The sheet remembers only the DAY; the run
+# remembers the FILE, which is what a person needs to go and look at. So where
+# both could answer, the run's answer is the one said out loud.
+_night = tool.WhatTheNightHasDecided()
+_first = answered(lambda: tool.plan(as_sheet([]),
+                                    [_the_older_file_says("2026-09-04", "9")], _night))
+_second = answered(lambda: tool.plan(
+    as_sheet([list(_first.append[0])]),
+    [tool.Reading(report="me_orders", on="2026-09-04", knows=_MARKED,
+                  which="a-different-file",
+                  sales=(a_sale("O1", qty="3", orders_on="2026-09-04"),))],
+    _night))
+check("two files of one night still tie on the run's own memory, naming both files",
+      _second is not None and _second.update == ()
+      and len(_second.disagreements) == 1
+      and "the-late-file" in str(_second.disagreements[0])
+      and "a-different-file" in str(_second.disagreements[0])
+      and tool.THE_SHEET_REMEMBERS not in str(_second.disagreements[0]))
+
+# **A ROW WITH NO MARKER IS NOT OLD.** Every row written before 2026-09-08 has a
+# blank one, and refusing to touch those would freeze the whole ledger.
+_blank = answered(lambda: tool.plan(_a_sheet_written_by(""),
+                                    [_the_older_file_says("2026-09-04")]))
+check("a row whose marker is blank is not treated as newer -- nothing is frozen",
+      _blank is not None and len(_blank.update) == 1 and _blank.left_alone == ())
+# **AND A MARKER SOMEBODY HAS TYPED OVER IS TREATED AS NEWER.** A sheet is a
+# thing a person can open and edit. Compared as text, "yesterday" sorts after
+# every real date and "1/9/26" sorts before every one -- so half the wrong
+# answers are the silent overwrite this rule exists to stop.
+for _typed in ("yesterday", "1/9/26", "05-09-2026"):
+    _bad = answered(lambda d=_typed: tool.plan(_a_sheet_written_by(d),
+                                               [_the_older_file_says("2026-09-04")]))
+    check(f"a marker somebody typed over ({_typed!r}) is left alone, not written past",
+          _bad is not None and _bad.update == () and len(_bad.left_alone) == 1)
+# **AND A REPORT IS COMPARED AGAINST ITS OWN KIND OF MARKER AND NO OTHER (D157).**
+# A payments file says nothing about when a delivery date was last stated, so an
+# orders file dated later must not hold it back -- that is rule 1 from the other
+# side.
+_payments = tool.Reading(
+    report="me_payments", on="2026-09-04", knows=("settlement",),
+    sales=(a_sale("O1", settlement="12.5"),))
+_pay = answered(lambda: tool.plan(_a_sheet_written_by("2026-09-05"), [_payments]))
+check("A REPORT IS HELD TO ITS OWN MARKER ONLY -- a payments file is not stopped "
+      "by an orders file dated later",
+      _pay is not None and len(_pay.update) == 1 and _pay.left_alone == ())
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-WITH_HIS_FILES = 75
+WITH_HIS_FILES = 96
 EXPECTED = WITH_HIS_FILES - (9 if not_run else 0)
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")

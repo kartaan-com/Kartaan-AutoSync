@@ -58,6 +58,28 @@ def _answered(reply, doing: str):
     return reply
 
 
+def as_a_quoted_value(value: str) -> str:
+    r"""A value put inside a Drive search, quoted the way Drive says to quote one.
+
+    **A DRIVE SEARCH IS A LANGUAGE, AND EVERY NAME BELOW WAS DROPPED INTO IT
+    WHOLE.** `name = '{name}'` closes its own quote the moment `name` holds one,
+    and what follows is read as more of the search rather than as part of the
+    name. Drive's own documentation is explicit about the fix: a value goes in
+    single quotes, a single quote inside it is written `\'`, and a backslash is
+    written `\\`. That is the whole rule, and it is written here once so that
+    every search below is built the same way.
+
+    **NOTHING HERE HAS EVER HELD A QUOTE.** Report ids are `me_orders` and
+    `fk_payments`. This is the second lock on a door where one lock is one
+    mistake away from none.
+
+    **AND `extension/drive.js` DOES THE SAME, SPELT THE SAME** -- `asAQuotedValue`
+    is this function, because a rule that DIFFERS between the two halves is a bug
+    in one of them and a rule that is SPELT differently is a bug nobody finds.
+    """
+    return str(value if value is not None else "").replace("\\", "\\\\").replace("'", "\\'")
+
+
 def folder_for(transport, report_id: str, inside: str) -> str:
     """The id of one report's folder, made if it is not there yet.
 
@@ -70,8 +92,8 @@ def folder_for(transport, report_id: str, inside: str) -> str:
     """
     name = a_folder_for(report_id)
     looking = (
-        f"name = '{name}' and mimeType = '{FOLDER}' "
-        f"and '{inside}' in parents and trashed = false"
+        f"name = '{as_a_quoted_value(name)}' and mimeType = '{FOLDER}' "
+        f"and '{as_a_quoted_value(inside)}' in parents and trashed = false"
     )
     # **THROUGH THE SAME PAGER AS EVERYTHING ELSE.** This asked Drive once, and a
     # second folder of this name on a later page would have read as "there is
@@ -189,7 +211,7 @@ def what_is_already_there(transport, folder_id: str) -> List[Dict]:
     """Every file in one folder, so a second copy can be refused."""
     return _every_file(
         transport,
-        f"'{folder_id}' in parents and trashed = false",
+        f"'{as_a_quoted_value(folder_id)}' in parents and trashed = false",
         "id,name",
         "reading what is already in the folder",
     )
@@ -213,7 +235,7 @@ def what_has_arrived(transport, folder_id: str) -> List[Dict]:
     out: List[Dict] = []
     for one in _every_file(
         transport,
-        f"'{folder_id}' in parents and trashed = false",
+        f"'{as_a_quoted_value(folder_id)}' in parents and trashed = false",
         "id,name,size",
         "reading what has arrived in the folder",
     ):

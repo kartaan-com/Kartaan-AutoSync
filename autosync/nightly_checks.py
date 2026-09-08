@@ -21,6 +21,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import between_runs  # noqa: E402
+import clock  # noqa: E402
 import runlog  # noqa: E402
 import nightly as tool  # noqa: E402
 from amazon_door import Fetched  # noqa: E402
@@ -1000,11 +1001,20 @@ class PretendLedgerSheet:
         return {}
 
     def qty_for(self, name):
+        return self.cell_for(name, "qty")
+
+    def cell_for(self, name, column):
+        """One cell of one sale, read back out of what the seller would see.
+
+        **READ BACK OUT OF THE SHEET, never off the plan.** A plan says what it
+        meant to write; this says what is in the row -- which is the only place
+        a column that is declared and never filled shows up as blank.
+        """
         at_id = the_sheet.COLUMNS.index("id")
-        at_qty = the_sheet.COLUMNS.index("qty")
+        at = the_sheet.COLUMNS.index(column)
         for row in self.rows[1:]:
-            if len(row) > at_qty and row[at_id] == name:
-                return row[at_qty]
+            if len(row) > at and row[at_id] == name:
+                return row[at]
         return None
 
 
@@ -1107,9 +1117,14 @@ tie_said = [one for one in tie_told if "DISAGREEMENT" in one]
 check("a tick reads both files of the same day, because both are new",
       tick is not None and tick.what_was_read is not None
       and len(tick.what_was_read.read_tonight) == 2)
+# **NOT AN INDEX INTO A LIST THAT COULD BE EMPTY.** A check that CRASHES is not a
+# check answering -- the file dies where it stands, prints no count, and says
+# nothing about everything under it, including the D180 check further down.
+_tie_first = tie_drive.recorded[0].which if tie_drive.recorded else None
 check("TWO FILES OF ONE REPORT AND ONE DAY: WHAT THE FIRST ONE WROTE IS KEPT",
-      tied.qty_for(THE_SALE) == {"same-day-first": "9", "same-day-again": "1"}[
-          tie_drive.recorded[0].which])
+      _tie_first is not None
+      and tied.qty_for(THE_SALE) == {"same-day-first": "9",
+                                     "same-day-again": "1"}[_tie_first])
 check("AND THE TICK REPORTS THE DISAGREEMENT -- never a silent pick (D150 rule 3)",
       len(tie_said) == 1)
 check("and the report names both files, so somebody can go and answer it",
@@ -1121,18 +1136,25 @@ check("and both files are still written down as read, tie or no tie",
       between_runs.read(tie_night.saved[-1]).files_read
       == ("same-day-again", "same-day-first"))
 
-# **THE HALF THAT CANNOT BE FIXED HERE, PINNED RATHER THAN HIDDEN -- D180.**
+# **THE HALF THAT COULD NOT BE FIXED HERE UNTIL 2026-09-08 -- D180, NOW CLOSED.**
 #
 # When the fourth arrives on a LATER night, the fifth's 9 is already in the sheet
 # and the fourth is the only reading this run has to sort. `ledger.plan` tells
 # newer from older by the data date a READING carries, and **a row in the sheet
-# carries no date at all** -- 49 columns, and four of them say which day's file
-# wrote each figure. So the fourth's 1 goes over the fifth's 9 and nothing
-# anywhere can tell that it should not have. D157's second half asked for four
-# such columns and they were never built.
+# carried no date at all** -- 49 columns, four of which are supposed to say which
+# day's file wrote each figure. So the fourth's 1 went over the fifth's 9 and
+# nothing anywhere could tell that it should not have.
 #
-# **This asserts today's WRONG answer on purpose**, so it goes red the day those
-# columns land rather than waiting for somebody to remember.
+# **The check below asserted today's WRONG answer on purpose from 2026-09-04,**
+# so that it would go red the day the fix landed rather than waiting for anybody
+# to remember. **It went red on 2026-09-08 and this is it turned round.**
+#
+# **THE COLUMNS LANDING WAS NOT THE FIX, and that is the part worth keeping.**
+# The ERP put the four names in its column list on 2026-09-06 and this check
+# stayed green for two more days, because a column nothing fills and a column
+# that does not exist are the same column to a run reading it back. What closed
+# it was `orders.read_orders` carrying the file's own day onto every sale and
+# `ledger.older_than_the_row` reading it back before anything is applied.
 across_nights, over_two_nights, _ = a_sales_ledger()
 first_night_drive = TheSellersDrive(FIRST_THREE_AND_FIFTH, into=over_two_nights)
 first_night = Harness()
@@ -1149,9 +1171,13 @@ second_night_drive = TheSellersDrive(FIRST_THREE_AND_FIFTH + [THE_FOURTH],
 tick = ANightLater(first_night.saved[-1]).go(**second_night_drive.wiring())
 check("and on the next night the fourth is the only file read",
       tick is not None and tick.what_was_read.read_tonight == ("d-4",))
-check("ACROSS TWO NIGHTS THE OLDER FILE STILL WINS -- D180, AND IT CANNOT BE "
-      "FIXED WITHOUT THE FOUR DATE COLUMNS D157 ASKED FOR",
-      across_nights.qty_for(THE_SALE) == "1")
+check("ACROSS TWO NIGHTS THE FOURTH'S OLDER FIGURE NO LONGER WINS -- D180 CLOSED",
+      across_nights.qty_for(THE_SALE) == "9")
+# **AND THE ROW STILL SAYS THE FIFTH WROTE IT.** A marker rolled backwards to the
+# older file's day would leave the right figure standing and the wrong story
+# beside it -- and the NEXT late file would then be allowed straight through.
+check("and the marker is not rolled backwards to the older file's day",
+      across_nights.cell_for(THE_SALE, "ordersOn") == "2026-09-05")
 
 # **THE THIRD NIGHT: nothing new, and it must not read like a night that read
 # everything.** Two runs have already "succeeded" in eleven and forty-seven
@@ -1317,9 +1343,112 @@ check("AND EVERY ONE HANDED OVER IS ONE THE RUN ASKS FOR, AND EVERY ONE IT ASKS 
       set(ASKED_FOR) == FROM_SECRETS)
 
 
+# ------------- the one tick a day, and the hours it can never reach (A33)
+
+# **THE SELLER'S CHOSEN HOUR HAS NEVER REACHED THE SCHEDULE SINCE D120, AND
+# NOTHING ANYWHERE ASKED WHETHER IT DID.**
+#
+# The cron line is the only thing that wakes this job -- `clock.why_not_now` can
+# refuse a tick, it has nothing to start one with. The line ticks once a day at
+# 20:53 UTC, which is 02:23 in his time, and the chosen hour is a FLOOR ("not
+# before eight"). So every seller who chose an hour from 3 to 23 is refused on
+# every tick, on every day, for ever -- and is told only "It is 02:23 and
+# fetching is set for 11:00 or later", which reads exactly like a tick that will
+# succeed later today.
+#
+# **DRIVEN AGAINST `clock.why_not_now`, HOUR BY HOUR, AND NOT ARGUED.** The hour
+# the tick really lands at is read out of the cron line and moved into his time
+# by `clock`'s own constants, so a change to either is a change here.
+#
+# **THIS PINS A FAULT RATHER THAN A REPAIR.** It is written this way round on
+# purpose: the three ways out are all his (wake hourly again and reverse D120;
+# build the onboarding step that writes his hour into the line; or let something
+# rewrite a seller's workflow, which D113 refused). The day one is taken, this
+# check goes red and somebody has to change it deliberately -- which is the only
+# thing that stops the hole being quietly re-believed closed.
+# **EVERY SCHEDULE LINE, NOT THE FIRST ONE (A33R).** Read with `re.search` this
+# took whichever `cron:` came first and asked nothing about the rest -- so adding
+# a SECOND line, `- cron: '53 * * * *'`, which is the wake-hourly repair named
+# above, fixed the fault and left all these checks green. **A pin that survives
+# the repair it exists to demand is not a pin.** Every entry is read, and the
+# earliest hour of his day that any of them reaches is what the seller gets.
+_CRONS = re.findall(r"cron:\s*'(\d+)\s+([\d*/,-]+)\s", SAID_IN_THE_WORKFLOW)
+check("the schedule can be read out of the workflow at all", len(_CRONS) > 0)
+
+
+def _hours_his_day_is_woken_at(crons):
+    """Every hour of HIS day this workflow really wakes at, out of every line.
+
+    A `*` in the hour field is every hour; a list or a step is expanded the same
+    way, because the point is not the spelling but which hours are reachable.
+    """
+    woken = set()
+    for minute, hour in crons:
+        for one in _the_hours_meant(hour):
+            woken.add(((one + clock.HOURS_AHEAD_OF_UTC)
+                       + (1 if int(minute) + clock.MINUTES_AHEAD_OF_UTC >= 60 else 0)) % 24)
+    return woken
+
+
+def _the_hours_meant(field):
+    """The UTC hours a cron hour field names. Raises on anything it cannot read."""
+    if field == "*":
+        return list(range(24))
+    out = []
+    for piece in field.split(","):
+        every = 1
+        if "/" in piece:
+            piece, step = piece.split("/", 1)
+            every = int(step)
+        if piece == "*":
+            piece = "0-23"
+        if "-" in piece:
+            first, last = (int(one) for one in piece.split("-", 1))
+        else:
+            first = last = int(piece)
+        out += list(range(first, last + 1, every))
+    return out
+
+
+_WOKEN = _hours_his_day_is_woken_at(_CRONS)
+check("and it wakes at at least one hour of his day", len(_WOKEN) > 0)
+
+# **WHICH HOURS A SELLER COULD CHOOSE AND ACTUALLY BE FETCHED AT.** The chosen
+# hour is a FLOOR, so a tick at 02:23 satisfies 0, 1 and 2 and nothing above.
+_EARLIEST = min(_WOKEN)
+_REACHED = tuple(
+    hour for hour in range(clock.FIRST_HOUR, clock.LAST_HOUR + 1)
+    if any(clock.why_not_now(None, datetime(2026, 9, 8, at, 23), hour) is None
+           for at in sorted(_WOKEN))
+)
+
+# **THIS PINS A FAULT, NOT A REPAIR, AND IT IS WRITTEN THAT WAY ROUND ON
+# PURPOSE.** The day somebody repairs it -- by any of the three ways -- this goes
+# red by NAME rather than by the count at the bottom, and says what to do.
+check("KNOWN FAULT, NOT FIXED: the workflow wakes at ONE hour of his day, so most "
+      "of the hours a seller can choose are never reached. **IF THIS IS RED, THE "
+      "SCHEDULE HAS CHANGED -- read the finding on `the-run-that-starts-itself` in "
+      "tools/work.json and turn this check round rather than widening it.**",
+      len(_WOKEN) == 1 and _EARLIEST == clock.NOT_BEFORE_HOUR)
+check("and only the hours at or below that one tick are ever fetched at",
+      _REACHED == tuple(range(clock.FIRST_HOUR, _EARLIEST + 1)))
+# **SAID AS WHAT IT IS RATHER THAN OVERSTATED.** An earlier wording here said
+# hours 3 to 23 never fetch "on any day", and that is not honest for the hour or
+# two just above the tick: `clock.why_not_now` is a floor precisely because
+# GitHub's own documentation says a scheduled run can be DELAYED, and a delayed
+# tick does reach the hour after it. It is the hours well above the tick that
+# never fetch, and there are twenty of them.
+check("and the hours well above the one tick can never be reached, delay or no delay",
+      all(hour not in _REACHED for hour in range(_EARLIEST + 2, clock.LAST_HOUR + 1)))
+# **AND THE SENTENCE THAT HID IT IS GONE.** The workflow used to claim the clock
+# made a run happen at the seller's hour whatever the cron line said.
+check("and the workflow no longer claims the clock fetches at the chosen hour "
+      "whatever this line says",
+      "still fetches at the hour the seller can see" not in SAID_IN_THE_WORKFLOW)
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 183
+EXPECTED = 190
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

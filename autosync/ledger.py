@@ -84,10 +84,14 @@ that did not happen is a sale in a state that says so, and a row taken out of a
 sheet moves every row under it, so every remembered row number becomes wrong.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict, List, Optional, Sequence, Tuple
 
-from sales import COLUMNS, Sale, a_cell, the_row_for
+# **THE ONE READER OF 'IS THIS A DAY' IN THIS PACKAGE.** A second way of
+# deciding it here would be a second answer waiting to disagree, and what it
+# decides is whether an older file may put its figure over a newer one.
+from orders import the_day_in
+from sales import COLUMNS, FROM_FIELD, Sale, a_cell, name_for, the_row_for
 from table import CannotRead
 
 # The first row of the sheet is the column names, so a sale is on row 2 or later.
@@ -285,6 +289,98 @@ class Reading:
                 f"{self.report} names no columns it can write, so reading it would "
                 "change nothing. That is a mistake, not a quiet no-op."
             )
+        # **A DATE MARKER DECLARED AND NOT CARRIED IS REFUSED (D157).**
+        #
+        # **THIS IS THE FAULT THE FOUR COLUMNS THEMSELVES ALREADY WALKED INTO
+        # ONCE.** They landed in the ERP's column list on 2026-09-06; every
+        # refusal built on their NAMES lifted itself the same day; and nothing
+        # anywhere put a date in one. So a declaration that nothing fills reads,
+        # downstream and to any reviewer, exactly like the marker being handled
+        # -- and every row written still could not say which day's file produced
+        # it. **Naming a marker is now a promise this refuses to let be empty.**
+        #
+        # **ONE SALE IS ENOUGH TO REFUSE THE WHOLE READING.** A file of sixty
+        # rows where one carries no marker leaves one row in the sheet that
+        # nothing can later tell was written by an older file, sitting invisibly
+        # among the fifty-nine that are right.
+        #
+        # **REFUSED HERE, WHERE THE READING IS BUILT, SO THE FILE IS NEVER
+        # MARKED AS READ.** `read_what_is_new` catches this like any other file
+        # it cannot read: it names the file, leaves it in the folder and opens it
+        # again tomorrow. Nothing is lost.
+        for marker in WHICH_FILE_LAST_WROTE:
+            if marker not in self.knows:
+                continue
+            field = FROM_FIELD[marker]
+            for one in self.sales or ():
+                if a_cell(getattr(one, field, None)).strip() == "":
+                    raise LedgerRefused(
+                        f"{self.report} says it writes {marker!r}, and the sale "
+                        f"{one.id} carries nothing in it. A row that cannot say "
+                        "which day's file produced it is a row a file arriving "
+                        "late puts its older figure over, in the money, with "
+                        "nothing anywhere saying so -- which is the whole reason "
+                        f"{marker!r} exists. Nothing in this file was read."
+                    )
+
+
+@dataclass(frozen=True)
+class OlderThanTheRow:
+    """A file older than the one that last wrote this sale. Left alone, and said.
+
+    **THIS IS WHAT D157'S FOUR COLUMNS WERE ASKED FOR, and until they were filled
+    it could not exist.** Rule 2 says the newest file wins. Within one run that
+    was enforced by sorting; across two nights the sheet held no record of WHICH
+    day's file had written a cell, so a file for the 4th arriving after the 5th's
+    correction was already in the sheet put its older figure straight back over
+    it -- **in the money, with nothing anywhere saying so.**
+
+    **IT IS REPORTED, NOT SWALLOWED.** A by-hand backfill (D110) is a deliberately
+    old file fetched on purpose, and a night that quietly ignored it would look
+    exactly like a night that applied it.
+    """
+
+    name: str
+    report: str
+    on: str
+    marker: str
+    the_row_says: str
+    from_file: str = ""
+    # **WHICH OF THE TWO REASONS IT WAS, and they are not the same event (A32).**
+    #
+    # One is rule 2 working: the row really was written by a newer file, nothing
+    # is wrong, and there is nothing for anybody to do. The other is that the
+    # cell holding the marker is not a date at all -- somebody typed over it --
+    # so it was treated as newer because that is the safe direction, and **the
+    # only way out is a person putting the cell back.**
+    #
+    # Said with one sentence between them in the run log, those two read as the
+    # same line, and the one that needs a person looks like the one that does
+    # not. Golden Rule 29.
+    the_row_cannot_be_read: bool = False
+
+    def __str__(self) -> str:
+        if self.the_row_cannot_be_read:
+            said = (
+                f"{self.name}: the {self.marker} cell of this row holds "
+                f"{self.the_row_says!r}, which is not a date. It decides whether an "
+                "older file may put its figure back over a newer one, so it has "
+                "been treated as newer and nothing was written. SOMEBODY HAS TO "
+                "PUT THAT CELL BACK TO A DATE -- until they do, this row cannot "
+                f"be written to. {self.report} is for {self.on}, and this file has "
+                "NOT been written down as read, so it is opened again the night "
+                "after the cell is corrected."
+            )
+        else:
+            said = (
+                f"{self.name}: {self.report} is for {self.on}, and this row was last "
+                f"written by a {self.marker} file of {self.the_row_says}. The older "
+                "file has not been applied, because the newer statement is the one "
+                "that stands. Nothing is wrong and there is nothing to do."
+            )
+        if self.from_file:
+            said += f" The older file is {self.from_file}."
+        return said
 
 
 @dataclass(frozen=True)
@@ -296,18 +392,33 @@ class Plan:
     disagreements: Tuple[Disagreement, ...] = ()
     unreadable: Tuple[Unreadable, ...] = ()
     touched: Tuple[str, ...] = ()
+    # **WHAT AN OLDER FILE WAS NOT ALLOWED TO UNDO.** Never a count on its own.
+    left_alone: Tuple[OlderThanTheRow, ...] = ()
 
     def says(self) -> str:
         """One line for the run log. **Every count, even the noughts.**"""
         return (
             f"{len(self.append)} sales added, {len(self.update)} updated, "
             f"{len(self.disagreements)} disagreements reported, "
+            f"{len(self.left_alone)} left alone as older than the row, "
             f"{len(self.unreadable)} rows in the sheet unreadable"
         )
 
     @property
     def changes_anything(self) -> bool:
         return bool(self.append or self.update)
+
+    @property
+    def somebody_has_to_put_a_cell_back(self) -> bool:
+        """Was anything left alone because a marker cell is not a date? (A32)
+
+        **THIS IS THE HALF OF `left_alone` THAT IS RECOVERABLE**, and it is only
+        recoverable if the file is NOT written down as read -- otherwise the cell
+        gets corrected and the file that was waiting on it is never opened again.
+        `ledger_sheet.recording_into` reads this and refuses the file, which is
+        the one path that leaves it unread.
+        """
+        return any(one.the_row_cannot_be_read for one in self.left_alone)
 
 
 def what_the_sheet_holds(values: Sequence[Sequence[str]]):
@@ -394,6 +505,187 @@ def _what_a_sale_says(sale: Sale, knows: Sequence[str]) -> Dict[str, str]:
     return {c: by_column[c] for c in knows if c in by_column}
 
 
+def which_markers(knows: Sequence[str]) -> Tuple[str, ...]:
+    """The date markers this report writes. **Its own kind of file, and no other.**
+
+    An orders report speaks for `ordersOn` and says nothing about when a
+    settlement was last stated -- so it is compared against its own marker only.
+    Compared against all four, a payments file would be held back by an orders
+    file dated later, which is rule 1 broken from the other side.
+    """
+    return tuple(one for one in WHICH_FILE_LAST_WROTE if one in tuple(knows or ()))
+
+
+def older_than_the_row(
+    row: Dict[str, str], reading: "Reading",
+) -> Optional[Tuple[str, str, bool]]:
+    """Is this file older than the one that last wrote this row? Which marker, when, and why.
+
+    **THE THIRD THING IT ANSWERS IS WHICH OF THE TWO REASONS IT WAS (A32)**, and
+    they need different things done: one is rule 2 working and asks nothing of
+    anybody; the other is a cell somebody has typed over, and the only way out of
+    it is a person putting that cell back.
+
+    **THIS IS RULE 2 ACROSS TWO NIGHTS, and it is the whole reason D157 asked for
+    the four columns.** Within one run the readings are sorted and the newest
+    genuinely wins. Across runs the sheet was the only memory, and it held no
+    record of WHICH day's file had written a cell -- so the fourth's file,
+    arriving on a night after the fifth's correction was already written, put its
+    old figure straight back over it and nobody was told.
+
+    **STRICTLY OLDER. An equal date is NOT handled here**, deliberately: two files
+    of one day disagreeing is D150's rule 3, it is decided over the run's own
+    memory of which FILE said what, and the sheet records only the day. Answering
+    a tie from a date alone would be inventing a distinction the sheet cannot
+    make.
+
+    **AND A ROW THAT SAYS NOTHING IS NOT OLD.** A blank marker is a row written
+    before anything filled one; there is nothing to compare against, so the file
+    is applied exactly as it always was.
+    """
+    for marker in which_markers(reading.knows):
+        stood = str(row.get(marker, "") or "").strip()
+        if not stood:
+            continue
+        if the_day_in(stood) != stood:
+            # **A MARKER NOBODY CAN READ IS TREATED AS NEWER, NOT AS NOTHING.**
+            # A sheet is a thing a person can open and type in, and this cell is
+            # what decides whether an older file may overwrite a newer figure.
+            # Compared as text, `"yesterday"` sorts after every real date and
+            # `"1/9/26"` sorts before every one -- so half the wrong answers are
+            # the silent overwrite this whole rule exists to stop.
+            #
+            # **LEFT ALONE AND REPORTED IS THE RECOVERABLE HALF OF THE MISTAKE --
+            # AND UNTIL A32 IT WAS NOT ACTUALLY RECOVERABLE.** This line used to
+            # end "because a file left alone is never written down as read",
+            # which was simply false: `record_the_sales` returned normally and
+            # `reading.read_what_is_new` marked the file read like any other, so
+            # somebody could correct the cell and the file waiting on it would
+            # never be opened again. **The `True` below is what makes the
+            # sentence true**: it reaches `Plan.somebody_has_to_put_a_cell_back`,
+            # `ledger_sheet.recording_into` refuses the file on it, and an
+            # unread file is opened again the night after the cell is put back.
+            return marker, stood, True
+        if reading.on < stood:
+            # Rule 2, working. Nothing is wrong and nobody has to do anything.
+            return marker, stood, False
+    return None
+
+
+# Two days a run could never really be about, one plainly after the other. Used
+# only to drive the question below.
+AN_OLDER_DAY = "0001-01-01"
+A_NEWER_DAY = "0001-01-02"
+
+
+def would_an_older_file_be_stopped(knows: Sequence[str]) -> bool:
+    """Would a file older than the row it is about actually be refused?
+
+    **THIS IS THE QUESTION THE GUARD HAS TO ASK, AND TWO EARLIER VERSIONS OF IT
+    ASKED SOMETHING WEAKER.**
+
+    | Asked | What it really tested | Lifted while |
+    |---|---|---|
+    | are the four columns NAMED? | a name in a list | nothing filled one |
+    | would a row CARRY a marker? | a name in `knows` | nothing read one back |
+    | **would an older file be STOPPED?** | **the behaviour** | -- |
+
+    The second of those was written to repair the first and reproduced its exact
+    shape one level up: planting a marker on a made-up sale and asking whether it
+    came back out reduces, for any working rule 1, to asking whether the name is
+    in `knows`. **An independent reviewer proved it by taking the assignment out
+    of `orders.py` and watching all 114 checks stay green.**
+
+    **SO THIS DRIVES THE WHOLE THING.** It builds a sheet holding one sale
+    already written by a NEWER file, hands `plan` a reading from an OLDER one
+    claiming a different figure, and looks at what came out. Nothing is asserted
+    about names anywhere in it. **If `plan` ever stops reading the marker back,
+    this returns False and the night refuses -- which is what a guard is for.**
+
+    **AND IT IS CHEAP AND COLD.** No sheet, no Drive, no account, no file: it is
+    two dictionaries and one call, asked once a night before anything reaches
+    Google.
+    """
+    markers = which_markers(knows)
+    if not markers:
+        return False
+    # **EVERY MARKER THIS REPORT WRITES, NOT THE FIRST ONE (A32).** Asked of
+    # `markers[0]` alone, a report that reads one marker back and ignores its
+    # other three answered yes -- and the three it ignores are three ways an
+    # older file still walks over a newer figure. It costs one call each.
+    return all(_an_older_file_is_stopped_for(one, markers) for one in markers)
+
+
+def _an_older_file_is_stopped_for(marker: str, markers: Tuple[str, ...]) -> bool:
+    """The driving above, for one of the markers a report writes."""
+    a_name = name_for("kartaan", "asking-whether-an-older-file-is-stopped")
+    # The sheet as it would stand after a newer file had already written it.
+    row = {one: "" for one in COLUMNS}
+    row["id"] = a_name
+    row["qty"] = "9"
+    row[marker] = A_NEWER_DAY
+    sheet = [list(COLUMNS), [row[one] for one in COLUMNS]]
+    # The older file, saying something different about the same sale.
+    older = Reading(
+        report="asking",
+        on=AN_OLDER_DAY,
+        knows=tuple(dict.fromkeys(("qty", marker) + tuple(markers))),
+        sales=(Sale(
+            platform="kartaan",
+            order_id="asking-whether-an-older-file-is-stopped",
+            qty="1",
+            **{FROM_FIELD[one]: AN_OLDER_DAY for one in markers},
+        ),),
+        which="the-older-file",
+    )
+    try:
+        what = plan(sheet, [older])
+    except LedgerRefused:
+        # **A REFUSAL IS NOT AN ANSWER OF "YES".** Something is wrong with the
+        # ledger itself, and the night must not write on the strength of it.
+        return False
+    if what.append or what.update:
+        return False
+    # **AND IT HAS TO SAY SO.** Stopped in silence, a by-hand backfill (D110)
+    # looks exactly like a backfill that worked.
+    return len(what.left_alone) == 1
+
+
+# What the sheet itself is called when IT is the thing that remembers who wrote a
+# figure. **It has to be a name no real file can have**, because rule 3 turns on
+# the two sides being different files.
+THE_SHEET_REMEMBERS = "a file read on an earlier night"
+
+
+def _what_the_sheet_remembers(
+    row: Optional[Dict[str, str]], reading: "Reading",
+) -> Optional[Tuple[str, str]]:
+    """Which day's file the sheet says last wrote this row, if it says.
+
+    **THIS IS RULE 3 ACROSS TWO NIGHTS, AND IT DID NOT EXIST UNTIL A32.** Rule 3
+    -- two equally current files claiming one column, keep what is there and SAY
+    SO -- was decided entirely out of `WhatTheNightHasDecided`, the run's own
+    memory. **A new night starts with that memory empty.** So a file of the 5th
+    arriving on a night after another file of the 5th had already written the row
+    met no tie at all: it simply overwrote, quantity 9 became quantity 1, and
+    nothing was reported. Driven, exactly that: `left_alone` 0, `disagreements` 0.
+
+    `older_than_the_row` is deliberately no help here -- it answers STRICTLY
+    older, because the sheet records only the DAY and a tie is not an age. This
+    answers the other half: the sheet's own marker IS a record of which day's
+    file last wrote the row, and any file it did not write is a different file.
+
+    **A FILE IS NEVER READ TWICE**, so a marker equal to the reading's own day is
+    always some other file's -- which is what makes this a tie rather than a
+    report meeting its own writing.
+    """
+    for marker in which_markers(reading.knows):
+        stood = str((row or {}).get(marker, "") or "").strip()
+        if stood and the_day_in(stood) == stood:
+            return stood, THE_SHEET_REMEMBERS
+    return None
+
+
 def plan(
     values: Sequence[Sequence[str]],
     readings: Sequence[Reading],
@@ -429,6 +721,7 @@ def plan(
     decided_on = so_far if so_far is not None else WhatTheNightHasDecided()
     fresh: List[str] = []
     disagreements: List[Disagreement] = []
+    left_alone: List[OlderThanTheRow] = []
     changed: Dict[str, bool] = {}
 
     # **A NAME THE SHEET HOLDS TWICE IS UNTOUCHABLE, both ways.**
@@ -444,6 +737,24 @@ def plan(
             if name in poisoned:
                 continue
             says = _what_a_sale_says(sale, reading.knows)
+
+            # **RULE 2 ACROSS TWO NIGHTS, and this line is what D157'S FOUR
+            # COLUMNS WERE ASKED FOR.** Asked of `now` rather than of the sheet
+            # as it was read, so it holds within one call as well: a file for
+            # the 4th handed over after the 5th is refused by what the 5th just
+            # wrote, whatever order they came in. The sort above stops being the
+            # only thing standing between a seller and a destroyed correction.
+            if name in now:
+                too_old = older_than_the_row(now[name], reading)
+                if too_old is not None:
+                    marker, stood, unreadable_cell = too_old
+                    left_alone.append(OlderThanTheRow(
+                        name=name, report=reading.report, on=reading.on,
+                        marker=marker, the_row_says=stood,
+                        from_file=reading.one_statement,
+                        the_row_cannot_be_read=unreadable_cell,
+                    ))
+                    continue
 
             if name not in now:
                 # **A NEW SALE STARTS AS EVERY COLUMN BLANK**, then takes what
@@ -478,6 +789,20 @@ def plan(
                 if str(value) == "" and str(was) != "":
                     continue
                 before = decided_on.what_decided(name, column)
+                if before is None and str(was) != "":
+                    # **AND WHEN THIS RUN REMEMBERS NOTHING, THE SHEET STILL
+                    # MIGHT (A32).** Every night after the first starts with an
+                    # empty memory, so without this rule 3 could only ever fire
+                    # between two files of one night -- and the same tie across
+                    # two nights was a silent overwrite in the money.
+                    #
+                    # **ONLY WHERE THE SHEET ACTUALLY HOLDS SOMETHING.** A blank
+                    # cell is nobody's statement -- "nobody has worked this out
+                    # yet" is what a blank means everywhere in this package -- so
+                    # there is no tie to keep, and filling it in is the whole
+                    # point of reading the file. Left out, a tie froze every
+                    # blank column of the row as well.
+                    before = _what_the_sheet_remembers(held.get(name), reading)
                 if (before is not None and before[0] == reading.on
                         and before[1] != reading.one_statement):
                     if str(was) != str(value):
@@ -525,4 +850,5 @@ def plan(
         disagreements=tuple(disagreements),
         unreadable=unreadable,
         touched=tuple(touched),
+        left_alone=tuple(left_alone),
     )

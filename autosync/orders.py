@@ -294,14 +294,50 @@ def mapping_for(platform: str) -> Mapping:
     return found
 
 
-def read_orders(rows: Table, platform: str) -> WhatWasRead:
+def read_orders(rows: Table, platform: str,
+                data_date: Optional[str] = None) -> WhatWasRead:
     """Turn a platform's orders file into sales.
 
     **THE COLUMNS ARE CHECKED ONCE, AGAINST THE HEADER**, before a row is read.
     A column that has moved stops the file with one sentence naming it -- rather
     than sixty-three identical complaints, which bury the one fact that matters.
+
+    **`data_date` IS THE DAY THE FILE ITSELF IS ABOUT, and it goes onto every
+    sale this file produces as `orders_on` (D157).** It is the first of the four
+    date markers ever to be filled by anything: the columns landed in the ERP on
+    2026-09-06, every refusal built around them lifted itself the same day, and
+    **nothing anywhere assigned one** -- so every row written was still a row
+    that could not say which day's file produced it, which is the whole fault
+    those columns exist to close.
+
+    **IT IS THE FILE'S DAY, NOT TODAY AND NOT THE ROW'S OWN ORDER DATE.** The
+    row's own date is `on` and it says when the sale happened; this says which
+    STATEMENT the figures came out of. A settlement landing three weeks later
+    speaks about the same `on` and is a newer statement, and only the second of
+    those two can tell an older file from a newer one.
+
+    **NOT GIVEN, IT IS LEFT BLANK RATHER THAN FILLED WITH TODAY.** Blank means
+    "nobody has worked this out yet" everywhere in this package; a date guessed
+    from the clock would say a file is newer than it is, which is the exact
+    direction that loses money. Nothing in the run reads a file without a day in
+    its name -- `reading.a_reading` refuses one -- so the blank case is a caller
+    that is not the run.
     """
     how = mapping_for(platform)
+
+    # **THE FILE'S DAY IS REFUSED IF IT IS NOT A DAY, exactly like the row's own.**
+    # Every other date in this package goes through `the_day_in` and a shape it
+    # does not know stops the row rather than dating it wrong. This one used to go
+    # straight into the sheet verbatim -- and a marker holding something that is
+    # not a date is worse than a blank one, because the comparison that decides
+    # whether an older file may overwrite is a comparison of these strings.
+    if data_date is not None and the_day_in(data_date) != data_date:
+        raise CannotRead(
+            f"{data_date!r} is not a day this can read, so nothing in this file was "
+            "read. The marker saying which day's file wrote a row is what decides "
+            "whether an older file may put its figure back over a newer one, and a "
+            "marker that is not a date decides that wrongly and silently."
+        )
 
     missing = [c for c in how.needs if c not in rows.columns]
     if missing:
@@ -373,6 +409,10 @@ def read_orders(rows: Table, platform: str) -> WhatWasRead:
                 on=when,
                 qty=how_many,
                 gmv=money,
+                # **WHICH DAY'S ORDERS FILE THIS ROW CAME OUT OF (D157).** The
+                # same value on every sale of one file, because it is a fact
+                # about the FILE and not about the row.
+                orders_on=data_date,
             ))
         except Exception as wrong:  # noqa: BLE001
             # A sale this file states but Kartaan will not accept. Named, kept

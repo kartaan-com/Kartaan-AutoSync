@@ -29,10 +29,14 @@ import {
   hasNotFinished,
   looksLikeAPage,
   daysBefore,
+  theFileName,
   theWalk,
+  TOO_BIG_TO_CARRY,
+  whyTheDayIsRefused,
   whatIsCovering,
   whyStepIsRefused,
 } from './walk.js';
+import { TOO_BIG } from './catch-blob.js';
 
 process.on('uncaughtException', (err) => {
   console.log(`FAIL  the checks stopped part way through: ${(err && err.message) || String(err)}`);
@@ -201,6 +205,19 @@ const BOOK = {
     'built-in-the-page': 'The platform now builds this file inside the page itself and hands over a temporary handle, which cannot be fetched a second time. This is a door closing, not something to retry.',
   },
   buildsInThePageSince: { fk_orders: '2026-08-22' },
+  /* **WHAT A LANDED FILE IS CALLED, exported out of the Python by
+   * `tools/export_recipes.py`.** Written out here by hand because this is a
+   * stand-in book -- and `export_recipes_checks.py` is what holds the real one
+   * to `landing.file_name_for`, report by report. */
+  fileNames: {
+    me_orders: { platform: 'meesho', extension: 'csv' },
+    me_two_pages: { platform: 'meesho', extension: 'csv' },
+    me_catalog: { platform: 'meesho', extension: 'csv' },
+    snapshot_no_ask: { platform: 'meesho', extension: 'csv' },
+    no_find_file: { platform: 'meesho', extension: 'csv' },
+    fk_orders: { platform: 'flipkart', extension: 'xlsx' },
+    bad_recipe: { platform: 'meesho', extension: 'csv' },
+  },
 };
 
 /* ------------------------------------------------------- a stand-in portal */
@@ -209,6 +226,18 @@ function aPortal(how = {}) {
   const it = {
     went: [], clicked: [], ranges: [], stepsSeen: 0, patienceTold: [], tookFile: 0,
     handedOver: [], turns: 0,
+    /* **WHAT WAS ACTUALLY PUT AWAY, recorded rather than counted.** A stand-in
+     * that answered "yes" would leave every walk looking perfectly right with
+     * the bytes on the floor -- which is exactly the state this recorded the
+     * day it was added. */
+    putAway: [],
+  };
+  /* **WHERE THE BYTES GO, in miniature.** The real one is a message to the
+   * background half, which is the only side that can reach `chrome.identity`. */
+  it.putTheFile = async ({ reportId, fileName, body }) => {
+    if (how.driveRefuses) throw new Error(how.driveRefuses);
+    it.putAway.push({ reportId, fileName, size: body ? body.length : 0 });
+    return { put: 'an-id' };
   };
   it.door = {
     async go(address, patience, nextAt) {
@@ -278,6 +307,12 @@ function aPortal(how = {}) {
       it.patienceTold.push(['take_file', patience]);
       if (how.builtInPage) return null;
       if (how.emptyFile) return new Uint8Array(0);
+      /* **THE PORTAL ANSWERING A FILE ADDRESS WITH ITS SIGN-IN PAGE.** It is a
+       * file, it has a size, and everything downstream believes the day
+       * arrived -- `doors.js` calls it the worst possible outcome. */
+      if (how.signInPage) {
+        return new TextEncoder().encode('<!doctype html><html><body>Sign in');
+      }
       return how.bytes || new Uint8Array([1, 2, 3, 4, 5]);
     },
     async page_text() {
@@ -310,7 +345,9 @@ function aWalk(portal, book = BOOK) {
       /* **BUILT AGAIN EVERY TURN, exactly as the page half is.** Sharing one
        * walk across turns would let a variable carry state that a real page
        * loses, which is the kindness that hides this whole class of fault. */
-      const walking = theWalk({ door: portal.door, book, say: (line) => SAID.push(line) });
+      const walking = theWalk({
+        door: portal.door, book, say: (line) => SAID.push(line), putTheFile: portal.putTheFile,
+      });
       let answer;
       try {
         // eslint-disable-next-line no-await-in-loop
@@ -412,14 +449,18 @@ check('asked to step back by nothing at all, it answers the day itself',
   const got = await aWalk(portal)('me_orders', DAY);
   check('a report is fetched all the way through', got.state === LANDED);
   check('and the bytes are counted', got.size === 5);
-  check('and it says so in words a person reads', got.say === 'Landed 5 bytes.');
+  check('and it says so in words a person reads -- AND SAYS WHERE IT WENT',
+    got.say === `Landed 5 bytes in the seller's Drive as meesho_me_orders_${DAY}.csv.`);
   /* **THE ANSWER CARRIES EVERY FIELD, ALWAYS.** A field that is simply absent
    * and a field that is empty read the same to a person and differently to the
    * runner, which asks all of them. */
   check('the answer names the report it is about', got.reportId === 'me_orders');
   check('and the day it is about', got.dataDate === DAY);
-  check('and carries a file name, empty here because none was given',
-    'fileName' in got && got.fileName === null);
+  /* **AND IT CARRIES THE NAME IT WAS PUT AWAY UNDER.** It used to carry `null`,
+   * because nothing supplied one and nothing put the file anywhere -- the answer
+   * had a field for a name and the product had no file. */
+  check('and carries the name the file was put away under',
+    'fileName' in got && got.fileName === `meesho_me_orders_${DAY}.csv`);
   check('and nothing in flight, because nothing is',
     'theirId' in got && got.theirId === null);
   check('and a page, empty because nothing went wrong',
@@ -738,7 +779,9 @@ check('asked to step back by nothing at all, it answers the day itself',
 }
 
 {
-  const walking = theWalk({ door: aPortal().door, book: BOOK, say: () => {} });
+  const walking = theWalk({
+    door: aPortal().door, book: BOOK, say: () => {}, putTheFile: async () => ({}),
+  });
   const got = await walking('me_orders', DAY, { panel: '' });
   check('a Meesho report with no panel name is a failure', got.state === FAILED);
   check('and says the panel name is the seller\'s own data',
@@ -754,14 +797,176 @@ check('asked to step back by nothing at all, it answers the day itself',
 }
 
 {
-  /* The walk cannot be built without its three parts. */
+  /* The walk cannot be built without its four parts. */
   const refused = (fn) => { try { fn(); return ''; } catch (e) { return e.message; } };
+  const put = async () => ({});
   check('a walk with no door is refused',
-    refused(() => theWalk({ book: BOOK, say: () => {} })).includes('door to the page'));
+    refused(() => theWalk({ book: BOOK, say: () => {}, putTheFile: put })).includes('door to the page'));
   check('a walk with no recipes is refused',
-    refused(() => theWalk({ door: {}, say: () => {} })).includes('book of recipes'));
+    refused(() => theWalk({ door: {}, say: () => {}, putTheFile: put })).includes('book of recipes'));
   check('a walk with nowhere to say what it is doing is refused',
-    refused(() => theWalk({ door: {}, book: BOOK })).includes('say what it is doing'));
+    refused(() => theWalk({ door: {}, book: BOOK, putTheFile: put })).includes('say what it is doing'));
+  /* **AND A WALK WITH NOWHERE TO PUT THE FILE IS REFUSED, which is the whole of
+   * what was wrong.** It fetched the seller's report, counted the bytes,
+   * reported LANDED and dropped them -- and it looked exactly like working. */
+  check('A WALK WITH NOWHERE TO PUT THE FILE IS REFUSED',
+    refused(() => theWalk({ door: {}, book: BOOK, say: () => {} }))
+      .includes('somewhere to put the file'));
+  check('and the refusal says what would otherwise happen, not just that it is missing',
+    refused(() => theWalk({ door: {}, book: BOOK, say: () => {} }))
+      .includes('report that it had landed'));
+}
+
+/* ------------------------------------- THE BYTES ACTUALLY GO SOMEWHERE (D171)
+ *
+ * **`extension/drive.js` IS 24 KB, 66 CHECKS, FINISHED -- AND WAS IMPORTED BY
+ * NOTHING BUT ITS OWN TEST FILE.** The walk took the file and dropped it. So no
+ * report a browser fetched had ever reached a real Drive, and a seller who had
+ * set everything up correctly would still have seen Amazon and nothing else:
+ * `me_orders` and `fk_orders` come this way, and the nightly run was reading
+ * folders the browser never put anything in.
+ */
+{
+  const portal = aPortal();
+  const got = await aWalk(portal)('me_orders', DAY);
+  check('THE FILE THE WALK TOOK IS ACTUALLY PUT SOMEWHERE', portal.putAway.length === 1);
+  check('and it is the bytes that came back, not a count of them',
+    portal.putAway.length === 1 && portal.putAway[0].size === 5);
+  check('and it is put away under the report it belongs to',
+    portal.putAway.length === 1 && portal.putAway[0].reportId === 'me_orders');
+  /* **THE NAME IS THE PYTHON'S RULE, and it is not decoration**: the nightly run
+   * takes the day out of the NAME and refuses a file that has none, so a name
+   * invented here is a file that can never be read back out of the folder. */
+  check('AND UNDER THE NAME THE NIGHTLY RUN CAN READ THE DAY OUT OF',
+    portal.putAway.length === 1
+    && portal.putAway[0].fileName === `meesho_me_orders_${DAY}.csv`);
+  check('and the walk says it landed, and says where',
+    got.state === LANDED && got.fileName === `meesho_me_orders_${DAY}.csv`
+    && got.say.includes("seller's Drive"));
+}
+
+{
+  /* **A DRIVE THAT REFUSED IS THIS REPORT'S FAILURE, NOT A LANDING.** Reported
+   * as landed, the day would be written down as fetched and never tried again --
+   * and the file would be nowhere. */
+  const portal = aPortal({ driveRefuses: 'the seller has run out of Drive' });
+  const got = await aWalk(portal)('me_orders', DAY);
+  check('A FILE THAT COULD NOT BE PUT IN THE DRIVE IS NOT REPORTED AS LANDED',
+    got.state === FAILED);
+  check('and the reason Drive gave is carried, not replaced with one of ours',
+    got.say.includes('run out of Drive'));
+  check('and it still says how many bytes came back, so it is plain the fetch worked',
+    got.say.includes('5 bytes'));
+  check('and nothing was put away', portal.putAway.length === 0);
+}
+
+{
+  /* **A SIGN-IN PAGE IS NEVER PUT IN THE SELLER'S DRIVE AS THEIR DAY'S REPORT.**
+   *
+   * **THE GUARD EXISTED AND SAT ON ONE OF THREE PATHS.** `content.js` applied
+   * `looksLikeAPage` only to its own fallback fetch; the background's fetch and
+   * the blob the page catches went straight past it. That cost nothing while the
+   * bytes were being dropped on the floor -- **the moment they started reaching
+   * Drive it became the difference between a clean failure and a sign-in page
+   * filed as the day's report.** */
+  const portal = aPortal({ signInPage: true });
+  const got = await aWalk(portal)('me_orders', DAY);
+  check("A SIGN-IN PAGE IS NOT PUT IN THE DRIVE AS THE DAY'S REPORT",
+    got.state === FAILED && portal.putAway.length === 0);
+  check('and it says the browser has been signed out, not that the report is broken',
+    got.say.includes('signed this browser out'));
+  check('and it says the bytes were thrown away rather than filed',
+    got.say.includes('thrown away'));
+}
+
+{
+  /* **A REPORT THE BOOK SAYS NOTHING ABOUT IS NOT GIVEN A MADE-UP NAME.** A file
+   * in the seller's Drive under a name the nightly run cannot read the day out
+   * of sits there for ever while the ledger stays empty. */
+  const bookWithNoNames = { ...BOOK, fileNames: {} };
+  const portal = aPortal();
+  const got = await aWalk(portal, bookWithNoNames)('me_orders', DAY);
+  check('A REPORT WITH NO NAME IN THE BOOK IS A FAILURE, NOT A GUESSED NAME',
+    got.state === FAILED && got.say.includes('is called'));
+  check('and nothing is put away under a name nobody decided',
+    portal.putAway.length === 0);
+  check('the name is worked out from the book, never from anything in this file',
+    theFileName(BOOK, 'me_orders', DAY) === `meesho_me_orders_${DAY}.csv`
+    && theFileName(BOOK, 'me_orders', '') === ''
+    && theFileName(BOOK, 'nothing_like_this', DAY) === ''
+    && theFileName({}, 'me_orders', DAY) === '');
+}
+
+{
+  /* ---------- THE DAY IS ASKED SOMETHING BEFORE IT BECOMES A FILE NAME (A33)
+   *
+   * **THE DAY IS THE ONE THING IN A WALK THAT NOBODY IN THIS REPOSITORY WROTE.**
+   * It arrives as an argument to `startTheNight`, crosses the night's record and
+   * the background's messages, and comes out in TWO places: the address a step
+   * goes to, and the NAME the file is put away under. `theFileName` asked only
+   * that it was not empty, so `05/09/2026` made `me_orders_05/09/2026.csv` --
+   * and `landing.data_date_in` reads a day back out of a name with
+   * `(\d{4}-\d{2}-\d{2})` and answers None for that one. **A file whose name has
+   * no day in it is a file no reader can ever reach**, which is what
+   * `landing.undated` exists for: seven real files sat like that for six weeks.
+   */
+  check('a day written the platform\'s way, not the run\'s, is refused',
+    whyTheDayIsRefused('05/09/2026') !== null);
+  check('and so is one with nothing in it at all', whyTheDayIsRefused('') !== null);
+  check('and so is one that is the right shape and not a real day',
+    whyTheDayIsRefused('2026-02-31') !== null);
+  check('and a real day is not refused', whyTheDayIsRefused(DAY) === null);
+  /* **AND A DAY WITH ANYTHING ROUND IT IS REFUSED RATHER THAN TIDIED (A33R).**
+   * The first version of this guard trimmed before testing, so `" 2026-09-08 "`
+   * came back good -- and `filledIn` then put the spaces straight into the
+   * address a step goes to, because the caller uses the value it was HANDED and
+   * not the tidy copy the guard made. **A guard that answers about a value
+   * nobody uses is the fault this whole session is about.** Found by an
+   * independent reviewer, not by these checks. */
+  check('a day with spaces round it is refused, not quietly tidied',
+    whyTheDayIsRefused(` ${DAY} `) !== null
+    && whyTheDayIsRefused(`
+${DAY}`) !== null
+    && whyTheDayIsRefused(`${DAY}	`) !== null);
+  check('and one that is only whitespace is refused too',
+    whyTheDayIsRefused('   ') !== null);
+  /* **AND THE ONE THAT MATTERS: IT IS REFUSED BEFORE A REPORT IS SPENT ON IT.**
+   * The seller's Reports Centre allows twenty requests a day. */
+  const portal = aPortal();
+  const wrongDay = await aWalk(portal)('me_orders', '05/09/2026');
+  check('A WALK GIVEN A DAY THE RUN CANNOT READ BACK FAILS BEFORE IT FETCHES',
+    wrongDay.state === FAILED && wrongDay.say.includes('05/09/2026'));
+  check('and nothing is put away under a name nothing would ever open',
+    portal.putAway.length === 0);
+  /* **AND `theFileName` ASKS THE SAME QUESTION, so a caller reaching it another
+   * way gets the same answer rather than a name with a slash in it.** */
+  check('and the name is never built out of a day like that',
+    theFileName(BOOK, 'me_orders', '05/09/2026') === ''
+    && theFileName(BOOK, 'me_orders', '2026-02-31') === '');
+}
+
+{
+  /* ---------- HOW BIG IS WORTH CARRYING AT ALL (A33)
+   *
+   * **THE BYTES DO NOT GO STRAIGHT TO DRIVE FROM HERE.** They cross to the
+   * background half as a message, and a message is turned into text on the way
+   * -- one number and one comma per byte -- so a 40 MB file crosses as roughly
+   * 160 MB. The catcher already refuses a file this big; the take-file half,
+   * which is the OTHER way a file arrives, was refused by nothing at all.
+   *
+   * **HIS REAL FILES ARE ONE TO A HUNDRED KILOBYTES, WHICH IS WHY THIS NEEDED
+   * WRITING DOWN RATHER THAN LEAVING TO BE NOTICED.** */
+  /* **A REAL ARRAY OF REAL BYTES, allocated rather than pretended at.** A
+   * stand-in with a `length` and nothing behind it would pass this check and
+   * tell us nothing about what the walk does with a file that big. */
+  const huge = aPortal({ bytes: new Uint8Array(TOO_BIG_TO_CARRY + 1) });
+  const tooBig = await aWalk(huge)('me_orders', DAY);
+  check('A FILE TOO BIG TO CARRY ACROSS IS REFUSED, AND SAYS HOW BIG IT WAS',
+    tooBig.state === FAILED && tooBig.say.includes(String(TOO_BIG_TO_CARRY + 1)));
+  check('and nothing that big is handed to the browser half',
+    huge.putAway.length === 0);
+  check('and the walk still names the file it was about, so the failure can be read',
+    tooBig.fileName === `meesho_me_orders_${DAY}.csv`);
 }
 
 {
@@ -784,7 +989,9 @@ check('asked to step back by nothing at all, it answers the day itself',
 
 {
   const portal = aPortal();
-  const walking = theWalk({ door: portal.door, book: BOOK, say: () => {} });
+  const walking = theWalk({
+    door: portal.door, book: BOOK, say: () => {}, putTheFile: portal.putTheFile,
+  });
   const first = await walking('me_orders', DAY, { panel: PANEL });
   check('going somewhere ends the turn rather than carrying on in a page that is gone',
     hasNotFinished(first));
@@ -813,7 +1020,9 @@ check('a walk still going is told apart from one that landed',
    * Done again, the download menu the first page opened is opened a second time
    * -- which closes it -- and the export is asked for twice. */
   const portal = aPortal();
-  const walking = theWalk({ door: portal.door, book: BOOK, say: () => {} });
+  const walking = theWalk({
+    door: portal.door, book: BOOK, say: () => {}, putTheFile: portal.putTheFile,
+  });
   const got = await walking('me_orders', DAY, { panel: PANEL, startAt: 1 });
   check('a walk picked up part way through finishes', got.state === LANDED);
   check('and it does not go anywhere a second time', portal.went.length === 0);
@@ -873,7 +1082,9 @@ check('a walk still going is told apart from one that landed',
       },
     },
   };
-  const walking = theWalk({ door: portal.door, book: bent, say: () => {} });
+  const walking = theWalk({
+    door: portal.door, book: bent, say: () => {}, putTheFile: portal.putTheFile,
+  });
   const got = await walking('me_two_pages', DAY, { panel: PANEL, startAt: 4 });
   check('a bad step before the resume point is still a refusal, not skipped past',
     got.state === FAILED && got.say.includes('This recipe is wrong'));
@@ -909,7 +1120,18 @@ check('and nothing at all is not a page either, because it is a different failur
 
 check(`nothing above ended by throwing rather than by answering -- ${THREW}`, THREW.length === 0);
 
-const EXPECTED = 153;
+{
+  /* **THE TWO SIZE LIMITS ARE HELD TO EACH OTHER (A33R).** `walk.TOO_BIG_TO_CARRY`
+   * says in its own words that it is "the same number `catch-blob.TOO_BIG`
+   * uses", and nothing compared them: an independent reviewer changed one to
+   * 8 MB and every JavaScript check in this extension stayed green. That is
+   * `drive.js`'s own rule met again -- a rule SPELT differently in two places is
+   * a bug nobody will ever find. */
+  check('the size the walk will carry is the size the catcher will catch',
+    TOO_BIG_TO_CARRY === TOO_BIG);
+}
+
+const EXPECTED = 183;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

@@ -37,14 +37,42 @@
  *    but a handle leaves this file now**, addressed to the page's own origin,
  *    and the extension's own half reads the bytes for itself.
  *
+ * 3. **IT HELD THE SECRET WHERE THE PAGE COULD JUST READ IT** -- as a plain
+ *    property on the very function it installed into the page's own world
+ *    (`URL.createObjectURL.kartaanArmedFor`). Any advert, tag manager or
+ *    injected script on the portal could read that property and post its own
+ *    `kartaan-caught-a-file` carrying the genuine secret, and **it did not even
+ *    have to be quick about it**: the arming happens at the start of every walk
+ *    turn, long before any Download is pressed, so a page that simply reads the
+ *    property and posts wins every time -- `content.js` takes the FIRST message
+ *    it accepts. Those bytes go on to `land-the-file`, and `drive.js` REPLACES
+ *    the genuine file of that day under the genuine report name, which the
+ *    Python then reads into the seller's ledger as real sales. **The secret is
+ *    now held in a closure and written nowhere the page can look.** A closure's
+ *    variables cannot be read by any script -- that is the language, not the
+ *    browser, and it is the only privacy the page's own world has to offer.
+ *
  * **AND THE LIMIT OF THAT, SAID PLAINLY RATHER THAN LEFT TO BE ASSUMED.** Code
  * in the page's own world cannot hide from the page: it can see this function
- * and unpick it. What it cannot do is make `content.js` believe a file it wrote
- * is a file the platform gave, because it would have to know the secret **before
- * the genuine message carrying it is sent**, and by then the genuine one has
- * already been taken. A page that tampers can stop a report arriving. **It
- * cannot put its own bytes in the seller's Drive**, and a report that does not
- * arrive is loud (D108).
+ * and unpick it. Chrome's own documentation is explicit that the two worlds
+ * share nothing but the DOM and that `window.postMessage` is the whole of the
+ * documented channel between them -- **there is no private wire to be had here,
+ * so the secret has to be unreadable rather than unreachable.**
+ *
+ * **WHAT THE SECRET BUYS, EXACTLY:** a page script cannot READ, GUESS or REPLAY
+ * the proof that a file came from Kartaan's own click. It is thirty-two random
+ * bytes, it lives in a closure, it is fresh for every file, and it is sent
+ * nowhere until the genuine file is already caught.
+ *
+ * **WHAT IT DOES NOT BUY, AND THIS IS WRITTEN DOWN RATHER THAN LEFT TO BE
+ * ASSUMED.** A page script that replaced `URL.createObjectURL` BEFORE this was
+ * installed is called by this one as though it were the browser, and the handle
+ * it hands back is the handle this posts. It never learns the secret; it does
+ * not need to. **Closing that means posting the file this was HANDED rather
+ * than the handle it was GIVEN BACK, and that changes what crosses to
+ * `content.js` -- so it is its own piece of work, not a line smuggled into this
+ * one.** A page that tampers can also simply stop a report arriving, and a
+ * report that does not arrive is loud (D108).
  * -------------------------------------------------------------------------
  *
  * **AND IT CHANGES NOTHING ABOUT WHAT THE PAGE DOES.** The browser still saves
@@ -83,23 +111,33 @@ export function catchTheNextFile(secret) {
    * else. */
   const here = window.location.origin;
 
-  const already = URL.createObjectURL;
-  if (already.kartaanArmedFor !== undefined) {
-    /* Already put in once on this page. Re-armed rather than wrapped again: a
-     * second wrapper would report the same file twice, once under a secret
-     * nobody is waiting for any more. */
-    already.kartaanArmedFor = secret;
-    return;
-  }
+  /* **THE SECRET LIVES HERE AND IN NO OTHER PLACE.** It used to be written onto
+   * the wrapper below as a property, which put it in plain sight of every script
+   * on the portal's page -- the one thing it exists to be hidden from. A
+   * variable held in a closure is the opposite: no script anywhere can read it,
+   * and that is the JavaScript language rather than anything Chrome promises.
+   *
+   * **AND NOTHING IS EXPOSED IN ITS PLACE.** No marker, no re-arm hook: a hook
+   * the page can reach is a hook the page can REPLACE, and the next arming would
+   * then hand the secret straight to it. */
+  let armedFor = secret;
 
-  const asTheBrowserDoes = already.bind(URL);
+  /* **WRAPPED AFRESH EVERY TIME, NEVER RE-ARMED.** Re-arming needed a way in
+   * from outside the closure, which is exactly what must not exist. The reason
+   * re-arming was there was that a second wrapper reports one file twice -- and
+   * it still would: the older wrapper posts under a secret `content.js` has
+   * stopped waiting for, so `driver.theCatcherSaid` refuses it. That is noise,
+   * not a forged file. **And it is not reached in this extension anyway:**
+   * `content.js` arms once per page, at the start of its one turn, and a walk
+   * that moves the page starts a new page with a clean world. */
+  const asTheBrowserDoes = URL.createObjectURL.bind(URL);
 
   const watching = function (thing) {
     /* **THE PAGE GETS EXACTLY WHAT IT ASKED FOR, ALWAYS AND FIRST.** If anything
      * here went wrong the page must be none the wiser -- an extension that breaks
      * a seller's own downloads is worse than one that fetches nothing. */
     const handle = asTheBrowserDoes(thing);
-    const only = watching.kartaanArmedFor;
+    const only = armedFor;
     if (!only) return handle;
 
     /* Only a real file. `createObjectURL` is used for pictures and video on
@@ -119,7 +157,7 @@ export function catchTheNextFile(secret) {
       return handle;
     }
 
-    watching.kartaanArmedFor = null;
+    armedFor = null;
     if (thing.size <= 0 || thing.size > TOO_BIG_HERE) {
       window.postMessage({
         kartaan: CAUGHT_HERE,
@@ -140,6 +178,5 @@ export function catchTheNextFile(secret) {
     return handle;
   };
 
-  watching.kartaanArmedFor = secret;
   URL.createObjectURL = watching;
 }

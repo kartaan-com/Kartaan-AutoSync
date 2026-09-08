@@ -145,8 +145,11 @@ PLAIN_FIELDS = (
     # for the 4th arriving after the 5th has been read puts its older figure back
     # over the correction.
     #
-    # **NOTHING HERE WRITES THEM YET.** This declares the columns and their
-    # order. What puts a date in one is whatever reads a file.
+    # **WHAT PUTS A DATE IN ONE IS WHATEVER READS A FILE, and since 2026-09-08
+    # something does.** `orders.read_orders` carries the file's own data date
+    # onto every sale as `ordersOn`. The other three are still blank on every
+    # row, because nothing reads a returns, payments or claims file -- and blank
+    # is the truthful answer to "which day's file said this".
     "ordersOn",
     "returnsOn",
     "paymentsOn",
@@ -308,10 +311,12 @@ class Sale:
     # position, but because two lists of one thing that are ordered differently
     # are two lists somebody will one day reconcile by eye.
     #
-    # **NOTHING FILLS THEM YET, AND THAT IS DELIBERATE.** The columns exist so a
-    # row can say which file last wrote it; putting a date in one belongs with
-    # whatever reads a file. Left as None they are written as blank, exactly like
-    # every other field nobody has set.
+    # **`orders_on` IS FILLED BY `orders.read_orders` FROM 2026-09-08; THE OTHER
+    # THREE ARE NOT, AND THAT IS DELIBERATE.** Nothing anywhere reads a returns,
+    # payments or claims file, so a date in one of their columns would be a date
+    # nobody measured. Left as None they are written as blank, exactly like every
+    # other field nobody has worked out -- **and blank is honest, where a wrong
+    # date is the very fault these columns exist to prevent.**
     orders_on: Optional[str] = None
     returns_on: Optional[str] = None
     payments_on: Optional[str] = None

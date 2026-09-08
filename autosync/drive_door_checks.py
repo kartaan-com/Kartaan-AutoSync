@@ -505,6 +505,42 @@ check("A SECOND FOLDER OF THE SAME NAME ON A LATER PAGE IS STILL SEEN",
 check("and finding it took more than one request -- it was not on the first page",
       len(doubled.asked) > 1)
 
+# ---------------------------------------------------------------------------
+# **A DRIVE SEARCH IS A LANGUAGE, NOT A SENTENCE (A33).**
+#
+# Every name was dropped into it whole: `name = '{name}'` closes its own quote
+# the moment the name holds one, and what follows is read as more of the search
+# rather than as part of the name. Drive's own documentation says how a value is
+# written -- single quotes round it, a quote inside it as `\'`, a backslash as
+# `\\`.
+#
+# **NOTHING HERE HAS EVER HELD A QUOTE, AND THAT IS THE POINT.** Report ids are
+# `me_orders` and `az_orders`. This is the second lock on a door where one lock
+# is one mistake away from none -- and `extension/drive.js` carries the same
+# rule under the same name, `asAQuotedValue`, because a rule that DIFFERS
+# between the two halves is a bug in one of them and a rule SPELT differently is
+# a bug nobody ever finds.
+check("a quote inside a value is escaped rather than closing the search",
+      tool.as_a_quoted_value("me'orders") == "me\\'orders")
+check("and a backslash is escaped too, so it cannot escape the escaping",
+      tool.as_a_quoted_value("me\\orders") == "me\\\\orders")
+check("and an ordinary report id is left exactly as it is",
+      tool.as_a_quoted_value("me_orders") == "me_orders")
+check("and nothing at all comes back as nothing, never as the word None",
+      tool.as_a_quoted_value(None) == "")
+
+# **DRIVEN THROUGH THE REAL SEARCH, never asserted about the helper alone.** A
+# helper that escapes perfectly and is not called is the shape of fault this
+# repository keeps finding.
+quoted = FakeDrive(folders=[])
+answered(lambda: tool.folder_for(quoted, "me'orders", "kar'taan"))
+_sent = (quoted.asked[0][2] or {}).get("q", "")
+check("the search Drive is really sent carries the escaped name",
+      "name = 'me\\'orders'" in _sent)
+check("and the escaped parent as well", "'kar\\'taan' in parents" in _sent)
+check("and no bare quote is left in it to end a value early",
+      "me'orders" not in _sent and "kar'taan" not in _sent)
+
 check("a folder Drive will not read refuses rather than reading as empty",
       "Drive refused" in refused(lambda: tool.what_has_arrived(FakeDrive(refuse_reads=True), "f9")))
 check("and the refusal says what it was doing at the time",
@@ -574,7 +610,7 @@ check("and nothing is said about it", not any("zip" in one for one in quiet))
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 90
+EXPECTED = 97
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

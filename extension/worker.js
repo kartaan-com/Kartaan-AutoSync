@@ -15,6 +15,7 @@
 import { THE_WALK, aFreshSecret, answerThePage, startAWalk, wireUp } from './background.js';
 import { carryTheNightOn, howTheNightWent, startTheNight, theNight } from './nightly.js';
 import { goTo, takeTheFile, watchForDownloads } from './doors.js';
+import { aDriveToken, aWayOfAsking, landTheFile, theKartaanFolder } from './drive.js';
 
 /* **THE CLOCK IS SET ON THE WAY PAST, EVERY TIME THIS WAKES.** Google's own
  * words: "it is best to make sure important alarms exists each time your service
@@ -66,12 +67,58 @@ self.startTheNight = async (how) => {
 };
 self.howTheNightWent = async () => howTheNightWent(await theNight(chrome));
 
+/* **AND THE ONE THING A PERSON HAS TO DO ONCE, AWAKE.** Every other ask for a
+ * Drive token in this extension asks Chrome for the seller's permission QUIETLY,
+ * because a night runs with nobody watching and an account-chooser at two in
+ * the morning waits for ever.
+ * **But a permission that has never been granted cannot be had quietly at all**,
+ * so without this the wiring is complete and the first file can never land: the
+ * run would say "the seller's Drive is not connected" every night, for ever,
+ * correctly and uselessly.
+ *
+ * **IT IS A HANDLE, NOT A WAY IN**, exactly like `startAWalk` and
+ * `startTheNight` above and for the same reason: a service worker's own global
+ * is not reachable from a web page, from a content script, or from another
+ * extension. The only thing that can see it is the DevTools console of this
+ * extension's own worker -- which is to say the person whose browser it is.
+ *
+ * **AND IT IS THE ONLY INTERACTIVE ASK IN THE WHOLE EXTENSION.** Connecting a
+ * Drive is something somebody does once, on purpose, looking at the screen. A
+ * proper onboarding screen is its own piece of work; this is what stands in for
+ * it until there is one, and it is written down as that rather than left as a
+ * hole nobody meets. */
+self.connectTheDrive = async () => aDriveToken(chrome, { interactive: true });
+
+/* **THE ONE PLACE `drive.js` IS ACTUALLY CALLED, and until this line there was
+ * none.** It is 24 KB, 66 checks, finished and proved against a stand-in Drive
+ * -- and it was imported by nothing but its own test file. So no report the
+ * browser fetched has ever reached a real Google Drive, and **that is why a
+ * seller who had set everything up correctly would still see Amazon and nothing
+ * else**: `me_orders` and `fk_orders` come through here, and the nightly run
+ * was reading folders the browser had never put anything in.
+ *
+ * **QUIETLY, NEVER INTERACTIVELY.** A night runs with nobody watching. Asked
+ * interactively, Chrome puts up an account-chooser and waits for ever -- the
+ * same unattended hang as a Save-as window, by a different door. With no
+ * permission to be had quietly this says the Drive is not connected and the
+ * report fails, which is a sentence somebody can act on in the morning.
+ *
+ * **AND THE `Kartaan AutoSync` FOLDER IS FOUND OR MADE HERE, ONCE PER FILE.**
+ * Under `drive.file` this extension can only ever see files it made itself, so
+ * there is nothing to keep and nothing anybody has to paste in. */
+const putOneFileAway = async ({ reportId, fileName, body }) => {
+  const ask = aWayOfAsking(chrome, { fetch: (...args) => fetch(...args) });
+  const inside = await theKartaanFolder(chrome, ask);
+  return landTheFile(chrome, ask, { reportId, fileName, inside, body });
+};
+
 wireUp(chrome, {
   carryOn,
   answer: answerThePage(chrome, {
     carryOn,
     goTo,
     takeTheFile,
+    landTheFile: putOneFileAway,
     watching,
     /* Where a line said in the page ends up. **Written down rather than left as
      * an empty function** -- the run's own record is the next piece, and until

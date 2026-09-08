@@ -51,8 +51,10 @@ import {
   startAWalk,
   theWalkInFlight,
   theWalkMovedOn,
+  whyTheseAreNotNames,
 } from './background.js';
 import { CAUGHT, TOO_BIG, catchTheNextFile } from './catch-blob.js';
+import { TOO_BIG_TO_CARRY } from './walk.js';
 import { OUR_TAB, OUR_WINDOW, aTabToWalkIn, watchForDownloads } from './doors.js';
 import { readFileSync } from 'node:fs';
 
@@ -382,11 +384,18 @@ const LATER = '2026-08-27T16:04:00.000Z';
   const tab = await browser.chrome.tabs.create({ url: 'https://supplier.meesho.com/' });
   const said = [];
   const went = [];
+  const putAway = [];
+  let driveRefuses = '';
   wireUp(browser.chrome, {
     onDue: async () => {},
     answer: answerThePage(browser.chrome, {
       goTo: async (_chrome, where) => { went.push(where); },
       takeTheFile: async () => new Uint8Array([1, 2, 3]),
+      landTheFile: async (what) => {
+        if (driveRefuses) throw new Error(driveRefuses);
+        putAway.push(what);
+        return { id: 'an-id-from-drive' };
+      },
       watching: { forget: () => {}, seen: () => [], expectAFile: () => {} },
       say: (line) => said.push(line),
       secret: () => 'a-secret',
@@ -401,6 +410,98 @@ const LATER = '2026-08-27T16:04:00.000Z';
   const file = await browser.aPageAsked({ do: 'take-file', patience: 5 });
   check('a file comes back as something a message can carry',
     Array.isArray(file.bytes) && file.bytes.length === 3);
+
+  /* ------------------- AND THE FILE GOES SOMEWHERE (D171)
+   *
+   * **`extension/drive.js` WAS FINISHED, CHECKED AND IMPORTED BY NOTHING BUT ITS
+   * OWN TEST FILE.** So no report a browser fetched had ever reached a real
+   * Drive -- which is why a seller who had set everything up correctly would
+   * still have seen Amazon and nothing else. The page cannot do it itself:
+   * `chrome.identity` is not exposed to a content script at all. */
+  /* **NOT AN INDEX INTO AN ANSWER THAT MIGHT NOT EXIST.** A message the
+   * background does not know is answered with nothing, and reading `.put` off
+   * nothing THROWS -- so the checks file dies where it stands, prints no count,
+   * and says nothing about everything below it. Found by breaking it: dropping
+   * `land-the-file` from `KNOWN` crashed this file instead of reddening it. */
+  const putBack = await browser.aPageAsked({
+    do: 'land-the-file', reportId: 'me_orders',
+    fileName: 'meesho_me_orders_2026-09-05.csv', bytes: [1, 2, 3],
+  });
+  check('THE BACKGROUND PUTS A FILE THE PAGE HANDS IT INTO THE DRIVE',
+    Boolean(putBack) && putBack.put === 'an-id-from-drive');
+  check('and it is handed the report, the name and the real bytes',
+    putAway.length === 1 && putAway[0].reportId === 'me_orders'
+    && putAway[0].fileName === 'meesho_me_orders_2026-09-05.csv'
+    && putAway[0].body instanceof Uint8Array && putAway[0].body.length === 3);
+  /* **A DRIVE THAT REFUSED COMES BACK AS WORDS, NEVER AS A THROW.** Thrown, it
+   * reaches the page as "the message port closed" -- a sentence about the
+   * bridge, said instead of the one somebody could act on. */
+  driveRefuses = 'the seller has run out of Drive';
+  /* **A NAME THIS PRODUCT REALLY WRITES.** It used to be `x.csv`, which reached
+   * Drive only because nothing on this boundary asked anything of a name -- so
+   * this check would go on passing on a name the run could never read a day out
+   * of. The question it asks is unchanged: does a Drive that refused come back
+   * as words. */
+  const refused = await browser.aPageAsked({
+    do: 'land-the-file', reportId: 'me_orders',
+    fileName: 'meesho_me_orders_2026-09-05.csv', bytes: [1],
+  });
+  check('a Drive that refused comes back as words rather than as a broken channel',
+    refused && refused.wrong === 'the seller has run out of Drive' && !refused.put);
+  driveRefuses = '';
+
+  /* ---------- WHAT CROSSES THIS BOUNDARY IS ASKED SOMETHING (A33)
+   *
+   * **THIS IS THE ONE PLACE A NAME CROSSES FROM THE HALF THAT RUNS BESIDE THE
+   * PORTAL'S OWN CODE INTO THE HALF THAT HOLDS THE SELLER'S DRIVE PERMISSION**,
+   * and until now it asked nothing at all. `reportId` becomes the name of a
+   * folder in the seller's Drive and goes into a Drive search inside a quoted
+   * string; `fileName` becomes the name the file is put away under, and the
+   * nightly run reads the day back out of exactly that name.
+   *
+   * **DRIVEN, NOT READ: each of these is sent, and Drive must not be reached.**
+   * `putAway` is what `landTheFile` was really called with, so a guard that let
+   * one through would show up as a longer list rather than as a nicer sentence. */
+  const asManyAsHadLanded = putAway.length;
+  const refusedNames = [
+    ['a report id that is not a report', { reportId: "me_orders' or name != '", fileName: 'meesho_me_orders_2026-09-05.csv' }],
+    ['a report id with a slash in it', { reportId: '../fk_orders', fileName: 'meesho_me_orders_2026-09-05.csv' }],
+    ['a name with no day in it at all', { reportId: 'me_orders', fileName: 'x.csv' }],
+    ['a name with a path in it', { reportId: 'me_orders', fileName: '../../meesho_me_orders_2026-09-05.csv' }],
+    ['a name whose day is the right shape and not a day', { reportId: 'me_orders', fileName: 'meesho_me_orders_2026-02-31.csv' }],
+  ];
+  for (const [what, sent] of refusedNames) {
+    // eslint-disable-next-line no-await-in-loop
+    const no = await browser.aPageAsked({ do: 'land-the-file', bytes: [1], ...sent });
+    check(`${what} is refused in words, and nothing is put in the Drive`,
+      Boolean(no) && typeof no.wrong === 'string' && no.wrong.length > 0 && !no.put);
+  }
+  check('and not one of them reached the Drive at all', putAway.length === asManyAsHadLanded);
+
+  /* **AND A FILE TOO BIG TO CARRY IS REFUSED HERE TOO.** The bytes cross as one
+   * number and one comma each, so a 40 MB catch is about 160 MB of message.
+   * `walk.js` refuses one before sending it; this refuses one that arrived
+   * anyway, because a boundary that trusts the other half is not one. */
+  const tooBig = await browser.aPageAsked({
+    do: 'land-the-file', reportId: 'me_orders',
+    fileName: 'meesho_me_orders_2026-09-05.csv',
+    bytes: { length: TOO_BIG_TO_CARRY + 1 },
+  });
+  check('a file bigger than this will carry is refused, and says how big it was',
+    Boolean(tooBig) && typeof tooBig.wrong === 'string'
+    && tooBig.wrong.includes(String(TOO_BIG_TO_CARRY + 1)) && !tooBig.put);
+  check('and it never reached the Drive either', putAway.length === asManyAsHadLanded);
+
+  /* **AND THE NAME THE PRODUCT ITSELF WRITES IS STILL LET THROUGH.** A guard
+   * that refused everything would pass every check above and land nothing, for
+   * ever -- which is the shape of fault this repository keeps finding. */
+  const good = await browser.aPageAsked({
+    do: 'land-the-file', reportId: 'fk_claims',
+    fileName: 'flipkart_fk_claims_2026-09-05.xlsx', bytes: [1, 2],
+  });
+  check('and a name this product really writes still lands, five-letter extension and all',
+    Boolean(good) && good.put === 'an-id-from-drive'
+    && putAway.length === asManyAsHadLanded + 1);
 
   await browser.aPageAsked({ do: 'say', line: 'something happened' });
   check('and a line said in the page is written down by the background',
@@ -435,6 +536,15 @@ const LATER = '2026-08-27T16:04:00.000Z';
   const wrong = await broken.aPageAsked({ do: 'go', address: 'https://x/', patience: 1 });
   check('a call that went wrong comes back saying so',
     String(wrong && wrong.wrong).includes('never finished drawing'));
+  /* **AND A BACKGROUND WIRED WITH NO WAY TO REACH THE DRIVE SAYS SO, out loud.**
+   * Left to fall through, it would answer nothing, the page would read that as
+   * the file being put away, and the walk would report LANDED for a report that
+   * is nowhere -- which is exactly the state this whole wiring closes. */
+  const noDrive = await broken.aPageAsked({
+    do: 'land-the-file', reportId: 'me_orders', fileName: 'x.csv', bytes: [1],
+  });
+  check('a background with no way to reach the Drive says so rather than saying nothing',
+    String(noDrive && noDrive.wrong).includes('no way of putting a file in the Drive'));
 }
 
 /* ----------------------- the secret that stops a page forging a file (D135) */
@@ -470,6 +580,35 @@ const LATER = '2026-08-27T16:04:00.000Z';
    * crosses anything the page can listen to. */
   check('and the secret goes with it as an argument', put[0].args[0] === 'the-secret');
 
+  /* **AND ONCE IT IS IN THE PAGE, NOTHING ON THAT PAGE CAN READ IT BACK (A32).**
+   *
+   * **THIS IS THE FINDING, NOT A TIDY-UP.** The secret used to be written onto
+   * the very function the extension installs into the page's own world, as a
+   * plain property -- `URL.createObjectURL.kartaanArmedFor`. An advert, a tag
+   * manager or an injected script on `supplier.meesho.com` could read it, post
+   * `kartaan-caught-a-file` carrying it, and have its own bytes go through
+   * `content.js` -> `land-the-file` -> `drive.js`, which REPLACES the genuine
+   * file of that day under the genuine report name. The Python then reads it
+   * into the seller's ledger as real sales.
+   *
+   * **AND IT DID NOT HAVE TO WIN A RACE.** `content.js` arms at the start of
+   * every walk turn, long before any Download is pressed, so a page that simply
+   * reads the property and posts wins every time -- the first accepted message
+   * is the one taken.
+   *
+   * **DRIVEN THE WAY A PAGE WOULD DRIVE IT:** everything a script can reach on
+   * the installed function is read, and the secret must be in none of it. */
+  const asAPageWould = (fn) => Reflect.ownKeys(fn).map((key) => {
+    try {
+      return fn[key];
+    } catch (cannot) {
+      return null;
+    }
+  });
+  const inPlainSight = asAPageWould(globalThis.URL.createObjectURL);
+  check('nothing a page script can read off the catcher carries the secret',
+    !inPlainSight.some((one) => one === 'the-secret'));
+
   /* **THE HANDLE, NEVER THE BYTES.** It used to post a seller's whole settlement
    * file to the page with `targetOrigin '*'`. */
   const madeAFile = globalThis.URL.createObjectURL({
@@ -488,6 +627,23 @@ const LATER = '2026-08-27T16:04:00.000Z';
     size: 2048, type: '', arrayBuffer: async () => new ArrayBuffer(2048),
   });
   check('and a second file is not reported without being armed again', posted.length === 1);
+
+  /* **ARMING THE SAME PAGE AGAIN STILL CATCHES, AND STILL HIDES (A32).** The
+   * re-arm branch went with the property it was written around: re-arming needed
+   * a way in from outside the closure, and a way in the page can reach is a way
+   * in the page can REPLACE -- the next arming would hand the secret to it. So
+   * a fresh wrapper goes on instead. What that costs is one file reported twice,
+   * the older wrapper posting under a secret `content.js` has stopped waiting
+   * for, which `driver.theCatcherSaid` refuses. Noise, not a forged file. */
+  await armTheCatcher(browser.chrome, { tabId: tab.id, secret: 'a-second-secret' });
+  globalThis.URL.createObjectURL({
+    size: 2048, type: '', arrayBuffer: async () => new ArrayBuffer(2048),
+  });
+  check('arming the same page again catches the next file', posted.length === 2);
+  check('and under the newest secret, which is the only one anybody is waiting for',
+    posted[1].data.secret === 'a-second-secret');
+  check('and the second secret is no more readable than the first',
+    !asAPageWould(globalThis.URL.createObjectURL).some((one) => one === 'a-second-secret'));
 
   /* Put back what was borrowed. **Deleted rather than restored, the checks
    * below lost Node's own URL and stopped part way through** -- a stand-in that
@@ -1153,7 +1309,7 @@ const LATER = '2026-08-27T16:04:00.000Z';
     && browser.stored()[THE_WALK].answer.state === 'failed');
 }
 
-const EXPECTED = 143;
+const EXPECTED = 160;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

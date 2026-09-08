@@ -87,8 +87,9 @@ import orders
 import sheet
 import table
 import whats_new
-from ledger import Reading
+from ledger import LedgerRefused, Reading, which_markers
 from reports import report as the_report
+from sales import FROM_FIELD
 
 # **WHAT AN ORDERS REPORT IS ENTITLED TO WRITE (D150 rule 1).** It knows nothing
 # about settlements, returns or charges, and naming the columns here is what
@@ -97,7 +98,17 @@ from reports import report as the_report
 # **`id` IS NOT AMONG THEM ON PURPOSE.** A sale's name is what a row IS, not
 # something a report states about it, and `ledger.plan` writes it itself when it
 # first sees a sale.
-WHAT_ORDERS_KNOWS = ("platform", "orderId", "on", "sku", "qty", "gmv")
+# **AND `ordersOn` IS AMONG THEM, WHICH IS D157 FINALLY REACHING A ROW.** The
+# four date markers landed in the ERP's column list on 2026-09-06 and every
+# refusal built around them lifted itself the same day -- and nothing anywhere
+# put a date in one, so every row written still could not say which day's file
+# produced it. **A column a report may not write is a column that stays blank
+# however the sale was built** (rule 1, enforced in `ledger._what_a_sale_says`),
+# so naming it here is what lets the value through.
+#
+# **AND ONLY THIS ONE OF THE FOUR.** Returns, payments and claims have no reader,
+# so a date in one of their columns would be a date nobody measured.
+WHAT_ORDERS_KNOWS = ("platform", "orderId", "on", "sku", "qty", "gmv", "ordersOn")
 
 
 @dataclass(frozen=True)
@@ -148,6 +159,10 @@ class WhatTheNightRead:
     let_go_of: Tuple[str, ...] = ()
     # Why a file could not be read, by name. **Never a count on its own.**
     could_not_read: Tuple[str, ...] = ()
+    # Why the LEDGER refused a file, by name. **Kept apart from the one above,
+    # and that separation is the whole of `is_a_defect` below.** A file that will
+    # not parse is the platform's doing; a file the ledger refuses is OURS.
+    the_ledger_refused: Tuple[str, ...] = ()
     # Why a folder could not be listed, by name. This one is our own defect: with
     # a folder unknown, what is new cannot be worked out at all.
     could_not_list: Tuple[str, ...] = ()
@@ -162,8 +177,16 @@ class WhatTheNightRead:
         """**A FOLDER THAT COULD NOT BE LISTED IS OURS (D108).** What is new
         cannot be decided without it, so the night's reading is not to be
         trusted. A single file that would not read is the platform's, and is
-        named, counted and left green."""
-        return bool(self.could_not_list)
+        named, counted and left green.
+
+        **AND SO IS A FILE THE LEDGER REFUSED, which is a distinction this used
+        not to make.** A malformed spreadsheet is the platform's; the ledger
+        saying "this reading declares a date marker and carries no date" is a
+        fault in OUR OWN code. Counted with the platform's, a night where every
+        single file was refused by our own rule would report GREEN while the
+        seller's files piled up unread for ever -- **found by an independent
+        reviewer, and it is Golden Rule 29 exactly.**"""
+        return bool(self.could_not_list or self.the_ledger_refused)
 
     def says(self) -> str:
         """One line for the night's summary. **EVERY COUNT, EVEN THE NOUGHTS.**
@@ -188,6 +211,7 @@ class WhatTheNightRead:
                 f"Read {len(self.read_tonight)} of {self.new_files} new file(s): "
                 f"{self.sales} sales, {self.rows_refused} rows refused, "
                 f"{len(self.could_not_read)} file(s) could not be read, "
+                f"{len(self.the_ledger_refused)} refused by our own ledger, "
                 f"{self.empty_files} arrived empty, {self.already_read} already read, "
                 f"{len(self.let_go_of)} id(s) let go of."
             )
@@ -197,6 +221,10 @@ class WhatTheNightRead:
             said += f"  A folder could not be listed: {why}"
         for why in self.could_not_read:
             said += f"  {why}"
+        # **SAID SEPARATELY, AND SAID AS OURS.** A reader seeing these among the
+        # platform's would go and look at the platform.
+        for why in self.the_ledger_refused:
+            said += f"  KARTAAN'S OWN LEDGER REFUSED A FILE: {why}"
         return said
 
 
@@ -267,7 +295,12 @@ def a_reading(how: HowToRead, one: whats_new.InTheFolder, body: bytes) -> Tuple[
         )
     which = the_report(how.report_id)
     rows = _rows_in(how, body, one.name or one.which)
-    was = orders.read_orders(rows, which.platform)
+    # **THE FILE'S OWN DAY GOES ONTO EVERY SALE IT PRODUCES (D157).** It is
+    # already worked out above, out of the file's name, and refused if it is not
+    # there -- so there is no path through here that fills a marker with a
+    # guess. Handed down rather than re-read, because two ways of reading a date
+    # off a name is two answers waiting to disagree.
+    was = orders.read_orders(rows, which.platform, data_date=when.isoformat())
     return (
         Reading(
             report=how.report_id,
@@ -277,6 +310,85 @@ def a_reading(how: HowToRead, one: whats_new.InTheFolder, body: bytes) -> Tuple[
             which=one.which,
         ),
         len(was.not_read),
+    )
+
+
+# A day no real file could ever be about, used only to drive the question below.
+# **It is a real day** -- everything on the way through refuses one that is not --
+# and it is nothing any fixture in this package also carries.
+A_DAY_TO_ASK_WITH = "0001-01-02"
+
+
+def would_a_file_say_which_day_it_is(how: HowToRead) -> bool:
+    """Would a real file of this report really produce sales that say its own day?
+
+    **THIS IS THE READER HALF OF D157'S GUARD, AND UNTIL A32 NOTHING ASKED IT.**
+    `ledger_sheet.why_it_must_not_write_yet` said in its own words that it
+    "ANSWERS THE TWO HALVES AT ONCE" and that "a report whose rows carry no
+    marker cannot be told apart from a newer one, so it fails this". Both were
+    false. `ledger.would_an_older_file_be_stopped` builds its own `Reading` with
+    the markers ALREADY FILLED and hands it to `plan`: it drives the WRITING half
+    honestly and never touches a reader. An independent reviewer proved it twice
+    over -- taking `orders_on=data_date` out of `orders.read_orders`, and turning
+    `a_reading`'s `data_date=when.isoformat()` into a fixed constant claiming
+    every file is the same day -- and the guard said "safe to write" through
+    both. **That is the third generation of one fault: a guard that reads as
+    covering something it does not touch.**
+
+    **SO THIS DRIVES THE READER, END TO END, ON A REAL FILE.** A one-row file is
+    built out of the column names that platform's OWN mapping says it needs --
+    nothing here spells a column, so a platform whose file changes shape changes
+    this with it -- given a name with a day in it, and put through `a_reading`,
+    which is the exact path a night takes. What comes out the other side is
+    looked at: **every sale it produced must carry that day in a marker this
+    report is entitled to write.**
+
+    Both mutations above turn this False. The first leaves the marker empty, and
+    `Reading` refuses the whole reading; the second fills it with a day that is
+    not the file's, and the comparison below fails.
+
+    **AND IT IS CHEAP AND COLD.** No Drive, no account, no network, no file on
+    disk: a few hundred bytes made here and thrown away, asked once a night
+    before anything reaches Google.
+    """
+    markers = which_markers(how.knows)
+    if not markers:
+        # A report that writes no marker cannot say which day's file wrote a
+        # row, which is the whole of what D157 asked for.
+        return False
+    try:
+        which = the_report(how.report_id)
+        way = orders.mapping_for(which.platform)
+    except Exception:  # noqa: BLE001 - any refusal is an answer of "no"
+        return False
+    columns = list(dict.fromkeys(way.needs))
+    said = {
+        way.order_id: "asking-whether-a-file-says-which-day-it-is",
+        way.sku: "asking",
+        way.qty: "1",
+        way.on: A_DAY_TO_ASK_WITH,
+    }
+    body = '\n'.join(
+        [",".join(columns), ",".join(said[one] for one in columns), ""]
+    ).encode("utf-8")
+    one = whats_new.InTheFolder(
+        which="asking",
+        # **THE DAY IS IN THE NAME, because that is where the run reads it from.**
+        name=f"{which.platform}_{how.report_id}_{A_DAY_TO_ASK_WITH}.csv",
+        size=len(body),
+    )
+    try:
+        reading, _ = a_reading(how, one, body)
+    except Exception:  # noqa: BLE001 - any refusal is an answer of "no"
+        return False
+    if not reading.sales:
+        return False
+    return all(
+        any(
+            str(getattr(sale, FROM_FIELD[marker], "") or "").strip() == A_DAY_TO_ASK_WITH
+            for marker in markers
+        )
+        for sale in reading.sales
     )
 
 
@@ -350,6 +462,7 @@ def read_what_is_new(
 
     read_tonight: List[whats_new.InTheFolder] = []
     could_not_read: List[str] = []
+    the_ledger_refused: List[str] = []
     how_many_sales = 0
     rows_refused = 0
 
@@ -365,6 +478,12 @@ def read_what_is_new(
             # done again tomorrow at no cost; everything below depends on this
             # having happened.
             record_the_sales([reading])
+        except LedgerRefused as wrong:
+            # **OUR OWN FAULT, KEPT APART FROM THE PLATFORM'S.** See
+            # `is_a_defect`: a night where our own rule refused every file must
+            # not report green.
+            the_ledger_refused.append(f"{one.name or one.which}: {wrong}")
+            continue
         except Exception as wrong:  # noqa: BLE001 - named, never swallowed
             could_not_read.append(f"{one.name or one.which}: {wrong}")
             continue
@@ -390,6 +509,7 @@ def read_what_is_new(
         rows_refused=rows_refused,
         let_go_of=let_go_of,
         could_not_read=tuple(could_not_read),
+        the_ledger_refused=tuple(the_ledger_refused),
         could_not_list=tuple(could_not_list),
         refused_to_forget=refused_to_forget,
     )
@@ -449,15 +569,18 @@ def _oldest_first(
     night. All the sort does here is break the tie on Drive's id so the two files
     are handed over in the same order every time.
 
-    **WHAT THIS DOES NOT FIX, and it is written here rather than left to be
-    discovered: a file arriving on a LATER NIGHT than one it is older than.**
-    Tonight's files can be sorted because tonight holds them all; last night's
-    figures are in the sheet, and **no row in that sheet says which day's file
-    wrote it** -- the ledger has 49 columns and four of them are date markers.
-    So the late fourth still overwrites the fifth across two nights. D157's second
-    half asked for four such columns and they were never built (D180). The check
-    named for that case asserts today's wrong answer on purpose, so it goes red
-    the day the columns land.
+    **WHAT THIS DOES NOT FIX, AND WHAT NOW DOES: a file arriving on a LATER NIGHT
+    than one it is older than.** Tonight's files can be sorted because tonight
+    holds them all; last night's figures are already in the sheet, and this sort
+    never sees them. **The ledger is 49 columns wide and four of them say which
+    day's file last wrote each figure**, and reading one of those four back is
+    what settles the case this sort cannot. **That is not this function's job and never was** -- it is
+    `ledger.older_than_the_row`, which reads the row's own date marker back
+    before anything is applied and leaves an older file's claim alone, saying so.
+    Until 2026-09-08 nothing filled those markers, so the late fourth really did
+    overwrite the fifth across two nights (D157's second half, left open as
+    D180); the checks named for that case asserted the wrong answer on purpose
+    and went red the day it was closed.
     """
     tonight: List[Tuple[HowToRead, whats_new.InTheFolder]] = []
     for how in can_be_read:

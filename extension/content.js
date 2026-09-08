@@ -203,6 +203,26 @@
     door,
     book,
     say: (line) => chrome.runtime.sendMessage({ do: 'say', line }),
+    /* **WHERE THE BYTES FINALLY GO.** The walk takes the file; until this line
+     * existed it counted the bytes and dropped them, and `drive.js` -- finished
+     * and checked -- was imported by nothing. Putting a file in the seller's
+     * Drive needs `chrome.identity`, which this page cannot reach, so the bytes
+     * go across to the background half exactly as they came from it.
+     *
+     * **A REFUSAL IS TURNED BACK INTO A THROW HERE**, because that is what the
+     * walk reads: it names the report as failed, the night writes it down and
+     * moves on, and the day is fetched again. Answered quietly instead, the
+     * walk would report LANDED for a file that is nowhere. */
+    putTheFile: async ({ reportId, fileName, body }) => {
+      const answer = await chrome.runtime.sendMessage({
+        do: 'land-the-file', reportId, fileName, bytes: [...body],
+      });
+      if (!answer) {
+        throw new Error('The browser half said nothing about whether the file was put away.');
+      }
+      if (answer.wrong) throw new Error(answer.wrong);
+      return answer;
+    },
   });
 
   /** Say something to the other half, and never fail because of it.

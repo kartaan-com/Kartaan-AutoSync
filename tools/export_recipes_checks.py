@@ -9,6 +9,7 @@ as the commit gate already refuses a stale `STATUS.md`.
 Run: python tools/export_recipes_checks.py
 """
 
+import datetime
 import json
 import sys
 from pathlib import Path
@@ -17,6 +18,13 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
 
 import export_recipes as tool  # noqa: E402
+
+# **THE ONE MODULE REACHED BY THE TOOL'S OWN PATH RATHER THAN BY THE TOOL.**
+# `export_recipes` does not import `landing` -- it has no need to -- but it is
+# what puts `autosync/` on the path, so this rides that same route rather than
+# inserting a second one. It is here because the file-name rule below has to be
+# compared against the Python that owns it.
+import landing  # noqa: E402
 
 # **THE TOOL'S OWN COPIES, not a second import of the same two modules.** Putting
 # the autosync folder on the path here as well would be two records of one fact --
@@ -286,8 +294,53 @@ check("and the note to a reader comes first of all",
 check("the recipes themselves are in a settled order",
       list(HELD["recipes"]) == sorted(HELD["recipes"]))
 
+# ---------------------------------- WHAT A LANDED FILE IS CALLED, HELD TO PYTHON
+#
+# **THE EXTENSION PUTS THE FILE IN THE SELLER'S DRIVE AND THE NIGHTLY RUN READS
+# IT BACK OUT, AND THE ONLY THING JOINING THE TWO IS THE NAME.**
+# `landing.data_date_in` takes the day out of the NAME and `reading.a_reading`
+# REFUSES a file with no day in its name -- so a name the JavaScript builds any
+# other way is a file that reaches the seller's Drive and can never be read. The
+# folder fills up, the ledger stays empty, and nothing anywhere says why.
+#
+# **SO THE TWO SIDES ARE COMPARED, report by report, rather than the rule being
+# written down twice and trusted.** `landing.file_name_for` is the Python's
+# answer; the expression below is what `extension/walk.js` builds out of what
+# crossed. **This project has already shipped one fact written down twice with
+# nothing joining it** -- a log line's name built with six parts in Python and
+# five on the page -- and the check named for it passed anyway, because it looked
+# for a string rather than comparing the two sides.
 
-EXPECTED = 61
+reports_list = tool.list_of_reports
+A_DAY = datetime.date(2026, 9, 5)
+
+check("every recipe the extension can walk has a file name crossing with it",
+      sorted(HELD["fileNames"]) == sorted(HELD["recipes"]))
+check("and each one carries a platform and a file type, never a blank",
+      all(HELD["fileNames"][one]["platform"] and HELD["fileNames"][one]["extension"]
+          for one in HELD["fileNames"]))
+check("THE NAME THE JAVASCRIPT WOULD BUILD IS THE NAME PYTHON BUILDS, REPORT BY REPORT",
+      all(
+          "{platform}_{report}_{day}.{extension}".format(
+              platform=HELD["fileNames"][one]["platform"],
+              report=one,
+              day=A_DAY.isoformat(),
+              extension=HELD["fileNames"][one]["extension"],
+          ) == landing.file_name_for(reports_list.report(one), A_DAY)
+          for one in HELD["fileNames"]
+      ))
+# **AND THE TWO PARTS ARE THE REPORT'S OWN, read off `reports.py` rather than
+# off the recipe's id.** `me_orders` beginning `me_` is a spelling, and a
+# spelling is not a fact (D170).
+check("and the platform and the file type are the report's own, not read off its id",
+      all(HELD["fileNames"][one]["platform"] == reports_list.report(one).platform
+          and HELD["fileNames"][one]["extension"] == reports_list.report(one).extension
+          for one in HELD["fileNames"]))
+check("the file names are in a settled order too",
+      list(HELD["fileNames"]) == sorted(HELD["fileNames"]))
+
+
+EXPECTED = 66
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

@@ -125,6 +125,28 @@ def what_the_extension_reads():
         # which is what it did, out loud, the first time it was loaded into a real
         # Chrome with this list not yet crossing.
         "signedOutSigns": list(book.SIGNED_OUT_SIGNS),
+        # **WHAT A LANDED FILE IS CALLED, and it crosses because the reader on
+        # the other side will not read a file that is named any other way.**
+        #
+        # `landing.data_date_in` takes the day out of the NAME, and
+        # `reading.a_reading` REFUSES a file with no day in its name -- so a file
+        # the extension put in the seller's Drive under a name of its own
+        # invention is a file the nightly run can never read. **The whole point
+        # of putting it there would be lost, silently, and the folder would just
+        # fill up.**
+        #
+        # **THE PATTERN ITSELF IS NOT SENT -- THE TWO PARTS THAT VARY ARE.**
+        # `landing.file_name_for` is `<platform>_<report id>_<data date>.<ext>`,
+        # and the platform and the extension are what a report decides. A check
+        # holds the JavaScript that joins them to `landing.file_name_for`'s own
+        # answer, report by report, so the two spellings cannot drift.
+        "fileNames": {
+            one: {
+                "platform": list_of_reports.report(one).platform,
+                "extension": list_of_reports.report(one).extension,
+            }
+            for one in sorted(book.RECIPES)
+        },
     }
 
 

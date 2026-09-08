@@ -423,6 +423,12 @@ def recording_into(
     again tomorrow. A run that swallowed this would mark files read whose sales
     reached nothing, and they would never be read again (D157).
 
+    **AND ONE THING THROWS ON PURPOSE RATHER THAN BY ACCIDENT (A32):** a row held
+    back because its date-marker cell is not a date. That is the one kind of
+    "left alone" a person can fix, and it is only fixable if the file is still
+    waiting to be read when they fix it. See the refusal at the end of
+    `record_the_sales`.
+
     **WHAT THE NIGHT HAS DECIDED IS MADE ONCE HERE AND HANDED TO EVERY FILE, and
     that is what lets D150's rule 3 fire at all.** The sheet is re-read per file
     and `plan` is called per file, so `plan`'s own memory of which file claimed
@@ -450,32 +456,137 @@ def recording_into(
         # alone, because writing to either of them is writing to the wrong one.
         for one in what.disagreements:
             speak(f"SALES LEDGER DISAGREEMENT  {one}")
+        # **AND AN OLDER FILE THAT WAS NOT ALLOWED TO UNDO A NEWER ONE IS SAID
+        # TOO.** That is rule 2 working rather than a fault -- and a by-hand
+        # backfill (D110) is a deliberately old file somebody fetched on
+        # purpose, so a night that ignored one in silence would look exactly
+        # like a night that applied it.
+        for one in what.left_alone:
+            speak(f"SALES LEDGER OLDER THAN THE ROW  {one}")
         for one in what.unreadable:
             speak(f"SALES LEDGER UNREADABLE ROW  {one}")
+        # **AND A FILE HELD BACK BY A CELL SOMEBODY TYPED OVER IS REFUSED, WHICH
+        # IS THE ONLY WAY IT EVER GETS READ AGAIN (A32).**
+        #
+        # `ledger.older_than_the_row` treats a marker nobody can read as NEWER --
+        # the safe direction -- and its own words called that "the recoverable
+        # half of the mistake, because a file left alone is never written down as
+        # read". **That sentence was false.** This function returned normally,
+        # `reading.read_what_is_new` reached `read_tonight.append(one)` like any
+        # other file, and the file WAS marked read. So somebody could put the
+        # cell back and the file that was waiting on it would never be opened
+        # again -- the sale sitting in it lost for good, silently.
+        #
+        # **THROWING IS THE ONE PATH THAT LEAVES A FILE UNREAD**, and it is the
+        # path this function's own header already describes: what throws here is
+        # named, the file stays in the folder, and it is opened again tomorrow.
+        # What was already written stays written; reading the file again writes
+        # the same figures and changes nothing.
+        #
+        # **AND RULE 2 WORKING IS NOT THIS.** A genuinely older file is old for
+        # ever, and marking it read is correct -- refusing it would re-read it
+        # every night until the end of time and say the same thing each night.
+        if what.somebody_has_to_put_a_cell_back:
+            raise ledger.LedgerRefused(
+                "a date-marker cell in the seller's sales ledger holds something "
+                "that is not a date, so this file was not applied to those rows "
+                "and has NOT been written down as read. Put the cell back to a "
+                "date and it is read again the next night. The rows are named "
+                "above, each on its own SALES LEDGER OLDER THAN THE ROW line."
+            )
 
     return record_the_sales
+
+
+def which_reports_an_older_file_could_still_undo() -> Tuple[str, ...]:
+    """Which readable reports a file older than the row could still overwrite.
+
+    **THE WHOLE OF D157, ASKED AS A BEHAVIOUR RATHER THAN AS A SPELLING.** For
+    every report this run can turn into sales, both halves of that behaviour are
+    DRIVEN -- neither is read off a list of column names, which is what both
+    earlier versions of this guard did, and both lifted themselves while the harm
+    they were written for was untouched.
+
+    **IT REALLY DOES ASK THE TWO HALVES, AND UNTIL A32 IT ONLY CLAIMED TO.** This
+    docstring used to say "IT ANSWERS THE TWO HALVES AT ONCE" and that "a report
+    whose rows carry no marker cannot be told apart from a newer one, so it fails
+    this". **Both were false.** The one question asked was
+    `ledger.would_an_older_file_be_stopped`, which builds its own `Reading` with
+    the markers ALREADY FILLED -- so it drove the WRITING half honestly and never
+    went near a reader. An independent reviewer proved it by taking
+    `orders_on=data_date` out of `orders.py`, and again by turning
+    `reading.a_reading`'s `data_date=when.isoformat()` into a fixed constant
+    claiming every file is the same day: **the guard said "safe to write" through
+    both.** That is the third generation of one fault -- a guard that reads as
+    covering something it does not touch -- and this is the repair.
+
+    | The half | Who drives it | What breaks it |
+    |---|---|---|
+    | A file really PUTS its own day in a marker | `reading.would_a_file_say_which_day_it_is` | no reader fills one, or fills it with the wrong day |
+    | An older file is really STOPPED by it | `ledger.would_an_older_file_be_stopped` | `plan` stops reading the marker back |
+
+    **EMPTY MEANS BOTH ARE TRUE, for every report a run can read.**
+    """
+    import reading  # noqa: PLC0415 - kept beside its one use
+
+    return tuple(
+        how.report_id for how in reading.WHAT_CAN_BE_READ
+        if not (reading.would_a_file_say_which_day_it_is(how)
+                and ledger.would_an_older_file_be_stopped(how.knows))
+    )
 
 
 def why_it_must_not_write_yet() -> str:
     """Why writing to the seller's sheet is refused tonight, or "" when it is not.
 
-    **THE REGISTER SAID THIS AND THE CODE DID NOT DO IT, AND BOTH CANNOT BE
-    TRUE.** `tools/work.json` records, on its own line, that *writing to the
-    seller's sheet is not safe to land until D157's four date-marker columns
-    exist* -- and `start.py` wired the writing half in anyway. A reader could not
-    tell which half was wrong. **This is the code meeting the record**, rather
-    than the record being softened to match the code.
+    **WHAT GOES WRONG, in one sentence:** the fourth day's file arrives late, on a
+    night after the fifth's correction is already in the sheet, and nothing in the
+    sheet says which day's file wrote it -- so the fourth's old figure goes over
+    the fifth's and the seller is never told. **That is the money, and it is
+    silent.**
 
-    **WHAT GOES WRONG WITHOUT THEM, in one sentence:** the fourth day's file
-    arrives late, on a night after the fifth's correction is already in the sheet,
-    and no row in the sheet says which day's file wrote it -- so the fourth's old
-    figure goes over the fifth's and the seller is never told. That is the money,
-    and it is silent.
+    ---
 
-    **AND THE REFUSAL TAKES ITSELF AWAY.** It asks `sales.COLUMNS`, which is
-    pinned to the ERP's own committed column list. The day those four columns are
-    in it, this returns nothing and the night writes. **Nobody has to remember to
-    come back and delete anything.**
+    **THIS GUARD HAS NOW ASKED THREE DIFFERENT QUESTIONS, AND THE FIRST TWO BOTH
+    LIFTED THEMSELVES WHILE THE HARM ABOVE WAS UNTOUCHED. THAT HISTORY IS THE
+    REASON THE THIRD ONE IS SHAPED THE WAY IT IS.**
+
+    | Asked | What it really tested | It lifted while |
+    |---|---|---|
+    | Are the four columns NAMED? | a name in a list | nothing filled one |
+    | Would a row CARRY a marker? | a name in `knows` | nothing read one back |
+    | Would an OLDER FILE be stopped? | the WRITING half only | no reader filled one |
+    | **Both halves, each driven** | **the behaviour, end to end** | -- |
+
+    **THE THIRD ONE IS IN THAT LIST BECAUSE IT WAS THE SAME FAULT AGAIN.** It
+    drove `ledger.plan` honestly and never touched a reader, and its own words
+    said it "ANSWERS THE TWO HALVES AT ONCE". An independent reviewer took the
+    marker assignment out of `orders.py`, and separately made `reading.a_reading`
+    claim every file was one fixed day, and it said "safe to write" through both.
+
+    **THE FIRST LIFTED ON 2026-09-06**, the day the ERP put the four names in its
+    column list, while a `grep` for the four fields across `autosync/` outside
+    `sales.py` returned nothing. **The second was written to repair the first and
+    reproduced its exact shape one level up** -- an independent reviewer proved it
+    the same day by taking the assignment out of `orders.py` and watching all 114
+    checks stay green.
+
+    **A GUARD THAT LIFTS ON THE APPEARANCE OF THE THING IT WANTS IS WORSE THAN NO
+    GUARD**, because it also tells everybody the thing is now handled.
+
+    **SO THE QUESTION IS NOW THE BEHAVIOUR ITSELF, BOTH HALVES OF IT, DRIVEN:** a
+    one-row file is put through the real reader and must come out carrying its own
+    day in a marker; and `ledger` is handed a sheet holding a sale written by a
+    newer file and a reading from an older one, and what came out is looked at.
+    Nothing anywhere in either reads a column name.
+
+    **THE COLUMNS ARE STILL ASKED ABOUT FIRST, and the order matters.** A column
+    the ERP had dropped would fail the behaviour too -- and would be reported as
+    "no reader fills a marker", pointing at the wrong repository. Asked first, the
+    refusal names the missing column.
+
+    **AND IT IS NOT A WALL.** Each half takes itself away the day its answer
+    changes, and nobody has to remember to come back and delete anything.
 
     **WHAT IS NOT REFUSED IS THE FETCHING.** The seller's platform files still
     land in their own Drive tonight. What stops is writing and, above all,
@@ -483,26 +594,54 @@ def why_it_must_not_write_yet() -> str:
     every file waits and nothing is lost (D157, D184).
     """
     missing = ledger.what_the_sheet_cannot_yet_say()
-    if not missing:
+    if missing:
+        return (
+            "NOTHING HAS BEEN WRITTEN TO THE SELLER'S SALES LEDGER TONIGHT, AND NO "
+            "FILE HAS BEEN MARKED AS READ. This is Kartaan refusing, not Google.\n"
+            "1. WHY. The sheet has no column saying which day's file last wrote each "
+            "figure. Without that, a file that arrives late -- say the 4th, turning "
+            "up after the 5th has already corrected a quantity -- puts its older "
+            "figure back over the newer one, in the money, with nothing anywhere "
+            "saying so.\n"
+            "2. WHAT IS MISSING, by name: " + ", ".join(missing) + ". Each one holds "
+            "the data date of the newest file of that kind that touched the row. "
+            "They are D157's, and they are the ERP's to add to its column list.\n"
+            "3. NOTHING IS LOST WHILE THIS STANDS. The seller's platform reports "
+            "still land in their own Drive every night, and every one of them is "
+            "still waiting to be read. Not one file is written down as read, so not "
+            "one is skipped later.\n"
+            "4. IT ENDS BY ITSELF. The day those four columns are in the ledger's "
+            "columns and an older file is really stopped, this stops refusing and "
+            "the night writes. Nobody has to remember to come back."
+        )
+    could_undo = which_reports_an_older_file_could_still_undo()
+    if not could_undo:
         return ""
     return (
         "NOTHING HAS BEEN WRITTEN TO THE SELLER'S SALES LEDGER TONIGHT, AND NO "
         "FILE HAS BEEN MARKED AS READ. This is Kartaan refusing, not Google.\n"
-        "1. WHY. The sheet has no column saying which day's file last wrote each "
-        "figure. Without that, a file that arrives late -- say the 4th, turning "
-        "up after the 5th has already corrected a quantity -- puts its older "
-        "figure back over the newer one, in the money, with nothing anywhere "
-        "saying so.\n"
-        "2. WHAT IS MISSING, by name: " + ", ".join(missing) + ". Each one holds "
-        "the data date of the newest file of that kind that touched the row. "
-        "They are D157's, and they are the ERP's to add to its column list.\n"
-        "3. NOTHING IS LOST WHILE THIS STANDS. The seller's platform reports "
+        "1. WHY. A file OLDER than the one that last wrote a row would still be "
+        "applied over it. So the 4th's file, turning up on a night after the 5th "
+        "has already corrected a quantity, puts its older figure back over the "
+        "newer one -- in the money, with nothing anywhere saying so.\n"
+        "2. WHICH REPORTS, by name: " + ", ".join(could_undo) + ". The four "
+        "columns are in the ledger; either these reports put no date in one, or "
+        "nothing reads one back before writing. **A column that exists and is "
+        "never used is not the safeguard, it is the appearance of one** -- and "
+        "this refusal itself lifted on exactly that twice, on 2026-09-06 and "
+        "again on 2026-09-08.\n"
+        "3. WHAT HAS TO BE TRUE: a row carries one of "
+        + ", ".join(ledger.WHICH_FILE_LAST_WROTE)
+        + " -- the data date of the newest file of that kind that touched it -- "
+        "AND a reading older than what that says is left alone and reported. "
+        "Both, or neither is worth anything.\n"
+        "4. NOTHING IS LOST WHILE THIS STANDS. The seller's platform reports "
         "still land in their own Drive every night, and every one of them is "
         "still waiting to be read. Not one file is written down as read, so not "
         "one is skipped later.\n"
-        "4. IT ENDS BY ITSELF. The day those four columns are in the ledger's "
-        "columns, this stops refusing and the night writes. Nobody has to "
-        "remember to come back."
+        "5. IT ENDS BY ITSELF, and it is asked by DRIVING the thing rather than "
+        "by reading a list of names -- so it cannot lift on the appearance of a "
+        "fix a third time. Nobody has to remember to come back."
     )
 
 

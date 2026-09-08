@@ -33,6 +33,7 @@ import {
   THE_TOKEN,
   aDriveToken,
   aFolderFor,
+  asAQuotedValue,
   aWayOfAsking,
   forgetTheToken,
   folderFor,
@@ -349,6 +350,45 @@ check('and other files in the folder are none of its business',
   check('and nothing was asked of Drive at all', drive.asked.length === 0);
 }
 
+{
+  /* ---------- A DRIVE SEARCH IS A LANGUAGE, NOT A SENTENCE (A33)
+   *
+   * **EVERY NAME WAS DROPPED INTO IT WHOLE.** `name = '${name}'` closes its own
+   * quote the moment the name holds one, and what follows is read as more of
+   * the search rather than as part of the name. Drive's own documentation says
+   * how a value is written: single quotes round it, `\'` for a quote inside it,
+   * `\\` for a backslash.
+   *
+   * **NOTHING HERE HAS EVER HELD A QUOTE, AND THAT IS THE POINT.** Report ids
+   * come out of a generated recipe file, `background.js` now refuses anything
+   * that is not `me_orders`-shaped before a name gets this far, and this is the
+   * second lock on a door where one lock is one mistake away from none.
+   * `autosync/drive_door.as_a_quoted_value` is the same rule, spelt the same. */
+  const Q = String.fromCharCode(39);
+  const B = String.fromCharCode(92);
+  check('a quote inside a value is escaped rather than closing the search',
+    asAQuotedValue(`me${Q}orders`) === `me${B}${Q}orders`);
+  check('and a backslash is escaped too, so it cannot escape the escaping',
+    asAQuotedValue(`me${B}orders`) === `me${B}${B}orders`);
+  check('and an ordinary report id is left exactly as it is',
+    asAQuotedValue('me_orders') === 'me_orders');
+  check('and nothing at all comes back as nothing, never as the word undefined',
+    asAQuotedValue(undefined) === '' && asAQuotedValue(null) === '');
+
+  /* **DRIVEN THROUGH THE REAL SEARCH, never asserted about the helper alone.**
+   * A helper that escapes perfectly and is not called is the shape of fault
+   * this repository keeps finding. */
+  const browser = installFakeChrome();
+  const drive = aDrive({ holds: [] });
+  await folderFor(browser.chrome, drive.ask, `me${Q}orders`, `kar${Q}taan`);
+  const sent = decodeURIComponent(drive.asked[0].address.split('q=')[1].split('&')[0]);
+  check('the search Drive is really sent carries the escaped name',
+    sent.includes(`name = 'me${B}${Q}orders'`));
+  check('and the escaped parent as well', sent.includes(`'kar${B}${Q}taan' in parents`));
+  check('and no bare quote is left in it to end a value early',
+    !sent.includes(`me${Q}orders`) && !sent.includes(`kar${Q}taan`));
+}
+
 /* ------------------------------------------------------------------ the two ways up */
 
 {
@@ -532,7 +572,7 @@ check('and other files in the folder are none of its business',
     (await said(() => theKartaanFolder(browser.chrome, drive.ask))).includes('There are 2 folders'));
 }
 
-const EXPECTED = 65;
+const EXPECTED = 72;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

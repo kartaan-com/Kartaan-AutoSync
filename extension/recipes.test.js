@@ -20,7 +20,8 @@
 
 import { readFileSync } from 'node:fs';
 import {
-  NeedsSigningIn, LANDED, FAILED, STILL_WAITING, hasNotFinished, theWalk, whyStepIsRefused,
+  NeedsSigningIn, LANDED, FAILED, STILL_WAITING, hasNotFinished, theFileName, theWalk,
+  whyStepIsRefused,
 } from './walk.js';
 
 process.on('uncaughtException', (err) => {
@@ -153,7 +154,16 @@ check('and the words each failure means', Object.keys(BOOK.whatItMeans).length >
 /* --------------------------------- and one of them is really driven */
 
 function aPortal(how = {}) {
-  const it = { went: [], clicked: [], ranges: [], tookFile: 0, handedOver: [], turns: 0 };
+  const it = {
+    went: [], clicked: [], ranges: [], tookFile: 0, handedOver: [], turns: 0, putAway: [],
+  };
+  /* **WHERE THE BYTES GO.** Recorded rather than answered "yes": a stand-in that
+   * agreed would leave every recipe below looking perfectly walked with the file
+   * on the floor, which is the state this whole wiring closes. */
+  it.putTheFile = async ({ reportId, fileName, body }) => {
+    it.putAway.push({ reportId, fileName, size: body ? body.length : 0 });
+    return { put: 'an-id' };
+  };
   it.door = {
     async go(address, patience, nextAt) { it.went.push(address); it.handedOver.push(nextAt); },
     async needs_signing_in() { return Boolean(how.signedOut); },
@@ -184,7 +194,9 @@ function aWalk(portal) {
       portal.turns += 1;
       /* Built again every turn, exactly as the page half is: nothing a previous
        * page held survives into the next one. */
-      const walking = theWalk({ door: portal.door, book: BOOK, say: () => {} });
+      const walking = theWalk({
+        door: portal.door, book: BOOK, say: () => {}, putTheFile: portal.putTheFile,
+      });
       // eslint-disable-next-line no-await-in-loop
       const answer = await walking(reportId, day, { panel: PANEL, startAt, ...rest });
       if (!hasNotFinished(answer)) return answer;
@@ -250,7 +262,9 @@ function aWalk(portal) {
 {
   /* **WHILE MEESHO STILL DOES.** A requirement of one platform must not be
    * dropped for the other. */
-  const walking = theWalk({ door: aPortal().door, book: BOOK, say: () => {} });
+  const walking = theWalk({
+    door: aPortal().door, book: BOOK, say: () => {}, putTheFile: async () => ({}),
+  });
   const got = await walking('me_orders', DAY, { panel: '' });
   check('a Meesho report with no panel name refuses', got.state === FAILED);
   check('and says the panel name is the seller\'s own data',
@@ -279,7 +293,42 @@ function aWalk(portal) {
     itsOwnKind === true);
 }
 
-const EXPECTED = 30;
+/* ------------------------- HIS REAL RECIPE FILE NAMES EVERY FILE IT COULD FETCH
+ *
+ * **A RECIPE THE BOOK CAN WALK AND CANNOT NAME IS A REPORT THAT REACHES THE
+ * SELLER'S DRIVE AND CAN NEVER BE READ BACK OUT OF IT.** `landing.data_date_in`
+ * takes the day out of the NAME and `reading.a_reading` refuses a file that has
+ * none -- so the folder fills up while the ledger stays empty and nothing
+ * anywhere says why. This asks it of the REAL generated file, not a fixture.
+ */
+{
+  const walkable = Object.keys(BOOK.recipes).sort();
+  const named = Object.keys(BOOK.fileNames || {}).sort();
+  check('EVERY RECIPE THE EXTENSION CAN WALK HAS A FILE NAME TO PUT IT AWAY UNDER',
+    walkable.length > 0 && walkable.join(',') === named.join(','));
+  check('and every one of them names a platform and a file type, never a blank',
+    walkable.every((one) => BOOK.fileNames[one].platform && BOOK.fileNames[one].extension));
+  /* **THE SHAPE IS THE PYTHON'S** -- `<platform>_<report id>_<data date>.<ext>`
+   * -- and `tools/export_recipes_checks.py` is what holds it to
+   * `landing.file_name_for` itself, report by report, in the language that owns
+   * the rule. This one only asks that the walk really builds that shape. */
+  check('and the name the walk builds is the shape the nightly run reads a day out of',
+    theFileName(BOOK, 'me_orders', DAY) === `meesho_me_orders_${DAY}.csv`
+    && theFileName(BOOK, 'fk_orders', DAY) === `flipkart_fk_orders_${DAY}.xlsx`);
+}
+
+{
+  /* **AND HIS REAL `me_orders` RECIPE REALLY PUTS ITS FILE SOMEWHERE.** This is
+   * the report that has actually run against his own Meesho panel. */
+  const portal = aPortal();
+  const got = await aWalk(portal)('me_orders', DAY);
+  check('HIS REAL MEESHO ORDERS RECIPE PUTS THE FILE AWAY, it does not drop it',
+    got.state === LANDED && portal.putAway.length === 1
+    && portal.putAway[0].fileName === `meesho_me_orders_${DAY}.csv`
+    && portal.putAway[0].size === 3);
+}
+
+const EXPECTED = 34;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

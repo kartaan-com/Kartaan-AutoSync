@@ -50,11 +50,33 @@ on:
   # refuse: anything that can write a workflow can write one that carries their
   # secrets away.
   #
-  # **AND THE CLOCK STILL DECIDES.** The cron line is a wake-up, not an
-  # appointment. `clock.why_not_now` refuses a tick before the chosen hour and
-  # refuses a second run the same day, so a workflow whose line was never
-  # rewritten still fetches at the hour the seller can see rather than at the one
-  # written here.
+  # **THE CLOCK DECIDES WHETHER A TICK RUNS. IT CANNOT MAKE ONE HAPPEN, AND THIS
+  # COMMENT USED TO SAY IT COULD.**
+  #
+  # What stood here said "a workflow whose line was never rewritten still fetches
+  # at the hour the seller can see rather than at the one written here". **That
+  # is false, and it is the sentence that hid the fault below.** The cron line is
+  # the ONLY thing that wakes this job. `clock.why_not_now` can refuse a tick; it
+  # has nothing to start one with.
+  #
+  # **SO WITH ONE TICK A DAY AND NOBODY REWRITING THIS LINE, A SELLER WHO CHOSE
+  # ANY HOUR FROM 3 TO 23 NEVER FETCHES, ON ANY DAY.** The chosen hour is a FLOOR
+  # -- "not before eight" -- and the one tick arrives at 02:23 in his time, which
+  # is before every one of them. Driven against `clock.why_not_now`, hour by
+  # hour: 0, 1 and 2 fetch; the other twenty-one never do, and the seller is told
+  # only "It is 02:23 and fetching is set for 11:00 or later", which reads
+  # exactly like a tick that will succeed later today. There is no later tick
+  # today. `autosync/nightly_checks.py` pins this, so the day it is repaired the
+  # check has to be changed on purpose.
+  #
+  # **WHY IT IS NOT REPAIRED IN THIS LINE.** The three ways out are all his to
+  # choose and none is a line of YAML: wake every hour again (reverses D120 and
+  # costs about 720 of the free 2,000 minutes a month); build the onboarding step
+  # that writes his hour in here (the thing this file already says happens and
+  # which does not exist); or let something rewrite the workflow (D113 refused
+  # standing write permission on a seller's repository, and was right --
+  # anything that can write a workflow can write one that carries their secrets
+  # away). It is written up as its own piece in `tools/work.json`.
   #
   # **UTC, deliberately, and not the timezone field GitHub now offers.** That
   # field is in public preview, and a seller's data arriving depends on it.

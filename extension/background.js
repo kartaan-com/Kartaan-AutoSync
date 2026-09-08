@@ -37,8 +37,46 @@
 
 import { catchTheNextFile } from './catch-blob.js';
 import { ARMED_FOR_MS, aTabToWalkIn, goTo } from './doors.js';
-import { FAILED } from './walk.js';
+import { FAILED, TOO_BIG_TO_CARRY, whyTheDayIsRefused } from './walk.js';
 import { carryTheNightOn } from './nightly.js';
+
+/** Why these are not a report and a file name this half will act on, or null.
+ *
+ *  **THIS IS THE ONE BOUNDARY IN THE EXTENSION WHERE A NAME CROSSES FROM THE
+ *  HALF THAT RUNS BESIDE THE PORTAL'S OWN CODE INTO THE HALF THAT HOLDS THE
+ *  SELLER'S DRIVE PERMISSION**, and until this existed nothing on it asked a
+ *  question. `reportId` becomes the NAME OF A FOLDER in the seller's Drive and
+ *  goes into a Drive search as part of a quoted string; `fileName` becomes the
+ *  name a file is put away under, and the nightly run reads the day back out of
+ *  exactly that name.
+ *
+ *  **BOTH ARE ASKED FOR THE SHAPE THIS PRODUCT ACTUALLY MAKES, not merely for
+ *  the absence of something dangerous.** Every report is `me_`/`fk_`/`az_` and
+ *  lower-case letters, digits and underscores; every name this product writes is
+ *  `platform_report_YYYY-MM-DD.ext`. Asking for the shape refuses a quote, a
+ *  slash, a `..` and everything else nobody has thought of yet -- a list of
+ *  forbidden characters is a list somebody adds to after each one is found.
+ */
+export function whyTheseAreNotNames(reportId, fileName) {
+  const report = String(reportId ?? '');
+  const called = String(fileName ?? '');
+  if (!/^[a-z0-9_]{1,64}$/.test(report)) {
+    return `"${report}" is not the name of a report this can put a file away for, so `
+      + 'nothing has been put in the seller\'s Drive.';
+  }
+  const shaped = /^[a-z0-9]{1,32}_[a-z0-9_]{1,64}_(\d{4}-\d{2}-\d{2})\.[a-z0-9]{1,8}$/.exec(called);
+  if (!shaped) {
+    return `"${called}" is not a name this product writes, so nothing has been put in the `
+      + 'seller\'s Drive. A file is put away as platform_report_YYYY-MM-DD.extension, and '
+      + 'the nightly run reads the day back out of that name.';
+  }
+  /* **AND THE DAY IN IT HAS TO BE A REAL DAY.** `2026-02-31` is the right shape
+   * and is not a day, and a file under it is one `landing.data_date_in` answers
+   * None for -- a file in the folder that no reader can ever reach. */
+  const notADay = whyTheDayIsRefused(shaped[1]);
+  if (notADay) return `${called}: ${notADay}`;
+  return null;
+}
 
 /* The one name the daily alarm has. Written once: two spellings of an alarm's
  * name is one alarm created and a different one looked for, and nothing would
@@ -508,10 +546,11 @@ export function answerThePage(chrome, parts) {
 
 /** What the page half may ask for. Written once, so refusing an unknown message
  *  and carrying out a known one cannot disagree about which is which. */
-export const KNOWN = ['go', 'arm-the-catcher', 'take-file', 'say', 'resume?', 'walk-done'];
+export const KNOWN = ['go', 'arm-the-catcher', 'take-file', 'land-the-file', 'say',
+  'resume?', 'walk-done'];
 
 async function carryOut(chrome, parts, asked, tabId) {
-  const { goTo, takeTheFile, watching, say, secret } = parts;
+  const { goTo, takeTheFile, landTheFile, watching, say, secret } = parts;
   if (asked.do === 'resume?') {
     /* **EVERY PORTAL PAGE THE SELLER OPENS ASKS THIS**, because the page half is
      * a manifest content script and runs on all of them. Almost every answer is
@@ -606,6 +645,61 @@ async function carryOut(chrome, parts, asked, tabId) {
      * seller nobody is watching. */
     watching.expectAFile();
     return { secret: await armTheCatcher(chrome, { tabId, secret: secret() }) };
+  }
+  if (asked.do === 'land-the-file') {
+    /* **THIS IS THE HALF THE EXTENSION FETCHED INTO NOWHERE WITHOUT.**
+     * `extension/drive.js` was finished, checked and imported by nothing but its
+     * own test file, so no report a browser fetched has ever reached a real
+     * Drive -- which is why a perfectly configured seller would see Amazon and
+     * nothing else.
+     *
+     * **IT IS DONE HERE, NOT IN THE PAGE, AND THAT IS CHROME'S RULE RATHER THAN
+     * A PREFERENCE.** Putting a file in the seller's Drive needs
+     * `chrome.identity` for their token, and `chrome.identity` is not exposed
+     * to a content script at all. The page fetches the bytes -- sometimes it is
+     * the only half that can, which is why the fallback in `content.js` exists
+     * -- and hands them here.
+     *
+     * **A LIST OF NUMBERS, because a message carries nothing else.** The same
+     * shape `take-file` already answers in, in the other direction.
+     *
+     * **AND A REFUSAL IS ANSWERED, NEVER THROWN.** Thrown, it reaches the page
+     * as "the message port closed" -- a sentence about the bridge, said instead
+     * of the sentence about Drive that somebody could act on. */
+    if (typeof landTheFile !== 'function') {
+      return { wrong: 'This browser half has no way of putting a file in the Drive.' };
+    }
+    /* **THE TWO NAMES ARE ASKED SOMETHING HERE, AND UNTIL NOW NEITHER WAS.**
+     * They arrive in a message and go straight on: `reportId` becomes the name
+     * of a folder in the seller's Drive AND goes into a Drive search as part of
+     * a quoted string, and `fileName` becomes the name a file is put away
+     * under. **This is the boundary between the half that runs beside the
+     * portal's own code and the half that holds the seller's Drive
+     * permission**, and a boundary that asks nothing of what crosses it is not
+     * a boundary. `drive.folderFor` now escapes what it quotes as well; that is
+     * the other lock on the same door, and neither is the only one. */
+    const wrongName = whyTheseAreNotNames(asked.reportId, asked.fileName);
+    if (wrongName) return { wrong: wrongName };
+    /* **AND HOW MANY BYTES.** They came across as one number per byte, so the
+     * message was already four times the file. `walk.js` refuses a file this
+     * big before it sends one; this refuses one that arrived anyway. */
+    const howMany = (asked.bytes || []).length;
+    if (howMany > TOO_BIG_TO_CARRY) {
+      return {
+        wrong: `${howMany} bytes were handed over for ${asked.fileName}, which is more than `
+          + `the ${TOO_BIG_TO_CARRY} this will carry. Nothing has been put in the Drive.`,
+      };
+    }
+    try {
+      const put = await landTheFile({
+        reportId: asked.reportId,
+        fileName: asked.fileName,
+        body: new Uint8Array(asked.bytes || []),
+      });
+      return { put: (put && put.id) || true };
+    } catch (wrong) {
+      return { wrong: (wrong && wrong.message) || String(wrong) };
+    }
   }
   if (asked.do === 'take-file') {
     const held = await takeTheFile(chrome, watching, {

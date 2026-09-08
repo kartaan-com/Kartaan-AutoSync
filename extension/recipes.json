@@ -1764,5 +1764,75 @@
     "Shipping & Returns",
     "Grow Business",
     "Start Selling"
-  ]
+  ],
+  "fileNames": {
+    "fk_ads_daily": {
+      "platform": "flipkart",
+      "extension": "csv"
+    },
+    "fk_ads_fsn": {
+      "platform": "flipkart",
+      "extension": "csv"
+    },
+    "fk_ads_kw": {
+      "platform": "flipkart",
+      "extension": "csv"
+    },
+    "fk_ads_orders": {
+      "platform": "flipkart",
+      "extension": "csv"
+    },
+    "fk_ads_overall": {
+      "platform": "flipkart",
+      "extension": "csv"
+    },
+    "fk_ads_placements": {
+      "platform": "flipkart",
+      "extension": "csv"
+    },
+    "fk_ads_search": {
+      "platform": "flipkart",
+      "extension": "csv"
+    },
+    "fk_claims": {
+      "platform": "flipkart",
+      "extension": "xlsx"
+    },
+    "fk_listings": {
+      "platform": "flipkart",
+      "extension": "xls"
+    },
+    "fk_orders": {
+      "platform": "flipkart",
+      "extension": "xlsx"
+    },
+    "fk_payments": {
+      "platform": "flipkart",
+      "extension": "xlsx"
+    },
+    "fk_returns": {
+      "platform": "flipkart",
+      "extension": "csv"
+    },
+    "fk_views": {
+      "platform": "flipkart",
+      "extension": "xlsx"
+    },
+    "me_catalog": {
+      "platform": "meesho",
+      "extension": "xlsx"
+    },
+    "me_orders": {
+      "platform": "meesho",
+      "extension": "csv"
+    },
+    "me_payments": {
+      "platform": "meesho",
+      "extension": "xlsx"
+    },
+    "me_returns": {
+      "platform": "meesho",
+      "extension": "csv"
+    }
+  }
 }

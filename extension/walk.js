@@ -87,6 +87,23 @@ export const FOUND_SEVERAL = 'found-several';
 export const COVERED_UP = 'covered-up';
 export const BUILT_IN_THE_PAGE = 'built-in-the-page';
 
+/** How big a file is worth carrying across to the browser half at all.
+ *
+ *  **THE SAME NUMBER `catch-blob.TOO_BIG` USES, AND `extension/walk.test.js`
+ *  HOLDS THE TWO TO EACH OTHER (A33R).** Written here as its own literal and
+ *  nothing comparing them, it could be changed on one side and every one of the
+ *  JavaScript checks stayed green -- driven, and that is `drive.js`'s own rule
+ *  met again: a rule SPELT differently in two places is a bug nobody finds.
+ *
+ *  **AND IT IS SAID HERE AT ALL BECAUSE THE TWO WAYS A FILE ARRIVES HAD
+ *  DIFFERENT ANSWERS.** A file the page builds inside
+ *  itself is refused above this by the catcher; a file fetched back from an
+ *  address was refused by nothing at all, and the bytes cross to the background
+ *  as text -- one number and one comma per byte, four times their own size.
+ *  A stock file for a large catalogue is a few hundred kilobytes; his real
+ *  files measure one to a hundred. */
+export const TOO_BIG_TO_CARRY = 40 * 1024 * 1024;
+
 /* How much of the page to keep when something could not be found. The same 400
  * the Python keeps: enough to see what was really there, small enough that a log
  * stays readable and carries nothing of the seller's worth hiding. */
@@ -178,15 +195,92 @@ export function whyStepIsRefused(step) {
 }
 
 /**
+ * Why this is not a day a walk can be given, or null.
+ *
+ * **THE DAY IS THE ONE THING IN A WALK THAT NOBODY HERE WROTE.** It arrives as
+ * an argument to `startTheNight`, is carried through the night's record and the
+ * background's messages, and comes out the far end in TWO places that both
+ * matter: the address a step goes to (`{day}`, filled in by `filledIn`) and the
+ * NAME the file is put away under (`theFileName`). Until this existed neither
+ * asked anything of it -- `theFileName` checked only that it was not empty.
+ *
+ * **AND THE NAME IS THE HALF THAT LOSES THE SELLER'S DATA IN SILENCE.**
+ * `05/09/2026` makes `me_orders_05/09/2026.csv`; `landing.data_date_in` reads a
+ * day back out of a name with `(\d{4}-\d{2}-\d{2})` and answers None for that
+ * one. **A file whose name has no day in it is a file no reader can ever
+ * reach** -- `landing.undated` exists because seven real files sat like that for
+ * six weeks. So the day is refused HERE, before one of the seller's rationed
+ * report requests is spent on it, rather than after the bytes are already in
+ * their Drive under a name nothing will ever open.
+ *
+ * **ASKED OF THE VALUE, NOT OF ITS SHAPE ALONE.** `2026-02-31` matches the
+ * pattern and is not a day, so it is built and read back -- the same question
+ * `landing.data_date_in` asks with `date.fromisoformat`.
+ */
+export function whyTheDayIsRefused(dataDate) {
+  /* **ASKED OF EXACTLY WHAT THE CALLER WILL USE, never of a tidied copy of it
+   * (A33R).** The first version of this trimmed the value before testing it, so
+   * `" 2026-09-08 "` came back as a good day and `filledIn` then put the spaces
+   * straight into the address a step goes to. **A guard that answers about a
+   * value nobody uses is the shape of fault this whole session is about.** A day
+   * with anything round it is not a day this run wrote, and it is refused rather
+   * than tidied -- tidying here would leave the caller still holding the untidy
+   * one. */
+  const day = String(dataDate ?? '');
+  if (!day) {
+    return 'This walk was not told which day it is fetching. A file put away without one '
+      + 'would be under a name the nightly run cannot read a day out of, and never read.';
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+    return `"${day}" is not a day written the way the nightly run reads one back out of a `
+      + 'file name (YYYY-MM-DD), so a file put away under it would never be read.';
+  }
+  const [y, m, d] = day.split('-').map(Number);
+  const built = new Date(Date.UTC(y, m - 1, d));
+  if (built.getUTCFullYear() !== y || built.getUTCMonth() !== m - 1 || built.getUTCDate() !== d) {
+    return `"${day}" is written the right way round but is not a real day.`;
+  }
+  return null;
+}
+
+/**
  * The walk.
  *
  * `door` is the eight calls from `driver.js`. `book` is what came out of the
  * Python. `say` is how a line reaches the run log.
  */
-export function theWalk({ door, book, say }) {
+export function theWalk({
+  door, book, say,
+  /* **WHERE THE BYTES GO, AND UNTIL NOW THERE WAS NOWHERE (D171 again).**
+   *
+   * The walk took the file, counted it, answered LANDED and **dropped the bytes
+   * on the floor.** `extension/drive.js` -- 24 KB, 66 checks, finished and
+   * proved against a stand-in Drive -- was imported by nothing but its own test
+   * file. So not one byte has ever reached a real Drive from the browser half,
+   * and **that is why a perfectly configured seller would see Amazon and
+   * nothing else**: `me_orders` and `fk_orders` are browser-sourced, and the
+   * nightly run reads a folder the browser never put anything in.
+   *
+   * **IT IS HANDED IN, LIKE `go` AND `take_file`, AND FOR THE SAME REASON.**
+   * Putting a file in Drive needs `chrome.identity`, which a content script
+   * cannot reach at all -- so it belongs to the background half, and this side
+   * only asks. Handed in, the whole of the rule below is checked with no
+   * browser, no extension, no Google account and no internet.
+   *
+   * **AND IT IS REQUIRED, NOT OPTIONAL.** A walk built without it would fetch
+   * the seller's report, report LANDED, and put it nowhere -- which is exactly
+   * the state this closes, and it would look identical to working. */
+  putTheFile,
+}) {
   if (!door) throw new Error('A walk needs a door to the page.');
   if (!book || !book.recipes) throw new Error('A walk needs the book of recipes.');
   if (typeof say !== 'function') throw new Error('A walk needs somewhere to say what it is doing.');
+  if (typeof putTheFile !== 'function') {
+    throw new Error(
+      'A walk needs somewhere to put the file it takes. Without one it would fetch the '
+      + "seller's report and drop it, and report that it had landed."
+    );
+  }
 
   function meaningOf(kind) {
     /* **NOT INVENTED HERE.** If the book has no sentence for a failure, that is a
@@ -330,6 +424,32 @@ export function theWalk({ door, book, say }) {
         say: 'The page produced a file with nothing in it, so nothing has been written.',
       }) };
     }
+    /* **AND A SIGN-IN PAGE IS NOT A REPORT, WHICHEVER HALF FETCHED IT.**
+     *
+     * `doors.js` calls this the worst possible outcome in its own words: a portal
+     * that has signed the browser out answers a file address with its sign-in
+     * page, cheerfully, at 200 -- it is a file, it has a size, and everything
+     * downstream believes the day arrived.
+     *
+     * **THE GUARD EXISTED AND SAT ON ONE OF THREE PATHS.** `content.js` applied
+     * it only to its own fallback fetch; the background's fetch and the blob the
+     * page catches went straight past it. That cost nothing while the bytes were
+     * being dropped on the floor. **The moment they started reaching the
+     * seller's Drive it became the difference between a clean failure and a
+     * sign-in page filed as their day's report** -- so it is asked here, at the
+     * one point every path passes through, rather than three times.
+     *
+     * **IT IS A GUARD, NOT THE ANSWER.** The Python half sniffs the real bytes
+     * properly (`landing.the_file_that_matters`) and this half still has no
+     * counterpart. Said rather than left to be assumed. */
+    if (looksLikeAPage(body)) {
+      return { failed: anAnswer(FAILED, reportId, dataDate, {
+        size: body.length,
+        say: `What came back is a web page, not a report -- the platform has almost `
+          + `certainly signed this browser out. ${body.length} bytes were thrown away `
+          + "rather than put in the seller's Drive as this day's report.",
+      }) };
+    }
     return { body };
   }
 
@@ -349,6 +469,14 @@ export function theWalk({ door, book, say }) {
      * number and hands it to whichever page Chrome draws next. */
     startAt = 0,
   } = {}) {
+    /* **THE DAY IS ASKED FIRST, BEFORE A REPORT IS SPENT.** It reaches the
+     * address a step goes to and the name the file is put away under, and
+     * nothing between here and Drive asks anything of it. Refused as this
+     * report's own failure, the night writes it down and moves on -- the same
+     * shape as a bad recipe two lines below. */
+    const notADay = whyTheDayIsRefused(dataDate);
+    if (notADay) return anAnswer(FAILED, reportId, dataDate, { say: notADay });
+
     let plan;
     try {
       /* **BOTH LOOKUPS INSIDE THE SAME GUARD.** A door answers; it does not throw
@@ -427,10 +555,63 @@ export function theWalk({ door, book, say }) {
       if (step.do === TAKE_FILE) {
         const got = await takeTheFile(step, reportId, dataDate);
         if (got.failed) return got.failed;
+        /* **THE NAME IS THE PYTHON'S, NEVER THIS FILE'S.** The nightly run takes
+         * the day out of the file NAME and refuses a file that has none, so a
+         * name invented here is a file that reaches the seller's Drive and can
+         * never be read out of it -- the folder simply fills up, silently.
+         * `fileName` given by the caller still wins, because a caller that knows
+         * better than the book is a caller that has been told. */
+        const called = fileName || theFileName(book, reportId, dataDate);
+        if (!called) {
+          return anAnswer(FAILED, reportId, dataDate, {
+            say: `There is nothing in the recipe file saying what ${reportId}'s file is `
+              + 'called, so it has not been put anywhere. A file put away under a name the '
+              + 'nightly run cannot read the day out of would never be read at all.',
+          });
+        }
+        /* **HOW BIG IS WORTH CARRYING, AND NOTHING ASKED UNTIL NOW.** The bytes
+         * do not go straight to Drive from here: they cross to the background
+         * half as a message, and a message is turned into TEXT on the way --
+         * `bytes: [...body]`, one number and one comma per byte, so a 40 MB
+         * catch crosses as roughly 160 MB and nothing anywhere refused it.
+         *
+         * **THE CATCHER ALREADY REFUSES A FILE THIS BIG** (`catch-blob.TOO_BIG`)
+         * and the take-file half does not, so one of the two ways a file arrives
+         * was capped and the other was not. His real files are one to a hundred
+         * kilobytes, so this has never fired -- which is exactly why it needs
+         * writing down rather than leaving to be noticed. */
+        if (got.body.length > TOO_BIG_TO_CARRY) {
+          return anAnswer(FAILED, reportId, dataDate, {
+            fileName: called,
+            size: got.body.length,
+            say: `${got.body.length} bytes came back for ${called}, which is more than the `
+              + `${TOO_BIG_TO_CARRY} this can carry across to the browser half. Nothing has `
+              + 'been put in the seller\'s Drive and the day is owed again.',
+          });
+        }
+        /* **LANDED NOW MEANS IT REACHED THE SELLER'S DRIVE**, which is what the
+         * word was always supposed to mean: `drive.js` says in its own header
+         * that "a report that reached Drive and a report that reached the
+         * browser are the same report, and the runner reads one list". Until
+         * this line the walk said LANDED for the second of those.
+         *
+         * **AND A DRIVE THAT REFUSED IS THIS REPORT'S FAILURE, NOT A CRASH.**
+         * Answered as a failure, the night writes it down, moves on, and the day
+         * is fetched again -- nothing is marked, nothing is lost. */
+        try {
+          await putTheFile({ reportId, fileName: called, body: got.body });
+        } catch (wrong) {
+          return anAnswer(FAILED, reportId, dataDate, {
+            fileName: called,
+            size: got.body.length,
+            say: `${got.body.length} bytes came back and could not be put in the seller's `
+              + `Drive: ${(wrong && wrong.message) || wrong}`,
+          });
+        }
         return anAnswer(LANDED, reportId, dataDate, {
-          fileName: fileName || null,
+          fileName: called,
           size: got.body.length,
-          say: `Landed ${got.body.length} bytes.`,
+          say: `Landed ${got.body.length} bytes in the seller's Drive as ${called}.`,
         });
       }
 
@@ -505,6 +686,39 @@ export function theWalk({ door, book, say }) {
  * holding one spreadsheet and refuses what is not a report at all) and this half
  * still has no counterpart. Said here rather than left to be assumed.
  */
+/**
+ * What one report's file is called once it is in the seller's Drive.
+ *
+ * **THE RULE IS THE PYTHON'S AND IT CROSSES IN THE RECIPE FILE, exactly as the
+ * steps do (D107).** `autosync/landing.file_name_for` is
+ * `<platform>_<report id>_<data date>.<extension>`, and the two parts a report
+ * decides -- its platform and its extension -- are exported into
+ * `recipes.json` by `tools/export_recipes.py`. **Nothing here knows a platform
+ * or a file type**, which is the same rule the rest of this file lives by.
+ *
+ * **AND IT IS NOT DECORATION.** `landing.data_date_in` takes the day out of the
+ * NAME, and `reading.a_reading` refuses a file with no day in its name. A file
+ * put away under a name of this side's own invention is a file the nightly run
+ * can never read -- it sits in the folder for ever while the seller's ledger
+ * stays empty, and nothing anywhere says why.
+ *
+ * **NOTHING IS GUESSED. A report the book says nothing about answers nothing**,
+ * and the walk turns that into a named failure rather than putting a file away
+ * under a name it made up.
+ */
+export function theFileName(book, reportId, dataDate) {
+  const how = book && book.fileNames && book.fileNames[reportId];
+  if (!how || !how.platform || !how.extension) return '';
+  /* **THE SAME QUESTION THE WALK ASKS, ASKED ONCE.** This used to check only
+   * that the day was not empty, which let `05/09/2026` through into a name
+   * `landing.data_date_in` cannot read a day out of -- the exact fault the
+   * comment above exists to prevent. The walk refuses a bad day before it gets
+   * here; this is the second lock on the same door, and it is the same rule
+   * rather than a second copy of it. */
+  if (whyTheDayIsRefused(dataDate)) return '';
+  return `${how.platform}_${reportId}_${dataDate}.${how.extension}`;
+}
+
 export function looksLikeAPage(bytes) {
   if (!bytes || !bytes.length) return false;
   const opening = new TextDecoder('utf-8', { fatal: false })

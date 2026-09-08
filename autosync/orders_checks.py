@@ -20,6 +20,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import landing  # noqa: E402
 import orders as tool  # noqa: E402
 import sheet  # noqa: E402
 import table  # noqa: E402
@@ -145,6 +146,59 @@ rows = a_file(GOOD, ("S1", "AAA", "2", "2026-08-30", "SHIPPED", "174.0"))
 r = answered(lambda: tool.read_orders(rows, "meesho"))
 check("a good file reads", r is not None and len(r.sales) == 1)
 
+# ------------------------------------ WHICH DAY'S FILE THE SALE CAME OUT OF (D157)
+
+# **ONE ROW OF EACH PLATFORM'S OWN FILE, in that platform's own column names.**
+# Written out here rather than taken off the mapping, because a fixture built
+# from the thing under check agrees with it about anything.
+_EVERY_PLATFORM_FILE = (
+    (a_file(GOOD, ("S1", "AAA", "2", "2026-08-30", "SHIPPED", "174.0")), "meesho"),
+    (a_file(("order_id", "sku", "quantity", "order_date", "order_item_status"),
+            ("OD1", "AAA", "1", "2026-08-30", "SHIPPED")), "flipkart"),
+    (a_file(("amazon-order-id", "sku", "quantity", "purchase-date", "order-status",
+             "item-price"),
+            ("AZ1", "AAA", "1", "2026-08-30T10:00:00+00:00", "Shipped", "199.0")),
+     "amazon"),
+)
+
+# **THE FIRST OF THE FOUR DATE MARKERS EVER TO BE FILLED BY ANYTHING.** They
+# landed in the ERP's column list on 2026-09-06 and every refusal built on their
+# NAMES lifted itself the same day; nothing anywhere assigned one, so every row
+# written still could not say which day's file produced it.
+_dated = answered(lambda: tool.read_orders(rows, "meesho", data_date="2026-08-31"))
+check("A SALE CARRIES THE DAY OF THE FILE IT CAME OUT OF",
+      _dated is not None and _dated.sales[0].orders_on == "2026-08-31")
+# **THE FILE'S DAY, NOT THE ROW'S OWN.** The row says the sale happened on the
+# 30th and the file is the 31st's statement about it. Read off the row instead,
+# the marker would say a statement is older or newer than it is -- which is the
+# one thing it exists to answer.
+check("and it is the FILE'S day, not the day the sale itself happened",
+      _dated is not None and _dated.sales[0].on == "2026-08-30"
+      and _dated.sales[0].orders_on == "2026-08-31")
+check("and the other three markers are left blank rather than guessed",
+      _dated is not None and _dated.sales[0].returns_on is None
+      and _dated.sales[0].payments_on is None and _dated.sales[0].claims_on is None)
+# **NOT GIVEN A DAY, IT IS BLANK AND NOT TODAY.** A marker filled from the clock
+# says a file is newer than it is, which is the direction that loses money.
+check("not given a day, the marker is blank rather than filled from the clock",
+      r is not None and r.sales[0].orders_on is None)
+# **AND A DAY THAT IS NOT A DAY STOPS THE WHOLE FILE.** The marker is COMPARED --
+# it is what decides whether an older file may put its figure back over a newer
+# one -- so something that is not a date decides that wrongly, and silently.
+check("A FILE'S DAY THAT IS NOT A DAY STOPS THE FILE, it is not written verbatim",
+      refused_by(lambda: tool.read_orders(rows, "meesho", data_date="last Tuesday")))
+check("and a day-first one is refused too, not read backwards",
+      refused_by(lambda: tool.read_orders(rows, "meesho", data_date="31.08.2026")))
+check("and the refusal says why a wrong marker matters",
+      (lambda e: e is not None and "older file" in str(e))(
+          _catch(lambda: tool.read_orders(rows, "meesho", data_date="last Tuesday"))))
+# **EVERY PLATFORM, not just the one the fixture above happens to use.**
+check("every platform's reader carries it, not only Meesho",
+      all((lambda got: got is not None and bool(got.sales) and all(
+              one.orders_on == "2026-08-31" for one in got.sales))(
+          answered(lambda t=t, p=p: tool.read_orders(t, p, data_date="2026-08-31")))
+          for t, p in _EVERY_PLATFORM_FILE))
+
 MOVED = ("Sub Order No", "SKU", "Qty", "Order Date", "Reason for Credit Entry")
 check("A COLUMN THAT HAS MOVED STOPS THE WHOLE FILE",
       refused_by(lambda: tool.read_orders(
@@ -239,7 +293,13 @@ for platform, path, which, how_many, has_money in REAL:
         continue
     raw = path.read_bytes()
     rows = answered(lambda r=raw, w=which: sheet.read(r, sheet=w) if w else table.read(r))
-    got = answered(lambda t=rows, p=platform: tool.read_orders(t, p))
+    # **THE DAY OFF THE REAL FILE'S OWN NAME, through the one function the run
+    # uses.** A day typed into this check would be a second way of reading a
+    # date off a name, and two ways of reading one thing is two answers waiting
+    # to disagree.
+    its_day = landing.data_date_in(path.name)
+    got = answered(lambda t=rows, p=platform, d=its_day:
+                   tool.read_orders(t, p, data_date=d.isoformat() if d else None))
     check(f"his real {platform} orders: every column this needs is there",
           got is not None)
     check(f"his real {platform} orders: {how_many} sales", got is not None and len(got.sales) == how_many)
@@ -249,6 +309,9 @@ for platform, path, which, how_many, has_money in REAL:
           got is not None and all(s.id.count("::") == 2 for s in got.sales))
     check(f"his real {platform} orders: every day is a real day",
           got is not None and all(tool.the_day_in(s.on) == s.on for s in got.sales))
+    check(f"HIS REAL {platform.upper()} ORDERS: every sale says which day's file it came out of",
+          its_day is not None and got is not None and bool(got.sales)
+          and all(one.orders_on == its_day.isoformat() for one in got.sales))
     check(f"his real {platform} orders: the money is "
           + ("there" if has_money else "ABSENT, because the file has none"),
           got is not None and (
@@ -277,8 +340,8 @@ if not_run:
 print()
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-WITH_HIS_FILES = 74
-WITHOUT = WITH_HIS_FILES - 6 * len(REAL) - 3
+WITH_HIS_FILES = 85
+WITHOUT = WITH_HIS_FILES - 7 * len(REAL) - 3
 EXPECTED = WITH_HIS_FILES if not not_run else WITHOUT
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")

@@ -309,6 +309,31 @@ async function everyFile(chrome, ask, looking, doing) {
 }
 
 /**
+ * A value put inside a Drive search, quoted the way Drive says to quote one.
+ *
+ * **A DRIVE SEARCH IS A LANGUAGE, AND EVERY NAME BELOW WAS DROPPED INTO IT
+ * WHOLE.** `name = '${name}'` closes its own quote the moment `name` holds one,
+ * and what follows is read as more of the search rather than as part of the
+ * name. Drive's own documentation is explicit about the fix: a value goes in
+ * single quotes, a single quote inside it is written `\'`, and a backslash is
+ * written `\\`. That is the whole rule, and it is written here once so that
+ * every search below is built the same way.
+ *
+ * **NOTHING HERE HAS EVER HELD A QUOTE.** Report ids are `me_orders` and
+ * `fk_payments`, and `background.js` now refuses anything that is not that
+ * shape before a name gets this far. This is the second lock, on a door where
+ * one lock is one mistake away from none -- the ids come out of a recipe file
+ * that is generated, and generated data is data.
+ *
+ * **AND `autosync/drive_door.py` DOES THE SAME, SPELT THE SAME.** This file's
+ * own header: a rule that DIFFERS between the two halves is a bug in one of
+ * them; a rule that is SPELT differently is a bug nobody will ever find.
+ */
+export function asAQuotedValue(value) {
+  return String(value ?? '').split('\\').join('\\\\').split("'").join("\\'");
+}
+
+/**
  * The id of one report's folder, made only if it is not there yet.
  *
  * **FOUND BY NAME, MADE ONLY IF MISSING.** A folder made every night is a Drive
@@ -324,8 +349,8 @@ export async function folderFor(chrome, ask, reportId, inside) {
     throw new DriveSaidNo('There is nowhere to make it: no Kartaan folder was given.');
   }
   const name = aFolderFor(reportId);
-  const looking = `name = '${name}' and mimeType = '${FOLDER}' `
-    + `and '${inside}' in parents and trashed = false`;
+  const looking = `name = '${asAQuotedValue(name)}' and mimeType = '${FOLDER}' `
+    + `and '${asAQuotedValue(inside)}' in parents and trashed = false`;
   const found = await everyFile(chrome, ask, looking, `looking for the ${name} folder`);
   if (found.length > 1) {
     throw new DriveSaidNo(
@@ -348,7 +373,7 @@ export async function folderFor(chrome, ask, reportId, inside) {
 export async function whatIsAlreadyThere(chrome, ask, folderId) {
   return everyFile(
     chrome, ask,
-    `'${folderId}' in parents and trashed = false`,
+    `'${asAQuotedValue(folderId)}' in parents and trashed = false`,
     'looking at what is already in the folder'
   );
 }
