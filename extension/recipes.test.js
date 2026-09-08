@@ -59,7 +59,7 @@ const PANEL = 'growth/some-panel';
 check('the recipe file is there and can be read', typeof BOOK === 'object' && BOOK !== null);
 check('and it says plainly that it is generated',
   Array.isArray(BOOK._generated) && BOOK._generated.join(' ').includes('DO NOT EDIT'));
-check('it carries the recipes', Object.keys(BOOK.recipes).length === 17);
+check('it carries the recipes', Object.keys(BOOK.recipes).length === 18);
 check('and both platforms are in it',
   Object.keys(BOOK.recipes).some((one) => one.startsWith('me_'))
   && Object.keys(BOOK.recipes).some((one) => one.startsWith('fk_')));

@@ -337,6 +337,45 @@ RECIPES: Dict[str, Recipe] = {
                  why="taking the finished file"),
         ),
     ),
+    # **DECLARED SINCE THE LIST WAS WRITTEN AND NEVER BUILT.** Its steps are read
+    # off the working reference's own claims handler, which has been fetching
+    # this file every night for months.
+    "me_claims": Recipe(
+        to_take=(
+            Step(GO, address=FULFILMENT + "/claims", why="opening the claims page"),
+            # **THE WAY IN IS A `<p>` READING THE ONE WORD "Download", not a
+            # button** -- the same shape as payments, and the reference says so
+            # in its own source. Asked for as a control it answers nothing;
+            # asked for as something pressable it answers the one thing.
+            Step(WAIT_FOR, find=Find(BY_PRESSABLE_TEXT, "Download", called="the download menu"),
+                 patience=45, why="waiting for the claims page to finish drawing"),
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Download", called="the download menu"),
+                 why="opening the download menu"),
+            # **NO RANGE IS PICKED, AND THAT IS THE ENTRY MATCHING THE LIST.**
+            # `reports.py` already says Meesho hands back a rolling window here
+            # rather than a chosen day. The reference confirms it: it sets the
+            # period once, on the very first run, and never again. A range step
+            # would be asking for something this page does not offer.
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Export Data"), why="asking for the export"),
+            # **THE MENU HAS TO BE OPENED AGAIN, and it is not the same reopening
+            # as orders.** Orders needs the whole page loaded again before a
+            # finished file appears; claims does not -- the reference reopens
+            # this menu and steps into "Exported Files" on every poll, from the
+            # same page. So the menu is reopened and nothing is reloaded.
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Download", called="the download menu"),
+                 why="opening the download menu again, where the finished file now is"),
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Exported Files"),
+                 why="opening the list of files already exported"),
+            # **NAMED BY THE DAY IT WAS MADE, because that is all a claims row
+            # carries.** The panel keeps every export ever made, so "Download"
+            # alone finds all of them and refuses -- which is right, and useless.
+            # A claims export is a rolling window and carries no data date, so
+            # the words are the platform's own wording of the day, exactly as
+            # returns does.
+            Step(TAKE_FILE, find=Find(BY_PRESSABLE_TEXT, "Download", near="{day_in_words}"),
+                 patience=300, why="taking the finished file"),
+        ),
+    ),
 
     # ---- Flipkart: the Reports Centre three, two-phase
     "fk_orders": _reports_centre("Fulfilment Reports", "Orders", "orders"),
@@ -530,6 +569,58 @@ def every_recipe() -> Tuple[str, ...]:
     return tuple(sorted(RECIPES))
 
 
+# **THE REPORTS THIS DOOR CANNOT FETCH YET, NAMED ONE BY ONE WITH THE REASON.**
+#
+# **A HOLE THAT IS NOT WRITTEN DOWN IS A HOLE NOBODY CAN SEE.** Until this list
+# existed, `reports.py` declared reports that had no recipe at all and the only
+# thing measuring the door counted the recipes -- so "how many Meesho reports
+# need a browser" answered four while the list declared seven, and the three with
+# nothing behind them were invisible to every check in the project. Naming them
+# here does not fetch them; it makes the difference between what is declared and
+# what is built a thing that is stated rather than a thing that is missing.
+#
+# **EVERY ONE OF THESE NEEDS A STEP THE DOOR DOES NOT HAVE, and that is one
+# reason, five times over.** The five steps -- go, click, wait for, pick a range,
+# take the file -- all end in a file the platform hands over. These four end in
+# rows the page was made to give up: read off the screen, or asked for from the
+# platform's own addresses from inside the signed-in page. **Adding that step is
+# its own piece of work, not a recipe**: it reaches into the language in
+# `browser.py`, the checks beside it, what the exporter carries across, and the
+# walker in the extension that carries the steps out.
+#
+# **THE CHECK BESIDE THIS ONE IS WHAT MAKES IT WORTH HAVING.** Every declared
+# report on the browser door is either in `RECIPES` or named here -- so the day
+# somebody adds a report and forgets its recipe, that goes red, instead of the
+# report quietly never being fetched.
+NOT_YET_A_RECIPE: Dict[str, str] = {
+    "fk_keywords": (
+        "The keywords are not a file Flipkart hands over. Somebody has to be on "
+        "the traffic report with the day and all products chosen, and then every "
+        "row's own keyword panel is opened in turn and read off the screen. The "
+        "door has no step for reading a page, and no step for waiting on a person."
+    ),
+    "me_views": (
+        "The views figure is not a file. It is two numbers read off the Meesho "
+        "dashboard and added to a running list. The door has no step for reading "
+        "a number off a page."
+    ),
+    "me_ads": (
+        "The ads figures are not a file either. Meesho's own ads addresses are "
+        "called from inside the signed-in page -- the campaign list, then each "
+        "live campaign in turn -- and the rows are built from what comes back. "
+        "The door has no step for calling an address."
+    ),
+    "me_ads_summary": (
+        "It comes out of the same sweep as the campaigns, and for the same "
+        "reason cannot be reached by the five steps this door has."
+    ),
+    "me_ads_catalog": (
+        "It comes out of the same sweep as the campaigns, and for the same "
+        "reason cannot be reached by the five steps this door has."
+    ),
+}
+
+
 # Which prefix belongs to which platform. **WRITTEN DOWN, NOT WORKED OUT.** This
 # was `platform[:2]`, which gives "fl" for Flipkart while every id begins `fk_` --
 # so it answered "no Flipkart reports need a browser", which is the opposite of the
@@ -539,7 +630,15 @@ PREFIXES = {"flipkart": "fk_", "meesho": "me_", "amazon": "az_"}
 
 
 def on_the_browser_door_for(platform: str) -> Tuple[str, ...]:
-    """The reports of one platform still needing a browser.
+    """Which of one platform's reports this door can actually fetch.
+
+    **THIS COUNTS RECIPES, NOT DECLARATIONS, and saying so is the correction.**
+    It used to say it answered "the reports still needing a browser", which is
+    what `reports.py` declares -- a different and larger number. Two checks read
+    it as the declared one and so went green on thirteen and four while fourteen
+    and seven were declared, which is how four reports came to have nothing
+    behind them with nothing anywhere saying so. What is declared and not built
+    is `NOT_YET_A_RECIPE` above, and a check holds the two together.
 
     **THE FLIPKART NUMBER IS THE ONE THAT SHOULD FALL TO NOTHING**, the day its
     Seller API application stops being Pending. The Meesho one will not.

@@ -156,7 +156,7 @@ it does not run. That is a product decision, not a code one.
    product still lacks: `content/intercept.js:305-324` patches
    `HTMLAnchorElement.prototype.click` in the MAIN world and SUPPRESSES the click.
 
-2. **What a timeout means (D205).** All **132** steps across 17 recipes have a
+2. **What a timeout means (D205).** All **139** steps across 18 recipes have a
    patience under the 540s the reference measured a throttled 15s wait stretching
    to. Today a timeout MEANS failed. The reference re-scans DURABLE page state
    instead (`report-confirm-fallback.js`). **AND SIX CHECKS IN `doors.test.js`

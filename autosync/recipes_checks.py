@@ -21,6 +21,7 @@ from datetime import date  # noqa: E402
 
 import browser as pages  # noqa: E402
 import recipes as tool  # noqa: E402
+from reports import BROWSER as NEEDS_A_BROWSER  # noqa: E402
 from reports import BY_ID as KARTAAN_REPORTS  # noqa: E402
 
 ran = 0
@@ -120,6 +121,14 @@ SHAPES = {
     # hand anything over until one has been chosen.
     "me_payments": ((), (pages.GO, pages.WAIT_FOR, pages.CLICK, pages.CLICK, pages.CLICK,
                          pages.PICK_RANGE, pages.TAKE_FILE)),
+    # **CLAIMS IS PAYMENTS WITHOUT THE RANGE, and that missing step is the whole
+    # difference.** `reports.py` says Meesho hands back a rolling window here
+    # rather than a chosen day, so there is no day to pick and a range step would
+    # be asking for something the page does not offer. The menu is opened twice --
+    # once to ask for the export, once to find the finished file -- and the page
+    # is never loaded again, which is what makes it not the orders shape.
+    "me_claims": ((), (pages.GO, pages.WAIT_FOR, pages.CLICK, pages.CLICK, pages.CLICK,
+                       pages.CLICK, pages.TAKE_FILE)),
     "fk_orders": ((pages.GO, pages.WAIT_FOR, pages.CLICK, pages.CLICK, pages.CLICK,
                    pages.PICK_RANGE, pages.CLICK, pages.WAIT_FOR),
                   (pages.GO, pages.WAIT_FOR, pages.CLICK, pages.WAIT_FOR, pages.TAKE_FILE)),
@@ -312,6 +321,7 @@ check("and the stock file is under services, not with either",
 # section it really lives in.
 WHERE_EACH_GOES = {
     "me_orders": "/fulfillment/", "me_returns": "/fulfillment/",
+    "me_claims": "/fulfillment/",
     "me_payments": "/payouts/", "me_catalog": "/services/",
 }
 check("each Meesho report goes to the section it really lives in",
@@ -347,8 +357,16 @@ for report_id in tool.every_recipe():
 
 # ------------------------------------------- which platform needs a browser
 
-check("thirteen Flipkart reports still need a browser", answered(lambda: len(tool.on_the_browser_door_for("flipkart")) == 13))
-check("and four Meesho ones", answered(lambda: len(tool.on_the_browser_door_for("meesho")) == 4))
+# **THESE TWO SAID "STILL NEED A BROWSER" AND COUNTED RECIPES, WHICH IS NOT THE
+# SAME NUMBER.** `reports.py` declares fourteen Flipkart reports and seven Meesho
+# ones on this door. Thirteen and four had a recipe. So both checks were green
+# while four declared reports had nothing at all behind them, and nothing
+# anywhere in the project said so -- the door was being measured by what it had
+# built rather than by what it had been asked for. They now say what they count,
+# and the coverage check below is the one that holds the two together.
+check("thirteen Flipkart reports can be fetched by this door",
+      answered(lambda: len(tool.on_the_browser_door_for("flipkart")) == 13))
+check("and five Meesho ones", answered(lambda: len(tool.on_the_browser_door_for("meesho")) == 5))
 # **AMAZON NEEDS NONE, and that is the number the others should fall to.**
 check("Amazon needs none at all", answered(lambda: tool.on_the_browser_door_for("amazon") == ()))
 check("a platform this does not know is refused", answered(lambda: refuses(lambda: tool.on_the_browser_door_for("etsy"))))
@@ -357,6 +375,48 @@ check("a platform this does not know is refused", answered(lambda: refuses(lambd
 # the truth, and exactly the number this is for.
 check("the prefixes are written down rather than derived from the name",
       answered(lambda: tool.PREFIXES["flipkart"] == "fk_"))
+
+# ------------------------------- declared and built, held against each other
+
+# **THE HOLE THIS CLOSES.** `reports.py` is the one list of what Kartaan fetches.
+# This file is how the browser ones are fetched. Nothing anywhere compared the
+# two, so a report could be declared and simply never fetched -- and four were:
+# `fk_keywords`, `me_views`, `me_ads` and `me_claims`. `me_claims` has a recipe
+# now; the ads sweep, declared as the three files it really is, brought two more
+# with it -- so five stand here today. Every check about the door counted
+# recipes, so every check was green.
+#
+# **THE RULE IS NOT "EVERY REPORT HAS A RECIPE".** Some genuinely cannot be
+# fetched by this door yet. The rule is that every one of them is accounted for:
+# built, or named with the reason it is not. A report that is neither is a report
+# nobody will ever notice is missing.
+DECLARED_ON_THE_BROWSER_DOOR = {
+    rid for rid, r in KARTAAN_REPORTS.items() if r.door == NEEDS_A_BROWSER
+}
+check("every report that needs a browser is either built or says why it is not",
+      answered(lambda: DECLARED_ON_THE_BROWSER_DOOR
+               == set(tool.RECIPES) | set(tool.NOT_YET_A_RECIPE)))
+check("and none of them is called both built and not built",
+      answered(lambda: not set(tool.RECIPES) & set(tool.NOT_YET_A_RECIPE)))
+# **NAMED ONE BY ONE RATHER THAN COUNTED.** A count taken from the list it checks
+# moves with the list, so one of these quietly gaining a recipe -- or quietly
+# losing one -- would look like the list simply being a different length. These
+# five are the whole of what this door cannot reach, and the number should fall.
+check("the five it cannot reach are exactly these five",
+      answered(lambda: set(tool.NOT_YET_A_RECIPE) == {
+          "fk_keywords", "me_views", "me_ads", "me_ads_summary", "me_ads_catalog"}))
+check("each of them is a report Kartaan actually declares",
+      answered(lambda: all(rid in KARTAAN_REPORTS for rid in tool.NOT_YET_A_RECIPE)))
+# **A REFUSAL WITHOUT A REASON IS THE THING THE FIELD EXISTS TO PREVENT**, and
+# the same holds here: "there is no recipe" tells the next person nothing at all
+# about whether one can be written.
+check("and each says why, in a sentence somebody can read",
+      answered(lambda: all(len(why.split()) >= 8 for why in tool.NOT_YET_A_RECIPE.values())))
+# The other way round: a recipe for something nobody declared would be fetched
+# every night and land nowhere, because the file it lands as is named from the
+# declaration.
+check("and no recipe exists for something that was never declared",
+      answered(lambda: set(tool.RECIPES) <= set(KARTAAN_REPORTS)))
 
 # ------------------------------------------------------------ the records
 
@@ -430,7 +490,8 @@ check("and the month by name, not by number",
 # control there finds nothing, ever, and every Meesho report would have reported
 # a renamed button that was never a button. Flipkart's dashboard has thirty-two
 # painted controls and eight kinds of role.
-MEESHO_LOOKUPS = [s.find for r in ("me_orders", "me_catalog", "me_returns", "me_payments")
+MEESHO_LOOKUPS = [s.find for r in ("me_orders", "me_catalog", "me_returns", "me_payments",
+                                   "me_claims")
                   for s in (tool.RECIPES[r].to_ask + tool.RECIPES[r].to_take) if s.find]
 FLIPKART_LOOKUPS = [s.find for r in tool.every_recipe() if r.startswith("fk_")
                     for s in (tool.RECIPES[r].to_ask + tool.RECIPES[r].to_take) if s.find]
@@ -503,7 +564,7 @@ check("and none of them names a panel or an address",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 204
+EXPECTED = 217
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

@@ -1436,6 +1436,104 @@
         }
       ]
     },
+    "me_claims": {
+      "readyInMinutes": 0,
+      "toAsk": [],
+      "toTake": [
+        {
+          "do": "go",
+          "find": null,
+          "address": "https://supplier.meesho.com/panel/v3/new/fulfillment/{panel}/claims",
+          "patience": 30,
+          "why": "opening the claims page",
+          "rangeDays": 1
+        },
+        {
+          "do": "wait-for",
+          "find": {
+            "how": "pressable",
+            "what": "Download",
+            "exact": true,
+            "called": "the download menu",
+            "near": ""
+          },
+          "address": "",
+          "patience": 45,
+          "why": "waiting for the claims page to finish drawing",
+          "rangeDays": 1
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "pressable",
+            "what": "Download",
+            "exact": true,
+            "called": "the download menu",
+            "near": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "opening the download menu",
+          "rangeDays": 1
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "pressable",
+            "what": "Export Data",
+            "exact": true,
+            "called": "",
+            "near": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "asking for the export",
+          "rangeDays": 1
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "pressable",
+            "what": "Download",
+            "exact": true,
+            "called": "the download menu",
+            "near": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "opening the download menu again, where the finished file now is",
+          "rangeDays": 1
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "pressable",
+            "what": "Exported Files",
+            "exact": true,
+            "called": "",
+            "near": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "opening the list of files already exported",
+          "rangeDays": 1
+        },
+        {
+          "do": "take-file",
+          "find": {
+            "how": "pressable",
+            "what": "Download",
+            "exact": true,
+            "called": "",
+            "near": "{day_in_words}"
+          },
+          "address": "",
+          "patience": 300,
+          "why": "taking the finished file",
+          "rangeDays": 1
+        }
+      ]
+    },
     "me_orders": {
       "readyInMinutes": 0,
       "toAsk": [],
@@ -1821,6 +1919,10 @@
     "me_catalog": {
       "platform": "meesho",
       "extension": "xlsx"
+    },
+    "me_claims": {
+      "platform": "meesho",
+      "extension": "csv"
     },
     "me_orders": {
       "platform": "meesho",

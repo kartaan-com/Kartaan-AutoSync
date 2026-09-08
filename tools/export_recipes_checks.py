@@ -64,7 +64,7 @@ HELD = answered(tool.what_the_extension_reads) or {}
 
 check("every recipe the Python has crosses",
       set(HELD.get("recipes", {})) == set(book.RECIPES))
-check("and there are seventeen of them, both platforms", len(HELD.get("recipes", {})) == 17)
+check("and there are eighteen of them, both platforms", len(HELD.get("recipes", {})) == 18)
 check("every meaning of a failure crosses",
       set(HELD.get("whatItMeans", {})) == set(language.WHAT_IT_MEANS))
 # **THE WHOLE MAP, not the part the walk happens to use today.** Splitting it is
@@ -146,10 +146,10 @@ check("matching the whole phrase is what most steps do",
 # ------------------------------------------------ the seller's own panel
 
 PANEL_STEPS = [s for s in STEPS if "{panel}" in s["address"]]
-# Five, not four: orders loads its page twice, because Meesho does not show a
-# finished file until the page is loaded again.
+# Six, not five: there are five Meesho recipes, and orders loads its page twice
+# because Meesho does not show a finished file until the page is loaded again.
 check("every Meesho page carries the placeholder for the seller's own slug",
-      len(PANEL_STEPS) == 5)
+      len(PANEL_STEPS) == 6)
 check("and orders carries it twice, because it loads its page twice",
       sum(1 for s in HELD["recipes"]["me_orders"]["toTake"]
           if "{panel}" in s["address"]) == 2)
