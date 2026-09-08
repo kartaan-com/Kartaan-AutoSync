@@ -112,7 +112,19 @@
     {
       "id": "me_ads",
       "platform": "meesho",
-      "name": "Meesho ads",
+      "name": "Meesho ads, campaigns so far",
+      "cannotBeAskedForAgain": "This is a campaign's takings since it began, read on the day it was taken. Meesho keeps no record of what that total stood at on an earlier day, so only the day it was taken can be fetched."
+    },
+    {
+      "id": "me_ads_catalog",
+      "platform": "meesho",
+      "name": "Meesho ads, by catalogue by day",
+      "cannotBeAskedForAgain": null
+    },
+    {
+      "id": "me_ads_summary",
+      "platform": "meesho",
+      "name": "Meesho ads, by campaign by day",
       "cannotBeAskedForAgain": null
     },
     {

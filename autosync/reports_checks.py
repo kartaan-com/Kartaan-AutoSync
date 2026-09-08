@@ -82,7 +82,8 @@ EVERY_ID = (
     "fk_orders", "fk_returns", "fk_payments", "fk_claims", "fk_views", "fk_keywords",
     "fk_listings", "fk_ads_daily", "fk_ads_fsn", "fk_ads_placements", "fk_ads_overall",
     "fk_ads_search", "fk_ads_orders", "fk_ads_kw",
-    "me_orders", "me_returns", "me_payments", "me_claims", "me_catalog", "me_views", "me_ads",
+    "me_orders", "me_returns", "me_payments", "me_claims", "me_catalog", "me_views",
+    "me_ads", "me_ads_summary", "me_ads_catalog",
     "az_orders", "az_settlements", "az_returns",
 )
 check("the report list is exactly what it is meant to be", answered(lambda: tuple(r.id for r in tool.REPORTS) == EVERY_ID))
@@ -259,7 +260,8 @@ check(
     "every report that is only ever a picture of right now says so",
     answered(lambda: all(
         tool.report(rid).cannot_backfill is not None
-        for rid in ("me_catalog", "me_views", "fk_keywords", "fk_listings", "me_returns", "me_claims")
+        for rid in ("me_catalog", "me_views", "fk_keywords", "fk_listings", "me_returns",
+                    "me_claims", "me_ads")
     )),
 )
 check(
@@ -353,7 +355,7 @@ check("and its returns are too",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 82
+EXPECTED = 84
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

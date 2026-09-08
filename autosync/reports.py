@@ -242,7 +242,41 @@ REPORTS: Tuple[Report, ...] = (
            cannot_backfill=_SNAPSHOT),
     Report("me_views", "meesho", "Meesho views", BROWSER, DAILY, "csv",
            cannot_backfill=_SNAPSHOT),
-    Report("me_ads", "meesho", "Meesho ads", BROWSER, DAILY, "xlsx"),
+    # **THREE THINGS COME OUT OF THE ADS SWEEP AND ONLY ONE OF THEM WAS EVER
+    # DECLARED.** Measured in the working reference on 2026-09-08, by reading
+    # every place a Drive folder is named in its own source: its single ads job
+    # writes into THREE folders -- master, summary and catalogue -- and its own
+    # `ME_ADS` folder receives nothing at all. **The `meesho_ads.xlsx` name in
+    # its config is dead**, and that is where the `xlsx` which used to stand here
+    # came from. Every one of the three is a CSV the page builds, so `csv`.
+    #
+    # **THEY ARE THREE REPORTS RATHER THAN ONE BECAUSE THEY ARE THREE FILES.**
+    # Different columns and a different one-row-per-what: a report carries one
+    # extension and lands as one file, so one entry cannot describe three. They
+    # are written the way the seven Flipkart ad reports already are -- one of
+    # them fetches the campaign list and the rest declare they cannot run without
+    # it, so one cause shows as one problem (Rule 10).
+    #
+    # **NONE OF THE THREE CAN BE FETCHED BY THE BROWSER DOOR AS IT STANDS**, and
+    # that is said out loud in `recipes.py` rather than left as a hole.
+    Report("me_ads", "meesho", "Meesho ads, campaigns so far", BROWSER, DAILY, "csv",
+           # **A LIFETIME TOTAL STAMPED WITH THE DAY IT WAS READ.** One row per
+           # live campaign, its takings since it began, written over the same row
+           # every run. Nobody can be asked what that total stood at on a past
+           # day, so a re-fetch under a past day's name is the Class E fault
+           # again -- today's picture filed under the 3rd.
+           cannot_backfill=(
+               "This is a campaign's takings since it began, read on the day it was "
+               "taken. Meesho keeps no record of what that total stood at on an "
+               "earlier day, so only the day it was taken can be fetched."
+           )),
+    # **THESE TWO ASK FOR A DAY AND ARE GIVEN IT.** The campaign details address
+    # is called with the wanted day at both ends of its range, so a past day is a
+    # real thing to ask for and neither carries a refusal.
+    Report("me_ads_summary", "meesho", "Meesho ads, by campaign by day", BROWSER, DAILY, "csv",
+           depends_on=("me_ads",)),
+    Report("me_ads_catalog", "meesho", "Meesho ads, by catalogue by day", BROWSER, DAILY, "csv",
+           depends_on=("me_ads",)),
     # ---- Amazon. **The one platform already approved and documented, with no
     # ---- browser anywhere near it.** This is the report the whole spine gets
     # ---- proven on, precisely because nothing is built there yet and so nothing
