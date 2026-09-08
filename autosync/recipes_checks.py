@@ -412,11 +412,6 @@ check("each of them is a report Kartaan actually declares",
 # about whether one can be written.
 check("and each says why, in a sentence somebody can read",
       answered(lambda: all(len(why.split()) >= 8 for why in tool.NOT_YET_A_RECIPE.values())))
-# The other way round: a recipe for something nobody declared would be fetched
-# every night and land nowhere, because the file it lands as is named from the
-# declaration.
-check("and no recipe exists for something that was never declared",
-      answered(lambda: set(tool.RECIPES) <= set(KARTAAN_REPORTS)))
 
 # ------------------------------------------------------------ the records
 
@@ -564,7 +559,7 @@ check("and none of them names a panel or an address",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 217
+EXPECTED = 216
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

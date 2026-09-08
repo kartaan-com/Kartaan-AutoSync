@@ -295,6 +295,32 @@ check(
     "and the campaign list itself rests on nothing",
     answered(lambda: tool.report("fk_ads_daily").depends_on == ()),
 )
+# **AND NOW EVERY ONE OF THEM, NAMED ONE BY ONE. PUT BACK ON PURPOSE, 2026-09-09:**
+# taking `depends_on` off `me_ads_catalog` went red NOWHERE. Only `fk_ads_fsn`
+# was ever pinned, so a dependency could be dropped from any of the other seven
+# and nothing anywhere would say so -- and the whole point of the field is that
+# ONE cause shows as ONE problem. Without it, a night where the campaign list
+# fails reports eight separate failures again, which is the thing Rule 10 is
+# written against.
+#
+# **THE WHOLE MAP, not a count of it.** A count taken from the list it checks
+# moves with the list. There are two families and they rest on different things:
+# the six Flipkart ad reports on the one that fetches the campaign list, and the
+# two dated Meesho ads files on the sweep that produces them.
+RESTS_ON = {
+    "fk_ads_fsn": ("fk_ads_daily",),
+    "fk_ads_placements": ("fk_ads_daily",),
+    "fk_ads_overall": ("fk_ads_daily",),
+    "fk_ads_search": ("fk_ads_daily",),
+    "fk_ads_orders": ("fk_ads_daily",),
+    "fk_ads_kw": ("fk_ads_daily",),
+    "me_ads_summary": ("me_ads",),
+    "me_ads_catalog": ("me_ads",),
+}
+check(
+    "and every report that rests on another one names it, and no other does",
+    answered(lambda: {r.id: r.depends_on for r in tool.REPORTS if r.depends_on} == RESTS_ON),
+)
 check(
     "when the campaign list fails, a report resting on it is blocked BY IT",
     answered(lambda: tool.blocked_by("fk_ads_fsn", ["fk_ads_daily"]) == "fk_ads_daily"),
@@ -355,7 +381,7 @@ check("and its returns are too",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 84
+EXPECTED = 85
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
