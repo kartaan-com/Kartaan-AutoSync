@@ -12,7 +12,11 @@ the seller's own Chrome, driven by an extension:
     browser.go(address, patience)            -> None, or raises
     browser.find(how, what, exact, patience, near) -> how many things match
     browser.click(how, what, exact, near)    -> None, or raises
-    browser.pick_range(start, end, patience) -> None, or raises
+    browser.pick_range(start, end, patience, also_by_the_cursor)
+                                             -> None, or raises. The last one
+                                                says whether THIS calendar
+                                                switches a day off in the
+                                                cursor as well
     browser.take_file(patience)              -> bytes, or None if nothing came
     browser.wait(seconds)                    -> None, when there is nothing to
                                                 look at and only time to pass
@@ -163,8 +167,14 @@ def do_the_steps(
             # start strictly before the end, so its smallest range is two days --
             # and it names the row it produces by the END date, which is the day
             # actually being fetched.
+            # **AND HOW THIS CALENDAR SWITCHES A DAY OFF GOES WITH IT.** Flipkart
+            # disables a day two different ways and one of them shows only in the
+            # cursor -- its own habit, not a rule of browsers, so the recipe says
+            # which calendar this is rather than the door assuming it of every
+            # one. Dropped here, the second mechanism is caught by nothing.
             browser.pick_range(
-                data_date - timedelta(days=step.range_days - 1), data_date, step.patience
+                data_date - timedelta(days=step.range_days - 1), data_date, step.patience,
+                step.switched_off_days_change_the_cursor,
             )
             continue
 

@@ -365,7 +365,7 @@
     "built": true,
     "reviewed": "2026-08-29, inside a wider review",
     "run_for_real": false,
-    "instead": "157 checks pass. D107 means this file is no longer the thing that walks a portal -- the extension is -- so it can never run for real. Its cost was named when it was chosen: the same walk described in two languages, with nothing mechanical comparing them."
+    "instead": "157 checks pass, and 186 as of 2026-09-10 (A51). D107 means this file is no longer the thing that walks a portal -- the extension is -- so it can never run for real. Its cost was named when it was chosen: the same walk described in two languages, with nothing mechanical comparing them."
    }
   },
   {
@@ -396,6 +396,11 @@
    ],
    "findings": [
     {
+      "what": "**NOTHING ANYWHERE FILLS `{day_in_words}`, so a row named by the day in the platform's own wording is named by a string no page carries.** `walk.js` falls back to the ISO day (`dayInWords || dataDate`) and nothing ever supplies one; `browser_door.py` passes `find.near` through unfilled too. `as_meesho_writes_a_day` decides the wording in `recipes.py` and is called by nothing but its own checks, and it does not cross to the extension at all. **This already breaks `me_returns` and `me_claims`, and from 2026-09-10 it is the one thing between `fk_orders`, `fk_returns` and `fk_payments` and a file.** AND THE TWO PLATFORMS DISAGREE: Meesho writes `1 Sep 2026` with no leading nought, Flipkart's Reports Centre writes `05 Jun 2026` with one -- so one placeholder cannot serve both, and it needs deciding rather than guessing. Found by A51, 2026-09-10, while putting the row match back.",
+      "fixed": false,
+      "proved_by": ""
+    },
+    {
      "what": "The generator writes `src/shared/definitions/reports.json` into ITS OWN checkout, so the copy the ERP's screens read became a hand-copy nothing owned. A reviewer added a report called 'A stream that does not exist' and 179 checks across both repositories passed while the Data tab listed it to a seller.",
      "found": "2026-08-31, by an independent reviewer",
      "fixed": true,
@@ -406,7 +411,7 @@
     "built": true,
     "reviewed": "2026-08-29, inside a wider review; the drift finding came later, 2026-08-31",
     "run_for_real": false,
-    "instead": "265 checks pass. The steps have been walked read-only against his real portals by the extension (see `extension`), but no recipe has ever fetched a file."
+    "instead": "265 checks pass, and 318 as of 2026-09-10 (A51) -- counted off the runs, never carried forward. The steps have been walked read-only against his real portals by the extension (see `extension`), but no recipe has ever fetched a file. **AND FLIPKART'S THREE REPORTS CENTRE REPORTS COULD NOT HAVE REACHED A CALENDAR AT ALL until 2026-09-10:** the recipe went from choosing the report straight to picking a range, and there is no calendar on that page until the date range box is pressed and the Custom chip under it is chosen. Both are in now, in that order, and the Requested row is named by the END of its range rather than by the word Download on its own. **THEY STILL CANNOT FETCH**, for the reason in the finding below."
    }
   },
   {
@@ -777,7 +782,7 @@
     "built": true,
     "reviewed": "2026-09-05 and 2026-09-06, FOUR independent reads (A26R, A26R2 which ran out of budget part way, A26R3, A26R4). Every one of the three that finished found a fault that would otherwise have shipped: a stale tab id that would have navigated the seller's own tab away, a decision number already in use, and a retry loop that could have spent a seller's whole daily Flipkart allowance on one report.",
     "run_for_real": "PARTLY, and only the walking half. On 2026-09-05, unattended, in a window nobody was looking at: me_catalog landed 44,600 real bytes off his real Meesho panel. Both of me_orders' `go` steps were proved to destroy their own page and be picked up again by the next one. NOTHING ELSE HERE HAS RUN FOR REAL.",
-    "instead": "628 JavaScript checks pass, each count read off that file's own last line and never added up by hand -- a count taken the wrong way said 635 on the same day and a reviewer caught it. THE DRIVE HALF HAS NEVER UPLOADED ONE BYTE: `drive.js` is 66 checks against a stand-in Drive, NOTHING IMPORTS IT, and there is no interactive path by which a seller could connect a Drive for the first time. THE NIGHT RUNNER HAS NEVER RUN A NIGHT: `nightly.js` is 58 checks and not one real report has been walked by it -- and its worst fault, the retry loop above, was found by a reviewer driving it rather than by any of these checks. Still never published, never installed as an extension, never met a real Akamai challenge, and it has never signed anybody in."
+    "instead": "628 JavaScript checks pass, and 811 across this item's own files as of 2026-09-10 (A51) -- the calendar driver now reads the SECOND way Flipkart switches a day off, the cursor, and only where the recipe says that calendar does it. Each count read off that file's own last line and never added up by hand -- a count taken the wrong way said 635 on the same day and a reviewer caught it. THE DRIVE HALF HAS NEVER UPLOADED ONE BYTE: `drive.js` is 66 checks against a stand-in Drive, NOTHING IMPORTS IT, and there is no interactive path by which a seller could connect a Drive for the first time. THE NIGHT RUNNER HAS NEVER RUN A NIGHT: `nightly.js` is 58 checks and not one real report has been walked by it -- and its worst fault, the retry loop above, was found by a reviewer driving it rather than by any of these checks. Still never published, never installed as an extension, never met a real Akamai challenge, and it has never signed anybody in."
    }
   },
   {

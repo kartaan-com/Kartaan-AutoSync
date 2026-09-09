@@ -81,6 +81,7 @@ class FakeMeesho:
         self.went = []
         self.clicked = []
         self.ranges = []
+        self.cursor_told_for = []
         self.steps_seen = 0
         # **HOW LONG IT WAS TOLD TO WAIT, kept for every call that can wait.**
         # These numbers are set on every step in the recipe book and none of
@@ -228,8 +229,13 @@ class FakeMeesho:
         self.menu_open = False
         self.shut_since_last_opened = True
 
-    def pick_range(self, start, end, patience):
+    def pick_range(self, start, end, patience, also_by_the_cursor):
         self.ranges.append((start, end))
+        # **WHICH CALENDAR IT IS STANDING IN FRONT OF IS KEPT TOO.** Flipkart
+        # switches a day off two ways and one of them shows only in the cursor;
+        # a stand-in that dropped it would let the recipe say so and the door
+        # never hear it, with nothing anywhere looking wrong.
+        self.cursor_told_for.append(also_by_the_cursor)
         self.patience_told.append(("pick_range", patience))
 
     def take_file(self, patience):
@@ -309,6 +315,11 @@ check("and the bytes are counted", answered(lambda: got.size > 0))
 check("it went straight to the page's address", answered(lambda: any("/orders" in a for a in fake.went)))
 check("and the panel name was filled in", answered(lambda: any(PANEL in a for a in fake.went)))
 check("the date range was set to the day being fetched", answered(lambda: fake.ranges == [(DAY, DAY)]))
+# **AND MEESHO'S CALENDAR IS TOLD THE OPPOSITE, plainly rather than by omission.**
+# "Anything that is not a pointer is switched off" is Flipkart's own habit; read
+# on Meesho's calendar it would refuse days that are perfectly available.
+check("and Meesho's calendar was told it is not one that says so in the cursor",
+      answered(lambda: fake.cursor_told_for == [False]))
 check("and every step said what it was doing", answered(lambda: len(SAID) > 0))
 
 # The catalogue has no date range at all -- it is a picture of right now.
@@ -556,6 +567,15 @@ check("and it carries the day it was asked under", answered(lambda: got.their_id
 check("it pressed Submit", answered(lambda: "Submit" in fake.clicked))
 check("and it set the TWO-day range Flipkart insists on",
       answered(lambda: fake.ranges == [(date(2026, 8, 25), DAY)]))
+# **AND IT TOLD THE DOOR WHICH CALENDAR IT IS STANDING IN FRONT OF.** Flipkart's
+# Reports Centre switches a day off two different ways -- one leaves the day
+# looking ordinary and gives it `pointer-events: none`, the other leaves
+# pointer-events alone entirely and says so only in the cursor. The second is
+# caught by nothing unless the door is told to read the cursor, and it is told
+# only here because an unstyled cell on any other calendar has no pointer cursor
+# either.
+check("and it told the door that this calendar switches a day off in the cursor",
+      answered(lambda: fake.cursor_told_for == [True]))
 
 # The next run collects, and must NOT press Submit again.
 fake = FakeMeesho()
@@ -757,7 +777,7 @@ check("and the book was put back exactly as it was found",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 106
+EXPECTED = 108
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

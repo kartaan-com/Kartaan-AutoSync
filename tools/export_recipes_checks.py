@@ -127,6 +127,26 @@ check("and its two phases are spelt for JavaScript",
       "toAsk" in ONE and "toTake" in ONE and "to_ask" not in ONE and "to_take" not in ONE)
 check("and what to shut and open again between looks is spelt for JavaScript",
       all("lookAgain" in s and "look_again" not in s for s in STEPS))
+# **AND HOW A CALENDAR SWITCHES A DAY OFF, WHICH IS NO USE ON THIS SIDE AT ALL.**
+# The door that presses the day runs in the seller's own Chrome. Said in the
+# Python and not carried across, Flipkart's second way of disabling a day -- the
+# one that shows only in the cursor -- is caught by nothing, and nothing anywhere
+# looks wrong.
+check("a step says how its calendar switches a day off, spelt for JavaScript",
+      all("switchedOffDaysChangeTheCursor" in s for s in STEPS))
+check("and the Python spelling is not also in there",
+      all("switched_off_days_change_the_cursor" not in s for s in STEPS))
+check("and it really crosses as true for the reports centre",
+      all(any(s["do"] == language.PICK_RANGE and s["switchedOffDaysChangeTheCursor"]
+              for s in HELD["recipes"][r]["toAsk"])
+          for r in ("fk_orders", "fk_returns", "fk_payments")))
+# **AND FOR NOTHING ELSE.** Crossing as true everywhere would read exactly like
+# crossing correctly, and would refuse days that are perfectly available.
+check("and as false everywhere else, so a value that crossed true for all would fail here",
+      all(not s["switchedOffDaysChangeTheCursor"]
+          for name, one in HELD["recipes"].items()
+          if name not in ("fk_orders", "fk_returns", "fk_payments")
+          for s in (one["toAsk"] + one["toTake"])))
 
 # ---------------------- the two things Meesho's orders export needs, crossing
 #
@@ -413,7 +433,7 @@ check("no browser report is left out of both lists",
           for one in HELD["reports"] if one["platform"] in THROUGH_THE_BROWSER))
 
 
-EXPECTED = 79
+EXPECTED = 83
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

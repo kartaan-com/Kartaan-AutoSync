@@ -216,6 +216,29 @@ class Step:
     # produces by the END date. A single-day range is simply refused, silently, by
     # a Submit that does nothing.
     range_days: int = 1
+    # **THIS CALENDAR SWITCHES A DAY OFF TWO DIFFERENT WAYS, AND ONE OF THEM CAN
+    # ONLY BE READ IN THE CURSOR.** Both were confirmed live on his own Flipkart
+    # with the browser's own tools, weeks apart, and written into the reference's
+    # own record:
+    #
+    #   - a day whose report period is not open yet keeps every ordinary class
+    #     and is given `pointer-events: none`;
+    #   - a day genuinely outside the range gets a `blocked_out_of_range` class
+    #     which **does not touch pointer-events at all** -- it reports
+    #     `cursor: no-drop` where a day that can be pressed reports
+    #     `cursor: pointer`.
+    #
+    # **ONE CHECK COULD NEVER CATCH BOTH**, which is why the reference reads both
+    # and why it does so on Flipkart's three Reports Centre reports only.
+    #
+    # **AND THAT IS WHY IT IS ASKED FOR HERE RATHER THAN BUILT INTO THE DOOR.**
+    # "Anything that is not a pointer is switched off" is this platform's own
+    # habit, not a rule of browsers -- an ordinary unstyled cell has no pointer
+    # cursor either, and a door that read that everywhere would refuse days that
+    # are perfectly available on some other portal's calendar. So the platform
+    # fact stays in the recipe, like every other platform fact here, and the door
+    # is told which calendar it is standing in front of.
+    switched_off_days_change_the_cursor: bool = False
     # **WHAT TO CLOSE AND OPEN AGAIN BETWEEN LOOKS**, when the thing being looked
     # for is inside a menu that only draws its contents as it opens. See
     # `LookAgain`. It is on the step rather than in the door because which
@@ -257,6 +280,12 @@ def why_step_is_refused(step: Step) -> Optional[str]:
         return "A range has to cover at least one day."
     if step.do != PICK_RANGE and step.range_days != 1:
         return "Only a step that picks a range can say how many days it covers."
+    if step.do != PICK_RANGE and step.switched_off_days_change_the_cursor:
+        # **IT DESCRIBES A CALENDAR, AND ONLY ONE STEP STANDS IN FRONT OF ONE.**
+        # Anywhere else it would read as a rule about the whole page -- and the
+        # day somebody believed that, every ordinary label on the portal would be
+        # a thing this door thought was switched off.
+        return "Only a step that picks a range can say how that calendar switches a day off."
     if step.look_again is not None:
         again = step.look_again
         if step.do != TAKE_FILE:

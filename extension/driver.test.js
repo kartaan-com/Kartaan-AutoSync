@@ -835,6 +835,20 @@ function watchTheDays(panel, y, m) {
   return pressed;
 }
 
+/** Every day cell on a panel, for styling them the way a real one is styled.
+ *  A react-dates day that can be pressed carries `cursor: pointer`; a plain
+ *  stand-in cell carries nothing, which is the difference the cursor rule
+ *  turns on. */
+function everyDayCell(panel) {
+  const found = [];
+  const walk = (node) => {
+    if (node.tagName === 'td') found.push(node);
+    for (const child of node.children) walk(child);
+  };
+  walk(panel);
+  return found;
+}
+
 /** One thing under here carrying that aria-label. */
 function labelled(node, label) {
   if (node.getAttribute('aria-label') === label) return node;
@@ -1011,6 +1025,53 @@ function labelled(node, label) {
   check('and the refusal names the day', refused.includes('2026-08-26'));
   check('and it is not reported as the day being missing',
     !refused.includes('is not on the calendar'));
+}
+
+{
+  /* **THE SECOND WAY THE SAME PORTAL SWITCHES A DAY OFF, WHICH THE CHECK ABOVE
+   * CANNOT SEE AT ALL.** Confirmed with the browser's own tools on 2026-07-14,
+   * a day later than the one above: a day genuinely outside the range gets a
+   * `blocked_out_of_range` class that **leaves pointer-events entirely alone**
+   * and says so only in the cursor -- `no-drop` where a day that really can be
+   * pressed says `pointer`. Two techniques, one grey day on the screen, and one
+   * check could never have caught both.
+   *
+   * **AND IT IS ASKED FOR RATHER THAN ASSUMED, which is the other half of the
+   * lesson.** "Anything that is not a pointer is switched off" is that one
+   * portal's habit and not a rule of browsers, so the same page and the same
+   * cell, with the recipe not saying so, is pressed. */
+  const page = aPage();
+  const door = doorOn();
+  const panel = aMonthPanel(2026, 8, { days: 31 });
+  for (const cell of everyDayCell(panel)) cell.style.cursor = 'pointer';
+  everyDayCell(panel).find((one) => one.textContent === '26').style.cursor = 'no-drop';
+  page.body.append(panel);
+  const refused = await saidAfterWaiting(
+    () => door.pick_range('2026-08-25', '2026-08-26', 0, true));
+  check('on a calendar that says it in the cursor, a day switched off that way is refused',
+    refused.includes('switched off') && refused.includes('2026-08-26'));
+  /* **AND NOT ONE THAT KEEPS ITS POINTER**, or the rule would refuse every day
+   * on the calendar and read exactly like the portal being shut. */
+  const pressed = watchTheDays(panel, 2026, 8);
+  check('and a day on that same calendar that keeps its pointer is still pressed',
+    (await saidAfterWaiting(() => door.pick_range('2026-08-24', '2026-08-25', 0, true))) === ''
+    && JSON.stringify(pressed) === JSON.stringify(['2026-08-24', '2026-08-25']));
+}
+
+{
+  /* **THE SAME CELL, ON A CALENDAR THE RECIPE SAYS NOTHING ABOUT, IS PRESSED.**
+   * An ordinary unstyled cell has no pointer cursor either, so a door that read
+   * the cursor everywhere would refuse days that are perfectly available on
+   * somebody else's portal. That is why this is a fact the recipe carries. */
+  const page = aPage();
+  const door = doorOn();
+  const panel = aMonthPanel(2026, 8, { days: 31 });
+  everyDayCell(panel).find((one) => one.textContent === '26').style.cursor = 'no-drop';
+  const pressed = watchTheDays(panel, 2026, 8);
+  page.body.append(panel);
+  check('the same day on a calendar the recipe says nothing about is pressed as normal',
+    (await saidAfterWaiting(() => door.pick_range('2026-08-25', '2026-08-26'))) === ''
+    && JSON.stringify(pressed) === JSON.stringify(['2026-08-25', '2026-08-26']));
 }
 
 {
@@ -1271,7 +1332,7 @@ function labelled(node, label) {
   check('and neither is nothing at all', theCatcherSaid(null, 'the-secret') === null);
 }
 
-const EXPECTED = 158;
+const EXPECTED = 161;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

@@ -182,10 +182,41 @@ def _reports_centre(kind: str, sub_kind: str, why_it_is: str) -> Recipe:
                  why="starting a new request"),
             Step(CLICK, find=Find(BY_PRESSABLE_TEXT, kind), why=f"choosing {kind}"),
             Step(CLICK, find=Find(BY_PRESSABLE_TEXT, sub_kind), why=f"choosing {sub_kind}"),
+            # **THERE IS NO CALENDAR ON THIS PAGE UNTIL TWO THINGS ARE PRESSED,
+            # and without them the step below has nothing whatever to press days
+            # on.** This went straight from choosing the report to picking a
+            # range, and picking a range on a page with no calendar and no date
+            # boxes can only ever answer "nought were found, so no dates were
+            # set" -- which reads as the portal having changed and is nothing of
+            # the kind.
+            #
+            # **THE REFERENCE'S OWN TWO STEPS, carried across as they are**
+            # (`content/flipkart.js` StepD-0 and StepD, which have opened this
+            # calendar every night for months): the sub-page shows a **Select
+            # Date Range** box with the calendar hidden behind it, and pressing
+            # that box offers a **Custom** chip. Only the chip draws the days.
+            #
+            # **AND THE WAIT FOR THE MONTH HEADING IS THE NEXT STEP'S OWN.** The
+            # reference polls for the heading after the chip; here `pick-range`
+            # already keeps looking for the whole of its patience before it
+            # answers that no calendar was showing, so a third step here would be
+            # a second way of saying one thing.
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Select Date Range",
+                                  called="the date range box"),
+                 patience=30,
+                 why="opening the date range box, which is what the calendar is hidden behind"),
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Custom", called="the custom range chip"),
+                 patience=30, why="choosing a custom range, which is what draws the days"),
             # **TWO DAYS, NOT ONE.** Flipkart requires the start to be strictly
             # before the end; a single-day range is refused by a Submit that does
             # nothing at all, with no message.
+            #
+            # **AND A DAY THIS ONE CALENDAR HAS SWITCHED OFF SAYS SO IN THE
+            # CURSOR AND IN NOTHING ELSE.** Flipkart disables a day two different
+            # ways and only one of them can be read any other way -- see the note
+            # on the step in `browser.py`. No other calendar here is asked.
             Step(PICK_RANGE, range_days=2, patience=30,
+                 switched_off_days_change_the_cursor=True,
                  why="setting the two-day range Flipkart insists on"),
             Step(CLICK, find=Find(BY_ROLE_AND_TEXT, "Submit"), why="submitting the request"),
             # **THE BANNER IS WAITED FOR, and its absence is a real failure.** The
@@ -200,12 +231,35 @@ def _reports_centre(kind: str, sub_kind: str, why_it_is: str) -> Recipe:
                  patience=60, why="waiting for the reports centre to finish drawing"),
             Step(CLICK, find=Find(BY_ROLE_AND_TEXT, "Requested", called="the requested tab"),
                  why="opening the list of requested reports"),
-            # **MATCHED BY THE END DATE OF ITS RANGE.** That is what uniquely names
-            # the row, and it is what the reference matched on too.
-            Step(WAIT_FOR, find=Find(BY_TEXT, "Generated", exact=False, called="a finished report"),
-                 patience=120, why="looking for a finished report"),
-            Step(TAKE_FILE, find=Find(BY_ROLE_AND_TEXT, "Download"), patience=90,
-                 why=f"taking the finished {why_it_is} file"),
+            # **MATCHED BY THE END DATE OF ITS RANGE -- AND UNTIL NOW THIS
+            # COMMENT SAID SO AND THE TWO STEPS UNDER IT DID NOTHING OF THE
+            # KIND.** They looked for the word "Generated" anywhere on the page
+            # and for a "Download" anywhere on the page. **The Requested list
+            # holds every report the seller has ever asked for**, so on any
+            # normal night that finds several Downloads, refuses as ambiguous,
+            # and fetches nothing -- and on the night it finds exactly one, that
+            # one is whichever report happened to be alone, which is worse.
+            #
+            # **WHY THE END DATE AND NOT THE START.** A row reads
+            # `Fulfilment Reports  Orders  05 Jun 2026 To 06 Jun 2026
+            # Generated`. The range asked for is [the day before, the day], so
+            # the END is the day actually being fetched and is the only part of
+            # the row that names it. The reference matches the date after
+            # `" To "` for exactly this reason (`findReportRowDownloadBtn`), and
+            # the word `To` is carried across with it -- without it, last
+            # night's row, whose START is today's day, matches just as well.
+            #
+            # **AND THE WAIT IS NARROWED TOO, not only the taking.** Waiting for
+            # any "Generated" anywhere and then looking for this day's Download
+            # is a wait that passes on somebody else's row and hands the next
+            # step a report that is still being built. The reference asks both
+            # questions of the same row, in one pass.
+            Step(WAIT_FOR, find=Find(BY_TEXT, "Generated", exact=False,
+                                     near="To {day_in_words}", called="a finished report"),
+                 patience=120, why="looking for a finished report for the day being fetched"),
+            Step(TAKE_FILE, find=Find(BY_ROLE_AND_TEXT, "Download", near="To {day_in_words}"),
+                 patience=90,
+                 why=f"taking the finished {why_it_is} file for the day being fetched"),
         ),
     )
 

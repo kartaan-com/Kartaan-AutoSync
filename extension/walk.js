@@ -733,7 +733,15 @@ export function theWalk({
          * start strictly before the end, so its smallest range is two days -- and
          * it names the row it produces by the END date, which is the day actually
          * being fetched. */
-        await door.pick_range(daysBefore(dataDate, (step.rangeDays || 1) - 1), dataDate, step.patience);
+        /* **AND WHICH CALENDAR IT IS STANDING IN FRONT OF GOES WITH IT.**
+         * Flipkart's Reports Centre switches a day off two different ways and
+         * one of them shows only in the cursor -- which is that portal's own
+         * habit, not a rule of browsers, so it is a fact the recipe carries
+         * rather than something the door assumes about every calendar. */
+        await door.pick_range(
+          daysBefore(dataDate, (step.rangeDays || 1) - 1), dataDate, step.patience,
+          Boolean(step.switchedOffDaysChangeTheCursor),
+        );
         continue;
       }
 

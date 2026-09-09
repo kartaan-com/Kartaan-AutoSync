@@ -137,7 +137,15 @@ SHAPES = {
     # is never loaded again, which is what makes it not the orders shape.
     "me_claims": ((), (pages.GO, pages.WAIT_FOR, pages.CLICK, pages.CLICK, pages.CLICK,
                        pages.CLICK, pages.TAKE_FILE)),
+    # **THE THREE REPORTS CENTRE REPORTS PRESS TWO MORE THINGS BEFORE THE RANGE,
+    # and this line said five clicks for as long as they could not have worked.**
+    # There is no calendar on that sub-page at all until the **Select Date Range**
+    # box is pressed and the **Custom** chip under it is chosen -- the reference's
+    # own StepD-0 and StepD. Without them `pick-range` stands in front of a page
+    # with no calendar and no date boxes and can only answer that it found
+    # nought. Rewritten with the change rather than deleted for going red.
     "fk_orders": ((pages.GO, pages.WAIT_FOR, pages.CLICK, pages.CLICK, pages.CLICK,
+                   pages.CLICK, pages.CLICK,
                    pages.PICK_RANGE, pages.CLICK, pages.WAIT_FOR),
                   (pages.GO, pages.WAIT_FOR, pages.CLICK, pages.WAIT_FOR, pages.TAKE_FILE)),
     "fk_views": ((pages.GO, pages.WAIT_FOR, pages.CLICK, pages.PICK_RANGE, pages.CLICK),
@@ -149,9 +157,11 @@ SHAPES = {
     "fk_listings": ((pages.GO, pages.WAIT_FOR, pages.CLICK, pages.CLICK),
                     (pages.GO, pages.WAIT_FOR, pages.CLICK, pages.CLICK, pages.TAKE_FILE)),
     "fk_returns": ((pages.GO, pages.WAIT_FOR, pages.CLICK, pages.CLICK, pages.CLICK,
+                    pages.CLICK, pages.CLICK,
                     pages.PICK_RANGE, pages.CLICK, pages.WAIT_FOR),
                    (pages.GO, pages.WAIT_FOR, pages.CLICK, pages.WAIT_FOR, pages.TAKE_FILE)),
     "fk_payments": ((pages.GO, pages.WAIT_FOR, pages.CLICK, pages.CLICK, pages.CLICK,
+                     pages.CLICK, pages.CLICK,
                      pages.PICK_RANGE, pages.CLICK, pages.WAIT_FOR),
                     (pages.GO, pages.WAIT_FOR, pages.CLICK, pages.WAIT_FOR, pages.TAKE_FILE)),
 }
@@ -179,6 +189,86 @@ RC = ["fk_orders", "fk_returns", "fk_payments"]
 check("the three reports-centre reports are the same shape",
       answered(lambda: len({tuple(s.do for s in tool.recipe(r).to_ask) for r in RC}) == 1))
 check("and all three are two-phase", answered(lambda: all(tool.recipe(r).two_phase for r in RC)))
+
+# ------------------- the Reports Centre calendar, which did not exist yet
+
+# **THERE IS NO CALENDAR ON THAT SUB-PAGE UNTIL TWO THINGS ARE PRESSED, and this
+# recipe went straight from choosing the report to picking a range.** Picking a
+# range on a page with no calendar and no date boxes can only ever answer "nought
+# date boxes were found and no calendar was showing" -- which reads as Flipkart
+# having changed and is nothing of the kind. **The reference's own StepD-0 and
+# StepD**, which have opened this calendar every night for months: press the
+# Select Date Range box, then the Custom chip under it.
+def _asking_words(report_id):
+    return [s.find.what for s in tool.recipe(report_id).to_ask if s.find is not None]
+
+
+def _the_step_before_the_range(report_id):
+    steps = tool.recipe(report_id).to_ask
+    at = [i for i, s in enumerate(steps) if s.do == pages.PICK_RANGE][0]
+    return steps[at - 2], steps[at - 1]
+
+
+check("every reports-centre report opens the date range box",
+      answered(lambda: all("Select Date Range" in _asking_words(r) for r in RC)))
+check("and then chooses a custom range, which is what draws the days",
+      answered(lambda: all("Custom" in _asking_words(r) for r in RC)))
+# **THE ORDER IS THE WHOLE POINT.** Both presses somewhere later in the list would
+# read as done and the range step would still stand in front of a page with no
+# calendar on it.
+check("and both are pressed immediately before the range is picked, in that order",
+      answered(lambda: all(
+          [one.find.what for one in _the_step_before_the_range(r)] == ["Select Date Range", "Custom"]
+          for r in RC)))
+check("and both are pressed, not merely waited for",
+      answered(lambda: all(one.do == pages.CLICK for r in RC for one in _the_step_before_the_range(r))))
+
+# **AND THE CALENDAR IS READ BY THE CURSOR HERE AND NOWHERE ELSE.** Flipkart
+# switches a day off two different ways, confirmed live weeks apart: one leaves
+# the day looking ordinary and gives it `pointer-events: none`, the other leaves
+# pointer-events alone entirely and shows only in the cursor -- `no-drop` where a
+# day that can really be pressed says `pointer`. One check could never catch
+# both. It is asked for on these three and no others because an unstyled cell on
+# anybody else's calendar has no pointer cursor either, so read everywhere it
+# would refuse days that are perfectly available.
+BY_THE_CURSOR = sorted({r for r in tool.every_recipe()
+                        for s in (tool.recipe(r).to_ask + tool.recipe(r).to_take)
+                        if s.switched_off_days_change_the_cursor})
+check("the reports-centre calendar is the one read by the cursor as well",
+      answered(lambda: BY_THE_CURSOR == sorted(RC)))
+check("and every other calendar in the book is not",
+      answered(lambda: all(not s.switched_off_days_change_the_cursor
+                           for r in tool.every_recipe() if r not in RC
+                           for s in (tool.recipe(r).to_ask + tool.recipe(r).to_take))))
+
+# **THE ROW IS NAMED BY THE END OF ITS RANGE, and for a while this was written in
+# a comment and in nothing else.** The Requested list holds every report the
+# seller has ever asked for, so looking for "Download" anywhere on the page finds
+# several and refuses -- and on the night it finds exactly one, that one is
+# whichever report happened to be alone. A row reads `Fulfilment Reports  Orders
+# 05 Jun 2026 To 06 Jun 2026  Generated`; the range asked for is [the day before,
+# the day], so the END names the day being fetched and the START names last
+# night's. **The word `To` is carried across with the day** -- without it, last
+# night's row, whose START is today's day, matches just as well.
+def _collecting(report_id):
+    return [s for s in tool.recipe(report_id).to_take if s.find is not None]
+
+
+check("the reports-centre file is taken from a row named by the day",
+      answered(lambda: all(any(s.do == pages.TAKE_FILE and s.find.near for s in _collecting(r))
+                           for r in RC)))
+check("and the row is named by the END of its range, not by the day on its own",
+      answered(lambda: all(s.find.near.startswith("To ")
+                           for r in RC for s in _collecting(r) if s.find.near)))
+check("and the wait for a finished report is narrowed to that same row",
+      answered(lambda: all(any(s.do == pages.WAIT_FOR and s.find.what == "Generated" and s.find.near
+                               for s in _collecting(r)) for r in RC)))
+# **OR THE WAIT PASSES ON SOMEBODY ELSE'S ROW.** Waiting for any "Generated"
+# anywhere and then looking for this day's Download hands the next step a report
+# that is still being built.
+check("so nothing in the collecting half looks for a row it has not named",
+      answered(lambda: all(s.find.near for r in RC for s in _collecting(r)
+                           if s.do in (pages.TAKE_FILE,) or s.find.what == "Generated")))
 
 # ------------------------------------- TWO-PHASE: asked once, collected later
 
@@ -635,7 +725,7 @@ check("and the panel name was still filled into the addresses on the way",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 225
+EXPECTED = 235
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

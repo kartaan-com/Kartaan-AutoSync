@@ -108,6 +108,20 @@ check("and one day is what a step means unless it says otherwise",
 check("a step that is not a range may not say how many days it covers",
       answered(lambda: tool.why_step_is_refused(tool.Step(tool.GO, address="x", range_days=2, why="y")) is not None))
 check("while a range step may", answered(lambda: tool.why_step_is_refused(tool.Step(tool.PICK_RANGE, range_days=2, why="y")) is None))
+# **AND HOW A CALENDAR SWITCHES A DAY OFF IS THE SAME KIND OF THING.** Flipkart's
+# Reports Centre disables a day two different ways and one of them shows only in
+# the cursor -- that portal's own habit, not a rule of browsers, so it is asked
+# for on the one step that stands in front of a calendar. Anywhere else it would
+# read as a rule about the whole page.
+check("a calendar's own way of switching a day off is not assumed",
+      answered(lambda: tool.Step(tool.PICK_RANGE, why="y").switched_off_days_change_the_cursor is False))
+check("a range step may say that its calendar says it in the cursor",
+      answered(lambda: tool.why_step_is_refused(
+          tool.Step(tool.PICK_RANGE, switched_off_days_change_the_cursor=True, why="y")) is None))
+check("and no other step may say it",
+      answered(lambda: tool.why_step_is_refused(
+          tool.Step(tool.CLICK, find=tool.Find(tool.BY_TEXT, "x"),
+                    switched_off_days_change_the_cursor=True, why="y")) is not None))
 # ------------------------- a step that only waits, and a menu reopened
 
 # **WAITING FOR SOMETHING AND JUST WAITING ARE NOT THE SAME STEP.** Meesho builds
@@ -322,7 +336,7 @@ check("nor a failure once it has happened",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 75
+EXPECTED = 78
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

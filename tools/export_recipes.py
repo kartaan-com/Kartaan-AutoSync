@@ -61,6 +61,7 @@ REPORTS_WHERE = ROOT / REPORTS_SHOWN
 # crosses unchanged, and a check asserts that what came out carries exactly these.
 AS_JAVASCRIPT_SPELLS_IT = {
     "range_days": "rangeDays",
+    "switched_off_days_change_the_cursor": "switchedOffDaysChangeTheCursor",
     "ready_in_minutes": "readyInMinutes",
     "to_ask": "toAsk",
     "to_take": "toTake",
@@ -108,6 +109,13 @@ def a_step(step):
         "patience": step.patience,
         "why": step.why,
         AS_JAVASCRIPT_SPELLS_IT["range_days"]: step.range_days,
+        # **HOW THE CALENDAR THIS STEP STANDS IN FRONT OF SWITCHES A DAY OFF.**
+        # Flipkart's Reports Centre says it in the cursor and in nothing else on
+        # one of its two mechanisms, and that is its own habit rather than a rule
+        # of browsers -- so it crosses as a fact about that calendar. False on
+        # every step but three.
+        AS_JAVASCRIPT_SPELLS_IT["switched_off_days_change_the_cursor"]:
+            step.switched_off_days_change_the_cursor,
         # **A LIST DRAWN WHEN A MENU OPENS DOES NOT CHANGE WHILE IT IS OPEN**, so
         # the step says what to shut and open again between looks. Null on every
         # step but one.

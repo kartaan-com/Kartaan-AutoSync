@@ -18,6 +18,7 @@
           "patience": 30,
           "why": "opening the ads reports page for Consolidated Daily Report",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -33,6 +34,7 @@
           "patience": 60,
           "why": "waiting for the ads page to finish drawing",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -48,6 +50,7 @@
           "patience": 30,
           "why": "opening the other reports tab",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -63,6 +66,7 @@
           "patience": 30,
           "why": "choosing Consolidated Daily Report",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -72,6 +76,7 @@
           "patience": 30,
           "why": "setting the day to fetch",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -87,6 +92,7 @@
           "patience": 90,
           "why": "taking the Consolidated Daily Report file",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         }
       ]
@@ -102,6 +108,7 @@
           "patience": 30,
           "why": "opening the ads reports page for Consolidated FSN Report",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -117,6 +124,7 @@
           "patience": 60,
           "why": "waiting for the ads page to finish drawing",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -132,6 +140,7 @@
           "patience": 30,
           "why": "opening the other reports tab",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -147,6 +156,7 @@
           "patience": 30,
           "why": "choosing Consolidated FSN Report",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -156,6 +166,7 @@
           "patience": 30,
           "why": "setting the day to fetch",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -171,6 +182,7 @@
           "patience": 90,
           "why": "taking the Consolidated FSN Report file",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         }
       ]
@@ -186,6 +198,7 @@
           "patience": 30,
           "why": "opening the ads reports page for Keyword Report",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -201,6 +214,7 @@
           "patience": 60,
           "why": "waiting for the ads page to finish drawing",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -216,6 +230,7 @@
           "patience": 30,
           "why": "opening the other reports tab",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -231,6 +246,7 @@
           "patience": 30,
           "why": "choosing Keyword Report",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -240,6 +256,7 @@
           "patience": 30,
           "why": "setting the day to fetch",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -255,6 +272,7 @@
           "patience": 90,
           "why": "taking the Keyword Report file",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         }
       ]
@@ -270,6 +288,7 @@
           "patience": 30,
           "why": "opening the ads reports page for Campaign Order Report",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -285,6 +304,7 @@
           "patience": 60,
           "why": "waiting for the ads page to finish drawing",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -300,6 +320,7 @@
           "patience": 30,
           "why": "opening the other reports tab",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -315,6 +336,7 @@
           "patience": 30,
           "why": "choosing Campaign Order Report",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -324,6 +346,7 @@
           "patience": 30,
           "why": "setting the day to fetch",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -339,6 +362,7 @@
           "patience": 90,
           "why": "taking the Campaign Order Report file",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         }
       ]
@@ -354,6 +378,7 @@
           "patience": 30,
           "why": "opening the ads reports page for Overall Performance Report",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -369,6 +394,7 @@
           "patience": 60,
           "why": "waiting for the ads page to finish drawing",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -384,6 +410,7 @@
           "patience": 30,
           "why": "opening the other reports tab",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -399,6 +426,7 @@
           "patience": 30,
           "why": "choosing Overall Performance Report",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -408,6 +436,7 @@
           "patience": 30,
           "why": "setting the day to fetch",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -423,6 +452,7 @@
           "patience": 90,
           "why": "taking the Overall Performance Report file",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         }
       ]
@@ -438,6 +468,7 @@
           "patience": 30,
           "why": "opening the ads reports page for Placement Performance Report",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -453,6 +484,7 @@
           "patience": 60,
           "why": "waiting for the ads page to finish drawing",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -468,6 +500,7 @@
           "patience": 30,
           "why": "opening the other reports tab",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -483,6 +516,7 @@
           "patience": 30,
           "why": "choosing Placement Performance Report",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -492,6 +526,7 @@
           "patience": 30,
           "why": "setting the day to fetch",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -507,6 +542,7 @@
           "patience": 90,
           "why": "taking the Placement Performance Report file",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         }
       ]
@@ -522,6 +558,7 @@
           "patience": 30,
           "why": "opening the ads reports page for Search Term Report",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -537,6 +574,7 @@
           "patience": 60,
           "why": "waiting for the ads page to finish drawing",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -552,6 +590,7 @@
           "patience": 30,
           "why": "opening the other reports tab",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -567,6 +606,7 @@
           "patience": 30,
           "why": "choosing Search Term Report",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -576,6 +616,7 @@
           "patience": 30,
           "why": "setting the day to fetch",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -591,6 +632,7 @@
           "patience": 90,
           "why": "taking the Search Term Report file",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         }
       ]
@@ -606,6 +648,7 @@
           "patience": 30,
           "why": "opening the claims page",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -621,6 +664,7 @@
           "patience": 60,
           "why": "waiting for the claims page to finish drawing",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -636,6 +680,7 @@
           "patience": 30,
           "why": "opening the claims tab",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -651,6 +696,7 @@
           "patience": 30,
           "why": "opening the download menu",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -666,6 +712,7 @@
           "patience": 30,
           "why": "choosing the days",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -675,6 +722,7 @@
           "patience": 30,
           "why": "setting the day to fetch",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -690,6 +738,7 @@
           "patience": 90,
           "why": "taking the claims file",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         }
       ]
@@ -704,6 +753,7 @@
           "patience": 30,
           "why": "opening the listings page",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -719,6 +769,7 @@
           "patience": 60,
           "why": "waiting for the listings page to finish drawing",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -734,6 +785,7 @@
           "patience": 30,
           "why": "opening the downloads menu",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -749,6 +801,7 @@
           "patience": 30,
           "why": "asking for the listing file",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         }
       ],
@@ -760,6 +813,7 @@
           "patience": 30,
           "why": "coming back for the listing file",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -775,6 +829,7 @@
           "patience": 60,
           "why": "waiting for the listings page to finish drawing",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -790,6 +845,7 @@
           "patience": 30,
           "why": "opening the downloads menu",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -805,6 +861,7 @@
           "patience": 30,
           "why": "opening the downloads history",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -820,6 +877,7 @@
           "patience": 90,
           "why": "taking the finished listing file",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         }
       ]
@@ -834,6 +892,7 @@
           "patience": 30,
           "why": "opening the reports centre for orders",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -849,6 +908,7 @@
           "patience": 60,
           "why": "waiting for the reports centre to finish drawing",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -864,6 +924,7 @@
           "patience": 30,
           "why": "starting a new request",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -879,6 +940,7 @@
           "patience": 30,
           "why": "choosing Fulfilment Reports",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -894,6 +956,39 @@
           "patience": 30,
           "why": "choosing Orders",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "pressable",
+            "what": "Select Date Range",
+            "exact": true,
+            "called": "the date range box",
+            "near": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "opening the date range box, which is what the calendar is hidden behind",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "pressable",
+            "what": "Custom",
+            "exact": true,
+            "called": "the custom range chip",
+            "near": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "choosing a custom range, which is what draws the days",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -903,6 +998,7 @@
           "patience": 30,
           "why": "setting the two-day range Flipkart insists on",
           "rangeDays": 2,
+          "switchedOffDaysChangeTheCursor": true,
           "lookAgain": null
         },
         {
@@ -918,6 +1014,7 @@
           "patience": 30,
           "why": "submitting the request",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -933,6 +1030,7 @@
           "patience": 45,
           "why": "confirming Flipkart took the request",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         }
       ],
@@ -944,6 +1042,7 @@
           "patience": 30,
           "why": "coming back for orders",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -959,6 +1058,7 @@
           "patience": 60,
           "why": "waiting for the reports centre to finish drawing",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -974,6 +1074,7 @@
           "patience": 30,
           "why": "opening the list of requested reports",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -983,12 +1084,13 @@
             "what": "Generated",
             "exact": false,
             "called": "a finished report",
-            "near": ""
+            "near": "To {day_in_words}"
           },
           "address": "",
           "patience": 120,
-          "why": "looking for a finished report",
+          "why": "looking for a finished report for the day being fetched",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -998,12 +1100,13 @@
             "what": "Download",
             "exact": true,
             "called": "",
-            "near": ""
+            "near": "To {day_in_words}"
           },
           "address": "",
           "patience": 90,
-          "why": "taking the finished orders file",
+          "why": "taking the finished orders file for the day being fetched",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         }
       ]
@@ -1018,6 +1121,7 @@
           "patience": 30,
           "why": "opening the reports centre for payments",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1033,6 +1137,7 @@
           "patience": 60,
           "why": "waiting for the reports centre to finish drawing",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1048,6 +1153,7 @@
           "patience": 30,
           "why": "starting a new request",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1063,6 +1169,7 @@
           "patience": 30,
           "why": "choosing Payment Reports",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1078,6 +1185,39 @@
           "patience": 30,
           "why": "choosing Settled Transactions",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "pressable",
+            "what": "Select Date Range",
+            "exact": true,
+            "called": "the date range box",
+            "near": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "opening the date range box, which is what the calendar is hidden behind",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "pressable",
+            "what": "Custom",
+            "exact": true,
+            "called": "the custom range chip",
+            "near": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "choosing a custom range, which is what draws the days",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1087,6 +1227,7 @@
           "patience": 30,
           "why": "setting the two-day range Flipkart insists on",
           "rangeDays": 2,
+          "switchedOffDaysChangeTheCursor": true,
           "lookAgain": null
         },
         {
@@ -1102,6 +1243,7 @@
           "patience": 30,
           "why": "submitting the request",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1117,6 +1259,7 @@
           "patience": 45,
           "why": "confirming Flipkart took the request",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         }
       ],
@@ -1128,6 +1271,7 @@
           "patience": 30,
           "why": "coming back for payments",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1143,6 +1287,7 @@
           "patience": 60,
           "why": "waiting for the reports centre to finish drawing",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1158,6 +1303,7 @@
           "patience": 30,
           "why": "opening the list of requested reports",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1167,12 +1313,13 @@
             "what": "Generated",
             "exact": false,
             "called": "a finished report",
-            "near": ""
+            "near": "To {day_in_words}"
           },
           "address": "",
           "patience": 120,
-          "why": "looking for a finished report",
+          "why": "looking for a finished report for the day being fetched",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1182,12 +1329,13 @@
             "what": "Download",
             "exact": true,
             "called": "",
-            "near": ""
+            "near": "To {day_in_words}"
           },
           "address": "",
           "patience": 90,
-          "why": "taking the finished payments file",
+          "why": "taking the finished payments file for the day being fetched",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         }
       ]
@@ -1202,6 +1350,7 @@
           "patience": 30,
           "why": "opening the reports centre for returns",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1217,6 +1366,7 @@
           "patience": 60,
           "why": "waiting for the reports centre to finish drawing",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1232,6 +1382,7 @@
           "patience": 30,
           "why": "starting a new request",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1247,6 +1398,7 @@
           "patience": 30,
           "why": "choosing Fulfilment Reports",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1262,6 +1414,39 @@
           "patience": 30,
           "why": "choosing Returns",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "pressable",
+            "what": "Select Date Range",
+            "exact": true,
+            "called": "the date range box",
+            "near": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "opening the date range box, which is what the calendar is hidden behind",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "pressable",
+            "what": "Custom",
+            "exact": true,
+            "called": "the custom range chip",
+            "near": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "choosing a custom range, which is what draws the days",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1271,6 +1456,7 @@
           "patience": 30,
           "why": "setting the two-day range Flipkart insists on",
           "rangeDays": 2,
+          "switchedOffDaysChangeTheCursor": true,
           "lookAgain": null
         },
         {
@@ -1286,6 +1472,7 @@
           "patience": 30,
           "why": "submitting the request",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1301,6 +1488,7 @@
           "patience": 45,
           "why": "confirming Flipkart took the request",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         }
       ],
@@ -1312,6 +1500,7 @@
           "patience": 30,
           "why": "coming back for returns",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1327,6 +1516,7 @@
           "patience": 60,
           "why": "waiting for the reports centre to finish drawing",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1342,6 +1532,7 @@
           "patience": 30,
           "why": "opening the list of requested reports",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1351,12 +1542,13 @@
             "what": "Generated",
             "exact": false,
             "called": "a finished report",
-            "near": ""
+            "near": "To {day_in_words}"
           },
           "address": "",
           "patience": 120,
-          "why": "looking for a finished report",
+          "why": "looking for a finished report for the day being fetched",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1366,12 +1558,13 @@
             "what": "Download",
             "exact": true,
             "called": "",
-            "near": ""
+            "near": "To {day_in_words}"
           },
           "address": "",
           "patience": 90,
-          "why": "taking the finished returns file",
+          "why": "taking the finished returns file for the day being fetched",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         }
       ]
@@ -1386,6 +1579,7 @@
           "patience": 30,
           "why": "opening the traffic report",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1401,6 +1595,7 @@
           "patience": 60,
           "why": "waiting for the traffic report to finish drawing",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1416,6 +1611,7 @@
           "patience": 30,
           "why": "opening the date range dropdown",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1425,6 +1621,7 @@
           "patience": 30,
           "why": "setting the day to fetch",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1440,6 +1637,7 @@
           "patience": 30,
           "why": "asking Flipkart to build the report",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         }
       ],
@@ -1451,6 +1649,7 @@
           "patience": 30,
           "why": "coming back for the traffic report",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1466,6 +1665,7 @@
           "patience": 120,
           "why": "waiting for the finished report",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1481,6 +1681,7 @@
           "patience": 90,
           "why": "taking the finished traffic file",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         }
       ]
@@ -1496,6 +1697,7 @@
           "patience": 30,
           "why": "opening the inventory page",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1511,6 +1713,7 @@
           "patience": 45,
           "why": "waiting for the inventory page to finish drawing",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1526,6 +1729,7 @@
           "patience": 30,
           "why": "opening the bulk stock panel",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1541,6 +1745,7 @@
           "patience": 60,
           "why": "taking the stock file",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         }
       ]
@@ -1556,6 +1761,7 @@
           "patience": 30,
           "why": "opening the claims page",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1571,6 +1777,7 @@
           "patience": 45,
           "why": "waiting for the claims page to finish drawing",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1586,6 +1793,7 @@
           "patience": 30,
           "why": "opening the download menu",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1601,6 +1809,7 @@
           "patience": 30,
           "why": "asking for the export",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1616,6 +1825,7 @@
           "patience": 30,
           "why": "opening the download menu again, where the finished file now is",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1631,6 +1841,7 @@
           "patience": 30,
           "why": "opening the list of files already exported",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1646,6 +1857,7 @@
           "patience": 300,
           "why": "taking the finished file",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         }
       ]
@@ -1661,6 +1873,7 @@
           "patience": 30,
           "why": "opening the orders page",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1676,6 +1889,7 @@
           "patience": 45,
           "why": "waiting for the orders page to finish drawing",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1691,6 +1905,7 @@
           "patience": 30,
           "why": "opening the download menu",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1706,6 +1921,7 @@
           "patience": 30,
           "why": "choosing which days to export",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1715,6 +1931,7 @@
           "patience": 20,
           "why": "setting the day to export",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1730,6 +1947,7 @@
           "patience": 30,
           "why": "asking for the export",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1739,6 +1957,7 @@
           "patience": 35,
           "why": "waiting for Meesho to finish building the file, because the list below is drawn as the page loads and a page loaded too early is loaded without it",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1748,6 +1967,7 @@
           "patience": 60,
           "why": "loading the page again, which is the only way the finished file appears",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1763,6 +1983,7 @@
           "patience": 60,
           "why": "waiting for the orders page to finish drawing again",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1778,6 +1999,7 @@
           "patience": 30,
           "why": "opening the download menu again, where the finished file now is",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1793,6 +2015,7 @@
           "patience": 30,
           "why": "taking the finished file",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": {
             "by": {
               "how": "pressable",
@@ -1818,6 +2041,7 @@
           "patience": 30,
           "why": "opening the payments page",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1833,6 +2057,7 @@
           "patience": 45,
           "why": "waiting for the payments page to finish drawing",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1848,6 +2073,7 @@
           "patience": 30,
           "why": "opening the download menu",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1863,6 +2089,7 @@
           "patience": 30,
           "why": "choosing the payments export",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1878,6 +2105,7 @@
           "patience": 30,
           "why": "opening the date range",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1887,6 +2115,7 @@
           "patience": 30,
           "why": "setting the day, which Meesho then ignores",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1902,6 +2131,7 @@
           "patience": 120,
           "why": "taking the finished file",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         }
       ]
@@ -1917,6 +2147,7 @@
           "patience": 30,
           "why": "opening the returns page",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1932,6 +2163,7 @@
           "patience": 45,
           "why": "waiting for the returns page to finish drawing",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1947,6 +2179,7 @@
           "patience": 30,
           "why": "opening return tracking",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1962,6 +2195,7 @@
           "patience": 30,
           "why": "opening the panel that exports and lists the files",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1977,6 +2211,7 @@
           "patience": 30,
           "why": "asking for the export",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         },
         {
@@ -1992,6 +2227,7 @@
           "patience": 120,
           "why": "taking the finished file",
           "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null
         }
       ]

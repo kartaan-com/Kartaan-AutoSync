@@ -508,15 +508,27 @@ function theWayToAnotherMonth(forwards) {
  * the step after it fails saying something unrelated -- which is exactly the
  * shape of failure this whole file exists to stop.
  *
- * **ONLY THE HALF THAT CANNOT BE ARGUED WITH IS TAKEN ACROSS.** The reference
- * also treats any cursor that is not a pointer as switched off. That is true of
- * Flipkart and is a platform's own habit, not a browser's rule -- an ordinary
- * cell with no styling has no pointer cursor either, and reading that as
- * "switched off" would refuse days that are perfectly available.
+ * **AND THERE IS A SECOND MECHANISM WHICH NOTHING ABOVE CAN SEE.** A day
+ * genuinely outside the range gets a `blocked_out_of_range` class that **does
+ * not touch pointer-events at all** -- confirmed live with the browser's own
+ * tools a day later: such a cell reports `cursor: no-drop`, and a cell that can
+ * really be pressed reports `cursor: pointer`. Same grey day on the screen, two
+ * different techniques underneath, and one check could never catch both.
+ *
+ * **SO THE SECOND HALF IS ASKED FOR RATHER THAN ASSUMED, and that is the whole
+ * of why it is an argument.** "Anything that is not a pointer is switched off"
+ * is that one portal's habit and not a rule of browsers -- an ordinary unstyled
+ * cell has no pointer cursor either, so a door that read it everywhere would
+ * refuse days that are perfectly available on somebody else's calendar. The
+ * recipe says which calendar this is; this file still knows no platform.
  */
-function cannotBePressedAtAll(node) {
+function cannotBePressedAtAll(node, alsoByTheCursor = false) {
   if (isSwitchedOff(node)) return true;
-  return String(globalThis.getComputedStyle(node).pointerEvents || '').toLowerCase() === 'none';
+  if (String(globalThis.getComputedStyle(node).pointerEvents || '').toLowerCase() === 'none') {
+    return true;
+  }
+  if (!alsoByTheCursor) return false;
+  return String(globalThis.getComputedStyle(node).cursor || '').toLowerCase() !== 'pointer';
 }
 
 /* --------------------------------------------------------------- the door */
@@ -661,7 +673,7 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
    * date exports the wrong days, and a file of the wrong days is worse than no
    * file, because nothing about it looks wrong afterwards.
    */
-  async function pickRange(start, end, patienceSeconds = 0) {
+  async function pickRange(start, end, patienceSeconds = 0, switchedOffDaysChangeTheCursor = false) {
     const giveUpAt = Date.now() + Math.max(0, Number(patienceSeconds) || 0) * 1000;
     for (;;) {
       /* **WAITED FOR, because a date picker is drawn by the click before it.**
@@ -679,11 +691,11 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
        * a strategy in that state is the guess this whole file exists to
        * refuse. */
       if (boxes.length === 0 && everyMonthOnShow().length > 0) {
-        await clickTheDay(start);
+        await clickTheDay(start, switchedOffDaysChangeTheCursor);
         /* HALF A SECOND BETWEEN THE TWO, WHICH IS THE REFERENCE'S OWN NUMBER.
          * A range picker redraws itself once the first day is taken. */
         await rest(BETWEEN_THE_TWO_DAYS_MS);
-        await clickTheDay(end);
+        await clickTheDay(end, switchedOffDaysChangeTheCursor);
         return;
       }
       if (Date.now() >= giveUpAt) {
@@ -704,7 +716,7 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
    * calendar to the month the day is in, find the one cell that is that day,
    * and refuse rather than press anything ambiguous or switched off.
    */
-  async function clickTheDay(iso) {
+  async function clickTheDay(iso, switchedOffDaysChangeTheCursor = false) {
     const day = aDay(iso);
     if (!day) {
       throw new Error(`"${iso}" is not a day, so it cannot be found on a calendar. No dates were set.`);
@@ -734,13 +746,18 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
         + 'cannot be known. No dates were set.'
       );
     }
-    if (cannotBePressedAtAll(cells[0])) {
+    if (cannotBePressedAtAll(cells[0], switchedOffDaysChangeTheCursor)) {
       /* **SAID, NOT SWALLOWED, and this is read off his own Flipkart on
        * 2026-07-13.** A day whose report period the portal has not opened yet
        * keeps its ordinary look and is given `pointer-events: none` -- so a
        * click on it does nothing whatever, and the step AFTER this one fails
        * saying something unrelated. It is also not a fault: the day becomes
-       * available later, and the night is meant to come back for it. */
+       * available later, and the night is meant to come back for it.
+       *
+       * **AND ON A CALENDAR THAT SAYS SO IN THE CURSOR, THAT IS ASKED TOO.**
+       * Flipkart's second way of switching a day off leaves pointer-events
+       * alone entirely, so the line above sees nothing at all -- see
+       * `cannotBePressedAtAll`. Which calendar this is comes from the recipe. */
       throw new Error(
         `${iso} is on the calendar but the portal has it switched off, which is what it does `
         + 'with a day whose report it has not built yet. No dates were set.'

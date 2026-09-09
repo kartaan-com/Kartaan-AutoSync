@@ -160,7 +160,8 @@ const BOOK = {
       toAsk: [
         step({ do: 'go', address: 'https://seller.example.invalid/report-centre',
           why: 'opening the reports centre' }),
-        step({ do: 'pick-range', rangeDays: 2, why: "setting the two-day range Flipkart insists on" }),
+        step({ do: 'pick-range', rangeDays: 2, switchedOffDaysChangeTheCursor: true,
+          why: "setting the two-day range Flipkart insists on" }),
         step({ do: 'click', find: find('Submit'), why: 'submitting the request' }),
       ],
       toTake: [
@@ -237,7 +238,7 @@ const aMoment = (ms = 0) => new Promise((done) => { setTimeout(done, ms); });
 
 function aPortal(how = {}) {
   const it = {
-    went: [], clicked: [], ranges: [], stepsSeen: 0, patienceTold: [], tookFile: 0,
+    went: [], clicked: [], ranges: [], cursorToldFor: [], stepsSeen: 0, patienceTold: [], tookFile: 0,
     handedOver: [], turns: 0, waited: [], clickedAway: 0,
     /* **THE MENU, AS MEESHO REALLY BEHAVES.** Its list of finished exports is
      * drawn AS it opens and never again while it is open. So this holds the two
@@ -418,8 +419,15 @@ function aPortal(how = {}) {
       it.waited.push(seconds);
       it.whatHappened.push(`waited ${seconds}`);
     },
-    async pick_range(from, to, patience) {
+    /* **WHICH CALENDAR IT IS STANDING IN FRONT OF IS RECORDED TOO.** Flipkart's
+     * Reports Centre switches a day off two different ways and one of them shows
+     * only in the cursor -- that portal's own habit, so the recipe carries it
+     * and the door has to be told. A stand-in that dropped it would let a recipe
+     * say so while the door never heard it, which is the exact shape of "the
+     * comment said it and the code did not". */
+    async pick_range(from, to, patience, alsoByTheCursor) {
       it.ranges.push([from, to]);
+      it.cursorToldFor.push(alsoByTheCursor);
       it.patienceTold.push(['pick_range', patience]);
     },
     async take_file(patience) {
@@ -703,6 +711,26 @@ check('asked to step back by nothing at all, it answers the day itself',
   const portal = aPortal();
   await aWalk(portal)('me_catalog', DAY);
   check('a snapshot report is not asked for a date range', portal.ranges.length === 0);
+}
+
+{
+  /* **HOW A CALENDAR SWITCHES A DAY OFF REACHES THE DOOR, OR IT MIGHT AS WELL
+   * NOT BE IN THE RECIPE.** Flipkart's Reports Centre has two mechanisms and one
+   * of them shows only in the cursor; the door refuses to read the cursor unless
+   * it is told to, because an ordinary unstyled cell has no pointer cursor
+   * either. Said in the recipe and dropped on the way, the second mechanism is
+   * caught by nothing at all -- and nothing in the walk would look wrong. */
+  const flipkart = aPortal();
+  await aWalk(flipkart)('fk_orders', DAY);
+  check('a calendar the recipe says reads the cursor is passed on as such',
+    JSON.stringify(flipkart.cursorToldFor) === JSON.stringify([true]));
+  /* **AND EVERY OTHER CALENDAR IS TOLD THE OPPOSITE, not merely left unsaid.**
+   * Undefined would read as false today and is one careless default away from
+   * reading as true. */
+  const meesho = aPortal();
+  await aWalk(meesho)('me_orders', DAY);
+  check('and a calendar that says nothing about it is told so plainly',
+    JSON.stringify(meesho.cursorToldFor) === JSON.stringify([false]));
 }
 
 {
@@ -1584,7 +1612,7 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
     TOO_BIG_TO_CARRY === TOO_BIG);
 }
 
-const EXPECTED = 217;
+const EXPECTED = 219;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;
