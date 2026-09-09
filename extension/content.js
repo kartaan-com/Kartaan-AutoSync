@@ -215,6 +215,16 @@
   const walk = theWalk({
     door,
     book,
+    /* **ARMED WHEN THE WALK SAYS TO, AND THE WALK SAYS IMMEDIATELY BEFORE THE
+     * CLICK THAT BUILDS THE FILE (A44).** It is still armed once at the top of
+     * every turn as well, below -- that same message is what arms the
+     * download-cancel in the background half. What this adds is a SECOND arming
+     * at the click, which throws away anything caught while the page was drawing
+     * and starts waiting for a fresh secret.
+     *
+     * **WHEN is a decision, and a decision does not belong in this file**, which
+     * has no checks by design. `walk.js` decides, says why, and is checked. */
+    armTheCatcher,
     say: (line) => chrome.runtime.sendMessage({ do: 'say', line }),
     /* **WHERE THE BYTES FINALLY GO.** The walk takes the file; until this line
      * existed it counted the bytes and dropped them, and `drive.js` -- finished

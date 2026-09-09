@@ -156,7 +156,15 @@ check('and the words each failure means', Object.keys(BOOK.whatItMeans).length >
 function aPortal(how = {}) {
   const it = {
     went: [], clicked: [], ranges: [], tookFile: 0, handedOver: [], turns: 0, putAway: [],
+    /* **WHAT HAPPENED AND IN WHAT ORDER (A44).** The catcher for a file the page
+     * builds inside itself must be armed AFTER the lookup and immediately before
+     * the click that builds it -- armed any earlier and it sits armed through the
+     * whole of the portal drawing itself, where any script on the page can hand
+     * over a file of its own and be caught instead. This is where that is proved
+     * against HIS OWN recipes rather than a stand-in book. */
+    whatHappened: [],
   };
+  it.armTheCatcher = async () => { it.whatHappened.push('armed'); };
   /* **WHERE THE BYTES GO.** Recorded rather than answered "yes": a stand-in that
    * agreed would leave every recipe below looking perfectly walked with the file
    * on the floor, which is the state this whole wiring closes. */
@@ -169,9 +177,13 @@ function aPortal(how = {}) {
     async needs_signing_in() { return Boolean(how.signedOut); },
     async overlays() { return []; },
     async find(kind, what) { return how.matches && what in how.matches ? how.matches[what] : 1; },
-    async click(kind, what) { it.clicked.push(what); },
+    async click(kind, what) { it.clicked.push(what); it.whatHappened.push(`clicked ${what}`); },
     async pick_range(from, to) { it.ranges.push([from, to]); },
-    async take_file() { it.tookFile += 1; return new Uint8Array([1, 2, 3]); },
+    async take_file() {
+      it.tookFile += 1;
+      it.whatHappened.push('took the file');
+      return new Uint8Array([1, 2, 3]);
+    },
     async page_text() { return 'Welcome back'; },
   };
   return it;
@@ -196,6 +208,7 @@ function aWalk(portal) {
        * page held survives into the next one. */
       const walking = theWalk({
         door: portal.door, book: BOOK, say: () => {}, putTheFile: portal.putTheFile,
+        armTheCatcher: portal.armTheCatcher,
       });
       // eslint-disable-next-line no-await-in-loop
       const answer = await walking(reportId, day, { panel: PANEL, startAt, ...rest });
@@ -226,6 +239,41 @@ function aWalk(portal) {
     !portal.went.some((one) => one.includes('{panel}')));
   check('the day being fetched was set', portal.ranges.length === 1 && portal.ranges[0][1] === DAY);
   check('and a file was taken', portal.tookFile === 1);
+}
+
+{
+  /* **EVERY ONE OF HIS REAL RECIPES ARMS THE CATCHER IMMEDIATELY BEFORE THE
+   * CLICK THAT TAKES ITS FILE (A44), AND THAT IS CHECKED AGAINST THE REAL BOOK
+   * RATHER THAN A STAND-IN ONE.**
+   *
+   * **WHY IT MATTERS THAT IT IS EVERY ONE.** The catcher used to be armed once
+   * at the start of every walk turn, before the first step ran, and the file is
+   * not asked for until the last. In between the portal draws itself -- 10 to 25
+   * seconds, measured on his own Flipkart account -- and any script on that page
+   * can call `URL.createObjectURL` with a file of its own and be caught instead.
+   * Those bytes go on to `land-the-file`, `drive.js` replaces the genuine file of
+   * that day under the genuine report name, and the Python reads it into the
+   * seller's ledger as real sales.
+   *
+   * **AND THIS IS WHERE A RECIPE THAT DID NOT FIT WOULD SHOW UP.** Every recipe
+   * in the book today takes its file in a step that does its own lookup and its
+   * own click. The day somebody writes one whose file arrives from an earlier
+   * click, this goes red -- and that recipe needs its own answer, not a wider
+   * window for everybody. */
+  const armedLate = [];
+  for (const reportId of Object.keys(BOOK.recipes)) {
+    const portal = aPortal();
+    // eslint-disable-next-line no-await-in-loop
+    const got = await aWalk(portal)(reportId, DAY, { panel: PANEL, askedAlready: DAY });
+    if (got.state !== LANDED) continue;
+    const order = portal.whatHappened.join(' -> ');
+    const last = order.lastIndexOf('armed');
+    const rest = order.slice(last);
+    if (!/^armed -> clicked [^>]+ -> took the file$/.test(rest)) armedLate.push(reportId);
+  }
+  check(`every recipe that lands a file arms the catcher immediately before the click that `
+    + `builds it -- ${armedLate.join(', ') || 'none late'}`,
+    armedLate.length === 0);
 }
 
 {
@@ -264,6 +312,7 @@ function aWalk(portal) {
    * dropped for the other. */
   const walking = theWalk({
     door: aPortal().door, book: BOOK, say: () => {}, putTheFile: async () => ({}),
+    armTheCatcher: async () => {},
   });
   const got = await walking('me_orders', DAY, { panel: '' });
   check('a Meesho report with no panel name refuses', got.state === FAILED);
@@ -328,7 +377,7 @@ function aWalk(portal) {
     && portal.putAway[0].size === 3);
 }
 
-const EXPECTED = 34;
+const EXPECTED = 35;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

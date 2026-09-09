@@ -271,6 +271,21 @@ export function theWalk({
    * the seller's report, report LANDED, and put it nowhere -- which is exactly
    * the state this closes, and it would look identical to working. */
   putTheFile,
+  /* **ARMING THE CATCHER FOR THE NEXT FILE THE PAGE BUILDS INSIDE ITSELF (A44).**
+   *
+   * **HANDED IN LIKE `putTheFile`, AND NOT ON THE DOOR, FOR THE REASON THE DOOR
+   * SAYS AT THE TOP OF ITSELF.** The door is the eight calls the Python side
+   * makes, spelt the way the Python spells them -- and the Python has no catcher
+   * to arm, because a file built inside a page only exists in a browser. A ninth
+   * call would be a spelling the two halves do not share, which is the fault this
+   * project has been caught by four times.
+   *
+   * **AND IT IS REQUIRED, NOT OPTIONAL, WHICH IS SECURITY RATHER THAN
+   * TIDINESS.** A walk built without it never arms for the file it is about to
+   * ask for, so a file the page builds inside itself never arrives at all -- and
+   * that failure wears the clothes of a portal that renamed a button, which is a
+   * month of looking in the wrong place. */
+  armTheCatcher,
 }) {
   if (!door) throw new Error('A walk needs a door to the page.');
   if (!book || !book.recipes) throw new Error('A walk needs the book of recipes.');
@@ -279,6 +294,13 @@ export function theWalk({
     throw new Error(
       'A walk needs somewhere to put the file it takes. Without one it would fetch the '
       + "seller's report and drop it, and report that it had landed."
+    );
+  }
+  /* Asked last, so the refusals above keep their own words. */
+  if (typeof armTheCatcher !== 'function') {
+    throw new Error(
+      'A walk needs a way of arming the catcher for the next file the page builds inside '
+      + 'itself. Without one, a file that only ever exists inside the page would never arrive.'
     );
   }
 
@@ -398,6 +420,59 @@ export function theWalk({
           doing: step.why, matches: many,
         }) };
       }
+      /* **THE CATCHER IS ARMED HERE, AND NOWHERE EARLIER (A44).**
+       *
+       * **WHAT WAS WRONG WITH EARLIER.** `content.js` armed it at the start of
+       * every walk turn, before the first step ran -- and the file is not asked
+       * for until the last one. In between, the portal draws itself (10 to 25
+       * seconds, measured on his own Flipkart account) with the catcher sitting
+       * armed the whole time. A portal page is somebody else's code carrying
+       * somebody else's adverts, and **any script on it can call
+       * `URL.createObjectURL` with a file of its own and be caught** -- it does
+       * not have to stand in front of anything, it stands beside it. The catcher
+       * is spent on the first file that comes past, `content.js` takes the first
+       * message it accepts, and the genuine Download that follows is ignored.
+       * Those bytes go on to `land-the-file`, `drive.js` REPLACES the genuine
+       * file of that day under the genuine report name, and the Python reads it
+       * into the seller's ledger as real sales. **Not a crash: wrong money in a
+       * seller's books, silently, under a real report name.**
+       *
+       * **WHY THIS IS THE LAST HONEST MOMENT.** Every recipe in this product
+       * takes its file in a step that does its own lookup and its own click, and
+       * that click is what makes the page build the file. So this is after the
+       * lookup -- which may wait out its whole patience on a slow morning -- and
+       * immediately before the click. There is no later moment, and an earlier
+       * one is only a wider window.
+       *
+       * **ARMING AFRESH ALSO THROWS AWAY ANYTHING ALREADY CAUGHT.**
+       * `content.js` clears what it is holding and starts waiting for a new
+       * secret, so a file caught during the draw is not merely un-believed --
+       * it is gone. That is the half of this that actually matters.
+       *
+       * **AND THIS IS NOT A FIX. IT IS A NARROWING, AND IT IS WRITTEN DOWN AS
+       * ONE.** A script that simply keeps calling `URL.createObjectURL` is
+       * caught the instant this arming lands, however close to the click it
+       * happens -- the arming is a round trip to the background and the page's
+       * own scripts run during it. **The hole is not closed and cannot be closed
+       * from here**: `catch-blob.js` says in its own header that a page which has
+       * replaced `window.postMessage` sees the genuine message, secret and all,
+       * before `content.js` does. There is no pristine copy to be had in the
+       * page's own world. `walk.test.js` pins the fault that is left, and the
+       * check goes red the day it is really closed.
+       *
+       * **THERE IS NO CLOCK IN THIS, ON PURPOSE.** Believing a catch only within
+       * some short time of the click would lose a genuine file on a real
+       * seller's Meesho at nine in the morning, and would close nothing -- the
+       * script above fires inside any window.
+       *
+       * **AND IT FAILS CLOSED, WHICH IS SAID RATHER THAN LEFT TO BE INFERRED.**
+       * If this arming cannot be done -- the background half being restarted is
+       * the ordinary reason -- `content.js` is left waiting for nothing and
+       * refuses every message, including one the earlier arming would have
+       * believed. So a file the page builds inside itself is LOST rather than
+       * taken on an older secret, and the report fails out loud. Falling back to
+       * the older secret would be the one thing this change exists to stop. */
+      await armTheCatcher();
       await door.click(step.find.how, step.find.what, step.find.exact, step.find.near);
     }
 

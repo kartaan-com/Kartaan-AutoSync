@@ -809,14 +809,22 @@ async function carryOut(chrome, parts, asked, tabId) {
   }
   if (asked.do === 'arm-the-catcher') {
     /* **THE DOWNLOAD IS ARMED HERE TOO, and here is the EARLIEST place.** This
-     * is the one message the page half sends before the walk starts. `go` and
+     * is the first message the page half sends before the walk starts. `go` and
      * `say` also arrive before the click and would do -- **an earlier version of
      * this comment called this the only such point, and that was not true**
      * (A25R) -- but they arrive again and again, and an arm that is re-set every
      * few seconds never runs out. Armed on the take-file message instead --
      * after the click has already gone -- the platform's own server is being
      * raced, and losing that race is Chrome's Save-as window going up on a
-     * seller nobody is watching. */
+     * seller nobody is watching.
+     *
+     * **AND IT NOW ARRIVES TWICE PER TURN, NOT ONCE (A44).** `walk.js` asks for
+     * it again immediately before the click that builds the file, because a
+     * catcher armed at the start of a turn sits armed through the whole of the
+     * portal drawing itself -- and any script on that page can hand over a file
+     * of its own and be caught instead. **The download-cancel is re-set by that
+     * second arming and is not moved by it**, which is the whole reason the
+     * first arming stays exactly where it is. */
     watching.expectAFile();
     return { secret: await armTheCatcher(chrome, { tabId, secret: secret() }) };
   }

@@ -91,16 +91,35 @@
  * on to `land-the-file` exactly as above: wrong money in a seller's books under
  * a real report's name.
  *
- * **AND THE WINDOW IS WIDE ON PURPOSE.** `background.js` explains why arming
- * happens at the start of the walk turn rather than at the click: armed later,
- * the platform's own server is being raced, and losing that race puts Chrome's
- * Save-as window up in front of a seller nobody is watching. So the window is
- * seconds to tens of seconds per report, every report.
+ * **THE WINDOW WAS SECONDS TO TENS OF SECONDS AND IS NOW THE GAP BETWEEN ONE
+ * CLICK AND ITS OWN FILE (A44).** It used to be armed once at the start of every
+ * walk turn, before the first step ran, with the file not asked for until the
+ * last -- so it sat armed through the whole of the portal drawing itself, 10 to
+ * 25 seconds measured on his own Flipkart account. `walk.js` now arms it AGAIN
+ * immediately before the click that builds the file, which throws away anything
+ * caught in the meantime and starts waiting for a fresh secret. The turn-start
+ * arming stays exactly where it was, because that same message is what arms the
+ * download-cancel in `background.js` and moving THAT would race the platform's
+ * own server -- Chrome's Save-as window going up in front of a seller nobody is
+ * watching.
  *
- * **THERE IS NO WAY TO ASK WHO CALLED FROM IN HERE**, which is why this is
- * written down rather than patched: closing it means narrowing WHEN a catch is
- * believed, and that is a change to the walk and to `content.js`, not a line in
- * this file. **Until it is closed, this file is not the whole of the answer.**
+ * **AND THAT IS A NARROWING, NOT A CLOSING, WHICH IS WHY THIS STAYS WRITTEN
+ * DOWN.** Arming is a round trip to the background and the page's own scripts
+ * run during it, so a script that simply keeps calling `URL.createObjectURL` is
+ * caught the instant the arming lands, however close to the click it happens.
+ * `walk.test.js` pins that as a known fault and goes red the day it is really
+ * closed.
+ *
+ * **THERE IS NO WAY TO ASK WHO CALLED FROM IN HERE, AND THERE IS NO WAY TO ASK
+ * IT FROM ANYWHERE ELSE EITHER.** Nothing about a file a page hands over is
+ * beyond that page's reach: it chooses the size, the type and every byte of the
+ * content, so no test of what arrived can tell a genuine report from a forged
+ * one. And the wall below is the same wall -- a page that has replaced
+ * `window.postMessage` sees the genuine message, secret and all, before
+ * `content.js` does. **So this file is not the whole of the answer and cannot
+ * be made into it. What bounds the harm is that a portal page carrying a script
+ * hostile enough to do this can also simply stop a report arriving, and a report
+ * that does not arrive is loud (D108).**
  * -------------------------------------------------------------------------
  *
  * **AND THE LIMIT OF ALL THAT, SAID PLAINLY RATHER THAN LEFT TO BE ASSUMED.**
@@ -177,9 +196,13 @@ export function catchTheNextFile(secret) {
    * re-arming was there was that a second wrapper reports one file twice -- and
    * it still would: the older wrapper posts under a secret `content.js` has
    * stopped waiting for, so `driver.theCatcherSaid` refuses it. That is noise,
-   * not a forged file. **And it is not reached in this extension anyway:**
-   * `content.js` arms once per page, at the start of its one turn, and a walk
-   * that moves the page starts a new page with a clean world. */
+   * not a forged file. **And it IS reached in this extension, twice per turn
+   * since A44:** once at the start of the turn and once immediately before the
+   * click that builds the file. The first wrapper is left installed and, if it
+   * caught nothing, still armed -- so the genuine file makes both of them speak,
+   * the older one under a secret `content.js` has stopped waiting for. That is
+   * the noise described above, and it is refused. A walk that moves the page
+   * starts a new page with a clean world. */
   const asTheBrowserDoes = URL.createObjectURL.bind(URL);
 
   const watching = function (thing) {

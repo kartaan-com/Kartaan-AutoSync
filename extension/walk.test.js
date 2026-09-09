@@ -222,10 +222,32 @@ const BOOK = {
 
 /* ------------------------------------------------------- a stand-in portal */
 
+/** A file nobody asked for, handed over by something else on the portal's page.
+ *
+ *  **NINES SO IT CANNOT BE MISTAKEN FOR THE GENUINE ONE.** The stand-in's real
+ *  file is `1,2,3,4,5`; this is nine nines. A check that only counted bytes
+ *  could be satisfied by the wrong file of the right length, which is the shape
+ *  of a check that cannot fail. */
+const SOMEBODY_ELSES = new Uint8Array([9, 9, 9, 9, 9, 9, 9, 9, 9]);
+
+/** Let the page's own code have a turn. **A REAL AWAIT, NOT A PRETEND ONE.**
+ *  Every `await` in the walk is a moment when the portal's own scripts run, and
+ *  a stand-in that never yields is a stand-in kinder than the real thing. */
+const aMoment = (ms = 0) => new Promise((done) => { setTimeout(done, ms); });
+
 function aPortal(how = {}) {
   const it = {
     went: [], clicked: [], ranges: [], stepsSeen: 0, patienceTold: [], tookFile: 0,
     handedOver: [], turns: 0,
+    /* **WHAT HAPPENED AND IN WHAT ORDER.** The whole of this is about WHEN the
+     * catcher is armed relative to the click that builds the file, and an order
+     * is the only thing that can be checked about a when. */
+    whatHappened: [],
+    /* **THE PAGE'S OWN WORLD, IN MINIATURE.** `catch-blob.js` lives here in the
+     * real thing: armed with one secret, it takes the FIRST file the page builds
+     * and is then spent. Arming afresh throws away anything already caught,
+     * exactly as `content.js` does (`caught = null` before the new secret). */
+    theCatcher: { armedFor: null, caught: null, armedTimes: 0 },
     /* **WHAT WAS ACTUALLY PUT AWAY, recorded rather than counted.** A stand-in
      * that answered "yes" would leave every walk looking perfectly right with
      * the bytes on the floor -- which is exactly the state this recorded the
@@ -236,9 +258,49 @@ function aPortal(how = {}) {
    * background half, which is the only side that can reach `chrome.identity`. */
   it.putTheFile = async ({ reportId, fileName, body }) => {
     if (how.driveRefuses) throw new Error(how.driveRefuses);
-    it.putAway.push({ reportId, fileName, size: body ? body.length : 0 });
+    it.putAway.push({
+      reportId,
+      fileName,
+      size: body ? body.length : 0,
+      /* **WHOSE FILE IT WAS, not just how big.** Two files of the same length
+       * are not the same file, and this whole section is about one being swapped
+       * for the other. */
+      startsWith: body && body.length ? body[0] : null,
+    });
     return { put: 'an-id' };
   };
+
+  /** Something else on the portal's page hands the browser a file of its own.
+   *
+   *  **THIS IS NOT A HYPOTHETICAL.** A portal page carries adverts and tag
+   *  managers, and every one of them can call `URL.createObjectURL`. It does not
+   *  have to stand in front of anything -- it stands beside it. `armedFor` is
+   *  spent on the first file that comes past, whoever built it. */
+  const somethingElseOnThePage = (moment) => {
+    if (!(how.alsoOnThePage || []).includes(moment)) return;
+    if (!it.theCatcher.armedFor) return;
+    it.theCatcher.caught = SOMEBODY_ELSES;
+    it.theCatcher.armedFor = null;
+    it.whatHappened.push(`somebody else handed over a file ${moment}`);
+  };
+
+  /* **ARMING THE CATCHER, WHICH IS A ROUND TRIP TO THE BACKGROUND** --
+   * `chrome.scripting.executeScript` puts `catch-blob.js` into the page's own
+   * world. The page's own scripts run during it, which is why the moment
+   * straight after it is one this stand-in can be told to fire at.
+   *
+   * **NOT ON THE DOOR, because the door is the eight calls the Python side makes
+   * and the Python has no catcher.** Handed to the walk on its own, like
+   * `putTheFile`. */
+  it.armTheCatcher = async () => {
+    it.theCatcher.armedFor = `a fresh secret ${it.theCatcher.armedTimes}`;
+    it.theCatcher.armedTimes += 1;
+    it.theCatcher.caught = null;
+    it.whatHappened.push('armed');
+    await aMoment();
+    somethingElseOnThePage('the instant it is armed');
+  };
+
   it.door = {
     async go(address, patience, nextAt) {
       it.went.push(address);
@@ -285,6 +347,12 @@ function aPortal(how = {}) {
     async find(kind, what, exact, patience) {
       it.stepsSeen += 1;
       it.patienceTold.push(['find', patience]);
+      it.whatHappened.push(`found ${what}`);
+      /* **A PORTAL DRAWS ITSELF IN PIECES AND TAKES ITS TIME OVER IT** -- 10 to
+       * 25 seconds was measured on his own Flipkart account. Every one of those
+       * seconds is a moment the page's own scripts are running. */
+      if (how.slowToDraw) await aMoment(how.slowToDraw);
+      somethingElseOnThePage('while the page is drawing');
       if (how.matches && what in how.matches) return how.matches[what];
       /* **A PROMOTION HIDES WHAT IS UNDERNEATH IT.** That is what makes a
        * covering worth reporting at all: the lookup fails, and the reason is
@@ -297,6 +365,7 @@ function aPortal(how = {}) {
     },
     async click(kind, what) {
       it.clicked.push(what);
+      it.whatHappened.push(`clicked ${what}`);
     },
     async pick_range(from, to, patience) {
       it.ranges.push([from, to]);
@@ -305,6 +374,24 @@ function aPortal(how = {}) {
     async take_file(patience) {
       it.tookFile += 1;
       it.patienceTold.push(['take_file', patience]);
+      it.whatHappened.push('took the file');
+      /* **THE PLATFORM'S OWN SERVER IS BEING WAITED ON HERE.** The click has
+       * gone; the page is posting to Meesho and will build the file when the
+       * answer comes back. On a slow morning that is not instant, and this is
+       * the gap a fix with a clock in it would fail inside. */
+      if (how.slowToBuildTheFile) await aMoment(how.slowToBuildTheFile);
+      /* **WHOEVER GOT THERE FIRST IS WHAT ARRIVES.** `content.js` takes the
+       * first message it accepts and the catcher is spent on the first file it
+       * sees -- so a file somebody else built displaces the genuine one, which is
+       * the whole of the harm. */
+      if (it.theCatcher.caught) return it.theCatcher.caught;
+      if (how.theFileIsBuiltInThePage) {
+        /* **THE ONLY PLACE THESE BYTES EVER EXIST IS INSIDE THE PAGE**, so
+         * nothing arrives at all unless the catcher was armed for them. Without
+         * this, a change that stopped arming altogether would look like a fix. */
+        if (!it.theCatcher.armedFor) return null;
+        it.theCatcher.armedFor = null;
+      }
       if (how.builtInPage) return null;
       if (how.emptyFile) return new Uint8Array(0);
       /* **THE PORTAL ANSWERING A FILE ADDRESS WITH ITS SIGN-IN PAGE.** It is a
@@ -345,8 +432,16 @@ function aWalk(portal, book = BOOK) {
       /* **BUILT AGAIN EVERY TURN, exactly as the page half is.** Sharing one
        * walk across turns would let a variable carry state that a real page
        * loses, which is the kindness that hides this whole class of fault. */
+      /* **THE CATCHER IS ARMED AT THE START OF THE TURN, WHICH IS WHERE
+       * `content.js` ARMS IT TODAY** -- `takeATurn` sends `arm-the-catcher`
+       * before the first step runs. It is here rather than inside the walk
+       * because that is where the product puts it, and a harness that put it
+       * somewhere kinder would be testing a product that does not exist. */
+      // eslint-disable-next-line no-await-in-loop
+      await portal.armTheCatcher();
       const walking = theWalk({
         door: portal.door, book, say: (line) => SAID.push(line), putTheFile: portal.putTheFile,
+        armTheCatcher: portal.armTheCatcher,
       });
       let answer;
       try {
@@ -790,6 +885,7 @@ check('asked to step back by nothing at all, it answers the day itself',
 {
   const walking = theWalk({
     door: aPortal().door, book: BOOK, say: () => {}, putTheFile: async () => ({}),
+    armTheCatcher: async () => {},
   });
   const got = await walking('me_orders', DAY, { panel: '' });
   check('a Meesho report with no panel name is a failure', got.state === FAILED);
@@ -809,21 +905,35 @@ check('asked to step back by nothing at all, it answers the day itself',
   /* The walk cannot be built without its four parts. */
   const refused = (fn) => { try { fn(); return ''; } catch (e) { return e.message; } };
   const put = async () => ({});
+  const arm = async () => {};
   check('a walk with no door is refused',
-    refused(() => theWalk({ book: BOOK, say: () => {}, putTheFile: put })).includes('door to the page'));
+    refused(() => theWalk({ book: BOOK, say: () => {}, putTheFile: put, armTheCatcher: arm }))
+      .includes('door to the page'));
   check('a walk with no recipes is refused',
-    refused(() => theWalk({ door: {}, say: () => {}, putTheFile: put })).includes('book of recipes'));
+    refused(() => theWalk({ door: {}, say: () => {}, putTheFile: put, armTheCatcher: arm }))
+      .includes('book of recipes'));
   check('a walk with nowhere to say what it is doing is refused',
-    refused(() => theWalk({ door: {}, book: BOOK, putTheFile: put })).includes('say what it is doing'));
+    refused(() => theWalk({ door: {}, book: BOOK, putTheFile: put, armTheCatcher: arm }))
+      .includes('say what it is doing'));
   /* **AND A WALK WITH NOWHERE TO PUT THE FILE IS REFUSED, which is the whole of
    * what was wrong.** It fetched the seller's report, counted the bytes,
    * reported LANDED and dropped them -- and it looked exactly like working. */
   check('A WALK WITH NOWHERE TO PUT THE FILE IS REFUSED',
-    refused(() => theWalk({ door: {}, book: BOOK, say: () => {} }))
+    refused(() => theWalk({ door: {}, book: BOOK, say: () => {}, armTheCatcher: arm }))
       .includes('somewhere to put the file'));
   check('and the refusal says what would otherwise happen, not just that it is missing',
-    refused(() => theWalk({ door: {}, book: BOOK, say: () => {} }))
+    refused(() => theWalk({ door: {}, book: BOOK, say: () => {}, armTheCatcher: arm }))
       .includes('report that it had landed'));
+  /* **AND A WALK WITH NO WAY OF ARMING THE CATCHER IS REFUSED (A44).** It would
+   * fetch every report that comes down as a download and quietly never notice
+   * one the page builds inside itself -- which reads as a portal that renamed a
+   * button, and sent a month of diagnosis at the wrong thing once already. */
+  check('A WALK WITH NO WAY OF ARMING THE CATCHER IS REFUSED',
+    refused(() => theWalk({ door: {}, book: BOOK, say: () => {}, putTheFile: put }))
+      .includes('arming the catcher'));
+  check('and that refusal says what would otherwise go missing',
+    refused(() => theWalk({ door: {}, book: BOOK, say: () => {}, putTheFile: put }))
+      .includes('would never arrive'));
 }
 
 /* ------------------------------------- THE BYTES ACTUALLY GO SOMEWHERE (D171)
@@ -1000,6 +1110,7 @@ ${DAY}`) !== null
   const portal = aPortal();
   const walking = theWalk({
     door: portal.door, book: BOOK, say: () => {}, putTheFile: portal.putTheFile,
+    armTheCatcher: portal.armTheCatcher,
   });
   const first = await walking('me_orders', DAY, { panel: PANEL });
   check('going somewhere ends the turn rather than carrying on in a page that is gone',
@@ -1031,6 +1142,7 @@ check('a walk still going is told apart from one that landed',
   const portal = aPortal();
   const walking = theWalk({
     door: portal.door, book: BOOK, say: () => {}, putTheFile: portal.putTheFile,
+    armTheCatcher: portal.armTheCatcher,
   });
   const got = await walking('me_orders', DAY, { panel: PANEL, startAt: 1 });
   check('a walk picked up part way through finishes', got.state === LANDED);
@@ -1093,6 +1205,7 @@ check('a walk still going is told apart from one that landed',
   };
   const walking = theWalk({
     door: portal.door, book: bent, say: () => {}, putTheFile: portal.putTheFile,
+    armTheCatcher: portal.armTheCatcher,
   });
   const got = await walking('me_two_pages', DAY, { panel: PANEL, startAt: 4 });
   check('a bad step before the resume point is still a refusal, not skipped past',
@@ -1127,6 +1240,126 @@ check('and a csv whose first column happens to be angle-bracketed is judged on i
 check('and nothing at all is not a page either, because it is a different failure',
   !looksLikeAPage(new Uint8Array(0)) && !looksLikeAPage(null));
 
+/* --------------- somebody else's script on the same page as the report */
+
+/* **THE HARM THESE ARE ABOUT, SAID ONCE.** A file the page builds inside itself
+ * can only be noticed from inside that page, beside the portal's own code and
+ * whatever adverts it carries. If something else on that page gets a file of its
+ * own caught instead, those bytes go on to `land-the-file`, `drive.js` REPLACES
+ * the genuine file of that day under the genuine report name, and the Python
+ * reads it into the seller's ledger as real sales. **It is not a crash. It is
+ * wrong money in a seller's books, silently, under a real report name.**
+ *
+ * **AND THE STAND-IN IS DELIBERATELY HARSHER THAN A REVIEWER WOULD BE.** The
+ * page's own scripts get a turn at every await the walk makes, because in a real
+ * Chrome they do. */
+
+{
+  /* **THE WIDE WINDOW: armed at the start of the turn, and the file not taken
+   * until the last step.** In between the page draws itself -- 10 to 25 seconds
+   * measured on his own account -- and every one of those seconds is a moment
+   * something else on the page can hand over a file and be caught. */
+  const portal = aPortal({
+    theFileIsBuiltInThePage: true,
+    alsoOnThePage: ['while the page is drawing'],
+  });
+  const came = await aWalk(portal)('me_catalog', DAY);
+  check("a file handed over by something else on the page while the page is still drawing "
+    + "does not reach the seller's Drive",
+    portal.putAway.every((one) => one.startsWith !== 9));
+  check('and the genuine file is the one that lands',
+    came.state === LANDED && came.size === 5 && portal.putAway.length === 1);
+}
+
+{
+  /* **THE NARROW WINDOW, AND IT IS STILL OPEN.** Arming is a round trip to the
+   * background; the page's own scripts run during it. A script that simply keeps
+   * calling `URL.createObjectURL` is caught the instant the catcher is armed,
+   * however close to the click that arming happens.
+   *
+   * **THIS CHECK ASSERTS THE FAULT, NOT THE FIX, AND THAT IS DELIBERATE.** It is
+   * written the way `background.test.js` pins the download-cancel not surviving
+   * the walk: a known fault, held in place so it cannot quietly change. **THE DAY
+   * THE HOLE IS REALLY CLOSED THIS GOES RED** -- and then it is rewritten inside
+   * that change, never deleted for going red. */
+  const portal = aPortal({
+    theFileIsBuiltInThePage: true,
+    alsoOnThePage: ['the instant it is armed'],
+  });
+  await aWalk(portal)('me_catalog', DAY);
+  check('AND THE HOLE IS NOT CLOSED: a script that hands over a file the instant the catcher '
+    + "is armed still reaches the seller's Drive, however late the arming happens",
+    portal.putAway.some((one) => one.startsWith === 9));
+}
+
+{
+  /* **A SLOW PORTAL ON A SLOW MORNING, WHICH IS THE OTHER HALF OF THE ANSWER.**
+   * Narrowing WHEN a catch is believed is only worth having if it cannot lose a
+   * genuine file, and the two obvious narrowings -- "only within N seconds of the
+   * click" and "only while the page is quick" -- both lose one on a real seller's
+   * Meesho at nine in the morning.
+   *
+   * **SO THIS IS THE CHECK THAT A CLOCK WOULD FAIL.** The portal takes its time
+   * drawing AND takes its time between the click and the file, and the file still
+   * lands. Nothing in what is believed measures time. */
+  const portal = aPortal({
+    theFileIsBuiltInThePage: true,
+    slowToDraw: 60,
+    slowToBuildTheFile: 250,
+  });
+  const came = await aWalk(portal)('me_catalog', DAY);
+  check('a portal that is slow to draw and slow to build the file still lands it',
+    came.state === LANDED && came.size === 5);
+  check("and nothing in what is believed measures time, so a slow morning cannot lose a day",
+    portal.putAway.length === 1 && portal.putAway[0].startsWith === 1);
+}
+
+{
+  /* **WHERE THE ARMING SITS IN THE ORDER, WHICH IS THE WHOLE OF THIS CHANGE.**
+   * The lookup can wait out its whole patience; the arming must come after it and
+   * immediately before the click, because the click is what makes the page build
+   * the file and there is no later moment. */
+  const portal = aPortal({ theFileIsBuiltInThePage: true });
+  await aWalk(portal)('me_catalog', DAY);
+  const order = portal.whatHappened.join(' -> ');
+  check('the catcher is armed after the lookup and immediately before the click that '
+    + 'builds the file',
+    order.includes('found Download -> armed -> clicked Download -> took the file'));
+  /* **A RE-ARM, NOT A MOVE, AND THAT IS DELIBERATE.** The turn still arms at its
+   * start, because the same message is what arms the download-cancel in the
+   * background half and moving THAT is a different change with a different risk.
+   * What closes the wide window is the SECOND arming: `content.js` throws away
+   * whatever it is holding and starts waiting for a new secret, so a file caught
+   * while the page was drawing is not merely disbelieved -- it is gone. */
+  check('and it is armed again for the file even though the turn armed once already, so a file '
+    + 'caught while the page was drawing is thrown away',
+    order.indexOf('armed') < order.indexOf('found Download')
+    && order.lastIndexOf('armed') > order.indexOf('found Download'));
+}
+
+{
+  /* **AND IT FAILS CLOSED.** If the arming itself cannot be done -- the
+   * background half being restarted is the ordinary reason -- `content.js` is
+   * left waiting for nothing and refuses every message, including one the
+   * earlier arming would have believed. **Falling back to the older secret would
+   * be the one thing this change exists to stop**, so the walk stops instead and
+   * the report fails out loud. */
+  const portal = aPortal({ theFileIsBuiltInThePage: true });
+  const walking = theWalk({
+    door: portal.door, book: BOOK, say: () => {}, putTheFile: portal.putTheFile,
+    armTheCatcher: async () => { throw new Error('The browser half is restarting.'); },
+  });
+  let stoppedWith = '';
+  try {
+    await walking('me_catalog', DAY, { panel: PANEL, startAt: 1 });
+  } catch (wrong) {
+    stoppedWith = (wrong && wrong.message) || '';
+  }
+  check('an arming that cannot be done stops the walk out loud rather than taking the file '
+    + 'on an older secret',
+    stoppedWith.includes('restarting') && portal.putAway.length === 0);
+}
+
 check(`nothing above ended by throwing rather than by answering -- ${THREW}`, THREW.length === 0);
 
 {
@@ -1140,7 +1373,7 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
     TOO_BIG_TO_CARRY === TOO_BIG);
 }
 
-const EXPECTED = 185;
+const EXPECTED = 195;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;
