@@ -1,0 +1,314 @@
+/* The panel's own layout, and nothing else.
+ *
+ * **EVERY COLOUR, TYPEFACE AND CORNER COMES FROM A TOKEN. A colour written
+ * directly into this file is a bug** -- that is the ERP's own D25, and it is the
+ * reason `from-the-erp/tokens.css` is loaded first. His instruction, said
+ * separately from the rest of this work and meant: *"You should follow the
+ * colour and theme, all those things, from what the ERP does."*
+ *
+ * **THE CONTROLS ARE NOT RE-DERIVED HERE EITHER.** Buttons and boxes are the
+ * ERP's `k-button` and `k-control`, out of `from-the-erp/button.css`, copied byte
+ * for byte. Measuring the ERP by eye and typing the numbers in again is how the
+ * seven button heights and eight paddings that file exists to end came about in
+ * the first place.
+ *
+ * **WHAT IS LEFT FOR THIS FILE: how the page is arranged.** The sizes and
+ * spacings below are written directly for the same reason `shell.css` writes
+ * its own -- there is no size scale in tokens.css yet - and they are the ERP's:
+ * a card is `--surface` inside a 1px `--border` at `--radius` with 16px of
+ * padding, a section title is 18px at 700 in `--brand`, ordinary text is 14px,
+ * and a quiet note is 12px in `--text-muted`.
+ */
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg);
+}
+
+.p-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* ------------------------------------------------------------------ top bar
+ *
+ * The ERP's own bar: sticky, one row always, 44px, the brand colour underneath
+ * and `--on-brand` on top -- which is a token of its own precisely because the
+ * surface colour only happens to be right in the light theme.
+ */
+.p-bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 4px 16px;
+  background: var(--brand);
+  color: var(--on-brand);
+}
+
+.p-brand {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--on-brand);
+}
+
+.p-what {
+  font-size: 13px;
+  color: var(--on-brand);
+  opacity: 0.8;
+}
+
+/* -------------------------------------------------------------------- body
+ *
+ * **A PAGE, NOT A POPUP, AND THIS IS THE WHOLE OF WHAT THAT BUYS.** His words:
+ * *"the user will have more space, and you will also have more space to build
+ * things and organise things."* So the width is capped where lines stop being
+ * comfortable to read rather than left to fill a monitor.
+ */
+.p-body {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.p-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  min-width: 0;
+}
+
+.p-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--brand);
+}
+
+.p-note {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.p-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.p-state {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.p-state--yes {
+  color: var(--ok);
+  font-weight: 600;
+}
+
+.p-state--no {
+  color: var(--warn);
+  font-weight: 600;
+}
+
+.p-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.p-figure {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* ------------------------------------------------------- what is happening
+ *
+ * Four states and each one its own, because "nothing has ever run" is not a
+ * failure and must not be dressed as one. This extension has never fetched
+ * anything, so that is the state a seller sees first.
+ */
+.p-banner {
+  padding: 12px 14px;
+  font-size: 14px;
+  line-height: 1.45;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-raised);
+  color: var(--text);
+}
+
+.p-banner--idle {
+  background: var(--surface-raised);
+  border-color: var(--border);
+}
+
+.p-banner--setup {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+}
+
+.p-banner--running {
+  background: var(--info-bg);
+  border-color: var(--info);
+  color: var(--text);
+}
+
+.p-banner--done {
+  background: var(--ok-bg);
+  border-color: var(--ok-border);
+}
+
+.p-banner--wrong {
+  background: var(--danger-bg);
+  border-color: var(--danger-border);
+}
+
+.p-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* What a button press said back. The ERP's own shape for this, from
+ * `screen.css`'s `.k-screen__said`. */
+.p-said {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text);
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius);
+  overflow-wrap: anywhere;
+}
+
+/* ------------------------------------------------------------- platforms */
+
+.p-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.p-platform {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.p-platform-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* --------------------------------------------------------------- lists */
+
+.p-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.p-report {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.p-report:hover {
+  background: var(--surface-raised);
+}
+
+.p-report-name {
+  flex: 1 1 200px;
+  min-width: 0;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.p-report-id {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-subtle);
+}
+
+/* **NAMED BECAUSE IT COSTS THE SELLER SOMETHING.** Three reports spend one of
+ * Flipkart's twenty a day, and a request that has gone cannot be taken back. */
+.p-spends {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  color: var(--warn);
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-edge);
+  border-radius: var(--radius);
+}
+
+.p-cannot {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+/* ----------------------------------------------------------- what happened
+ *
+ * The night's own words, exactly as `howTheNightWent` writes them -- so what a
+ * seller reads here and what a summary would say cannot be two different
+ * accounts of one night. The second face is used because it is a record read
+ * line by line, not prose (D25).
+ */
+.p-log {
+  margin: 0;
+  padding: 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

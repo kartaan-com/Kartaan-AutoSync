@@ -183,7 +183,16 @@ export function installFakeChrome({ now = () => 0, identityIsOn = true, refuseTh
         alarms.set(name, {
           name,
           periodInMinutes: every || undefined,
-          scheduledTime: now() + (Number(options && options.delayInMinutes) || 0) * 60000,
+          /* **`when` IS HONOURED, because Chrome honours it and a stand-in that
+           * did not could not tell an alarm set for four in the morning from one
+           * set for right now.** Chrome's own documentation: `when` is the time
+           * the alarm should fire, and `delayInMinutes` is the same thing said
+           * relative to now. Blind to `when`, this answered "now" for every
+           * alarm and no check could see the hour a seller chose. */
+          when: options && options.when,
+          scheduledTime: (options && options.when !== undefined)
+            ? Number(options.when)
+            : now() + (Number(options && options.delayInMinutes) || 0) * 60000,
           /* Kept as given, so a check can see whether it was asked for at all.
            * The documentation says to set it explicitly for compatibility. */
           persistAcrossSessions: options && options.persistAcrossSessions,

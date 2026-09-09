@@ -147,6 +147,20 @@ def what_the_extension_reads():
             }
             for one in sorted(book.RECIPES)
         },
+        # **EVERY REPORT THAT EXISTS, not only the ones this door can fetch.**
+        # The panel has to show a seller the whole of their own business, and a
+        # list built from the recipes alone shows only what already works --
+        # which is the exact shape of "Meesho has never run and nothing says so".
+        # The same list `src/shared/definitions/reports.json` carries for the
+        # ERP's screens, written from `the_report_list()` so there is one source
+        # and not two.
+        "reports": the_report_list(),
+        # **AND WHY THE FIVE THAT CANNOT BE FETCHED CANNOT BE, IN WORDS.**
+        # `NOT_YET_A_RECIPE` names each one with its reason and until now the
+        # reason reached nobody: the panel could only have shown a report that
+        # was simply absent, which reads as a fault rather than as a limit
+        # somebody wrote down on purpose.
+        "notYetARecipe": dict(sorted(book.NOT_YET_A_RECIPE.items())),
     }
 
 

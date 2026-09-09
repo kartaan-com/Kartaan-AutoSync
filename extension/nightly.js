@@ -37,6 +37,31 @@ export const THE_NIGHT = 'kartaan-autosync-night';
  * file rather than against itself. */
 export const SPENDS_THE_ALLOWANCE = Object.freeze(['fk_orders', 'fk_returns', 'fk_payments']);
 
+/* **HOW MANY OF THEM A SELLER GETS IN A DAY.** Flipkart's Reports Centre allows
+ * twenty. The number was written into the prose at the top of this file and into
+ * nothing a program could read, so nothing anywhere could say how many were left
+ * -- and `mayAskFor` was therefore decided by whoever started a night, which
+ * until there was a screen was nobody, which is why every night was allowed
+ * nought and skipped every Flipkart report by name.
+ *
+ * **IT IS A DAY'S ALLOWANCE, NOT A RUN'S**, and this file counts a run. What
+ * counts the day is `screen.js`, which files each finished night's spend under
+ * the day it started. */
+export const A_DAYS_ALLOWANCE = 20;
+
+/**
+ * A day, written the way a file name and a report's day are written.
+ *
+ * **HERE RATHER THAN ON THE SCREEN, because the allowance is a day's and this is
+ * the file that counts it.** Written in the seller's own time, because the
+ * twenty is a day of theirs.
+ */
+export function theDay(at) {
+  const when = new Date(at);
+  const two = (n) => String(n).padStart(2, '0');
+  return `${when.getFullYear()}-${two(when.getMonth() + 1)}-${two(when.getDate())}`;
+}
+
 /** Does asking for this report cost the seller one of their twenty? */
 export function spendsTheAllowance(reportId) {
   return SPENDS_THE_ALLOWANCE.includes(reportId);
@@ -77,6 +102,15 @@ export async function startTheNight(chrome, {
      * left" from every angle and is right from none of them: two runs both
      * reading 6 both believe they may spend 6. What was spent only ever grows. */
     spent: 0,
+    /* **AND WHICH DAY EACH ONE WAS SPENT ON.** `spent` is this night's total and
+     * says nothing about when. **A night begun at five to midnight spends
+     * requests on two different days**, and Flipkart's twenty is a DAY's, so a
+     * total filed under the day the night started puts today's requests on
+     * yesterday's ledger -- and today then reads twenty left while three have
+     * already gone. Found by an independent reviewer, 2026-09-09, who called it
+     * blocking: twenty-three real, irrevocable writes against a seller's own
+     * account in one day. */
+    spentOn: {},
     mayAskFor: Math.max(0, Number(mayAskFor) || 0),
   };
   await chrome.storage.local.set({ [THE_NIGHT]: night });
@@ -116,10 +150,17 @@ export function whyItCannotBeAskedFor(night, reportId) {
  * Counted first, the worst case is a request counted that never went, which
  * costs a report and not an allowance.
  */
-export async function oneWasAskedFor(chrome) {
+export async function oneWasAskedFor(chrome, { at = Date.now() } = {}) {
   const night = await theNight(chrome);
   if (!night) return null;
-  const spent = { ...night, spent: night.spent + 1 };
+  /* **STAMPED WITH THE DAY IT IS BEING SPENT ON, at the one moment that day is
+   * known for certain.** Worked out afterwards from when the night started, or
+   * from when a report finished, it is a guess about a request that has already
+   * gone. */
+  const day = theDay(at);
+  const spentOn = { ...(night.spentOn || {}) };
+  spentOn[day] = (Number(spentOn[day]) || 0) + 1;
+  const spent = { ...night, spent: night.spent + 1, spentOn };
   await chrome.storage.local.set({ [THE_NIGHT]: spent });
   return spent;
 }

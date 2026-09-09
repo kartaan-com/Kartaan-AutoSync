@@ -1,0 +1,209 @@
+/* Kartaan design tokens.
+ *
+ * Every colour, font and corner radius in the product comes from here.
+ * A colour written directly into a screen is a bug (decision D25).
+ *
+ * Values are carried over unchanged from the Rumee dashboard, confirmed by
+ * Jaiswal 2026-08-10: same colours, and the same font throughout.
+ *
+ * Naming: one convention only. The reference had four -- three colour naming
+ * styles plus a set of names that were used but never defined, which silently
+ * dropped 91 style declarations. See audit/out/silent_failures.md.
+ */
+
+:root {
+  /* **HOW BIG EVERYTHING IS. His review: "it is too much zoomed in."**
+   *
+   * Every size in the product is written in px, so there is one place that can
+   * change them all at once and this is not it -- what this does is set the size
+   * of a `rem`, which the page font follows. Written down because the honest
+   * fix is to move the product onto `rem` and there is no time to do it in one
+   * go; until then this is the knob, and it is here rather than buried in a
+   * screen so that whoever does that work finds it.
+   */
+
+  /* Brand */
+  --brand: #5C1A0A;
+  /* Text and icons sitting ON the brand colour -- the top bar, the section you
+   * are in, the page you are on. A separate token because "the surface colour"
+   * only happens to be right in the light theme: in the dark one the surface
+   * is nearly black, so anything written on the brand colour would turn dark
+   * on dark. Added rather than discovered later. */
+  --on-brand: #FFFFFF;
+  --accent: #B8832A;
+  /* Text sitting ON the danger colour -- a delete button, a count of things
+   * that are broken. Its own token rather than borrowing the brand one: two
+   * colours that happen to work together are not a rule, and the day either
+   * is retuned the borrowed one stops being readable with nothing to say so. */
+  --on-danger: #FFFFFF;
+  --accent-bg: rgba(184, 131, 42, 0.12);
+  --accent-border: rgba(184, 131, 42, 0.3);
+
+  /* Surfaces */
+  --bg: #F8F3EC;
+  --surface: #FFFFFF;
+  --surface-raised: #FFFAF5;
+
+  /* Text */
+  --text: #5C1A0A;
+  --text-muted: #7A6A5A;
+  --text-subtle: #A09080;
+  --text-tint: #5C4A3A;
+
+  /* Lines */
+  --border: #E8DDD0;
+  --border-strong: #D4C4B0;
+
+  /* Platforms */
+  --flipkart: #C4832A;
+  --flipkart-bg: rgba(196, 131, 42, 0.12);
+  --meesho: #B8425A;
+  --meesho-bg: rgba(184, 66, 90, 0.12);
+  --amazon: #2A68B8;
+  --amazon-bg: rgba(42, 104, 184, 0.12);
+
+  /* Status */
+  --ok: #2D7A4F;
+  --ok-bg: rgba(45, 122, 79, 0.12);
+  --ok-border: rgba(45, 122, 79, 0.3);
+  --warn: #B87A2A;
+  --warn-bg: rgba(184, 122, 42, 0.12);
+  /* **THE WARNING COLOUR AT THE WEIGHT OF AN ORDINARY EDGE.** His instruction,
+     2026-09-02, about the figures beside a screen's name: the blocks that say
+     something needs him looked BIGGER than the ones beside them, and measured
+     they were identical -- it was a filled background and a full-strength
+     border doing it.
+
+     **AS LIGHT AS `--border`, only warm.** The first attempt was darker than
+     `--border-strong`, so the blocks still carried a heavier edge than their
+     neighbours -- which is the very thing he asked to be rid of. Found by an
+     independent reviewer, 2026-09-02. */
+  --warn-edge: #E9D9C0;
+  --danger: #A32D2D;
+  --danger-bg: rgba(163, 45, 45, 0.12);
+  --danger-border: rgba(163, 45, 45, 0.25);
+  --info: #2A68B8;
+  --info-bg: rgba(42, 104, 184, 0.12);
+
+  /* Feature accents */
+  --catalog: #8B5CF6;
+  --catalog-bg: rgba(139, 92, 246, 0.12);
+  --tasks: #0D9488;
+  /* --pipeline carries the reference's --files-c value. That token was defined
+   * there but never actually used, so it has no established meaning being
+   * changed -- noted so it is not later mistaken for a renamed "Files" colour. */
+  --pipeline: #6D5BBA;
+  --orange: #F97316;
+  --orange-bg: rgba(249, 115, 22, 0.12);
+
+  /* Depth */
+  --overlay: rgba(0, 0, 0, 0.8);
+  --shadow: rgba(92, 26, 10, 0.06);
+
+  /* Shape */
+  --radius: 10px;
+
+  /* **HOW TALL EVERYTHING YOU PRESS OR TYPE IN IS, written once (D143).**
+   * A button, a dropdown, a search box and a form field all stand this high, so
+   * a row of them lines up. It is a token rather than a number in button.css
+   * because two rules genuinely need it -- `.k-control` and `select.k-control`,
+   * the second so the size sits beside the pointer that promises it -- and a
+   * height written twice is a height that drifts. */
+  --control-height: 37px;
+
+  /* Type. Two faces, used everywhere in the product -- including the user guide
+   * and the developer docs. The body face carries all normal text; the mono
+   * face is for figures and codes, exactly as the reference used it. What D25
+   * rules out is a *second design system*: the reference ran its 14 explainer
+   * pages on an unrelated serif look, and that split does not come across. */
+  --font: 'Plus Jakarta Sans', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+}
+
+/* Dark theme. Every token that changes must be listed. Carrying over only the
+ * background colours leaves dark text on a near-black page -- caught in review
+ * of the first draft of this file, which did exactly that. */
+body.dark {
+  --brand: #C4956A;
+  /* Dark theme flips it: the brand colour is now light, so what sits on it
+   * must be dark. This is the whole reason the token exists. */
+  --on-brand: #160A04;
+  --accent: #E8A84A;
+  /* The dark theme's danger colour is still dark enough to carry white. */
+  --on-danger: #FFFFFF;
+  --accent-bg: rgba(232, 168, 74, 0.12);
+  --accent-border: rgba(232, 168, 74, 0.3);
+
+  --bg: #160A04;
+  --surface: #221008;
+  --surface-raised: #2E1610;
+
+  --text: #F5EDE0;
+  --text-muted: #A08878;
+  --text-subtle: #705848;
+  --text-tint: #A08878;
+
+  --border: #3A1E12;
+  --border-strong: #4A2818;
+
+  --flipkart: #E8A84A;
+  --flipkart-bg: rgba(232, 168, 74, 0.12);
+  --meesho: #E06080;
+  --meesho-bg: rgba(224, 96, 128, 0.12);
+  --amazon: #5A98E0;
+  --amazon-bg: rgba(90, 152, 224, 0.12);
+
+  --ok: #4AAF74;
+  --ok-bg: rgba(74, 175, 116, 0.12);
+  --ok-border: rgba(74, 175, 116, 0.3);
+  --warn: #E0A050;
+  --warn-bg: rgba(224, 160, 80, 0.12);
+  /* The same idea in the dark: as light as `--border` is there, warmed. */
+  --warn-edge: #4A2C18;
+  --danger: #D05050;
+  --danger-bg: rgba(208, 80, 80, 0.12);
+  --danger-border: rgba(208, 80, 80, 0.25);
+  --info: #5A98E0;
+  --info-bg: rgba(90, 152, 224, 0.12);
+
+  --catalog: #A78BFA;
+  --catalog-bg: rgba(167, 139, 250, 0.12);
+  --tasks: #2DD4BF;
+  --pipeline: #9D8BE0;
+  --orange: #FB923C;
+  --orange-bg: rgba(251, 146, 60, 0.12);
+
+  --overlay: rgba(0, 0, 0, 0.85);
+  --shadow: rgba(0, 0, 0, 0.3);
+}
+
+/* ------------------------------------------------------ HIDDEN MEANS HIDDEN
+
+ * **THE ONE RULE IN THIS FILE THAT IS NOT A COLOUR, AND IT IS HERE BECAUSE
+ * NOTHING ELSE IS LOADED FIRST.**
+ *
+ * A browser hides `[hidden]` through its OWN stylesheet, and ANY author rule
+ * that sets `display` beats it -- whatever the specificity, because author
+ * declarations win over the browser's own. So every class in this product that
+ * says `display: flex` or `display: block` was a class whose `hidden` did
+ * nothing at all.
+ *
+ * **FOUND ON THE BUSINESS SWITCHER by an independent reviewer**, where it meant
+ * every seller with one business -- which is all of them today -- saw an empty
+ * dropdown sitting in their top bar. But the switcher was one instance:
+ * eighty-five places in this product set `hidden` and twenty-five rules set
+ * `display`, and any pair of them is the same bug waiting.
+ *
+ * **AND THE CHECKS AGREED WITH IT.** The stand-in browser stores `hidden` as a
+ * property and has no stylesheet, so `node.hidden === true` is true while the
+ * thing is on screen. That is this register's most-repeated failure -- a
+ * stand-in kinder than the real thing -- and no check could have caught this
+ * class of fault. So it is closed by making it impossible rather than by
+ * watching for it.
+ *
+ * `!important` is the point, not carelessness: it is the only thing that beats
+ * an author `display`.
+ */
+[hidden] {
+  display: none !important;
+}

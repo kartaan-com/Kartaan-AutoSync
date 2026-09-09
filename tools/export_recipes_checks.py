@@ -339,8 +339,48 @@ check("and the platform and the file type are the report's own, not read off its
 check("the file names are in a settled order too",
       list(HELD["fileNames"]) == sorted(HELD["fileNames"]))
 
+# ----------------------------------------- what the panel needs, and only it
+#
+# **EVERY REPORT THAT EXISTS CROSSES, not only the ones this door can fetch.**
+# The panel shows a seller the whole of their own business; a list built from
+# the recipes alone shows only what already works, which is the exact shape of
+# "Meesho has never run and nothing anywhere says so".
+check("every report the product declares crosses to the extension",
+      [one["id"] for one in HELD["reports"]]
+      == sorted(one.id for one in reports_list.REPORTS))
+# **AND IT IS THE SAME LIST THE ERP'S SCREENS READ, written from one function.**
+# Two lists built two ways is the fault this whole file exists to prevent.
+check("and it is the same list the ERP's own screens are given",
+      HELD["reports"] == tool.the_report_list())
 
-EXPECTED = 66
+# **AND WHY THE FIVE THAT CANNOT BE FETCHED CANNOT BE, IN WORDS.** They are
+# named with their reasons in `recipes.NOT_YET_A_RECIPE` and until the panel
+# existed the reasons reached nobody at all -- the report was simply absent,
+# which reads as a fault rather than as a limit somebody wrote down on purpose.
+check("every report this door cannot fetch crosses with its reason",
+      HELD["notYetARecipe"] == dict(sorted(book.NOT_YET_A_RECIPE.items())))
+check("and every one of them is a real sentence, not a shrug",
+      all(len(why) > 40 for why in HELD["notYetARecipe"].values()))
+# **THE TWO LISTS MAY NOT OVERLAP, and that is not tidiness.** A report with a
+# recipe AND a reason it has none would be shown on the panel as both fetchable
+# and impossible, and whichever the seller believed would be wrong half the time.
+check("nothing is both fetchable and named as not fetchable",
+      not (set(HELD["notYetARecipe"]) & set(HELD["recipes"])))
+# **AND EVERY REASON IS ABOUT A REPORT THAT EXISTS.** A reason for a report
+# nobody declares is a sentence nothing will ever show.
+check("every reason is about a report the product actually declares",
+      set(HELD["notYetARecipe"]) <= {one["id"] for one in HELD["reports"]})
+# **THE TWO TOGETHER COVER EVERY BROWSER REPORT THERE IS.** A report that is
+# declared, has no recipe and has no reason would vanish from the panel
+# altogether -- neither fetchable nor explained -- which is the silence this
+# whole crossing exists to end.
+THROUGH_THE_BROWSER = {"flipkart", "meesho"}
+check("no browser report is left out of both lists",
+      all(one["id"] in HELD["recipes"] or one["id"] in HELD["notYetARecipe"]
+          for one in HELD["reports"] if one["platform"] in THROUGH_THE_BROWSER))
+
+
+EXPECTED = 73
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

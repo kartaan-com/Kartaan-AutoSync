@@ -763,8 +763,8 @@
     {
      "what": "**`connectTheDrive` IS THE WHOLE OF ONBOARDING AND NO SELLER CAN FIND IT.** Every other Drive ask is quiet, so until somebody opens THE EXTENSION'S OWN SERVICE-WORKER DEVTOOLS CONSOLE and types `connectTheDrive()`, every night fails with 'the seller's Drive is not connected', correctly and uselessly, for ever. The comment above it says so honestly; the product surfaces it nowhere. Confirmed by an independent reviewer on 2026-09-08.",
      "found": "2026-09-08, by the independent reviewer of this diff",
-     "fixed": false,
-     "what_is_needed": "OPEN. A proper onboarding screen is its own piece of work and always was. Recorded here because it is the reason nothing in this diff can reach a real seller yet -- which is also what makes the open catcher finding above survivable for now."
+     "fixed": true,
+     "proved_by": "CLOSED 2026-09-09 by `the-panel`. `extension/panel.html` is a page the toolbar button opens, and its first screen is Connect Google Drive -- the one interactive ask in the extension, now reachable by pressing something rather than by typing into a DevTools console. Driven: `extension/screen.test.js` -- 'connecting the Drive is the one ask made with somebody watching' asserts the ask really goes to Chrome interactively, and 'a run before the Drive is connected is refused, and says why' asserts nothing starts without it. **READ THE NEW OPEN FINDING UNDER `the-panel`:** this finding was ALSO the only thing keeping the open catcher finding above out of a seller's reach, and closing it takes that accident away."
     }
    ],
    "state": {
@@ -1419,6 +1419,111 @@
     "reviewed": false,
     "run_for_real": false,
     "instead": "**106 checks, RUN on 2026-09-04 and read off the run's own last line -- not taken from the file's `EXPECTED` number, which is what four wrong counts on this project this week were taken from.** Both transports are handed in and both stand-ins RECORD every call, so what is checked is the request that would really have gone out, with no account, no Drive, no spreadsheet and no internet. **NO SHEET HAS EVER BEEN MADE AND NOT ONE REAL CELL HAS EVER BEEN WRITTEN:** `make_the_ledger` has never reached Google, no seller's Drive has ever been listed, and the id field it fills has never held a real spreadsheet. **CORRECTED 2026-09-04: these checks HAVE now been watched fail.** Ten faults were put back one at a time in a throwaway copy -- among them the writing half never asking whether it may write, the four columns reported as already there, the night's memory made per file instead of per night, and a disagreement picked silently instead of reported. All ten went red under checks named for them and none survived. **Two of those runs found a hole in the CHECKS rather than in the code: two checks threw instead of going red, so the file died half way through with no count and nothing said about anything below it. Both are guarded now.** **WRITING TO THE SELLER'S SHEET IS STILL NOT SAFE UNTIL D157'S FOUR DATE COLUMNS EXIST (D180) -- AND THE CODE NOW REFUSES RATHER THAN THE RECORD MERELY SAYING SO.** `the_writing_half` stops before it reaches Google, names the four missing columns, and the fetching carries on with not one file written down as read. The refusal lifts itself the day the ERP adds them."
+   }
+  }
+,
+  {
+   "id": "the-panel",
+   "name": "The face: a page in the seller's own browser",
+   "what": "**THE EXTENSION HAD NO FACE AT ALL, AND THAT IS WHY IT HAD NEVER FETCHED ANYTHING.** Its manifest declared a background worker and two content scripts and nothing else -- no `action`, no popup, no page, no icon anybody could press. So nothing could start a fetch: not a seller, not a night, not the daily alarm, which fired and said in as many words that nothing decides tonight's list yet. The only doors in were four globals on the service worker, and `worker.js` calls them what they are -- *\"a handle, not a way in\"*, standing in *\"until there is a screen for it\"*. This is that screen.\n\n**A PAGE, NOT A POPUP, AND THAT IS HIS INSTRUCTION**, 2026-09-09: *\"For extension, it used to open a popup and it used to close. For auto sync I want them to open a web page. Web page does not mean it has to be somewhere else -- it has to be part of the extension itself... the user will have more space, and you will also have more space to build things and organise things. But it'll work exactly like how the popup used to work.\"* So `panel.html` is a full tab served from inside the extension and `chrome.action.onClicked` opens it -- into the SAME tab each time, by a number kept in the storage that does not outlive the session, because a tab number means nothing after a browser restart.\n\n**IT TALKS TO THE WORKER THE WAY THE CONTENT SCRIPT ALREADY DOES, AND HAS ITS OWN LISTENER FOR IT.** `answerThePanel` in `background.js` sits beside `answerThePage` and asks a question that one cannot: that the sender is THIS extension's own `panel.html`, by name. Added to `KNOWN` instead, every one of these messages -- start a night, connect a Drive, move the daily clock -- would have been reachable from a portal page running our content script. **The three globals stay**, because they are what is left when this page is broken.\n\n**AND IT LOOKS LIKE THE PRODUCT IT BELONGS TO.** His instruction, said separately: *\"You should follow the colour and theme, all those things, from what the ERP does.\"* The ERP's `tokens.css` and `button.css` are copied byte for byte into `extension/from-the-erp/` -- an extension is loaded from one folder and can read nothing outside it, so a copy is the only shape there is -- and `tools/the_look_checks.py` pins both to the ERP's COMMITTED copies through the same door `firestore_checks.py` uses. The day the ERP retunes a colour, that check goes red by name rather than the panel quietly wearing last season's brown.\n\n**WHAT IT SHOWS THAT THE REFERENCE'S PANEL NEVER DID:** which platforms are connected and which have never run (the night's own record holds ONE night and is overwritten, so finished nights are filed by platform); how many of Flipkart's twenty daily requests are left TODAY rather than in this run; and the five reports this door cannot fetch, each with the reason written in `autosync/recipes.py`'s `NOT_YET_A_RECIPE`, which until now reached nobody. **And what it deliberately does not have:** the reference grew three separate backfill pages; this is one page, one place.\n\n**A DATE RANGE IS DECIDED AND DELIBERATELY NOT BUILT.** His words: *\"at this point I do not want you to get into too much of technicals, but I would want you to first test if it is your code working. Once you have the working code, then you can change all these things date and all.\"* The decided behaviour, for whoever builds it: certain Flipkart and Meesho reports accept a range; where the panel offers one and a range is given, fetch that range; where none is given, **yesterday**. That default is built and is `theDayToFetch`.",
+   "rests_on": [
+    "extension",
+    "recipes"
+   ],
+   "files": [
+    "extension/panel.html",
+    "extension/panel.css",
+    "extension/panel.js",
+    "extension/screen.js",
+    "extension/screen.test.js",
+    "extension/from-the-erp/tokens.css",
+    "extension/from-the-erp/button.css",
+    "tools/the_look_checks.py"
+   ],
+   "reviews": [
+    {
+     "round": "independent review of the panel, before it was committed",
+     "date": "2026-09-09",
+     "reviewers": 1,
+     "findings": 37,
+     "blocking": 2,
+     "all_addressed": false,
+     "note": "**RUN BECAUSE D28 SAYS SELF-REVIEW DOES NOT COUNT FOR PERMISSIONS PATHS, and these messages connect a seller's Drive and spend their irrevocable Flipkart requests.** It read every new file in full and traced the three things most likely to be wrong to the bottom rather than reading the comments: the message gate, the two-listener wiring, and whether Stop can start the next report. **All three held.** Two findings were blocking and both are fixed, seven more were worth fixing and are fixed, and the rest are notes -- three of which are comments that claimed something the code did not do, corrected. **WHAT IS LEFT UNFIXED IS LISTED AS ITS OWN FINDINGS BELOW**, and one of them is decision-shaped and is for him."
+    }
+   ],
+   "findings": [
+    {
+     "what": "**NOTHING ANYWHERE DECIDED HOW MANY FLIPKART REQUESTS A RUN MIGHT SPEND.** `startTheNight` takes `mayAskFor` and defaults it to nought -- deliberately, because nought is the safe answer -- and nothing in the product ever passed anything else. So every Flipkart report in every night was skipped by name with a correct and useless sentence about an allowance of nought. **And the allowance itself was twenty a DAY and was counted per RUN**, so two runs on one day could each have believed they had the whole twenty.",
+     "found": "2026-09-09, while wiring Run now -- by asking what number the page was supposed to put in that argument, and finding there was none",
+     "fixed": true,
+     "proved_by": "`A_DAYS_ALLOWANCE` in `nightly.js` is the twenty as a number a program can read; `screen.js` files each finished night's spend under the day it started and `howManyItMaySpend` gives a run what is left of that day. Driven: `extension/screen.test.js` -- 'a run may spend only what is left of the day', 'a night already filed is not counted twice', 'a day already spent leaves a run allowed nought rather than a negative number'."
+    },
+    {
+     "what": "**NO MEESHO REPORT COULD EVER HAVE BEEN WALKED.** All five of them carry `{panel}` in their steps -- the piece of a supplier panel's address that is the seller's own -- and `walk.js` refuses a step carrying one without it, in words. **Nothing anywhere held that name and nothing passed it**: `carryTheNightOn` was handed `startAWalk: (how) => startAWalk(chrome, how)`, with no panel in `how` and nowhere for one to come from. Every Meesho night would have failed five times, correctly, for want of a value nobody had ever been asked for.",
+     "found": "2026-09-09, by tracing what `{panel}` is filled from and finding the chain ends at nobody",
+     "fixed": true,
+     "proved_by": "The panel asks for it once, `screen.js`'s `whyThatIsNotAPanelName` asks something of it before it is kept, and `worker.js` puts it into every walk the night starts. Driven: `extension/screen.test.js` -- 'a Meesho run with no panel name is refused, saying where to find it' and 'a panel name with a slash in it is refused'."
+    },
+    {
+     "what": "**THE STAND-IN CHROME WAS BLIND TO AN ALARM'S `when`.** It recorded only `delayInMinutes`, so an alarm set for four in the morning and one set for right now were the same alarm as far as any check could see -- and the hour a seller chooses is set exactly that way. A check about the daily time could not have failed.",
+     "found": "2026-09-09, while writing the check that the chosen hour survives the alarm being cleared",
+     "fixed": true,
+     "proved_by": "`test/fake-chrome.js` now keeps `when` and builds `scheduledTime` from it, which is what Chrome documents. Driven: `extension/screen.test.js` -- 'and the daily alarm is set for it, not for whenever this happened to run' and 'an alarm cleared and put back keeps the hour the seller chose'."
+    },
+    {
+     "what": "**THIS PAGE TAKES AWAY THE ONLY THING KEEPING THE OPEN CATCHER FINDING UNDER `extension` OUT OF A SELLER'S REACH, AND THAT IS THE MOST IMPORTANT SENTENCE IN THIS ENTRY.** The register said in as many words that nothing in the extension could reach a real seller because `connectTheDrive` was reachable only from the extension's own service-worker console. **That was never a guard. It was an accident, and this page ends it.** The catcher finding still stands exactly as written: `content.js` arms the download catcher at the start of every walk turn, and the wrapper posts the genuine secret for the first blob the page makes whose type is not image, video or audio -- so any advert or tag manager on Meesho or Flipkart that makes a `text/csv` blob in that window has its bytes written into the seller's Drive under the genuine report name, and the Python reads them as real sales.",
+     "found": "2026-09-09, by reading this repository's own memory before committing the panel -- it says NOTHING MAY GO IN FRONT OF A SELLER UNTIL IT IS CLOSED, and gives the console-only reach as the reason nothing can",
+     "fixed": false,
+     "what_is_needed": "OPEN, and it is not this piece of work. **The panel is finished and checked; it must not be put in front of a seller until the catcher finding under `extension` is closed.** Four candidate repairs for that are already written up there with why none could be made on the day. Nothing here weakens any guard -- what changed is only that a seller can now press the button that starts a night, which is exactly what he asked for."
+    },
+    {
+     "what": "**BLOCKING: A NIGHT CROSSING MIDNIGHT COULD PUT MORE THAN TWENTY IRREVOCABLE FLIPKART REQUESTS OUT IN ONE CALENDAR DAY.** A night's spend was filed as one total under the day the night STARTED. A run begun at 23:50 that made three requests after midnight put those three on yesterday's ledger; today then still read twenty left, and a second run could spend the full twenty -- twenty-three real writes against the seller's own account, none of which can be taken back. The daily hour is the seller's own, so a near-midnight run is not a corner.",
+     "found": "2026-09-09, by the independent reviewer, who called it the one blocking finding",
+     "fixed": true,
+     "proved_by": "Charged at the moment of spending instead of worked out afterwards: `oneWasAskedFor` in `nightly.js` now stamps every request with the day it goes out (`spentOn`), and `screen.js` adds those up rather than folding a night total into one day. Driven: `extension/screen.test.js` -- 'every request is stamped with the day it was actually spent on', 'so the panel shows only what went out today, not the whole night', 'and the ledger is split across the two days when it is filed'. **The stamping was put back out of `nightly.js` on purpose and all three went red**; an earlier version of these checks handed itself a night that already carried a stamp and passed with the stamping removed altogether, which is a check that cannot fail for the thing it is named for."
+    },
+    {
+     "what": "**BLOCKING TO PRESERVE: THE WHOLE PANEL GATE RESTED ON ONE MANIFEST KEY, AND NOTHING SAID SO.** `answerThePanel` accepts a message whose `sender.url` is the panel's own address -- and for a content script in a SUB-FRAME, `sender.url` is that frame's address. That is the classic shape of the bypass: frame a trusted address and inherit its identity. It failed only because `panel.html` is not in the manifest's `web_accessible_resources`, so no portal page can load it. The day somebody adds it there to deep-link the panel, every one of `run-now`, `connect-the-drive` and `set-the-hour` becomes reachable from a page we do not control.",
+     "found": "2026-09-09, by the independent reviewer",
+     "fixed": true,
+     "proved_by": "Two locks now, not one. `answerThePanel` refuses any sender whose `frameId` is not 0, and a check pins the manifest key as well. Driven: `extension/screen.test.js` -- 'a message from a FRAME inside the panel is NOT answered' (the frame guard taken out: 2 red) and 'panel.html is not something a portal page is allowed to load' (`panel.html` added to `web_accessible_resources`: 1 red). Both restored byte for byte."
+    },
+    {
+     "what": "**THE DAILY ALARM COULD BE PUSHED OUT FOR EVER FOR A SELLER WHO NEVER CHOSE AN HOUR -- WHICH IS EVERY SELLER, BY DEFAULT.** Chrome's own documentation: with no `when` and no `delayInMinutes`, a repeating alarm uses its PERIOD as the first delay. So an alarm created with a period of a day first fires a day later, and every event that clears alarms starts that day again from nought -- an extension updated once a day never fires its daily alarm at all. **This is the nine-day outage arriving through the other door, found inside the function written to close the first one.**",
+     "found": "2026-09-09, by the independent reviewer",
+     "fixed": true,
+     "proved_by": "`UNTIL_A_SELLER_CHOOSES` -- half past two in the morning, in the seller's own time -- so `when` is always given. Driven: `extension/screen.test.js` -- 'a seller who never chose an hour still gets a real first fire' and 'and it is at the hour this product runs at until somebody says otherwise'. The default taken back out: 3 red."
+    },
+    {
+     "what": "**FOUR SMALLER ONES, ALL FIXED AND ALL DRIVEN.** (1) The seller's panel name was asked something once and then trusted for ever out of storage, and was unbounded -- and it goes into an address the browser is sent to. (2) Stop left `night.doing` set, so the stopped report read 'fetching now' for ever while the banner said the run had finished, and it appeared in neither list so the platform card under-reported by one. (3) The report rows were rebuilt clearing only the boxes, so what was TICKED could hold ids with no row -- and Run now sends exactly what is ticked. (4) A seller closing the walk tab by hand left the download-cancel armed for the rest of its quarter of an hour, so the next file they downloaded themselves vanished in front of them; `wireUp` has always taken `whenATabGoes` and nothing had ever passed it.",
+     "found": "2026-09-09, by the independent reviewer",
+     "fixed": true,
+     "proved_by": "`theSetup` re-asks `whyThatIsNotAPanelName` on the way out and the name is bounded at 64; `stop` writes the in-flight report down as 'stopped'; the rebuild clears `states` and `ticked` with `boxes`; `worker.js` passes `whenATabGoes`. Driven: `extension/screen.test.js` -- 'a stored panel name that is not one reads as no panel name at all' (2 red), 'the report that was being fetched is written down as stopped' (2 red), 'rebuilding the list forgets what was ticked on the old one' (1 red). **The fourth has no check: `worker.js` is wiring and has none by design, the same reason `content.js` has none.**"
+    },
+    {
+     "what": "**THE HOUR ON THIS PANEL IS THE BROWSER'S CLOCK AND NOT THE NIGHTLY JOB'S, AND THE HEADING PROMISED A RUN.** `onDue` still says in as many words that nothing decides tonight's list, so the daily alarm wakes the extension and starts nothing. Separately, the Python job in the seller's own GitHub account runs on its own cron line, which this control does not touch -- that is the open finding under `the-run-that-starts-itself`, and it is not closed by this.",
+     "found": "2026-09-09, by the independent reviewer, who called it the panel's only dishonest control",
+     "fixed": true,
+     "proved_by": "The heading is now 'When this extension wakes each day' and the note under it says in plain words that this is the clock inside the browser and NOT the clock the nightly job runs on. No check: it is words on a screen, and a check asserting a sentence is a check that goes red when somebody improves the wording."
+    },
+    {
+     "what": "**28 KB OF THE PRIVATE ERP'S OWN SOURCE NOW SHIPS INTO EVERY SELLER'S GITHUB ACCOUNT.** `from-the-erp/tokens.css` and `button.css` are byte-for-byte copies and carry the ERP's internal design commentary, its dated decisions and their reasoning. There are no secrets in them and the copy is unavoidable -- a Chrome extension loads from one folder and can read nothing outside it. **But 'the ERP's source ships to sellers' is a decision, and it arrived as a side effect of a stylesheet rather than as one.**",
+     "found": "2026-09-09, by the independent reviewer",
+     "fixed": false,
+     "what_is_needed": null
+    },
+    {
+     "what": "**THREE NOTES LEFT AS THEY ARE, WRITTEN DOWN RATHER THAN BELIEVED AWAY.** (1) The Flipkart day count lives only in the seller's own browser: removing and re-adding the extension sets it back to nought and Flipkart's twenty does not. Nothing here can fix that -- only the platform really knows -- and it is now said in the code. (2) Stop cannot recall a request already in flight: it ends the night, clears the walk and closes the tab, but until the tab dies the page keeps working through its recipe. The accounting stays conservative because the count happens before the walk, so this costs a request and not the count. (3) If something clears the daily alarm alone within two minutes of the chosen hour, the recreate lands after the hour has passed and the run goes to tomorrow with nothing saying a day was skipped -- narrow, and inherent to the recreate-on-wake shape.",
+     "found": "2026-09-09, by the independent reviewer",
+     "fixed": false,
+     "what_is_needed": null
+    }
+   ],
+   "state": {
+    "built": true,
+    "reviewed": true,
+    "run_for_real": false,
+    "instead": "**131 JavaScript checks in `extension/screen.test.js` and 62 Python checks in `tools/the_look_checks.py`, both run on 2026-09-09 and read off the run's own last line.** The whole set went from 2,877 Python and 715 JavaScript checks to 2,946 and 846, nought failing before and nought after. **FOUR FAULTS WERE PUT BACK ON PURPOSE and each went red under a check named for it, and each file was restored byte for byte:** the guard that keeps a portal page out of the panel's messages (2 red), a colour retuned in the copied tokens and nowhere else (1 red), Stop saying it stopped a run that had finished by itself (1 red), and the Flipkart allowance counted per run instead of per day (2 red).\n\n**AND IT WAS LOOKED AT IN A REAL BROWSER**, served off a scratch page that was deleted afterwards: it draws in both themes, 23 report rows and all five reasons render, and at 375px nothing on it scrolls sideways (D67). **WHAT WAS NOT DONE: it has never been loaded into Chrome as an extension and no night has been started from it.** His own Chrome was in use by another session all day and running this against his live seller accounts was out of bounds. So `Run now` is checked against a stand-in Chrome and has never pressed a real portal."
    }
   }
  ]

@@ -153,7 +153,16 @@ export async function makeSureTheWorkerIsWoken(chrome) {
 export async function makeSureTheClockIsSet(chrome) {
   const already = await chrome.alarms.get(DAILY);
   if (already) return false;
+  /* **THE HOUR THE SELLER CHOSE IS PUT BACK WITH IT, and without this line the
+   * choice quietly moves.** The alarm survives a browser restart, so the hour
+   * usually survives with it -- but the whole reason this function is asked on
+   * every worker start is that an alarm CAN be cleared while Chrome is running,
+   * and the nine-day outage is what that cost. Put back without the hour, the
+   * daily run would silently move to whatever time the worker happened to wake,
+   * for ever, with nothing on screen saying it had moved. */
+  const chosen = (await theHourItRuns(chrome)) || UNTIL_A_SELLER_CHOOSES;
   await chrome.alarms.create(DAILY, {
+    when: whenThatHourNextComes(chosen, Date.now()),
     periodInMinutes: EVERY_DAY_IN_MINUTES,
     /* Set out loud rather than left to the default. The documentation asks for
      * it explicitly "to maximize compatibility across browsers", and it is the
@@ -161,6 +170,118 @@ export async function makeSureTheClockIsSet(chrome) {
     persistAcrossSessions: true,
   });
   return true;
+}
+
+/* ------------------------------------------------------- the hour it runs at */
+
+/* What the chosen hour is called in storage. **Its own record rather than a
+ * field on the run**: it is a setting, and it must outlive every run there has
+ * ever been. */
+export const THE_HOUR = 'kartaan-autosync-hour';
+
+/**
+ * The hour used until a seller chooses one.
+ *
+ * **WITHOUT THIS THE DAILY ALARM COULD BE PUSHED OUT FOR EVER, and that is the
+ * other half of the nine-day outage.** Chrome's own documentation: "If neither
+ * `when` nor `delayInMinutes` is set for a repeating alarm, `periodInMinutes` is
+ * used as the default for `delayInMinutes`." So an alarm created with a period
+ * of a day and nothing else first fires a DAY LATER -- and every event that
+ * clears alarms starts that day again from nought. An extension updated once a
+ * day never fires its daily alarm at all. Found by an independent reviewer,
+ * 2026-09-09, in the very function written to close the other half of this.
+ *
+ * **HALF PAST TWO IN THE MORNING, in the seller's own time.** A night runs with
+ * nobody watching, and the reference has run at this end of the night for
+ * months. A seller who chooses their own hour replaces it; nobody has to.
+ */
+export const UNTIL_A_SELLER_CHOOSES = Object.freeze({ hour: 2, minute: 30 });
+
+/** The hour the seller chose, or nothing at all when they never have. */
+export async function theHourItRuns(chrome) {
+  const held = await chrome.storage.local.get(THE_HOUR);
+  const kept = held[THE_HOUR];
+  if (!kept) return null;
+  const hour = Number(kept.hour);
+  const minute = Number(kept.minute);
+  /* **ASKED ON THE WAY OUT AS WELL AS ON THE WAY IN.** A record that is not a
+   * time of day gives `setHours(NaN)` and then an alarm asked for at `NaN`, and
+   * an alarm Chrome cannot make is a daily run that never happens. Read as "no
+   * hour chosen", the seller gets the default and a run, which is the answer
+   * that costs nothing. */
+  if (!Number.isInteger(hour) || !Number.isInteger(minute)
+      || hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+    return null;
+  }
+  return { hour, minute };
+}
+
+/**
+ * Why that is not a time of day, or nothing at all.
+ *
+ * **ASKED OF EXACTLY WHAT THE BOX HANDS BACK, never of a tidied copy of it.**
+ * That is `walk.js`'s own lesson about the day a walk is fetching, arriving
+ * here: a time box hands back the text `"09:00"`, and an UNANSWERED one hands
+ * back `""` -- which `Number` turns into 0. Asked as two numbers, an empty box
+ * therefore sets the daily run to midnight and looks exactly like somebody
+ * choosing midnight. So the text itself is what is asked.
+ */
+export function whyThatIsNotATimeOfDay(said) {
+  const text = String(said ?? '');
+  if (!text) {
+    return 'No time was chosen. Pick one on the clock and press Save.';
+  }
+  if (!/^\d{2}:\d{2}$/.test(text)) {
+    return `"${text}" is not a time of day. It is written as hours and minutes, like 04:30.`;
+  }
+  const [hour, minute] = text.split(':').map(Number);
+  if (hour > 23 || minute > 59) {
+    return `"${text}" is not a time of day.`;
+  }
+  return null;
+}
+
+/** The time of day that text says, or nothing when it does not say one. */
+export function theTimeOfDayIn(said) {
+  if (whyThatIsNotATimeOfDay(said)) return null;
+  const [hour, minute] = String(said).split(':').map(Number);
+  return { hour, minute };
+}
+
+/**
+ * When that hour next comes round, as a moment.
+ *
+ * **IN THE SELLER'S OWN TIME, because it is the seller's own night.** A run at
+ * "four in the morning" means four where they are.
+ */
+export function whenThatHourNextComes({ hour, minute }, now) {
+  const today = new Date(now);
+  today.setHours(hour, minute, 0, 0);
+  if (today.getTime() > now) return today.getTime();
+  return today.getTime() + EVERY_DAY_IN_MINUTES * 60000;
+}
+
+/**
+ * Set the hour the daily run happens at.
+ *
+ * **THE ALARM IS CLEARED AND MADE AGAIN, because Chrome has no way to move
+ * one.** `alarms.create` with a name that already exists replaces it -- the
+ * documentation says so -- but clearing first makes that true rather than
+ * assumed, and leaves nothing behind if the create throws.
+ */
+export async function setTheHour(chrome, { at, now = () => Date.now() }) {
+  const wrong = whyThatIsNotATimeOfDay(at);
+  if (wrong) throw new Error(wrong);
+  const { hour, minute } = theTimeOfDayIn(at);
+  await chrome.storage.local.set({ [THE_HOUR]: { hour, minute } });
+  await chrome.alarms.clear(DAILY);
+  const when = whenThatHourNextComes({ hour, minute }, now());
+  await chrome.alarms.create(DAILY, {
+    when,
+    periodInMinutes: EVERY_DAY_IN_MINUTES,
+    persistAcrossSessions: true,
+  });
+  return when;
 }
 
 /**
@@ -549,6 +670,59 @@ export function answerThePage(chrome, parts) {
 export const KNOWN = ['go', 'arm-the-catcher', 'take-file', 'land-the-file', 'say',
   'resume?', 'walk-done'];
 
+/** Where the panel lives, as one name. Asked of a message's sender below, and
+ *  opened by the toolbar button in `worker.js` -- so the page that is opened and
+ *  the page that is believed cannot be two different files. */
+export const THE_PANEL = 'panel.html';
+
+/** An address without whatever follows the `?` or the `#`. */
+export function theSamePage(address) {
+  return String(address || '').split('#')[0].split('?')[0];
+}
+
+/**
+ * Answer the panel, and nothing else.
+ *
+ * **ITS OWN LISTENER RATHER THAN MORE OF `answerThePage`, and the difference is
+ * the question each one can ask.** The page half's listener requires a TAB
+ * behind the message, because a content script always has one and a message from
+ * another extension does not. **That is right for it and would be a weaker test
+ * here**: this asks something the content script's listener cannot, that the
+ * message came from THIS extension's own panel page, by name. A portal page
+ * running our content script can therefore never start a night, connect a Drive
+ * or move the daily clock -- and it could if these were simply added to `KNOWN`.
+ *
+ * `sender.url` is set by Chrome, not by whoever sent the message.
+ */
+export function answerThePanel(chrome, parts) {
+  /* **NOT ITSELF ASYNC, for the same reason `answerThePage` is not.** A message
+   * this does not recognise has to be refused BEFORE any promise exists, or the
+   * worker tells Chrome it will answer later and then never does -- which holds
+   * the channel open and throws away whatever another listener would have
+   * said. */
+  return (asked, from) => {
+    if (!asked || !asked.do) return null;
+    if (!from || from.id !== chrome.runtime.id) return null;
+    /* **THE TOP OF A TAB, NEVER A FRAME INSIDE ONE, and this is the second lock
+     * on a door that had one.** `sender.url` for a content script in a SUB-FRAME
+     * is the sub-frame's address -- which is the classic shape of this bypass:
+     * put a trusted address in a frame and inherit its identity. It cannot be
+     * done today only because `panel.html` is not in the manifest's
+     * `web_accessible_resources`, so no portal page can load it at all. **That is
+     * one manifest key standing between a seller's Drive and a page we do not
+     * control**, found by an independent reviewer on 2026-09-09, and a check now
+     * pins it as well. This is the lock that does not depend on that key. */
+    if (from.frameId !== undefined && from.frameId !== 0) return null;
+    /* **COMPARED WITHOUT WHATEVER IS AFTER THE `?` OR THE `#`.** Those are the
+     * same page -- a seller who bookmarks the panel with a fragment on the end
+     * would otherwise get a panel that silently answers nothing, which reads as
+     * the extension being broken. */
+    if (theSamePage(from.url) !== chrome.runtime.getURL(THE_PANEL)) return null;
+    if (!parts.mayAsk.includes(asked.do)) return null;
+    return parts.answer(asked);
+  };
+}
+
 async function carryOut(chrome, parts, asked, tabId) {
   const { goTo, takeTheFile, landTheFile, watching, say, secret } = parts;
   if (asked.do === 'resume?') {
@@ -726,7 +900,22 @@ async function carryOut(chrome, parts, asked, tabId) {
  * The real worker calls it once, at the top of the file, with nothing in
  * between.
  */
-export function wireUp(chrome, { onDue, answer = null, whenATabGoes = null, carryOn = null }) {
+export function wireUp(chrome, {
+  onDue, answer = null, whenATabGoes = null, carryOn = null, answerPanel = null,
+}) {
+  /* **THE PANEL'S OWN WAY BACK, and a second listener rather than a wider first
+   * one.** Chrome hands a message to every listener until one says it will
+   * answer; the page half's returns nothing for a panel message and this returns
+   * nothing for a page one, so neither can be reached through the other's
+   * door. */
+  if (answerPanel) {
+    chrome.runtime.onMessage.addListener((asked, from, reply) => {
+      const coming = answerPanel(asked, from);
+      if (!coming) return false;
+      coming.then(reply).catch((wrong) => reply({ wrong: String((wrong && wrong.message) || wrong) }));
+      return true;
+    });
+  }
   /* **THE PAGE HALF'S ONE WAY BACK.** Registered at the top level like every
    * other listener, because a listener added inside a function does not exist
    * until something calls that function -- and after a restart nothing has. */

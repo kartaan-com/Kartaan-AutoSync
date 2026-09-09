@@ -1,0 +1,507 @@
+/* Every button in Kartaan, one way.
+
+ * **HIS DECISION, D142, after looking at a screen where the Columns button was
+ * plainly bigger than the search box beside it:** *"All the buttons throughout
+ * the application should follow the same behavior, same kind of workflow, same
+ * kind of visibility. It should not be that in one screen I have a different
+ * type and size of button, in another screen a different type and size."*
+ *
+ * **WHAT WAS THERE BEFORE: nothing.** Every screen wrote its own. Measured
+ * across the product on the day this was built -- **seven different button
+ * heights, eight paddings, eight font sizes**, none of them decided anywhere.
+ * They were not different on purpose; they were different because each was
+ * typed on its own day.
+ *
+ * ---------------------------------------------------------------- THE SIZES
+ *
+ * **TWO, AND ONLY TWO.** A third arrives the moment somebody wants a button
+ * "slightly smaller here", and then there are seven again.
+ *
+ *   ordinary  37px tall. **HIS DECISION, 2026-08-30: fifteen percent off every
+ *             one of them** -- *"the buttons are looking bigger in comparison
+ *             with the sections."* They are, and it was not a judgement about
+ *             buttons; it was about a button standing taller than the words
+ *             beside it.
+ *
+ *             **WHAT THAT COSTS, said out loud: 44px was the floor a thumb
+ *             needs, and 37px is under it.** Not a rule anybody here invented --
+ *             it is the size a fingertip covers, and D67 makes a phone a build
+ *             requirement. So this is a real departure, taken deliberately by
+ *             him after looking at a real screen, and it is logged (D143)
+ *             rather than made quietly.
+ *   small     27px tall, and ONLY inside a table row. A row's buttons repeat on
+ *             every line, so they set the height of the whole table -- at 44px
+ *             a phone showed six items where it can show ten. What buys the
+ *             accuracy back is that the row itself is 40px of target and the
+ *             buttons sit 8px apart. **Anything that saves, deletes, or is the
+ *             only control on a screen stays ordinary, whatever it sits in.**
+ *
+ * ---------------------------------------------------------------- THE KINDS
+ *
+ * **THREE, AND WHAT SEPARATES THEM IS WHAT PRESSING COSTS**, not how they look:
+ *
+ *   main      the one thing this screen is for. Filled with the brand colour.
+ *             **At most one per screen area** -- two things shouting equally is
+ *             the same as neither.
+ *   ordinary  everything else that does something. Outlined.
+ *   quiet     a way out, a way back, a thing you would not miss. Text only.
+ *   danger    throws something away. Its own colour, and D34 still applies --
+ *             anything destructive costs more than a click.
+ *
+ * A screen picks by what the button DOES. Picking by how it should look is how
+ * seven sizes happened.
+ */
+
+/* ------------------------------------------------------------ the shape
+
+ * Everything every button has, whatever kind it is. A kind below changes only
+ * its colours -- never its size, its font or its corners, because those are
+ * what make two buttons look like one product.
+ */
+.k-button {
+  box-sizing: border-box;
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  min-height: 37px;
+  padding: 8px 14px;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  white-space: nowrap;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.k-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* **A BUTTON THAT CANNOT BE PRESSED LOOKS LIKE ONE.** A disabled button that
+ * still looks pressable is somebody pressing it and learning nothing. */
+.k-button:disabled {
+  color: var(--text-muted);
+  background: var(--surface-raised);
+  border-color: var(--border);
+  cursor: default;
+}
+
+/* ------------------------------------------------------------ the kinds */
+
+.k-button--main {
+  color: var(--on-brand);
+  background: var(--brand);
+  border: 1px solid var(--brand);
+}
+
+.k-button--ordinary {
+  color: var(--brand);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+}
+
+.k-button--quiet {
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--border);
+}
+
+.k-button--danger {
+  color: var(--on-danger);
+  background: var(--danger);
+  border: 1px solid var(--danger);
+}
+
+/* ------------------------------------------------------------ under the mouse
+
+ * **HERE, BECAUSE EVERY SCREEN WROTE ITS OWN AND THEY DISAGREED.** Set-up
+ * dimmed itself, Purchases changed colour, the table's own buttons did neither.
+ * A person cannot learn what a hover means if it means three things.
+ *
+ * NOTHING FOR A DISABLED ONE, on purpose: a button that reacts to the mouse
+ * looks pressable, and one that cannot be pressed must not. */
+
+/* **DARKENED, NEVER RECOLOURED, AND THAT IS A MEASUREMENT.** Hovering used to
+ * swap the fill from brand to accent, which puts white on `#B8832A` -- 3.32:1,
+ * under the 4.5:1 that 13px text needs. The label of the one button each screen
+ * is FOR went washed out the moment the mouse touched it.
+ *
+ * Every screen darkened the brand before this file existed, and that stays
+ * above 11:1. Collapsing them into one rule changed the colour and nobody
+ * measured it. Found by an independent reviewer. */
+.k-button--main:hover:not(:disabled) {
+  filter: brightness(0.88);
+}
+
+.k-button--ordinary:hover:not(:disabled) {
+  border-color: var(--brand);
+}
+
+.k-button--quiet:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+.k-button--danger:hover:not(:disabled) {
+  filter: brightness(0.9);
+}
+
+/* ------------------------------------------------------------ the sizes
+
+ * **ONLY INSIDE A TABLE ROW.** See the header: a row's buttons set the height of
+ * every row, and the row itself is the target. */
+.k-button--small {
+  min-height: 27px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+/* ------------------------------------------------------- EVERY CONTROL, ONCE
+
+ * **A BOX SOMEBODY TYPES IN OR PICKS FROM: one definition, for all of them.**
+ *
+ * **HIS REVIEW, 2026-08-31, looking at the stock dropdown on This business:**
+ * *"The dropdown for who holds the stock looks too thin and does not go with
+ * the entire screen. Is there a global definition of dropdown? If not, create
+ * one global."*
+ *
+ * There was not. **Six classes, four different definitions, and two with no
+ * rule at all** -- and the one he was looking at was one of the two, so it drew
+ * as a bare browser dropdown beside controls that had been thought about.
+ *
+ * ----------------------------------------------------------- THE TWO NUMBERS
+ *
+ *   37px   the same height as a button (D143), so a control and a button in one
+ *          row line up. That is the whole reason this class exists.
+ *   16px   **and this one is not a style choice.** A phone browser ZOOMS THE
+ *          WHOLE PAGE IN when it focuses a field whose text is smaller than
+ *          16px, and the page is then scrolled sideways with no way back. It is
+ *          the one place in this product where a text size is doing a job other
+ *          than being readable.
+ *
+ * They fit together: 16px of text is about 19px tall, and 8px of padding above
+ * and below plus the border comes to 37. The old search box was 13px and had
+ * the zoom fault; the old form field was 16px and 44px tall and did not line up
+ * with anything. */
+/* **THE SAME FIFTEEN PERCENT.** These sit in the same row as buttons, so
+ * shrinking one and not the other puts back the very mismatch D142 fixed. */
+/* **WHAT AN OPEN THING'S BUTTON LOOKS LIKE.** His instruction, 2026-09-01: three
+ * buttons side by side, any of them able to have a form open underneath, and
+ * every one of them looking the same either way.
+ *
+ * **IT DOES NOT CHANGE THE BUTTON'S COLOUR, and that was the first attempt and
+ * it was wrong.** Filling it with the brand made an open `ordinary` button look
+ * exactly like the `main` one beside it -- so a dark button meant either "this
+ * is the one thing this screen is for" or "this is open", and nothing on the
+ * screen said which. One appearance for two facts is the shape this project
+ * exists against.
+ *
+ * **A RING AND A PRESSED INSET INSTEAD.** Both sit on top of whatever the button
+ * already is, so `main` stays the main thing and `ordinary` stays ordinary, and
+ * either of them can also be open.
+ *
+ * **NOT `outline`, deliberately** -- that is what focus uses, and a seller
+ * tabbing through a bar would not be able to tell "I am here" from "this one is
+ * open". A ring drawn as a shadow, in the brand rather than the accent.
+ *
+ * Said out loud with `aria-expanded` too (see `setOpen` in `screen.js`), because
+ * a ring on its own is not a fact anybody can hear. */
+.k-button--open {
+  box-shadow: inset 0 2px 4px var(--shadow), 0 0 0 2px var(--brand);
+}
+
+/* The ring stays through a hover, or the one button whose state the seller is
+ * reaching for is the one that stops showing it. */
+.k-button--open:hover:not(:disabled) {
+  box-shadow: inset 0 2px 4px var(--shadow), 0 0 0 2px var(--brand);
+}
+
+.k-control {
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: var(--control-height);
+  padding: 8px 10px;
+  font-family: var(--font);
+  /* See above: under 16px a phone zooms the page in on focus. */
+  font-size: 16px;
+  line-height: 1.2;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+}
+
+/* **A DROPDOWN KEEPS THE ARROW ITS OWN BROWSER DRAWS.** Hiding it and painting
+ * one costs a rule per browser and buys nothing a seller notices -- and a
+ * dropdown that does not look like every other dropdown on their phone is
+ * harder to use, not easier. What it gets from here is the size, the colours
+ * and the corner, which is what makes it belong on the screen. */
+select.k-control {
+  /* Room for the arrow, or the longest word sits under it. */
+  padding-right: 28px;
+  /* The same height as everything else, said again here rather than left to be
+   * inherited -- see the pointer below. One token, so it cannot drift. */
+  min-height: var(--control-height);
+  /* **THE POINTER IS HERE, BESIDE THE HEIGHT.** A screen saying `cursor:
+   * pointer` in a rule that does not also say how tall the thing is describes a
+   * target the seller can see and may not be able to hit -- which the product
+   * checker refuses by name. Written together, they cannot drift apart. */
+  cursor: pointer;
+}
+
+/* Something typed at length is taller and may be dragged taller still. */
+textarea.k-control {
+  min-height: 74px;
+  resize: vertical;
+}
+
+.k-control:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------------- pick one, or say one
+
+ * **THE ONE CONTROL THAT PICKS A VALUE**, whether the list is closed or the
+ * words are the seller's own. `pick-one.js` builds it; everything about how it
+ * LOOKS lives here beside `.k-control`, so a dropdown and a box the seller may
+ * type a new name into are plainly the same kind of thing.
+ *
+ * `.k-pick` on its own is a dropdown and needs nothing more -- it IS a
+ * `select.k-control`. Only the typable one has anything to add. */
+
+/* **THE ARROW, PAINTED, because there is no `select` here to draw one.** A box
+ * with no arrow says nothing about a list being there, so the names the seller
+ * already uses stay invisible to anybody who was never told. Drawn with a
+ * gradient rather than an image so it needs no file and follows the theme. */
+.k-pick--own {
+  padding-right: 28px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
+    linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
+  background-position: right 13px top 50%, right 8px top 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+/* **THE LIST, hung off the body and placed by `keepOnScreen`.** It has to be
+ * `fixed`: the lists it opens over scroll inside themselves, so drawn in place
+ * it would be cut off at the edge of its own row. */
+.k-pick__list {
+  box-sizing: border-box;
+  position: fixed;
+  /* **ABOVE EVERYTHING IT CAN BE OPENED OVER, and that is the whole rule.**
+   *
+   * It was 15, copied from the column funnels -- which are right, because a
+   * table sits in the ordinary page. This control does not: the bring-in panel
+   * is 90 and a dialog is 100, so a list opened inside either was drawn behind
+   * it and simply did not appear. It was `hidden: false`, the right size, in the
+   * right place, and invisible.
+   *
+   * 110 because a list belongs to the control that opened it, and that control
+   * can be inside the highest thing on the screen. */
+  z-index: 110;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 160px;
+  max-height: 320px;
+  padding: 6px;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 20px var(--shadow);
+}
+
+/* One line per name. The same shape as a line in a column funnel, because it is
+ * the same job -- and the same tap target as everything else, so it can be hit
+ * on a phone. */
+.k-pick__choice {
+  display: flex;
+  align-items: center;
+  min-height: var(--control-height);
+  padding: 0 8px;
+  font-family: var(--font);
+  font-size: 14px;
+  color: var(--text);
+  text-align: left;
+  white-space: nowrap;
+  background: none;
+  border: 0;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.k-pick__choice:hover,
+.k-pick__choice:focus-visible {
+  background: var(--surface-raised);
+}
+
+/* ------------------------------------------------------------ the icons
+
+ * **A CONTROL THAT IS A MARK RATHER THAN A WORD** -- the funnel on a column
+ * heading, the top bar's own controls, the help mark beside a heading.
+ *
+ * **HIS DECISION, 2026-08-31: these come in here too.** I had left them out of
+ * D142 on the reasoning that they are chrome and are sized by what they sit in,
+ * and said so -- along with the fact that they were 24px, 32px and 40px, three
+ * numbers nobody had decided. He read that and said move them in. He is right:
+ * "sized by what it sits in" was true of two of them and an excuse for the
+ * other three.
+ *
+ * **32px, one number.** Below a button, because a mark is not a decision, and
+ * above nothing, because it is still pressed with a thumb.
+ *
+ * It draws NOTHING until it is pointed at. A row of painted boxes along a top
+ * bar or a table heading reads as clutter -- which is why he asked for the
+ * borders to come off Alerts and Sign out in the first place.
+ */
+.k-icon {
+  box-sizing: border-box;
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0 8px;
+  font-family: var(--font);
+  font-size: 13px;
+  color: inherit;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+/* **IT DOES NOT REPAINT, IT LIFTS.** Two faults in one rule, both found by an
+ * independent reviewer:
+ *
+ *   - `--surface-raised` IS the colour of a table heading, so the funnel and the
+ *     help mark gave no sign at all under the cursor in the one place they are
+ *     most used -- while the same rule on the brand-coloured top bar flipped
+ *     three controls to a near-white block.
+ *   - `color: var(--text)` beat `.k-table__filter-col--on .k-table__filter-open`,
+ *     which paints the funnel of a column that IS filtering. Pointing at it made
+ *     the one signal that stops a table quietly hiding rows disappear. **That is
+ *     the sixth time in this project a state rule has beaten the rule painting
+ *     the chosen thing.** Nothing here touches `color` any more, so there is
+ *     nothing left to beat it with.
+ *
+ * A translucent tint works on any ground, light or dark, brand or surface. */
+.k-icon:hover:not(:disabled) {
+  background: var(--accent-bg);
+}
+
+.k-icon:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* **TWO THINGS THAT LOOK LIKE ICONS AND ARE NOT, kept here so there is one
+ * place to look and not three.**
+ *
+ * A column heading and the strip you drag its edge by. Both are pressed, so
+ * they belong in this file; neither takes a size from it, because their size IS
+ * the heading they fill. Given 32px, the heading would stop being pressable
+ * across most of itself and the drag strip would stop reaching the bottom of
+ * the row -- so this is not the inconsistency he was pointing at, and saying so
+ * is the point of writing it down here rather than leaving it in table.css
+ * where nobody would find it. */
+
+/* ------------------------------------------- a shorter word on a small screen
+
+ * **HIS REVIEW: four buttons took three rows on a phone before a single item.**
+ * "Download a blank template" is 194px of a 333px screen on its own.
+ *
+ * **THE ANSWER IS A SHORTER WORD, NOT A SMALLER BUTTON.** Shrinking them further
+ * makes them hard to hit and still does not fit; and hiding one is worse, since
+ * every one of them is somebody's errand on some day.
+ *
+ * A button gives both words. The long one is what it means; the short one is
+ * what it is called when there is no room. **Both are always in the page** -- a
+ * screen reader reads the long one either way, so nothing is lost by having a
+ * small screen.
+ *
+ * Here rather than on a screen, because a button that abbreviates one way on
+ * Items and another on Purchases is exactly what D142 exists to stop.
+ */
+.k-button__short {
+  display: none;
+}
+
+/* **HOW MANY THINGS ARE WAITING BEHIND A BUTTON** (his instruction,
+ * 2026-09-02). Drawn on the button that opens them, because a number beside the
+ * thing that does something about it is read every time the eye passes; a
+ * sentence under the bar is read once and becomes furniture.
+ *
+ * The warning colour, because that is what this product uses for work waiting
+ * -- the same colour the figures beside the screen's name use for it. */
+.k-button__count {
+  /* `border-box`, so one digit is a circle of exactly 18px rather than 18 plus
+     its padding -- a lone number in a wide oval reads as a word, not a count. */
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  margin-left: 2px;
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--on-brand);
+  background: var(--warn);
+  border-radius: 9px;
+}
+
+@media (max-width: 600px) {
+  /* **SMALLER ON A PHONE, so a screen's buttons fit on its screen.**
+   *
+   * His instruction, 2026-09-02, looking at Products on his phone: *"reduce the
+   * button sizes on mobile in the product screen so that all buttons can
+   * accommodate in the screen -- should not need to scroll horizontally to see
+   * the buttons."*
+   *
+   * Four buttons at the desk size came to 425px of a 351px bar, so the last one
+   * either dropped to a second row or had to be pushed into view. The words
+   * cannot shrink -- a button called Needs Review says Needs Review (his
+   * correction, 2026-09-01) -- so the box around them does.
+   *
+   * **THE HEIGHT DOES NOT MOVE.** 37px is what a thumb needs (D67); it is the
+   * padding either side of the words that goes, and the type comes down one
+   * step. Anything that made these harder to hit would be trading his
+   * instruction for a worse fault. */
+  /* **NOT THE SMALL ONE.** Found by an independent reviewer, 2026-09-02: this
+   * sits at the same weight as `.k-button--small` and later in the file, so a
+   * button inside a table row came out BIGGER on a phone than at the desk --
+   * the exact opposite of what both rules are for. The small size is already
+   * the small size; this is about the bar. */
+  .k-button:not(.k-button--small) {
+    padding: 8px 7px;
+    font-size: 12px;
+  }
+
+  .k-button__long {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .k-button__short {
+    display: inline;
+  }
+}
