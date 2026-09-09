@@ -609,15 +609,17 @@ const LATER = '2026-08-27T16:04:00.000Z';
   check('nothing a page script can read off the catcher carries the secret',
     !inPlainSight.some((one) => one === 'the-secret'));
 
-  /* **THE HANDLE, NEVER THE BYTES.** It used to post a seller's whole settlement
-   * file to the page with `targetOrigin '*'`. */
-  const madeAFile = globalThis.URL.createObjectURL({
-    size: 2048, type: '', arrayBuffer: async () => new ArrayBuffer(2048),
-  });
+  /* **THE FILE IT WAS HANDED, NEVER THE HANDLE IT WAS GIVEN BACK (A42), AND
+   * NEVER LOOSE BYTES.** It used to post a seller's whole settlement file to the
+   * page with `targetOrigin '*'`, and after that the handle its own caller
+   * answered with -- which a page that got there first is free to choose. */
+  const itsOwnFile = { size: 2048, type: '', arrayBuffer: async () => new ArrayBuffer(2048) };
+  const madeAFile = globalThis.URL.createObjectURL(itsOwnFile);
   check('a file the page built is reported', posted.length === 1 && madeAFile.startsWith('blob:'));
   check('and it carries the secret', posted[0].data.secret === 'the-secret');
-  check('and a handle rather than the bytes',
-    typeof posted[0].data.handle === 'string' && posted[0].data.asLetters === undefined);
+  check('and the file it was handed rather than the handle it was given back',
+    posted[0].data.file === itsOwnFile && posted[0].data.handle === undefined
+      && posted[0].data.asLetters === undefined);
   check('and it is addressed to this page and nowhere else',
     posted[0].to === 'https://supplier.meesho.com');
   check('and it says what it is', posted[0].data.kartaan === CAUGHT);
@@ -653,6 +655,146 @@ const LATER = '2026-08-27T16:04:00.000Z';
 }
 
 {
+  /* **A PAGE THAT GOT TO `createObjectURL` FIRST, WHICH THE CATCHER NAMED AS ITS
+   * OWN LIMIT AND THIS CLOSES (A42).**
+   *
+   * A seller's portal page carries adverts, tag managers and injected scripts
+   * nobody at Kartaan controls. One of them can replace `URL.createObjectURL`
+   * BEFORE the catcher is put in. The catcher then calls THAT as though it were
+   * the browser -- and if what it reports is the handle it was GIVEN BACK, the
+   * bytes that go on to `land-the-file` are whatever that script chose.
+   * `drive.js` REPLACES the genuine file of that day under the genuine report
+   * name, and the Python reads it into the seller's ledger AS REAL SALES.
+   *
+   * **SO WHAT THIS CATCHES IS NOT A CRASH. IT IS WRONG MONEY IN A SELLER'S
+   * BOOKS, SILENTLY, UNDER A REAL REPORT NAME.** The impostor never learns the
+   * secret and does not need to.
+   *
+   * **THE ANSWER IS THAT THE CATCHER REPORTS THE FILE IT WAS HANDED, NEVER THE
+   * HANDLE IT WAS GIVEN BACK.** The impostor's own answer still goes straight
+   * back to the page, untouched. */
+  const browser = installFakeChrome();
+  const tab = await browser.chrome.tabs.create({ url: 'https://supplier.meesho.com/' });
+  const posted = [];
+  const itsOwnURL = globalThis.URL;
+  globalThis.window = {
+    location: { origin: 'https://supplier.meesho.com' },
+    postMessage: (data, to) => posted.push({ data, to }),
+  };
+
+  /* The file the portal's own Download really built, and the file an advert
+   * would rather the seller's ledger were fed. Different lengths, so what would
+   * be landed can be named rather than guessed at. */
+  const genuine = new Blob([new Uint8Array([7, 7, 7, 7])]);
+  const theirs = new Blob([new Uint8Array([6, 6, 6, 6, 6, 6])]);
+
+  /* **THE IMPOSTOR, INSTALLED BEFORE THE CATCHER.** It ignores what it is handed
+   * and answers with a handle of its own. `handles` stands in for the browser's
+   * own table of them: `content.js` fetches a handle and gets back whatever that
+   * handle was made from. */
+  const handles = new Map([
+    ['blob:https://supplier.meesho.com/genuine', genuine],
+    ['blob:https://supplier.meesho.com/theirs', theirs],
+  ]);
+  let handedTo = null;
+  globalThis.URL = {
+    createObjectURL: (thing) => {
+      handedTo = thing;
+      return 'blob:https://supplier.meesho.com/theirs';
+    },
+  };
+
+  await armTheCatcher(browser.chrome, { tabId: tab.id, secret: 'the-secret' });
+  const backToThePage = globalThis.URL.createObjectURL(genuine);
+
+  /* **WHAT WOULD ACTUALLY REACH `land-the-file`, IN `content.js`'S OWN ORDER.**
+   * Written out here because `content.js` has no checks of its own by design,
+   * and the question this asks is about the BYTES that reach the seller's Drive
+   * -- not about the shape of a message. */
+  const whatWouldBeLanded = async (message) => {
+    if (message.handle) return new Uint8Array(await handles.get(message.handle).arrayBuffer());
+    if (message.file) return new Uint8Array(await message.file.arrayBuffer());
+    return null;
+  };
+
+  check('a page that replaced createObjectURL first still has its file caught',
+    posted.length === 1 && posted[0].data.secret === 'the-secret');
+  check('and it is still addressed to this page and nowhere else',
+    posted[0].to === 'https://supplier.meesho.com');
+  const landed = await whatWouldBeLanded(posted[0].data);
+  check('and what would reach the seller\u2019s Drive is the file the page was HANDED',
+    !!landed && landed.length === 4 && [...landed].every((one) => one === 7));
+  check('and never the bytes the impostor handed back',
+    !(landed && landed.length === 6));
+  /* **AND THE PAGE IS STILL NONE THE WISER.** Whatever the impostor answered is
+   * what the page gets: an extension that breaks a seller's own downloads is
+   * worse than one that fetches nothing. */
+  check('and the page still gets exactly what its own createObjectURL answered',
+    backToThePage === 'blob:https://supplier.meesho.com/theirs' && handedTo === genuine);
+
+  globalThis.window = undefined;
+  globalThis.URL = itsOwnURL;
+}
+
+{
+  /* **WHAT THE PAGE HANDED OVER WOULD NOT CROSS, AND THAT IS SAID OUT LOUD
+   * (A42).** A file crossing to the other half is copied by the browser reading
+   * its own bytes; anything that is not a file the browser recognises is refused
+   * outright. **Swallowed, that refusal is a walk that hears nothing, waits out
+   * its patience, and a day missing with no line anywhere saying why.**
+   *
+   * **AND THE BROWSER'S OWN REASON GOES WITH IT.** A sentence this extension
+   * invented is a diagnosis; the browser's is evidence -- "the evidence travels
+   * with the failure" is this repository's own rule. */
+  const browser = installFakeChrome();
+  const tab = await browser.chrome.tabs.create({ url: 'https://supplier.meesho.com/' });
+  const posted = [];
+  const itsOwnURL = globalThis.URL;
+  globalThis.URL = { createObjectURL: () => 'blob:https://supplier.meesho.com/abc' };
+  globalThis.window = {
+    location: { origin: 'https://supplier.meesho.com' },
+    postMessage: (data, to) => {
+      if (data.file) throw new Error('DataCloneError: it could not be cloned.');
+      posted.push({ data, to });
+    },
+  };
+
+  await armTheCatcher(browser.chrome, { tabId: tab.id, secret: 'the-secret' });
+  const stillAnswered = globalThis.URL.createObjectURL({
+    size: 2048, type: '', arrayBuffer: async () => new ArrayBuffer(2048),
+  });
+  check('something that will not cross as a file is said out loud rather than swallowed',
+    posted.length === 1 && typeof posted[0].data.wrong === 'string');
+  check('and the browser\u2019s own reason goes with it',
+    posted[0].data.wrong.includes('DataCloneError'));
+  check('and it still carries the secret, so the other half believes the refusal',
+    posted[0].data.secret === 'the-secret');
+  check('and the page still got what it asked for', stillAnswered.startsWith('blob:'));
+
+  /* **AND IF SAYING SO WILL NOT GO EITHER, THE PAGE IS STILL NONE THE WISER.** A
+   * page can replace `window.postMessage` with something that simply throws.
+   * Left to throw out of the wrapper, that is the seller's own Download broken
+   * by this extension -- which its first rule says is worse than fetching
+   * nothing. The walk then runs out of patience, which is loud (D108). */
+  globalThis.window.postMessage = () => { throw new Error('No.'); };
+  await armTheCatcher(browser.chrome, { tabId: tab.id, secret: 'another-secret' });
+  let broke = null;
+  let answeredAnyway = null;
+  try {
+    answeredAnyway = globalThis.URL.createObjectURL({
+      size: 2048, type: '', arrayBuffer: async () => new ArrayBuffer(2048),
+    });
+  } catch (wrong) {
+    broke = wrong;
+  }
+  check('a page whose own postMessage throws does not get its download broken',
+    broke === null && String(answeredAnyway).startsWith('blob:'));
+
+  globalThis.window = undefined;
+  globalThis.URL = itsOwnURL;
+}
+
+{
   /* **THE FUNCTION PUT INTO A PAGE CANNOT REACH ANYTHING AROUND IT**, because a
    * real Chrome sends its SOURCE and runs that with nothing of the extension in
    * scope. The stand-in rebuilds it the same way, so this would throw if it read
@@ -666,6 +808,21 @@ const LATER = '2026-08-27T16:04:00.000Z';
   /* **AND NOTHING IN IT BROADCASTS.** The finding was one character wide. */
   check('and nothing in it posts to anything but this page',
     !/postMessage\([^)]*,\s*['\"]\*['\"]/.test(source));
+
+  /* **AND THE OTHER END READS WHAT THIS END SENDS, WHICH NOTHING HELD (A42).**
+   * `content.js` has no checks of its own by design, so the two halves of this
+   * one message could be changed apart: an independent reviewer put the old
+   * `answer.handle` line back in `content.js` ALONE and all 823 JavaScript
+   * checks stayed green -- the half that actually reads the bytes was bound by
+   * nothing. **And it is not a spelling mistake that is being guarded against.**
+   * `answer.handle` is the handle the catcher was GIVEN BACK by whatever the
+   * page left standing where `URL.createObjectURL` should be; a `content.js`
+   * that reads it again reopens the whole of this, quietly, on its own. */
+  const theOtherHalf = readFileSync(new URL('./content.js', import.meta.url), 'utf8');
+  check('the catcher sends the file it was handed under the name the other half reads',
+    source.includes('file: thing') && theOtherHalf.includes('answer.file.arrayBuffer()'));
+  check('and the other half never goes back to reading the handle it was given back',
+    !theOtherHalf.includes('answer.handle'));
 }
 
 {
@@ -1309,7 +1466,7 @@ const LATER = '2026-08-27T16:04:00.000Z';
     && browser.stored()[THE_WALK].answer.state === 'failed');
 }
 
-const EXPECTED = 160;
+const EXPECTED = 172;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

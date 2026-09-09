@@ -900,18 +900,18 @@ function everyDateBox(page) {
   const genuine = {
     source: theWindow,
     currentTarget: theWindow,
-    data: { kartaan: CAUGHT_A_FILE, secret: 'the-secret', handle: 'blob:x', size: 9 },
+    data: { kartaan: CAUGHT_A_FILE, secret: 'the-secret', file: 'the-genuine-file' },
   };
   const found = theCatcherSaid(genuine, 'the-secret');
   check('a message carrying the secret we are waiting for is ours', found !== null);
-  check('and it hands back what was said', found.handle === 'blob:x');
+  check('and it hands back what was said', found.file === 'the-genuine-file');
 
   /* **THE FORGERY, and it is the whole reason this function exists.** Right
    * name, right page, right shape -- and no secret. */
   const forged = {
     source: theWindow,
     currentTarget: theWindow,
-    data: { kartaan: CAUGHT_A_FILE, handle: 'blob:theirs', size: 9 },
+    data: { kartaan: CAUGHT_A_FILE, file: 'a-file-of-their-own' },
   };
   check('a message with no secret at all is refused',
     theCatcherSaid(forged, 'the-secret') === null);

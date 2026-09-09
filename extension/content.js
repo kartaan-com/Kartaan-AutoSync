@@ -143,13 +143,26 @@
       });
       const answer = await Promise.race([fromTheBackground, fromThePage]);
       if (answer && answer.wrong) throw new Error(answer.wrong);
-      if (answer && answer.handle) {
-        /* **THE BYTES ARE READ HERE, not sent across.** A `blob:` handle belongs
-         * to this origin and a content script shares it, so this is the one
-         * reader that can open it -- and the seller's report never crosses a
-         * channel the page can listen to. */
-        const held = await fetch(answer.handle);
-        return new Uint8Array(await held.arrayBuffer());
+      if (answer && answer.file) {
+        /* **THE FILE THE CATCHER WAS HANDED, READ HERE (A42).** It used to be a
+         * `blob:` handle that was fetched here instead -- and that handle came
+         * out of whatever the page had left standing where
+         * `URL.createObjectURL` should be, so a page that got there first chose
+         * the bytes that reached the seller's Drive.
+         *
+         * **AND IT IS READ IN THIS HALF ON PURPOSE.** The file crossed as a copy
+         * the browser made of its own bytes; reading it here uses this half's
+         * own `arrayBuffer`, which no portal page can replace.
+         *
+         * **AND WHAT CROSSED IS ASKED WHETHER IT IS READABLE AT ALL.** Something
+         * built on a prototype rather than made of its own properties crosses as
+         * an EMPTY object rather than refusing -- so the catcher cannot name that
+         * one and this half can. Left unasked it is a bare "arrayBuffer is not a
+         * function" in front of a seller, which says nothing anybody can act on. */
+        if (typeof answer.file.arrayBuffer !== 'function') {
+          throw new Error('What the page handed to the browser arrived with no file in it.');
+        }
+        return new Uint8Array(await answer.file.arrayBuffer());
       }
       if (answer && answer.bytes) return new Uint8Array(answer.bytes);
       if (answer && answer.couldNotFetch && answer.address) {
