@@ -25,7 +25,7 @@ a support ticket is open. So every Flipkart report below is on the browser door.
 here or above changes at all. That was the whole reason for the two doors.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Dict, Optional, Tuple
 
 from browser import (
@@ -36,8 +36,10 @@ from browser import (
     GO,
     PICK_RANGE,
     TAKE_FILE,
+    WAIT,
     WAIT_FOR,
     Find,
+    LookAgain,
     Step,
 )
 
@@ -242,6 +244,22 @@ RECIPES: Dict[str, Recipe] = {
             Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Select Date Range"), why="choosing which days to export"),
             Step(PICK_RANGE, patience=20, why="setting the day to export"),
             Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Export data"), why="asking for the export"),
+            # **THIRTY-FIVE SECONDS, AND THE RELOAD BELOW IS WORTHLESS WITHOUT
+            # THEM.** The file is built on Meesho's own servers and this page
+            # shows nothing at all while it happens -- so there is nothing to
+            # wait FOR, only time to wait. Reloaded straight away, the list is
+            # drawn before the file exists and the file is simply not in it;
+            # **the 300 seconds of patience on the last step cannot recover
+            # that**, because a drawn list does not gain rows while it is looked
+            # at.
+            #
+            # **THE NUMBER IS THE REFERENCE'S OWN** (`content/meesho.js:947`),
+            # which has waited exactly this long every night for months and
+            # writes down why: the file is usually ready in under ten seconds and
+            # thirty-five is safe.
+            Step(WAIT, patience=35,
+                 why="waiting for Meesho to finish building the file, because the list below is "
+                     "drawn as the page loads and a page loaded too early is loaded without it"),
             # **THE PAGE HAS TO BE LOADED AGAIN, and this is the whole of why the
             # first version of this recipe could never have worked.** Meesho
             # builds the file almost instantly, and **it does not appear in the
@@ -261,8 +279,20 @@ RECIPES: Dict[str, Recipe] = {
             # Download`. **The first part is the day the file is ABOUT**, which is
             # the one worth naming: it still finds the right file when an older
             # day is being fetched, which is exactly when it matters.
+            # **AND IF IT IS NOT THERE YET, THE MENU IS SHUT AND OPENED AGAIN.**
+            # This used to wait 300 seconds on an open menu. **The list of
+            # finished exports is drawn AS the menu opens**, so an open menu
+            # shows whatever was ready at the moment it opened and never changes
+            # -- five minutes of looking at it is five minutes of looking at the
+            # same picture. The reference closes it and opens it again, six times,
+            # thirty seconds apart (`content/meesho.js:860-878`), and that is
+            # carried across as it is rather than derived again.
             Step(TAKE_FILE, find=Find(BY_PRESSABLE_TEXT, "Download", near="{day}"),
-                 patience=300, why="taking the finished file"),
+                 patience=30,
+                 look_again=LookAgain(
+                     by=Find(BY_PRESSABLE_TEXT, "Download Orders Data", called="the download menu"),
+                     times=6, after=30),
+                 why="taking the finished file"),
         ),
     ),
     "me_catalog": Recipe(
@@ -556,10 +586,20 @@ def steps_for(report_id: str, panel: str, collecting: bool = False) -> Tuple[Ste
             "This report needs the seller's own panel name, which is in the address of their "
             "supplier panel. It is the seller's own data and is never written into the product."
         )
+    # **THE STEP IS COPIED WITH ONE FIELD CHANGED, NEVER REBUILT FIELD BY FIELD.**
+    #
+    # It used to be rebuilt by naming every field, and the day a field was added
+    # to `Step` it was silently dropped here -- the step came out of this
+    # function with the new field back at its default and nothing anywhere said
+    # so. **That happened**: `look_again` was added for Meesho's orders export
+    # and this function quietly took it off again, so the door was handed a step
+    # that had never been told to reopen anything, and the recipe read as though
+    # it had been. Two of the checks written the same hour caught it.
+    #
+    # `replace` copies everything and changes what is named, so a field added
+    # tomorrow arrives here by itself.
     return tuple(
-        Step(do=s.do, find=s.find,
-             address=s.address.format(panel=panel) if "{panel}" in s.address else s.address,
-             patience=s.patience, why=s.why, range_days=s.range_days)
+        replace(s, address=s.address.format(panel=panel)) if "{panel}" in s.address else s
         for s in steps
     )
 

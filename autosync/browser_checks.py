@@ -108,6 +108,56 @@ check("and one day is what a step means unless it says otherwise",
 check("a step that is not a range may not say how many days it covers",
       answered(lambda: tool.why_step_is_refused(tool.Step(tool.GO, address="x", range_days=2, why="y")) is not None))
 check("while a range step may", answered(lambda: tool.why_step_is_refused(tool.Step(tool.PICK_RANGE, range_days=2, why="y")) is None))
+# ------------------------- a step that only waits, and a menu reopened
+
+# **WAITING FOR SOMETHING AND JUST WAITING ARE NOT THE SAME STEP.** Meesho builds
+# an orders export on its own servers and the page it was asked from shows
+# nothing at all while it happens, so there is nothing a `wait-for` could watch.
+check("waiting is something this door knows how to do",
+      answered(lambda: tool.WAIT in tool.STEP_KINDS))
+check("a step that only waits needs nothing to look for",
+      answered(lambda: tool.why_step_is_refused(tool.Step(tool.WAIT, patience=35, why="y")) is None))
+# **REFUSED RATHER THAN IGNORED.** Written with something to look for, a wait
+# would pass its time and never look at it -- and the recipe would read as though
+# it had waited FOR that thing.
+waiting_at = tool.why_step_is_refused(
+    tool.Step(tool.WAIT, find=tool.Find(tool.BY_TEXT, "Download"), patience=35, why="y"))
+check("but a wait that names something to look for is refused",
+      answered(lambda: waiting_at is not None))
+check("and the reason sends whoever wrote it to the step that does look",
+      answered(lambda: "wait-for" in waiting_at))
+
+# **SHUTTING A MENU AND OPENING IT AGAIN.** Meesho draws its list of finished
+# exports as the download menu opens, so an open menu never changes -- the only
+# way to see a newer list is to shut it, leave it shut, and open it again.
+def _taking(**how):
+    return tool.Step(tool.TAKE_FILE, find=tool.Find(tool.BY_TEXT, "Download"),
+                     patience=30, why="y", look_again=tool.LookAgain(**how))
+
+
+_menu = tool.Find(tool.BY_TEXT, "Download Orders Data")
+check("a take-file step may say what to shut and open again between looks",
+      answered(lambda: tool.why_step_is_refused(_taking(by=_menu, times=6, after=30)) is None))
+# **ONLY THE STEP THAT TAKES THE FILE.** A click or a wait-for that reopened a
+# menu would be a second, quieter way of doing what the recipe already says in
+# steps of its own.
+check("but nothing else may",
+      answered(lambda: tool.why_step_is_refused(tool.Step(
+          tool.CLICK, find=tool.Find(tool.BY_TEXT, "x"), why="y",
+          look_again=tool.LookAgain(by=_menu, times=6, after=30))) is not None))
+check("it has to say what to shut and open again",
+      answered(lambda: tool.why_step_is_refused(
+          _taking(by=tool.Find(tool.BY_TEXT, ""), times=6, after=30)) is not None))
+check("and how to find it",
+      answered(lambda: tool.why_step_is_refused(
+          _taking(by=tool.Find("by vibes", "x"), times=6, after=30)) is not None))
+check("looking again no times at all is refused",
+      answered(lambda: tool.why_step_is_refused(_taking(by=_menu, times=0, after=30)) is not None))
+# **NOUGHT SECONDS SHUT IS A MENU THAT WAS NEVER SHUT.** It would be opened again
+# on the same list it was closed on, every time, and read as having tried.
+check("and so is shutting it for no time at all",
+      answered(lambda: tool.why_step_is_refused(_taking(by=_menu, times=6, after=0)) is not None))
+
 # **A STEP HAS TO SAY WHAT IT IS FOR.** Without it a failure can only say what
 # could not be found -- which is how a month of "button not found" told nobody the
 # button was underneath a dialog.
@@ -272,7 +322,7 @@ check("nor a failure once it has happened",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 65
+EXPECTED = 75
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

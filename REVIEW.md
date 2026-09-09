@@ -5,6 +5,159 @@ an older one is edited afterwards.
 
 ---
 
+## 2026-09-10 (ninth) -- A50 acting on an independent read of A49's uncommitted work, on top of `07a7fc0`. **THE CLOSING GESTURE WAS A GUESS AND IS NOW THE REFERENCE'S OWN.** Fifteen findings; eleven acted on, four judged and left with reasons. **And a number nobody computed had already become shorter than the thing it bounds.**
+
+A49 fixed Meesho's orders export in two places -- a 35-second wait before the
+page is loaded again, and shutting the download menu and opening it again
+between looks -- and left the work green and uncommitted. An independent
+reviewer read that diff, mutation-tested it in a scratch copy, edited nothing,
+and found fifteen things. This entry is what was done about them.
+
+### THE ONE THAT MATTERED MOST, AND IT WAS THE SAME MISTAKE THE NIGHT WAS ABOUT
+
+**A49 shut the menu by pressing "Download Orders Data" a second time**, on the
+assumption that it toggles. That assumption was written in a comment and nowhere
+else, and nothing in this repository can settle it. **If Meesho's opener does not
+toggle, both presses do nothing, the list is never redrawn, and six rounds are
+three minutes of a night that looks exactly like one that works.**
+
+**The reference does not press it twice.** `content/meesho.js:865` clicks the
+page where nothing is (`document.body.click()`), waits, then looks the opener up
+afresh and presses it once -- and breaks out cleanly if it has gone
+(`if (!dlDropdown2) ... break`). **That gesture is now carried across as it is,
+all four parts of it, in both doors.** Whether the opener toggles stops being a
+question anybody has to answer.
+
+It cost a tenth call on the page door, `click_away` -- the only one that names
+nothing. Shutting a menu is not the same instruction as opening one, and the
+door had no way to say it.
+
+**And the missing guard was the "button not found with no context" shape this
+project's own comments say cost a month.** A49's loop clicked at the opener
+without looking first; gone, that click throws past every failure the door
+writes and the seller is told a control could not be found with no word of what
+was being attempted. It now looks, stops, and falls into the failure that
+carries `step.why` and the page with it.
+
+### THE CHECKS THAT COULD NOT FAIL, WHICH IS WORSE THAN NO CHECKS
+
+The reviewer replaced `again.times` with `6`, `again.after` with `30` and
+`step.patience` with `35` **in both doors**, and all four suites stayed green --
+because every fixture reused those same numbers. **Nothing proved either door
+read the recipe rather than its own constants.**
+
+The antidote was already written one screen away, in `browser_door_checks.py`:
+*"and those are not all the same number, so one shared value cannot pass this."*
+
+| where | what it drives now |
+|---|---|
+| `extension/walk.test.js` | patience **7**, twice, **3** seconds shut, an **11**-second wait -- four numbers his book does not contain |
+| `autosync/browser_door_checks.py` | his real recipe put back with `patience=7, times=2, after=3` for three checks, and the book restored afterwards and checked to be |
+| `extension/recipes.test.js` | his REAL book, unchanged -- that file exists to drive the real numbers |
+
+**And the fixtures were the other half of it.** They counted clicks, so a loop
+that never shut anything could satisfy them. All three now model the platform
+fact instead: **a menu's list is drawn AS it opens and never again while it is
+open**, so the row reappears only after the menu has genuinely been shut and
+opened again. A loop that presses the opener twice cannot reach the row at all.
+
+The order check was accidental too -- his own step 10 supplies a leading click,
+so an inverted sequence still matched. It now reads **"clicked away -> waited N
+-> found the opener -> clicked the opener"**, which nothing but the reference's
+gesture produces.
+
+### A NUMBER NOBODY COMPUTED HAD ALREADY GONE WRONG
+
+`extension/doors.js` said a walk may run for **fifteen minutes**, because *"the
+longest walk that can exist is 10.58 minutes"* -- added up by hand once, checked
+by nothing.
+
+**A49's change took `me_orders` to 16.2 minutes.** A perfectly good night would
+have been swept up and written down as *"stopped part way through and never said
+why"* -- the one failure with no portal to go and look at.
+
+It is computed from `recipes.json` now, in `extension/doors.test.js`, and the
+constant is held to it **in both directions**: long enough for the longest walk,
+and not more than ten minutes clear of it, because while it is armed a file the
+SELLER downloads by hand can be cancelled in front of them. Set to twenty-five
+minutes. `doors.test.js` also stopped writing its own fifteen and takes the
+door's number.
+
+### WHAT WAS LEFT, AND WHY
+
+| finding | judgement |
+|---|---|
+| 10 -- `dataclasses.replace` in `steps_for` | **Correct, and its check is real.** Left exactly as it is. |
+| 11 -- JS does not validate `look_again.by.how` where Python does | **Not duplicated into JS.** Python refuses such a recipe at source, and the crossing is byte-checked. What WAS missing is that the exporter's sweep of "how a thing is found" never looked inside `lookAgain` -- **that is fixed, and watched going red** by exporting a recipe with a made-up way of finding. |
+| 12 -- neither half fills `{panel}` into `lookAgain.by` | Latent and consistent. `by` names words on a page; no panel slug has ever belonged in one. Left. |
+| 15 -- no secrets | Confirmed again by the gate. |
+
+### EVERY CHECK ADDED OR REPAIRED WAS WATCHED GOING RED
+
+Thirteen single mutations, each reverted before the next. **Not one was assumed.**
+
+| mutation | what went red |
+|---|---|
+| `again.times` -> `6` | the recipe's-own-times checks, in both doors |
+| `again.after` -> `30` | the recipe's-own-shut-time checks, in both doors |
+| `step.patience` -> a constant on the opener lookup | the patience-on-both-lookups checks, in both doors |
+| drop the "is the opener still there" guard | the opener-has-gone checks -- **and the throw-rather-than-answer floor in both** |
+| A49's own gesture, pressing the opener twice | **six checks in the Python door, five in `walk.test.js`, five in `recipes.test.js`** |
+| wait on the OPEN menu instead of the shut one | the order check, in all three |
+| a `wait` step that passes no time | the wait checks, and his real recipe's order |
+| `click_away` that does nothing | "clicking away really clicks" |
+| `click_away` that presses a control | "it presses nothing that is on the page" |
+| `ARMED_FOR_MS` back to 15 minutes | "a walk is believed for longer than the longest one that can exist" |
+| `ARMED_FOR_MS` to 60 minutes | "not more than ten minutes longer" |
+| a made-up way of finding inside `lookAgain.by` | the exporter's ways-of-finding sweep |
+
+**And three unfalsifiable checks were repaired rather than left standing.** An
+`||` in `extension/recipes.test.js` whose first half was always false and second
+half trivially true, replaced by the one thing that matters -- that the failure
+carries what the step was for. A check in `walk.test.js` guaranteed by its own
+fixture -- the wait now sits BETWEEN two lookups, so a wait that peeked at the
+page shows up. And `_kinds` in `autosync/recipes_checks.py`, assigned and never
+read, deleted.
+
+### THE SLIP THIS REVIEW MADE ITSELF, CAUGHT ON THE FIRST COMMIT AND SAID OUT LOUD
+
+**Ten source files and this very file went from LF to CRLF, every line of them.**
+The edits were made through a Python helper, and Python translates newlines on
+write on Windows. The first commit read **8,105 insertions against 6,649
+deletions** for a change that is **1,651 against 195** -- a diff nobody could
+read, hiding real work inside whitespace.
+
+**Caught before anything was pushed.** Every file is restored to the endings it
+had at `07a7fc0`, this file keeping its own 219 bare-LF lines among its 2,358
+CRLF ones, and the whole sweep below was re-run on the restored bytes. **The
+lesson is the tool, not the care:** a helper that rewrites a whole file is a
+helper that rewrites its line endings too, and the diff is the only place that
+shows it.
+
+### THE COUNTS, RUN IN PYTHON AND NOT IN A SHELL LOOP
+
+NOT RUN and RED are two different things, and this says which.
+
+| suite | files | checks | red | failed to start |
+|---|---|---|---|---|
+| `extension/*.test.js` | 8 | **975** | 0 | 0 |
+| `autosync/*_checks.py` | 30 | **2,690** | 0 | 0 |
+| `tools/*_checks.py` | 4 | **316** | 0 | 0 |
+| **everything** | **42** | **3,981** | **0** | **0** |
+
+`python tools/export_recipes.py --check` says `extension/recipes.json` is what
+the Python says. **No recipe value changed in this work** -- 35, 6 and 30 are
+still the reference's, and are still the numbers his book carries.
+
+### WHAT IS STILL NOT PROVEN, AND CANNOT BE FROM HERE
+
+**Nothing has fetched `me_orders` from Meesho.** Everything above is the
+reference's measured behaviour carried across and held to by checks with no
+browser in them. The first real run is still owed, and it is the only thing that
+can say whether the file lands.
+
+---
+
 ## 2026-09-05 (eighth) -- A20R on `442599c`, the fresh pair of eyes A20 asked for before it could be pushed. **SAFE TO PUSH.** Seventeen faults driven; none of the three new checks can fail. **And it caught a wrong number in the entry below this one.**
 
 `442599c` was committed on 2026-09-05 and deliberately left unpushed: A20 wrote

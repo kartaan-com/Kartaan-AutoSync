@@ -14,6 +14,11 @@ the seller's own Chrome, driven by an extension:
     browser.click(how, what, exact, near)    -> None, or raises
     browser.pick_range(start, end, patience) -> None, or raises
     browser.take_file(patience)              -> bytes, or None if nothing came
+    browser.wait(seconds)                    -> None, when there is nothing to
+                                                look at and only time to pass
+    browser.click_away()                     -> None; shuts whatever the page
+                                                has open, by clicking where
+                                                nothing is
     browser.overlays()                       -> [{width, height, text, blocks}, ...]
     browser.page_text()                      -> what is on the page now
     browser.needs_signing_in()               -> True when the portal is asking
@@ -145,6 +150,14 @@ def do_the_steps(
             browser.go(step.address, step.patience)
             continue
 
+        if step.do == pages.WAIT:
+            # **NOTHING TO LOOK AT, ONLY TIME TO PASS.** Meesho builds an orders
+            # export on its own servers and the page it was asked from does not
+            # change at all while it happens -- so there is nothing a `wait-for`
+            # could watch. See `browser.WAIT`.
+            browser.wait(step.patience)
+            continue
+
         if step.do == pages.PICK_RANGE:
             # **A RANGE IS NOT ALWAYS ONE DAY.** Flipkart's Reports Centre needs the
             # start strictly before the end, so its smallest range is two days --
@@ -220,6 +233,39 @@ def _take_the_file(browser, step, report_id, data_date, which):
     if step.find is not None:
         many = browser.find(step.find.how, step.find.what, step.find.exact, step.patience,
                             step.find.near)
+        # **NOT THERE YET IS NOT THE SAME AS NOT THERE, WHEN IT LIVES IN A MENU.**
+        # Meesho draws its list of finished exports as the download menu opens, so
+        # an open menu shows what was ready at that moment and never changes. The
+        # only way to see a newer list is to shut the menu, leave it shut, and
+        # open it again. See `browser.LookAgain`.
+        #
+        # **THE GESTURE IS THE REFERENCE'S, NOT ONE DERIVED FROM IT**
+        # (`content/meesho.js:860-878`): click where nothing is, leave it shut,
+        # look the opener up AGAIN, and press it once. Pressing the opener twice
+        # instead would assume it toggles -- and if it does not, both presses do
+        # nothing, the list is never redrawn, and six rounds of this look exactly
+        # like a night that is working.
+        again = step.look_again
+        tried = 0
+        while many == 0 and again is not None and tried < again.times:
+            tried += 1
+            browser.click_away()
+            browser.wait(again.after)
+            # **THE OPENER IS LOOKED FOR BEFORE IT IS PRESSED, and if it has gone
+            # this stops rather than throwing.** The reference does the same
+            # (`if (!dlDropdown2) ... break`). Clicking at something that is not
+            # there would throw past every failure this door writes, and the
+            # seller would be told a control could not be found with no word of
+            # what was being attempted -- the bare "button not found" that cost
+            # this project a month. Stopping here falls into the failure below,
+            # which carries `step.why` and the page with it.
+            still_there = browser.find(again.by.how, again.by.what, again.by.exact,
+                                       step.patience, again.by.near)
+            if still_there == 0:
+                break
+            browser.click(again.by.how, again.by.what, again.by.exact, again.by.near)
+            many = browser.find(step.find.how, step.find.what, step.find.exact, step.patience,
+                                step.find.near)
         if many == 0:
             return _gave_up(report_id, data_date, pages.WentWrong(
                 kind=(pages.COVERED_UP if pages.is_covered(browser.overlays()) is not None
@@ -235,10 +281,17 @@ def _take_the_file(browser, step, report_id, data_date, which):
         browser.click(step.find.how, step.find.what, step.find.exact, step.find.near)
 
     # **THE FILE IS WAITED FOR TOO, and this is the one that would have hurt
-    # most.** Meesho takes up to five minutes to build an orders export; asked
-    # the instant the button was pressed nothing has come back, and the report
-    # then reads as the page having produced an empty file. That failure looks
-    # like the platform's doing and is entirely ours.
+    # most.** Asked the instant the button was pressed nothing has come back, and
+    # the report then reads as the page having produced an empty file. That
+    # failure looks like the platform's doing and is entirely ours.
+    #
+    # **THIS USED TO SAY "MEESHO TAKES UP TO FIVE MINUTES", AND THAT IS NO LONGER
+    # WHAT ANY RECIPE ASKS FOR.** The five minutes were `me_orders` waiting on an
+    # open download menu, which never changes while it is open; that wait is now
+    # thirty seconds, spent shut, and repeated. **It is the step's own number
+    # either way** -- the same one the lookup above was given -- because the
+    # click that starts the download and the download itself are one moment on
+    # the page, and no recipe has ever needed to tell them apart.
     body = browser.take_file(step.patience)
     if body is None:
         # **THE DOOR THAT HAS CLOSED.** Flipkart has started building files inside

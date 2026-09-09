@@ -139,7 +139,62 @@ CLICK = "click"            # the one thing that matches
 WAIT_FOR = "wait-for"      # something to appear
 PICK_RANGE = "pick-range"  # a date range
 TAKE_FILE = "take-file"    # whatever download the last click produced
-STEP_KINDS = (GO, CLICK, WAIT_FOR, PICK_RANGE, TAKE_FILE)
+WAIT = "wait"              # this long, for something that is not on the page
+STEP_KINDS = (GO, CLICK, WAIT_FOR, PICK_RANGE, TAKE_FILE, WAIT)
+
+# **WHY THERE IS A STEP THAT ONLY WAITS, AND WHY NOTHING ELSE COULD DO IT.**
+#
+# Every other kind of waiting here waits for something to APPEAR on the page.
+# `wait-for` looks, `take-file` looks, and both stop the moment they find it.
+# **Meesho's orders export gives the page nothing to look at.** The file is
+# built on Meesho's own servers and the page it was asked from does not change
+# at all -- the finished file appears only in a list that is drawn when the page
+# is LOADED AGAIN. So the only correct thing to do between asking and reloading
+# is to wait, and nothing here could say that.
+#
+# **THE REFERENCE WAITS 35 SECONDS AND HAS DONE EVERY NIGHT FOR MONTHS**
+# (`content/meesho.js:947`, "usually < 10 s, 35 s is safe"). Kartaan reloaded
+# straight away, so the list was drawn before the file existed and the file was
+# never in it. **The 300 seconds of patience on taking the file cannot recover
+# that**: by then the list has already been built without it, and no amount of
+# looking at a drawn list makes a row appear in it.
+
+
+@dataclass(frozen=True)
+class LookAgain:
+    """Close something, wait, open it again, and look once more.
+
+    **BECAUSE A LIST THAT IS DRAWN WHEN A MENU OPENS DOES NOT CHANGE WHILE IT IS
+    OPEN.** Meesho's finished exports are listed inside the download menu, and
+    the menu draws that list at the moment it is opened. Waiting on an open menu
+    for five minutes is watching a photograph -- whatever was ready when it
+    opened is all it will ever show.
+
+    **THE REFERENCE CLOSES IT AND OPENS IT AGAIN, SIX TIMES, THIRTY SECONDS
+    APART** (`content/meesho.js:860-878`), and has done every night for months.
+    Kartaan opened the menu once and then waited 300 seconds on it, which is the
+    same as not waiting at all.
+
+    **`by` IS THE CONTROL THAT OPENS THE MENU, AND IT IS USED FOR OPENING ONLY.**
+    Shutting is a click on the page where nothing is (`browser.click_away()`),
+    which is the reference's own gesture -- `document.body.click()` at
+    `content/meesho.js:865`.
+
+    **AN EARLIER VERSION OF THIS PRESSED `by` TWICE INSTEAD, and it was written
+    down as an assumption rather than a measurement.** Nothing in this
+    repository can say whether Meesho's opener shuts the menu when it is pressed
+    a second time. If it does not, both presses do nothing, the list is never
+    redrawn, and six rounds of this are three minutes of a night that looks
+    exactly like one that is working. Clicking away needs no such answer, and it
+    is what has run every night for months.
+    """
+
+    by: Find
+    # How many times to close it and open it again before giving up.
+    times: int
+    # How long to leave it CLOSED, in seconds. The waiting has to happen while it
+    # is shut, because that is the only state in which reopening redraws anything.
+    after: int
 
 
 @dataclass(frozen=True)
@@ -161,6 +216,12 @@ class Step:
     # produces by the END date. A single-day range is simply refused, silently, by
     # a Submit that does nothing.
     range_days: int = 1
+    # **WHAT TO CLOSE AND OPEN AGAIN BETWEEN LOOKS**, when the thing being looked
+    # for is inside a menu that only draws its contents as it opens. See
+    # `LookAgain`. It is on the step rather than in the door because which
+    # control opens which menu is a platform fact, and platform facts live in
+    # the recipe.
+    look_again: Optional[LookAgain] = None
 
 
 def why_step_is_refused(step: Step) -> Optional[str]:
@@ -173,6 +234,12 @@ def why_step_is_refused(step: Step) -> Optional[str]:
         return "A step that goes somewhere has to say where."
     if step.do in (CLICK, WAIT_FOR) and step.find is None:
         return f"A {step.do} step has to say what to look for."
+    if step.do == WAIT and step.find is not None:
+        # **A WAIT AND A WAIT-FOR ARE NOT THE SAME STEP.** One passes time; the
+        # other watches the page. Written with something to look for, a wait
+        # would pass its time and never look at it, and the recipe would read as
+        # though it had waited FOR that thing.
+        return "A step that only waits has nothing to look for. Waiting for something is a wait-for."
     if step.find is not None and step.find.how not in WAYS_OF_FINDING:
         return f"{step.find.how!r} is not a way of finding something."
     if step.find is not None and not step.find.what:
@@ -190,6 +257,29 @@ def why_step_is_refused(step: Step) -> Optional[str]:
         return "A range has to cover at least one day."
     if step.do != PICK_RANGE and step.range_days != 1:
         return "Only a step that picks a range can say how many days it covers."
+    if step.look_again is not None:
+        again = step.look_again
+        if step.do != TAKE_FILE:
+            # **THE ONLY STEP THAT LOOKS FOR SOMETHING IN A MENU IS THE ONE THAT
+            # TAKES THE FILE.** A click or a wait-for that reopened a menu would
+            # be a second, quieter way of doing what the recipe already says in
+            # steps of its own, and two ways of saying one thing is what this
+            # door exists to avoid.
+            return "Only a step that takes a file can close and open something again between looks."
+        if not isinstance(again.by, Find):
+            return "Looking again has to say what to close and open again."
+        if again.by.how not in WAYS_OF_FINDING:
+            return f"{again.by.how!r} is not a way of finding something."
+        if not again.by.what:
+            return "Looking again has to say what to close and open again."
+        if again.times < 1:
+            return "Looking again no times at all is not looking again."
+        if again.after < 1:
+            # **NOUGHT SECONDS CLOSED IS A MENU THAT WAS NEVER SHUT.** The point
+            # of closing it is that the platform gets time to finish while
+            # nothing is watching; with no time it is opened again on the same
+            # list it was closed on, every time, and reads as having tried.
+            return "Looking again has to leave it closed for some time, or nothing is redrawn."
     if not step.why:
         # **NOT DECORATION.** A failure says what was being attempted, and without
         # this it can only say what could not be found -- which is how a month of

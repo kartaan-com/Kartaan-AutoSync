@@ -76,6 +76,12 @@ export const CLICK = 'click';
 export const WAIT_FOR = 'wait-for';
 export const PICK_RANGE = 'pick-range';
 export const TAKE_FILE = 'take-file';
+/* **THE ONE STEP THAT LOOKS AT NOTHING.** Every other kind of waiting here waits
+ * for something to appear. Meesho builds an orders export on its own servers and
+ * the page it was asked from does not change at all while it happens, so there
+ * is nothing to look at -- only time to pass. `autosync/browser.py` holds the
+ * whole reason under `WAIT`, and the number lives in the recipe. */
+export const WAIT = 'wait';
 
 /* What went wrong, by name. **Every one of these is its own failure and that is
  * the point.** The reference had one -- "button not found" -- and it covered all
@@ -176,12 +182,36 @@ function anAnswer(state, reportId, dataDate, rest = {}) {
  */
 export function whyStepIsRefused(step) {
   if (!step || typeof step !== 'object') return 'That is not a step.';
-  if (![GO, CLICK, WAIT_FOR, PICK_RANGE, TAKE_FILE].includes(step.do)) {
+  if (![GO, CLICK, WAIT_FOR, PICK_RANGE, TAKE_FILE, WAIT].includes(step.do)) {
     return `"${step.do}" is not something this door knows how to do.`;
   }
   if (step.do === GO && !step.address) return 'A step that goes somewhere has to say where.';
   if ((step.do === CLICK || step.do === WAIT_FOR) && !step.find) {
     return `A ${step.do} step has to say what to look for.`;
+  }
+  if (step.do === WAIT && step.find) {
+    /* **A WAIT AND A WAIT-FOR ARE NOT THE SAME STEP.** One passes time; the other
+     * watches the page. Written with something to look for, a wait would pass its
+     * time and never look at it, and the recipe would read as though it had
+     * waited FOR that thing. */
+    return 'A step that only waits has nothing to look for. Waiting for something is a wait-for.';
+  }
+  if (step.lookAgain) {
+    /* **WHAT TO SHUT AND OPEN AGAIN BETWEEN LOOKS.** Meesho draws its list of
+     * finished exports as the download menu opens, so an open menu shows what was
+     * ready at that moment and never changes. The same rules the Python holds. */
+    if (step.do !== TAKE_FILE) {
+      return 'Only a step that takes a file can close and open something again between looks.';
+    }
+    if (!step.lookAgain.by || !step.lookAgain.by.what) {
+      return 'Looking again has to say what to close and open again.';
+    }
+    if (!(Number(step.lookAgain.times) >= 1)) {
+      return 'Looking again no times at all is not looking again.';
+    }
+    if (!(Number(step.lookAgain.after) >= 1)) {
+      return 'Looking again has to leave it closed for some time, or nothing is redrawn.';
+    }
   }
   if (step.find && !step.find.what) return 'A way of finding something has to say what to look for.';
   if (!(Number(step.patience) > 0)) return 'A step that waits no time at all cannot succeed.';
@@ -246,7 +276,7 @@ export function whyTheDayIsRefused(dataDate) {
 /**
  * The walk.
  *
- * `door` is the eight calls from `driver.js`. `book` is what came out of the
+ * `door` is the ten calls from `driver.js`. `book` is what came out of the
  * Python. `say` is how a line reaches the run log.
  */
 export function theWalk({
@@ -274,7 +304,7 @@ export function theWalk({
   /* **ARMING THE CATCHER FOR THE NEXT FILE THE PAGE BUILDS INSIDE ITSELF (A44).**
    *
    * **HANDED IN LIKE `putTheFile`, AND NOT ON THE DOOR, FOR THE REASON THE DOOR
-   * SAYS AT THE TOP OF ITSELF.** The door is the eight calls the Python side
+   * SAYS AT THE TOP OF ITSELF.** The door is the ten calls the Python side
    * makes, spelt the way the Python spells them -- and the Python has no catcher
    * to arm, because a file built inside a page only exists in a browser. A ninth
    * call would be a spelling the two halves do not share, which is the fault this
@@ -410,7 +440,47 @@ export function theWalk({
 
   async function takeTheFile(step, reportId, dataDate) {
     if (step.find) {
-      const many = await door.find(step.find.how, step.find.what, step.find.exact, step.patience, step.find.near);
+      let many = await door.find(step.find.how, step.find.what, step.find.exact, step.patience, step.find.near);
+      /* **NOT THERE YET IS NOT THE SAME AS NOT THERE, WHEN IT LIVES IN A MENU.**
+       *
+       * This step used to wait 300 seconds on an open menu and call that
+       * patience. **Meesho draws its list of finished exports AS the download
+       * menu opens**, so an open menu shows whatever was ready at that moment and
+       * never changes -- five minutes of looking at it is five minutes of looking
+       * at the same picture. The only way to see a newer list is to shut the
+       * menu, leave it shut while the platform finishes, and open it again.
+       *
+       * **THE REFERENCE HAS DONE EXACTLY THIS EVERY NIGHT FOR MONTHS**
+       * (`content/meesho.js:860-878`): six times, thirty seconds apart. How many
+       * and how long are the recipe's, because they are Meesho's; that a list can
+       * be drawn once and go stale is the page's business and is here.
+       *
+       * **AND THE GESTURE IS THE REFERENCE'S OWN, NOT ONE DERIVED FROM IT.** It
+       * shuts the menu by clicking where nothing is (`document.body.click()`,
+       * `content/meesho.js:865`) and then looks the opener up afresh and presses
+       * it once. Pressing the opener twice instead would assume it toggles --
+       * and nothing here can settle whether Meesho's does. If it does not, both
+       * presses do nothing, the list is never redrawn, and six rounds of this
+       * are three minutes of a walk that looks exactly like one that works.
+       *
+       * **AND IF THE OPENER HAS GONE, THIS STOPS RATHER THAN THROWING.** The
+       * reference does the same (`if (!dlDropdown2) ... break`). Clicking at
+       * something that is not there throws past every failure this walk writes,
+       * and the seller is left with a bare "nothing matches" and no word of what
+       * was being attempted -- the shape that cost this project a month.
+       * Stopping here falls into `whyNothingWasFound` below, which carries
+       * `step.why` and the page with it. */
+      const again = step.lookAgain;
+      for (let tried = 0; many === 0 && again && tried < Number(again.times); tried += 1) {
+        await door.click_away();
+        await door.wait(Number(again.after));
+        const stillThere = await door.find(
+          again.by.how, again.by.what, again.by.exact, step.patience, again.by.near
+        );
+        if (stillThere === 0) break;
+        await door.click(again.by.how, again.by.what, again.by.exact, again.by.near);
+        many = await door.find(step.find.how, step.find.what, step.find.exact, step.patience, step.find.near);
+      }
       if (many === 0) {
         return { failed: await whyNothingWasFound(step, reportId, dataDate) };
       }
@@ -646,6 +716,16 @@ export function theWalk({
          * the page. */
         await door.go(step.address, step.patience, at + 1);
         return carryingOn(at + 1);
+      }
+
+      if (step.do === WAIT) {
+        /* **NOTHING TO LOOK AT, ONLY TIME TO PASS.** The step after this one
+         * loads the page again, and Meesho's list of finished exports is drawn as
+         * that load happens -- so a page loaded before the file is built is a
+         * page loaded without it, and no amount of patience further down can
+         * recover a row that was never drawn. */
+        await door.wait(step.patience);
+        continue;
       }
 
       if (step.do === PICK_RANGE) {

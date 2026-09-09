@@ -1,4 +1,4 @@
-/* The eight things the Python side asks of a page, and nothing else.
+/* The ten things the Python side asks of a page, and nothing else.
  *
  * THIS FILE HOLDS NO KNOWLEDGE OF ANY PLATFORM. There is no Meesho in it, no
  * Flipkart, no report, no button name, no decision about whether to retry.
@@ -22,11 +22,24 @@
  *     overlays()                     -> [{width, height, text, blocks}, ...]
  *     page_text()                    -> what is on the page now
  *     needs_signing_in()             -> true when the portal is asking
+ *     wait(seconds)                  -> nothing, after that long
+ *     click_away()                   -> nothing; shuts whatever is open
  *
- * **SIX OF THE EIGHT ARE QUESTIONS ABOUT THE PAGE, AND THEY ARE ANSWERED HERE.
- * TWO ARE ABOUT THE BROWSER ITSELF AND ARE HANDED IN.** `go` changes which page
- * is open, which tears down anything running inside the old one; `take_file`
- * reads the bytes of a download, which nothing inside a page is allowed to see.
+ * **`wait` IS THE ONLY ONE THAT ASKS THE PAGE NOTHING**, and it exists because
+ * a portal can be busy somewhere the page cannot see. Meesho builds an orders
+ * export on its own servers and the page it was asked from does not change at
+ * all while it happens -- so there is nothing a `find` could watch, and the
+ * recipe can only say how long to leave it. The step kind that uses it is
+ * `browser.WAIT`, and the reason is written there.
+ *
+ * **`click_away` IS THE ONLY ONE THAT NAMES NOTHING**, and it is here because
+ * shutting a menu is not the same instruction as opening one. See the note on
+ * the call itself.
+ *
+ * **EIGHT OF THE TEN ARE ANSWERED HERE. TWO ARE ABOUT THE BROWSER ITSELF AND
+ * ARE HANDED IN.** `go` changes which page is open, which tears down anything
+ * running inside the old one; `take_file` reads the bytes of a download, which
+ * nothing inside a page is allowed to see.
  * Both belong to the extension's background half. They are passed to
  * `pageDoor()` rather than reached for, which is the same shape the whole of
  * `autosync/` already uses -- and it is what lets every rule below be checked
@@ -39,7 +52,7 @@
  * two steps later. Answering a count is what lets the Python side refuse.
  */
 
-/* The eight names, spelt exactly as the Python side spells them. The message
+/* The ten names, spelt exactly as the Python side spells them. The message
  * bridge passes these straight through, so there is no table anywhere turning
  * one spelling into another -- two records of one fact is the fault this
  * project has been caught by four times. */
@@ -52,6 +65,8 @@ export const THE_CALLS = Object.freeze([
   'overlays',
   'page_text',
   'needs_signing_in',
+  'wait',
+  'click_away',
 ]);
 
 /* The three ways of describing a thing on a page. **These same three words are
@@ -507,7 +522,7 @@ function cannotBePressedAtAll(node) {
 /* --------------------------------------------------------------- the door */
 
 /**
- * The eight calls, ready to be handed one at a time from the background half.
+ * The ten calls, ready to be handed one at a time from the background half.
  *
  * `go` and `takeFile` are handed in: see the note at the top of this file.
  * `signedOutSigns` are the words a signed-out portal puts on the screen, and
@@ -834,6 +849,41 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
     return seen.length >= 2;
   }
 
+  /**
+   * Let this much time pass, and look at nothing.
+   *
+   * **THE ONE CALL THAT ASKS THE PAGE NOTHING.** Everything else here waits FOR
+   * something and stops the moment it appears. Meesho's orders export is built
+   * on Meesho's own servers, and the page it was asked from shows nothing at
+   * all while that happens -- so there is nothing to watch, only time to pass.
+   * `browser.WAIT` says why, and `autosync/recipes.py` holds the number.
+   */
+  function waitFor(seconds) {
+    return rest(Math.max(0, Number(seconds) || 0) * 1000);
+  }
+
+  /**
+   * Shut whatever the page has open, by clicking where nothing is.
+   *
+   * **THIS IS THE REFERENCE'S OWN GESTURE, CARRIED ACROSS AS IT IS**
+   * (`content/meesho.js:865`, `document.body.click()`). A menu on a portal is
+   * shut by clicking OUTSIDE it -- that is what every one of them listens for.
+   *
+   * **AND IT IS HERE RATHER THAN BEING A SECOND PRESS OF THE CONTROL THAT
+   * OPENED IT.** Pressing the opener again is a guess that the control toggles,
+   * and a guess that is wrong is silent: both presses do nothing, the menu is
+   * never redrawn, and six polls become three minutes of a walk that looks
+   * exactly like one that is working. Nothing in this repository can settle
+   * whether Meesho's opener toggles. Clicking away needs no such answer.
+   *
+   * **A CLICK ON THE BODY IS NOT A CLICK ON ANYTHING IN IT.** It is dispatched
+   * at the body itself, so nothing inside the page is pressed by it; it travels
+   * upward, which is where a menu's own "clicked outside me" listener sits.
+   */
+  function clickAway() {
+    thePage().click();
+  }
+
   return {
     go,
     find,
@@ -843,6 +893,8 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
     overlays,
     page_text: pageText,
     needs_signing_in: needsSigningIn,
+    wait: waitFor,
+    click_away: clickAway,
   };
 }
 

@@ -101,7 +101,12 @@ check("what a step does is the Python word, not a new one",
       {s["do"] for s in STEPS} <= set(language.STEP_KINDS))
 check("and every one of the Python's kinds is used somewhere",
       {s["do"] for s in STEPS} == set(language.STEP_KINDS))
-WAYS = {s["find"]["how"] for s in STEPS if s["find"]}
+# **EVERY LOOKUP THAT CROSSES, NOT ONLY THE STEP'S OWN.** A take-file step also
+# carries the control it shuts and opens again between looks, and that is a
+# lookup like any other -- left out of this sweep, a way of finding something
+# that only the extension would ever see could cross unchecked.
+WAYS = ({s["find"]["how"] for s in STEPS if s["find"]}
+        | {s["lookAgain"]["by"]["how"] for s in STEPS if s.get("lookAgain")})
 check("how a thing is found is the Python word too", WAYS <= set(language.WAYS_OF_FINDING))
 # **AND THE THIRD WAY REALLY CROSSES.** Meesho's panel has no control on it at
 # all, so every one of its lookups is by pressable words -- if that word did not
@@ -120,6 +125,34 @@ check("a recipe says how long the platform takes, spelt for JavaScript",
       "readyInMinutes" in ONE and "ready_in_minutes" not in ONE)
 check("and its two phases are spelt for JavaScript",
       "toAsk" in ONE and "toTake" in ONE and "to_ask" not in ONE and "to_take" not in ONE)
+check("and what to shut and open again between looks is spelt for JavaScript",
+      all("lookAgain" in s and "look_again" not in s for s in STEPS))
+
+# ---------------------- the two things Meesho's orders export needs, crossing
+#
+# **NEITHER OF THESE IS ANY USE UNTIL IT REACHES THE EXTENSION.** The steps are
+# decided in Python and carried out in the seller's own Chrome, so a rule that
+# stays on this side is a rule that never runs.
+ORDERS = HELD.get("recipes", {}).get("me_orders", {}).get("toTake", [])
+check("the wait Meesho's orders export needs crosses to the extension",
+      any(s["do"] == language.WAIT and s["patience"] == 35 for s in ORDERS))
+# **THE ORDER IS THE POINT.** A wait after the page is loaded again is exactly as
+# useless as no wait at all -- the list of finished files is drawn as the page
+# loads.
+_kinds = [s["do"] for s in ORDERS]
+check("and it crosses in its place, after the export is asked for and before the page reloads",
+      _kinds.index(language.WAIT) < len(_kinds) - 1
+      and _kinds[_kinds.index(language.WAIT) + 1] == language.GO)
+_again = ORDERS[-1].get("lookAgain") if ORDERS else None
+check("and so does what to shut and open again while it waits for the finished file",
+      isinstance(_again, dict) and _again["times"] == 6 and _again["after"] == 30)
+check("with the whole of how to find it, so the extension needs nothing more",
+      isinstance(_again, dict) and _again["by"]["what"] == "Download Orders Data"
+      and _again["by"]["how"] in set(language.WAYS_OF_FINDING))
+# **AND NOTHING ELSE CARRIES ONE.** Every other step says null rather than
+# leaving the field out, so the extension reads one shape everywhere.
+check("and every other step says plainly that it has none",
+      sum(1 for s in STEPS if s["lookAgain"] is not None) == 1)
 
 # ------------------------------------------------ what a step carries
 
@@ -380,7 +413,7 @@ check("no browser report is left out of both lists",
           for one in HELD["reports"] if one["platform"] in THROUGH_THE_BROWSER))
 
 
-EXPECTED = 73
+EXPECTED = 79
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

@@ -1,4 +1,4 @@
-/* Checks for the eight things the Python side asks of a page.
+/* Checks for the ten things the Python side asks of a page.
  *
  * Run: node extension/driver.test.js
  *
@@ -125,13 +125,73 @@ function everyDateBox(page) {
 {
   const page = aPage();
   const door = doorOn();
-  check('the door answers exactly the eight calls the Python side makes',
+  /* **THESE TWO SAID EIGHT UNTIL `wait` WAS ADDED AND NINE UNTIL `click_away`
+   * WAS, and they are rewritten with each change rather than deleted for going
+   * red.** The ninth asks the page nothing -- Meesho builds an orders export on
+   * its own servers and the page shows nothing at all while it happens. The
+   * tenth NAMES nothing: shutting a menu is a click where nothing is, and it is
+   * its own instruction because pressing the opener a second time is a guess
+   * that it toggles. */
+  check('the door answers exactly the ten calls the Python side makes',
     JSON.stringify(Object.keys(door).sort()) === JSON.stringify([...THE_CALLS].sort()));
-  check('and there are eight of them', THE_CALLS.length === 8);
+  check('and there are ten of them', THE_CALLS.length === 10);
   check('the names are spelt the way the Python side spells them',
     THE_CALLS.includes('pick_range') && THE_CALLS.includes('needs_signing_in')
-    && THE_CALLS.includes('take_file') && THE_CALLS.includes('page_text'));
+    && THE_CALLS.includes('take_file') && THE_CALLS.includes('page_text')
+    && THE_CALLS.includes('wait') && THE_CALLS.includes('click_away'));
   check('a page is there to be read', page.body.tagName === 'body');
+}
+
+{
+  /* **THE ONE CALL THAT ASKS THE PAGE NOTHING, AND IT REALLY HAS TO PASS TIME.**
+   * A `wait` that returned at once would leave the recipe reading as though it
+   * had waited thirty-five seconds for Meesho to build a file while reloading
+   * the page instantly -- which is the fault it exists to fix, wearing the fix's
+   * own name. Driven with a fiftieth of a second rather than read.
+   *
+   * **SECONDS, NOT MILLISECONDS.** Every other patience on a step is in seconds,
+   * and a `wait` that took milliseconds would make `patience=35` a thirty-fifth
+   * of a second -- indistinguishable from no wait at all, and green everywhere. */
+  const door = doorOn();
+  const started = Date.now();
+  await door.wait(0.05);
+  const took = Date.now() - started;
+  check('waiting passes real time', took >= 45);
+  check('and it is counted in seconds, not in milliseconds', took < 5000);
+  /* Nothing, and a number that is not one, are nought rather than for ever. A
+   * step whose wait never returned would hang the walk with nothing to say. */
+  const alsoStarted = Date.now();
+  await door.wait(undefined);
+  await door.wait(-3);
+  check('and nothing to wait for is no wait at all, never a walk that hangs',
+    Date.now() - alsoStarted < 1000);
+}
+
+{
+  /* **THE ONE CALL THAT NAMES NOTHING, AND IT REALLY HAS TO CLICK.**
+   *
+   * **THIS IS THE REFERENCE'S OWN GESTURE** (`content/meesho.js:865`,
+   * `document.body.click()`): a portal menu is shut by clicking OUTSIDE it,
+   * which is what every one of them listens for. It is here as its own call, and
+   * not as a second press of whatever opened the menu, because a second press is
+   * a guess that the control toggles -- and a wrong guess is silent. Both
+   * presses do nothing, the list is never redrawn, and six rounds of it look
+   * exactly like a night that works.
+   *
+   * **AND IT MUST NOT PRESS ANYTHING ON THE PAGE.** A click that landed on a
+   * control would be a button pressed that no recipe ever asked for. */
+  const page = aPage();
+  const door = doorOn();
+  let bodyHeard = 0;
+  let buttonHeard = 0;
+  const button = thing('button', 'Export data', { box: BIG });
+  button.addEventListener('click', () => { buttonHeard += 1; });
+  page.body.append(button);
+  page.body.addEventListener('click', () => { bodyHeard += 1; });
+
+  door.click_away();
+  check('clicking away really clicks, and it clicks the page itself', bodyHeard === 1);
+  check('and it presses nothing that is on the page', buttonHeard === 0);
 }
 
 {
@@ -1211,7 +1271,7 @@ function labelled(node, label) {
   check('and neither is nothing at all', theCatcherSaid(null, 'the-secret') === null);
 }
 
-const EXPECTED = 153;
+const EXPECTED = 158;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

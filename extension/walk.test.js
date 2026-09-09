@@ -238,7 +238,13 @@ const aMoment = (ms = 0) => new Promise((done) => { setTimeout(done, ms); });
 function aPortal(how = {}) {
   const it = {
     went: [], clicked: [], ranges: [], stepsSeen: 0, patienceTold: [], tookFile: 0,
-    handedOver: [], turns: 0,
+    handedOver: [], turns: 0, waited: [], clickedAway: 0,
+    /* **THE MENU, AS MEESHO REALLY BEHAVES.** Its list of finished exports is
+     * drawn AS it opens and never again while it is open. So this holds the two
+     * facts that follow: whether it is open, and how many times it has been SHUT
+     * and opened again. Counting clicks instead would let a loop that never shut
+     * it pass. */
+    menuOpen: false, shutSinceLastOpened: false, reopened: 0,
     /* **WHAT HAPPENED AND IN WHAT ORDER.** The whole of this is about WHEN the
      * catcher is armed relative to the click that builds the file, and an order
      * is the only thing that can be checked about a when. */
@@ -289,7 +295,7 @@ function aPortal(how = {}) {
    * world. The page's own scripts run during it, which is why the moment
    * straight after it is one this stand-in can be told to fire at.
    *
-   * **NOT ON THE DOOR, because the door is the eight calls the Python side makes
+   * **NOT ON THE DOOR, because the door is the ten calls the Python side makes
    * and the Python has no catcher.** Handed to the walk on its own, like
    * `putTheFile`. */
   it.armTheCatcher = async () => {
@@ -310,6 +316,9 @@ function aPortal(how = {}) {
        * remembers would be lost with the page in front of a seller; this number
        * is the walk's whole memory. */
       it.handedOver.push(nextAt);
+      /* A page that has been loaded again has nothing open on it. */
+      it.menuOpen = false;
+      it.shutSinceLastOpened = false;
     },
     async needs_signing_in() {
       /* **SIGNED OUT PART WAY THROUGH, which is a case that could not exist
@@ -361,11 +370,53 @@ function aPortal(how = {}) {
        * which is why `ownMenu` below leaves this alone. */
       const after = how.coveredAfter;
       const covered = how.covered || (after !== undefined && it.stepsSeen > after);
-      return covered ? 0 : 1;
+      if (covered) return 0;
+      /* **THE FINISHED FILE IS NOT IN THE LIST YET, and this is the only way to
+       * say so.** Meesho draws its list of finished exports as the download menu
+       * OPENS, so the list only ever changes when the menu is shut and opened
+       * again. With nothing reopening it, the row never appears at all. */
+      if (how.appearsAfterReopens !== undefined && what === 'Download') {
+        return it.menuOpen && it.reopened >= how.appearsAfterReopens ? 1 : 0;
+      }
+      /* **A CONTROL THE PORTAL TAKES AWAY PART WAY THROUGH.** Told to, this one
+       * takes the opener away the moment the menu is shut -- the one moment in
+       * the whole walk when nothing is holding it open. */
+      if (how.openerGoesWhenShut && what === 'Download Orders Data' && it.clickedAway) return 0;
+      return 1;
     },
     async click(kind, what) {
+      /* **A CONTROL THAT IS NOT THERE CANNOT BE CLICKED, AND THE REAL DOOR
+       * THROWS.** `driver.js` looks the thing up and refuses when nothing
+       * matches. A stand-in that quietly accepted the click would let a walk
+       * which never looked first look exactly like one that did. */
+      if (how.openerGoesWhenShut && what === 'Download Orders Data' && it.clickedAway) {
+        throw new Error("Nothing on the page matches 'Download Orders Data'.");
+      }
       it.clicked.push(what);
       it.whatHappened.push(`clicked ${what}`);
+      /* **OPENING A SHUT MENU IS THE ONLY THING THAT REDRAWS ITS LIST.** Pressed
+       * while it is already open this counts for nothing at all -- which is
+       * exactly what a second press of the opener is worth if Meesho's opener
+       * does not toggle. */
+      if (!it.menuOpen) {
+        it.menuOpen = true;
+        if (it.shutSinceLastOpened) { it.reopened += 1; it.shutSinceLastOpened = false; }
+      }
+    },
+    /* **SHUTTING IT IS A CLICK WHERE NOTHING IS**, which is the reference's own
+     * gesture (`content/meesho.js:865`, `document.body.click()`). */
+    async click_away() {
+      it.clickedAway += 1;
+      it.whatHappened.push('clicked away');
+      it.menuOpen = false;
+      it.shutSinceLastOpened = true;
+    },
+    /* **NOTHING IS REALLY SLEPT FOR, AND THE NUMBER IS KEPT.** A stand-in that
+     * really waited would put minutes into this file; one that forgot the number
+     * would let a wait of nought seconds pass as a wait of thirty-five. */
+    async wait(seconds) {
+      it.waited.push(seconds);
+      it.whatHappened.push(`waited ${seconds}`);
     },
     async pick_range(from, to, patience) {
       it.ranges.push([from, to]);
@@ -496,6 +547,38 @@ check('a step that does not say what it is for is refused',
   whyStepIsRefused({ do: 'go', address: 'x', patience: 5, why: '' }) !== null);
 check('a good step is not refused',
   whyStepIsRefused(step({ do: 'go', address: 'x' })) === null);
+/* **A STEP THAT ONLY WAITS, AND WHY IT IS NOT A WAIT-FOR.** Meesho builds an
+ * orders export on its own servers and the page shows nothing at all while it
+ * happens, so there is nothing to look at -- only time to pass. Written with
+ * something to look for, a wait would pass its time and never look at it, and
+ * the recipe would read as though it had waited FOR that thing. */
+check('a step that only waits is not refused for having nothing to look for',
+  whyStepIsRefused(step({ do: 'wait', patience: 35 })) === null);
+check('but one that names something to look for is refused',
+  whyStepIsRefused(step({ do: 'wait', patience: 35, find: find('Download') })) !== null);
+check('and the reason sends whoever wrote it to the step that does look',
+  String(whyStepIsRefused(step({ do: 'wait', patience: 35, find: find('D') }))).includes('wait-for'));
+/* **SHUTTING SOMETHING AND OPENING IT AGAIN BETWEEN LOOKS.** The same rules the
+ * Python holds, because a recipe reaching the extension has already left the
+ * place those were checked. */
+const reopening = (rest = {}) => step({
+  do: 'take-file', find: find('Download'),
+  lookAgain: { by: find('Download Orders Data'), times: 6, after: 30, ...rest },
+});
+check('a take-file step may say what to shut and open again',
+  whyStepIsRefused(reopening()) === null);
+check('but nothing else may',
+  whyStepIsRefused(step({
+    do: 'click', find: find('x'), lookAgain: { by: find('y'), times: 6, after: 30 },
+  })) !== null);
+check('it has to say what to shut and open again',
+  whyStepIsRefused(reopening({ by: find('') })) !== null);
+check('looking again no times at all is refused',
+  whyStepIsRefused(reopening({ times: 0 })) !== null);
+/* **NOUGHT SECONDS SHUT IS A MENU THAT WAS NEVER SHUT.** It would be opened
+ * again on the same list it was closed on, every time. */
+check('and so is shutting it for no time at all',
+  whyStepIsRefused(reopening({ after: 0 })) !== null);
 
 check('a page with nothing over it is clear', whatIsCovering([]) === null);
 check('and no list at all is clear', whatIsCovering(null) === null);
@@ -1360,6 +1443,134 @@ check('and nothing at all is not a page either, because it is a different failur
     stoppedWith.includes('restarting') && portal.putAway.length === 0);
 }
 
+/* ------------- a step that only waits, and a menu shut and opened again */
+
+/* Both of these are one recipe's steps swapped for the shape being asked about,
+ * so nothing here depends on his real book -- `extension/recipes.test.js` drives
+ * the real one. */
+const bookWhere = (toTake) => ({
+  ...BOOK,
+  recipes: { ...BOOK.recipes, me_orders: { ...BOOK.recipes.me_orders, toAsk: [], toTake } },
+});
+
+/* **EVERY NUMBER HERE IS ONE HIS BOOK DOES NOT USE, AND THAT IS THE POINT.**
+ * His orders recipe waits 35, shuts for 30 and tries 6 times. A walk that
+ * ignored the recipe and carried those three numbers of its own would pass every
+ * check written against them and fail nothing. So nothing below uses one:
+ * eleven seconds, three seconds, twice, and seven seconds of patience.
+ * `extension/recipes.test.js` drives his real book with his real numbers. */
+const ODD = { patience: 7, times: 2, after: 3, waitFor: 11 };
+
+{
+  /* **THE WALK REALLY PASSES THE TIME, AND LOOKS AT NOTHING WHILE IT DOES.** A
+   * `wait` that quietly did nothing would leave a recipe reading as though it
+   * had waited for the platform to finish, and reloading the page instantly --
+   * which is the fault it exists to fix, wearing the fix's own name.
+   *
+   * **THE STEP BEFORE IT LOOKS FOR SOMETHING, and it is there so this can go
+   * red.** With the wait first in the list, "it looked at nothing before it" is
+   * true of any wait at all -- there was nothing before it to look with. Sat
+   * between two lookups, a wait that peeked at the page shows up. */
+  const portal = aPortal();
+  const got = await aWalk(portal, bookWhere([
+    step({ do: 'wait-for', find: find('Ready'), why: 'waiting for the page to draw' }),
+    step({ do: 'wait', patience: ODD.waitFor, why: 'waiting while the platform builds the file' }),
+    step({ do: 'take-file', find: find('Download'), why: 'taking the finished file' }),
+  ]))('me_orders', DAY);
+  check('a step that only waits waits, and for exactly as long as the recipe says',
+    got.state === LANDED && portal.waited.length === 1 && portal.waited[0] === ODD.waitFor);
+  check('and it looked at nothing while it did, because there was nothing to look at',
+    portal.whatHappened.join(' -> ').includes(
+      `found Ready -> waited ${ODD.waitFor} -> found Download`));
+}
+
+{
+  /* **A FILE THAT IS NOT IN THE LIST YET IS STILL FETCHED.** Meesho draws that
+   * list as the download menu opens, so an open menu shows what was ready at
+   * that moment and never changes -- five minutes of looking at it is five
+   * minutes of looking at the same picture. The reference shuts it by clicking
+   * where nothing is, leaves it shut, looks the opener up again and presses it
+   * once. */
+  const portal = aPortal({ appearsAfterReopens: 2 });
+  const got = await aWalk(portal, bookWhere([
+    step({
+      do: 'take-file', find: find('Download'), patience: ODD.patience,
+      why: 'taking the finished file',
+      lookAgain: { by: find('Download Orders Data'), times: ODD.times, after: ODD.after },
+    }),
+  ]))('me_orders', DAY);
+  check('a file not in the list yet is still fetched, by shutting the menu and opening it again',
+    got.state === LANDED);
+  /* **THE ORDER IS THE CHECK, AND IT IS THE REFERENCE'S ORDER, ALL FOUR PARTS OF
+   * IT.** Shut it, wait while it is shut, look the opener up AGAIN, press it
+   * once. A round that waited on the OPEN menu would read "clicked Download
+   * Orders Data -> waited 3 -> clicked away" and match none of this; so would a
+   * round that pressed the opener twice and shut nothing; and so would one that
+   * pressed at the opener without looking for it first. */
+  check('and each round was: clicked away, left shut, looked again, opened again',
+    portal.whatHappened.join(' -> ').split(
+      `clicked away -> waited ${ODD.after} -> found Download Orders Data`
+      + ' -> clicked Download Orders Data'
+    ).length - 1 === ODD.times);
+  /* **AND THE STAND-IN COUNTED THE SHUTTING, NOT THE CLICKING.** Its list only
+   * reappears once the menu has genuinely been shut and opened again, which is
+   * why a loop that pressed the opener twice cannot reach this line at all. */
+  check('and the menu really was shut and reopened, not merely pressed at',
+    portal.clickedAway === ODD.times && portal.reopened === ODD.times);
+  check(`and how long it was left shut is the recipe's, not a number inside the walk`,
+    portal.waited.length === ODD.times && portal.waited.every((one) => one === ODD.after));
+  /* **AND THAT STEP'S OWN PATIENCE WENT TO BOTH ITS LOOKUPS** -- the one for the
+   * file and the one that checks the opener is still there. */
+  check(`and the patience on both lookups is the recipe's too`,
+    portal.patienceTold.filter(([call]) => call === 'find')
+      .every(([, one]) => one === ODD.patience));
+}
+
+{
+  /* **AND IT GIVES UP.** A menu reopened until morning holds the night on one
+   * report, and every report behind it goes unfetched. */
+  const portal = aPortal({ appearsAfterReopens: 99 });
+  const got = await aWalk(portal, bookWhere([
+    step({
+      do: 'take-file', find: find('Download', { called: 'the download menu' }),
+      patience: ODD.patience, why: 'taking the finished file',
+      lookAgain: { by: find('Download Orders Data'), times: ODD.times, after: ODD.after },
+    }),
+  ]))('me_orders', DAY);
+  check('a file that never appears is a failure, not a menu reopened all night',
+    got.state === FAILED);
+  check('and it was tried as many times as the recipe says, no more',
+    portal.clickedAway === ODD.times && portal.waited.length === ODD.times);
+  check('and the failure names the thing in the words a person reads',
+    got.say.includes('the download menu'));
+  check('and it carries what the step was for, not a bare "nothing matched"',
+    got.say.includes('taking the finished file'));
+}
+
+{
+  /* **THE OPENER IS LOOKED FOR BEFORE IT IS PRESSED, AND IF IT HAS GONE THIS
+   * STOPS.** The reference does exactly this (`if (!dlDropdown2) ... break`).
+   * Without it the click throws straight past every failure this walk writes,
+   * and the seller is told a control could not be found with no word of what was
+   * being attempted -- the bare "button not found" that cost this project a
+   * month. The stand-in takes the opener away the moment the menu is shut, and
+   * throws at a click aimed at it, exactly as the real door does. */
+  const portal = aPortal({ appearsAfterReopens: 99, openerGoesWhenShut: true });
+  const got = await aWalk(portal, bookWhere([
+    step({
+      do: 'take-file', find: find('Download', { called: 'the download menu' }),
+      patience: ODD.patience, why: 'taking the finished file',
+      lookAgain: { by: find('Download Orders Data'), times: ODD.times, after: ODD.after },
+    }),
+  ]))('me_orders', DAY);
+  check('an opener that has gone ends the walk rather than throwing out of it',
+    got.state === FAILED);
+  check('and it stops at the first round rather than shutting a menu that is not there again',
+    portal.clickedAway === 1);
+  check('and the failure still carries what the step was for',
+    got.say.includes('taking the finished file'));
+}
+
 check(`nothing above ended by throwing rather than by answering -- ${THREW}`, THREW.length === 0);
 
 {
@@ -1373,7 +1584,7 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
     TOO_BIG_TO_CARRY === TOO_BIG);
 }
 
-const EXPECTED = 195;
+const EXPECTED = 217;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

@@ -13,6 +13,7 @@ list, one log, one board, the door a detail underneath -- is not true.
 Run: python autosync/browser_door_checks.py
 """
 
+import dataclasses
 import sys
 from datetime import date
 from pathlib import Path
@@ -86,11 +87,36 @@ class FakeMeesho:
         # them used to arrive here at all, so a page that draws in its own time
         # was read as a page that had renamed its buttons.
         self.patience_told = []
+        # **HOW LONG IT WAS TOLD TO PASS, AND IN WHAT ORDER THINGS HAPPENED.**
+        # Meesho's orders export is built where the page cannot see it, so the
+        # recipe can only wait -- and whether the wait came before or after the
+        # page was loaded again is the whole of whether it works. Nothing is
+        # really slept for; the numbers are kept.
+        self.waited = []
+        self.order = []
+        # **THE MENU, AS MEESHO REALLY BEHAVES.** Its list of finished exports is
+        # drawn AS it opens and never again while it is open. So the stand-in
+        # holds the two facts that follow from that and nothing else: whether it
+        # is open, and how many times it has been SHUT and opened again. Counting
+        # clicks instead would let a loop that never shut it pass.
+        self.menu_open = False
+        self.shut_since_last_opened = False
+        self.reopened = 0
+        self.clicked_away = 0
 
     # -- what the door asks it
     def go(self, address, patience):
         self.went.append(address)
+        self.order.append("went")
         self.patience_told.append(("go", patience))
+        # A page that has been loaded again has nothing open on it.
+        self.menu_open = False
+        self.shut_since_last_opened = False
+
+    def wait(self, seconds):
+        self.waited.append(seconds)
+        self.order.append(f"waited {seconds}")
+        self.patience_told.append(("wait", seconds))
 
     def needs_signing_in(self):
         return bool(self.how.get("signed_out"))
@@ -131,6 +157,16 @@ class FakeMeesho:
     def find(self, how, what, exact, patience, near=""):
         self.steps_seen += 1
         self.patience_told.append(("find", patience))
+        # **THE FINISHED FILE IS NOT IN THE LIST YET, and this is the only way to
+        # say so.** Meesho draws the list of finished exports as the download
+        # menu OPENS, so the list only ever changes when the menu is shut and
+        # opened again. Here the row appears once the menu has been reopened this
+        # many times -- and with nothing reopening it, it never appears at all.
+        reopens = self.how.get("appears_after_reopens")
+        if reopens is not None and what == "Download" and near:
+            return 1 if self.menu_open and self.reopened >= reopens else 0
+        if not self._opener_still_there(what):
+            return 0
         at = self.how.get("matches_at_step")
         if at and self.steps_seen in at:
             return at[self.steps_seen]
@@ -149,8 +185,48 @@ class FakeMeesho:
             return 0
         return 1
 
+    def _opener_still_there(self, what):
+        """Is the download menu's opener still on the page?
+
+        **A CONTROL THE PORTAL TAKES AWAY PART WAY THROUGH.** Meesho redraws its
+        own page while a walk is on it, and the opener being there when the walk
+        arrived does not mean it is still there a round later. Told to, this one
+        takes it away the moment the menu is shut -- which is the one moment in
+        the whole walk when nothing is holding it open.
+        """
+        if not self.how.get("opener_goes_when_shut") or what != "Download Orders Data":
+            return True
+        return not self.clicked_away
+
     def click(self, how, what, exact, near=""):
+        # **A CONTROL THAT IS NOT THERE CANNOT BE CLICKED, AND THE REAL DOOR
+        # THROWS.** `driver.js` looks the thing up and refuses when nothing
+        # matches. A stand-in that quietly accepted the click would let a door
+        # which never checked first look exactly like one that did.
+        if not self._opener_still_there(what):
+            raise RuntimeError(
+                "Nothing on the page matches 'Download Orders Data'."
+            )
         self.clicked.append(what)
+        self.order.append(f"clicked {what}")
+        # **OPENING A SHUT MENU IS THE ONLY THING THAT REDRAWS ITS LIST.** Pressed
+        # while it is already open, this counts for nothing at all -- which is
+        # exactly what a second press of the opener would be worth if Meesho's
+        # opener does not toggle, and the whole reason the shutting is a click
+        # away rather than a second press.
+        if not self.menu_open:
+            self.menu_open = True
+            if self.shut_since_last_opened:
+                self.reopened += 1
+                self.shut_since_last_opened = False
+
+    def click_away(self):
+        # **CLICKING WHERE NOTHING IS SHUTS WHAT IS OPEN**, which is the
+        # reference's own gesture (`content/meesho.js:865`).
+        self.clicked_away += 1
+        self.order.append("clicked away")
+        self.menu_open = False
+        self.shut_since_last_opened = True
 
     def pick_range(self, start, end, patience):
         self.ranges.append((start, end))
@@ -546,6 +622,9 @@ WHICH_CALL = {
     pages.WAIT_FOR: "find",
     pages.PICK_RANGE: "pick_range",
     pages.TAKE_FILE: "take_file",
+    # **THE ONE STEP THAT LOOKS AT NOTHING.** Meesho builds an orders export
+    # where the page cannot see it, so this passes time rather than watching.
+    pages.WAIT: "wait",
 }
 wanted = [(WHICH_CALL[step.do], step.patience) for step in STEPS]
 # The last step asks twice -- once to find the download control, once for the
@@ -555,15 +634,110 @@ check("every call was told exactly what its own step says",
       answered(lambda: fake.patience_told == wanted))
 check("and those are not all the same number, so one shared value cannot pass this",
       answered(lambda: len({one for _, one in wanted}) > 1))
-# The one that would have cost the most: Meesho takes up to five minutes.
-check("the wait for Meesho to build the orders file is the recipe's five minutes",
-      answered(lambda: ("find", 300) in fake.patience_told))
+# **THIS USED TO ASK FOR FIVE MINUTES OF PATIENCE ON THE LAST STEP, and it is
+# rewritten with the change rather than deleted for going red.** Those five
+# minutes were spent looking at an open download menu -- and Meesho draws the
+# list of finished exports as that menu OPENS, so it never changed while it was
+# being watched. The waiting that actually matters is the thirty-five seconds
+# BEFORE the page is loaded again, because the list is built as it loads.
+check("the wait between asking for the export and loading the page again reaches the browser",
+      answered(lambda: ("wait", 35) in fake.patience_told))
+check("and it comes after the export was asked for and before the page was loaded again",
+      answered(lambda: "clicked Export data" in fake.order
+               and fake.order.index("clicked Export data")
+               < fake.order.index("waited 35") < fake.order.index("went", 1)))
 
 # **CLICKING IS NOT TOLD, AND THAT IS DELIBERATE.** What it clicks was found a
 # moment ago; waiting again would be waiting for something already in front of
 # it.
 check("clicking is not given a wait at all",
       answered(lambda: all(call != "click" for call, _ in fake.patience_told)))
+
+# ------------------------- the menu is shut and opened again between looks
+
+# **MEESHO DRAWS ITS LIST OF FINISHED EXPORTS AS THE DOWNLOAD MENU OPENS**, so an
+# open menu shows what was ready at that moment and never changes. This step used
+# to wait 300 seconds on one and call that patience; the reference shuts it by
+# clicking where nothing is, leaves it shut for thirty seconds, looks the opener
+# up again and presses it once -- six times (`content/meesho.js:860-878`), every
+# night, for months.
+fake = FakeMeesho(appears_after_reopens=2)
+got = a_fetch(fake)("me_orders", DAY)
+check("a file not in the list yet is still fetched, by shutting the menu and opening it again",
+      answered(lambda: got.state == tool.LANDED))
+# **THE ORDER IS THE CHECK, AND IT IS THE REFERENCE'S ORDER.** Shut, wait while
+# it is shut, open. A round that waited on the OPEN menu would read
+# "clicked Download Orders Data -> waited 30 -> clicked away" and match none of
+# this; so would a round that pressed the opener twice and never shut anything.
+check("and each round was: clicked away, left shut for thirty seconds, opened again",
+      answered(lambda: " -> ".join(fake.order).count(
+          "clicked away -> waited 30 -> clicked Download Orders Data") == 2))
+# **AND THE STAND-IN COUNTED THE SHUTTING, NOT THE CLICKING.** Its list only
+# reappears once the menu has genuinely been shut and opened again, which is why
+# a loop that pressed the opener twice cannot reach this line at all.
+check("and the menu really was shut and reopened, twice, not merely pressed at",
+      answered(lambda: (fake.clicked_away, fake.reopened) == (2, 2)))
+
+# **AND IT GIVES UP.** A menu reopened until morning holds the night on one
+# report and every report behind it goes unfetched.
+fake = FakeMeesho(appears_after_reopens=99)
+got = a_fetch(fake)("me_orders", DAY)
+check("a file that never appears is a failure, not a menu reopened all night",
+      answered(lambda: got.state == tool.FAILED))
+check("having been tried the six times the reference tries it, and no more",
+      answered(lambda: fake.reopened == 6))
+# **AND THE FAILURE SAYS WHAT IT WAS DOING.** A walk that ran out of rounds must
+# not report a bare "nothing matched": the whole reason a step carries a `why` is
+# that "button not found" with nothing beside it cost this project a month.
+check("and the failure carries the step's own reason with it",
+      answered(lambda: "taking the finished file" in got.say))
+
+# **THE OPENER IS LOOKED FOR BEFORE IT IS PRESSED, AND IF IT HAS GONE THIS STOPS.**
+# The reference does exactly this (`if (!dlDropdown2) ... break`). Without it the
+# click throws straight past every failure this door writes, and the seller is
+# told a control could not be found with no word of what was being attempted.
+fake = FakeMeesho(appears_after_reopens=99, opener_goes_when_shut=True)
+got = a_fetch(fake)("me_orders", DAY)
+check("an opener that has gone ends the walk rather than throwing out of it",
+      answered(lambda: got.state == tool.FAILED))
+check("and it stops at the first round rather than shutting a menu that is not there five more times",
+      answered(lambda: fake.clicked_away == 1))
+check("and the failure still carries the step's own reason",
+      answered(lambda: "taking the finished file" in got.say))
+
+# ------------- and the numbers come off the recipe, not out of this door
+#
+# **THE ANTIDOTE THIS FILE ALREADY WRITES DOWN, APPLIED TO THE NEW NUMBERS.**
+# Every check above uses the recipe's own 6, 30 and 35 -- and so does the door,
+# so a door that ignored the recipe and used its own 6 and 30 would pass every
+# one of them. Here the recipe is given numbers no line of the door would ever
+# choose, and the door is asked to prove it read them.
+def _with_the_last_step(**changed):
+    """His orders recipe, with its take-file step altered, put back afterwards."""
+    was = book.RECIPES["me_orders"]
+    steps = list(was.to_take)
+    steps[-1] = dataclasses.replace(steps[-1], **changed)
+    book.RECIPES["me_orders"] = dataclasses.replace(was, to_take=tuple(steps))
+    return was
+
+
+ODD = pages.LookAgain(by=pages.Find(pages.BY_PRESSABLE_TEXT, "Download Orders Data"),
+                      times=2, after=3)
+_was = _with_the_last_step(patience=7, look_again=ODD)
+try:
+    fake = FakeMeesho(appears_after_reopens=99)
+    got = a_fetch(fake)("me_orders", DAY)
+    check("how long to leave it shut is the recipe's, not a number inside the door",
+          answered(lambda: fake.waited == [35, 3, 3]))
+    check("and how many times to try is the recipe's too",
+          answered(lambda: (fake.clicked_away, fake.reopened) == (2, 2)))
+    check("and the patience on that step is the recipe's, on both of its lookups",
+          answered(lambda: [one for call, one in fake.patience_told if call == "find"][-3:]
+                   == [7, 7, 7]))
+finally:
+    book.RECIPES["me_orders"] = _was
+check("and the book was put back exactly as it was found",
+      answered(lambda: book.recipe("me_orders").to_take[-1].look_again.times == 6))
 
 # ---------------------------------- and nothing here ended by falling over
 
@@ -583,7 +757,7 @@ check("clicking is not given a wait at all",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 92
+EXPECTED = 106
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

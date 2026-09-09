@@ -106,12 +106,20 @@ check("and no report has two recipes", answered(lambda: len(set(tool.every_recip
 
 SHAPES = {
     # **ORDERS LOADS THE PAGE A SECOND TIME, and that is the whole recipe.**
-    # Meesho builds the file almost instantly and it does not appear in the
+    # Meesho builds the file on its own servers and it does not appear in the
     # exported files list until the page is loaded again -- reopening the menu is
-    # not enough. So: menu, range, export, THEN load again, open the menu again,
-    # take it.
+    # not enough. So: menu, range, export, WAIT, THEN load again, open the menu
+    # again, take it.
+    #
+    # **THE WAIT WAS NOT HERE AND THIS LINE SAID SO, and it is rewritten with the
+    # change rather than deleted for going red.** The page shows nothing at all
+    # while Meesho builds the file, so there is nothing a `wait-for` could watch;
+    # and the list is drawn AS the page loads, so a page loaded straight away is
+    # a page loaded before the file exists. The reference waits 35 seconds here
+    # and has every night for months.
     "me_orders": ((), (pages.GO, pages.WAIT_FOR, pages.CLICK, pages.CLICK, pages.PICK_RANGE,
-                       pages.CLICK, pages.GO, pages.WAIT_FOR, pages.CLICK, pages.TAKE_FILE)),
+                       pages.CLICK, pages.WAIT, pages.GO, pages.WAIT_FOR, pages.CLICK,
+                       pages.TAKE_FILE)),
     "me_catalog": ((), (pages.GO, pages.WAIT_FOR, pages.CLICK, pages.TAKE_FILE)),
     # Returns has no Export button: the way in is a control whose whole label is
     # a count of files, and it opens the panel that exports and lists them.
@@ -553,13 +561,81 @@ check("and none of them names a panel or an address",
       answered(lambda: not any("/" in one or "." in one for one in tool.SIGNED_OUT_SIGNS)))
 
 
+# ------------------------------- the two things Meesho's orders export needs
+#
+# **BOTH OF THESE ARE THE REFERENCE'S OWN BEHAVIOUR, CARRIED ACROSS AS IT IS.**
+# It has fetched this report every night for months and Kartaan has never fetched
+# it once, so where the two differ the reference is right until something
+# measured says otherwise.
+
+_orders = tool.recipe("me_orders").to_take
+
+# **ONE: THIRTY-FIVE SECONDS BETWEEN ASKING AND LOADING THE PAGE AGAIN**
+# (`content/meesho.js:947`). Meesho builds the file on its own servers, the page
+# shows nothing at all while it happens, and the list of finished files is drawn
+# AS the page loads. Reloaded straight away, the list is built before the file
+# exists and the file is simply not in it. **The 300 seconds of patience the last
+# step used to carry could not recover that** -- a drawn list gains no rows while
+# it is looked at.
+_asked = max(i for i, one in enumerate(_orders)
+             if one.do == pages.CLICK and one.find.what == "Export data")
+_loaded_again = min(i for i, one in enumerate(_orders) if one.do == pages.GO and i > _asked)
+check("me_orders waits between asking for the export and loading the page again",
+      answered(lambda: any(one.do == pages.WAIT for one in _orders[_asked + 1:_loaded_again])))
+# **THE ORDER IS THE POINT, NOT THE PRESENCE.** A wait AFTER the page is loaded
+# again would be exactly as useless as no wait at all, and would read in the
+# recipe as though this had been fixed.
+check("and it is the reference's own thirty-five seconds, which it has waited every night",
+      answered(lambda: [one.patience for one in _orders[_asked + 1:_loaded_again]
+                        if one.do == pages.WAIT] == [35]))
+check("and nothing else in the book waits with nothing to look at, because nothing else needs to",
+      answered(lambda: [r for r in sorted(tool.every_recipe())
+                        if any(s.do == pages.WAIT
+                               for s in tool.recipe(r).to_ask + tool.recipe(r).to_take)]
+               == ["me_orders"]))
+
+# **TWO: THE MENU IS SHUT AND OPENED AGAIN BETWEEN LOOKS**
+# (`content/meesho.js:860-878`, six times, thirty seconds apart). Meesho draws
+# the list of finished exports as the download menu OPENS, so an open menu shows
+# what was ready at that moment and never changes. Waiting on it is watching a
+# photograph.
+_take = _orders[-1]
+check("me_orders says what to shut and open again while it waits for the finished file",
+      answered(lambda: _take.do == pages.TAKE_FILE and _take.look_again is not None))
+check("and the thing it shuts and opens is the download menu the file is listed inside",
+      answered(lambda: _take.look_again.by.what == "Download Orders Data"))
+check("six times, thirty seconds apart, which are the reference's own numbers",
+      answered(lambda: (_take.look_again.times, _take.look_again.after) == (6, 30)))
+# **AND THE OLD 300 IS GONE.** Five minutes of patience on an open menu was the
+# fault: it looked like waiting and bought nothing at all.
+check("and it no longer waits five minutes on a menu that will never change",
+      answered(lambda: _take.patience <= 60))
+
+
+# **AND THE STEPS THAT COME OUT OF `steps_for` STILL CARRY IT.**
+#
+# **THIS IS A REAL FAULT THAT WAS CAUGHT THE HOUR IT WAS MADE, and the check is
+# here so it cannot come back.** `steps_for` used to rebuild each step by naming
+# every field, so `look_again` -- added the same day -- was silently taken off
+# again on the way out. The recipe said reopen the menu, the door was handed a
+# step that said nothing of the kind, and the file was never found. Nothing about
+# the recipe looked wrong.
+_handed_over = tool.steps_for("me_orders", "some-slug")[-1]
+check("the step handed to the door still carries what to shut and open again",
+      answered(lambda: _handed_over.look_again is not None
+               and _handed_over.look_again.times == 6))
+check("and the panel name was still filled into the addresses on the way",
+      answered(lambda: all("{panel}" not in one.address
+                           for one in tool.steps_for("me_orders", "some-slug"))))
+
+
 # **AND NOTHING ABOVE ENDED BY THROWING RATHER THAN BY ANSWERING.** Answering
 # with nothing keeps the run alive; this is what stops a check phrased as "this
 # word is NOT in what it said" going green because there was nothing to look in.
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 216
+EXPECTED = 225
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

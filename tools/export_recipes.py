@@ -64,6 +64,7 @@ AS_JAVASCRIPT_SPELLS_IT = {
     "ready_in_minutes": "readyInMinutes",
     "to_ask": "toAsk",
     "to_take": "toTake",
+    "look_again": "lookAgain",
 }
 
 
@@ -87,6 +88,17 @@ def a_find(find):
     }
 
 
+def a_look_again(again):
+    """What to close and open again between looks, as the extension reads it."""
+    if again is None:
+        return None
+    return {
+        "by": a_find(again.by),
+        "times": again.times,
+        "after": again.after,
+    }
+
+
 def a_step(step):
     """One thing to do to a page, as the extension reads it."""
     return {
@@ -96,6 +108,10 @@ def a_step(step):
         "patience": step.patience,
         "why": step.why,
         AS_JAVASCRIPT_SPELLS_IT["range_days"]: step.range_days,
+        # **A LIST DRAWN WHEN A MENU OPENS DOES NOT CHANGE WHILE IT IS OPEN**, so
+        # the step says what to shut and open again between looks. Null on every
+        # step but one.
+        AS_JAVASCRIPT_SPELLS_IT["look_again"]: a_look_again(step.look_again),
     }
 
 

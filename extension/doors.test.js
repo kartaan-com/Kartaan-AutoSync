@@ -15,9 +15,11 @@
  * size, and everything downstream would believe the day had arrived.
  */
 
+import { readFileSync } from 'node:fs';
 import { installFakeChrome } from '../test/fake-chrome.js';
 import {
-  OUR_TAB, OUR_WINDOW, aTabToWalkIn, goTo, sameDocumentAs, takeTheFile, watchForDownloads,
+  ARMED_FOR_MS, OUR_TAB, OUR_WINDOW, aTabToWalkIn, goTo, sameDocumentAs, takeTheFile,
+  watchForDownloads,
 } from './doors.js';
 
 process.on('uncaughtException', (err) => {
@@ -495,7 +497,11 @@ function aFetch(answers) {
   const browser = installFakeChrome();
   const watching = watchForDownloads(browser.chrome, { now: () => at });
   watching.expectAFile();
-  at = 15 * 60 * 1000;
+  /* **TAKEN FROM THE DOOR RATHER THAN TYPED AGAIN.** Written here as its own
+   * fifteen minutes, this check went on passing when the door's own number
+   * changed -- two records of one fact, which is the fault this project has been
+   * caught by four times. */
+  at = ARMED_FOR_MS;
   await browser.aDownloadStarted({ url: 'https://anywhere.example.invalid/much-later.pdf' });
   check('an arm nobody used runs out rather than lasting the day',
     browser.cancelledDownloads().length === 0);
@@ -668,7 +674,62 @@ function aFetch(answers) {
     got.windowId !== theirs.id);
 }
 
-const EXPECTED = 67;
+/* ------------------- how long a walk may go on, worked out rather than guessed */
+
+/* **THIS NUMBER USED TO BE ADDED UP BY HAND IN A COMMENT, AND NOTHING CHECKED
+ * ANY PART OF IT.** It said the longest walk was 10.58 minutes and bounded a walk
+ * at fifteen. Then `me_orders` grew a 35-second wait and six rounds of shutting
+ * and reopening a menu, its worst case went past sixteen minutes, and the bound
+ * silently became shorter than the thing it bounds -- which would have ended a
+ * perfectly good night as "stopped part way through and never said why".
+ *
+ * So it is computed here, off the very file the extension reads, and
+ * `ARMED_FOR_MS` is held to it in both directions: long enough to cover the
+ * longest walk, and not so long that it stops bounding anything. */
+{
+  const BOOK = JSON.parse(readFileSync(new URL('./recipes.json', import.meta.url), 'utf8'));
+
+  /* **THE WORST A SINGLE STEP CAN COST, IN SECONDS.** Every step may burn its
+   * whole patience. The take-file step can burn it three ways over: once looking
+   * for the file, once per round of shutting the menu and opening it again --
+   * where the round also spends the time it is left shut -- and once waiting for
+   * the bytes themselves. */
+  const worstOf = (one) => {
+    const patience = Number(one.patience) || 0;
+    if (one.do !== 'take-file') return patience;
+    const looking = one.find ? patience : 0;
+    const rounds = one.lookAgain
+      ? Number(one.lookAgain.times) * (Number(one.lookAgain.after) + 2 * patience)
+      : 0;
+    return looking + rounds + patience;
+  };
+
+  /* **A WALK RUNS A RECIPE'S ASK LIST OR ITS TAKE LIST, NEVER BOTH**, so the two
+   * halves are measured apart and never added together. An earlier version of
+   * the comment this replaces got that right and named the wrong recipe anyway. */
+  let longest = 0;
+  let named = '';
+  for (const [id, recipe] of Object.entries(BOOK.recipes)) {
+    for (const half of ['toAsk', 'toTake']) {
+      const total = (recipe[half] || []).reduce((sum, one) => sum + worstOf(one), 0);
+      if (total > longest) { longest = total; named = `${id}.${half}`; }
+    }
+  }
+  const longestMs = longest * 1000;
+
+  check('there is a longest walk, and it is worked out from the recipes themselves',
+    longest > 0 && named.length > 0);
+  check('AND A WALK IS BELIEVED FOR LONGER THAN THE LONGEST ONE THAT CAN EXIST',
+    ARMED_FOR_MS >= longestMs);
+  /* **AND NOT SO MUCH LONGER THAT IT BOUNDS NOTHING.** While this is armed, a
+   * file the seller downloads by hand can be taken for the walk's and cancelled
+   * in front of them, so the margin is a cost and is stated rather than left to
+   * grow. */
+  check('and not more than ten minutes longer, because an armed cancel is not free',
+    ARMED_FOR_MS - longestMs <= 10 * 60 * 1000);
+}
+
+const EXPECTED = 70;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

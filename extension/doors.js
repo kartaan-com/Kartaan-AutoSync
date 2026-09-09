@@ -50,17 +50,35 @@ const BUILT_IN_THE_PAGE = 'blob:';
  * the cancel armed for the rest of the day, and the next thing the SELLER
  * downloaded by hand would vanish in front of them.
  *
- * **FIFTEEN, BECAUSE THE LONGEST WALK THAT CAN EXIST IS 10.58 MINUTES.** That is
- * `me_orders` -- **not `fk_orders`, which an earlier version of this comment
- * named and got wrong** (A25R). A walk runs a recipe's ask list OR its take
- * list, never both, so `fk_orders` at its longest is 5.5 minutes and the two
- * halves must never be added together.
+ * **IT HAS TO BE LONGER THAN THE LONGEST WALK THAT CAN EXIST, AND NOTHING USED
+ * TO WORK THAT OUT.** This said fifteen minutes and "the longest walk is 10.58
+ * minutes, which is `me_orders`" -- a figure somebody added up by hand once. No
+ * check, no test and no script computed any part of it, so the day a recipe
+ * changed it quietly became wrong, and it did: `me_orders` grew a 35-second wait
+ * and six rounds of shutting and reopening a menu, and its worst case went to
+ * **16.2 minutes -- past the fifteen this bounded it at**. A walk that ran that
+ * long would have been swept up and written down as "stopped part way through
+ * and never said why", which is the one failure with no portal to go and look
+ * at.
+ *
+ * **SO IT IS COMPUTED FROM `recipes.json` NOW, IN `extension/doors.test.js`, and
+ * this number is held to it.** A walk runs a recipe's ask list OR its take list,
+ * never both, and its worst case is every step's patience added up -- with the
+ * take-file step counting its lookup, its rounds of reopening, and the wait for
+ * the file itself, because each of those can burn that step's full patience on a
+ * bad night. Twenty-five minutes clears today's longest with room, and the check
+ * refuses a number more than ten minutes clear of it, so this cannot quietly
+ * become a bound that bounds nothing.
+ *
+ * **AND LONGER IS NOT FREE**, which is why it is not simply set to an hour: for
+ * as long as this is armed, a file the SELLER downloads by hand can be taken for
+ * the walk's and cancelled in front of them.
  *
  * **THE REFERENCE IS NOT THE SAME SHAPE, AND SAYING IT WAS WOULD BE WRONG.** It
  * bounds its own uncaptured-download fallback at FIVE minutes and arms seconds
  * before the click; this arms at the start of the walk, because that is the only
  * message this product sends before the click, and so it has further to reach. */
-export const ARMED_FOR_MS = 15 * 60 * 1000;
+export const ARMED_FOR_MS = 25 * 60 * 1000;
 
 /* What our own window and our own tab are called in storage. **Written down
  * rather than remembered, because the worker that made the window is shut down

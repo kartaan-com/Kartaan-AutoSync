@@ -156,6 +156,13 @@ check('and the words each failure means', Object.keys(BOOK.whatItMeans).length >
 function aPortal(how = {}) {
   const it = {
     went: [], clicked: [], ranges: [], tookFile: 0, handedOver: [], turns: 0, putAway: [],
+    waited: [], clickedAway: 0,
+    /* **THE MENU, AS MEESHO REALLY BEHAVES.** Its list of finished exports is
+     * drawn AS it opens and never again while it is open. So this holds the two
+     * facts that follow: whether it is open, and how many times it has been SHUT
+     * and opened again. Counting clicks instead would let a loop that never shut
+     * it pass. */
+    menuOpen: false, shutSinceLastOpened: false, reopened: 0,
     /* **WHAT HAPPENED AND IN WHAT ORDER (A44).** The catcher for a file the page
      * builds inside itself must be armed AFTER the lookup and immediately before
      * the click that builds it -- armed any earlier and it sits armed through the
@@ -173,11 +180,64 @@ function aPortal(how = {}) {
     return { put: 'an-id' };
   };
   it.door = {
-    async go(address, patience, nextAt) { it.went.push(address); it.handedOver.push(nextAt); },
+    async go(address, patience, nextAt) {
+      it.went.push(address);
+      it.handedOver.push(nextAt);
+      /* **GOING SOMEWHERE IS PART OF THE ORDER OF THINGS.** `me_orders` waits for
+       * Meesho to finish building the file and only THEN loads the page again --
+       * and whether the wait came before or after the load is the whole of it. */
+      it.whatHappened.push('went somewhere');
+      /* A page that has been loaded again has nothing open on it. */
+      it.menuOpen = false;
+      it.shutSinceLastOpened = false;
+    },
     async needs_signing_in() { return Boolean(how.signedOut); },
     async overlays() { return []; },
-    async find(kind, what) { return how.matches && what in how.matches ? how.matches[what] : 1; },
-    async click(kind, what) { it.clicked.push(what); it.whatHappened.push(`clicked ${what}`); },
+    async find(kind, what, exact, patience, near) {
+      /* **LOOKING IS PART OF THE ORDER OF THINGS.** The opener is looked up
+       * afresh between rounds and pressed only if it is still there, and an
+       * order is the only thing that can be checked about a "before". */
+      it.whatHappened.push(`found ${what}`);
+      /* **THE FINISHED FILE IS NOT IN THE LIST YET, and this is the only way to
+       * say so.** Meesho draws its list of finished exports as the download menu
+       * opens, so the list only ever changes when the menu is shut and opened
+       * again. Here the row appears once the menu has been reopened this many
+       * times -- and with nothing reopening it, it never appears at all. */
+      if (how.appearsAfterReopens !== undefined && what === 'Download' && near) {
+        return it.menuOpen && it.reopened >= how.appearsAfterReopens ? 1 : 0;
+      }
+      /* **A CONTROL THE PORTAL TAKES AWAY PART WAY THROUGH.** Told to, this one
+       * takes the opener away the moment the menu is shut -- the one moment in
+       * the whole walk when nothing is holding it open. */
+      if (how.openerGoesWhenShut && what === 'Download Orders Data' && it.clickedAway) return 0;
+      return how.matches && what in how.matches ? how.matches[what] : 1;
+    },
+    async click(kind, what) {
+      /* **A CONTROL THAT IS NOT THERE CANNOT BE CLICKED, AND THE REAL DOOR
+       * THROWS.** A stand-in that quietly accepted the click would let a walk
+       * which never looked first look exactly like one that did. */
+      if (how.openerGoesWhenShut && what === 'Download Orders Data' && it.clickedAway) {
+        throw new Error("Nothing on the page matches 'Download Orders Data'.");
+      }
+      it.clicked.push(what);
+      it.whatHappened.push(`clicked ${what}`);
+      /* **OPENING A SHUT MENU IS THE ONLY THING THAT REDRAWS ITS LIST.** Pressed
+       * while it is already open this counts for nothing at all -- which is
+       * exactly what a second press of the opener is worth if Meesho's opener
+       * does not toggle. */
+      if (!it.menuOpen) {
+        it.menuOpen = true;
+        if (it.shutSinceLastOpened) { it.reopened += 1; it.shutSinceLastOpened = false; }
+      }
+    },
+    /* **SHUTTING IT IS A CLICK WHERE NOTHING IS**, which is the reference's own
+     * gesture (`content/meesho.js:865`, `document.body.click()`). */
+    async click_away() {
+      it.clickedAway += 1;
+      it.whatHappened.push('clicked away');
+      it.menuOpen = false;
+      it.shutSinceLastOpened = true;
+    },
     async pick_range(from, to) { it.ranges.push([from, to]); },
     async take_file() {
       it.tookFile += 1;
@@ -185,6 +245,11 @@ function aPortal(how = {}) {
       return new Uint8Array([1, 2, 3]);
     },
     async page_text() { return 'Welcome back'; },
+    /* **NOTHING IS REALLY SLEPT FOR, AND THE NUMBER IS KEPT.** A stand-in that
+     * really waited thirty-five seconds would put six minutes into this file;
+     * one that forgot the number would let a wait of nought seconds pass as a
+     * wait of thirty-five. */
+    async wait(seconds) { it.waited.push(seconds); it.whatHappened.push(`waited ${seconds}`); },
   };
   return it;
 }
@@ -239,6 +304,87 @@ function aWalk(portal) {
     !portal.went.some((one) => one.includes('{panel}')));
   check('the day being fetched was set', portal.ranges.length === 1 && portal.ranges[0][1] === DAY);
   check('and a file was taken', portal.tookFile === 1);
+
+  /* **THE THIRTY-FIVE SECONDS, AND WHERE THEY SIT.**
+   *
+   * Meesho builds the export on its own servers and shows the page nothing at
+   * all while it does -- and the list of finished files is drawn AS the page
+   * loads. So a page loaded the instant "Export data" is pressed is a page
+   * loaded before the file exists, and the file is simply not in its list.
+   * **The 300 seconds of patience the last step used to carry could not recover
+   * that**: the list was already drawn without it.
+   *
+   * **THE ORDER IS THE CHECK, not the presence of a wait somewhere.** A wait
+   * after the reload would be exactly as useless as no wait at all, and would
+   * read in the recipe as though the fault had been fixed. */
+  const order = portal.whatHappened.join(' -> ');
+  check('his orders recipe waits after asking for the export and before loading the page again',
+    order.includes('clicked Export data -> waited 35 -> went somewhere'));
+}
+
+{
+  /* **THE FILE IS NOT IN THE LIST ON THE FIRST LOOK, WHICH IS THE ORDINARY
+   * CASE.** Meesho draws that list as the download menu opens, so an open menu
+   * shows what was ready at that moment and never changes -- five minutes of
+   * looking at it is five minutes of looking at the same picture. The reference
+   * shuts it by clicking where nothing is, leaves it shut thirty seconds, looks
+   * the opener up again and presses it once -- six times
+   * (`content/meesho.js:860-878`). Until that was carried across, this walk
+   * failed: the stand-in below never shows the row to a menu that is not
+   * reopened, and nothing reopened it. */
+  const portal = aPortal({ appearsAfterReopens: 2 });
+  const got = await aWalk(portal)('me_orders', DAY);
+  check('a file that is not in the list yet is still fetched, by shutting the menu and opening it again',
+    got.state === LANDED && portal.tookFile === 1);
+  /* **THE ORDER IS THE CHECK, AND IT IS THE REFERENCE'S ORDER, ALL FOUR PARTS OF
+   * IT.** Shut it, wait while it is shut, look the opener up AGAIN, press it
+   * once. A round that waited on the OPEN menu, or pressed the opener twice and
+   * shut nothing, or pressed at it without looking first, matches none of this.
+   * **AND ONE THAT PASSED BY NOTHING HAPPENING CANNOT**: the count has to be the
+   * two rounds the stand-in demands before it shows the row at all. */
+  const reopened = (portal.whatHappened.join(' -> ').match(
+    /clicked away -> waited 30 -> found Download Orders Data -> clicked Download Orders Data/g
+  ) || []).length;
+  check('and each round was: clicked away, left shut thirty seconds, looked again, opened again',
+    reopened === 2);
+  /* **AND THE STAND-IN COUNTED THE SHUTTING, NOT THE CLICKING.** Its list only
+   * reappears once the menu has genuinely been shut and opened again. */
+  check('and the menu really was shut and reopened, not merely pressed at',
+    portal.clickedAway === 2 && portal.reopened === 2);
+}
+
+{
+  /* **AND IT GIVES UP, rather than reopening a menu until the morning.** Six is
+   * the reference's own number. A walk that never stopped would hold the night
+   * on one report and every report behind it would go unfetched. */
+  const portal = aPortal({ appearsAfterReopens: 99 });
+  const got = await aWalk(portal)('me_orders', DAY);
+  check('a file that never appears is a failure, not a walk that runs all night',
+    got.state === 'failed');
+  check('and it was tried the six times the reference tries it, no more',
+    portal.clickedAway === 6 && portal.waited.filter((one) => one === 30).length === 6);
+  /* **THE FAILURE SAYS WHAT IT WAS DOING, NOT ONLY WHAT WAS MISSING.** That is
+   * the whole reason a step carries a `why`: "button not found" with nothing
+   * beside it cost this project a month. */
+  check('and the failure carries the step\'s own reason with it',
+    got.say.includes('taking the finished file'));
+}
+
+{
+  /* **THE OPENER IS LOOKED FOR BEFORE IT IS PRESSED, AND IF IT HAS GONE THIS
+   * STOPS** (`content/meesho.js`: `if (!dlDropdown2) ... break`). Without it the
+   * click throws straight past every failure this walk writes, and the seller is
+   * told a control could not be found with no word of what was being attempted.
+   * The stand-in takes the opener away the moment the menu is shut and throws at
+   * a click aimed at it, exactly as the real door does. */
+  const portal = aPortal({ appearsAfterReopens: 99, openerGoesWhenShut: true });
+  const got = await aWalk(portal)('me_orders', DAY);
+  check('an opener that has gone ends his orders walk rather than throwing out of it',
+    got.state === 'failed');
+  check('and it stops at the first round rather than shutting a menu that is not there again',
+    portal.clickedAway === 1);
+  check('and the failure still carries the step\'s own reason',
+    got.say.includes('taking the finished file'));
 }
 
 {
@@ -377,7 +523,7 @@ function aWalk(portal) {
     && portal.putAway[0].size === 3);
 }
 
-const EXPECTED = 35;
+const EXPECTED = 45;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;
