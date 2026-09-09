@@ -342,7 +342,123 @@ def why_the_review_is_refused(record, code_staged):
     return wrong
 
 
-# --------------------------------------------------------------- 5. every check
+# ------------------------------------------- 5. every commit named is still here
+
+
+# **A COMMIT ID WRITTEN INTO A FILE IS A REFERENCE, AND A HISTORY REWRITE BREAKS
+# IT WITHOUT SAYING SO.** On 2026-09-09 this repository's history was rewritten
+# to take a personal address out of 44 commits and force-pushed. Every commit got
+# a new id. Three places still named old ones -- `GATE_BORN` and
+# `TAG_ANCHORED_FROM` in the workflow, and the root commit in
+# `tools/gate_run_checks.py` -- and nothing anywhere said a word. The workflow
+# then refused every push and this gate refused every commit, both correctly and
+# both for a reason nothing connected back to the rewrite that caused it.
+#
+# **THE REWRITE WAS CHECKED. IT WAS CHECKED FOR THE WRONG THING.** The content was
+# compared tree by tree and the addresses were confirmed clean. Nobody asked what
+# in the tree POINTED AT the ids about to be replaced. This is that question,
+# asked before every commit.
+#
+# **THE WHOLE TREE, NOT WHAT IS STAGED.** The commit that breaks these references
+# does not touch the files holding them -- that is the entire shape of the fault.
+# Asked only of the staged files this rule would have been exactly as quiet as
+# having no rule at all.
+#
+# **FORTY CHARACTERS, NEVER SEVEN.** A person citing a commit in prose writes
+# seven of them; anything that must RESOLVE one is given all forty. So the full
+# form is the one that is depended on, and the short ids through `REVIEW.md` are
+# citations to a moment rather than references something reads. Measured
+# 2026-09-09: four full ids in the whole tree, all four load-bearing, and not one
+# prose citation written that long.
+A_FULL_COMMIT_ID = re.compile(rb"\b[0-9a-f]{40}\b")
+
+# **SAID ON THE LINE THAT CARRIES THE ID, NEVER IN A LIST HERE.** A list of
+# excused ids grows every time something fails and anything at all can hide in
+# it. A word on the line itself has to be written deliberately, appears in the
+# diff that adds it, and excuses exactly the one line it sits on.
+#
+# **AND IT IS ASKED THE OPPOSITE QUESTION, NOT LET OFF.** A marked id that this
+# history CAN reach is refused too, so the word cannot be scattered onto healthy
+# lines to quieten them, and the day the one real use of it becomes reachable
+# this goes red rather than going silent.
+UNREACHABLE_ON_PURPOSE = b"unreachable-on-purpose"
+
+
+def every_commit_named():
+    """Every full commit id written anywhere here, and where it is written.
+
+    Answers `(path, line number, id, whether that line says it is meant to be
+    unreachable)`. **Found, never listed** -- for the reason `every_checks_file`
+    is swept: a list goes stale the first time somebody writes an id somewhere
+    new, and it goes stale silently.
+    """
+    found = []
+    for path in _git("ls-files", "-z").split("\0"):
+        if not path:
+            continue
+        try:
+            body = (ROOT / path).read_bytes()
+        except OSError:
+            # Staged as deleted, or a name this filesystem cannot open. There is
+            # nothing to read, and the deletion is not this rule's business.
+            continue
+        for number, line in enumerate(body.split(b"\n"), 1):
+            for said in A_FULL_COMMIT_ID.findall(line):
+                found.append(
+                    (path, number, said.decode(), UNREACHABLE_ON_PURPOSE in line)
+                )
+    return found
+
+
+def _this_history_reaches(said):
+    """Whether HEAD descends from that commit.
+
+    **ANCESTRY, NOT MERE EXISTENCE.** A fetch brings down every branch and tag,
+    so a rewritten history leaves the old commits sitting in the object store
+    reachable from something else entirely -- object present, ancestry gone. The
+    weaker question passes while reporting nothing, which is the fault this whole
+    rule is about. An id whose object is missing outright answers `no` here, and
+    that is the right answer: it is certainly not reachable.
+    """
+    try:
+        done = subprocess.run(
+            ["git", "merge-base", "--is-ancestor", said, "HEAD"],
+            cwd=ROOT, capture_output=True, text=True, check=False,
+        )
+    except OSError as wrong:
+        raise Refused(f"git could not be run at all ({wrong}).")
+    return done.returncode == 0
+
+
+def why_a_named_commit_is_refused(named):
+    """Which named ids this history cannot reach, and which claim it cannot."""
+    if not named:
+        return []
+    # **HEAD MUST RESOLVE BEFORE ANY OF THEM IS ASKED.** Every id would answer
+    # "not reachable" against a HEAD that is not there, so the refusal would be
+    # forty lines long and about the wrong thing entirely.
+    _git("rev-parse", "--verify", "HEAD^{commit}")
+
+    wrong = []
+    for path, number, said, on_purpose in named:
+        reaches = _this_history_reaches(said)
+        if on_purpose and not reaches:
+            continue
+        if on_purpose:
+            wrong.append(
+                f"{path}:{number} names {said}, says it is unreachable-on-purpose, "
+                "and this history DOES reach it -- so the line no longer means what "
+                "it says."
+            )
+        elif not reaches:
+            wrong.append(
+                f"{path}:{number} names {said}, which is not on this branch. "
+                "Either the history was rewritten under it, or it was never here."
+            )
+    return wrong
+
+
+# --------------------------------------------------------------- 6. every check
 
 
 def every_checks_file():
@@ -413,6 +529,20 @@ def main():
         raise Refused(
             "the work register does not match what is here:\n\n"
             + "\n".join(f"    {one}" for one in wrong)
+        )
+
+    # **ASKED OF THE WHOLE TREE, AND ASKED ON EVERY COMMIT.** It is cheap -- one
+    # sweep and one git question per id -- and the commit that breaks a named id
+    # is never the commit that touches the file naming it, so there is no
+    # narrower moment to ask it at.
+    wrong = why_a_named_commit_is_refused(every_commit_named())
+    if wrong:
+        raise Refused(
+            "a commit id written down here is no longer on this branch:\n\n"
+            + "\n".join(f"    {one}" for one in wrong)
+            + "\n\n  A rewritten history renames every commit, and a file naming an old\n"
+            "  name goes on looking perfectly correct. Repoint each line above at the\n"
+            "  commit that replaced it -- same tree, same message, new id."
         )
 
     # **ONLY WHEN CODE IS BEING COMMITTED.** A commit that changes nothing but the

@@ -108,7 +108,7 @@ jobs:
           # to pretend otherwise (D156). This is the rule's start date, not an
           # exemption, and it is one named commit rather than a date or a count
           # so it cannot quietly widen.
-          GATE_BORN=d538efd462fa51e390a7ec14e1c7c2a079a979e4
+          GATE_BORN=f76d9288d524c214a35ee6a36a347b81ab913687
 
           # Asks whether that commit is ON THIS LINE OF HISTORY, not merely that
           # the object exists somewhere. A checkout fetches every branch and tag,
@@ -149,7 +149,7 @@ jobs:
           # time: does the message contain the tag anywhere. That is weaker, it is
           # said here plainly rather than buried, and it applies to a fixed and
           # shrinking set of commits that can never grow.
-          TAG_ANCHORED_FROM=936b0e3fdc3984176c7c6b4f631285813e26a311
+          TAG_ANCHORED_FROM=bdc374091531d4e3d3a2c610c758284892576389
           TAG_ANCHORED='^\[PM-REVIEWED\][[:space:]]*$'
           TAG_BEFORE_THAT='\[PM-REVIEWED\]'
 

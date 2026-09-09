@@ -291,7 +291,7 @@ THE_PUSH_TRIGGER = '  push:\n    branches: [main]\n'
 
 # The root commit: before the hook that writes the tag existed, so nothing
 # from here back could ever carry one.
-BEFORE_THIS_REPOSITORY_BEGAN = '2a6f6586db32ccae62e35d45df735c94f572b9c4'
+BEFORE_THIS_REPOSITORY_BEGAN = '15cba8b72056013cb12d9ecf9b81572bdc9e480c'
 
 # D164 -- the two lines that make the anchored rule a question about a COMMIT
 # rather than about a BRANCH. Written out so a mutation that stops applying says
@@ -329,7 +329,7 @@ MATCHES_ANYWHERE = "'" + r"^.*\[PM-REVIEWED\].*$" + "'"
 # A commit this history does not reach -- the ERP's own gate commit, which is a
 # real commit somewhere and nothing here descends from. Named rather than invented
 # so the value is a real forty-character id and not obvious nonsense.
-NOT_ON_THIS_LINE = "69d584544d0d74003ba20927b0b20e3d1414893f"
+NOT_ON_THIS_LINE = "69d584544d0d74003ba20927b0b20e3d1414893f"  # unreachable-on-purpose
 
 # ==================== WHICH QUESTION EACH FAULT IS CAUGHT BY (D175)
 #

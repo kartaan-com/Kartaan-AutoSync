@@ -303,6 +303,66 @@ if BORN and BORN.group(1) == "__GATE_BORN__":
 check("and it is a real commit id, not the placeholder left behind",
       BORN is not None and re.fullmatch(r"[0-9a-f]{40}", BORN.group(1)) is not None)
 
+# ----------------------------- every commit named is still on this branch
+
+# **THE CHECK ABOVE ASKS THE SHAPE. THIS ASKS WHETHER IT IS STILL THERE.** Forty
+# hex characters is a real commit id by its shape on the day it is written, and
+# stops being one the moment history is rewritten underneath it -- while looking
+# exactly as correct as it did before.
+#
+# **THAT IS NOT A HYPOTHETICAL.** On 2026-09-09 this repository's history was
+# rewritten to take a personal address out of 44 commits and force-pushed. It was
+# verified first -- tree by tree, and the addresses confirmed clean -- and nobody
+# asked what in the tree POINTED AT the ids being replaced. `GATE_BORN`,
+# `TAG_ANCHORED_FROM` and the root commit in `gate_run_checks.py` all went stale
+# at once. The workflow then refused every push, this gate refused every commit,
+# and the shape check above stayed green throughout.
+
+GATE_SOURCE = Path(tool.__file__).read_text(encoding="utf-8")
+ANCHOR = re.search(r"TAG_ANCHORED_FROM=(\S+)", WORKFLOW)
+NAMED = tool.every_commit_named()
+NAMED_HERE = {said for _, _, said, _ in NAMED}
+
+# **A REAL ID THIS BRANCH CANNOT REACH, so the rule is asked with the very thing
+# that broke.** It is the old `GATE_BORN`, orphaned by that rewrite.
+GONE = "d538efd462fa51e390a7ec14e1c7c2a079a979e4"  # unreachable-on-purpose
+# **ASKED OF GIT, NEVER WRITTEN DOWN.** A reachable id typed in here would be
+# correct today and stale the next time anything lands -- red for a reason having
+# nothing to do with the rule.
+HERE = tool._git("rev-parse", "HEAD").strip()
+
+check("every full commit id written anywhere here is found", len(NAMED) >= 4)
+check("THE SWEEP IS OF THE WHOLE TREE, NOT OF WHAT IS STAGED -- the commit that "
+      "breaks one of these is never the commit that touches the file naming it",
+      {path for path, _, _, _ in NAMED}
+      >= {".github/workflows/pm_check.yml", "tools/gate_run_checks.py"})
+check("both of the workflow's anchors are among them",
+      BORN is not None and ANCHOR is not None
+      and {BORN.group(1), ANCHOR.group(1)} <= NAMED_HERE)
+check("AND NOTHING WRITTEN HERE NAMES A COMMIT THIS BRANCH CANNOT REACH -- the "
+      "question that was never asked before the history was rewritten",
+      tool.why_a_named_commit_is_refused(NAMED) == [])
+check("an id this branch cannot reach is refused",
+      tool.why_a_named_commit_is_refused([("some.yml", 1, GONE, False)]) != [])
+check("and one it can reach is not",
+      tool.why_a_named_commit_is_refused([("some.yml", 1, HERE, False)]) == [])
+check("AN ID SAID TO BE UNREACHABLE ON PURPOSE IS LET PAST ONLY WHILE IT IS",
+      tool.why_a_named_commit_is_refused([("some.yml", 1, GONE, True)]) == [])
+check("AND THE WORD IS ASKED THE OPPOSITE QUESTION, so it cannot be spread onto "
+      "healthy lines to quieten them, and goes red the day its one real use "
+      "becomes reachable",
+      tool.why_a_named_commit_is_refused([("some.yml", 1, HERE, True)]) != [])
+check("THE EXCUSE IS ONE WORD SAID AT THE SITE, never a list here -- a list grows "
+      "every time something fails and anything at all can hide in it",
+      tool.UNREACHABLE_ON_PURPOSE == b"unreachable-on-purpose")
+check("SEVEN CHARACTERS IS A CITATION, NOT A REFERENCE -- the short ids through "
+      "REVIEW.md are left alone, because a check red on them for ever is a check "
+      "everybody learns to ignore (D164)",
+      tool.A_FULL_COMMIT_ID.findall(b"read 442599c beside abd8536") == [])
+check("THE GATE ACTUALLY ASKS IT -- a rule nothing calls is a rule that does not "
+      "run, which is the whole of the ERP's hook that printed and never did",
+      "why_a_named_commit_is_refused(every_commit_named())" in GATE_SOURCE)
+
 # -------------------------------------------------------- git refuses
 
 check("a git question that cannot be answered is a refusal, never an empty answer",
@@ -1098,12 +1158,19 @@ check(
 #    thing standing over them until something runs them.
 #  * that `GATE_BORN` is a real commit id and not the placeholder left behind.
 #
+# **AND ONE KIND THAT IS NEITHER READ NOR RUN BUT ASKED OF THIS REPOSITORY AS IT
+# STANDS:** that every full commit id written anywhere here is still reachable
+# from HEAD. It cannot be a reading check -- what it asks about is not in any
+# file, it is whether the history still holds what the files point at -- and it
+# is the one check that would have caught the 2026-09-09 rewrite before the push
+# rather than after.
+#
 # **NO COUNT IS WRITTEN HERE ON PURPOSE.** The sentence this replaces was wrong
 # because a number in prose goes stale the moment a check is added, and nothing
 # tests it -- which is the whole of D170 arriving from the direction of a comment.
 # **A reading check kept for a reason is not a weakness; a note that hides one is.**
 
-EXPECTED = 114
+EXPECTED = 125
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
