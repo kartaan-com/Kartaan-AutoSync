@@ -502,7 +502,16 @@ check('asked to step back by nothing at all, it answers the day itself',
     noWords.went.some((a) => a.includes(DAY) && !a.includes('{')));
   check('the date range was set to the day being fetched',
     portal.ranges.length === 1 && portal.ranges[0][0] === DAY && portal.ranges[0][1] === DAY);
-  check('and every step said what it was doing', SAID.length > 0);
+  /* **THIS USED TO BE `SAID.length > 0` AND THAT READ NOTHING.** It passed
+   * before every step announced itself and after, and it would pass if the line
+   * printed `undefined`. A check that cannot tell those apart is not guarding
+   * the thing its own name claims. */
+  check('more was said than the three clicks -- every step announces itself now',
+    SAID.length > portal.clicked.length);
+  check('and each line names the report, its place in the walk, and why',
+    SAID.every((line) => /^[a-z_]+: step \d+ of \d+, .+\.$/.test(line)));
+  check('and no line says undefined',
+    SAID.every((line) => !line.includes('undefined')));
   /* **A WAIT LOOKS AND DOES NOT CLICK.** Otherwise the download menu is opened
    * and then opened again, which closes it. */
   check('the things meant to be clicked were clicked',
@@ -1131,7 +1140,7 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
     TOO_BIG_TO_CARRY === TOO_BIG);
 }
 
-const EXPECTED = 183;
+const EXPECTED = 185;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

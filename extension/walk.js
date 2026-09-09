@@ -523,6 +523,36 @@ export function theWalk({
         );
       }
 
+      /* **EVERY STEP THIS PAGE ACTUALLY WALKS SAYS WHAT IT IS ABOUT TO DO,
+       * BEFORE IT DOES IT.**
+       *
+       * **HIS INSTRUCTION, 2026-09-09**, after a Meesho walk stopped at the date
+       * step and said nothing at all: *"because it is opening in different
+       * different tabs you will not be able to control that -- so better option
+       * is you should make that report each step."*
+       *
+       * **BEFORE, NOT AFTER, AND THAT IS THE WHOLE POINT.** The one line that
+       * existed sat under `CLICK` and ran once the click had SUCCEEDED, so the
+       * step that never returns is exactly the step that never reports.
+       *
+       * **NOT EVERY STEP IN THE RECIPE -- every step THIS page walks.** It sits
+       * below the `at < startAt` skip on purpose, so a walk resuming in a new
+       * page does not announce again the steps an earlier page already did.
+       * Said here because that placement is the one a later edit is most likely
+       * to break.
+       *
+       * **WHERE THESE LINES GO, SAID PLAINLY: `console.info` in the service
+       * worker, and NOWHERE ELSE.** Not the run's record, not storage, not the
+       * seller's Drive. **Chrome evicts an idle service worker and the console
+       * goes with it** -- so this is visibility while somebody is watching, and
+       * it is NOT evidence available the next morning. The run's own record is
+       * the piece of work that fixes that, and `worker.js` already says so.
+       *
+       * **THE STEP'S OWN NUMBER IS SAID TOO**, because a walk resumes at a
+       * number after a page is torn down, and "step 4 of 10" is what makes two
+       * halves of one walk readable as one walk. */
+      say(`${reportId}: step ${at + 1} of ${plan.steps.length}, ${step.why}.`);
+
       if (step.do === GO) {
         /* **GOING SOMEWHERE ENDS THIS PAGE'S TURN, AND THAT IS THE WHOLE OF
          * D200.** The walk runs inside the portal's own page. Telling the
@@ -635,7 +665,15 @@ export function theWalk({
 
       if (step.do === CLICK) {
         await door.click(step.find.how, step.find.what, step.find.exact, step.find.near);
-        say(`${reportId}: ${step.why}.`);
+        /* **NOT SAID TWICE.** Every step announces itself above, before it is
+         * attempted, and a second line here would double every click.
+         *
+         * **ONE THING IS GENUINELY LOST AND IT IS NOT NOTHING:** the old line ran
+         * only if the click RETURNED, so its presence confirmed that. That is now
+         * read from the next step's line instead -- which works for every recipe
+         * in this product, because none of them ends on a click; each `toTake`
+         * ends in `take-file`. **The day one ends on a click, a click that hangs
+         * looks exactly like a click that worked.** */
       }
       /* A WAIT_FOR looks and does not click. Without that difference the door
        * would press the thing it was only waiting to appear -- on the orders page
