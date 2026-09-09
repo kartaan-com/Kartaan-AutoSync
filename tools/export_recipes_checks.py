@@ -11,6 +11,7 @@ Run: python tools/export_recipes_checks.py
 
 import datetime
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -433,7 +434,143 @@ check("no browser report is left out of both lists",
           for one in HELD["reports"] if one["platform"] in THROUGH_THE_BROWSER))
 
 
-EXPECTED = 83
+# ------------- HOW EACH PORTAL WRITES A DAY, AND THE TWO HALVES ASKED TOGETHER
+#
+# **THIS IS THE ONE CHECK IN THE PROJECT THAT RUNS BOTH HALVES AND COMPARES WHAT
+# THEY SAY.** Everywhere else the two sides are held together by regenerating a
+# file and comparing bytes -- which catches the file going stale and says nothing
+# about whether the JavaScript that reads it arrives at the same answer.
+#
+# **AND HERE THAT GAP WOULD BE EXPENSIVE.** The whole difference between the two
+# portals is one leading nought, on the nine days of every month whose number is
+# under ten. A half that got it wrong would find no row at all -- not an error, a
+# silence -- and the night would report a renamed button.
+#
+# **SO THE JAVASCRIPT IS ACTUALLY RUN**, against the very `extension/walk.js` and
+# `extension/recipes.json` that ship, and its answers are compared to the Python
+# functions AND to a handful of days written out by hand below. A check compared
+# only against something the source also builds from is an echo; these three
+# answers are arrived at three different ways.
+
+# **DAYS CHOSEN FOR WHAT THEY SEPARATE, not for being tidy.** Four of the six
+# have a number under ten, because that is the only place the two portals
+# disagree; one is the first day of the year and one the last, because a month
+# taken from the wrong end of a list shows up nowhere else.
+SOME_DAYS = ("2026-09-01", "2026-06-05", "2026-01-01", "2026-12-31",
+             "2026-02-09", "2026-08-25")
+
+# **WRITTEN OUT BY HAND, ONE PORTAL AT A TIME.** Not built from `MONTHS`, not
+# built from either function -- typed, from the two rows that were measured:
+# Meesho's exported-files panel (`25 Aug 2026`) and Flipkart's Requested list
+# (`05 Jun 2026 To 06 Jun 2026`).
+BY_HAND = {
+    "meesho": ["1 Sep 2026", "5 Jun 2026", "1 Jan 2026",
+               "31 Dec 2026", "9 Feb 2026", "25 Aug 2026"],
+    "flipkart": ["01 Sep 2026", "05 Jun 2026", "01 Jan 2026",
+                 "31 Dec 2026", "09 Feb 2026", "25 Aug 2026"],
+}
+
+ASK_THE_JAVASCRIPT = """
+import { readFileSync } from 'node:fs';
+import { theDayInWords } from './extension/walk.js';
+const book = JSON.parse(readFileSync('./extension/recipes.json', 'utf8'));
+const days = process.argv.slice(1);
+const said = {};
+for (const whose of Object.keys(book.daysInWords)) {
+  said[whose] = days.map((one) => theDayInWords(book, whose, one));
+}
+console.log(JSON.stringify(said));
+"""
+
+
+def what_the_javascript_says():
+    """What `extension/walk.js` makes of each of those days, or nothing.
+
+    **NODE NOT BEING THERE IS A FAILURE, NEVER A SKIP.** The gate already refuses
+    a commit it cannot run the JavaScript checks for, and a check that quietly
+    passed because it could not look is worse than no check at all -- everybody
+    believes it looked.
+    """
+    try:
+        done = subprocess.run(
+            ["node", "--input-type=module", "-e", ASK_THE_JAVASCRIPT, *SOME_DAYS],
+            cwd=tool.ROOT, capture_output=True, text=True, check=False,
+        )
+    except OSError:
+        return None
+    if done.returncode != 0:
+        return None
+    try:
+        return json.loads(done.stdout)
+    except ValueError:
+        return None
+
+
+SAID_IN_JAVASCRIPT = what_the_javascript_says()
+
+check("the JavaScript half can be asked what it makes of a day at all",
+      isinstance(SAID_IN_JAVASCRIPT, dict) and bool(SAID_IN_JAVASCRIPT))
+check("both portals' wordings cross to the extension",
+      answered(lambda: sorted(HELD["daysInWords"]) == sorted(book.HOW_A_DAY_IS_WRITTEN)
+               == ["flipkart", "meesho"]))
+check("and each carries the month names and whether a day under ten keeps its nought",
+      answered(lambda: all(one["months"] == list(book.MONTHS)
+                           and isinstance(one["leadingNought"], bool)
+                           for one in HELD["daysInWords"].values())))
+# **THE ONE THING THE TWO PORTALS DISAGREE ABOUT, said plainly here -- so that
+# the day somebody makes them agree, this goes red rather than the night going
+# quiet.**
+check("Flipkart keeps the leading nought and Meesho does not",
+      answered(lambda: (HELD["daysInWords"]["flipkart"]["leadingNought"],
+                        HELD["daysInWords"]["meesho"]["leadingNought"]) == (True, False)))
+
+check("THE PYTHON'S ANSWER IS THE ONE WRITTEN OUT BY HAND, day by day, portal by portal",
+      answered(lambda: all(
+          [book.the_day_in_words(whose, datetime.date.fromisoformat(one)) for one in SOME_DAYS]
+          == BY_HAND[whose] for whose in BY_HAND)))
+check("AND THE JAVASCRIPT'S ANSWER IS THE SAME ONE, run out of the file that ships",
+      answered(lambda: all(SAID_IN_JAVASCRIPT[whose] == BY_HAND[whose] for whose in BY_HAND)))
+# **AND THE TWO HALVES ARE COMPARED TO EACH OTHER AS WELL AS TO THE HAND-WRITTEN
+# LIST.** The hand-written list could itself be edited to match a drift; whether
+# the two halves agree with EACH OTHER is a separate question, and it is asked
+# separately.
+check("and the two halves agree with each other, portal by portal",
+      answered(lambda: all(
+          SAID_IN_JAVASCRIPT[whose]
+          == [book.the_day_in_words(whose, datetime.date.fromisoformat(one)) for one in SOME_DAYS]
+          for whose in book.HOW_A_DAY_IS_WRITTEN)))
+# **THE TWO WORDINGS MUST NOT BE THE SAME WORDING.** If they ever were, one
+# shared way of writing a day would do -- and that is precisely the
+# generalisation this whole arrangement exists to refuse. It would pass every
+# check above.
+check("and the two portals really do write a single-figure day differently",
+      answered(lambda: SAID_IN_JAVASCRIPT["meesho"][0] != SAID_IN_JAVASCRIPT["flipkart"][0]))
+
+# **WHOSE WORDING EACH LOOKUP MEANS CROSSES WITH IT.** Handed the placeholder and
+# not the portal, the walker on the other side could only guess.
+NAMED_IN_WORDS = [
+    (name, step["find"])
+    for name, recipe in HELD["recipes"].items()
+    for half in ("toAsk", "toTake")
+    for step in recipe[half]
+    if step["find"] and "{day_in_words}" in step["find"]["near"]
+]
+check("there are lookups naming a row by the day in words to judge",
+      len(NAMED_IN_WORDS) == 8)
+check("and every one of them says whose wording it means",
+      all(find["dayInWordsIs"] in book.HOW_A_DAY_IS_WRITTEN for _, find in NAMED_IN_WORDS))
+check("and each says its OWN report's portal, never the other one's",
+      all(find["dayInWordsIs"] == reports_list.report(name).platform
+          for name, find in NAMED_IN_WORDS))
+# **AND NOTHING CARRIES A WORDING IT HAS NO DAY IN WORDS TO WRITE.**
+check("nothing carries a wording it has no day in words to write",
+      all(step["find"]["dayInWordsIs"] == "" or "{day_in_words}" in step["find"]["near"]
+          for recipe in HELD["recipes"].values()
+          for half in ("toAsk", "toTake")
+          for step in recipe[half] if step["find"]))
+
+
+EXPECTED = 95
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

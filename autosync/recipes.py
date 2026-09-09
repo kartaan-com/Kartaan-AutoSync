@@ -42,6 +42,11 @@ from browser import (
     LookAgain,
     Step,
 )
+# **WHICH PLATFORM A REPORT BELONGS TO IS THE REPORT LIST'S ANSWER, not this
+# file's.** It is needed here for one thing only: to refuse a recipe that names
+# another portal's wording of a day. Read off the front of the report's name it
+# would be a spelling, and a spelling is not a fact (D170).
+from reports import report as kartaan_report
 
 
 @dataclass(frozen=True)
@@ -64,6 +69,110 @@ class Recipe:
     @property
     def two_phase(self) -> bool:
         return bool(self.to_ask)
+
+
+# **HOW EACH PLATFORM WRITES A DAY, ONE WAY PER PLATFORM AND NEVER ONE SHARED
+# WAY.** A row is named by the day, and no two portals write a day the same way.
+#
+# **THE TWO WERE MEASURED SEPARATELY AND THEY DISAGREE ON EXACTLY ONE THING** --
+# whether a day under ten carries a leading nought. That is nine days of every
+# month, and a wrong answer there does not complain: it finds no row at all, on
+# the platform, at night, and reads as the portal having changed.
+#
+# **THIS IS THE LESSON OF THE LAST TWO DAYS APPLIED BEFORE THE MISTAKE RATHER
+# THAN AFTER IT.** One tidy "format a date" helper serving both portals is
+# precisely the generalisation that has cost this project a week -- the working
+# reference's own calendar code carries FOUR separate label spellings because it
+# measured each one, and every time a measured specific was replaced here by a
+# reasonable general, the result could not find anything on the page.
+#
+# **AND THE CALENDAR SPELLINGS ARE NOT THESE.** The month headings a calendar
+# draws, and the wording of a row in a list of finished reports, are different
+# facts about different places on different portals. They look similar today.
+# They are not one thing and they are not to be folded into one.
+MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun",
+          "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+# The two portals whose wording of a day is written down here. **The same words
+# `reports.py` uses for a platform**, so a recipe's wording and the report it
+# belongs to are compared without anything translating between them.
+MEESHO_WRITES_IT = "meesho"
+FLIPKART_WRITES_IT = "flipkart"
+
+
+def as_meesho_writes_a_day(day) -> str:
+    """How MEESHO writes a day: `25 Aug 2026`. No leading nought.
+
+    **READ OFF HIS OWN MEESHO RETURNS PAGE ON 2026-08-28**, where the panel of
+    finished exports lists rows reading
+    `completed_delivered_last_2_week | 25 Aug 2026, 04:49 PM | Download`.
+
+    **THE MISSING NOUGHT IS THE MEASUREMENT, not a preference.** Meesho shows
+    `1 Sep 2026`; `01 Sep 2026` is on no row of that panel at all, so a lookup
+    written the other way finds nothing for the first nine days of every month.
+    """
+    return f"{day.day} {MONTHS[day.month - 1]} {day.year}"
+
+
+def as_flipkart_writes_a_day(day) -> str:
+    """How FLIPKART'S REPORTS CENTRE writes a day: `05 Jun 2026`. With the nought.
+
+    **TAKEN FROM THE REFERENCE'S OWN RECORD OF A REAL ROW** in the Requested tab:
+    `Fulfilment Reports  Orders  05 Jun 2026 To 06 Jun 2026  Generated`. That is
+    the row `fk_orders`, `fk_returns` and `fk_payments` are matched by, and it is
+    matched on the day after `" To "` because the end of the range is the day
+    actually being fetched.
+
+    **IT IS NOT MEESHO'S WORDING WITH A NOUGHT ADDED. IT IS FLIPKART'S OWN, AND
+    IT IS ONLY EVER APPLIED TO FLIPKART.** A single shared way of writing a day
+    would be wrong on one of the two portals for nine days a month, and wrong in
+    the silent direction.
+    """
+    return f"{day.day:02d} {MONTHS[day.month - 1]} {day.year}"
+
+
+# Whose wording is whose. **Nothing works this out from a report's name** -- a
+# name is a spelling and a spelling is not a fact (D170).
+HOW_A_DAY_IS_WRITTEN = {
+    MEESHO_WRITES_IT: as_meesho_writes_a_day,
+    FLIPKART_WRITES_IT: as_flipkart_writes_a_day,
+}
+
+
+def the_day_in_words(whose: str, day) -> str:
+    """One day, written the way that one portal writes it, or a refusal naming it."""
+    write_it = HOW_A_DAY_IS_WRITTEN.get(whose)
+    if write_it is None:
+        raise KeyError(f"{whose!r} is not a portal whose wording of a day is written down here.")
+    return write_it(day)
+
+
+def why_the_wording_is_wrong(report_id: str) -> Optional[str]:
+    """A step naming another portal's wording of a day, or None.
+
+    **A RECIPE CAN ONLY BE FILLED IN WITH ITS OWN PORTAL'S WORDING**, and this is
+    the rule that says so out loud rather than leaving it to whoever writes the
+    next recipe. `fk_returns` written with Meesho's wording would look perfectly
+    correct here, submit perfectly correctly on the night, and then look for
+    `6 Jun 2026` on a page that only ever says `06 Jun 2026`.
+
+    **THE PLATFORM IS THE REPORT'S OWN, read off `reports.py`** -- never taken
+    off the front of the report's name, which is a spelling (D170).
+    """
+    which = recipe(report_id)
+    belongs_to = kartaan_report(report_id).platform
+    for step in which.to_ask + which.to_take:
+        whose = step.find.day_in_words_is if step.find is not None else ""
+        if not whose:
+            continue
+        if whose not in HOW_A_DAY_IS_WRITTEN:
+            return (f"{report_id} asks for a day written the way {whose!r} writes one, and no "
+                    "wording of a day is written down for that.")
+        if whose != belongs_to:
+            return (f"{report_id} is a {belongs_to} report and asks for a day written the way "
+                    f"{whose} writes one. A row on {belongs_to}'s own page is never written "
+                    f"the way {whose} writes it.")
+    return None
 
 
 # ---------------------------------------------------------------- Meesho
@@ -254,10 +363,19 @@ def _reports_centre(kind: str, sub_kind: str, why_it_is: str) -> Recipe:
             # is a wait that passes on somebody else's row and hands the next
             # step a report that is still being built. The reference asks both
             # questions of the same row, in one pass.
+            #
+            # **AND IT IS WRITTEN THE WAY FLIPKART WRITES A DAY, WHICH IS NOT THE
+            # WAY MEESHO DOES.** The row says `05 Jun 2026`, with the leading
+            # nought; Meesho's own panel says `1 Sep 2026` without one. Filled in
+            # Meesho's way, this looks for `5 Jun 2026` on a row that reads
+            # `05 Jun 2026` -- nothing matches, for the first nine days of every
+            # month, and it reads as the portal having changed.
             Step(WAIT_FOR, find=Find(BY_TEXT, "Generated", exact=False,
-                                     near="To {day_in_words}", called="a finished report"),
+                                     near="To {day_in_words}", called="a finished report",
+                                     day_in_words_is=FLIPKART_WRITES_IT),
                  patience=120, why="looking for a finished report for the day being fetched"),
-            Step(TAKE_FILE, find=Find(BY_ROLE_AND_TEXT, "Download", near="To {day_in_words}"),
+            Step(TAKE_FILE, find=Find(BY_ROLE_AND_TEXT, "Download", near="To {day_in_words}",
+                                      day_in_words_is=FLIPKART_WRITES_IT),
                  patience=90,
                  why=f"taking the finished {why_it_is} file for the day being fetched"),
         ),
@@ -395,7 +513,13 @@ RECIPES: Dict[str, Recipe] = {
             # 2026, 04:49 PM | Download` -- no data date anywhere, since a returns
             # export is always the last two weeks. So the words are the platform's
             # own wording of the day rather than the day itself.
-            Step(TAKE_FILE, find=Find(BY_PRESSABLE_TEXT, "Download", near="{day_in_words}"),
+            # **AND MEESHO'S WORDING IS NAMED, WHICH IT WAS NOT UNTIL NOW.**
+            # Nothing anywhere filled this placeholder, so the row was looked for
+            # as `2026-08-25` -- a form that appears on no row of that panel --
+            # and `me_returns` has been broken this way since the day it was
+            # written. Meesho writes `25 Aug 2026`, with no leading nought.
+            Step(TAKE_FILE, find=Find(BY_PRESSABLE_TEXT, "Download", near="{day_in_words}",
+                                      day_in_words_is=MEESHO_WRITES_IT),
                  patience=120, why="taking the finished file"),
         ),
     ),
@@ -456,7 +580,12 @@ RECIPES: Dict[str, Recipe] = {
             # A claims export is a rolling window and carries no data date, so
             # the words are the platform's own wording of the day, exactly as
             # returns does.
-            Step(TAKE_FILE, find=Find(BY_PRESSABLE_TEXT, "Download", near="{day_in_words}"),
+            # **MEESHO'S WORDING, NAMED.** Like returns, this placeholder was
+            # filled by nothing at all, so the row was looked for as `2026-08-25`
+            # -- which that panel never writes -- and claims has been broken this
+            # way since it was written.
+            Step(TAKE_FILE, find=Find(BY_PRESSABLE_TEXT, "Download", near="{day_in_words}",
+                                      day_in_words_is=MEESHO_WRITES_IT),
                  patience=300, why="taking the finished file"),
         ),
     ),
@@ -606,19 +735,6 @@ def recipe(report_id: str) -> Recipe:
     return found
 
 
-# **HOW EACH PLATFORM WRITES A DAY, because no two agree and a row is named by
-# it.** Meesho's exported-files panel reads `25 Aug 2026, 04:49 PM` -- read off
-# his own returns page on 2026-08-28. Written here rather than worked out in the
-# extension, for the same reason every other decision is.
-MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun",
-          "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
-
-
-def as_meesho_writes_a_day(day) -> str:
-    """`25 Aug 2026`. No leading nought on the date, which is what the page shows."""
-    return f"{day.day} {MONTHS[day.month - 1]} {day.year}"
-
-
 def steps_for(report_id: str, panel: str, collecting: bool = False) -> Tuple[Step, ...]:
     """The steps to run now, with the seller's own panel name filled in.
 
@@ -634,6 +750,14 @@ def steps_for(report_id: str, panel: str, collecting: bool = False) -> Tuple[Ste
     Flipkart needs none, so only Meesho asks.
     """
     which = recipe(report_id)
+    # **ASKED BEFORE A SINGLE STEP IS HANDED OUT.** A recipe naming the wrong
+    # portal's wording of a day would run beautifully, spend one of the seller's
+    # rationed Flipkart requests, and then look for a row written a way that
+    # portal never writes. Refused here, the door answers it as a fault in this
+    # product -- which is what it is -- rather than as the platform changing.
+    wrong_wording = why_the_wording_is_wrong(report_id)
+    if wrong_wording:
+        raise ValueError(wrong_wording)
     steps = which.to_ask if (which.two_phase and not collecting) else which.to_take
     if any("{panel}" in s.address for s in steps) and not panel:
         raise ValueError(

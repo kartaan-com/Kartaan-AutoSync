@@ -225,6 +225,37 @@ export function whyStepIsRefused(step) {
 }
 
 /**
+ * One day, written the way one portal writes it.
+ *
+ * **THE RULE IS NOT WRITTEN HERE. IT CROSSES.** `book.daysInWords` comes out of
+ * `autosync/recipes.py` through `tools/export_recipes.py`, one entry per portal,
+ * carrying that portal's month names and whether a day under ten takes a leading
+ * nought. **Nothing on this side has an opinion about either**, which is the only
+ * way the two halves cannot drift -- and the nought is the whole of what the two
+ * portals disagree about:
+ *
+ *    Meesho    `1 Sep 2026`
+ *    Flipkart  `05 Jun 2026`
+ *
+ * **A PORTAL THAT DID NOT CROSS IS A REFUSAL, NOT A FALLBACK.** Filled in with
+ * anything else, the lookup narrows to a row the page does not carry and the
+ * night reports a renamed button -- the failure this whole door was built to
+ * stop being reported that way.
+ */
+export function theDayInWords(book, whose, dataDate) {
+  const rule = book && book.daysInWords && book.daysInWords[whose];
+  if (!rule) {
+    throw new Error(
+      `There is no wording of a day for "${whose || ''}" in the recipe file, so a row named by `
+      + 'the day in a platform\'s own wording cannot be filled in.'
+    );
+  }
+  const [year, month, day] = String(dataDate).split('-').map(Number);
+  const written = rule.leadingNought ? String(day).padStart(2, '0') : String(day);
+  return `${written} ${rule.months[month - 1]} ${year}`;
+}
+
+/**
  * Why this is not a day a walk can be given, or null.
  *
  * **THE DAY IS THE ONE THING IN A WALK THAT NOBODY HERE WROTE.** It arrives as
@@ -353,11 +384,21 @@ export function theWalk({
 
   /** The seller's own panel, and the day being fetched, put into a step.
    *
-   *  **THE DAY IS WRITTEN THE WAY THE PLATFORM WRITES IT**, which the recipe
-   *  says, because a row on his returns page reads `25 Aug 2026` and no two
-   *  platforms agree on that.
+   *  **THE DAY IN WORDS IS WORKED OUT HERE, FROM THE RECIPE, AND IS NOT HANDED
+   *  IN ANY MORE (A52).** It used to be an option on the walk, defaulting to the
+   *  plain ISO day -- and NOTHING anywhere ever supplied one. So every lookup
+   *  narrowed to a row in the platform's own wording was narrowed to
+   *  `2026-06-06`, which appears on no row of either portal. That is
+   *  `me_returns` and `me_claims` broken since the day they were written, and
+   *  Flipkart's three broken from the night they were given a row to match.
+   *
+   *  **AND WHOSE WORDING IS THE RECIPE'S TO SAY, because the two portals
+   *  disagree.** Meesho writes `1 Sep 2026`, Flipkart's Reports Centre writes
+   *  `05 Jun 2026`. A lookup that names a row in words without saying whose
+   *  wording it means cannot be filled in at all, and this refuses rather than
+   *  guessing -- guessed wrong it finds nothing for nine days of every month.
    */
-  function filledIn(step, panel, dataDate, dayInWords) {
+  function filledIn(step, panel, dataDate) {
     /* **EVERY OCCURRENCE, NOT THE FIRST (cycle 46, R6#15).**
      *
      * What stood here said `{day_in_words}` had to be filled before `{day}`
@@ -373,14 +414,28 @@ export function theWalk({
      * and find nothing, on the platform, at night, with no one watching. No
      * recipe does that today. Nothing stopped one, and a recipe is data, added
      * without touching this file. */
-    const put = (into) => String(into || '')
+    const put = (into, inWords) => String(into || '')
       .split('{panel}').join(panel || '')
-      .split('{day_in_words}').join(dayInWords || dataDate)
+      .split('{day_in_words}').join(inWords)
       .split('{day}').join(dataDate);
+    /* **AN ADDRESS NAMES THE DAY PLAINLY OR NOT AT ALL.** Whose wording is said
+     * on a lookup, and an address has no lookup -- so there is nothing to fill
+     * it from but a guess. The Python refuses such a recipe outright; this is
+     * the same refusal on the side that would actually walk it. */
+    if (String(step.address || '').includes('{day_in_words}')) {
+      throw new Error(
+        "An address names the day plainly, not in a platform's own wording."
+      );
+    }
+    const near = step.find ? String(step.find.near || '') : '';
+    let inWords = '';
+    if (near.includes('{day_in_words}')) {
+      inWords = theDayInWords(book, step.find.dayInWordsIs, dataDate);
+    }
     return {
       ...step,
-      address: put(step.address),
-      find: step.find ? { ...step.find, near: put(step.find.near) } : step.find,
+      address: put(step.address, inWords),
+      find: step.find ? { ...step.find, near: put(near, inWords) } : step.find,
     };
   }
 
@@ -608,7 +663,15 @@ export function theWalk({
    * spent the rest of the day locked out.
    */
   return async function walk(reportId, dataDate, {
-    panel = '', askedAlready = null, fileName = '', dayInWords = '',
+    /* **THERE IS NO `dayInWords` HERE ANY MORE, AND THAT IS THE FIX (A52).** It
+     * was an option the caller could hand in, defaulting to the plain ISO day,
+     * and no caller anywhere ever handed one in -- so five reports looked for a
+     * row named `2026-06-06` on pages that write `06 Jun 2026` or `6 Jun 2026`.
+     * The wording is the recipe's to say and the day is already here, so there
+     * was never anything for a caller to supply. Taking it away also closes what
+     * an independent reviewer found on 2026-09-08: a value reaching a step's
+     * address and its `find.near` with nothing asking anything of it. */
+    panel = '', askedAlready = null, fileName = '',
     /* **WHERE TO PICK THE WALK UP, because the page that started it is gone.**
      * Nought on the first turn. After a `go`, the background holds the next
      * number and hands it to whichever page Chrome draws next. */
@@ -632,7 +695,7 @@ export function theWalk({
       const found = stepsFor(reportId, panel, collecting);
       plan = {
         ...found,
-        steps: found.steps.map((one) => filledIn(one, panel, dataDate, dayInWords)),
+        steps: found.steps.map((one) => filledIn(one, panel, dataDate)),
         collecting,
       };
     } catch (wrong) {

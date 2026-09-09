@@ -127,6 +127,24 @@ class Find:
     # only takes matches away. So it cannot turn one right answer into a wrong
     # one -- at worst it takes the right one away too, and that refuses.
     near: str = ""
+    # **WHOSE WORDING OF A DAY `{day_in_words}` MEANS, and it has to be said
+    # because no two portals write a day the same way.**
+    #
+    #   Meesho   `1 Sep 2026`   -- no leading nought
+    #   Flipkart `05 Jun 2026`  -- with one
+    #
+    # Both were read off the real thing, and each is written down beside its own
+    # measurement in `recipes.py`. **ONE SHARED WAY OF WRITING A DAY WOULD BE
+    # WRONG ON ONE PORTAL FOR NINE DAYS OF EVERY MONTH** -- every day whose
+    # number is under ten -- and wrong in the way that quietly finds nothing
+    # rather than the way that complains.
+    #
+    # **THIS FILE STILL KNOWS NOTHING ABOUT EITHER PLATFORM.** All it insists on
+    # is that a lookup naming a row by the day in a portal's own wording says
+    # WHOSE wording it means. The wordings themselves, and which portal each
+    # belongs to, are platform facts and live in `recipes.py` with everything
+    # else that was measured off a real page.
+    day_in_words_is: str = ""
 
     def name(self) -> str:
         return self.called or self.what
@@ -274,6 +292,32 @@ def why_step_is_refused(step: Step) -> Optional[str]:
         # yesterday's, and a row named without the day would fetch the same old
         # file every night while looking like it worked.
         return "Saying which row something is on has to name the day, or it is the same row every time."
+    if (step.find is not None and "{day_in_words}" in step.find.near
+            and not step.find.day_in_words_is):
+        # **A DAY IN THE PLATFORM'S OWN WORDING IS NOT ONE THING, AND THIS IS THE
+        # WHOLE OF THE HOLE THIS RULE CLOSES.** Meesho writes `1 Sep 2026` and
+        # Flipkart's Reports Centre writes `05 Jun 2026`, and a lookup that does
+        # not say which of the two it means can only be filled in by guessing.
+        # Guessed wrong it finds nothing at all -- on nine days of every month,
+        # silently, on the platform, at night.
+        return ("A row named by the day in the platform's own wording has to say whose wording, "
+                "because no two platforms write a day the same way.")
+    if (step.find is not None and step.find.day_in_words_is
+            and "{day_in_words}" not in step.find.near):
+        # **IT DESCRIBES ONE PLACEHOLDER, AND ONLY ONE LOOKUP CARRIES ONE.**
+        # The same shape as the rule above about which calendar a range step
+        # stands in front of: said anywhere else it reads as a fact about the
+        # whole step, and the day somebody believed that, a lookup with no day in
+        # it at all would look as though it had one.
+        return ("Only a lookup that names a row by the day in the platform's own wording can say "
+                "whose wording of a day it means.")
+    if "{day_in_words}" in step.address:
+        # **AN ADDRESS CANNOT SAY WHOSE WORDING IT WANTS**, because whose wording
+        # is said on the lookup and an address has no lookup. Filled in anyway it
+        # would be filled from whichever wording happened to be nearest, which is
+        # the guess this whole rule exists to stop. A day in an address is the
+        # plain `{day}`.
+        return "An address names the day plainly, not in a platform's own wording."
     if step.patience <= 0:
         return "A step that waits no time at all cannot succeed."
     if step.range_days < 1:

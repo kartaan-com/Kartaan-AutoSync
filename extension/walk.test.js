@@ -32,6 +32,7 @@ import {
   theFileName,
   theWalk,
   TOO_BIG_TO_CARRY,
+  theDayInWords,
   whyTheDayIsRefused,
   whatIsCovering,
   whyStepIsRefused,
@@ -131,9 +132,65 @@ const BOOK = {
         step({ do: 'take-file', find: find('Download'), patience: 60, why: 'taking the file' }),
       ],
     },
-    /* A RECIPE THAT NAMES THE DAY IN WORDS. His returns page reads `25 Aug
-     * 2026`, and no two platforms write it the same way. */
+    /* A RECIPE THAT NAMES A ROW BY THE DAY IN WORDS. His returns page reads
+     * `25 Aug 2026`, and no two platforms write it the same way -- so the recipe
+     * says WHOSE wording it means and the walk works the words out from what
+     * crossed. **This stand-in portal's wording is deliberately nothing like
+     * either real one** -- see `daysInWords` below. */
     me_in_words: {
+      readyInMinutes: 0,
+      toAsk: [],
+      toTake: [
+        step({ do: 'go', address: 'https://supplier.example.invalid/panel/{panel}/r',
+          why: 'opening the returns page' }),
+        step({ do: 'take-file',
+          find: find('Download', { near: 'made on {day_in_words}', dayInWordsIs: 'loud' }),
+          patience: 60, why: 'taking the file' }),
+      ],
+    },
+    /* **THE OTHER PORTAL, WHICH WRITES THE SAME DAY DIFFERENTLY.** One recipe
+     * naming a wording proves the words go in; two prove the walk reads WHICH
+     * wording, rather than having one answer it applies to everybody. */
+    me_in_quiet_words: {
+      readyInMinutes: 0,
+      toAsk: [],
+      toTake: [
+        step({ do: 'go', address: 'https://supplier.example.invalid/panel/{panel}/r',
+          why: 'opening the returns page' }),
+        step({ do: 'take-file',
+          find: find('Download', { near: 'made on {day_in_words}', dayInWordsIs: 'quiet' }),
+          patience: 60, why: 'taking the file' }),
+      ],
+    },
+    /* **A ROW NAMED IN WORDS WITH NOBODY'S WORDING SAID.** There is nothing to
+     * fill it in from, and a guess finds no row at all for nine days of every
+     * month. */
+    me_words_no_portal: {
+      readyInMinutes: 0,
+      toAsk: [],
+      toTake: [
+        step({ do: 'go', address: 'https://supplier.example.invalid/panel/{panel}/r',
+          why: 'opening the returns page' }),
+        step({ do: 'take-file', find: find('Download', { near: 'made on {day_in_words}' }),
+          patience: 60, why: 'taking the file' }),
+      ],
+    },
+    /* **A WORDING THAT NEVER CROSSED.** Same shape, different cause: the recipe
+     * says whose, and the book has no such portal in it. */
+    me_words_unknown_portal: {
+      readyInMinutes: 0,
+      toAsk: [],
+      toTake: [
+        step({ do: 'go', address: 'https://supplier.example.invalid/panel/{panel}/r',
+          why: 'opening the returns page' }),
+        step({ do: 'take-file',
+          find: find('Download', { near: 'made on {day_in_words}', dayInWordsIs: 'nobody' }),
+          patience: 60, why: 'taking the file' }),
+      ],
+    },
+    /* **AN ADDRESS NAMING THE DAY IN A PORTAL'S OWN WORDING.** An address has no
+     * lookup on it, so there is nowhere to say whose wording it meant. */
+    me_words_in_address: {
       readyInMinutes: 0,
       toAsk: [],
       toTake: [
@@ -206,6 +263,26 @@ const BOOK = {
     'built-in-the-page': 'The platform now builds this file inside the page itself and hands over a temporary handle, which cannot be fetched a second time. This is a door closing, not something to retry.',
   },
   buildsInThePageSince: { fk_orders: '2026-08-22' },
+  /* **HOW EACH PORTAL WRITES A DAY, exported out of `autosync/recipes.py`.**
+   *
+   * **NOT THE REAL MONTH NAMES AND NOT THE REAL NOUGHT RULE, DELIBERATELY.** The
+   * real ones are `Jan`..`Dec` on both portals, with Meesho dropping the leading
+   * nought and Flipkart keeping it. Written that way here, a walk carrying its
+   * own month table and its own opinion about the nought would produce exactly
+   * the right answer and every check would stay green -- which is precisely how
+   * a reviewer defeated an earlier session in this repository. With these
+   * values, only a walk that actually READS what crossed can pass. */
+  daysInWords: {
+    loud: {
+      months: ['JANU', 'FEBR', 'MARC', 'APRI', 'MAYY', 'JUNE',
+        'JULY', 'AUGU', 'SEPT', 'OCTO', 'NOVE', 'DECE'],
+      leadingNought: true,
+    },
+    quiet: {
+      months: ['ja', 'fe', 'mr', 'ap', 'my', 'jn', 'jl', 'au', 'se', 'oc', 'nv', 'dc'],
+      leadingNought: false,
+    },
+  },
   /* **WHAT A LANDED FILE IS CALLED, exported out of the Python by
    * `tools/export_recipes.py`.** Written out here by hand because this is a
    * stand-in book -- and `export_recipes_checks.py` is what holds the real one
@@ -213,6 +290,8 @@ const BOOK = {
   fileNames: {
     me_orders: { platform: 'meesho', extension: 'csv' },
     me_two_pages: { platform: 'meesho', extension: 'csv' },
+    me_in_words: { platform: 'meesho', extension: 'csv' },
+    me_in_quiet_words: { platform: 'meesho', extension: 'csv' },
     me_catalog: { platform: 'meesho', extension: 'csv' },
     snapshot_no_ask: { platform: 'meesho', extension: 'csv' },
     no_find_file: { platform: 'meesho', extension: 'csv' },
@@ -238,7 +317,8 @@ const aMoment = (ms = 0) => new Promise((done) => { setTimeout(done, ms); });
 
 function aPortal(how = {}) {
   const it = {
-    went: [], clicked: [], ranges: [], cursorToldFor: [], stepsSeen: 0, patienceTold: [], tookFile: 0,
+    went: [], clicked: [], ranges: [], cursorToldFor: [], stepsSeen: 0, patienceTold: [],
+    nearAsked: [], tookFile: 0,
     handedOver: [], turns: 0, waited: [], clickedAway: 0,
     /* **THE MENU, AS MEESHO REALLY BEHAVES.** Its list of finished exports is
      * drawn AS it opens and never again while it is open. So this holds the two
@@ -354,9 +434,15 @@ function aPortal(how = {}) {
       if (how.smallNotice) return [{ width: 250, height: 60, text: 'Saved', blocks: false }];
       return [];
     },
-    async find(kind, what, exact, patience) {
+    async find(kind, what, exact, patience, near) {
       it.stepsSeen += 1;
       it.patienceTold.push(['find', patience]);
+      /* **WHICH ROW IT WAS ASKED TO LOOK ON, kept.** This is what the whole of
+       * the day-in-words fix comes to on the page: a lookup narrowed to a row
+       * that either names the day the way the portal writes it, or names a row
+       * no page has ever carried. A stand-in that dropped it would let the
+       * placeholder cross unfilled with nothing anywhere looking wrong. */
+      it.nearAsked.push(near);
       it.whatHappened.push(`found ${what}`);
       /* **A PORTAL DRAWS ITSELF IN PIECES AND TAKES ITS TIME OVER IT** -- 10 to
        * 25 seconds was measured on his own Flipkart account. Every one of those
@@ -672,20 +758,58 @@ check('asked to step back by nothing at all, it answers the day itself',
     twice.went.some((a) => !a.includes('{') && a.split(DAY).length === 3
       && a.split(PANEL).length === 3));
 
-  /* **AND THE DAY WRITTEN THE WAY THE PLATFORM WRITES IT.** A row on his
-   * returns page reads `25 Aug 2026`, and no two platforms agree -- so the
-   * recipe says which, and the words are looked for on the page rather than the
-   * short date. Given none, the short date is what goes in: a step looking for
-   * the empty string matches the first thing on the page, which is how a walk
-   * takes the wrong file and says it worked. */
+  /* **AND THE DAY WRITTEN THE WAY THE PORTAL WRITES IT, WORKED OUT HERE AND NOT
+   * HANDED IN (A52).** It used to be an option on the walk, and NOTHING anywhere
+   * ever supplied one -- so every lookup narrowed to a row in the portal's own
+   * wording was narrowed to `2026-08-26`, which appears on no row of either
+   * portal. `me_returns` and `me_claims` had been broken that way since they
+   * were written; Flipkart's three joined them the night they were given a row
+   * to match.
+   *
+   * **THE EXPECTED WORDS ARE WRITTEN OUT BY HAND**, and they come out of the
+   * stand-in book's own invented month names -- so a walk carrying a month table
+   * of its own cannot produce them. */
   const inWords = aPortal();
-  await aWalk(inWords)('me_in_words', DAY, { dayInWords: '26 Aug 2026' });
-  check('a day written the way the platform writes it goes in as the words',
-    inWords.went.some((a) => a.includes('26 Aug 2026')));
-  const noWords = aPortal();
-  await aWalk(noWords)('me_in_words', DAY);
-  check('and with no words given, the plain date goes in rather than nothing',
-    noWords.went.some((a) => a.includes(DAY) && !a.includes('{')));
+  await aWalk(inWords)('me_in_words', DAY);
+  check('a row named by the day in words is looked for in the portal\'s own wording',
+    inWords.nearAsked.includes('made on 26 AUGU 2026'));
+  check('and nothing goes to the page still holding the placeholder',
+    inWords.nearAsked.every((one) => !String(one || '').includes('{')));
+  /* **THE OTHER PORTAL, SAME DAY, DIFFERENT WORDS.** One wording filled in
+   * proves the placeholder is filled; two prove the walk reads WHICH. */
+  const quietly = aPortal();
+  await aWalk(quietly)('me_in_quiet_words', DAY);
+  check('and another portal\'s wording of the same day is its own, not the first one\'s',
+    quietly.nearAsked.includes('made on 26 au 2026'));
+  /* **THE LEADING NOUGHT IS THE WHOLE OF WHAT THE TWO REAL PORTALS DISAGREE
+   * ABOUT**, and it only shows on a day whose number is under ten. Meesho writes
+   * `1 Sep 2026`; Flipkart's Reports Centre writes `05 Jun 2026`. */
+  const SINGLE_FIGURE = '2026-09-05';
+  const withNought = aPortal();
+  await aWalk(withNought)('me_in_words', SINGLE_FIGURE);
+  check('a day under ten keeps its nought where the portal writes one',
+    withNought.nearAsked.includes('made on 05 SEPT 2026'));
+  const withoutNought = aPortal();
+  await aWalk(withoutNought)('me_in_quiet_words', SINGLE_FIGURE);
+  check('and loses it where the portal does not',
+    withoutNought.nearAsked.includes('made on 5 se 2026'));
+  /* **A LOOKUP THAT DOES NOT SAY WHOSE WORDING CANNOT BE FILLED IN, AND IT
+   * REFUSES RATHER THAN GUESSING.** A guess is wrong on one of the two portals
+   * for nine days of every month, and wrong in the silent direction. */
+  const noPortal = await aWalk(aPortal())('me_words_no_portal', DAY);
+  check('a row named in words with nobody\'s wording said is a failure',
+    noPortal.state === FAILED);
+  check('and it says there is no wording for it, not that a button is missing',
+    noPortal.say.includes('no wording of a day') && !noPortal.say.includes('renamed'));
+  const unknown = await aWalk(aPortal())('me_words_unknown_portal', DAY);
+  check('and a wording that never crossed is a failure too',
+    unknown.state === FAILED && unknown.say.includes('"nobody"'));
+  /* **AN ADDRESS NAMES THE DAY PLAINLY OR NOT AT ALL**, because whose wording is
+   * said on a lookup and an address has none. */
+  const inAddress = await aWalk(aPortal())('me_words_in_address', DAY);
+  check('an address naming the day in a portal\'s own wording is refused',
+    inAddress.state === FAILED
+    && inAddress.say === "An address names the day plainly, not in a platform's own wording.");
   check('the date range was set to the day being fetched',
     portal.ranges.length === 1 && portal.ranges[0][0] === DAY && portal.ranges[0][1] === DAY);
   /* **THIS USED TO BE `SAID.length > 0` AND THAT READ NOTHING.** It passed
@@ -1176,6 +1300,47 @@ ${DAY}`) !== null
 }
 
 {
+  /* ---------- ONE DAY, WRITTEN THE WAY ONE PORTAL WRITES IT (A52)
+   *
+   * **THE RULE IS NOT IN THIS FILE AND IT IS NOT IN `walk.js` EITHER.** It comes
+   * out of `autosync/recipes.py` through `tools/export_recipes.py` -- one entry
+   * per portal, carrying that portal's month names and whether a day under ten
+   * takes a leading nought. Asked directly here, of the stand-in book whose
+   * month names are nothing like the real ones, so nothing can pass by knowing
+   * what a real month is called.
+   *
+   * **THE EXPECTED WORDS ARE WRITTEN OUT BY HAND**, never built from the same
+   * parts the answer is built from -- that would be an echo rather than a second
+   * opinion. */
+  check('a day is written the way the portal that crossed writes one',
+    theDayInWords(BOOK, 'loud', '2026-08-26') === '26 AUGU 2026');
+  check('and the leading nought is that portal\'s, kept on a day under ten',
+    theDayInWords(BOOK, 'loud', '2026-09-05') === '05 SEPT 2026');
+  check('while a portal that drops it drops it',
+    theDayInWords(BOOK, 'quiet', '2026-09-05') === '5 se 2026');
+  check('and the same day reads differently for the two of them',
+    theDayInWords(BOOK, 'loud', '2026-01-01') === '01 JANU 2026'
+    && theDayInWords(BOOK, 'quiet', '2026-01-01') === '1 ja 2026');
+  check('the last month of the year is the last one in the list, not one past it',
+    theDayInWords(BOOK, 'quiet', '2026-12-31') === '31 dc 2026');
+  /* **A PORTAL THAT DID NOT CROSS IS A REFUSAL, NOT A FALLBACK.** Filled in with
+   * anything else, the lookup narrows to a row the page does not carry and the
+   * night reports a renamed button. */
+  const refused = (whose) => {
+    try {
+      theDayInWords(BOOK, whose, DAY);
+      return '';
+    } catch (wrong) {
+      return wrong.message;
+    }
+  };
+  check('a portal the book says nothing about is refused, by name',
+    refused('nobody').includes('"nobody"'));
+  check('and so is a lookup that never said whose wording it meant',
+    refused('') !== '' && refused(undefined) !== '');
+}
+
+{
   /* ---------- HOW BIG IS WORTH CARRYING AT ALL (A33)
    *
    * **THE BYTES DO NOT GO STRAIGHT TO DRIVE FROM HERE.** They cross to the
@@ -1612,7 +1777,7 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
     TOO_BIG_TO_CARRY === TOO_BIG);
 }
 
-const EXPECTED = 219;
+const EXPECTED = 233;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

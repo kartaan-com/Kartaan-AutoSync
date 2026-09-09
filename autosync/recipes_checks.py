@@ -17,6 +17,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from dataclasses import replace  # noqa: E402
 from datetime import date  # noqa: E402
 
 import browser as pages  # noqa: E402
@@ -449,7 +450,15 @@ check("and so is asking for its steps", answered(lambda: refuses(lambda: tool.st
 # ------------------------------------------- reached by address, every one
 
 for report_id in tool.every_recipe():
-    first = tool.steps_for(report_id, PANEL)[0]
+    # **ASKED THROUGH `answered`, BECAUSE `steps_for` CAN NOW REFUSE.** It reads
+    # the whole recipe before it hands out a step -- one naming the wrong
+    # portal's wording of a day is refused there rather than walked -- and a call
+    # made outside this guard ends the whole run with a traceback the moment
+    # somebody puts that fault in. **A run that stops is not a check going red**,
+    # which is the exact fault this file's own `answered` was written for. Found
+    # by putting that fault back and watching this file fall over instead of
+    # going red.
+    first = answered(lambda: tool.steps_for(report_id, PANEL)[0])
     check(f"{report_id} reaches its page by address rather than by clicking about",
           answered(lambda: first.do == pages.GO and first.address.startswith("https://")))
 
@@ -574,6 +583,103 @@ check("with no leading nought, which is what the page shows",
       answered(lambda: tool.as_meesho_writes_a_day(date(2026, 9, 1)) == "1 Sep 2026"))
 check("and the month by name, not by number",
       answered(lambda: tool.as_meesho_writes_a_day(date(2026, 12, 31)) == "31 Dec 2026"))
+
+# **AND HOW FLIPKART'S REPORTS CENTRE WRITES ONE, WHICH IS NOT THE SAME.** Its
+# Requested list carries rows reading `Fulfilment Reports  Orders  05 Jun 2026 To
+# 06 Jun 2026  Generated` -- with the leading nought Meesho drops. **These are two
+# separate measurements of two separate pages** and they are not to be folded into
+# one helper, however alike they look on the twenty-two days a month when they
+# agree.
+check("a day is written the way Flipkart's Reports Centre writes one",
+      answered(lambda: tool.as_flipkart_writes_a_day(date(2026, 6, 5)) == "05 Jun 2026"))
+check("and the end of the range that names the row is written the same way",
+      answered(lambda: tool.as_flipkart_writes_a_day(date(2026, 6, 6)) == "06 Jun 2026"))
+check("a day over nine is written plainly, with nothing added",
+      answered(lambda: tool.as_flipkart_writes_a_day(date(2026, 12, 31)) == "31 Dec 2026"))
+# **THE ONE THING THE TWO DISAGREE ABOUT, ASKED DIRECTLY.** If this ever went
+# green the other way, one shared way of writing a day would do -- and every
+# other check here would still pass while five reports found nothing for nine
+# days of every month.
+check("THE TWO PORTALS WRITE A SINGLE-FIGURE DAY DIFFERENTLY, and that is the whole point",
+      answered(lambda: tool.as_meesho_writes_a_day(date(2026, 9, 1)) == "1 Sep 2026"
+               and tool.as_flipkart_writes_a_day(date(2026, 9, 1)) == "01 Sep 2026"))
+check("while on a day over nine they agree, which is why this was never noticed",
+      answered(lambda: tool.as_meesho_writes_a_day(date(2026, 8, 25))
+               == tool.as_flipkart_writes_a_day(date(2026, 8, 25))))
+# **ONE WAY OF WRITING A DAY PER PORTAL, LOOKED UP BY NAME.**
+check("both portals' wordings are written down and no others",
+      answered(lambda: sorted(tool.HOW_A_DAY_IS_WRITTEN) == ["flipkart", "meesho"]))
+check("and asking for one by name gives that portal's own answer",
+      answered(lambda: (tool.the_day_in_words("meesho", date(2026, 9, 1)),
+                        tool.the_day_in_words("flipkart", date(2026, 9, 1)))
+               == ("1 Sep 2026", "01 Sep 2026")))
+check("while a portal nobody has written a wording for is refused, by name",
+      answered(lambda: "amazon" in said(lambda: tool.the_day_in_words("amazon", date(2026, 9, 1)))))
+
+# ------------------- and every recipe names its OWN portal's wording (A52)
+
+# **THE FIVE REPORTS THIS FIXES, NAMED ONE BY ONE.** `me_returns` and `me_claims`
+# have looked for a row named `2026-08-25` since the day they were written;
+# Flipkart's three joined them the night they were given a row to match. Not one
+# of those strings appears on either portal.
+NAMES_A_ROW_IN_WORDS = sorted(
+    r for r in tool.every_recipe()
+    for s in (tool.recipe(r).to_ask + tool.recipe(r).to_take)
+    if s.find is not None and "{day_in_words}" in s.find.near
+)
+check("exactly the five reports that name a row by the day in words do so",
+      answered(lambda: sorted(set(NAMES_A_ROW_IN_WORDS))
+               == ["fk_orders", "fk_payments", "fk_returns", "me_claims", "me_returns"]))
+check("and Flipkart's three name it on BOTH the wait and the taking, which is six lookups",
+      answered(lambda: len([r for r in NAMES_A_ROW_IN_WORDS if r.startswith("fk_")]) == 6))
+check("every one of them says whose wording it means",
+      answered(lambda: all(s.find.day_in_words_is
+                           for r in tool.every_recipe()
+                           for s in (tool.recipe(r).to_ask + tool.recipe(r).to_take)
+                           if s.find is not None and "{day_in_words}" in s.find.near)))
+check("and it is its own report's portal, taken from the report list rather than its name",
+      answered(lambda: all(tool.why_the_wording_is_wrong(r) is None for r in tool.every_recipe())))
+# **THE MEESHO TWO AND THE FLIPKART THREE, SAID SEPARATELY.** "Every recipe is
+# consistent" would pass just as well if every one of them said Meesho.
+check("the two Meesho ones ask for Meesho's wording",
+      answered(lambda: all(s.find.day_in_words_is == "meesho"
+                           for r in ("me_returns", "me_claims")
+                           for s in tool.recipe(r).to_take
+                           if s.find is not None and s.find.day_in_words_is)))
+check("and the three Flipkart ones ask for Flipkart's",
+      answered(lambda: all(s.find.day_in_words_is == "flipkart"
+                           for r in ("fk_orders", "fk_returns", "fk_payments")
+                           for s in tool.recipe(r).to_take
+                           if s.find is not None and s.find.day_in_words_is)))
+# **A RECIPE NAMING THE OTHER PORTAL'S WORDING IS REFUSED, and the fault is put
+# back here to watch it go red.** It would look perfectly correct in the file,
+# submit perfectly correctly on the night, and then look for `6 Jun 2026` on a
+# page that only ever writes `06 Jun 2026`.
+_was = tool.RECIPES["fk_returns"]
+try:
+    _spoilt = _was.to_take[-1]
+    tool.RECIPES["fk_returns"] = replace(_was, to_take=_was.to_take[:-1] + (
+        replace(_spoilt, find=replace(_spoilt.find, day_in_words_is="meesho")),))
+    check("a Flipkart recipe asking for Meesho's wording is refused",
+          answered(lambda: tool.why_the_wording_is_wrong("fk_returns") is not None))
+    check("and the refusal names both portals, so the fix is obvious",
+          answered(lambda: "flipkart" in tool.why_the_wording_is_wrong("fk_returns")
+                   and "meesho" in tool.why_the_wording_is_wrong("fk_returns")))
+    # **AND NO STEP AT ALL IS HANDED OUT FOR IT.** Refused only by a check, the
+    # recipe would still walk on the night.
+    check("and no steps are handed out for it at all",
+          answered(lambda: "meesho" in said(lambda: tool.steps_for("fk_returns", PANEL, collecting=True))))
+    # **A WORDING NOBODY HAS WRITTEN DOWN IS ITS OWN REFUSAL**, and it is a
+    # different one: this is a typo, the one above is the wrong portal.
+    tool.RECIPES["fk_returns"] = replace(_was, to_take=_was.to_take[:-1] + (
+        replace(_spoilt, find=replace(_spoilt.find, day_in_words_is="flipkartt")),))
+    check("a wording nobody has written down is refused too, and says so differently",
+          answered(lambda: "no wording of a day is written down"
+                   in (tool.why_the_wording_is_wrong("fk_returns") or "")))
+finally:
+    tool.RECIPES["fk_returns"] = _was
+check("and the book was put back exactly as it was found",
+      answered(lambda: tool.recipe("fk_returns").to_take[-1].find.day_in_words_is == "flipkart"))
 
 
 # ------------------------- which way each platform is looked at, and why
@@ -725,7 +831,7 @@ check("and the panel name was still filled into the addresses on the way",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 235
+EXPECTED = 254
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

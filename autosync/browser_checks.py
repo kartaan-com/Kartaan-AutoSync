@@ -320,6 +320,62 @@ check("and the refusal names what was asked for",
           tool.CLICK, find=tool.Find("xpath", "//div"), why="x"))))
 
 
+# --------------------- whose wording of a day a row is named by (A52)
+
+# **A ROW NAMED BY THE DAY IN THE PLATFORM'S OWN WORDING IS NAMED BY ONE OF TWO
+# DIFFERENT THINGS.** Meesho writes `1 Sep 2026` and Flipkart's Reports Centre
+# writes `05 Jun 2026`, so a lookup that does not say which of them it means can
+# only be filled in by guessing -- and a guess is wrong on one of the two portals
+# for the nine days of every month whose number is under ten. Wrong in the silent
+# direction: no row matches, and the night reports a renamed button.
+#
+# **THIS FILE STILL KNOWS NOTHING ABOUT EITHER PORTAL.** All it insists on is
+# that whose wording is SAID. Which wordings exist, and which portal each belongs
+# to, is `recipes.py`'s to answer.
+check("a row named by the day in words, saying whose wording, is allowed",
+      answered(lambda: tool.why_step_is_refused(tool.Step(
+          tool.CLICK, find=tool.Find(tool.BY_TEXT, "Download", near="{day_in_words}",
+                                     day_in_words_is="meesho"),
+          why="x")) is None))
+check("and the same row with nobody's wording said is refused",
+      answered(lambda: tool.why_step_is_refused(tool.Step(
+          tool.CLICK, find=tool.Find(tool.BY_TEXT, "Download", near="{day_in_words}"),
+          why="x")) is not None))
+check("and the refusal says why -- no two platforms write a day the same way",
+      answered(lambda: "no two platforms write a day the same way" in tool.why_step_is_refused(
+          tool.Step(tool.CLICK,
+                    find=tool.Find(tool.BY_TEXT, "Download", near="{day_in_words}"),
+                    why="x"))))
+# **A ROW NAMED BY THE PLAIN DAY NEEDS NOBODY'S WORDING**, and saying one there
+# describes a placeholder the lookup does not carry -- the same shape as a step
+# that is not a range saying how its calendar switches a day off.
+check("a row named by the plain day needs nobody's wording",
+      answered(lambda: tool.why_step_is_refused(tool.Step(
+          tool.CLICK, find=tool.Find(tool.BY_TEXT, "Download", near="{day}"),
+          why="x")) is None))
+check("and one that names a wording with no day in words to write is refused",
+      answered(lambda: tool.why_step_is_refused(tool.Step(
+          tool.CLICK, find=tool.Find(tool.BY_TEXT, "Download", near="{day}",
+                                     day_in_words_is="meesho"),
+          why="x")) is not None))
+check("and so is one that names a wording with no row named at all",
+      answered(lambda: tool.why_step_is_refused(tool.Step(
+          tool.CLICK, find=tool.Find(tool.BY_TEXT, "Download", day_in_words_is="meesho"),
+          why="x")) is not None))
+# **AN ADDRESS CANNOT SAY WHOSE WORDING IT WANTS**, because whose wording is said
+# on a lookup and an address has none. Filled in anyway it could only be filled
+# from a guess.
+check("an address may name the day plainly",
+      answered(lambda: tool.why_step_is_refused(tool.Step(
+          tool.GO, address="https://example.invalid/{day}", why="x")) is None))
+check("but naming it in a platform's own wording is refused",
+      answered(lambda: tool.why_step_is_refused(tool.Step(
+          tool.GO, address="https://example.invalid/{day_in_words}", why="x")) is not None))
+check("and the refusal says an address names the day plainly",
+      answered(lambda: "names the day plainly" in tool.why_step_is_refused(tool.Step(
+          tool.GO, address="https://example.invalid/{day_in_words}", why="x"))))
+
+
 # ------------------------------------------------------------ the records
 
 check("a step cannot be edited after it is written",
@@ -336,7 +392,7 @@ check("nor a failure once it has happened",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 78
+EXPECTED = 87
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

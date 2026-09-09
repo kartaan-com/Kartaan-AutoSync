@@ -49,7 +49,7 @@ happen is a file being downloaded twice into two differently-named copies, which
 is how the reference put three wrongly-dated duplicates into Drive.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, timedelta
 from typing import Callable, List, Optional, Sequence
 
@@ -143,6 +143,12 @@ def do_the_steps(
             # says so rather than reading as the platform having changed.
             return Fetched(FAILED, report_id, data_date, say=f"This recipe is wrong: {wrong}")
 
+        # **THE DAY GOES IN AFTER THE STEP HAS BEEN JUDGED, NEVER BEFORE.** Every
+        # rule about a placeholder is a rule about the RECIPE -- a row named
+        # without the day, a wording nobody said whose it was -- and once the day
+        # is in, all of them are gone from the text and the rules read as passing.
+        step = _with_the_day_in(step, data_date)
+
         # **SIGNING IN IS ASKED ABOUT FIRST, AND IT IS NOT THIS REPORT'S FAULT.**
         if browser.needs_signing_in():
             raise NeedsSigningIn(
@@ -232,6 +238,47 @@ def do_the_steps(
         FAILED, report_id, data_date,
         say="Every step ran and none of them took a file. The recipe is missing its last step.",
     )
+
+
+def _with_the_day_in(step, data_date):
+    """One step with the day being fetched put into it, wherever it is named.
+
+    **UNTIL THIS EXISTED THE PLACEHOLDERS CROSSED TO THE PAGE AS THEY WERE.**
+    `find.near` went to the browser holding the literal characters `{day}` or
+    `{day_in_words}`, so every lookup narrowed to a row was narrowed to a row no
+    page has ever carried -- which finds nothing, every night, and reads as the
+    portal having renamed something.
+
+    **EVERY OCCURRENCE, NOT THE FIRST**, and in the order below, which is
+    deliberate: `{day_in_words}` is replaced before `{day}` only so that neither
+    can be affected by the other's replacement text -- a day in words contains a
+    space and a month name, never a brace.
+
+    **AND THIS IS THE SAME FILLING-IN `extension/walk.js` DOES, held to it by a
+    check that runs both halves.** Two descriptions of one rule is the fault this
+    project has already been caught by four times; here one of them would put a
+    seller's report request against the wrong row.
+    """
+    changed = {}
+    # **THE ADDRESS TOO, and no recipe names the day in one today.** The walker
+    # on the other side fills it there, so leaving it out here would be the two
+    # halves quietly disagreeing on the day the first recipe to want it was
+    # written -- which is precisely the drift a generated crossing exists to
+    # prevent. An address may only ever name the day plainly; naming it in a
+    # portal's own wording is refused, because an address has no lookup on which
+    # to say whose wording it meant.
+    if "{day}" in step.address:
+        changed["address"] = step.address.replace("{day}", data_date.isoformat())
+    if step.find is not None and step.find.near:
+        near = step.find.near
+        if "{day_in_words}" in near:
+            near = near.replace(
+                "{day_in_words}", book.the_day_in_words(step.find.day_in_words_is, data_date)
+            )
+        near = near.replace("{day}", data_date.isoformat())
+        if near != step.find.near:
+            changed["find"] = replace(step.find, near=near)
+    return replace(step, **changed) if changed else step
 
 
 def _take_the_file(browser, step, report_id, data_date, which):

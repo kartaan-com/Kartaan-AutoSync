@@ -30,6 +30,7 @@ seller's address into a file that ships to every seller (D27, D30, D92).
 """
 
 import argparse
+import datetime
 import json
 import sys
 from pathlib import Path
@@ -49,6 +50,11 @@ import reports as list_of_reports  # noqa: E402
 SHOWN = "extension/recipes.json"
 WHERE = ROOT / SHOWN
 
+# **THE DAY THE LEADING NOUGHT IS ASKED ABOUT.** Its number has to be under ten
+# or the question cannot be answered at all -- every portal writes `25` the same
+# way, and the whole of the difference between them is what happens to `5`.
+A_SINGLE_FIGURE_DAY = datetime.date(2026, 9, 1)
+
 # **AND THE PRODUCT NEEDS THE REPORT LIST TOO**, because the screen where a person
 # asks for a day again has to offer the reports and say which of them cannot be
 # had for a past day. That list is decided in `autosync/reports.py`, so it is
@@ -60,6 +66,7 @@ REPORTS_WHERE = ROOT / REPORTS_SHOWN
 # The one place a Python name becomes a JavaScript one. Everything not named here
 # crosses unchanged, and a check asserts that what came out carries exactly these.
 AS_JAVASCRIPT_SPELLS_IT = {
+    "day_in_words_is": "dayInWordsIs",
     "range_days": "rangeDays",
     "switched_off_days_change_the_cursor": "switchedOffDaysChangeTheCursor",
     "ready_in_minutes": "readyInMinutes",
@@ -83,9 +90,15 @@ def a_find(find):
         # download menu".
         "called": find.called,
         # **WHICH ROW IT IS ON**, when a page lists every export ever made and the
-        # words on each one are identical. `{day}` is filled in where the walk
-        # runs, with the day written the way that platform writes it.
+        # words on each one are identical. `{day}` and `{day_in_words}` are filled
+        # in where the walk runs, with the day being fetched.
         "near": find.near,
+        # **AND WHOSE WORDING OF A DAY `{day_in_words}` MEANS.** Meesho writes
+        # `1 Sep 2026` and Flipkart's Reports Centre writes `05 Jun 2026`, so a
+        # walker handed the placeholder and not the portal could only guess --
+        # and a wrong guess finds no row at all for nine days of every month.
+        # Empty on every lookup that does not name a row in words.
+        AS_JAVASCRIPT_SPELLS_IT["day_in_words_is"]: find.day_in_words_is,
     }
 
 
@@ -144,6 +157,24 @@ def what_the_extension_reads():
         "recipes": {name: a_recipe(book.RECIPES[name]) for name in sorted(book.RECIPES)},
         "whatItMeans": dict(sorted(language.WHAT_IT_MEANS.items())),
         "buildsInThePageSince": dict(sorted(book.BUILDS_IN_THE_PAGE_SINCE.items())),
+        # **HOW EACH PORTAL WRITES A DAY, ONE ENTRY PER PORTAL AND NEVER ONE
+        # SHARED ENTRY.** A row in a list of finished exports is named by the day,
+        # and the two portals disagree about the leading nought -- Meesho writes
+        # `1 Sep 2026`, Flipkart's Reports Centre writes `05 Jun 2026`.
+        #
+        # **THE PARTS CROSS, NOT A SECOND COPY OF THE RULE.** The walker in the
+        # extension joins them; nothing on that side carries its own month names
+        # or its own opinion about the nought. **And the nought is MEASURED off
+        # the Python function rather than declared beside it** -- asked of a day
+        # whose number is under ten, so that a portal's wording and what crosses
+        # for it cannot become two answers.
+        "daysInWords": {
+            whose: {
+                "months": list(book.MONTHS),
+                "leadingNought": book.the_day_in_words(whose, A_SINGLE_FIGURE_DAY).startswith("0"),
+            }
+            for whose in sorted(book.HOW_A_DAY_IS_WRITTEN)
+        },
         # **THE WORDS ONLY A SIGNED-OUT PORTAL SHOWS.** The extension refuses to
         # build a door without them rather than answering "signed in" for ever --
         # which is what it did, out loud, the first time it was loaded into a real

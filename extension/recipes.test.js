@@ -157,6 +157,12 @@ function aPortal(how = {}) {
   const it = {
     went: [], clicked: [], ranges: [], tookFile: 0, handedOver: [], turns: 0, putAway: [],
     waited: [], clickedAway: 0,
+    /* **WHICH ROW EACH LOOKUP WAS NARROWED TO.** A page lists every export ever
+     * made, so the recipe names the row by the day -- and until A52 the day was
+     * never put in, so the row was named by the characters `{day_in_words}`,
+     * which no page carries. Dropped here, that crosses unfilled with nothing
+     * anywhere looking wrong. */
+    nearAsked: [],
     /* **THE MENU, AS MEESHO REALLY BEHAVES.** Its list of finished exports is
      * drawn AS it opens and never again while it is open. So this holds the two
      * facts that follow: whether it is open, and how many times it has been SHUT
@@ -198,6 +204,7 @@ function aPortal(how = {}) {
        * afresh between rounds and pressed only if it is still there, and an
        * order is the only thing that can be checked about a "before". */
       it.whatHappened.push(`found ${what}`);
+      it.nearAsked.push(near);
       /* **THE FINISHED FILE IS NOT IN THE LIST YET, and this is the only way to
        * say so.** Meesho draws its list of finished exports as the download menu
        * opens, so the list only ever changes when the menu is shut and opened
@@ -523,7 +530,55 @@ function aWalk(portal) {
     && portal.putAway[0].size === 3);
 }
 
-const EXPECTED = 45;
+{
+  /* ---------- THE FIVE ROWS NAMED BY THE DAY, ON HIS REAL RECIPES (A52)
+   *
+   * **THIS IS THE HALF THAT ACTUALLY RUNS ON THE NIGHT.** The wording checks in
+   * `walk.test.js` are asked of a stand-in book with invented month names; these
+   * are asked of the file that ships, walked by the walk that ships, on the five
+   * reports the hole was found in.
+   *
+   * **A DAY UNDER TEN ON PURPOSE.** The whole of what the two portals disagree
+   * about is the leading nought, and on the twenty-sixth of a month they agree --
+   * which is why this went unnoticed. The expected words are typed out by hand. */
+  const FIFTH_OF_JUNE = '2026-06-05';
+
+  const meesho = aPortal();
+  await aWalk(meesho)('me_returns', FIFTH_OF_JUNE);
+  check("HIS REAL MEESHO RETURNS RECIPE LOOKS FOR THE ROW MEESHO'S OWN WAY",
+    meesho.nearAsked.includes('5 Jun 2026'));
+
+  const claims = aPortal();
+  await aWalk(claims)('me_claims', FIFTH_OF_JUNE);
+  check('and so does claims, which has had the same hole since it was written',
+    claims.nearAsked.includes('5 Jun 2026'));
+
+  /* **FLIPKART'S THREE, COLLECTED RATHER THAN ASKED FOR**, which is the half
+   * that names a row -- and it names it by the END of the range, after " To ". */
+  for (const which of ['fk_orders', 'fk_returns', 'fk_payments']) {
+    const flipkart = aPortal();
+    // eslint-disable-next-line no-await-in-loop
+    await aWalk(flipkart)(which, FIFTH_OF_JUNE, { askedAlready: FIFTH_OF_JUNE });
+    check(`${which} looks for the row FLIPKART's own way, with the leading nought`,
+      flipkart.nearAsked.includes('To 05 Jun 2026')
+      && !flipkart.nearAsked.includes('To 5 Jun 2026'));
+  }
+
+  /* **AND NOTHING ANYWHERE REACHES A PAGE STILL HOLDING A PLACEHOLDER.** That is
+   * the whole fault: `{day_in_words}` crossed to the browser as those very
+   * characters, and no row of either portal carries them. */
+  const stillHolding = [];
+  for (const one of Object.keys(BOOK.recipes)) {
+    const portal = aPortal();
+    // eslint-disable-next-line no-await-in-loop
+    await aWalk(portal)(one, FIFTH_OF_JUNE, { askedAlready: FIFTH_OF_JUNE });
+    stillHolding.push(...portal.nearAsked.filter((row) => String(row || '').includes('{')));
+  }
+  check(`no real recipe reaches the page still holding a placeholder -- ${stillHolding.slice(0, 3)}`,
+    stillHolding.length === 0);
+}
+
+const EXPECTED = 51;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

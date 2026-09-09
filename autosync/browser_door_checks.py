@@ -88,6 +88,8 @@ class FakeMeesho:
         # them used to arrive here at all, so a page that draws in its own time
         # was read as a page that had renamed its buttons.
         self.patience_told = []
+        # Which row each lookup was narrowed to, in the order they were asked.
+        self.near_asked = []
         # **HOW LONG IT WAS TOLD TO PASS, AND IN WHAT ORDER THINGS HAPPENED.**
         # Meesho's orders export is built where the page cannot see it, so the
         # recipe can only wait -- and whether the wait came before or after the
@@ -158,6 +160,13 @@ class FakeMeesho:
     def find(self, how, what, exact, patience, near=""):
         self.steps_seen += 1
         self.patience_told.append(("find", patience))
+        # **WHICH ROW IT WAS ASKED TO LOOK ON, kept.** This is the whole of the
+        # day-in-words fix as it reaches the page: a lookup narrowed either to a
+        # row named the way that portal writes a day, or to a row no page has
+        # ever carried. A stand-in that dropped it would let the placeholder
+        # cross unfilled with nothing anywhere looking wrong -- which is exactly
+        # the state five reports were in.
+        self.near_asked.append(near)
         # **THE FINISHED FILE IS NOT IN THE LIST YET, and this is the only way to
         # say so.** Meesho draws the list of finished exports as the download
         # menu OPENS, so the list only ever changes when the menu is shut and
@@ -759,6 +768,84 @@ finally:
 check("and the book was put back exactly as it was found",
       answered(lambda: book.recipe("me_orders").to_take[-1].look_again.times == 6))
 
+# ------------- THE DAY THE ROW IS NAMED BY ACTUALLY REACHES THE PAGE (A52)
+#
+# **UNTIL NOW THE DOOR HANDED `find.near` TO THE BROWSER EXACTLY AS THE RECIPE
+# WROTE IT.** So a lookup narrowed to "the row for the day being fetched" was
+# narrowed to the literal characters `{day}` or `{day_in_words}` -- which appear
+# on no row of either portal. It finds nothing, every night, and the failure
+# wears the clothes of a renamed button.
+#
+# **THE DAYS AND THE EXPECTED WORDS ARE WRITTEN OUT BY HAND HERE**, never built
+# out of the same helper the door builds from -- that would be an echo rather
+# than a second opinion.
+
+# **A DIFFERENT DAY FROM `DAY` ABOVE, AND A SINGLE-FIGURE ONE.** The whole of
+# what the two portals disagree about is the leading nought, and it cannot be
+# seen at all on the twenty-sixth of a month.
+FIFTH_OF_JUNE = date(2026, 6, 5)
+
+fake = FakeMeesho()
+a_fetch(fake)("me_orders", DAY)
+check("the day a Meesho orders row is ABOUT reaches the page as the plain day",
+      answered(lambda: "2026-08-26" in fake.near_asked))
+check("and nothing reaches the page still holding a placeholder",
+      answered(lambda: all("{" not in one for one in fake.near_asked)))
+
+fake = FakeMeesho()
+a_fetch(fake)("me_returns", DAY)
+check("A MEESHO RETURNS ROW IS LOOKED FOR BY THE DAY WRITTEN MEESHO'S WAY",
+      answered(lambda: "26 Aug 2026" in fake.near_asked))
+fake = FakeMeesho()
+a_fetch(fake)("me_returns", FIFTH_OF_JUNE)
+check("and a day under ten loses its nought, because that is what Meesho shows",
+      answered(lambda: "5 Jun 2026" in fake.near_asked))
+
+fake = FakeMeesho()
+a_fetch(fake)("me_claims", DAY)
+check("A MEESHO CLAIMS ROW TOO, which has been broken the same way since it was written",
+      answered(lambda: "26 Aug 2026" in fake.near_asked))
+
+# **FLIPKART'S THREE, COLLECTED RATHER THAN ASKED FOR**, which is the half that
+# names a row. `asked_already` is what the report was asked under.
+fake = FakeMeesho()
+a_fetch(fake)("fk_returns", FIFTH_OF_JUNE, asked_already=FIFTH_OF_JUNE.isoformat())
+check("A FLIPKART ROW IS LOOKED FOR BY THE END OF ITS RANGE, WRITTEN FLIPKART'S WAY",
+      answered(lambda: "To 05 Jun 2026" in fake.near_asked))
+# **THE NOUGHT IS THE WHOLE DIFFERENCE, and the same day proves it both ways.**
+# Meesho's `5 Jun 2026` is on no Flipkart row, and Flipkart's `05 Jun 2026` is on
+# no Meesho row.
+check("and it is NOT the way Meesho writes the same day",
+      answered(lambda: "To 5 Jun 2026" not in fake.near_asked))
+check("both the wait for a finished report and the taking are narrowed to that row",
+      answered(lambda: len([one for one in fake.near_asked if one == "To 05 Jun 2026"]) == 2))
+for which in ("fk_orders", "fk_payments"):
+    fake = FakeMeesho()
+    a_fetch(fake)(which, FIFTH_OF_JUNE, asked_already=FIFTH_OF_JUNE.isoformat())
+    check(f"and {which} the same way",
+          answered(lambda: "To 05 Jun 2026" in fake.near_asked))
+
+# **A RECIPE NAMING THE OTHER PORTAL'S WORDING NEVER REACHES THE PAGE AT ALL.**
+# The fault is put back here and the door watched refusing it -- refused only by
+# a check, it would still walk on the night and burn one of the seller's twenty
+# daily Flipkart requests looking for a row that cannot exist.
+_was = book.RECIPES["fk_returns"]
+try:
+    _spoilt = _was.to_take[-1]
+    book.RECIPES["fk_returns"] = dataclasses.replace(_was, to_take=_was.to_take[:-1] + (
+        dataclasses.replace(_spoilt, find=dataclasses.replace(
+            _spoilt.find, day_in_words_is="meesho")),))
+    fake = FakeMeesho()
+    got = a_fetch(fake)("fk_returns", FIFTH_OF_JUNE, asked_already=FIFTH_OF_JUNE.isoformat())
+    check("a Flipkart recipe asking for Meesho's wording fails before anything is looked for",
+          answered(lambda: got.state == tool.FAILED and fake.near_asked == []))
+    check("and it says which portal asked for whose wording",
+          answered(lambda: "flipkart" in got.say and "meesho" in got.say))
+finally:
+    book.RECIPES["fk_returns"] = _was
+check("and the book was put back exactly as it was found, again",
+      answered(lambda: book.recipe("fk_returns").to_take[-1].find.day_in_words_is == "flipkart"))
+
 # ---------------------------------- and nothing here ended by falling over
 
 # **THE FLOOR UNDER EVERYTHING ABOVE, and there is ONE of it.** Answering with
@@ -777,7 +864,7 @@ check("and the book was put back exactly as it was found",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 108
+EXPECTED = 121
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
