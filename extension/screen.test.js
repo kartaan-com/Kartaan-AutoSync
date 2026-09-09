@@ -311,21 +311,61 @@ check('Amazon is not fetched through the browser at all',
 /* ------------------------------------------------------- where a night starts */
 
 {
-  const meesho = whereToStartFrom(BOOK, ['me_orders']);
+  /* **TWO OF THESE USED TO SAY THE OPPOSITE, AND THE NIGHT OF 2026-09-09 IS WHY
+   * THEY DO NOT.** They asserted that a night starts at the seller's portal "and
+   * nowhere deeper" -- the address cut back to its origin. On his own panel that
+   * origin is `https://supplier.meesho.com`, which is not the seller's panel at
+   * all: it is Meesho's PUBLIC MARKETING SITE, and `autosync/recipes.py` already
+   * records, measured live, that Meesho serves that site for any address it does
+   * not know, signed in or not. So the night opened on the one page in the whole
+   * product the signed-out detector exists to reject, the detector fired
+   * correctly, and nothing was fetched while his Meesho tab sat signed in beside
+   * it. **They are rewritten with the change rather than deleted for going red.**
+   *
+   * **THE ANSWER IS TAKEN OUT OF THE BOOK, NEVER TYPED HERE**, so none of them
+   * can pass by agreeing with a second copy of the answer. */
+  const firstAddressOf = (reportId) => {
+    const recipe = BOOK.recipes[reportId];
+    const steps = [...(recipe.toAsk || []), ...(recipe.toTake || [])];
+    return String((steps.find((one) => one.address) || {}).address || '');
+  };
+  /* **A MADE-UP ONE, NEVER HIS.** The seller's own panel name is the seller's
+   * (D27, D30, D92) and this repository is public since 2026-09-09. Two checks
+   * in `autosync/` exist purely to keep the real one out of the shipped source. */
+  const PANEL = 'a-panel-name';
+  const meesho = whereToStartFrom(BOOK, ['me_orders'], PANEL);
   const flipkart = whereToStartFrom(BOOK, ['fk_orders']);
-  check('a Meesho night starts at the seller\'s own portal and nowhere deeper',
-    meesho === 'https://supplier.meesho.com');
-  check('a Flipkart night starts at the seller\'s own portal and nowhere deeper',
-    flipkart === 'https://seller.flipkart.com');
+
+  check('a night starts at the whole address its first step names',
+    meesho === firstAddressOf('me_orders').split('{panel}').join(PANEL)
+    && flipkart === firstAddressOf('fk_orders'));
+  /* **AND THE SAME FACT SAID AS THE FAULT.** "It equals the book" would still be
+   * true the day somebody put an origin in the book, so this one asks the thing
+   * that actually went wrong: the starting page is deeper than the bare site. */
+  const deeperThanItsOwnSite = (address) => new URL(address).pathname.replace(/\/+$/, '') !== '';
+  check('so a night never begins on the bare site, which on Meesho is its marketing site',
+    deeperThanItsOwnSite(meesho) && deeperThanItsOwnSite(flipkart));
+  check('and the seller\'s own panel name is filled into it, never shipped in the book',
+    meesho.includes(`/${PANEL}/`) && !meesho.includes('{panel}')
+    && firstAddressOf('me_orders').includes('{panel}'));
   /* **AND THE STARTING PAGE IS A PAGE OUR OWN HALF RUNS ON.** The walk is picked
    * up by the content script, and the content script runs only where the
    * manifest says. A starting page outside those two is a walk that begins on a
-   * page nothing is listening in, and it would stall for ever, at night. */
-  const where = MANIFEST.content_scripts[0].matches.map((one) => one.replace('/*', ''));
+   * page nothing is listening in, and it would stall for ever, at night.
+   * **Asked as a match rather than as equality**, because the address is now a
+   * whole page and the manifest holds patterns. */
+  const runsOn = (address) => MANIFEST.content_scripts[0].matches
+    .some((one) => address.startsWith(one.replace(/\*$/, '')));
   check('and it is a page the content script actually runs on',
-    where.includes(meesho) && where.includes(flipkart));
+    runsOn(meesho) && runsOn(flipkart));
   check('a report with no recipe says nowhere rather than guessing',
     whereToStartFrom(BOOK, ['me_views']) === '');
+  /* **AN ADDRESS WITH A HOLE IN IT IS NOWHERE.** Filled with no panel name the
+   * Meesho address becomes `.../fulfillment//orders/`, which Meesho does not
+   * know -- and an address Meesho does not know is answered with the marketing
+   * site again, by the paragraph quoted above. */
+  check('and with no panel name there is nowhere to start, not an address with a hole in it',
+    whereToStartFrom(BOOK, ['me_orders']) === '');
 }
 
 /* --------------------------------------------------- what a run is refused for */
@@ -693,8 +733,12 @@ function panelParts(chrome, held = {}) {
     night.mayAskFor === 1);
   check('and it fetches yesterday, because nothing said otherwise',
     night.dataDate === theDayToFetch(1000));
-  check('and it starts at the seller\'s own Flipkart portal',
-    night.openAt === 'https://seller.flipkart.com');
+  /* **THE PAGE THE FIRST TICKED REPORT ASKS FOR, WHOLE.** Said as the book says
+   * it rather than typed, and this one used to read `https://seller.flipkart.com`
+   * -- the origin, which is the fault of 2026-09-09 in its Flipkart shape. */
+  check('and it starts at the page the first ticked report names, not at the bare site',
+    night.openAt === BOOK.recipes.fk_views.toAsk[0].address
+    && new URL(night.openAt).pathname.replace(/\/+$/, '') !== '');
   check('the night is moved on the moment it is started, not two minutes later',
     held.carriedOn === 1);
 

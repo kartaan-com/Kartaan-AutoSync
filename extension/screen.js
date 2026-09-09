@@ -348,17 +348,49 @@ export function askedForToday(kept, night, now = Date.now()) {
  * **TAKEN OUT OF THE RECIPE, NEVER TYPED HERE.** Which portal page a report
  * begins at is the recipe's business -- `nightly.js` says so where it refuses a
  * night with no starting page, and this file must not learn a platform. So this
- * takes the address of the first step that has one and keeps only its origin,
- * which is the seller's own portal and nothing more specific.
+ * takes the address of the first step that has one, whole.
+ *
+ * **IT USED TO KEEP ONLY THE ORIGIN, AND THAT IS WHAT KILLED THE NIGHT OF
+ * 2026-09-09 ON HIS OWN PANEL.** Cut back to `https://supplier.meesho.com`, the
+ * address is not the seller's panel at all -- it is Meesho's PUBLIC MARKETING
+ * SITE, the one page in the whole product the signed-out detector exists to
+ * reject. `me_catalog` opened there and stopped the entire night with "the panel
+ * is asking to be signed in to", while his Meesho tab sat signed in beside it.
+ * The evidence is the page it captured: "Sell Online ... Pricing & Commission
+ * ... Login ... Start Selling" -- six of the nine signs at once. **The detector
+ * was right. The address it was pointed at was ours.**
+ *
+ * **AND THE ORIGIN WAS NEVER NEEDED.** Every recipe's first step is a `go` to
+ * the page it actually wants, so the origin was one extra navigation whose only
+ * job was to put the content script into a page -- which the recipe's own
+ * address does just as well, on a page the seller is signed in to. `goTo`
+ * already forces a reload when the address it is given is the same page it is
+ * already on -- `sameDocumentAs` compares the part before the `#`, so an
+ * identical address counts -- and the walk's own first step still hands the page
+ * over exactly as before.
+ *
+ * **THE PANEL NAME IS FILLED HERE, NOT SHIPPED.** `{panel}` is the seller's own
+ * (D27, D30, D92) and reaches this from storage at the moment a run starts, the
+ * same way `walk.js` fills it into every step.
  */
-export function whereToStartFrom(book, reportIds) {
+export function whereToStartFrom(book, reportIds, panel = '') {
   for (const reportId of reportIds) {
     const recipe = (book.recipes || {})[reportId];
     if (!recipe) continue;
     for (const step of [...(recipe.toAsk || []), ...(recipe.toTake || [])]) {
       if (!step.address) continue;
-      const upTo = String(step.address).indexOf('/', 'https://'.length);
-      return upTo === -1 ? String(step.address) : String(step.address).slice(0, upTo);
+      const address = String(step.address);
+      /* **AN ADDRESS WITH A HOLE IN IT IS NOWHERE, NOT A PAGE, and that is the
+       * same lesson the origin was.** Filled with no panel name the Meesho
+       * address becomes `.../fulfillment//orders/`, which Meesho does not know
+       * -- and `recipes.py` records, measured live, that Meesho answers any
+       * address it does not know with the very marketing site this whole change
+       * exists to stop a night opening at. `whyItCannotBeStarted` already
+       * refuses a Meesho run with no panel name before it ever reaches here;
+       * this makes the answer honest on its own rather than depending on a
+       * caller having asked first. */
+      if (address.includes('{panel}') && !panel) return '';
+      return address.split('{panel}').join(panel);
     }
   }
   return '';
@@ -395,7 +427,7 @@ export function whyItCannotBeStarted(book, { reportIds, panel, night }) {
   if (needsThePanel && !panel) {
     return whyThatIsNotAPanelName('');
   }
-  if (!whereToStartFrom(book, reportIds)) {
+  if (!whereToStartFrom(book, reportIds, panel)) {
     return 'None of these reports says which portal page it starts at, so there is nowhere '
       + 'to begin.';
   }
@@ -680,7 +712,7 @@ export async function answerThePanelsQuestion(chrome, parts, asked) {
       doing: reportIds,
       mayAskFor: howManyItMaySpend(book, { reportIds, kept, night, now: now() }),
       at: now(),
-      openAt: whereToStartFrom(book, reportIds),
+      openAt: whereToStartFrom(book, reportIds, setUp.panel),
       dataDate: theDayToFetch(now()),
       /* **THE NAME THIS PAGE ASKED FOR GOES WITH THE NIGHT IT STARTS, and until
        * this line the only thing joining them was one line of wiring no check
