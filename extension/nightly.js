@@ -76,7 +76,7 @@ export function spendsTheAllowance(reportId) {
  * and refused.
  */
 export async function startTheNight(chrome, {
-  doing, mayAskFor = 0, at = Date.now(), openAt = '', dataDate = '',
+  doing, mayAskFor = 0, at = Date.now(), openAt = '', dataDate = '', panel = '',
 }) {
   if (!openAt) {
     /* **REFUSED HERE, BECAUSE THE ALTERNATIVE IS A NIGHT THAT SPENDS AND NEVER
@@ -95,6 +95,27 @@ export async function startTheNight(chrome, {
      * which would be platform knowledge in a file that has none. */
     openAt,
     dataDate,
+    /* **AND THE SELLER'S OWN PANEL NAME, WHICH IS THE SAME KIND OF FACT AS THE
+     * TWO ABOVE.** All five Meesho recipes carry `{panel}` in an address, and
+     * `walk.js` refuses a step carrying one without it, in words -- which is the
+     * sentence he read twice on 9 September with the name saved on the page.
+     *
+     * **IT IS DECIDED ONCE, WHEN THE NIGHT STARTS, AND NOT READ AGAIN.** Read
+     * afresh at each walk, a seller editing the box while a run is going would
+     * have report three walking a different panel from report one. A night is
+     * already one platform's and one day's; it is one panel's too.
+     *
+     * **IT IS HERE RATHER THAN IN THE WIRING BECAUSE THE WIRING CANNOT BE
+     * CHECKED.** The join used to be one line in `worker.js`, which has no
+     * checks by design -- so deleting it left every check green and left a
+     * seller with a report that fails for the one reason the panel had already
+     * asked him about. What a run needs to do its job is a decision, and a
+     * decision does not belong in a file nothing can prove.
+     *
+     * **THE REFUSAL STAYS WHERE IT IS.** Nothing here guesses a name and nothing
+     * here fails quietly: a night with no panel hands none to the walk, and the
+     * walk refuses that report by name, in the seller's own words. */
+    panel: String(panel || ''),
     finishedAt: null,
     left: [...doing],
     done: [],
@@ -383,7 +404,16 @@ async function startTheNextOne(chrome, { startAWalk, at }) {
     }
     try {
       // eslint-disable-next-line no-await-in-loop
-      await startAWalk({ reportId: next, dataDate: night.dataDate, openAt: night.openAt });
+      await startAWalk({
+        reportId: next,
+        dataDate: night.dataDate,
+        openAt: night.openAt,
+        /* **THE SELLER'S OWN, CARRIED BY THE NIGHT.** See `startTheNight`: every
+         * Meesho recipe's address holds `{panel}` and the walk refuses without
+         * it. Left off this line, a Meesho night reaches the walk with nothing
+         * and every report in it fails saying so. */
+        panel: night.panel,
+      });
     } catch (wrong) {
       /* **A WALK THAT COULD NOT BE STARTED IS WRITTEN DOWN AND THE NIGHT MOVES
        * ON.** Thrown onwards instead, it reaches the alarm listener as an

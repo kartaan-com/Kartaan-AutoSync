@@ -42,8 +42,19 @@ const watching = watchForDownloads(chrome);
  * **IT IS NOT A WAY IN FOR ANYTHING.** A service worker's own global is not
  * reachable from a web page, from a content script, or from another extension.
  * The only thing that can see this is the DevTools console of this extension's
- * own worker, which is to say the person whose browser it is. */
-self.startAWalk = (how) => startAWalk(chrome, how);
+ * own worker, which is to say the person whose browser it is.
+ *
+ * **AND IT CARRIES THE SELLER'S OWN PANEL NAME UNLESS IT IS TOLD ONE.** This is
+ * the handle every live run of this product has so far been started by, and it
+ * took three arguments, none of them the panel -- so a Meesho report started
+ * this way failed with "this report needs the seller's own panel name" however
+ * carefully the name had been saved on the page. A handle that fails for a
+ * reason the product has already solved teaches the wrong lesson at two in the
+ * morning. An explicit `panel` still wins, because a person typing one here has
+ * said what they mean. */
+self.startAWalk = async (how) => startAWalk(chrome, {
+  panel: (await theSetup(chrome)).panel, ...how,
+});
 
 /* **HOW A NIGHT IS MOVED ON, wired once here and handed to everything that could
  * mean a walk is over.** It reads the walk and the night back out of storage
@@ -70,22 +81,33 @@ const theNightsParts = {
     return held[THE_WALK] || null;
   },
   endTheWalkNow: async () => chrome.storage.local.remove(THE_WALK),
-  /* **THE SELLER'S OWN PANEL NAME IS PUT IN HERE, and until this line no Meesho
-   * report could ever be walked.** All five of them have `{panel}` in their
-   * steps -- it is the piece of a supplier panel's address that is the seller's
-   * own -- and `walk.js` refuses a step carrying one without it, in words. The
-   * night does not carry it because it is not the night's: it is a thing the
-   * seller told the panel once, and it belongs to the walk. */
-  startAWalk: async (how) => startAWalk(chrome, { ...how, panel: (await theSetup(chrome)).panel }),
+  /* **THE SELLER'S OWN PANEL NAME USED TO BE PUT IN ON THIS LINE, AND IT IS NOW
+   * THE NIGHT'S.** All five Meesho recipes carry `{panel}` in an address and
+   * `walk.js` refuses a step carrying one without it, in words -- so this one
+   * line was the whole of whether a Meesho report could be fetched at all.
+   *
+   * **THIS FILE HAS NO CHECKS BY DESIGN, so nothing anywhere could go red if it
+   * were wrong or missing.** It is carried by the night now (`startTheNight`),
+   * which `nightly.test.js` and `screen.test.js` both drive -- the same reason
+   * `content.js` keeps its refusals in `walk.js`: a decision does not belong in
+   * a file nothing can prove. What is left here is wiring. */
+  startAWalk: async (how) => startAWalk(chrome, how),
 };
 
 /* **THE TWO HANDLES A NIGHT IS RUN AND READ BY, until there is a screen for
  * it.** Same reasoning as `startAWalk` above: a service worker's own global is
  * not reachable from a web page, a content script, or another extension -- the
  * only thing that can see these is the DevTools console of this extension's own
- * worker, which is to say the person whose browser it is. */
+ * worker, which is to say the person whose browser it is.
+ *
+ * **AND THIS ONE CARRIES THE PANEL NAME TOO, FOR THE SAME REASON AND TO KEEP A
+ * PATH THAT ALREADY WORKED.** While the join lived in the wiring below, a night
+ * started from this console got the seller's own name whatever it was told;
+ * now that the night carries it, a night started here with no name would reach
+ * every Meesho walk with none. That would be this change breaking the one way
+ * this product has actually been run. What is typed still wins. */
 self.startTheNight = async (how) => {
-  const night = await startTheNight(chrome, how);
+  const night = await startTheNight(chrome, { panel: (await theSetup(chrome)).panel, ...how });
   await carryOn();
   return night;
 };

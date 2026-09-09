@@ -682,6 +682,12 @@ export async function answerThePanelsQuestion(chrome, parts, asked) {
       at: now(),
       openAt: whereToStartFrom(book, reportIds),
       dataDate: theDayToFetch(now()),
+      /* **THE NAME THIS PAGE ASKED FOR GOES WITH THE NIGHT IT STARTS, and until
+       * this line the only thing joining them was one line of wiring no check
+       * could reach.** The guard a few lines above already refuses a Meesho run
+       * without it, and `theSetup` asks the same question again on the way out
+       * of storage -- so what is handed over here has been asked twice. */
+      panel: setUp.panel,
     });
     await parts.carryOn();
     return { started: (started && started.left) || [] };

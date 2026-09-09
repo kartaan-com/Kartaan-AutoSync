@@ -328,6 +328,57 @@ check('a summary of no night at all says so rather than falling over',
   howTheNightWent(null) === 'No night has been run.');
 
 
+/* --------------------------------- the seller's own panel name, on the night */
+
+{
+  /* **THE NIGHT CARRIES THE SELLER'S OWN PANEL NAME, AND NOTHING DID UNTIL NOW
+   * (2026-09-09).** All five Meesho recipes carry `{panel}` in an address and
+   * `walk.js` refuses a step carrying one without it, in words. The only thing
+   * joining the name the seller saved on the panel to the walk that needs it was
+   * one line in `worker.js` -- a file with no checks by design. **Delete that
+   * line and all 896 checks stayed green**, while every Meesho report a seller
+   * ran failed with the one sentence the panel had already asked him about. He
+   * met it twice in one night with the name saved.
+   *
+   * **SO IT IS ON THE NIGHT, BESIDE `openAt` AND `dataDate`.** A night is
+   * already one platform's and one day's -- it is one panel's too -- and being
+   * on the night is what makes it something a check can reach. */
+  const browser = installFakeChrome();
+  const walk = aWalkThat();
+  await startTheNight(browser.chrome, {
+    doing: ['me_orders', 'me_payments'], mayAskFor: 0, at: 1,
+    openAt: 'https://supplier.meesho.com', dataDate: '2026-09-08', panel: 'rumee-panel',
+  });
+  check('the night keeps the seller\'s own panel name',
+    (await theNight(browser.chrome)).panel === 'rumee-panel');
+
+  await carryTheNightOn(browser.chrome, { ...walk, at: 2 });
+  check('and hands it to the walk it starts', walk.started[0].panel === 'rumee-panel');
+
+  /* **AND TO THE SECOND REPORT AS WELL.** The night reads itself back out of
+   * storage for every report, so a name kept only in the caller's hand would
+   * reach the first walk and nothing after it. */
+  walk.itFinished({ state: 'landed', reportId: 'me_orders', size: 44600 });
+  await carryTheNightOn(browser.chrome, { ...walk, at: 3 });
+  check('and to every report after it, not only the first',
+    walk.started[1].reportId === 'me_payments' && walk.started[1].panel === 'rumee-panel');
+}
+
+{
+  /* **AND A NIGHT NOBODY GAVE A NAME HANDS NONE, RATHER THAN GUESSING ONE.**
+   * `walk.js` is where that is refused and it refuses in the seller's own words.
+   * Nothing here may quietly put something plausible in its place: a made-up
+   * name is a walk on somebody else's supplier panel. */
+  const browser = installFakeChrome();
+  const walk = aWalkThat();
+  await startTheNight(browser.chrome, {
+    doing: ['me_orders'], mayAskFor: 0, at: 1, openAt: 'https://supplier.meesho.com',
+  });
+  await carryTheNightOn(browser.chrome, { ...walk, at: 2 });
+  check('a night told no panel name hands the walk an empty one, never a guess',
+    walk.started[0].panel === '');
+}
+
 /* ------------------------------------------- moving the night on, one at a time */
 
 /** A stand-in for the walk in flight, driven by hand. */
@@ -335,9 +386,13 @@ function aWalkThat() {
   const it = { held: null, started: [], cleared: 0 };
   it.theWalkNow = async () => it.held;
   it.endTheWalkNow = async () => { it.held = null; it.cleared += 1; };
-  it.startAWalk = async ({ reportId, dataDate, openAt }) => {
-    it.started.push({ reportId, dataDate, openAt });
-    it.held = { reportId, answer: null };
+  /* **EVERYTHING THE NIGHT HANDS OVER IS KEPT, NOT THREE NAMED FIELDS.** It
+   * used to name the three it knew about, so a fourth the night stopped
+   * carrying -- the seller's own panel name -- could not be seen from a check at
+   * all. What the walk is told is what a check has to be able to read. */
+  it.startAWalk = async (how) => {
+    it.started.push({ ...how });
+    it.held = { reportId: how.reportId, answer: null };
   };
   it.itFinished = (answer) => { it.held = { ...it.held, answer }; };
   return it;
@@ -559,7 +614,7 @@ function aWalkThat() {
       .includes('a night that is not going'));
 }
 
-const EXPECTED = 68;
+const EXPECTED = 72;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

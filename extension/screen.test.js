@@ -44,9 +44,10 @@ import {
   wireUp,
 } from './background.js';
 import {
-  A_DAYS_ALLOWANCE, THE_NIGHT, endTheNight, howTheNightWent, oneWasAskedFor, startTheNight,
-  thatOneIsBeingTried, theNight,
+  A_DAYS_ALLOWANCE, THE_NIGHT, carryTheNightOn, endTheNight, howTheNightWent, oneWasAskedFor,
+  startTheNight, thatOneIsBeingTried, theNight,
 } from './nightly.js';
+import { hasNotFinished, theWalk } from './walk.js';
 import {
   CALLED,
   THE_NIGHTS,
@@ -869,6 +870,129 @@ function panelParts(chrome, held = {}) {
   check('what a button press said back is shown', parts.said.hidden === false);
   saySomething(parts, '');
   check('and taken away again', parts.said.hidden === true);
+}
+
+/* ============================================================================
+ *   THE SELLER'S OWN PANEL NAME, FROM THE BOX HE TYPES IT IN TO THE ADDRESS
+ * ==========================================================================*/
+
+{
+  /* **THE WHOLE JOURNEY, AND NOT ONE STEP OF IT WAS EVER CHECKED (2026-09-09).**
+   * He ran Meesho twice in one night with his panel name saved on this page, and
+   * both times read: *"me_orders: failed -- This report needs the seller's own
+   * panel name."*
+   *
+   * **EVERY PIECE OF IT WAS ALREADY BUILT AND CHECKED; THE JOIN WAS ONE LINE IN
+   * `worker.js`, WHICH HAS NO CHECKS BY DESIGN.** The page saved the name, the
+   * setup kept it, the night ran, the walk refused -- and nothing anywhere could
+   * go red about it, because the only thing that carried the name across lived
+   * in the file this project deliberately does not check.
+   *
+   * **SO THIS CHECK RE-TYPES NO WIRING.** It presses what he presses, and what
+   * carries the name from one end to the other is the product's own code: the
+   * panel's answer, the night, `carryTheNightOn`, and `walk.js` filling the
+   * address. The stand-in below does nothing but write down what it was handed.
+   */
+  const { chrome } = installFakeChrome();
+  const started = [];
+  let inFlight = null;
+  const carryOn = () => carryTheNightOn(chrome, {
+    theWalkNow: async () => inFlight,
+    endTheWalkNow: async () => { inFlight = null; },
+    /* **THIS PUTS NOTHING IN, AND THAT IS THE POINT.** Whatever reaches here
+     * reached here from the night. */
+    startAWalk: async (how) => {
+      started.push({ ...how });
+      inFlight = { reportId: how.reportId, answer: null };
+    },
+  });
+  const say = (asked) => answerThePanelsQuestion(chrome, {
+    book: BOOK,
+    now: () => 1000,
+    startTheNight,
+    carryOn,
+    watching: { stopExpecting: () => {} },
+    setTheHour,
+    whyThatIsNotATimeOfDay,
+  }, asked);
+
+  await say({ do: 'connect-the-drive' });
+  await say({ do: 'save-the-panel-name', panel: 'rumee-panel' });
+  const answer = await say({ do: 'run-now', reportIds: ['me_orders'] });
+  check('a Meesho run starts once the name has been saved on this page', !answer.wrong);
+  check('the night it starts carries the seller\'s own panel name',
+    (await theNight(chrome)).panel === 'rumee-panel');
+  check('and the walk is handed that same name',
+    started.length === 1 && started[0].panel === 'rumee-panel');
+
+  /* **AND IT REACHES THE ADDRESS THE BROWSER IS ACTUALLY SENT TO.** A name
+   * carried as far as the walk and dropped before the address is the same
+   * failure one step later, so the last mile is walked here with `walk.js`
+   * itself -- the real book, his real `me_orders` recipe, whose first step is a
+   * `go` to `.../fulfillment/{panel}/orders/`. */
+  const went = [];
+  const walking = theWalk({
+    book: BOOK,
+    say: () => {},
+    putTheFile: async () => ({}),
+    armTheCatcher: async () => 'a-secret',
+    door: {
+      async needs_signing_in() { return false; },
+      async go(address) { went.push(address); },
+      async page_text() { return ''; },
+    },
+  });
+  const walked = await walking(started[0].reportId, started[0].dataDate, { ...started[0] });
+  check('the walk carries on rather than refusing for want of a panel name',
+    hasNotFinished(walked));
+  check('and the address the browser was sent to has his own panel name in it',
+    went.length === 1 && went[0].includes('rumee-panel'));
+  check('with no placeholder left standing in it',
+    !went.some((one) => one.includes('{panel}')));
+}
+
+{
+  /* **AND THE REFUSAL IS EXACTLY WHERE IT WAS.** Nothing above may make a walk
+   * with no name fail quietly, and nothing may put a plausible name in its
+   * place: a made-up one is a walk on somebody else's supplier panel. The
+   * sentence is the one he read, word for word, and it is what a person can act
+   * on -- it says where to find the name. */
+  const went = [];
+  const walking = theWalk({
+    book: BOOK,
+    say: () => {},
+    putTheFile: async () => ({}),
+    armTheCatcher: async () => 'a-secret',
+    door: {
+      async needs_signing_in() { return false; },
+      async go(address) { went.push(address); },
+      async page_text() { return ''; },
+    },
+  });
+  const refused = await walking('me_orders', '2026-09-08', { panel: '' });
+  check('a Meesho walk with no panel name still fails, loudly', refused.state === 'failed');
+  check('and still says it is the seller\'s own data, and where it is',
+    refused.say.includes("seller's own data")
+    && refused.say.includes('address of their supplier panel'));
+  check('and the browser was never sent anywhere at all', went.length === 0);
+
+  /* **AND THIS PAGE REFUSES IT BEFORE A NIGHT IS EVEN WRITTEN.** Two refusals,
+   * and both are wanted: this one is the one he can do something about. */
+  const { chrome } = installFakeChrome();
+  const say = (asked) => answerThePanelsQuestion(chrome, {
+    book: BOOK,
+    now: () => 1000,
+    startTheNight,
+    carryOn: async () => {},
+    watching: { stopExpecting: () => {} },
+    setTheHour,
+    whyThatIsNotATimeOfDay,
+  }, asked);
+  await say({ do: 'connect-the-drive' });
+  const stopped = await say({ do: 'run-now', reportIds: ['me_orders'] });
+  check('and Run now refuses a Meesho run before that, with the name unsaved',
+    (stopped.wrong || '').includes('fulfillment/'));
+  check('and no night was written at all', (await theNight(chrome)) === null);
 }
 
 reachedTheEnd = true;
