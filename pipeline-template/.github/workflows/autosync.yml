@@ -1,0 +1,104 @@
+name: Auto-sync
+
+# **THIS FILE IS NOT THIS REPOSITORY'S WORKFLOW. It is the entire content of
+# `kartaan-com/kartaan-pipeline-template`** -- the small public template a seller
+# presses "Use this template" on to make their own PRIVATE `kartaan-pipeline`
+# repository, which is where their Amazon and Google secrets are written.
+#
+# **GITHUB DOES NOT RUN IT FROM HERE.** GitHub reads workflows only from
+# `.github/workflows/` at the ROOT of a repository. This one is four levels down,
+# so it is text in this repository and a workflow only in the seller's.
+#
+# **IT IS KEPT HERE BECAUSE THE THING IT CALLS IS HERE.** The eight secret names
+# and the tag are written in two files; when they were written in two
+# repositories with nothing joining them, that is the exact shape this project
+# has paid for again and again. `autosync/nightly_checks.py` reads this file and
+# the one in `.github/workflows/` and refuses if they ever disagree.
+#
+# **IT HOLDS NO FETCHING CODE, AND THAT IS D121.** A copy of the code is frozen
+# the day it is made: a fix pushed here would never reach it. So this says
+# `uses:` and the code comes from Kartaan every night.
+#
+# **AND IT NAMES A VERSION TAG, NEVER A BRANCH -- D122.** A seller pinned to a
+# branch gets whatever was pushed that afternoon, and one bad push breaks every
+# seller that night. A three-part tag never moves.
+#
+# **WHAT A SELLER'S FROZEN COPY OF THIS FILE CANNOT PICK UP** is a change to the
+# CALLER: a ninth secret, or a newer tag. That is real, it is not solved here,
+# and it is why the tag below is changed deliberately and rarely.
+
+# **WHAT THIS JOB MAY DO TO THE SELLER'S OWN REPOSITORY: NOTHING (D135).** Left
+# unsaid, `GITHUB_TOKEN` takes the repository's default, which on many accounts
+# is `contents: write` -- so a fetching job that only ever reads files and writes
+# to Google could rewrite the seller's own workflow, and so change what their own
+# secrets are handed to. `contents: read` is what `actions/checkout` needs and is
+# all it needs, and the called workflow narrows it to the same thing again.
+permissions:
+  contents: read
+
+on:
+  # **THE HOUR IS WRITTEN INTO THIS LINE WHEN THE SELLER'S REPOSITORY IS SET UP,
+  # AND NEVER AFTERWARDS.** Nothing Kartaan holds may rewrite a seller's workflow
+  # (D113): anything that can write a workflow can write one that carries their
+  # secrets away.
+  #
+  # **UTC. 20:53 UTC is 02:23 the next morning in his time**, which is
+  # `clock.NOT_BEFORE_HOUR`, the default for a seller who has not chosen. :53
+  # rather than :00 because GitHub's own documentation names the start of the
+  # hour as when a scheduled run is most likely to be delayed.
+  #
+  # **KNOWN, NOT FIXED: one tick a day and the chosen hour is a FLOOR**, so a
+  # seller who chose any hour well above this one is refused on the only tick
+  # there is. It is written up as its own piece in `tools/work.json`, and the
+  # button below is what a seller has in the meantime.
+  schedule:
+    - cron: '53 20 * * *'
+
+  # **STARTABLE BY HAND**, which is what makes a first run, and any morning
+  # something looks wrong, possible without waiting for a tick.
+  workflow_dispatch:
+    inputs:
+      even_if_not_due:
+        description: 'Run even if one already ran in the last 24 hours'
+        type: boolean
+        default: false
+
+# **NO `concurrency:` HERE, DELIBERATELY.** The called workflow already carries
+# `group: autosync`, and a group evaluated in this repository is this
+# repository's. From GitHub's own documentation, a job and its workflow sharing
+# one concurrency group deadlock -- the job waits for the run it is part of, and
+# is cancelled saying so. So the guard lives on one side only, and it is the side
+# that comes from Kartaan.
+
+jobs:
+  fetch:
+    # **THE TAG IS THE WHOLE OF D122.** Three parts, never a branch, never a
+    # moving `v0`. Changing it is a deliberate act by the seller or by whoever
+    # sets their repository up -- it is the only line here that decides which
+    # code runs tonight.
+    uses: kartaan-com/Kartaan-AutoSync/.github/workflows/autosync.yml@v0.1.0
+    with:
+      # **`|| false` IS NOT DECORATION.** On a scheduled tick the `inputs`
+      # context has nothing in it, and an empty value handed to a boolean input
+      # is not a boolean. GitHub's own documented behaviour for `||` is to return
+      # the first value that is not falsy, and an empty one is falsy -- so a tick
+      # passes `false` and the button passes what was ticked.
+      even_if_not_due: ${{ inputs.even_if_not_due || false }}
+    # **EACH ONE BY NAME, AND `inherit` IS NOT AVAILABLE.** From GitHub's own
+    # documentation, `secrets: inherit` works only for a called workflow in the
+    # same organisation or enterprise. A seller's GitHub is a personal account,
+    # which is neither.
+    #
+    # **A NAME WHOSE SECRET IS NOT SET PASSES AN EMPTY STRING AND GITHUB IS
+    # SATISFIED.** What catches that is the called workflow's own "Is this
+    # repository set up to fetch?" step, which says so in words and exits clean
+    # rather than red.
+    secrets:
+      AMAZON_CLIENT_ID: ${{ secrets.AMAZON_CLIENT_ID }}
+      AMAZON_CLIENT_SECRET: ${{ secrets.AMAZON_CLIENT_SECRET }}
+      AMAZON_REFRESH_TOKEN: ${{ secrets.AMAZON_REFRESH_TOKEN }}
+      GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+      DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
+      FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}

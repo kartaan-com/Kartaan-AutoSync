@@ -99,6 +99,73 @@ on:
         type: boolean
         default: false
 
+  # **AND THE TRIGGER THAT LETS EVERY SELLER'S OWN GITHUB RUN THIS WITHOUT
+  # HOLDING A COPY OF IT (D121, D122).**
+  #
+  # His words in D121: *"a public repository, from where every seller's GitHub
+  # action can source the code. And if we push something, it is going to be
+  # available for everyone immediately."* Until this block existed no other
+  # repository could call this file at all, so the only way a seller could run
+  # the fetching was to hold a COPY -- and a copy is frozen the day it is made,
+  # which is the one thing D121 exists to prevent.
+  #
+  # **THE SELLER'S OWN FILE IS A CALLER AND NOTHING ELSE.** It sits in their
+  # `kartaan-pipeline` repository, carries the schedule and the button, and says
+  # `uses:` this file **at a version tag** (D122) -- never at a branch, so one
+  # bad push here does not break every seller that night. What that file says is
+  # kept in this repository at
+  # `pipeline-template/.github/workflows/autosync.yml`, because a change to the
+  # eight names or to the tag is a change to both files.
+  #
+  # **EVERY SECRET IS DECLARED AND PASSED BY NAME. `inherit` IS NOT AVAILABLE.**
+  # From GitHub's own documentation, `secrets: inherit` works only for a called
+  # workflow in the same organisation or enterprise, and a seller's GitHub is a
+  # personal account, which is neither.
+  #
+  # **`required: true` MEANS "THE CALLER MUST NAME IT", NOT "IT MUST HAVE A
+  # VALUE".** A caller that writes `${{ secrets.AMAZON_CLIENT_ID }}` when that
+  # secret is not set hands over an empty string, and GitHub is satisfied. So it
+  # catches a seller whose workflow forgot a name, and it CANNOT catch a seller
+  # whose secret was never set -- which is the whole reason the "Is this
+  # repository set up to fetch?" step below still asks, and still has to.
+  #
+  # **THESE EIGHT NAMES ARE THE SAME EIGHT AS THE GATE AND THE `env` BLOCK, AND
+  # NOTHING HERE COUNTS THEM.** `autosync/nightly_checks.py` holds all of the
+  # lists to each other in every direction (D190) -- this one, the gate, the
+  # `env` block, `start.py`'s own asking, and the caller next door. A ninth
+  # secret that reaches four of the five is red, rather than a night that starts
+  # and then cannot read what it needs.
+  workflow_call:
+    inputs:
+      # **THE SAME BUTTON, AND WITHOUT THIS IT WOULD REACH NOBODY.** The seller's
+      # caller is the only place this button is ever pressed -- this repository
+      # has no secrets and takes the no-platform branch -- so leaving it
+      # undeclared would quietly end the "something looks wrong this morning, run
+      # it again" case for every seller. `false` when nothing passes it, which is
+      # what a scheduled tick does.
+      even_if_not_due:
+        description: 'Run even if one already ran in the last 24 hours'
+        type: boolean
+        required: false
+        default: false
+    secrets:
+      AMAZON_CLIENT_ID:
+        required: true
+      AMAZON_CLIENT_SECRET:
+        required: true
+      AMAZON_REFRESH_TOKEN:
+        required: true
+      GOOGLE_CLIENT_ID:
+        required: true
+      GOOGLE_CLIENT_SECRET:
+        required: true
+      GOOGLE_REFRESH_TOKEN:
+        required: true
+      DRIVE_FOLDER_ID:
+        required: true
+      FIREBASE_PROJECT_ID:
+        required: true
+
 # **TWO RUNS AT ONCE FETCH EVERY FILE TWICE**, into two differently-named copies --
 # the fault that put three wrongly-dated files into the reference's Drive. The
 # clock already refuses a second run; this is the belt to its braces, because the
@@ -195,8 +262,10 @@ jobs:
           # grants nothing; what grants anything is the Google permission above,
           # which the seller gave and which now covers their own database too.
           FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
-          # Only ever set by somebody pressing the button. A scheduled tick sends
-          # nothing, so `inputs.even_if_not_due` is empty and the clock decides.
+          # Only ever true because somebody pressed the button -- the one here,
+          # or the one on the seller's own caller, which passes it through. A
+          # scheduled tick sends nothing and a caller that passes nothing sends
+          # `false`; neither is the word "true", so the clock decides.
           EVEN_IF_NOT_DUE: ${{ inputs.even_if_not_due }}
           #
           # **THE HOUR THE SELLER CHOSE IS NOT HERE, and that is D114.** It used

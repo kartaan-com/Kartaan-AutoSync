@@ -1343,6 +1343,138 @@ check("AND EVERY ONE HANDED OVER IS ONE THE RUN ASKS FOR, AND EVERY ONE IT ASKS 
       set(ASKED_FOR) == FROM_SECRETS)
 
 
+# ----- and the two lists that let a seller run this without holding a copy (A39)
+
+# **D121 AND D122, AND UNTIL A39 NEITHER WAS TRUE OF THIS FILE.** It had no
+# `workflow_call` trigger, so no other repository could call it at all, and the
+# only way a seller could have run the fetching was to hold a COPY -- frozen the
+# day it was made, which is the one thing D121 exists to prevent.
+#
+# **SO THERE ARE FIVE LISTS OF THE SAME EIGHT NAMES NOW, NOT THREE**, and the two
+# new ones are in the two places furthest from anybody's eye: what a caller MUST
+# declare, and what the seller's own file actually hands over. A name missing
+# from the declaration is a run GitHub refuses before it starts; a name missing
+# from the caller is a night that starts and cannot read what it needs. Both are
+# silent, and both are exactly D190.
+#
+# **READ WITH INDENTATION RATHER THAN A PATTERN, and no YAML reader is imported
+# on purpose:** this file runs inside the seller's own job, where the workflow
+# installs nothing at all.
+
+
+def _the_block_under(said, name, indent):
+    """The lines under `name:` written at `indent` spaces, as one string.
+
+    Everything blank, commented, or indented further belongs to the block; the
+    first line indented the same or less ends it. **A name that is not there
+    gives an empty string, never the rest of the file** -- which is the way this
+    could quietly stop checking.
+    """
+    head = (" " * indent) + name + ":"
+    lines = said.splitlines()
+    for at, line in enumerate(lines):
+        if line.rstrip() != head:
+            continue
+        out = []
+        for after in lines[at + 1:]:
+            bare = after.strip()
+            if bare and not bare.startswith("#"):
+                if len(after) - len(after.lstrip(" ")) <= indent:
+                    break
+            out.append(after)
+        return "\n".join(out)
+    return ""
+
+
+ON = _the_block_under(SAID_IN_THE_WORKFLOW, "on", 0)
+check("the workflow says what wakes it, and it can be read", len(ON) > 0)
+check("it still runs on a schedule, and by hand, on this repository itself",
+      _the_block_under(ON, "schedule", 2) != ""
+      and _the_block_under(ON, "workflow_dispatch", 2) != "")
+CALLABLE = _the_block_under(ON, "workflow_call", 2)
+check("AND ANOTHER REPOSITORY CAN CALL IT -- without this a seller can only hold "
+      "a copy, and a copy never sees a fix again (D121)",
+      CALLABLE != "")
+
+# Each name declared for a caller, and whether it is marked as one the caller
+# must name. **The pair, not the name alone**: a name declared and not required
+# is one a caller may quietly leave out.
+DECLARED = tuple(re.findall(
+    r"^      ([A-Z0-9_]+):\n        required: (\w+)\s*$",
+    _the_block_under(CALLABLE, "secrets", 4), re.M))
+check("the workflow declares some secrets a caller must hand it", len(DECLARED) > 4)
+check("no name is declared twice", len({name for name, _ in DECLARED}) == len(DECLARED))
+check("and every one of them is one the caller MUST name",
+      all(must == "true" for _, must in DECLARED))
+check("EVERY SECRET A CALLER MUST DECLARE IS ONE THE WORKFLOW REFUSES TO RUN "
+      "WITHOUT, AND EVERY ONE IT REFUSES TO RUN WITHOUT IS DECLARED",
+      {name for name, _ in DECLARED} == FROM_SECRETS)
+
+# **THE BUTTON HAS TO REACH THE RUN FROM A CALLER TOO.** This repository has no
+# secrets and takes the no-platform branch, so the seller's own caller is the
+# only place the button is ever pressed. Undeclared here, "run it again this
+# morning" would exist for nobody.
+check("the button a seller presses is one a caller can pass on",
+      re.search(r"^      even_if_not_due:\s*$",
+                _the_block_under(CALLABLE, "inputs", 4), re.M) is not None)
+
+# **AND THE FILE THE SELLER'S OWN REPOSITORY HOLDS, WHICH IS ONE CALL AND NO
+# CODE.** It is kept here rather than only in `kartaan-com/kartaan-pipeline-template`
+# because the eight names and the tag are written in two files, and two files in
+# two repositories with nothing joining them is the shape this project keeps
+# paying for.
+CALLER = Path(__file__).resolve().parent.parent / "pipeline-template" / ".github" / "workflows" / "autosync.yml"
+check("the file the seller's own repository holds can be read at all", CALLER.is_file())
+SAID_IN_THE_CALLER = CALLER.read_text(encoding="utf-8") if CALLER.is_file() else ""
+
+PASSED_ON = tuple(re.findall(
+    r"^\s*([A-Z0-9_]+):\s*\$\{\{\s*secrets\.([A-Z0-9_]+)\s*\}\}\s*$",
+    SAID_IN_THE_CALLER, re.M))
+check("the seller's own file hands over some named secrets", len(PASSED_ON) > 4)
+check("no name is handed over twice",
+      len({name for name, _ in PASSED_ON}) == len(PASSED_ON))
+check("every value it hands over is set from the secret of the same name",
+      all(under == secret for under, secret in PASSED_ON))
+check("EVERY SECRET THE SELLER'S OWN FILE HANDS OVER IS ONE THE WORKFLOW "
+      "DECLARES, AND EVERY ONE DECLARED IS HANDED OVER BY IT",
+      {secret for _, secret in PASSED_ON} == {name for name, _ in DECLARED})
+check("and it passes the button on as well, or the seller has no button",
+      "even_if_not_due:" in SAID_IN_THE_CALLER)
+
+# **WHICH FILE IT RUNS, AND AT WHICH VERSION.** `uses:` is the only line in that
+# file that decides what code runs in a seller's account tonight.
+_USES = re.search(r"^\s*uses:\s*(\S+?)@(\S+)\s*$", SAID_IN_THE_CALLER, re.M)
+check("the seller's own file says which workflow it runs", _USES is not None)
+check("and it is THIS repository's nightly workflow and no other file",
+      _USES is not None
+      and _USES.group(1) == "kartaan-com/Kartaan-AutoSync/.github/workflows/autosync.yml")
+# **D122, AND IT IS THE WHOLE POINT OF THE TAG.** A seller pinned to a branch
+# gets whatever was pushed that afternoon, so one bad push breaks every seller
+# that night. A moving `v0` is a branch wearing a tag's name and is refused here
+# for the same reason.
+check("AND IT NAMES A WHOLE VERSION TAG, NEVER A BRANCH AND NEVER A MOVING ONE (D122)",
+      _USES is not None
+      and re.fullmatch(r"v\d+\.\d+\.\d+", _USES.group(2)) is not None)
+
+# **AND IT SETS NO CONCURRENCY GROUP OF ITS OWN.** This workflow already carries
+# `group: autosync`, and the group is worked out in the CALLING repository -- so
+# a caller naming the same group would be a run waiting for itself. From GitHub's
+# own documentation that is cancelled outright, saying a deadlock. The guard
+# lives on one side, and it is this one.
+check("this workflow is what stops two runs at once", "group: autosync" in SAID_IN_THE_WORKFLOW)
+check("and the seller's own file names no group of its own, which would be a run "
+      "waiting for itself",
+      not re.search(r"^concurrency:", SAID_IN_THE_CALLER, re.M))
+
+# **AND GITHUB MUST NOT RUN THE TEMPLATE FROM HERE.** Workflows are read only
+# from `.github/workflows/` at the root of a repository, and this one is kept
+# four levels down for exactly that reason.
+check("the seller's file is not somewhere this repository would run it as its own",
+      "pipeline-template" in str(CALLER)
+      and not (Path(__file__).resolve().parent.parent / ".github" / "workflows"
+               / "pipeline-template").exists())
+
+
 # ------------- the one tick a day, and the hours it can never reach (A33)
 
 # **THE SELLER'S CHOSEN HOUR HAS NEVER REACHED THE SCHEDULE SINCE D120, AND
@@ -1448,7 +1580,7 @@ check("and the workflow no longer claims the clock fetches at the chosen hour "
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 190
+EXPECTED = 210
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

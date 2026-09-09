@@ -480,6 +480,7 @@
    ],
    "files": [
     ".github/workflows/autosync.yml",
+    "pipeline-template/.github/workflows/autosync.yml",
     "autosync/nightly.py",
     "autosync/nightly_checks.py",
     "autosync/start.py",
@@ -534,6 +535,12 @@
      "found": "2026-09-08",
      "fixed": false,
      "proved_by": "autosync/nightly_checks.py -- 'KNOWN FAULT, NOT FIXED: the workflow wakes at ONE hour of his day...', which reads EVERY cron entry rather than the first (an independent reviewer defeated the first version by adding a second line, which is the wake-hourly repair itself), expands `*`, lists and steps, and drives every hour a seller can choose through `clock.why_not_now`. Driven against five repairs on 2026-09-08 -- a second cron line, hourly, moved to his chosen hour, an hour list, and a step -- and it goes red on all five. **An earlier wording of this finding said hours 3 to 23 never fetch 'on any day'; that is not honest for the hour or two just above the tick, because the floor exists precisely because GitHub can DELAY a scheduled run. It is the twenty hours well above the tick that can never be reached, and that is what the check now asserts.**"
+    },
+    {
+     "what": "D121 AND D122 COULD NOT HAPPEN AT ALL: `autosync.yml` had no `workflow_call` trigger, so no other repository could call it, and this repository had NO TAGS -- nothing for a seller to point at. So the only way a seller could have run the fetching was to hold a COPY of it, which is frozen the day it is made and is the one thing D121 exists to prevent. Fixed 2026-09-09 (A39): the trigger declares all eight secrets as ones a caller must name (`inherit` is not available across personal accounts, from GitHub's own documentation) and the button as an input a caller can pass on; `pipeline-template/.github/workflows/autosync.yml` is the one file a seller's repository holds, and it names this workflow at a whole version tag; and `v0.1.0` is cut and pushed. `schedule` and `workflow_dispatch` are untouched, and this repository still takes the no-platform branch (D108).",
+     "found": "2026-09-09",
+     "fixed": true,
+     "proved_by": "autosync/nightly_checks.py: 'AND ANOTHER REPOSITORY CAN CALL IT', 'EVERY SECRET A CALLER MUST DECLARE IS ONE THE WORKFLOW REFUSES TO RUN WITHOUT, AND EVERY ONE IT REFUSES TO RUN WITHOUT IS DECLARED', 'EVERY SECRET THE SELLER'S OWN FILE HANDS OVER IS ONE THE WORKFLOW DECLARES, AND EVERY ONE DECLARED IS HANDED OVER BY IT', and 'AND IT NAMES A WHOLE VERSION TAG, NEVER A BRANCH AND NEVER A MOVING ONE (D122)'. All thirteen faults were put back one at a time and each was caught by a named check."
     }
    ],
    "state": {
