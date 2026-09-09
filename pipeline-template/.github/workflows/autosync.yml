@@ -76,7 +76,13 @@ jobs:
     # moving `v0`. Changing it is a deliberate act by the seller or by whoever
     # sets their repository up -- it is the only line here that decides which
     # code runs tonight.
-    uses: kartaan-com/Kartaan-AutoSync/.github/workflows/autosync.yml@v0.1.0
+    #
+    # **v0.1.0 IS BURNT AND MUST NEVER BE HANDED TO A SELLER (A41).** At that
+    # tag the called workflow fetched the CALLER's repository -- this one,
+    # which holds only this file -- and then looked for an `autosync` folder
+    # in it. Every night would have failed inside a run. `v0.1.1` is the
+    # first tag a seller can actually fetch on.
+    uses: kartaan-com/Kartaan-AutoSync/.github/workflows/autosync.yml@v0.1.1
     with:
       # **`|| false` IS NOT DECORATION.** On a scheduled tick the `inputs`
       # context has nothing in it, and an empty value handed to a boolean input

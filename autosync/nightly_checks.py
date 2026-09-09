@@ -1475,6 +1475,150 @@ check("the seller's file is not somewhere this repository would run it as its ow
                / "pipeline-template").exists())
 
 
+# ---- whose repository the job checks out, and the folder it then works in (A41)
+
+# **EVERY CHECK IN THIS FILE WAS GREEN ON THE DAY NO SELLER COULD EVER FETCH.**
+# A39 made this workflow callable and cut `v0.1.0`, and everything above went on
+# holding the five lists of secret names to each other -- correctly, and about
+# the wrong thing. **Nothing anywhere asked whose code the job would be running.**
+#
+# **THE FAULT.** `actions/checkout` with nothing said fetches the repository the
+# RUN is in, and for a called workflow that is the CALLER's -- GitHub's own
+# documented behaviour. The caller is the seller's `kartaan-pipeline`, whose
+# entire contents is one caller file. `working-directory: autosync` then names a
+# folder that repository has never had, so the job died inside a run rather than
+# never starting -- which is the same ending and a quieter one.
+#
+# **WHY IT COULD NOT BE READ OFF THE PAGE.** Nothing in this workflow is wrong on
+# its own. `- uses: actions/checkout@v4` is right in the repository that owns it
+# and wrong the moment somebody else calls it, and the line that makes it wrong
+# is thirty lines further up in a different block. **That is why the pair below
+# is asked as one question and not two**: a `working-directory:` and a
+# `workflow_call:` in the same file are only safe together if the checkout is
+# told which repository to fetch.
+#
+# **READ BY INDENTATION, AND NO YAML READER IS IMPORTED.** The whole of
+# `autosync/` runs on what Python itself carries, which is what makes it safe on
+# a seller's machine where nothing is installed.
+
+_WORKFLOW_LINES = SAID_IN_THE_WORKFLOW.split("\n")
+NOT_A_COMMENT = "\n".join(
+    line for line in _WORKFLOW_LINES if not line.lstrip().startswith("#"))
+
+
+def _the_steps_of_the_job(lines):
+    """Every step under `steps:`, as its own lines, with the comments dropped."""
+    try:
+        first = next(i for i, line in enumerate(lines) if line == "    steps:")
+    except StopIteration:
+        return ()
+    steps, current = [], None
+    for line in lines[first + 1:]:
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        if len(line) - len(line.lstrip()) < 6:
+            break
+        if line.startswith("      - "):
+            current = [line[8:]]
+            steps.append(current)
+        elif current is not None:
+            current.append(line[8:] if line.startswith("        ") else line.strip())
+    return tuple("\n".join(step) for step in steps)
+
+
+STEPS = _the_steps_of_the_job(_WORKFLOW_LINES)
+check("the steps the job runs can be read at all", len(STEPS) > 3)
+
+# **THE CODE IS FETCHED ONCE.** Two checkouts is two answers to "whose code is
+# this", and the second one wins silently.
+_CHECKOUTS = tuple(s for s in STEPS if re.search(r"uses:\s*actions/checkout@", s))
+check("the job fetches its code exactly once", len(_CHECKOUTS) == 1)
+FETCHING = _CHECKOUTS[0] if _CHECKOUTS else ""
+
+
+def _what_set_it(said, steps):
+    """A value in `with:`, followed back through a step output to its source.
+
+    `repository: ${{ steps.source.outputs.repository }}` says nothing by itself.
+    What matters is what that step wrote into it, which is a `job.*` value or it
+    is the wrong thing -- so the trail is walked rather than trusted.
+    """
+    through = re.fullmatch(
+        r"\$\{\{\s*steps\.([A-Za-z0-9_-]+)\.outputs\.([A-Za-z0-9_-]+)\s*\}\}", said)
+    if not through:
+        return said
+    named, output = through.group(1), through.group(2)
+    for step in steps:
+        if not re.search(rf"^\s*id:\s*{re.escape(named)}\s*$", step, re.M):
+            continue
+        # `echo "repository=$SOURCE_REPOSITORY" >> "$GITHUB_OUTPUT"`, and then
+        # what `SOURCE_REPOSITORY` was itself set from in that step's `env`.
+        written = re.search(rf"{re.escape(output)}=\$([A-Za-z0-9_]+)", step)
+        if not written:
+            return ""
+        held = re.search(rf"^\s*{re.escape(written.group(1))}:\s*(\S.*?)\s*$", step, re.M)
+        return held.group(1) if held else ""
+    return ""
+
+
+_SAYS_REPOSITORY = re.search(r"^\s*repository:\s*(\S.*?)\s*$", FETCHING, re.M)
+_SAYS_REF = re.search(r"^\s*ref:\s*(\S.*?)\s*$", FETCHING, re.M)
+check("and it says which repository to fetch, and at what",
+      _SAYS_REPOSITORY is not None and _SAYS_REF is not None)
+FETCHES_REPOSITORY = (
+    _what_set_it(_SAYS_REPOSITORY.group(1), STEPS) if _SAYS_REPOSITORY else "")
+FETCHES_AT = _what_set_it(_SAYS_REF.group(1), STEPS) if _SAYS_REF else ""
+
+# **THE `job` CONTEXT AND NOT THE `github` ONE, WHICH IS THE FAULT ITSELF.** From
+# GitHub's own contexts reference: `job.workflow_repository` is "the owner/repo
+# of the repository containing the workflow file that defines the current job"
+# and `job.workflow_sha` is "the commit SHA of the workflow file that defines the
+# current job". `github.workflow_ref` and `github.workflow_sha` are the workflow
+# of the RUN, which on a called workflow is the CALLER's file in the CALLER's
+# repository -- so reaching for those would have changed nothing at all.
+check("IT FETCHES THE REPOSITORY THIS WORKFLOW ITSELF LIVES IN, NOT WHOEVER "
+      "CALLED IT (A41)",
+      FETCHES_REPOSITORY == "${{ job.workflow_repository }}")
+# **AND THE COMMIT, NOT THE REF -- D122.** `job.workflow_ref` ends
+# `@refs/tags/v0.1.1` and a tag can be moved; `job.workflow_sha` is the commit
+# that tag resolved to on the night the seller ran, and nothing moves it after.
+check("AND AT THE COMMIT THE SELLER'S TAG RESOLVED TO, NEVER A TAG OR A BRANCH (D122)",
+      FETCHES_AT == "${{ job.workflow_sha }}")
+# **AND NOT OFF THE `github` CONTEXT ANYWHERE, INCLUDING THE NAME THAT DOES NOT
+# EXIST.** `github.job_workflow_ref` reads like the right answer and is a claim
+# inside an OIDC token, not a context property: written as an expression it
+# evaluates to the empty string, and an empty `repository:` falls straight back
+# to the caller's -- the same fault wearing a fix.
+check("and nothing here reaches for the run's own workflow, which on a called "
+      "workflow is the caller's",
+      not re.search(r"github\.(job_)?workflow_(ref|sha)", NOT_A_COMMENT))
+
+# **AND THE PAIR, ASKED AS ONE QUESTION.** This is the check that would have gone
+# red on 2026-09-09, before a seller was ever onboarded.
+WORKED_IN = tuple(re.findall(r"^\s*working-directory:\s*(\S+)\s*$", NOT_A_COMMENT, re.M))
+check("some step names a folder to work in, or the two checks below are about "
+      "nothing", len(WORKED_IN) > 0)
+check("every folder a step works in is a real folder of THIS repository",
+      all((Path(__file__).resolve().parent.parent / folder).is_dir()
+          for folder in WORKED_IN))
+check("A WORKFLOW THAT CAN BE CALLED AND THAT WORKS IN A FOLDER MUST FETCH ITS "
+      "OWN REPOSITORY -- a caller's checkout holds one file and none of these "
+      "folders (A41)",
+      not (CALLABLE and WORKED_IN)
+      or (FETCHES_REPOSITORY == "${{ job.workflow_repository }}"
+          and FETCHES_AT == "${{ job.workflow_sha }}"))
+
+# **AND ONE OF THEM RUNS WHETHER OR NOT ANYTHING IS CONNECTED.** Every fetching
+# step is behind `if: steps.setup.outputs.ready == 'true'`, so on a repository
+# with no platform connected they are all skipped -- and a checkout that brought
+# back the wrong repository would go green on the exact run that is meant to
+# prove it did not. The proof has to be a step nothing can skip.
+_WORKING_STEPS = tuple(s for s in STEPS if re.search(r"^\s*working-directory:", s, re.M))
+check("AND AT LEAST ONE STEP WORKS IN A FOLDER ON EVERY RUN, CONNECTED OR NOT -- "
+      "otherwise the run that proves the checkout is the one run that skips it",
+      any(not re.search(r"^\s*if:", s, re.M) for s in _WORKING_STEPS))
+
+
 # ------------- the one tick a day, and the hours it can never reach (A33)
 
 # **THE SELLER'S CHOSEN HOUR HAS NEVER REACHED THE SCHEDULE SINCE D120, AND
@@ -1580,7 +1724,7 @@ check("and the workflow no longer claims the clock fetches at the chosen hour "
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 210
+EXPECTED = 220
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

@@ -193,7 +193,97 @@ jobs:
     timeout-minutes: 60
 
     steps:
+      # **WHOSE CODE IS THIS JOB ABOUT TO RUN? -- AND UNTIL A41 THE ANSWER WAS
+      # "THE SELLER'S", WHICH IS A REPOSITORY HOLDING ONE FILE.**
+      #
+      # **THE FAULT.** `actions/checkout` with nothing said checks out the
+      # repository the RUN is in. For a called workflow that is the CALLER's
+      # repository -- GitHub's own documented behaviour -- and the caller here is
+      # the seller's `kartaan-pipeline`, whose entire contents is one caller file.
+      # There is no `autosync` folder in it and there never will be. So `python
+      # start.py` under `working-directory: autosync` could not run on a single
+      # seller's account, on any night, from the moment D121 made this callable.
+      # **Every check in this repository was green while that was true**, which is
+      # the whole reason the two below exist and run on the machine itself.
+      #
+      # **THE `job` CONTEXT, NOT THE `github` ONE, AND THAT DIFFERENCE IS THE
+      # FAULT ITSELF.** From GitHub's own documentation:
+      #   * `github.workflow_ref` / `github.workflow_sha` -- the workflow of the
+      #     RUN, which for a called workflow is the CALLER's file in the CALLER's
+      #     repository. Using these would have changed nothing.
+      #   * `job.workflow_repository` / `job.workflow_sha` -- "the repository
+      #     containing the workflow file that defines the current job" and "the
+      #     commit SHA of the workflow file that defines the current job". For a
+      #     called workflow that is THIS file, in THIS repository, at the commit
+      #     the seller's tag resolved to. GitHub's contexts reference carries this
+      #     exact checkout as its worked example.
+      #   * **`github.job_workflow_ref` IS NOT A THING**, and it is the plausible
+      #     wrong answer. That name is a claim inside an OIDC token, not a
+      #     property of the `github` context; written as an expression it
+      #     evaluates to the empty string, and an empty `repository:` falls
+      #     straight back to the caller -- the same fault, fixed-looking.
+      #
+      # **IT PINS THE COMMIT, NOT THE TAG, AND THAT IS D122.** `job.workflow_sha`
+      # is the exact commit `v0.1.1` points at on the night the seller runs. A
+      # seller can never be handed whatever was pushed that afternoon.
+      #
+      # **AND IT IS READ OUT LOUD HERE RATHER THAN DROPPED STRAIGHT INTO `with:`.**
+      # An empty value is not an error to `actions/checkout`; it is a silent
+      # fallback to the caller's repository, which is the exact failure being
+      # fixed. Golden Rule 29: it says so and stops.
+      - name: Which repository holds the code this job runs?
+        id: source
+        env:
+          SOURCE_REPOSITORY: ${{ job.workflow_repository }}
+          SOURCE_SHA: ${{ job.workflow_sha }}
+        run: |
+          if [ -z "$SOURCE_REPOSITORY" ] || [ -z "$SOURCE_SHA" ]; then
+            echo "::error::GitHub did not say which repository this workflow came from, so fetching its code would silently fetch the caller's instead. Nothing was run."
+            exit 1
+          fi
+          echo "repository=$SOURCE_REPOSITORY" >> "$GITHUB_OUTPUT"
+          echo "sha=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
+          echo "The code for tonight comes from $SOURCE_REPOSITORY at $SOURCE_SHA"
+
+      # **THIS REPOSITORY, AT THAT COMMIT -- NOT WHOEVER CALLED.**
+      #
+      # **NO TOKEN IS NAMED AND NONE IS NEEDED.** From `actions/checkout`'s own
+      # documentation the built-in token is scoped to the repository the run is
+      # in, so a DIFFERENT repository needs a token of its own **only when that
+      # repository is private**. `kartaan-com/Kartaan-AutoSync` is public, which
+      # is what D121 made it and is the same reason a seller can call it at all.
+      #
+      # **ON KARTAAN'S OWN SCHEDULE AND BUTTON THIS IS THE SAME CHECKOUT AS
+      # BEFORE.** GitHub's documentation: for a job defined directly in the
+      # workflow being run, these are the same values as `github.workflow_*` --
+      # this repository, at this commit.
       - uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.source.outputs.repository }}
+          ref: ${{ steps.source.outputs.sha }}
+
+      # **DID THE FETCHING CODE ACTUALLY ARRIVE? -- ASKED ON THE MACHINE, EVERY
+      # RUN, INCLUDING THE RUNS THAT FETCH NOTHING.**
+      #
+      # **THIS IS THE STEP THAT WOULD HAVE CAUGHT THE FAULT ABOVE ON THE FIRST
+      # SELLER'S FIRST NIGHT**, and it is deliberately the ONLY step that names
+      # `working-directory: autosync` without also needing secrets. A repository
+      # with no platform connected skips everything below; if this were skipped
+      # too, then a checkout that brought back the wrong repository would go
+      # green on the very run that is supposed to prove it. So it is unconditional.
+      #
+      # **THE `working-directory` IS THE TEST, NOT THE `test -f`.** GitHub itself
+      # fails a step whose working directory does not exist -- which is precisely
+      # how a seller's job dies today. Getting past this line is the proof that
+      # the checkout above brought back the repository that holds the code.
+      - name: Did the fetching code arrive?
+        working-directory: autosync
+        run: |
+          if [ ! -f start.py ]; then
+            echo "::error::The autosync folder is here but start.py is not, so there is nothing to run tonight."
+            exit 1
+          fi
+          echo "The fetching code is here: $(pwd)"
 
       - uses: actions/setup-python@v5
         with:
