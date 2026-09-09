@@ -622,17 +622,17 @@ function everyDateBox(page) {
   const page = aPage();
   const door = doorOn();
   check('with no date boxes at all it refuses and says so',
-    (await saidAfterWaiting(() => door.pick_range('2026-08-25', '2026-08-26'))).includes('0 were found'));
+    (await saidAfterWaiting(() => door.pick_range('2026-08-25', '2026-08-26'))).includes('0 date boxes were found'));
   check('and says plainly that nothing was set, so nobody reads it as half done',
     (await saidAfterWaiting(() => door.pick_range('2026-08-25', '2026-08-26'))).includes('no dates were set'));
 
   page.body.append(thing('input', '', { type: 'date' }));
   check('with only one it refuses rather than guessing what the other would be',
-    (await saidAfterWaiting(() => door.pick_range('2026-08-25', '2026-08-26'))).includes('1 were found'));
+    (await saidAfterWaiting(() => door.pick_range('2026-08-25', '2026-08-26'))).includes('1 date boxes were found'));
 
   page.body.append(thing('input', '', { type: 'date' }), thing('input', '', { type: 'date' }));
   check('with three it refuses rather than picking two of them',
-    (await saidAfterWaiting(() => door.pick_range('2026-08-25', '2026-08-26'))).includes('3 were found'));
+    (await saidAfterWaiting(() => door.pick_range('2026-08-25', '2026-08-26'))).includes('3 date boxes were found'));
 }
 
 {
@@ -700,8 +700,275 @@ function everyDateBox(page) {
   const empty = aPage();
   const startedAt = Date.now();
   check('with no patience given it refuses at once rather than hanging',
-    (await saidAfterWaiting(() => door.pick_range('2026-08-25', '2026-08-26'))).includes('0 were found'));
+    (await saidAfterWaiting(() => door.pick_range('2026-08-25', '2026-08-26'))).includes('0 date boxes were found'));
   check('having not waited', Date.now() - startedAt < 200 && empty.body.children.length === 0);
+}
+
+/* ---------------------------------------- a date range on a CALENDAR
+ *
+ * **THIS IS THE HOLE THE PRODUCT FELL DOWN, AND IT IS WORTH SAYING PLAINLY.**
+ * The step that sets a date range was written to find two date boxes and type
+ * into them. **Meesho has no date boxes. It has a calendar.** On his own panel
+ * on 2026-09-09 it reported "0 were found, so no dates were set" -- nought,
+ * because there never were any, on any night. **Flipkart's Reports Centre is a
+ * calendar too**, so the one strategy the step had worked on neither portal.
+ *
+ * Everything below is read off the working reference, which has driven both
+ * calendars every night for months: `content/meesho.js fillMeeshoDates` and
+ * `content/flipkart.js` StepD/StepE. Every label format and every count in here
+ * was paid for against the real portals and is not re-derived.
+ */
+
+const MONTHS_IN_FULL = ['January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'];
+const MONTHS_ABBREVIATED = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const WEEKDAYS_ABBREVIATED = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/** How Meesho's orders and returns modals label a day: "Fri May 01 2026". */
+function meeshoOrdersLabel(y, m, d) {
+  return `${WEEKDAYS_ABBREVIATED[new Date(y, m - 1, d).getDay()]} `
+    + `${MONTHS_ABBREVIATED[m - 1]} ${String(d).padStart(2, '0')} ${y}`;
+}
+
+/** How Meesho's payments page labels the same day: "Jun 2, 2026". */
+function meeshoPaymentsLabel(y, m, d) {
+  return `${MONTHS_ABBREVIATED[m - 1]} ${d}, ${y}`;
+}
+
+/**
+ * One month's panel, drawn the way both portals draw one: a heading reading
+ * "August 2026" and a grid of day cells under it.
+ *
+ * `label` decides which of the two shapes it is. Given one, the cells carry an
+ * aria-label naming the whole day -- that is Meesho. Given none, they carry the
+ * day number and nothing else, and the only thing saying which month they are
+ * in is the heading above them -- that is Flipkart's react-dates calendar,
+ * where the reference finds the day by walking DOWN from the heading.
+ */
+function aMonthPanel(y, m, { label = null, days = 30 } = {}) {
+  const panel = thing('div');
+  panel.append(thing('div', `${MONTHS_IN_FULL[m - 1]} ${y}`));
+  const grid = thing('div');
+  for (let d = 1; d <= days; d += 1) {
+    const cell = thing('td', String(d));
+    if (label) cell.setAttribute('aria-label', label(y, m, d));
+    grid.append(cell);
+  }
+  panel.append(grid);
+  return panel;
+}
+
+/** Which days on this panel got pressed, in order, written as whole days. */
+function watchTheDays(panel, y, m) {
+  const pressed = [];
+  const walk = (node) => {
+    if (node.tagName === 'td') {
+      const d = Number(node.textContent);
+      node.addEventListener('click', () => pressed.push(
+        `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+      ));
+    }
+    for (const child of node.children) walk(child);
+  };
+  walk(panel);
+  return pressed;
+}
+
+/** One thing under here carrying that aria-label. */
+function labelled(node, label) {
+  if (node.getAttribute('aria-label') === label) return node;
+  for (const child of node.children) {
+    const found = labelled(child, label);
+    if (found) return found;
+  }
+  return null;
+}
+
+{
+  /* **MEESHO'S ORDERS MODAL, AND THIS IS THE CHECK THAT WAS RED.** No date box
+   * anywhere on the page; a calendar, whose cells name the day they are. */
+  const page = aPage();
+  const door = doorOn();
+  const panel = aMonthPanel(2026, 8, { label: meeshoOrdersLabel, days: 31 });
+  const pressed = watchTheDays(panel, 2026, 8);
+  page.body.append(panel);
+
+  check('a calendar with no date boxes on the page still gets the range set',
+    (await saidAfterWaiting(() => door.pick_range('2026-08-25', '2026-08-26'))) === '');
+  check('and the two days pressed are the two asked for, in that order',
+    JSON.stringify(pressed) === JSON.stringify(['2026-08-25', '2026-08-26']));
+}
+
+{
+  /* **THE SAME PORTAL WRITES THE SAME DAY TWO DIFFERENT WAYS**, and the
+   * reference knows both because it was caught by the second: orders and
+   * returns say "Fri May 01 2026", payments says "Jun 2, 2026". */
+  const page = aPage();
+  const door = doorOn();
+  const panel = aMonthPanel(2026, 8, { label: meeshoPaymentsLabel, days: 31 });
+  const pressed = watchTheDays(panel, 2026, 8);
+  page.body.append(panel);
+
+  check("the payments page's own way of writing a day is understood too",
+    (await saidAfterWaiting(() => door.pick_range('2026-08-25', '2026-08-26'))) === '');
+  check('and it pressed the right two days',
+    JSON.stringify(pressed) === JSON.stringify(['2026-08-25', '2026-08-26']));
+}
+
+{
+  /* **FLIPKART'S REPORTS CENTRE, WHICH LABELS NOTHING.** Its cells carry the
+   * day number and nothing else, so the only thing saying which month a "25"
+   * belongs to is the heading above it -- and it draws TWO months side by side.
+   * The reference picked the wrong month here once (10 May for 10 Jun) and
+   * fixed it by walking down from the heading rather than up from the cell. */
+  const page = aPage();
+  const door = doorOn();
+  const august = aMonthPanel(2026, 8, { days: 31 });
+  const september = aMonthPanel(2026, 9, { days: 30 });
+  const pressedInAugust = watchTheDays(august, 2026, 8);
+  const pressedInSeptember = watchTheDays(september, 2026, 9);
+  const both = thing('div');
+  both.append(august, september);
+  page.body.append(both);
+
+  check('a calendar that labels nothing is driven by the heading above the days',
+    (await saidAfterWaiting(() => door.pick_range('2026-08-25', '2026-08-26'))) === '');
+  check('and with two months side by side it pressed the days in the right one',
+    JSON.stringify(pressedInAugust) === JSON.stringify(['2026-08-25', '2026-08-26']));
+  check('and pressed nothing at all in the other month', pressedInSeptember.length === 0);
+}
+
+{
+  /* **A CALENDAR OPENS ON WHATEVER MONTH IT LIKES**, and the day wanted is
+   * often not on it. The reference steps through up to fourteen months, and it
+   * goes BACKWARDS as readily as forwards -- a night catching up an old day
+   * needs the arrow the other way. */
+  const page = aPage();
+  const door = doorOn();
+  let showing = 10;
+  const holder = thing('div');
+  const draw = () => {
+    holder.textContent = '';
+    holder.append(aMonthPanel(2026, showing, { label: meeshoOrdersLabel, days: 31 }));
+  };
+  const back = thing('button', '', { attrs: { 'aria-label': 'Previous Month' } });
+  back.addEventListener('click', () => { showing -= 1; draw(); });
+  const on = thing('button', '', { attrs: { 'aria-label': 'Next Month' } });
+  on.addEventListener('click', () => { showing += 1; draw(); });
+  draw();
+  page.body.append(back, on, holder);
+
+  check('a calendar showing the wrong month is stepped backwards to the right one',
+    (await saidAfterWaiting(() => door.pick_range('2026-08-25', '2026-08-26'))) === '');
+  check('and it stopped on the month it wanted rather than stepping past it', showing === 8);
+}
+
+{
+  const page = aPage();
+  const door = doorOn();
+  let showing = 6;
+  const holder = thing('div');
+  const draw = () => {
+    holder.textContent = '';
+    holder.append(aMonthPanel(2026, showing, { label: meeshoOrdersLabel, days: 31 }));
+  };
+  const on = thing('button', '>');
+  on.addEventListener('click', () => { showing += 1; draw(); });
+  draw();
+  page.body.append(on, holder);
+
+  check('and forwards when the day wanted is later, with an arrow that has no name at all',
+    (await saidAfterWaiting(() => door.pick_range('2026-08-25', '2026-08-26'))) === '');
+  check('landing on the right month', showing === 8);
+}
+
+{
+  /* **AN ARROW DRAWN AS A CHARACTER RATHER THAN A WORD**, which is the commoner
+   * shape. The driver spells these five characters as numbers because every
+   * file here is plain ASCII and the commit gate reads a diff through Windows'
+   * own encoding, which cannot read an arrow -- so this presses a real one and
+   * proves the spelling is still the character it means. */
+  const page = aPage();
+  const door = doorOn();
+  let showing = 7;
+  const holder = thing('div');
+  const draw = () => {
+    holder.textContent = '';
+    holder.append(aMonthPanel(2026, showing, { label: meeshoOrdersLabel, days: 31 }));
+  };
+  const on = thing('button', '\u203a');
+  on.addEventListener('click', () => { showing += 1; draw(); });
+  draw();
+  page.body.append(on, holder);
+
+  check('an arrow written as a character rather than a word still steps the month',
+    (await saidAfterWaiting(() => door.pick_range('2026-08-25', '2026-08-26'))) === '');
+  check('and it landed on the month it wanted', showing === 8);
+}
+
+{
+  /* **A DAY THAT IS NOT THERE IS SAID, AND WHAT WAS LOOKED FOR IS SAID WITH
+   * IT.** "Not found" on its own is the failure this whole product exists to
+   * stop: a month of diagnosis went at a button that had not moved. */
+  const page = aPage();
+  const door = doorOn();
+  page.body.append(aMonthPanel(2026, 8, { label: meeshoOrdersLabel, days: 20 }));
+  const refused = await saidAfterWaiting(() => door.pick_range('2026-08-25', '2026-08-26'));
+  check('a day the calendar does not carry is refused', refused !== '');
+  check('and the refusal says both ways that day would have been written',
+    refused.includes(meeshoOrdersLabel(2026, 8, 25))
+    && refused.includes(meeshoPaymentsLabel(2026, 8, 25)));
+  check('and says plainly that nothing was set', refused.includes('No dates were set'));
+}
+
+{
+  /* **TWO THINGS CLAIMING TO BE THE SAME DAY IS A REFUSAL, NOT A COIN TOSS**,
+   * and it is the same rule `find` answers a count for. A file of the wrong
+   * days is worse than no file, because nothing about it looks wrong after. */
+  const page = aPage();
+  const door = doorOn();
+  const one = thing('td', '25', { attrs: { 'aria-label': meeshoOrdersLabel(2026, 8, 25) } });
+  const two = thing('td', '25', { attrs: { 'aria-label': meeshoOrdersLabel(2026, 8, 25) } });
+  page.body.append(aMonthPanel(2026, 8, { days: 31 }), one, two);
+  check('two things claiming to be the same day refuses rather than picking one',
+    (await saidAfterWaiting(() => door.pick_range('2026-08-25', '2026-08-26'))).includes('2 things'));
+}
+
+{
+  /* **A DAY THE PORTAL HAS SWITCHED OFF IS SAID, NOT SILENTLY CLICKED AT.**
+   * Read off his own Flipkart on 2026-07-13: a day whose report period has not
+   * opened yet keeps its ordinary look and is given `pointer-events: none`, so
+   * a click does nothing at all and the step after fails somewhere unrelated. */
+  const page = aPage();
+  const door = doorOn();
+  const panel = aMonthPanel(2026, 8, { label: meeshoOrdersLabel, days: 31 });
+  page.body.append(panel);
+  labelled(panel, meeshoOrdersLabel(2026, 8, 26)).style.pointerEvents = 'none';
+  const refused = await saidAfterWaiting(() => door.pick_range('2026-08-25', '2026-08-26'));
+  check('a day the portal has switched off is refused rather than clicked at',
+    refused.includes('switched off'));
+  check('and the refusal names the day', refused.includes('2026-08-26'));
+  check('and it is not reported as the day being missing',
+    !refused.includes('is not on the calendar'));
+}
+
+{
+  /* **BOXES STILL WIN WHERE A PORTAL REALLY HAS THEM.** Neither of his does
+   * today -- both are calendars -- but the reference tries native date boxes
+   * first on both platforms, and where exactly two exist there is nothing to
+   * guess about which is which. */
+  const page = aPage();
+  const door = doorOn();
+  const from = thing('input', '', { type: 'date' });
+  const to = thing('input', '', { type: 'date' });
+  const panel = aMonthPanel(2026, 8, { label: meeshoOrdersLabel, days: 31 });
+  const pressed = watchTheDays(panel, 2026, 8);
+  page.body.append(from, to, panel);
+  await door.pick_range('2026-08-25', '2026-08-26');
+  check('with two date boxes AND a calendar, the boxes are used',
+    from.value === '2026-08-25' && to.value === '2026-08-26');
+  check('and nothing on the calendar was pressed', pressed.length === 0);
 }
 
 /* ------------------------------------------------ something over the page */
@@ -863,6 +1130,7 @@ function everyDateBox(page) {
     door.needs_signing_in() === false);
 }
 
+
 {
   const page = aPage();
   const door = doorOn();
@@ -943,7 +1211,7 @@ function everyDateBox(page) {
   check('and neither is nothing at all', theCatcherSaid(null, 'the-secret') === null);
 }
 
-const EXPECTED = 131;
+const EXPECTED = 153;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

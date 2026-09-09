@@ -277,6 +277,233 @@ function aPasswordIsBeingAskedFor(page) {
   );
 }
 
+/* ------------------------------------------------------- reading a calendar
+ *
+ * **THE PART OF THIS FILE THAT WAS MISSING, AND ITS ABSENCE WAS A WHOLE
+ * PLATFORM.** `pick_range` was written as "find two date boxes and type into
+ * them". **Neither portal has date boxes.** Meesho draws a calendar and so does
+ * Flipkart's Reports Centre, so the only strategy the step had was one that had
+ * never worked anywhere. On his own panel on 2026-09-09: "0 were found, so no
+ * dates were set" -- nought, because there never were any.
+ *
+ * **EVERY FORMAT AND EVERY COUNT BELOW IS THE WORKING REFERENCE'S**
+ * (`content/meesho.js fillMeeshoDates`, `content/flipkart.js` StepD/StepE),
+ * which has driven both calendars every night for months. None of it is
+ * re-derived, because all of it was paid for against the real portals.
+ *
+ * **AND STILL NO PLATFORM IS NAMED HERE.** What is written down is how a
+ * calendar is built in ordinary HTML terms -- a heading saying which month is
+ * on show, cells saying which day they are, arrows to another month. Which
+ * portal has one stays where every other portal fact in this product lives:
+ * `autosync/recipes.py`.
+ */
+
+const WEEKDAYS = Object.freeze(['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']);
+const MONTHS_SHORT = Object.freeze(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']);
+const MONTHS_LONG = Object.freeze(['January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December']);
+
+/* HOW MANY MONTHS TO STEP THROUGH BEFORE GIVING UP. Fourteen is the
+ * reference's own number and covers more than a year, which is more than any
+ * catching-up night has ever needed. */
+const MONTHS_TO_STEP_THROUGH = 14;
+
+/* HOW LONG A CALENDAR TAKES TO REDRAW ITSELF. All three are the reference's
+ * numbers, measured against the real portals rather than chosen. */
+const AFTER_A_MONTH_STEP_MS = 600;
+const AFTER_A_DAY_MS = 300;
+const BETWEEN_THE_TWO_DAYS_MS = 500;
+
+/* HOW FAR UP FROM A MONTH'S HEADING ITS OWN PANEL OF DAYS CAN BE. Capped
+ * because the walk otherwise reaches a container holding BOTH months of a
+ * two-month calendar, and then "the 25th" means two different days. */
+const LEVELS_UP_TO_A_MONTH_PANEL = 8;
+
+/* A HEADING SAYING WHICH MONTH IS ON SHOW: "June 2026", "Jun 2026". */
+const A_MONTH_HEADING = /^([A-Za-z]{3,9})\s+(\d{4})$/;
+
+/* WHAT AN ARROW TO ANOTHER MONTH LOOKS LIKE. Either it is named, or it is one
+ * of the characters a portal draws instead of a word. */
+const NAMED_ON = Object.freeze(['next']);
+const NAMED_BACK = Object.freeze(['prev', 'back']);
+/* **WRITTEN AS NUMBERS, NOT AS THE CHARACTERS THEMSELVES.** Every other file
+ * in this extension is plain ASCII from end to end, and the commit gate reads
+ * a diff through Windows' own default encoding -- which cannot read an arrow
+ * and stops the commit with a decoding error rather than a sentence. These are
+ * exactly the five characters the reference looks for, said in a way the whole
+ * toolchain can read. */
+const ARROWS_ON = Object.freeze(['>', '\u203a', '\u2192', '\u00bb', '\u25b6']);
+const ARROWS_BACK = Object.freeze(['<', '\u2039', '\u2190', '\u00ab', '\u25c0']);
+
+/** A box the page itself declares to be a date. */
+function isADateBox(node) {
+  return String(node.tagName || '').toLowerCase() === 'input'
+    && String(node.type || '').toLowerCase() === 'date'
+    && isPainted(node);
+}
+
+/** The smallest matches only -- the same rule `whatMatches` runs on, and for
+ *  the same reason: a cell inside a cell is one thing, not two. */
+function innermostOf(nodes) {
+  return nodes.filter((node) => !nodes.some((other) => other !== node && node.contains(other)));
+}
+
+/** A day written `2026-08-25`, taken apart. Nothing else is a day. */
+function aDay(iso) {
+  const said = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso));
+  if (!said) return null;
+  const y = Number(said[1]);
+  const m = Number(said[2]);
+  const d = Number(said[3]);
+  if (m < 1 || m > 12 || d < 1 || d > 31) return null;
+  return { y, m, d };
+}
+
+/** One number per month, so two months can be compared and one can be told to
+ *  be earlier than the other across a year end. */
+function monthKey(y, m) {
+  return y * 12 + (m - 1);
+}
+
+/** Which month a heading names, or -1. Read from the first three letters, so
+ *  "Sep", "Sept" and "September" are all the same month -- which is the
+ *  reference's own rule, and portals really do write all three. */
+function whichMonth(said) {
+  const start = words(said).slice(0, 3).toLowerCase();
+  return MONTHS_SHORT.findIndex((one) => one.toLowerCase() === start);
+}
+
+/**
+ * Every way a portal writes one day on the face of a calendar cell.
+ *
+ * **FOUR OF THEM, AND EACH ONE WAS PAID FOR.** The same seller's own Meesho
+ * writes the same day two different ways -- "Fri May 01 2026" on orders and
+ * returns, "Jun 2, 2026" on payments -- and that was found by payments quietly
+ * not working. Flipkart writes "June 2, 2026" and "2 June 2026".
+ *
+ * **TRYING ALL FOUR IS NOT GUESSING.** Every one of them names the SAME day, so
+ * whichever matches is the right cell. That is what makes this different from
+ * guessing which of three boxes is the start date.
+ */
+function theWaysADayIsWritten(iso) {
+  const day = aDay(iso);
+  if (!day) return [];
+  const { y, m, d } = day;
+  const weekday = WEEKDAYS[new Date(y, m - 1, d).getDay()];
+  return [
+    `${weekday} ${MONTHS_SHORT[m - 1]} ${String(d).padStart(2, '0')} ${y}`,
+    `${MONTHS_SHORT[m - 1]} ${d}, ${y}`,
+    `${MONTHS_LONG[m - 1]} ${d}, ${y}`,
+    `${d} ${MONTHS_LONG[m - 1]} ${y}`,
+  ];
+}
+
+/** The two ways a month's heading is written, for a refusal to say what it
+ *  looked for. */
+function theWaysAMonthIsHeaded({ y, m }) {
+  return [`${MONTHS_LONG[m - 1]} ${y}`, `${MONTHS_SHORT[m - 1]} ${y}`];
+}
+
+/** Every cell that says outright which day it is. */
+function everyCellNaming(iso) {
+  const ways = theWaysADayIsWritten(iso).map((one) => one.toLowerCase());
+  return everything(thePage()).filter((node) => {
+    if (!isPainted(node)) return false;
+    const named = words(node.getAttribute('aria-label') ?? '').toLowerCase();
+    if (named && ways.includes(named)) return true;
+    return words(node.getAttribute('data-date') ?? '') === String(iso);
+  });
+}
+
+/**
+ * Every month heading on show, and which month each one is.
+ *
+ * **THIS IS ALSO WHAT SAYS A CALENDAR IS THERE AT ALL.** A page with no date
+ * boxes and no month heading has no date picker drawn on it yet, which is a
+ * page still being waited for rather than a page that has changed.
+ */
+function everyMonthOnShow() {
+  const found = [];
+  for (const node of everything(thePage())) {
+    if (!isPainted(node)) continue;
+    /* A HEADING IS A SMALL THING. Without this every wrapper up to the body
+     * whose words happen to read as a month would count as one. The
+     * reference caps it at three children and so does this. */
+    if ((node.children || []).length > 3) continue;
+    const said = A_MONTH_HEADING.exec(words(node.textContent));
+    if (!said) continue;
+    const which = whichMonth(said[1]);
+    if (which === -1) continue;
+    found.push({ node, key: monthKey(Number(said[2]), which + 1) });
+  }
+  const smallest = innermostOf(found.map((one) => one.node));
+  return found.filter((one) => smallest.includes(one.node));
+}
+
+/**
+ * Every cell carrying just the day number, under the heading of the month
+ * wanted.
+ *
+ * **WALKED DOWN FROM THE HEADING, NEVER UP FROM THE CELL, AND THAT IS A FIX THE
+ * REFERENCE PAID FOR.** A calendar draws two months side by side, and both
+ * panels sit inside containers whose words hold BOTH headings -- so matching a
+ * cell by what its ancestors say picked 10 May when 10 June was meant. Starting
+ * at the right heading and looking down inside it cannot do that, and a
+ * container that has taken in a second month is abandoned at once.
+ */
+function everyCellShowingTheDay({ y, m, d }) {
+  const wanted = monthKey(y, m);
+  const onShow = everyMonthOnShow();
+  const dayOnItsOwn = String(d);
+  for (const heading of onShow.filter((one) => one.key === wanted)) {
+    let up = heading.node.parentNode;
+    for (let level = 0; level < LEVELS_UP_TO_A_MONTH_PANEL && up; level += 1) {
+      if (onShow.some((one) => one.key !== wanted && up.contains(one.node))) break;
+      const inside = everything(up).filter(
+        (node) => node !== up && isPainted(node) && words(wordsOn(node)) === dayOnItsOwn
+      );
+      const smallest = innermostOf(inside);
+      if (smallest.length > 0) return smallest;
+      up = up.parentNode;
+    }
+  }
+  return [];
+}
+
+/** The arrow to the next month, or to the one before. */
+function theWayToAnotherMonth(forwards) {
+  const named = forwards ? NAMED_ON : NAMED_BACK;
+  const arrows = forwards ? ARROWS_ON : ARROWS_BACK;
+  return everything(thePage()).filter((node) => {
+    if (!isPainted(node) || !looksPressable(node)) return false;
+    const label = String(node.getAttribute('aria-label') ?? '').toLowerCase();
+    const called = String(node.className || '').toLowerCase();
+    if (named.some((word) => label.includes(word) || called.includes(word))) return true;
+    return arrows.includes(words(wordsOn(node)));
+  });
+}
+
+/**
+ * A day a click would do nothing at all to.
+ *
+ * **READ OFF HIS OWN FLIPKART ON 2026-07-13.** A day whose report period the
+ * portal has not opened yet keeps its ordinary look and every ordinary class,
+ * and is given `pointer-events: none`. A click on it is swallowed silently, and
+ * the step after it fails saying something unrelated -- which is exactly the
+ * shape of failure this whole file exists to stop.
+ *
+ * **ONLY THE HALF THAT CANNOT BE ARGUED WITH IS TAKEN ACROSS.** The reference
+ * also treats any cursor that is not a pointer as switched off. That is true of
+ * Flipkart and is a platform's own habit, not a browser's rule -- an ordinary
+ * cell with no styling has no pointer cursor either, and reading that as
+ * "switched off" would refuse days that are perfectly available.
+ */
+function cannotBePressedAtAll(node) {
+  if (isSwitchedOff(node)) return true;
+  return String(globalThis.getComputedStyle(node).pointerEvents || '').toLowerCase() === 'none';
+}
+
 /* --------------------------------------------------------------- the door */
 
 /**
@@ -399,41 +626,146 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
   /**
    * Put a date range into the page.
    *
-   * **EXACTLY TWO DATE BOXES, OR IT REFUSES AND SAYS HOW MANY IT FOUND.** Same
+   * **TWO SHAPES, AND THE PRODUCT ONLY EVER HAD ONE OF THEM.** This was written
+   * to find two date boxes and type into them. On his own Meesho panel on
+   * 2026-09-09 it said "0 were found, so no dates were set" -- **nought,
+   * because Meesho has no date boxes at all. It has a calendar**, and so does
+   * Flipkart's Reports Centre. The one strategy this had worked on neither
+   * portal. The knowledge below is carried across from the working reference,
+   * `content/meesho.js fillMeeshoDates` and `content/flipkart.js` StepD/StepE,
+   * which have driven both calendars every night for months.
+   *
+   * **AND IT IS STILL NO PLATFORM KNOWLEDGE.** Not one Meesho or Flipkart word
+   * is in here. What is here is how a CALENDAR is built in ordinary HTML terms:
+   * a heading saying which month is on show, cells saying which day they are,
+   * and arrows to another month. Every recipe in `autosync/recipes.py` is
+   * untouched by this.
+   *
+   * **EXACTLY TWO DATE BOXES, OR A CALENDAR, AND NOTHING IN BETWEEN.** Same
    * rule as everything else here: guessing which of three boxes is the start
    * date exports the wrong days, and a file of the wrong days is worse than no
    * file, because nothing about it looks wrong afterwards.
-   *
-   * **KNOWN LIMIT, WRITTEN DOWN RATHER THAN LEFT TO BE DISCOVERED:** it finds
-   * boxes the page declares as dates. A portal that draws a calendar out of
-   * plain text boxes is not driven by this, and it fails loudly saying it found
-   * none -- it never half-works.
    */
   async function pickRange(start, end, patienceSeconds = 0) {
     const giveUpAt = Date.now() + Math.max(0, Number(patienceSeconds) || 0) * 1000;
     for (;;) {
       /* **WAITED FOR, because a date picker is drawn by the click before it.**
-       * Asked the instant that click returns, the boxes are not there yet and
-       * the step refuses saying it found none -- which reads as the portal
-       * having changed and is nothing of the kind. */
-      const boxes = everything(thePage()).filter(
-        (node) =>
-          String(node.tagName || '').toLowerCase() === 'input' &&
-          String(node.type || '').toLowerCase() === 'date' &&
-          isPainted(node)
-      );
+       * Asked the instant that click returns, neither the boxes nor the
+       * calendar is there yet and the step refuses saying it found none --
+       * which reads as the portal having changed and is nothing of the kind. */
+      const boxes = everything(thePage()).filter(isADateBox);
       if (boxes.length === 2) {
         putIn(boxes[0], start);
         putIn(boxes[1], end);
         return;
       }
+      /* **A CALENDAR IS ONLY TRIED WHEN THERE ARE NO BOXES AT ALL.** One box
+       * and a calendar, or three, is a page nobody has read yet -- and picking
+       * a strategy in that state is the guess this whole file exists to
+       * refuse. */
+      if (boxes.length === 0 && everyMonthOnShow().length > 0) {
+        await clickTheDay(start);
+        /* HALF A SECOND BETWEEN THE TWO, WHICH IS THE REFERENCE'S OWN NUMBER.
+         * A range picker redraws itself once the first day is taken. */
+        await rest(BETWEEN_THE_TWO_DAYS_MS);
+        await clickTheDay(end);
+        return;
+      }
       if (Date.now() >= giveUpAt) {
         throw new Error(
-          `A date range needs two date boxes on the page and ${boxes.length} were found, so no `
-          + 'dates were set.'
+          'A date range needs two date boxes on the page, or a calendar to press days on. '
+          + `${boxes.length} date boxes were found and no calendar was showing, so no dates `
+          + 'were set.'
         );
       }
       await rest(LOOK_AGAIN_MS);
+    }
+  }
+
+  /**
+   * Press one day on a calendar.
+   *
+   * Three things happen, in the order the reference does them: step the
+   * calendar to the month the day is in, find the one cell that is that day,
+   * and refuse rather than press anything ambiguous or switched off.
+   */
+  async function clickTheDay(iso) {
+    const day = aDay(iso);
+    if (!day) {
+      throw new Error(`"${iso}" is not a day, so it cannot be found on a calendar. No dates were set.`);
+    }
+    await bringTheMonthIntoView(day);
+
+    /* **THE CELL THAT NAMES ITSELF COMES FIRST**, because it can only be one
+     * day. The day NUMBER under a heading is a reading of the page; an
+     * aria-label saying "Fri May 01 2026" is the page saying it outright. */
+    const named = innermostOf(everyCellNaming(iso));
+    const cells = named.length > 0 ? named : everyCellShowingTheDay(day);
+
+    if (cells.length === 0) {
+      throw new Error(
+        `${iso} is not on the calendar. It was looked for as a cell naming itself `
+        + `${theWaysADayIsWritten(iso).map((w) => `"${w}"`).join(' or ')}, and as the day `
+        + `"${day.d}" under a heading reading `
+        + `${theWaysAMonthIsHeaded(day).map((w) => `"${w}"`).join(' or ')}. No dates were set.`
+      );
+    }
+    if (cells.length > 1) {
+      /* **AMBIGUITY IS A REFUSAL, NOT A COIN TOSS**, and it is the same rule
+       * `find` answers a count for. The wrong day fetches a real file of the
+       * wrong days, and nothing about it looks wrong afterwards. */
+      throw new Error(
+        `${cells.length} things on the calendar say they are ${iso}, so which one was meant `
+        + 'cannot be known. No dates were set.'
+      );
+    }
+    if (cannotBePressedAtAll(cells[0])) {
+      /* **SAID, NOT SWALLOWED, and this is read off his own Flipkart on
+       * 2026-07-13.** A day whose report period the portal has not opened yet
+       * keeps its ordinary look and is given `pointer-events: none` -- so a
+       * click on it does nothing whatever, and the step AFTER this one fails
+       * saying something unrelated. It is also not a fault: the day becomes
+       * available later, and the night is meant to come back for it. */
+      throw new Error(
+        `${iso} is on the calendar but the portal has it switched off, which is what it does `
+        + 'with a day whose report it has not built yet. No dates were set.'
+      );
+    }
+    cells[0].click();
+    await rest(AFTER_A_DAY_MS);
+  }
+
+  /**
+   * Step the calendar until the month wanted is on show.
+   *
+   * **FORWARDS OR BACKWARDS, up to fourteen steps -- the reference's own
+   * number, which covers more than a year.** A night catching up an old day
+   * needs the arrow the other way, and a calendar that only went forwards would
+   * walk away from the day it wanted.
+   */
+  async function bringTheMonthIntoView(day) {
+    const wanted = monthKey(day.y, day.m);
+    for (let step = 0; step < MONTHS_TO_STEP_THROUGH; step += 1) {
+      const onShow = everyMonthOnShow();
+      /* Nothing to steer by. Say nothing here and let the day lookup report
+       * what it could not find -- it says what it looked for, and this cannot. */
+      if (onShow.length === 0) return;
+      if (onShow.some((one) => one.key === wanted)) return;
+      /* **A CALENDAR CAN SHOW TWO MONTHS AT ONCE**, so the direction is decided
+       * against the whole of what is on show rather than the first heading
+       * found. Every month on show earlier than the one wanted means forwards. */
+      const forwards = Math.max(...onShow.map((one) => one.key)) < wanted;
+      const arrows = innermostOf(theWayToAnotherMonth(forwards));
+      if (arrows.length === 0) return;
+      /* **THE FIRST ONE, AND THIS IS THE ONE PLACE HERE THAT DOES NOT REFUSE ON
+       * SEVERAL.** Counting exists to stop an IRREVERSIBLE wrong action -- the
+       * wrong menu item fetched the wrong thing for nine days, the wrong day
+       * cell writes a file of the wrong days. A month arrow is neither: the
+       * month on show is read again at the top of this loop, so pressing the
+       * wrong one is a step that gets noticed and corrected, and pressing none
+       * at all is a certain failure. The reference takes the first too. */
+      arrows[0].click();
+      await rest(AFTER_A_MONTH_STEP_MS);
     }
   }
 
