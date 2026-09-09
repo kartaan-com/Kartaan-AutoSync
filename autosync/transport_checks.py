@@ -8,6 +8,12 @@ ask whether the right request was actually built. **A stand-in kinder than the
 real thing has been the second most expensive repeat fault in this project**, so
 this one hands back 429s, empty bodies and bad JSON, and never guesses.
 
+**THE ADDRESS SECTION ALSO READS `amazon.py`, and that is the one thing here
+that is not the transport.** The fault it exists for was in the address the
+package actually builds for the settlements lookup, so the real `find_query` is
+driven through the real `_address`. A list written out by hand here would have
+stayed green the day `find_query` stopped being what feeds it.
+
 **THE ONE THAT MATTERS MOST: A CREDENTIAL NEVER COMES BACK OUT.** Not in an
 answer, not in a refusal, not in the address of a request. Golden Rule 8, and it
 is asked here rather than trusted.
@@ -18,11 +24,12 @@ Run: python autosync/transport_checks.py
 import email.message
 import io
 import sys
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import amazon  # noqa: E402
 import transport as tool  # noqa: E402
 
 ran = 0
@@ -72,6 +79,78 @@ check("an address that already has a question gets an ampersand, not a second qu
 # Nothing is not a value. Sent, it becomes the four letters `None`.
 check("a question with no answer is left out entirely",
       answered(lambda: tool._address("https://x", {"a": "1", "b": None})) == "https://x?a=1")
+
+# --------------------------------------------------- a question with several answers
+#
+# **THIS IS THE ONE THAT WAS LIVE AGAINST HIS OWN ACCOUNT (2026-09-09).** A
+# question whose answer is a list was written out as the way Python PRINTS a
+# list, so `reportTypes=['GET_V2_SETTLEMENT...']` went on the wire, brackets and
+# quotes and all. **Amazon called it "Unauthorized" and "Access to requested
+# resource is denied"** -- which reads as a missing permission and was nothing of
+# the kind, and a seller would have been sent to Amazon's console to fix
+# something that was never wrong.
+#
+# **NOTHING IN THIS REPOSITORY HAD EVER LOOKED AT WHAT GOES ON THE WIRE.** The
+# stand-in below is handed the questions as a mapping and never builds an
+# address, so every check was green while this was live. These ask the built
+# address itself.
+#
+# **AND THEY ARE ABOUT ANY LIST, NOT ABOUT SETTLEMENTS.** A check about one
+# report guards one report; this fault belongs to the encoder and would be waiting
+# for the next question anybody answers with a list.
+several = answered(lambda: tool._address("https://x", {"a": ["1", "2"]}))
+check("a question with several answers is asked once per answer",
+      several == "https://x?a=1&a=2")
+# **ASKED OF A DIFFERENT ADDRESS FROM THE ONE ABOVE, ON PURPOSE.** Asked of
+# `several`, this could not fail without the line above it failing too -- the
+# fault it names would be watched by a check that cannot see it, which is the
+# shape this repository found twelve of in its own checks on 2026-09-02. Two
+# list-valued questions at once is the settlements shape, and it is its own
+# address.
+both_lists = answered(lambda: tool._address("https://x", {"a": ["1", "2"], "b": ["3"]}))
+check("and a printed list never reaches the address",
+      "%5B" not in (both_lists or "%5B") and "%27" not in (both_lists or "%27"))
+check("one answer in a list is still just that answer",
+      answered(lambda: tool._address("https://x", {"a": ["1"]})) == "https://x?a=1")
+check("and a pair of answers behaves the same as a list of them",
+      answered(lambda: tool._address("https://x", {"a": ("1", "2")})) == "https://x?a=1&a=2")
+# **THE OTHER HALF OF THE SAME SWITCH, ASKED RATHER THAN ASSUMED.** Asking for
+# each answer separately could have meant a word being taken apart into letters,
+# which would have broken every Drive search in the package.
+check("a word is one answer, not one answer per letter",
+      answered(lambda: tool._address("https://x", {"a": "abc"})) == "https://x?a=abc")
+check("and a number is still written as a number",
+      answered(lambda: tool._address("https://x", {"pageSize": 100})) == "https://x?pageSize=100")
+check("a Drive search with spaces, quotes and apostrophes is unchanged by it",
+      answered(lambda: tool._address("https://x", {"q": "name = 'it's a b'"}))
+      == "https://x?q=name+%3D+%27it%27s+a+b%27")
+# **A DATE, BECAUSE THE COMMENT ON `_address` PROMISES ONE.** Every settlements
+# lookup carries two, and a promise nothing asks about is the kind of sentence
+# that stays written after it stops being true.
+check("and a moment is still written the way Amazon is given it",
+      answered(lambda: tool._address("https://x", {"createdSince": "2026-08-31T18:30:00Z"}))
+      == "https://x?createdSince=2026-08-31T18%3A30%3A00Z")
+# **A LIST WITH NOTHING IN IT DISAPPEARS, and that is pinned rather than
+# discovered.** Asked once per value, no values means the question never reaches
+# the address at all -- silently, where before the fix it arrived as visible
+# rubbish. Nothing in this package builds an empty one; this is here so the day
+# something does, it is behaviour somebody wrote down.
+check("a question with no answers at all is left out entirely",
+      answered(lambda: tool._address("https://x", {"a": [], "b": "1"})) == "https://x?b=1")
+
+# **DRIVEN THROUGH THE REAL QUERY, not through one written here.** The fault was
+# in the address the package actually builds for the one report Kartaan LOOKS UP
+# rather than ASKS FOR -- settlements, which Amazon publishes on its own cycle.
+# A check on a hand-written list would have stayed green if `find_query` ever
+# stopped being the thing that feeds it.
+settlements = answered(lambda: tool._address(
+    "https://x/reports",
+    amazon.find_query("az_settlements", date(2026, 9, 1), date(2026, 9, 9)),
+))
+check("the real settlements lookup carries the bare report type",
+      "reportTypes=GET_V2_SETTLEMENT_REPORT_DATA_FLAT_FILE_V2" in (settlements or ""))
+check("and carries no printed list anywhere in it",
+      "%5B" not in (settlements or "%5B"))
 
 # --------------------------------------------------- reading what came back
 
@@ -401,7 +480,7 @@ for method, use in (("PUT", lambda: drive.put("https://up/1", data=b"x")),
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 76
+EXPECTED = 87
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

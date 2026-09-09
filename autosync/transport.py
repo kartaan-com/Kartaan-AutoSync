@@ -71,10 +71,33 @@ def _address(url: str, params: Optional[Dict]) -> str:
     spaces, quotes and apostrophes -- `name = 'az_orders' and ... in parents` --
     and a hand-built address turns the first space into a broken request that
     comes back as a refusal about the query rather than about the address.
+
+    **AND `doseq=True`, WHICH IS THE WHOLE OF A REAL FAULT AGAINST HIS OWN
+    ACCOUNT (2026-09-09).** Without it, a question whose answer is a list is
+    written out as the way Python PRINTS that list -- brackets, quotes and all --
+    so `reportTypes=['GET_V2_SETTLEMENT_REPORT_DATA_FLAT_FILE_V2']` went on the
+    wire instead of the bare report type. **ALL THREE OF THAT LOOKUP'S
+    LIST-VALUED QUESTIONS WENT THE SAME WAY** -- `reportTypes`, `marketplaceIds`
+    and `processingStatuses`. **Amazon answered HTTP 403, "Unauthorized", "Access
+    to requested resource is denied."** That reads as a missing permission and is
+    nothing of the kind: the same credentials listed settlements perfectly the
+    moment the address was built properly. With it, a list is written the way
+    every one of these services documents -- the same name repeated once per
+    value. **It changes nothing about a plain string, a number or a date**, which
+    is asked rather than assumed in `transport_checks.py`.
+
+    **AND A LIST WITH NOTHING IN IT IS NOW NO QUESTION AT ALL. Said here because
+    it is silent.** Asked once per value, no values means the name never reaches
+    the address -- where before it arrived as visible rubbish. Nothing in this
+    package builds an empty one, and it is pinned in the checks, so the day
+    something does, this is behaviour somebody wrote down rather than behaviour
+    that happened.
     """
     if not params:
         return url
-    joined = urllib.parse.urlencode({k: v for k, v in params.items() if v is not None})
+    joined = urllib.parse.urlencode(
+        {k: v for k, v in params.items() if v is not None}, doseq=True
+    )
     if not joined:
         return url
     return f"{url}{'&' if '?' in url else '?'}{joined}"
