@@ -1574,6 +1574,32 @@
     "run_for_real": false,
     "instead": "**131 JavaScript checks in `extension/screen.test.js` and 62 Python checks in `tools/the_look_checks.py`, both run on 2026-09-09 and read off the run's own last line.** The whole set went from 2,877 Python and 715 JavaScript checks to 2,946 and 846, nought failing before and nought after. **FOUR FAULTS WERE PUT BACK ON PURPOSE and each went red under a check named for it, and each file was restored byte for byte:** the guard that keeps a portal page out of the panel's messages (2 red), a colour retuned in the copied tokens and nowhere else (1 red), Stop saying it stopped a run that had finished by itself (1 red), and the Flipkart allowance counted per run instead of per day (2 red).\n\n**AND IT WAS LOOKED AT IN A REAL BROWSER**, served off a scratch page that was deleted afterwards: it draws in both themes, 23 report rows and all five reasons render, and at 375px nothing on it scrolls sideways (D67). **WHAT WAS NOT DONE: it has never been loaded into Chrome as an extension and no night has been started from it.** His own Chrome was in use by another session all day and running this against his live seller accounts was out of bounds. So `Run now` is checked against a stand-in Chrome and has never pressed a real portal."
    }
+  },
+  {
+   "id": "download-manifest",
+   "name": "Is the file really in Drive -- the download manifest",
+   "what": "Specification 25 of the working reference's own DOCS.md, section 25, which nobody on this project had ever read. One standing answer, per report, per day, to \"is the real file actually sitting in Drive?\" -- a JSON file in the seller's own Drive beside the run's memory, so nothing downstream has to list twenty-six folders itself and nothing has to trust the run log, because a job can log success and leave no usable file. It is also the evidence Golden Rule 35 needs: without it, three quiet nights cannot be told apart from three nights when nothing ran. The check is CONTENT-based -- does a file carrying that data date exist -- and never timing-based, which is the reference's own measured lesson: its first version asked whether anything had been uploaded in the last few minutes, and a recheck routinely wiped about twenty unrelated reports' Verified and wrote a false Missing over it (130 of 285 spot-checked rows). Kartaan has TWO writers where the reference had one -- the nightly job in GitHub Actions and the extension in the seller's own Chrome -- so there are THREE answers, not two: verified, missing, and no line at all, which means nobody has checked. A half that did not run writes nothing, and nothing is not missing.",
+   "rests_on": [
+    "report-list",
+    "what-is-owed",
+    "landing"
+   ],
+   "files": [
+    "autosync/manifest.py",
+    "autosync/manifest_checks.py"
+   ],
+   "also_touches": [
+    "autosync/nightly.py",
+    "autosync/start.py"
+   ],
+   "reviews": [],
+   "findings": [],
+   "state": {
+    "built": true,
+    "reviewed": false,
+    "run_for_real": false,
+    "instead": "57 checks of its own pass, and 19 more inside `autosync/nightly_checks.py` drive it through a whole tick and through a stand-in Drive. Proved by breaking it on purpose four times: merge made to drop what it was not given (6 checks red), merge made to mark what it was not given as missing -- the exact reference bug -- (8 red, including the headline one), the run made not to merge onto what is already there (1 red), and the save made to take the old file away first (2 red). The timing-based version it replaces is written out in the checks file and watched producing 25 false missing lines out of 26. IT HAS NEVER RUN AGAINST A REAL DRIVE, because no report on this product has ever produced a real file. AND ONLY THE API HALF WRITES TO IT: the extension's twenty-three reports have no writer yet, so their lines are absent by design rather than verified."
+   }
   }
  ]
 }

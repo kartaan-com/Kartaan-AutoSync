@@ -91,6 +91,7 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
 
     put_file = a_door(google, inside, say)
     read_state, save_state = nightly._state_in_drive(google, inside)
+    read_manifest, save_manifest = nightly._manifest_in_drive(google, inside)
     today = now().date()
 
     def fetch(report_id: str, data_date, asked_already=None):
@@ -149,6 +150,12 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
         # reading nothing.
         save_board=a_board_sink(google, their_project),
         save_run=a_run_sink(google, their_project),
+        # **AND THE STANDING ANSWER TO "IS THE FILE REALLY THERE", IN THE
+        # SELLER'S OWN DRIVE (specification 25).** Read as well as written,
+        # because this half replaces only its own three lines and leaves the
+        # extension's twenty-three exactly as they were.
+        read_manifest=read_manifest,
+        save_manifest=save_manifest,
         # **AND THE HOUR THE SELLER CHOSE, READ AND NEVER WRITTEN (D113, D114).**
         # It is written on the business record from the This business tab. Until
         # this line it reached nothing, and a seller who chose eight in the

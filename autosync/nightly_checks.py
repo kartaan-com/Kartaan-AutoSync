@@ -21,6 +21,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import between_runs  # noqa: E402
+import manifest  # noqa: E402
 import clock  # noqa: E402
 import runlog  # noqa: E402
 import nightly as tool  # noqa: E402
@@ -1825,9 +1826,125 @@ check("and it says out loud that an hour above the tick is refused rather than "
       "refuses that setting in words instead of failing quietly every night"
       in _CALLER_PLAIN)
 
+# ------------------------------------------- is the file really there (25)
+#
+# **THE DOWNLOAD MANIFEST, DRIVEN THROUGH THE WHOLE TICK.** The day board above
+# is a screen's view of a fortnight; this is the standing record in the seller's
+# own Drive that a downstream reader asks instead of listing every folder and
+# instead of trusting tonight's log.
+
+held = {"body": None}
+
+
+def _read_manifest():
+    return held["body"]
+
+
+def _save_manifest(body):
+    held["body"] = body
+
+
+with_manifest = Harness()
+tick = with_manifest.go(read_manifest=_read_manifest, save_manifest=_save_manifest)
+WROTE = answered(lambda: manifest.read(held["body"]))
+check("a night writes down whether the file is really in Drive", bool(WROTE))
+# **AND HERE IS THE WHOLE POINT OF IT, FALLING OUT OF THE HARNESS BY ITSELF.**
+# The fetch above answered "landed" and the folder holds no file for that day --
+# so the run log says the night went well and the manifest says the file is not
+# there. **A job can log success and leave nothing usable behind**, and this is
+# the only record that says so.
+check("a report the run logged as landed, with no file in the folder, reads as missing",
+      answered(lambda: manifest.is_it_there(WROTE, "az_orders", YESTERDAY) == manifest.MISSING))
+# **SAID POSITIVELY TOO**, against the same folder in the same write: a day whose
+# file really is sitting there reads as verified.
+check("and a day whose file really is in the folder reads as verified",
+      answered(lambda: manifest.is_it_there(
+          WROTE, "az_orders", YESTERDAY - timedelta(days=1)) == manifest.VERIFIED))
+check("and nothing about it is our own defect", tick.is_a_defect is False)
+
+# **THE ONE THAT MATTERS: A SECOND RUN LEAVES THE OTHER HALF'S LINES ALONE.**
+# The extension writes twenty-three of the twenty-six, in the seller's own
+# Chrome, and either half can be the only one that ran on a given night. A night
+# this job runs and the browser does not must not turn one of theirs into
+# `missing` -- that is the timing bug arriving by a different door.
+THEIRS = manifest.Line(data_date=YESTERDAY, report_id="me_orders", state=manifest.VERIFIED,
+                       file_name="meesho_me_orders_2026-08-28.csv", file_size=4021)
+held["body"] = answered(lambda: manifest.write(manifest.merge(WROTE, [THEIRS])))
+again = Harness().go(read_manifest=_read_manifest, save_manifest=_save_manifest)
+AFTER_AGAIN = answered(lambda: manifest.read(held["body"]))
+check("a second night of this half leaves the extension's line exactly as it was",
+      answered(lambda: [one for one in AFTER_AGAIN if one.report_id == "me_orders"] == [THEIRS]))
+check("and its own lines are still there, unchanged",
+      answered(lambda: manifest.is_it_there(
+          AFTER_AGAIN, "az_orders", YESTERDAY - timedelta(days=1)) == manifest.VERIFIED))
+
+# **A MANIFEST THAT WILL NOT WRITE COSTS A READER ONE ANSWER AND IS SAID OUT
+# LOUD.** It never stops the fetching -- refusing to fetch over it would turn a
+# Drive blip into a lost day, and D108 says no day is ever lost.
+def _will_not_save(_body):
+    raise RuntimeError("Drive would not take it")
+
+
+sulky = Harness()
+sulky_tick = sulky.go(read_manifest=lambda: None, save_manifest=_will_not_save)
+check("a manifest that will not write does not stop the night fetching",
+      sulky.fetched == [("az_orders", YESTERDAY, None)])
+check("and it is said out loud rather than swallowed",
+      answered(lambda: any("really in Drive" in one for one in sulky_tick.our_faults)))
+
+# **AND A TICK CAN BE DRIVEN WITH NO MANIFEST AT ALL**, which is how every other
+# rule in this file is checked.
+check("a night with no manifest handed in runs and says nothing about one",
+      answered(lambda: Harness().go().is_a_defect is False))
+
+# ------------------------------------------- the manifest, in the seller's Drive
+
+drive = FakeDrive()
+read_m, save_m = answered(lambda: tool._manifest_in_drive(drive, INSIDE))
+check("with nothing there yet, the manifest reads as nobody having checked",
+      answered(read_m) is None)
+answered(lambda: save_m(b"FIRST"))
+check("what is saved is really in the seller's Drive", answered(read_m) == b"FIRST")
+answered(lambda: save_m(b"SECOND"))
+check("saving again replaces it rather than putting a second one beside it",
+      len(drive.named(manifest.FILE_NAME)) == 1)
+check("and what comes back is the newer one", answered(read_m) == b"SECOND")
+# **TWO OF ONE NAME IS NOT SOMETHING TO CHOOSE BETWEEN**, and what it says is
+# about reading rather than about starting -- the state file's refusal says the
+# other thing, and one message for both is what this project keeps paying for.
+drive.file(manifest.FILE_NAME, tool._drive_folder(drive, INSIDE, tool.OURS), b"A SECOND ONE")
+two_manifests = None
+try:
+    read_m()
+except Exception as caught:  # noqa: BLE001
+    two_manifests = caught
+check("two manifests of one name refuses rather than picking one", two_manifests is not None)
+check("and it says nothing has been read and nothing written over",
+      answered(lambda: "nothing has been read" in str(two_manifests)))
+check("and it says how many there are and what they are called",
+      answered(lambda: "2 copies" in str(two_manifests) and manifest.FILE_NAME in str(two_manifests)))
+
+# **NOTHING IS TAKEN AWAY FIRST (cycle 46, R2#3).** A manifest that is not there
+# reads as "nobody has ever checked anything", so losing it is the loudest wrong
+# answer this record can give.
+stubborn_m = DriveThatWillNotTake()
+M_FOLDER = tool._drive_folder(stubborn_m, INSIDE, tool.OURS)
+stubborn_m.file(manifest.FILE_NAME, M_FOLDER, b"LAST NIGHT'S ANSWERS")
+keep_m, put_m = tool._manifest_in_drive(stubborn_m, INSIDE)
+m_refused = None
+try:
+    put_m(b"TONIGHT")
+except Exception as caught:  # noqa: BLE001
+    m_refused = caught
+check("a Drive that will not take the manifest makes the save fail", m_refused is not None)
+check("and last night's answers are still in the seller's Drive",
+      answered(keep_m) == b"LAST NIGHT'S ANSWERS")
+check("and nothing was taken away at all", stubborn_m.deleted == [])
+
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 237
+EXPECTED = 256
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

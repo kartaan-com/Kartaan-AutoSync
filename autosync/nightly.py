@@ -49,11 +49,12 @@ from typing import Callable, List, Optional, Sequence, Tuple
 
 import between_runs
 import clock
+import manifest
 import reading
 import runlog
 import runner
 from landing import Arrived
-from reports import Report, on_the_api_door
+from reports import API, Report, on_the_api_door
 
 # The folder in the seller's Drive that holds what belongs to the job itself
 # rather than to any one report -- the run's memory and the copy of the log.
@@ -116,6 +117,12 @@ def one_tick(
     ask_the_hour: Optional[Callable[[], object]] = None,
     save_board: Optional[Callable[[Sequence], None]] = None,
     save_run: Optional[Callable[..., None]] = None,
+    # **THE DOWNLOAD MANIFEST, READ AND WRITTEN AS A PAIR (specification 25).**
+    # It is read before it is written because this half only ever replaces its
+    # OWN lines -- the extension's twenty-three come through untouched, and a
+    # night the extension never opened must not turn them into `missing`.
+    read_manifest: Optional[Callable[[], Optional[bytes]]] = None,
+    save_manifest: Optional[Callable[[bytes], None]] = None,
     # **THE READING HALF, HANDED IN LIKE EVERYTHING ELSE.** What is in a report's
     # folder, how to fetch one file back, and the one place a sale can land. All
     # three together or the reading says in words that it did not happen -- see
@@ -402,6 +409,40 @@ def one_tick(
     except Exception as wrong:  # noqa: BLE001
         faults.append(f"The board and the alarms could not be worked out: {wrong}")
 
+    # **IS THE FILE REALLY THERE? WRITTEN DOWN WHERE ANYBODY CAN READ IT
+    # (specification 25).** The day board above is a screen's view of a
+    # fortnight; this is a standing record in the seller's own Drive, one line
+    # per report per day, so nothing downstream has to list every folder itself
+    # and nothing has to trust tonight's log. **It is also the evidence Golden
+    # Rule 35 needs**: without it, three quiet nights cannot be told apart from
+    # three nights when nothing ran.
+    #
+    # **THIS HALF WRITES ONLY ITS OWN LINES, AND THAT IS THE WHOLE SAFETY.**
+    # `only_mine` refuses anything else, and `merge` leaves every line it was not
+    # given exactly as it was -- so a night the seller's Chrome never opened
+    # cannot mark one of the extension's twenty-three reports `missing`.
+    #
+    # **AND IT CANNOT STOP THE RUN.** Like the board and the run record, a
+    # manifest that would not write costs a reader one answer and is said out
+    # loud; refusing to fetch over it would turn a Drive blip into a lost day.
+    if read_manifest is not None and save_manifest is not None:
+        try:
+            standing = manifest.read(read_manifest())
+            fresh = manifest.lines_for(which, arrivals, today, checked_on=today)
+            # **ASKED OF THE DOOR, NEVER OF WHAT THIS RUN HAPPENED TO BE
+            # HANDED.** Derived from the list it was given, the answer would
+            # always be yes and the refusal could never fire. This job is the API
+            # half; a browser report reaching it is a fault, not a line to write.
+            strayed = manifest.only_mine(fresh, manifest.mine(API, which))
+            if strayed:
+                faults.append(f"The download manifest was not written: {strayed}")
+            else:
+                save_manifest(manifest.write(manifest.merge(standing, fresh)))
+        except Exception as wrong:  # noqa: BLE001 - recorded, never swallowed
+            faults.append(
+                f"Whether the files are really in Drive could not be written down: {wrong}"
+            )
+
     # **AND THE RUN IS WRITTEN DOWN AGAIN, FINISHED.** The same name, so this
     # replaces the record written before the fetching rather than leaving two
     # records of one run. Written last, because until here it genuinely has not.
@@ -617,6 +658,83 @@ def _state_in_drive(transport, inside: str) -> Tuple[Callable[[], Optional[bytes
             _answered(
                 transport.delete(f"{FILES}/{one}"),
                 f"taking away the older {between_runs.FILE_NAME}",
+            )
+
+    return read_it, save_it
+
+
+def _manifest_in_drive(transport, inside: str) -> Tuple[Callable[[], Optional[bytes]], Callable[[bytes], None]]:
+    """Reading and writing the download manifest, in the seller's Drive.
+
+    **BESIDE THE RUN'S OWN MEMORY AND THE COPY OF THE LOG**, in the same
+    `autosync` folder, through the same door -- so it needs no permission this
+    job does not already hold, and a seller can open it themselves.
+
+    **WRITTEN IN THE SAME ORDER AS THE OTHER TWO, FOR THE SAME REASON (cycle 46,
+    R2#3): the new one goes up first and the old one comes away after.** Done the
+    other way round, anything that threw between the two would leave the seller
+    with no manifest at all -- and a manifest that is not there reads as "nobody
+    has ever checked anything", which is the loudest wrong answer this record can
+    give. Two copies for a moment is recoverable; none is not.
+
+    **AND IT IS ITS OWN FUNCTION RATHER THAN THE STATE FILE'S WITH A NAME PASSED
+    IN.** The two say different things when they find two copies of themselves --
+    two of the state file means a run must not start, two of this means a reader
+    cannot be answered -- and one message covering both is the thing this package
+    keeps being caught by. `_log_to_drive` below already stands as its own for the
+    same reason.
+    """
+    from drive import Landing, kind_of  # noqa: PLC0415
+    from drive_door import (  # noqa: PLC0415
+        bring_the_file_back,
+        put_the_file,
+        what_is_already_there,
+        FILES,
+        _answered,
+    )
+
+    def read_it() -> Optional[bytes]:
+        folder_id = _drive_folder(transport, inside, OURS)
+        there = [
+            one for one in what_is_already_there(transport, folder_id)
+            if one.get("name") == manifest.FILE_NAME
+        ]
+        if not there:
+            # **NOT THERE IS AN ORDINARY FIRST NIGHT**, and `manifest.read`
+            # answers an empty record for it. There and unreadable is that file's
+            # own refusal, not this one's.
+            return None
+        if len(there) > 1:
+            raise RuntimeError(
+                f"There are {len(there)} copies of {manifest.FILE_NAME} in the seller's Drive. "
+                "Which one holds the real answers cannot be known, so nothing has been read "
+                "and nothing has been written over."
+            )
+        return bring_the_file_back(transport, there[0]["id"])
+
+    def save_it(body: bytes) -> None:
+        folder_id = _drive_folder(transport, inside, OURS)
+        older = [
+            one["id"] for one in what_is_already_there(transport, folder_id)
+            if one.get("name") == manifest.FILE_NAME
+        ]
+        put_the_file(
+            transport,
+            Landing(
+                folder_id=folder_id,
+                file_name=manifest.FILE_NAME,
+                kind=kind_of(manifest.FILE_NAME),
+                size=len(body),
+            ),
+            body,
+        )
+        # **REPLACED, NEVER PUT BESIDE.** Two manifests is two answers to "is the
+        # file there", and nothing could say which was the real one -- which is
+        # why `read_it` above refuses when it sees two.
+        for one in older:
+            _answered(
+                transport.delete(f"{FILES}/{one}"),
+                f"taking away the older {manifest.FILE_NAME}",
             )
 
     return read_it, save_it
