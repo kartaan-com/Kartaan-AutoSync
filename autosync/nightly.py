@@ -705,10 +705,39 @@ def _manifest_in_drive(transport, inside: str) -> Tuple[Callable[[], Optional[by
             # own refusal, not this one's.
             return None
         if len(there) > 1:
+            # **AND THIS IS WHERE IT STAYS UNTIL SOMEBODY TAKES ONE AWAY, WHICH IS
+            # A DECISION RATHER THAN AN OVERSIGHT.** `save_it` below puts the new
+            # copy up before taking the old one down, so a delete that fails, or a
+            # job that dies between the two, leaves two. From then on this refuses
+            # every night, `save_it` is never reached because `one_tick` reads
+            # before it saves, and **nothing in the product ever clears it.**
+            #
+            # **THE RUN COULD CLEAR IT ONLY BY CHOOSING BETWEEN THE TWO, AND IT IS
+            # NOT ENTITLED TO.** They are two standing records of the same thing
+            # written at different moments; choosing the newer is reading a clock,
+            # which is the one thing this whole record is written against, and
+            # merging them is choosing an answer for every day they disagree on.
+            # `merge` already refuses exactly this -- *"picking one is picking at
+            # random"* -- and `drive.what_to_do_about` already settles the same
+            # question the same way for a report's own folder: *"deleting the rest
+            # is a decision nothing here is entitled to make."* A third answer to
+            # one question is what this package keeps paying for.
+            #
+            # **SO IT REFUSES, AND WHAT MAKES THAT SAFE IS THAT IT IS NOT QUIET.**
+            # The refusal is recorded as one of the run's own faults, `Tick.
+            # is_a_defect` is true of any of those, and `how_the_night_ends`
+            # returns 1 for a defect -- so the job goes red, and goes red again
+            # every night, until somebody looks. **It still never stops the
+            # fetching**, because refusing to fetch over a Drive blip would turn it
+            # into a lost day. `nightly_checks.py` drives the whole sequence: the
+            # tidy-up failing, two copies standing, and the night after it ending
+            # red rather than looking ordinary.
             raise RuntimeError(
                 f"There are {len(there)} copies of {manifest.FILE_NAME} in the seller's Drive. "
                 "Which one holds the real answers cannot be known, so nothing has been read "
-                "and nothing has been written over."
+                "and nothing has been written over. Until all but one of them is taken away, "
+                "whether the files are really in Drive stops being written down, and every "
+                "night from now on ends red saying this."
             )
         return bring_the_file_back(transport, there[0]["id"])
 

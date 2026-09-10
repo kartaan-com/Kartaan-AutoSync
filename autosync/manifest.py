@@ -103,8 +103,8 @@ checked", which is the same silence in a new coat.
 
 ---
 
-**TWO LIMITS, STATED HERE BECAUSE THE REFERENCE STATES ITS OWN AND BOTH ARE
-REAL:**
+**THREE LIMITS, STATED HERE BECAUSE THE REFERENCE STATES ITS OWN AND ALL THREE
+ARE REAL:**
 
   1. **PRESENCE IS NOT CORRECTNESS.** A file that is present but corrupt reads as
      `verified`. The reference names a real case -- a truncated catalogue file.
@@ -118,6 +118,31 @@ REAL:**
      and the reference's own version of it, a rolling "current state" file, cannot
      arise here at all: `landing.file_name_for` puts the data date in every name
      this product writes, so Kartaan has no rolling file to read the inside of.
+  3. **TWO HALVES SAVING AT THE SAME MOMENT CAN LOSE ONE OF THE TWO WRITES, AND A
+     LOST WRITE CAN LEAVE A STALE `missing` STANDING OVER A FILE THAT IS REALLY
+     THERE.** It was written down once, elsewhere, that a lost write could only
+     ever leave a line **absent** and never `missing`. **That is false, it was
+     the sentence that made one file with two writers read as safe, and this is
+     it corrected.**
+
+     **WHY `only_mine` DOES NOT STOP IT.** `only_mine` governs which lines a half
+     may **write**. It says nothing about which lines a half **carries forward**:
+     `merge` hands the other half's whole standing set straight through, so the
+     half whose save lands last also puts back its own copy of the other half's
+     lines **as they stood when it read them**. If the other half flipped one of
+     its own days from `missing` to `verified` in between, that flip is undone.
+
+     **IT IS NOT ONE HALF MARKING THE OTHER'S LINES.** Neither half can ever
+     write a line of its own about the other's reports -- that is `only_mine`,
+     and it holds. This is one half restoring an older copy of lines it never
+     touched.
+
+     **THE BOUND IS STATED RATHER THAN ASSUMED, and it is driven in
+     `manifest_checks.py`.** It heals in one night: the losing half asks the
+     folder again on its next run and writes the same flip back, because no
+     verdict here is ever remembered. And it cannot arise at all today, because
+     the extension half is not written and one writer cannot race itself. **The
+     night it can arise is the night that half is built.**
 
 **NOTHING HERE OPENS A CONNECTION.** Files in, lines out; lines in, bytes out.
 Where those bytes come from and go to is the caller's, which is what lets every
@@ -182,11 +207,22 @@ WHO_WRITES = {
 # a simplification of the reference.** `landing.file_name_for` builds exactly one
 # name per report per day, with the data date in it, and `drive_door.put_file`
 # replaces a file of that name rather than putting a second beside it. So there is
-# no per-campaign file to number and no rolling file to read the inside of. **The
-# day either becomes true -- a report that lands several files for one day, or one
-# with no date in its name -- it is named here with its reason, and the check goes
-# red until it is.** Writing the two branches now would be two branches nothing
-# exercises, which read exactly like two branches that work.
+# no per-campaign file to number and no rolling file to read the inside of.
+# Writing the two branches now would be two branches nothing exercises, which read
+# exactly like two branches that work.
+#
+# **AND WHAT WATCHES THAT, AND WHERE.** For a round there was a check here that
+# asked whether the date could be read back out of the name `file_name_for`
+# builds. `file_name_for` puts it in unconditionally, so that was true of every
+# possible report for ever and could never once go red -- **an expectation derived
+# from the thing it checks.** What replaced it, in `manifest_checks.py`, asserts
+# the property where it is really held: `file_name_for` is built from a report and
+# a day and **nothing else**, so there is nowhere to name a second file for one
+# day; and `drive.what_to_do_about` replaces a name already there rather than
+# putting one beside it, and refuses outright when it already finds two. **The day
+# either of those changes -- which is the day the `multi` kind arrives -- that
+# check goes red**, and whoever is standing there decides whether the answer is a
+# branch or a name in this register.
 NOT_VERIFIED_BY_A_DATE_IN_THE_NAME: Dict[str, str] = {}
 
 
@@ -527,6 +563,14 @@ def read(body: Optional[bytes]) -> Tuple[Line, ...]:
         raise Damaged(f"{FILE_NAME} has no lines in it at all, which is not an empty record.")
 
     out: List[Line] = []
+    # **ONE ANSWER PER DAY PER REPORT IS ASKED OF THE FILE ON DISK TOO, not only
+    # of a batch being written.** Without this, a file holding two lines for one
+    # day reads without complaint and then answers two different things depending
+    # on which function is asked -- `is_it_there` takes the first it walks past
+    # and `merge` keeps the last -- and one of the two lines is lost with nothing
+    # said. This file says out loud that it does not rely on nobody editing it by
+    # hand, and this is the case where that promise did not hold.
+    seen: Dict[Tuple[date, str], None] = {}
     for row in rows:
         if not isinstance(row, dict):
             raise Damaged(f"{FILE_NAME} holds something that is not a line.")
@@ -544,16 +588,38 @@ def read(body: Optional[bytes]) -> Tuple[Line, ...]:
             raise Damaged(
                 f"{FILE_NAME}: {checked!r} is not a day, so the record cannot be read."
             ) from None
+        # **A SIZE THAT IS NOT A NUMBER REFUSES AS `Damaged` LIKE EVERY OTHER
+        # BROKEN FIELD HERE.** Left to `int` it raised `ValueError` instead --
+        # past the one kind this function documents, so a reader catching
+        # `Damaged`, which is what `one_tick` does for the run's own memory, would
+        # not have caught it.
+        try:
+            how_big = int(row.get("fileSize") or 0)
+        except (TypeError, ValueError):
+            raise Damaged(
+                f"{FILE_NAME}: {row.get('fileSize')!r} is not a size, so the record cannot be "
+                "read. It has not been treated as empty."
+            ) from None
         line = Line(
             data_date=day,
             report_id=str(row.get("reportId") or ""),
             state=str(row.get("state") or ""),
             file_name=str(row.get("fileName") or "") or None,
-            file_size=int(row.get("fileSize") or 0),
+            file_size=how_big,
             checked_on=when,
         )
         wrong = why_a_line_is_refused(line)
         if wrong:
             raise Damaged(f"{FILE_NAME}: {wrong}")
+        if line.key in seen:
+            # **NEVER TWO ANSWERS FOR ONE DAY**, in the same words `merge` uses
+            # about a batch. Which of them was meant cannot be known, and picking
+            # one is picking at random -- and the two functions downstream pick
+            # differently.
+            raise Damaged(
+                f"{FILE_NAME}: {line.report_id} for {line.data_date} is answered twice. "
+                "One line per day per report is what makes this record readable."
+            )
+        seen[line.key] = None
         out.append(line)
     return tuple(sorted(out, key=lambda one: (one.data_date, one.report_id)))

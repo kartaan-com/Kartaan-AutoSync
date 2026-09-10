@@ -1349,6 +1349,73 @@ check("AND EVERY ONE HANDED OVER IS ONE THE RUN ASKS FOR, AND EVERY ONE IT ASKS 
       set(ASKED_FOR) == FROM_SECRETS)
 
 
+# ----- what `start.py` actually hands `one_tick`, which is the only thing that
+# ----- makes any of this run on a real night
+
+# **THE TRAP THIS CLOSES IS NAMED IN `start.py` ITSELF, FORTY LINES ABOVE THE
+# WIRING IT CLOSES:** *"this file needs a real Google account, so a rule written
+# here is a rule nobody ever watches fail -- which is exactly how the ledger came
+# to be finished at both ends and called by nothing."*
+#
+# **AND IT HAPPENED AGAIN, MEASURED.** The two lines wiring `read_manifest` and
+# `save_manifest` into `one_tick` were deleted and the whole sweep run: 3,250
+# Python checks across 35 files and 8 JavaScript files all stayed green. Every
+# manifest check hands `one_tick` its own fakes, so none of them touches
+# `start.py`; the only check that read `start.py` at all read it for `_needed`
+# names. Golden Rule 35 link 4 says a line nothing watches fail is a line that
+# has not been proved, and those two survived.
+#
+# **THE ARGUMENT IS ASKED OF THE PARSED FILE, never searched for in its text**,
+# so a name inside a comment or a string cannot pass for one -- the same
+# discipline as `ASKED_FOR` above, and the same parsed file.
+THE_TICK = tuple(
+    node for node in ast.walk(START)
+    if isinstance(node, ast.Call)
+    and isinstance(node.func, ast.Attribute) and node.func.attr == "one_tick"
+)
+check("the file the workflow runs does one tick, and does it once", len(THE_TICK) == 1)
+
+HANDED_TO_THE_TICK = {
+    word.arg: word.value for word in (THE_TICK[0].keywords if THE_TICK else ())
+    if word.arg
+}
+# **AND WHAT EACH IS HANDED IS A REAL NAME, NEVER `None`.** Without this, the
+# wiring could be "kept" as `read_manifest=None` and every check here would still
+# pass while `nightly.py:428` switched the whole record off.
+NAMED_BY_START = {
+    which: value.id for which, value in HANDED_TO_THE_TICK.items()
+    if isinstance(value, ast.Name)
+}
+# Where those two names come from: the one call that builds them against the
+# seller's real Drive.
+FROM_THE_MANIFEST_DOOR = tuple(
+    target.id
+    for node in ast.walk(START) if isinstance(node, ast.Assign)
+    for call in [node.value] if isinstance(call, ast.Call)
+    and isinstance(call.func, ast.Attribute) and call.func.attr == "_manifest_in_drive"
+    for tup in node.targets if isinstance(tup, ast.Tuple)
+    for target in tup.elts if isinstance(target, ast.Name)
+)
+
+check("and it builds the manifest's two halves against the seller's own Drive",
+      len(FROM_THE_MANIFEST_DOOR) == 2)
+check("AND IT HANDS BOTH OF THEM TO THE TICK, WHICH IS THE ONLY THING THAT MAKES "
+      "WHETHER THE FILES ARE REALLY THERE GET WRITTEN DOWN ON A REAL NIGHT",
+      NAMED_BY_START.get("read_manifest") == FROM_THE_MANIFEST_DOOR[0]
+      and NAMED_BY_START.get("save_manifest") == FROM_THE_MANIFEST_DOOR[1]
+      if len(FROM_THE_MANIFEST_DOOR) == 2 else False)
+# **AND THE TICK REALLY DOES ASK FOR THEM UNDER THOSE NAMES.** Held to the
+# function itself rather than to two spellings that agree by luck -- a keyword
+# renamed on one side and not the other is a night that runs with the record
+# switched off and nothing saying so.
+check("and the tick asks for them under exactly those names",
+      {"read_manifest", "save_manifest"} <= set(
+          tool.one_tick.__code__.co_varnames[:tool.one_tick.__code__.co_argcount]
+          + tool.one_tick.__code__.co_varnames[
+              tool.one_tick.__code__.co_argcount:
+              tool.one_tick.__code__.co_argcount + tool.one_tick.__code__.co_kwonlyargcount]))
+
+
 # ----- and the two lists that let a seller run this without holding a copy (A39)
 
 # **D121 AND D122, AND UNTIL A39 NEITHER WAS TRUE OF THIS FILE.** It had no
@@ -1923,6 +1990,72 @@ check("and it says nothing has been read and nothing written over",
       answered(lambda: "nothing has been read" in str(two_manifests)))
 check("and it says how many there are and what they are called",
       answered(lambda: "2 copies" in str(two_manifests) and manifest.FILE_NAME in str(two_manifests)))
+check("and it says what has to happen before it can be written down again",
+      answered(lambda: "taken away" in str(two_manifests)))
+
+
+# ------- and how two of them come to be there in the first place, driven right
+# ------- through to what the night after looks like
+#
+# **THE NEW COPY GOES UP BEFORE THE OLD ONE COMES DOWN, which is the right order
+# and the same order as the run's own memory** -- two copies for a moment is
+# recoverable, none is not. **What that order costs is this:** if the delete
+# fails, or the job dies between the two, two copies stand; `read_it` refuses from
+# then on; and because `one_tick` reads before it saves, `save_manifest` is never
+# reached again, so **nothing in the product ever clears it.**
+#
+# **THAT IS A DECISION, NOT AN OVERSIGHT, AND THE REASON IS IN `nightly.py`
+# BESIDE THE REFUSAL.** The run could only clear it by choosing between two
+# standing records, and choosing the newer is reading a clock. What makes the
+# refusal safe is that it is not quiet, and that is what is driven here.
+
+class DriveThatWillNotTidyUp(FakeDrive):
+    """A Drive that takes the new file and will not take the old one away.
+
+    **AS AWKWARD AS A REAL ONE AT THE ONE MOMENT THAT MATTERS.** A stand-in whose
+    delete always works cannot tell a jammed record from a tidy one at all -- both
+    end with one good file.
+    """
+
+    def delete(self, url, params=None, headers=None):
+        raise RuntimeError("Drive would not take the older one away")
+
+
+jammed = DriveThatWillNotTidyUp()
+read_j, save_j = answered(lambda: tool._manifest_in_drive(jammed, INSIDE))
+answered(lambda: save_j(b"NIGHT ONE"))
+check("the first night leaves one copy and nothing to tidy up",
+      len(jammed.named(manifest.FILE_NAME)) == 1)
+tidy_up_failed = None
+try:
+    save_j(b"NIGHT TWO")
+except Exception as caught:  # noqa: BLE001
+    tidy_up_failed = caught
+check("a tidy-up that fails is said rather than swallowed", tidy_up_failed is not None)
+check("and it leaves two copies standing, because the new one went up first",
+      len(jammed.named(manifest.FILE_NAME)) == 2)
+jammed_read = None
+try:
+    read_j()
+except Exception as caught:  # noqa: BLE001
+    jammed_read = caught
+check("and from that night on the record cannot be read at all", jammed_read is not None)
+
+# **AND THE NIGHT AFTER DOES NOT LOOK ORDINARY.** The refusal is one of the run's
+# own faults, so the job goes red -- and goes red again every night until somebody
+# takes a copy away. **It still never stops the fetching.**
+jammed_night = Harness()
+jammed_tick = jammed_night.go(read_manifest=read_j, save_manifest=save_j)
+check("the night after a jammed manifest still fetches everything it was due",
+      jammed_night.fetched == [("az_orders", YESTERDAY, None)])
+check("and it is said out loud rather than swallowed",
+      answered(lambda: any("really in Drive" in one for one in jammed_tick.our_faults)))
+check("AND THE NIGHT ENDS RED RATHER THAN LOOKING NORMAL",
+      answered(lambda: tool.how_the_night_ends(jammed_tick, None)[1] == 1))
+# **AND NOTHING CLEARED IT**, which is the honest half of the decision: the save
+# was never reached, so the two copies are still there in the morning.
+check("and nothing cleared it by itself -- both copies are still there",
+      len(jammed.named(manifest.FILE_NAME)) == 2)
 
 # **NOTHING IS TAKEN AWAY FIRST (cycle 46, R2#3).** A manifest that is not there
 # reads as "nobody has ever checked anything", so losing it is the loudest wrong
@@ -1944,7 +2077,7 @@ check("and nothing was taken away at all", stubborn_m.deleted == [])
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 256
+EXPECTED = 269
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

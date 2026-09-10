@@ -17,6 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import board  # noqa: E402
+import drive  # noqa: E402
 import manifest as tool  # noqa: E402
 from landing import Arrived, file_name_for  # noqa: E402
 from reports import (  # noqa: E402
@@ -102,28 +103,75 @@ check(
     all(r.door in tool.WHO_WRITES for r in EVERY),
 )
 
-# **EVERY REPORT IS VERIFIABLE BY THE DATE IN ITS FILE NAME, OR IT IS NAMED AS A
-# HOLE.** This is the check that keeps `NOT_VERIFIED_BY_A_DATE_IN_THE_NAME`
-# honest: the day a report lands several files for one day, or one with no date in
-# its name, this goes red until somebody writes down which and why.
-def _name_carries_the_day(a_report):
-    from landing import data_date_in
+# **WHAT KEEPS `NOT_VERIFIED_BY_A_DATE_IN_THE_NAME` HONEST -- AND WHAT USED TO
+# STAND HERE COULD NOT.**
+#
+# The check here asked `data_date_in(file_name_for(r, YESTERDAY)) == YESTERDAY` of
+# every declared report. `file_name_for` puts the ISO date into every name it
+# builds, unconditionally, so that expression is True for every possible `Report`,
+# for ever. Two adversarial reports standing for the reference's `multi` and
+# `append` kinds both sailed through it. **An expectation derived from the thing
+# it checks is not an expectation** -- rule 2 of the five in part 5 of
+# `WHAT-IS-NOT-DONE.md` -- and it was derived from `file_name_for`, which is the
+# very function whose behaviour is in question.
+#
+# **SO THE PROPERTY IS ASSERTED WHERE IT IS ACTUALLY HELD, IN THE TWO PLACES THAT
+# HOLD IT, AND BOTH CAN GO RED.** One file per report per day is true because
+# `file_name_for` has nowhere to be told about a second file, and because the door
+# replaces a file of that name rather than putting one beside it.
 
-    return data_date_in(file_name_for(a_report, YESTERDAY)) == YESTERDAY
+# **NOWHERE TO NAME A SECOND FILE FOR THE SAME DAY.** Structural, in the shape of
+# the clock check further down: the day somebody adds a campaign, a part or a
+# counter to the name -- which is the day the reference's `multi` kind arrives
+# here -- this goes red before any behaviour has to be wrong.
+def _what_a_name_is_built_from():
+    code = file_name_for.__code__
+    return tuple(code.co_varnames[:code.co_argcount])
 
 
 check(
-    "every report either names its data date in its file, or is named as a hole with a reason",
-    all(
-        _name_carries_the_day(r) or r.id in tool.NOT_VERIFIED_BY_A_DATE_IN_THE_NAME
-        for r in EVERY
-    ),
+    "a file's name is built from a report and a day and nothing else -- there is nowhere "
+    "to name a second file for the same report and day",
+    answered(lambda: _what_a_name_is_built_from() == ("a_report", "data_date")),
+)
+
+# **AND THE DOOR REPLACES RATHER THAN PUTS BESIDE.** `drive.what_to_do_about` is
+# the one place that decides it, and it is asked here rather than trusted: a name
+# already there is replaced, and more than one already there is refused outright
+# instead of being tidied up on a guess.
+THERE = [{"id": "a", "name": file_name_for(REPORTS[0], YESTERDAY)}]
+check(
+    "a name already in the folder is replaced, never put beside",
+    answered(lambda: drive.what_to_do_about(file_name_for(REPORTS[0], YESTERDAY), THERE)
+             == "replace"),
 )
 check(
-    "and every hole that is named gives a reason somebody can read",
+    "and two of one name in the folder is refused rather than tidied up on a guess",
+    answered(lambda: drive.what_to_do_about(
+        file_name_for(REPORTS[0], YESTERDAY), THERE + [dict(THERE[0], id="b")])
+        == "somebody has to look"),
+)
+
+# **AND THE HOLE IS STATED OUT LOUD RATHER THAN GUARDED BY A CHECK THAT CANNOT
+# FIRE.** A day is read as arrived on the strength of ONE file. So a report that
+# ever lands several files for one day would read `verified` with most of it
+# absent -- driven here against a real declared report, `me_ads_summary`, which is
+# the one the reference splits per campaign and which Kartaan builds as a single
+# CSV. **This is what `NOT_VERIFIED_BY_A_DATE_IN_THE_NAME` is for**, and it is why
+# the two checks above are the ones that have to hold.
+SPLIT = next(r for r in EVERY if r.id == "me_ads_summary")
+HALF_A_DAY = [Arrived(f"meesho_me_ads_summary_{YESTERDAY.isoformat()}_1.csv", 4021)]
+check(
+    "a day split across several files reads as arrived on the strength of one of them -- "
+    "which is why a report that lands more than one has to be named as a hole",
+    answered(lambda: tool.what_it_says(SPLIT, YESTERDAY, HALF_A_DAY).state == tool.VERIFIED),
+)
+check(
+    "and any hole that is named is a report that really exists and gives a reason "
+    "somebody can read",
     all(
-        len(str(why).strip()) > 20
-        for why in tool.NOT_VERIFIED_BY_A_DATE_IN_THE_NAME.values()
+        which in {r.id for r in EVERY} and len(str(why).strip()) > 20
+        for which, why in tool.NOT_VERIFIED_BY_A_DATE_IN_THE_NAME.items()
     ),
 )
 
@@ -369,6 +417,66 @@ check(
 )
 
 
+# ------------------- the third limit: two halves saving at the same moment
+#
+# **THE LIMIT WRITTEN AT THE TOP OF `manifest.py` IS DRIVEN HERE RATHER THAN
+# ASSERTED.** It was written down once, elsewhere, that a lost write could only
+# ever leave a line ABSENT and never `missing`. It is false, and it was the
+# sentence that made one file with two writers read as safe.
+#
+# `only_mine` governs which lines a half may WRITE. It says nothing about which
+# lines a half CARRIES FORWARD -- so the half whose save lands last also puts back
+# its own copy of the other half's lines as they stood when it read them.
+
+# The standing record: the extension checked on the 8th, `me_orders` was late, and
+# it wrote `missing`. The file has since landed.
+LATE_DAY = DAY("2026-09-08")
+STOOD = answered(lambda: tool.merge((), [tool.Line(
+    data_date=LATE_DAY, report_id="me_orders", state=tool.MISSING, checked_on=LATE_DAY)]))
+
+# Both halves read that same record. The extension's own next run flips its own
+# line to `verified`, because it asks the folder again rather than remembering.
+THEIR_FOLDER = folder(me_orders=[a_real_file(
+    next(r for r in EVERY if r.id == "me_orders"), LATE_DAY)])
+THEIR_FLIP = answered(lambda: tool.merge(STOOD, tool.lines_for(
+    [r for r in BROWSER_HALF if r.id == "me_orders"], THEIR_FOLDER, TODAY,
+    checked_on=TODAY, look_back_days=(TODAY - LATE_DAY).days)))
+check("the half that owns a late day flips its own line to verified when the file lands",
+      answered(lambda: tool.is_it_there(THEIR_FLIP, "me_orders", LATE_DAY) == tool.VERIFIED))
+
+# And the nightly job, which read the record BEFORE that flip, saves a moment
+# later. Its save lands last, so what is in Drive is what it merged -- which
+# carries the other half's line forward as IT read it.
+OURS_LANDS_LAST = answered(lambda: tool.merge(STOOD, tool.lines_for(
+    API_HALF, WHOLE_FOLDER, TODAY, checked_on=TODAY, look_back_days=1)))
+check(
+    "and a save that lands last puts back a stale missing over a file that is really there "
+    "-- the third limit, driven, not asserted",
+    answered(lambda: tool.is_it_there(OURS_LANDS_LAST, "me_orders", LATE_DAY) == tool.MISSING
+             and tool.what_it_says(
+                 next(r for r in EVERY if r.id == "me_orders"), LATE_DAY,
+                 THEIR_FOLDER("me_orders")).state == tool.VERIFIED),
+)
+# **AND THE BOUND IS DRIVEN TOO**, because a limit stated without its bound reads
+# worse than it is. No verdict is ever remembered, so the losing half asks the
+# folder again on its next run and writes the same flip straight back.
+HEALED = answered(lambda: tool.merge(OURS_LANDS_LAST, tool.lines_for(
+    [r for r in BROWSER_HALF if r.id == "me_orders"], THEIR_FOLDER, TODAY,
+    checked_on=TODAY, look_back_days=(TODAY - LATE_DAY).days)))
+check("and the next run of the losing half puts it right again, in one night",
+      answered(lambda: tool.is_it_there(HEALED, "me_orders", LATE_DAY) == tool.VERIFIED))
+# **AND IT IS NOT ONE HALF MARKING THE OTHER'S LINES**, which is the thing
+# `only_mine` really does stop. The stale line came from the record, not from the
+# nightly job having an opinion about a report it does not fetch.
+check(
+    "and neither half can ever write a line of its own about the other's reports",
+    answered(lambda: tool.only_mine(
+        tool.lines_for([r for r in BROWSER_HALF if r.id == "me_orders"], THEIR_FOLDER, TODAY,
+                       look_back_days=1),
+        tool.mine(API, EVERY)) is not None),
+)
+
+
 # -------------------------------------------- a writer may not stray outside
 
 MINE = answered(lambda: tool.mine(API, EVERY))
@@ -430,6 +538,24 @@ check("a line that says verified and names no file refuses",
       answered(lambda: _refused(lambda: tool.read(
           b'{"shape": 1, "lines": [{"dataDate": "2026-09-09", "reportId": "az_orders", '
           b'"state": "verified", "fileName": "", "fileSize": 10}]}'))))
+# **A SIZE THAT IS NOT A NUMBER REFUSES AS `Damaged`, WHICH IS THE ONE KIND THIS
+# FUNCTION DOCUMENTS.** Left to `int` it raised `ValueError` straight past the
+# contract, and a reader catching `Damaged` -- which is what `one_tick` does for
+# the run's own memory -- would not have caught it. `_refused` asks the kind, so
+# anything else coming out of here is red as well.
+check("a line whose size is not a number refuses, and refuses as the one kind this file names",
+      answered(lambda: _refused(lambda: tool.read(
+          b'{"shape": 1, "lines": [{"dataDate": "2026-09-09", "reportId": "az_orders", '
+          b'"state": "missing", "fileName": "", "fileSize": "lots"}]}'))))
+# **TWO LINES FOR ONE DAY IN THE FILE ON DISK REFUSE, in the same words `merge`
+# uses about a batch.** Accepted, they gave one file two answers: `is_it_there`
+# took the first and said `verified`, `merge` kept the last and wrote back
+# `missing`, and one of the two lines went with nothing said.
+check("two lines for one day and one report in the stored file refuse rather than one being picked",
+      answered(lambda: _refused(lambda: tool.read(
+          b'{"shape": 1, "lines": [{"dataDate": "2026-09-09", "reportId": "az_orders", '
+          b'"state": "verified", "fileName": "amazon_az_orders_2026-09-09.csv", "fileSize": 12}, '
+          b'{"dataDate": "2026-09-09", "reportId": "az_orders", "state": "missing"}]}'))))
 check("a line saying something nobody recognises refuses",
       answered(lambda: _refused(lambda: tool.read(
           b'{"shape": 1, "lines": [{"dataDate": "2026-09-09", "reportId": "az_orders", "state": "probably"}]}'))))
@@ -470,7 +596,7 @@ check("and there is still only one line about that day",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 57
+EXPECTED = 66
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
