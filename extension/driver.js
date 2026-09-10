@@ -16,6 +16,8 @@
  *
  *     go(address)                    -> nothing, or throws
  *     find(how, what, exact, patience, near) -> HOW MANY things match
+ *                                    `near` is a LIST of ways the wanted row
+ *                                    could be named; any one of them will do
  *     click(how, what, exact, near)  -> nothing, or throws
  *     pick_range(start, end)         -> nothing, or throws
  *     take_file()                    -> the bytes, or null if nothing came
@@ -69,8 +71,8 @@ export const THE_CALLS = Object.freeze([
   'click_away',
 ]);
 
-/* The three ways of describing a thing on a page. **These same three words are
- * in `autosync/browser.py`**, because they cross the wire in every step. That
+/* The ways of describing a thing on a page. **These same words are in
+ * `autosync/browser.py`**, because they cross the wire in every step. That
  * duplication is real and is not hidden: `tools/export_recipes.py` refuses to
  * write a recipe file naming a way of finding something that is not in this
  * list. */
@@ -78,7 +80,22 @@ export const BY_TEXT = 'text';
 export const BY_ROLE_AND_TEXT = 'role';
 export const BY_TEST_ID = 'test-id';
 export const BY_PRESSABLE_TEXT = 'pressable';
-const WAYS_OF_FINDING = Object.freeze([BY_TEXT, BY_ROLE_AND_TEXT, BY_TEST_ID, BY_PRESSABLE_TEXT]);
+/* **THE WORDS SAY WHICH BOX. THE BOX IS WHAT IS PRESSED.** Flipkart's Reports
+ * Centre shows the words "Select Date Range" as a plain leaf with the calendar
+ * hidden behind a box beside them -- no control tag, no role, no pointer cursor
+ * on the words, and the box carries its own VALUE rather than the words. So no
+ * way of finding above can reach it: `pressable` refuses the label, and anything
+ * reading words refuses the box. The reference has never pressed the label
+ * (`content/flipkart.js` StepD-0): it finds the leaf, walks up as far as five
+ * ancestors and presses the input, calendar icon or date value beside it. */
+export const BY_THE_CONTROL_BESIDE = 'beside';
+const WAYS_OF_FINDING = Object.freeze([BY_TEXT, BY_ROLE_AND_TEXT, BY_TEST_ID, BY_PRESSABLE_TEXT,
+  BY_THE_CONTROL_BESIDE]);
+
+/* **HOW FAR UP FROM THE LABEL TO LOOK FOR THE BOX IT LABELS.** Five, which is
+ * the reference's own number. Not unlimited: walked far enough, every label's
+ * ancestor is the page, and the page contains every input on it. */
+const AS_FAR_UP_AS = 5;
 
 /* How often to look again while waiting, and how long to wait after something
  * first appears before answering how many there are. */
@@ -230,23 +247,37 @@ function looksLike(node, how, what, exact) {
  *  For a control it is the same rule applied among controls only: a `span`
  *  inside a button is not a control, so the button stays the one match, and
  *  clicking a control is what the recipes ask for. */
-function whatMatches(how, what, exact, near = '') {
-  const all = everything(thePage()).filter(
+function whatMatches(how, what, exact, near = []) {
+  const labels = everything(thePage()).filter(
     (node) => isPainted(node) && looksLike(node, how, what, exact)
   );
-  const innermost = all.filter(
-    (node) => !all.some((other) => other !== node && node.contains(other))
+  const smallest = labels.filter(
+    (node) => !labels.some((other) => other !== node && node.contains(other))
   );
-  if (!near) return innermost;
+  /* **AND FOR ONE WAY OF FINDING, WHAT WAS MATCHED IS NOT WHAT IS WANTED.** The
+   * words are a label; the thing to press is the box beside them. Done here, so
+   * the innermost rule has already picked the leaf that carries the words --
+   * which is exactly what the reference starts from. */
+  const all = how === BY_THE_CONTROL_BESIDE ? theBoxesBeside(smallest) : smallest;
+  const innermost = how === BY_THE_CONTROL_BESIDE
+    ? all.filter((node) => !all.some((other) => other !== node && node.contains(other)))
+    : all;
+  const rows = theRows(near);
+  if (!rows.length) return innermost;
   /* **WHICH ROW IT IS ON.** When a page lists every export ever made, each row
    * with its own Download, the words are identical and only the row differs.
    * The recipe says which day it wants; this keeps the ones sitting beside
    * those words.
    *
+   * **SEVERAL WAYS THE SAME DAY COULD BE WRITTEN, AND ANY OF THEM WILL DO.**
+   * Neither portal writes a day only one way, and the working reference builds
+   * five spellings on Flipkart and six on Meesho rather than choosing. They all
+   * name the same day, so a longer list can only stop a right row being missed
+   * over a leading nought -- it can never reach a different day's row.
+   *
    * **IT ONLY EVER TAKES MATCHES AWAY.** So it cannot turn one right answer
    * into a wrong one -- at worst it removes the right one too, and then the
    * count is nought and the step refuses, which is the safe direction. */
-  const wanted = words(near).toLowerCase();
   return innermost.filter((node) => {
     let up = node.parentNode;
     while (up) {
@@ -256,11 +287,70 @@ function whatMatches(how, what, exact, near = '') {
        * and nothing was narrowed at all. That was the first version of this and
        * it read as working. */
       if (innermost.some((other) => other !== node && up.contains(other))) return false;
-      if (words(up.textContent).toLowerCase().includes(wanted)) return true;
+      const said = words(up.textContent).toLowerCase();
+      if (rows.some((row) => said.includes(row))) return true;
       up = up.parentNode;
     }
     return false;
   });
+}
+
+/** The ways the wanted row could be named, tidied. **One string still counts as
+ *  one way**, so a caller that has not been changed yet is not silently
+ *  narrowing to nothing. */
+function theRows(near) {
+  const many = Array.isArray(near) ? near : [near];
+  return many.map((one) => words(one).toLowerCase()).filter(Boolean);
+}
+
+/** For each label, the box it labels: the input, calendar icon or date value
+ *  sitting beside it.
+ *
+ *  **THIS IS `content/flipkart.js` StepD-0, AND IT IS NOT A GENERALISATION OF
+ *  IT.** From the label, walk up one ancestor at a time, at most five, and take
+ *  the first of these inside that ancestor:
+ *
+ *    - a real input that is not hidden -- what the reference prefers;
+ *    - failing that, an icon or anything a page calls a calendar;
+ *    - failing that, anything painted, other than the label, that is an input.
+ *
+ *  **WHAT IS NOT COPIED IS THE REFERENCE'S LAST RESORT** -- clicking the whole
+ *  container row, or the label's own next sibling, or its parent. That is the
+ *  reference guessing, and a guess that presses a container is a click landing
+ *  somewhere nobody has measured. Here, nothing found is nought found, and
+ *  nought found refuses and says so. */
+function theBoxesBeside(labels) {
+  const found = [];
+  for (const label of labels) {
+    let up = label.parentNode;
+    for (let step = 0; step < AS_FAR_UP_AS && up; step += 1) {
+      const inside = everything(up).filter((node) => node !== label && isPainted(node));
+      const box = inside.find(isABoxSomethingIsTypedIn) || inside.find(looksLikeACalendar);
+      if (box && !found.includes(box)) { found.push(box); break; }
+      up = up.parentNode;
+    }
+  }
+  return found;
+}
+
+/* A box something is typed in -- **any input the page has not hidden, not only
+ * one the browser calls a date box.** Flipkart's is `type="text"` and holds the
+ * range as its value (`DOCS.md:1803`), so asking for a real date box finds
+ * nothing there. That is a different question from `isADateBox`, which is asked
+ * when a range is being TYPED into two boxes, and the two are not folded
+ * together. */
+function isABoxSomethingIsTypedIn(node) {
+  return String(node.tagName || '').toLowerCase() === 'input'
+    && String(node.type || '').toLowerCase() !== 'hidden';
+}
+
+/* An icon or anything the page itself calls a calendar. **The reference's own
+ * second choice**, and it is asked of what the page calls things rather than of
+ * what they look like, because a picture has no words to read. */
+function looksLikeACalendar(node) {
+  if (String(node.tagName || '').toLowerCase() === 'svg') return true;
+  const called = `${node.className || ''} ${node.getAttribute('class') ?? ''}`.toLowerCase();
+  return called.includes('calendar') || called.includes('icon');
 }
 
 function refuseAnUnknownWay(how) {
@@ -604,7 +694,7 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
    * one thing matches would say "exactly one" about a page that is about to
    * hold two -- and one is the answer that clicks.
    */
-  async function find(how, what, exact = true, patienceSeconds = 0, near = '') {
+  async function find(how, what, exact = true, patienceSeconds = 0, near = []) {
     refuseAnUnknownWay(how);
     const giveUpAt = Date.now() + Math.max(0, Number(patienceSeconds) || 0) * 1000;
     for (;;) {
@@ -625,7 +715,7 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
    * the single thing this whole design exists to prevent. If it is not exactly
    * one now, nothing is clicked and the number is reported.
    */
-  function click(how, what, exact = true, near = '') {
+  function click(how, what, exact = true, near = []) {
     refuseAnUnknownWay(how);
     const found = whatMatches(how, what, exact, near);
     if (found.length === 0) {

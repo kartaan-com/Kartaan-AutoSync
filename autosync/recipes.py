@@ -25,6 +25,7 @@ a support ticket is open. So every Flipkart report below is on the browser door.
 here or above changes at all. That was the whole reason for the two doors.
 """
 
+import re
 from dataclasses import dataclass, field, replace
 from typing import Dict, Optional, Tuple
 
@@ -32,14 +33,18 @@ from browser import (
     BY_PRESSABLE_TEXT,
     BY_ROLE_AND_TEXT,
     BY_TEXT,
+    BY_THE_CONTROL_BESIDE,
     CLICK,
     GO,
     PICK_RANGE,
     TAKE_FILE,
+    THE_DAY_IT_IS_ABOUT,
+    THE_DAY_IT_WAS_MADE,
     WAIT,
     WAIT_FOR,
     Find,
     LookAgain,
+    PressAgain,
     Step,
 )
 # **WHICH PLATFORM A REPORT BELONGS TO IS THE REPORT LIST'S ANSWER, not this
@@ -71,20 +76,21 @@ class Recipe:
         return bool(self.to_ask)
 
 
-# **HOW EACH PLATFORM WRITES A DAY, ONE WAY PER PLATFORM AND NEVER ONE SHARED
-# WAY.** A row is named by the day, and no two portals write a day the same way.
+# **HOW EACH PLATFORM WRITES A DAY -- SEVERAL SPELLINGS PER PLATFORM, BECAUSE
+# EACH PLATFORM HAS BEEN MET WRITING MORE THAN ONE.**
 #
-# **THE TWO WERE MEASURED SEPARATELY AND THEY DISAGREE ON EXACTLY ONE THING** --
-# whether a day under ten carries a leading nought. That is nine days of every
-# month, and a wrong answer there does not complain: it finds no row at all, on
-# the platform, at night, and reads as the portal having changed.
+# **THIS IS THE CORRECTION OF 2026-09-10, AND IT IS THE SUBTLEST OF THE WEEK.**
+# What stood here was one spelling per portal, each picked off one recorded row.
+# The working reference does not do that on either portal: it builds a LIST of
+# spellings and takes a row that matches ANY of them --
+# `content/flipkart.js findReportRowDownloadBtn` builds five, and
+# `content/meesho.js findExportDownloadByTodayDate` builds six. **It does not
+# commit to one because it met more than one.** Committing to one here chose,
+# on Flipkart, a spelling that the reference's own working matcher excludes.
 #
-# **THIS IS THE LESSON OF THE LAST TWO DAYS APPLIED BEFORE THE MISTAKE RATHER
-# THAN AFTER IT.** One tidy "format a date" helper serving both portals is
-# precisely the generalisation that has cost this project a week -- the working
-# reference's own calendar code carries FOUR separate label spellings because it
-# measured each one, and every time a measured specific was replaced here by a
-# reasonable general, the result could not find anything on the page.
+# **SO WHAT IS COPIED IS THE TOLERANCE, NOT THE STRING.** Every spelling below
+# names the SAME ONE DAY, so trying more of them can never match a different
+# day's row -- it can only stop a right row being missed over a leading nought.
 #
 # **AND THE CALENDAR SPELLINGS ARE NOT THESE.** The month headings a calendar
 # draws, and the wording of a row in a list of finished reports, are different
@@ -99,52 +105,107 @@ MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun",
 MEESHO_WRITES_IT = "meesho"
 FLIPKART_WRITES_IT = "flipkart"
 
+# **THE FIVE PIECES A SPELLING IS BUILT FROM, and they are the whole of what
+# crosses to the extension.** A spelling is a shape with these in it; both halves
+# put the day into the shape and neither carries an opinion of its own about
+# noughts, month names or the order the pieces come in. That is what keeps the
+# two halves from becoming two records of one fact.
+#
+#   {yyyy}  2026        {mm}  06        {dd}  05
+#   {Mon}   Jun         {d}   5
+THE_PIECES_OF_A_DAY = ("yyyy", "mm", "dd", "Mon", "d")
+_A_PIECE = re.compile(r"\{(" + "|".join(THE_PIECES_OF_A_DAY) + r")\}")
 
-def as_meesho_writes_a_day(day) -> str:
-    """How MEESHO writes a day: `25 Aug 2026`. No leading nought.
+# **HOW MEESHO WRITES A DAY. Six spellings, taken one for one from
+# `content/meesho.js findExportDownloadByTodayDate`**, which has read that panel
+# every night for months, in its own order.
+#
+# **HIS OWN RETURNS PAGE ON 2026-08-28** shows rows reading
+# `completed_delivered_last_2_week | 25 Aug 2026, 04:49 PM | Download`, which is
+# the second of these. The reference did not stop there, and neither does this.
+#
+# **THE LAST ONE CARRIES NO YEAR, and that is the reference's, kept knowingly.**
+# It is the loosest thing in this file: `31 May` sits inside `31 May 2025` as
+# well as `31 May 2026`. It stays because narrowing to a row only ever takes
+# matches away -- an extra candidate cannot invent a row -- and because the
+# reference met a panel that wrote a day that way.
+HOW_MEESHO_WRITES_A_DAY = (
+    "{yyyy}-{mm}-{dd}",       # 2026-05-31
+    "{d} {Mon} {yyyy}",       # 31 May 2026   <- his own panel, 2026-08-28
+    "{dd} {Mon} {yyyy}",      # 05 May 2026
+    "{d} {Mon}",              # 31 May
+    "{dd}/{mm}/{yyyy}",       # 31/05/2026
+    "{dd}-{mm}-{yyyy}",       # 31-05-2026
+)
 
-    **READ OFF HIS OWN MEESHO RETURNS PAGE ON 2026-08-28**, where the panel of
-    finished exports lists rows reading
-    `completed_delivered_last_2_week | 25 Aug 2026, 04:49 PM | Download`.
-
-    **THE MISSING NOUGHT IS THE MEASUREMENT, not a preference.** Meesho shows
-    `1 Sep 2026`; `01 Sep 2026` is on no row of that panel at all, so a lookup
-    written the other way finds nothing for the first nine days of every month.
-    """
-    return f"{day.day} {MONTHS[day.month - 1]} {day.year}"
-
-
-def as_flipkart_writes_a_day(day) -> str:
-    """How FLIPKART'S REPORTS CENTRE writes a day: `05 Jun 2026`. With the nought.
-
-    **TAKEN FROM THE REFERENCE'S OWN RECORD OF A REAL ROW** in the Requested tab:
-    `Fulfilment Reports  Orders  05 Jun 2026 To 06 Jun 2026  Generated`. That is
-    the row `fk_orders`, `fk_returns` and `fk_payments` are matched by, and it is
-    matched on the day after `" To "` because the end of the range is the day
-    actually being fetched.
-
-    **IT IS NOT MEESHO'S WORDING WITH A NOUGHT ADDED. IT IS FLIPKART'S OWN, AND
-    IT IS ONLY EVER APPLIED TO FLIPKART.** A single shared way of writing a day
-    would be wrong on one of the two portals for nine days a month, and wrong in
-    the silent direction.
-    """
-    return f"{day.day:02d} {MONTHS[day.month - 1]} {day.year}"
-
+# **HOW FLIPKART'S REPORTS CENTRE WRITES A DAY. The reference's five, plus the
+# one the document recorded, and the sixth is the point.**
+#
+# The first five are `findReportRowDownloadBtn`'s own `buildFmts`, in its order.
+# **Four of the five put the month FIRST** -- its own comment shows a real row
+# reading `Jun 10 2026 To Jun 11 2026`.
+#
+# **`DOCS.md:1766` records a row reading `05 Jun 2026` instead: day first, with
+# a nought -- and that spelling is not among the reference's five.** Two written
+# records of the same portal disagree. Choosing between them is what went wrong
+# on 2026-09-10, in both directions on two different nights; carrying both is
+# what the reference itself does when it meets more than one. So the sixth is
+# here, marked for what it is.
+#
+# **AND CONTAINMENT DOES NOT RESCUE IT, which is why it has to be listed.** A
+# row is narrowed by the words `To 06 Jun 2026`; `To 6 Jun 2026` is not inside
+# that, because the nought falls between the `To ` and the `6`.
+HOW_FLIPKART_WRITES_A_DAY = (
+    "{Mon} {d} {yyyy}",       # Jun 5 2026
+    "{Mon} {dd} {yyyy}",      # Jun 05 2026
+    "{Mon} {d}, {yyyy}",      # Jun 5, 2026
+    "{d} {Mon} {yyyy}",       # 5 Jun 2026
+    "{yyyy}-{mm}-{dd}",       # 2026-06-05
+    "{dd} {Mon} {yyyy}",      # 05 Jun 2026  <- DOCS.md:1766, not in the reference's five
+)
 
 # Whose wording is whose. **Nothing works this out from a report's name** -- a
 # name is a spelling and a spelling is not a fact (D170).
 HOW_A_DAY_IS_WRITTEN = {
-    MEESHO_WRITES_IT: as_meesho_writes_a_day,
-    FLIPKART_WRITES_IT: as_flipkart_writes_a_day,
+    MEESHO_WRITES_IT: HOW_MEESHO_WRITES_A_DAY,
+    FLIPKART_WRITES_IT: HOW_FLIPKART_WRITES_A_DAY,
 }
 
 
-def the_day_in_words(whose: str, day) -> str:
-    """One day, written the way that one portal writes it, or a refusal naming it."""
-    write_it = HOW_A_DAY_IS_WRITTEN.get(whose)
-    if write_it is None:
+def a_day_written(shape: str, day) -> str:
+    """One day put into one spelling. **No opinion of its own** -- the shape says
+    the order, the noughts and the month name, and this only fills it in.
+
+    **EVERY PIECE CARRIES ITS OWN BRACES, WHICH IS WHAT MAKES THE ORDER NOT
+    MATTER**, and that is worth saying because the first version of this note
+    said the opposite. `{d}` cannot be found inside `{dd}` -- the closing brace
+    is in the way -- so no piece can eat another's name whichever way round they
+    are filled. **The reason a check watches this is not the order: it is that
+    BOTH HALVES have to recognise the same five names**, and a half that had
+    never heard of `{dd}` would leave it on the page as those four characters.
+    """
+    pieces = {
+        "yyyy": f"{day.year}",
+        "mm": f"{day.month:02d}",
+        "dd": f"{day.day:02d}",
+        "Mon": MONTHS[day.month - 1],
+        "d": f"{day.day}",
+    }
+    return _A_PIECE.sub(lambda found: pieces[found.group(1)], shape)
+
+
+def the_days_in_words(whose: str, day) -> Tuple[str, ...]:
+    """Every way that one portal has been met writing one day, or a refusal.
+
+    **SEVERAL, NEVER ONE.** A row matches if it carries any of them, which is
+    what the reference does on both portals. They all name the same day, so a
+    longer list cannot match a different day -- only a right row that would
+    otherwise have been missed over a leading nought.
+    """
+    shapes = HOW_A_DAY_IS_WRITTEN.get(whose)
+    if shapes is None:
         raise KeyError(f"{whose!r} is not a portal whose wording of a day is written down here.")
-    return write_it(day)
+    return tuple(a_day_written(shape, day) for shape in shapes)
 
 
 def why_the_wording_is_wrong(report_id: str) -> Optional[str]:
@@ -310,12 +371,36 @@ def _reports_centre(kind: str, sub_kind: str, why_it_is: str) -> Recipe:
             # already keeps looking for the whole of its patience before it
             # answers that no calendar was showing, so a third step here would be
             # a second way of saying one thing.
-            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Select Date Range",
+            #
+            # **AND THE WORDS ARE A LABEL. THE BOX IS BESIDE THEM.** This pressed
+            # the words themselves, which was carried over from Meesho's orders
+            # step where Meesho really does have a pressable box. On Flipkart it
+            # could never have worked: **Select Date Range** is a plain leaf with
+            # no control tag, no role and no pointer cursor, so nothing pressable
+            # matches it -- and the box beside it does not carry those words
+            # either, because what an input carries is its value, which here is
+            # the range currently showing (`DOCS.md:1803`). The reference has
+            # never pressed the label: it finds the leaf, walks up as far as five
+            # ancestors and presses the input, calendar icon or date value beside
+            # it. That is what `BY_THE_CONTROL_BESIDE` is.
+            Step(CLICK, find=Find(BY_THE_CONTROL_BESIDE, "Select Date Range",
                                   called="the date range box"),
                  patience=30,
                  why="opening the date range box, which is what the calendar is hidden behind"),
+            # **THE DATE BOX IS PRESSED AGAIN WHILE THE CHIP IS WAITED FOR,
+            # BECAUSE THE BOX TOGGLES.** The reference re-presses it on every
+            # third look, eight looks a second apart. It was dropped when this
+            # step was carried across, with no reason given -- and dropped, a
+            # press that arrived while the sub-page was still drawing leaves this
+            # step waiting out its whole patience at a page that will never
+            # change, then reporting the chip as missing.
             Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Custom", called="the custom range chip"),
-                 patience=30, why="choosing a custom range, which is what draws the days"),
+                 patience=30,
+                 press_again=PressAgain(
+                     by=Find(BY_THE_CONTROL_BESIDE, "Select Date Range",
+                             called="the date range box"),
+                     after=3, times=4),
+                 why="choosing a custom range, which is what draws the days"),
             # **TWO DAYS, NOT ONE.** Flipkart requires the start to be strictly
             # before the end; a single-day range is refused by a Submit that does
             # nothing at all, with no message.
@@ -324,8 +409,17 @@ def _reports_centre(kind: str, sub_kind: str, why_it_is: str) -> Recipe:
             # CURSOR AND IN NOTHING ELSE.** Flipkart disables a day two different
             # ways and only one of them can be read any other way -- see the note
             # on the step in `browser.py`. No other calendar here is asked.
+            #
+            # **AND THE CHIP IS PRESSED AGAIN WHILE THE CALENDAR IS WAITED FOR,
+            # BECAUSE THE CHIP TOGGLES TOO.** The reference re-presses it once,
+            # part-way through its wait for the month heading, "in case it
+            # toggled off". Dropped with the step above, and the symptom is the
+            # same: a quiet wait, then no calendar.
             Step(PICK_RANGE, range_days=2, patience=30,
                  switched_off_days_change_the_cursor=True,
+                 press_again=PressAgain(
+                     by=Find(BY_PRESSABLE_TEXT, "Custom", called="the custom range chip"),
+                     after=4, times=1),
                  why="setting the two-day range Flipkart insists on"),
             Step(CLICK, find=Find(BY_ROLE_AND_TEXT, "Submit"), why="submitting the request"),
             # **THE BANNER IS WAITED FOR, and its absence is a real failure.** The
@@ -370,12 +464,20 @@ def _reports_centre(kind: str, sub_kind: str, why_it_is: str) -> Recipe:
             # Meesho's way, this looks for `5 Jun 2026` on a row that reads
             # `05 Jun 2026` -- nothing matches, for the first nine days of every
             # month, and it reads as the portal having changed.
+            # **AND THE DAY IS THE ONE THE DATA IS ABOUT, which on this portal is
+            # also the end of the range.** Said out loud because the other portal
+            # answers it the other way: Meesho's panel names a row by the day the
+            # export was MADE. The range asked for is [the day before, the day],
+            # so the end of it IS the data date, and the reference passes
+            # yesterday to its row matcher.
             Step(WAIT_FOR, find=Find(BY_TEXT, "Generated", exact=False,
                                      near="To {day_in_words}", called="a finished report",
-                                     day_in_words_is=FLIPKART_WRITES_IT),
+                                     day_in_words_is=FLIPKART_WRITES_IT,
+                                     day_in_words_of=THE_DAY_IT_IS_ABOUT),
                  patience=120, why="looking for a finished report for the day being fetched"),
             Step(TAKE_FILE, find=Find(BY_ROLE_AND_TEXT, "Download", near="To {day_in_words}",
-                                      day_in_words_is=FLIPKART_WRITES_IT),
+                                      day_in_words_is=FLIPKART_WRITES_IT,
+                                      day_in_words_of=THE_DAY_IT_IS_ABOUT),
                  patience=90,
                  why=f"taking the finished {why_it_is} file for the day being fetched"),
         ),
@@ -518,8 +620,15 @@ RECIPES: Dict[str, Recipe] = {
             # as `2026-08-25` -- a form that appears on no row of that panel --
             # and `me_returns` has been broken this way since the day it was
             # written. Meesho writes `25 Aug 2026`, with no leading nought.
+            # **AND IT IS THE DAY THE EXPORT WAS MADE, WHICH IS TODAY.** The row
+            # carries the moment the file was built and nothing else, so filled
+            # with the day being fetched it asks for yesterday's date on a row
+            # stamped with today's -- which is what the second fix on 2026-09-10
+            # left in place. `content/meesho.js:1055` takes today for the row and
+            # yesterday for the file name, two lines apart, on purpose.
             Step(TAKE_FILE, find=Find(BY_PRESSABLE_TEXT, "Download", near="{day_in_words}",
-                                      day_in_words_is=MEESHO_WRITES_IT),
+                                      day_in_words_is=MEESHO_WRITES_IT,
+                                      day_in_words_of=THE_DAY_IT_WAS_MADE),
                  patience=120, why="taking the finished file"),
         ),
     ),
@@ -584,8 +693,15 @@ RECIPES: Dict[str, Recipe] = {
             # filled by nothing at all, so the row was looked for as `2026-08-25`
             # -- which that panel never writes -- and claims has been broken this
             # way since it was written.
+            # **AND IT IS THE DAY THE EXPORT WAS MADE, WHICH IS TODAY, NOT THE
+            # DAY BEING FETCHED.** Filled with the data date this looked for
+            # `24 Aug 2026` on a row reading `25 Aug 2026, 04:49 PM` -- right
+            # wording, wrong day, nothing found. The reference keeps the two
+            # apart in one function: `content/meesho.js:1055` matches the row
+            # with today and names the saved file with yesterday.
             Step(TAKE_FILE, find=Find(BY_PRESSABLE_TEXT, "Download", near="{day_in_words}",
-                                      day_in_words_is=MEESHO_WRITES_IT),
+                                      day_in_words_is=MEESHO_WRITES_IT,
+                                      day_in_words_of=THE_DAY_IT_WAS_MADE),
                  patience=300, why="taking the finished file"),
         ),
     ),

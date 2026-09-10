@@ -12,6 +12,15 @@ the seller's own Chrome, driven by an extension:
     browser.go(address, patience)            -> None, or raises
     browser.find(how, what, exact, patience, near) -> how many things match
     browser.click(how, what, exact, near)    -> None, or raises
+
+**`near` IS A LIST OF WAYS THE SAME ROW COULD BE NAMED, AND A ROW MATCHES IF IT
+CARRIES ANY ONE OF THEM.** Not one string. Both portals have been met writing a
+day more than one way, and the working reference builds five spellings on
+Flipkart and six on Meesho rather than choosing between them. Every candidate in
+the list names the SAME day, so a longer list can never match a different day's
+row -- only a right row that would otherwise have been missed over a leading
+nought.
+
     browser.pick_range(start, end, patience, also_by_the_cursor)
                                              -> None, or raises. The last one
                                                 says whether THIS calendar
@@ -98,8 +107,18 @@ def do_the_steps(
     panel: str,
     say: Callable[[str], None],
     asked_already: Optional[str] = None,
+    *,
+    run_day: date,
 ) -> Fetched:
     """Walk one report's recipe, and answer what came of it.
+
+    **`run_day` IS THE DAY THIS RUN IS HAPPENING, AND IT IS NOT `data_date`.** On
+    an ordinary night the data date is yesterday; on a catch-up it can be weeks
+    back. **Meesho's exported-files panel names a row by the day the export was
+    MADE**, which is the day of the run and nothing else, so the two have to be
+    told apart -- the reference tells them apart in one function, two lines
+    apart (`content/meesho.js:1055`). **It has no default**, because a default
+    would be the guess this whole argument exists to remove.
 
     **A COVERING IS ASKED ABOUT ONLY ONCE A LOOKUP HAS ALREADY FAILED, and that
     is a correction made on 2026-08-28 with the evidence in front of it.** It used
@@ -147,7 +166,7 @@ def do_the_steps(
         # rule about a placeholder is a rule about the RECIPE -- a row named
         # without the day, a wording nobody said whose it was -- and once the day
         # is in, all of them are gone from the text and the rules read as passing.
-        step = _with_the_day_in(step, data_date)
+        step = _with_the_day_in(step, data_date, run_day)
 
         # **SIGNING IN IS ASKED ABOUT FIRST, AND IT IS NOT THIS REPORT'S FAULT.**
         if browser.needs_signing_in():
@@ -178,9 +197,15 @@ def do_the_steps(
             # cursor -- its own habit, not a rule of browsers, so the recipe says
             # which calendar this is rather than the door assuming it of every
             # one. Dropped here, the second mechanism is caught by nothing.
-            browser.pick_range(
-                data_date - timedelta(days=step.range_days - 1), data_date, step.patience,
-                step.switched_off_days_change_the_cursor,
+            # **AND A CONTROL THAT TOGGLES IS PRESSED AGAIN WHILE THIS WAITS.**
+            # Flipkart's calendar is drawn by a **Custom** chip that toggles, so a
+            # chip press that arrived early opened nothing and this step waits its
+            # whole patience out at a page that will never change. The reference
+            # presses the chip again once, part-way through (`content/flipkart.js`
+            # StepD), and has done every night for months.
+            _the_range_goes_in(
+                browser, step, say, report_id,
+                data_date - timedelta(days=step.range_days - 1), data_date,
             )
             continue
 
@@ -194,8 +219,7 @@ def do_the_steps(
                            say=f"Landed {name} ({len(body)} bytes).")
 
         # CLICK and WAIT_FOR both have to find something first.
-        many = browser.find(step.find.how, step.find.what, step.find.exact, step.patience,
-                            step.find.near)
+        many = _how_many_match(browser, step, say, report_id)
         if many == 0:
             # **WHICH OF THE TWO IT WAS, decided now that the lookup has failed.**
             # "Button not found" sent a month of diagnosis at a button that was
@@ -240,8 +264,8 @@ def do_the_steps(
     )
 
 
-def _with_the_day_in(step, data_date):
-    """One step with the day being fetched put into it, wherever it is named.
+def _with_the_day_in(step, data_date, run_day):
+    """One step with the days put into it, wherever they are named.
 
     **UNTIL THIS EXISTED THE PLACEHOLDERS CROSSED TO THE PAGE AS THEY WERE.**
     `find.near` went to the browser holding the literal characters `{day}` or
@@ -249,10 +273,16 @@ def _with_the_day_in(step, data_date):
     page has ever carried -- which finds nothing, every night, and reads as the
     portal having renamed something.
 
-    **EVERY OCCURRENCE, NOT THE FIRST**, and in the order below, which is
-    deliberate: `{day_in_words}` is replaced before `{day}` only so that neither
-    can be affected by the other's replacement text -- a day in words contains a
-    space and a month name, never a brace.
+    **TWO DAYS GO IN, NOT ONE, AND WHICH ONE IS THE LOOKUP'S OWN ANSWER.**
+    `{day}` is always the day the data is about. `{day_in_words}` is whichever
+    day the lookup says names the row: Flipkart's Reports Centre names it by the
+    end of the range, which is the data date; Meesho's exported-files panel names
+    it by the day the export was made, which is the day of the run. Filled with
+    the other one, the row is looked for under a day that is on no row at all.
+
+    **AND `near` COMES OUT AS SEVERAL ROWS IT COULD BE, NOT ONE.** Both portals
+    have been met writing a day more than one way, so the lookup carries every
+    spelling that portal writes and a row matches if it carries any of them.
 
     **AND THIS IS THE SAME FILLING-IN `extension/walk.js` DOES, held to it by a
     check that runs both halves.** Two descriptions of one rule is the fault this
@@ -269,16 +299,110 @@ def _with_the_day_in(step, data_date):
     # to say whose wording it meant.
     if "{day}" in step.address:
         changed["address"] = step.address.replace("{day}", data_date.isoformat())
-    if step.find is not None and step.find.near:
-        near = step.find.near
-        if "{day_in_words}" in near:
-            near = near.replace(
-                "{day_in_words}", book.the_day_in_words(step.find.day_in_words_is, data_date)
-            )
-        near = near.replace("{day}", data_date.isoformat())
-        if near != step.find.near:
-            changed["find"] = replace(step.find, near=near)
+    if step.find is not None:
+        changed["find"] = replace(step.find, near=_the_rows_it_could_be(
+            step.find, data_date, run_day))
     return replace(step, **changed) if changed else step
+
+
+def _the_rows_it_could_be(find, data_date, run_day):
+    """Every way the row this lookup wants could be named. **Empty when it wants
+    any row at all**, which is most lookups.
+
+    **ALWAYS A LIST, EVEN OF ONE, so that nothing downstream has to ask which
+    shape it was handed.** A single string that sometimes means one row and
+    sometimes means several is two things wearing one name.
+    """
+    if not find.near:
+        return ()
+    if "{day_in_words}" not in find.near:
+        return (find.near.replace("{day}", data_date.isoformat()),)
+    # **WHICH DAY NAMES THE ROW IS THE LOOKUP'S OWN ANSWER**, and there is no
+    # default: a lookup that has not said is refused before it gets here.
+    named_by = run_day if find.day_in_words_of == pages.THE_DAY_IT_WAS_MADE else data_date
+    return tuple(
+        find.near.replace("{day_in_words}", in_words).replace("{day}", data_date.isoformat())
+        for in_words in book.the_days_in_words(find.day_in_words_is, named_by)
+    )
+
+
+def _how_many_match(browser, step, say, report_id):
+    """How many things on the page match this step's lookup.
+
+    **AND A CONTROL THAT TOGGLES IS PRESSED AGAIN WHILE IT WAITS, when the step
+    says one does.** Flipkart's Reports Centre hides its calendar behind a date
+    box and a Custom chip, both of which toggle: a press that arrived while the
+    sub-page was still drawing opened nothing, and without this the next step
+    waits its whole patience out at a page that will never change. The reference
+    presses the date box again on every third look (`content/flipkart.js` StepD).
+    """
+    def look(patience):
+        return browser.find(step.find.how, step.find.what, step.find.exact, patience,
+                            step.find.near)
+
+    press = step.press_again
+    if press is None:
+        return look(step.patience)
+    spent = 0
+    for _ in range(press.times):
+        # **A GO THAT THREW IS A GO THAT DID NOT FIND IT, AND NOTHING MORE.** The
+        # last go below is NOT caught, so a real failure still carries its own
+        # words out to the seller -- what is swallowed here is only the middle of
+        # the waiting, and every press in between is said out loud.
+        many = _answered(look, press.after)
+        if many:
+            return many
+        spent += press.after
+        _press_it_again(browser, press, say, report_id)
+    return look(max(1, step.patience - spent))
+
+
+def _the_range_goes_in(browser, step, say, report_id, start, end):
+    """Put the range into the page, pressing again the control that draws it.
+
+    **THE CALENDAR IS DRAWN BY A CHIP THAT TOGGLES.** The reference presses that
+    chip again once, part-way through its wait for the calendar, and has done
+    every night for months (`content/flipkart.js` StepD). Dropped, the only
+    symptom is a step that waits quietly and then says no calendar was showing.
+    """
+    def put_in(patience):
+        browser.pick_range(start, end, patience, step.switched_off_days_change_the_cursor)
+        return True
+
+    press = step.press_again
+    if press is None:
+        put_in(step.patience)
+        return
+    spent = 0
+    for _ in range(press.times):
+        if _answered(put_in, press.after):
+            return
+        spent += press.after
+        _press_it_again(browser, press, say, report_id)
+    put_in(max(1, step.patience - spent))
+
+
+def _answered(work, patience):
+    """What one go answered, or nothing at all when it threw."""
+    try:
+        return work(patience)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _press_it_again(browser, press, say, report_id):
+    """Press the toggling control once more. **Said, never swallowed.**
+
+    A control that cannot be pressed again is worth knowing about -- but it is
+    not this step's failure, because the step goes on waiting and reports its own
+    in its own words.
+    """
+    try:
+        browser.click(press.by.how, press.by.what, press.by.exact, ())
+    except Exception as wrong:  # noqa: BLE001
+        say(f"{report_id}: {press.by.name()} could not be pressed again -- {wrong}")
+        return
+    say(f"{report_id}: pressed {press.by.name()} again, because it is a control that toggles.")
 
 
 def _take_the_file(browser, step, report_id, data_date, which):
@@ -392,7 +516,8 @@ def _gave_up(report_id: str, data_date: date, wrong: pages.WentWrong) -> Fetched
     )
 
 
-def a_door(browser, panel: str, say: Callable[[str], None]) -> Callable[..., Fetched]:
+def a_door(browser, panel: str, say: Callable[[str], None],
+           run_day: date) -> Callable[..., Fetched]:
     """The browser door, in the shape the runner expects.
 
     Answers a `fetch(report_id, data_date, asked_already=None)` exactly like the
@@ -401,9 +526,17 @@ def a_door(browser, panel: str, say: Callable[[str], None]) -> Callable[..., Fet
     Flipkart that is not politeness. Its Reports Centre allows twenty requests a
     day, and the reference burned through them re-submitting requests that had
     actually worked, then spent the rest of the day locked out.
+
+    **`run_day` IS THE DAY THIS RUN IS HAPPENING, AND IT IS ON THE DOOR RATHER
+    THAN ON `fetch`.** `fetch` answers the same three arguments the Amazon door
+    does and that is what lets the runner tell them apart from nothing, so
+    nothing new goes on it. **The door is built once per run**, and a run starts
+    at two in the morning (`clock.NOT_BEFORE_HOUR`), so every export it makes is
+    made on the same day.
     """
 
     def fetch(report_id: str, data_date: date, asked_already: Optional[str] = None) -> Fetched:
-        return do_the_steps(browser, report_id, data_date, panel, say, asked_already)
+        return do_the_steps(browser, report_id, data_date, panel, say, asked_already,
+                            run_day=run_day)
 
     return fetch

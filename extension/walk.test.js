@@ -32,7 +32,8 @@ import {
   theFileName,
   theWalk,
   TOO_BIG_TO_CARRY,
-  theDayInWords,
+  theDaysInWords,
+  theDayOfTheRun,
   whyTheDayIsRefused,
   whatIsCovering,
   whyStepIsRefused,
@@ -144,7 +145,51 @@ const BOOK = {
         step({ do: 'go', address: 'https://supplier.example.invalid/panel/{panel}/r',
           why: 'opening the returns page' }),
         step({ do: 'take-file',
-          find: find('Download', { near: 'made on {day_in_words}', dayInWordsIs: 'loud' }),
+          find: find('Download', { near: 'made on {day_in_words}', dayInWordsIs: 'loud',
+            dayInWordsOf: 'about' }),
+          patience: 60, why: 'taking the file' }),
+      ],
+    },
+    /* A RECIPE WHOSE FIRST CONTROL TOGGLES. Flipkart's Reports Centre hides its
+     * calendar behind a date box and then a Custom chip, and both of them
+     * toggle -- so the reference presses the box again on every third look for
+     * the chip, and the chip again once while waiting for the calendar. Both
+     * were dropped when those steps were carried across on 2026-09-10. */
+    me_toggles: {
+      readyInMinutes: 0,
+      toAsk: [],
+      toTake: [
+        step({ do: 'click', find: find('Box'), patience: 6, why: 'opening the box' }),
+        step({ do: 'click', find: find('Chip'), patience: 12, why: 'choosing the chip',
+          pressAgain: { by: find('Box'), after: 2, times: 3 } }),
+        step({ do: 'take-file', find: find('Download'), patience: 60, why: 'taking the file' }),
+      ],
+    },
+    /* **AND THE SAME RECIPE WITHOUT THE PRESSING**, so the difference between
+     * them is the thing being measured rather than the stand-in being kind. */
+    me_toggles_unpressed: {
+      readyInMinutes: 0,
+      toAsk: [],
+      toTake: [
+        step({ do: 'click', find: find('Box'), patience: 6, why: 'opening the box' }),
+        step({ do: 'click', find: find('Chip'), patience: 4, why: 'choosing the chip' }),
+        step({ do: 'take-file', find: find('Download'), patience: 60, why: 'taking the file' }),
+      ],
+    },
+    /* A RECIPE WHOSE ROW IS NAMED BY THE DAY THE EXPORT WAS **MADE**, not the
+     * day it is about. That is Meesho's real exported-files panel: a returns
+     * export is always the last two weeks, so the only day on the row is the
+     * moment the file was built. **One recipe naming a wording proves the words
+     * go in; this proves the walk reads WHICH DAY they are.** */
+    me_made_today: {
+      readyInMinutes: 0,
+      toAsk: [],
+      toTake: [
+        step({ do: 'go', address: 'https://supplier.example.invalid/panel/{panel}/r',
+          why: 'opening the returns page' }),
+        step({ do: 'take-file',
+          find: find('Download', { near: 'made on {day_in_words}', dayInWordsIs: 'loud',
+            dayInWordsOf: 'made' }),
           patience: 60, why: 'taking the file' }),
       ],
     },
@@ -158,7 +203,8 @@ const BOOK = {
         step({ do: 'go', address: 'https://supplier.example.invalid/panel/{panel}/r',
           why: 'opening the returns page' }),
         step({ do: 'take-file',
-          find: find('Download', { near: 'made on {day_in_words}', dayInWordsIs: 'quiet' }),
+          find: find('Download', { near: 'made on {day_in_words}', dayInWordsIs: 'quiet',
+            dayInWordsOf: 'about' }),
           patience: 60, why: 'taking the file' }),
       ],
     },
@@ -276,11 +322,11 @@ const BOOK = {
     loud: {
       months: ['JANU', 'FEBR', 'MARC', 'APRI', 'MAYY', 'JUNE',
         'JULY', 'AUGU', 'SEPT', 'OCTO', 'NOVE', 'DECE'],
-      leadingNought: true,
+      spellings: ['{dd} {Mon} {yyyy}', '{Mon}/{dd}'],
     },
     quiet: {
       months: ['ja', 'fe', 'mr', 'ap', 'my', 'jn', 'jl', 'au', 'se', 'oc', 'nv', 'dc'],
-      leadingNought: false,
+      spellings: ['{d} {Mon} {yyyy}'],
     },
   },
   /* **WHAT A LANDED FILE IS CALLED, exported out of the Python by
@@ -290,8 +336,11 @@ const BOOK = {
   fileNames: {
     me_orders: { platform: 'meesho', extension: 'csv' },
     me_two_pages: { platform: 'meesho', extension: 'csv' },
-    me_in_words: { platform: 'meesho', extension: 'csv' },
-    me_in_quiet_words: { platform: 'meesho', extension: 'csv' },
+    me_in_words: { platform: 'loud', extension: 'csv' },
+    me_made_today: { platform: 'loud', extension: 'csv' },
+    me_toggles: { platform: 'meesho', extension: 'csv' },
+    me_toggles_unpressed: { platform: 'meesho', extension: 'csv' },
+    me_in_quiet_words: { platform: 'quiet', extension: 'csv' },
     me_catalog: { platform: 'meesho', extension: 'csv' },
     snapshot_no_ask: { platform: 'meesho', extension: 'csv' },
     no_find_file: { platform: 'meesho', extension: 'csv' },
@@ -318,7 +367,7 @@ const aMoment = (ms = 0) => new Promise((done) => { setTimeout(done, ms); });
 function aPortal(how = {}) {
   const it = {
     went: [], clicked: [], ranges: [], cursorToldFor: [], stepsSeen: 0, patienceTold: [],
-    nearAsked: [], tookFile: 0,
+    nearAsked: [], rowsAsked: [], tookFile: 0,
     handedOver: [], turns: 0, waited: [], clickedAway: 0,
     /* **THE MENU, AS MEESHO REALLY BEHAVES.** Its list of finished exports is
      * drawn AS it opens and never again while it is open. So this holds the two
@@ -443,12 +492,24 @@ function aPortal(how = {}) {
        * no page has ever carried. A stand-in that dropped it would let the
        * placeholder cross unfilled with nothing anywhere looking wrong. */
       it.nearAsked.push(near);
+      /* **AND EVERY WAY THE ROW COULD BE NAMED, FLAT.** A lookup is narrowed to
+       * several spellings of one day now, and matches on any of them -- so a
+       * check asking whether one spelling reached the page needs them apart. */
+      it.rowsAsked.push(...(Array.isArray(near) ? near : [near]));
       it.whatHappened.push(`found ${what}`);
       /* **A PORTAL DRAWS ITSELF IN PIECES AND TAKES ITS TIME OVER IT** -- 10 to
        * 25 seconds was measured on his own Flipkart account. Every one of those
        * seconds is a moment the page's own scripts are running. */
       if (how.slowToDraw) await aMoment(how.slowToDraw);
       somethingElseOnThePage('while the page is drawing');
+      /* **A CONTROL THAT IS NOT THERE UNTIL THE ONE IN FRONT OF IT HAS BEEN
+       * PRESSED AGAIN.** Flipkart's date box toggles, so a press that arrives
+       * while the sub-page is still drawing opens nothing at all -- and the step
+       * after it waits out its whole patience at a page that will never change.
+       * Told to, this stand-in behaves that way. */
+      if (how.chipAfterPresses !== undefined && what === 'Chip') {
+        return it.clicked.filter((one) => one === 'Box').length >= how.chipAfterPresses ? 1 : 0;
+      }
       if (how.matches && what in how.matches) return how.matches[what];
       /* **A PROMOTION HIDES WHAT IS UNDERNEATH IT.** That is what makes a
        * covering worth reporting at all: the lookup fails, and the reason is
@@ -772,15 +833,21 @@ check('asked to step back by nothing at all, it answers the day itself',
   const inWords = aPortal();
   await aWalk(inWords)('me_in_words', DAY);
   check('a row named by the day in words is looked for in the portal\'s own wording',
-    inWords.nearAsked.includes('made on 26 AUGU 2026'));
+    inWords.rowsAsked.includes('made on 26 AUGU 2026'));
   check('and nothing goes to the page still holding the placeholder',
-    inWords.nearAsked.every((one) => !String(one || '').includes('{')));
+    inWords.rowsAsked.every((one) => !String(one || '').includes('{')));
+  /* **AND EVERY WAY THAT PORTAL WRITES THE DAY GOES, NOT THE FIRST ONE.** The
+   * working reference builds five spellings on Flipkart and six on Meesho and
+   * takes a row carrying any of them; committing to one is what put a spelling
+   * on Flipkart that its own matcher excludes. */
+  check('and every spelling that portal writes goes with it, not just the first',
+    inWords.rowsAsked.includes('made on AUGU/26'));
   /* **THE OTHER PORTAL, SAME DAY, DIFFERENT WORDS.** One wording filled in
    * proves the placeholder is filled; two prove the walk reads WHICH. */
   const quietly = aPortal();
   await aWalk(quietly)('me_in_quiet_words', DAY);
   check('and another portal\'s wording of the same day is its own, not the first one\'s',
-    quietly.nearAsked.includes('made on 26 au 2026'));
+    quietly.rowsAsked.includes('made on 26 au 2026'));
   /* **THE LEADING NOUGHT IS THE WHOLE OF WHAT THE TWO REAL PORTALS DISAGREE
    * ABOUT**, and it only shows on a day whose number is under ten. Meesho writes
    * `1 Sep 2026`; Flipkart's Reports Centre writes `05 Jun 2026`. */
@@ -788,11 +855,118 @@ check('asked to step back by nothing at all, it answers the day itself',
   const withNought = aPortal();
   await aWalk(withNought)('me_in_words', SINGLE_FIGURE);
   check('a day under ten keeps its nought where the portal writes one',
-    withNought.nearAsked.includes('made on 05 SEPT 2026'));
+    withNought.rowsAsked.includes('made on 05 SEPT 2026'));
   const withoutNought = aPortal();
   await aWalk(withoutNought)('me_in_quiet_words', SINGLE_FIGURE);
   check('and loses it where the portal does not',
-    withoutNought.nearAsked.includes('made on 5 se 2026'));
+    withoutNought.rowsAsked.includes('made on 5 se 2026'));
+
+  /* ---------- WHICH DAY NAMES THE ROW (A53)
+   *
+   * **WHOSE WORDING AND WHICH DAY ARE TWO QUESTIONS, and the fix of 2026-09-10
+   * answered only the first.** It put Meesho's wording on those lookups and then
+   * filled it with the day being FETCHED. Meesho's panel stamps a row with the
+   * moment the file was built -- so on a run of the 27th fetching the 26th, the
+   * row reads `27 Aug 2026, 04:49 PM` and the lookup asked for `26 Aug 2026`.
+   *
+   * **THE DAY FETCHED HERE IS JANUARY AND THE RUN IS NOT**, so the two can never
+   * be confused, and the expectation is arithmetic done by hand rather than the
+   * walk's own answer read back. */
+  const LONG_AGO = '2026-01-01';
+  const madeToday = aPortal();
+  await aWalk(madeToday)('me_made_today', LONG_AGO);
+  const now = new Date();
+  const bookMonth = BOOK.daysInWords.loud.months[now.getMonth()];
+  const byHand = `made on ${String(now.getDate()).padStart(2, '0')} ${bookMonth} `
+    + `${now.getFullYear()}`;
+  check('A ROW NAMED BY THE DAY THE EXPORT WAS MADE CARRIES THE DAY OF THE RUN',
+    madeToday.rowsAsked.includes(byHand));
+  check('AND NOT THE DAY BEING FETCHED, which is on no row of that panel',
+    !madeToday.rowsAsked.includes('made on 01 JANU 2026'));
+  /* **AND THE OTHER ANSWER IS UNTOUCHED.** A walk that had one answer for both
+   * would pass one of these two and fail the other, whichever answer it had. */
+  const aboutIt = aPortal();
+  await aWalk(aboutIt)('me_in_words', LONG_AGO);
+  check('while a row named by the day it is ABOUT still carries the day being fetched',
+    aboutIt.rowsAsked.includes('made on 01 JANU 2026'));
+
+  /* **THE DAY OF THE RUN IS READ OFF THE BROWSER'S OWN CLOCK**, because the
+   * export is made by this machine at this moment, in the seller's own timezone,
+   * and the portal stamps the row in that same timezone. Asked with a moment
+   * handed in so this says something exact rather than something about now. */
+  check('the day of the run is written the way the nightly run reads one back',
+    theDayOfTheRun(new Date(2026, 8, 5)) === '2026-09-05');
+  check('and a single-figure month and day both keep their nought',
+    theDayOfTheRun(new Date(2026, 0, 1)) === '2026-01-01');
+  check('and the last day of the year is not rolled into the next one',
+    theDayOfTheRun(new Date(2026, 11, 31)) === '2026-12-31');
+
+  /* ---------- A CONTROL THAT TOGGLES IS PRESSED AGAIN WHILE WAITING (A53)
+   *
+   * **THE REFERENCE HAS DONE THIS EVERY NIGHT FOR MONTHS AND IT WAS DROPPED
+   * WITH NO REASON GIVEN.** Flipkart's date box opens nothing if the press
+   * arrives while the sub-page is still drawing, so the step after it waits out
+   * its whole patience at a page that will never change and then reports the
+   * chip as missing. */
+  const toggling = aPortal({ chipAfterPresses: 2 });
+  const pressed = await aWalk(toggling)('me_toggles', DAY);
+  check('A CONTROL THAT NEEDS PRESSING AGAIN IS PRESSED AGAIN, AND THE WALK GETS PAST IT',
+    pressed.state === LANDED);
+  check('and the box really was pressed more than once',
+    toggling.clicked.filter((one) => one === 'Box').length >= 2);
+  /* **AND THE SAME PORTAL DEFEATS A STEP THAT DOES NOT PRESS AGAIN**, which is
+   * what makes the check above about the pressing rather than about the
+   * stand-in being generous. */
+  const notPressing = aPortal({ chipAfterPresses: 2 });
+  const unpressed = await aWalk(notPressing)('me_toggles_unpressed', DAY);
+  check('while a step that does not press again never sees the chip at all',
+    unpressed.state === FAILED);
+  /* **PRESSED AGAIN ONLY WHEN IT IS NEEDED.** A control pressed again every time
+   * would be pressed once to open and once to shut it. */
+  const alreadyThere = aPortal();
+  await aWalk(alreadyThere)('me_toggles', DAY);
+  check('and a control that was there straight away is pressed once and no more',
+    alreadyThere.clicked.filter((one) => one === 'Box').length === 1);
+
+  /* ---------- A RECIPE NAMING ANOTHER PORTAL'S WORDING NEVER WALKS (A53)
+   *
+   * **THE PYTHON ALREADY REFUSED THIS AND IT WAS NOT ENOUGH.** Its refusal lives
+   * in `recipes.steps_for`, which the tool that writes `recipes.json` has never
+   * called -- so a wording edited by hand into the shipped file reached the
+   * portal with nothing anywhere complaining. */
+  const crossed = {
+    ...BOOK,
+    recipes: {
+      ...BOOK.recipes,
+      me_in_words: {
+        ...BOOK.recipes.me_in_words,
+        toTake: BOOK.recipes.me_in_words.toTake.map((one) => (one.find
+          ? { ...one, find: { ...one.find, dayInWordsIs: 'quiet' } } : one)),
+      },
+    },
+  };
+  const wrongPortal = aPortal();
+  const refusedWording = await aWalk(wrongPortal, crossed)('me_in_words', DAY);
+  check('A RECIPE ASKING FOR ANOTHER PORTAL\'S WORDING FAILS BEFORE ANYTHING IS LOOKED FOR',
+    refusedWording.state === FAILED && wrongPortal.rowsAsked.length === 0);
+  check('and it names both portals, so the fix is obvious',
+    refusedWording.say.includes('loud') && refusedWording.say.includes('quiet'));
+  /* **AND A WORDING NOBODY WROTE DOWN IS ITS OWN REFUSAL** -- that is a typo,
+   * the one above is the wrong portal. */
+  const nobodys = {
+    ...BOOK,
+    recipes: {
+      ...BOOK.recipes,
+      me_in_words: {
+        ...BOOK.recipes.me_in_words,
+        toTake: BOOK.recipes.me_in_words.toTake.map((one) => (one.find
+          ? { ...one, find: { ...one.find, dayInWordsIs: 'louder' } } : one)),
+      },
+    },
+  };
+  const typo = await aWalk(aPortal(), nobodys)('me_in_words', DAY);
+  check('and a wording nobody wrote down is refused too, and says so differently',
+    typo.state === FAILED && typo.say.includes('no wording of a day is written down'));
   /* **A LOOKUP THAT DOES NOT SAY WHOSE WORDING CANNOT BE FILLED IN, AND IT
    * REFUSES RATHER THAN GUESSING.** A guess is wrong on one of the two portals
    * for nine days of every month, and wrong in the silent direction. */
@@ -818,8 +992,14 @@ check('asked to step back by nothing at all, it answers the day itself',
    * the thing its own name claims. */
   check('more was said than the three clicks -- every step announces itself now',
     SAID.length > portal.clicked.length);
-  check('and each line names the report, its place in the walk, and why',
-    SAID.every((line) => /^[a-z_]+: step \d+ of \d+, .+\.$/.test(line)));
+  /* **TWO SHAPES OF LINE, AND BOTH ARE NAMED.** Every step announces itself
+   * before it is attempted; and a control that toggles says when it was pressed
+   * again and why, because a press that is not said is a press nobody can tell
+   * from a step that simply took longer. A pattern that allowed anything at all
+   * would let a line reading `undefined` through, which is what this guards. */
+  check('and each line names the report, and either its place in the walk or the press',
+    SAID.every((line) => /^[a-z_]+: step \d+ of \d+, .+\.$/.test(line)
+      || /^[a-z_]+: (pressed .+ again, because it is a control that toggles\.|.+ could not be pressed again -- .+)$/.test(line)));
   check('and no line says undefined',
     SAID.every((line) => !line.includes('undefined')));
   /* **A WAIT LOOKS AND DOES NOT CLICK.** Otherwise the download menu is opened
@@ -1312,23 +1492,39 @@ ${DAY}`) !== null
    * **THE EXPECTED WORDS ARE WRITTEN OUT BY HAND**, never built from the same
    * parts the answer is built from -- that would be an echo rather than a second
    * opinion. */
-  check('a day is written the way the portal that crossed writes one',
-    theDayInWords(BOOK, 'loud', '2026-08-26') === '26 AUGU 2026');
-  check('and the leading nought is that portal\'s, kept on a day under ten',
-    theDayInWords(BOOK, 'loud', '2026-09-05') === '05 SEPT 2026');
-  check('while a portal that drops it drops it',
-    theDayInWords(BOOK, 'quiet', '2026-09-05') === '5 se 2026');
+  check('a day is written every way the portal that crossed writes one',
+    JSON.stringify(theDaysInWords(BOOK, 'loud', '2026-08-26'))
+    === JSON.stringify(['26 AUGU 2026', 'AUGU/26']));
+  check('and the nought is the SHAPE\'s, kept on a day under ten',
+    theDaysInWords(BOOK, 'loud', '2026-09-05')[0] === '05 SEPT 2026');
+  check('while a shape that drops it drops it',
+    theDaysInWords(BOOK, 'quiet', '2026-09-05')[0] === '5 se 2026');
   check('and the same day reads differently for the two of them',
-    theDayInWords(BOOK, 'loud', '2026-01-01') === '01 JANU 2026'
-    && theDayInWords(BOOK, 'quiet', '2026-01-01') === '1 ja 2026');
+    theDaysInWords(BOOK, 'loud', '2026-01-01')[0] === '01 JANU 2026'
+    && theDaysInWords(BOOK, 'quiet', '2026-01-01')[0] === '1 ja 2026');
   check('the last month of the year is the last one in the list, not one past it',
-    theDayInWords(BOOK, 'quiet', '2026-12-31') === '31 dc 2026');
+    theDaysInWords(BOOK, 'quiet', '2026-12-31')[0] === '31 dc 2026');
+  /* **SEVERAL SPELLINGS, NOT ONE, and the second one proves the walk reads the
+   * whole list rather than the first entry.** Neither real portal writes a day
+   * only one way, and the working reference builds five on Flipkart and six on
+   * Meesho rather than choosing between them. */
+  check('a portal that writes a day two ways answers with both',
+    theDaysInWords(BOOK, 'loud', '2026-08-26').length === 2);
+  check('and the second one is built from the same crossed month names',
+    theDaysInWords(BOOK, 'loud', '2026-08-26')[1] === 'AUGU/26');
+  /* **A PIECE NOBODY FILLS IN STAYS ON THE PAGE AS ITS OWN CHARACTERS**, and the
+   * lookup then narrows to a row nothing carries. The padded day and the plain
+   * one are asked for together because they are the pair most easily read as
+   * one. */
+  check('a shape naming both the padded day and the plain one fills both',
+    theDaysInWords({ daysInWords: { one: { months: BOOK.daysInWords.quiet.months,
+      spellings: ['{dd}{d}'] } } }, 'one', '2026-06-05')[0] === '055');
   /* **A PORTAL THAT DID NOT CROSS IS A REFUSAL, NOT A FALLBACK.** Filled in with
    * anything else, the lookup narrows to a row the page does not carry and the
    * night reports a renamed button. */
   const refused = (whose) => {
     try {
-      theDayInWords(BOOK, whose, DAY);
+      theDaysInWords(BOOK, whose, DAY);
       return '';
     } catch (wrong) {
       return wrong.message;
@@ -1777,7 +1973,7 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
     TOO_BIG_TO_CARRY === TOO_BIG);
 }
 
-const EXPECTED = 233;
+const EXPECTED = 250;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

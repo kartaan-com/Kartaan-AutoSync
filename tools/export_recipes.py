@@ -30,7 +30,6 @@ seller's address into a file that ships to every seller (D27, D30, D92).
 """
 
 import argparse
-import datetime
 import json
 import sys
 from pathlib import Path
@@ -50,11 +49,6 @@ import reports as list_of_reports  # noqa: E402
 SHOWN = "extension/recipes.json"
 WHERE = ROOT / SHOWN
 
-# **THE DAY THE LEADING NOUGHT IS ASKED ABOUT.** Its number has to be under ten
-# or the question cannot be answered at all -- every portal writes `25` the same
-# way, and the whole of the difference between them is what happens to `5`.
-A_SINGLE_FIGURE_DAY = datetime.date(2026, 9, 1)
-
 # **AND THE PRODUCT NEEDS THE REPORT LIST TOO**, because the screen where a person
 # asks for a day again has to offer the reports and say which of them cannot be
 # had for a past day. That list is decided in `autosync/reports.py`, so it is
@@ -67,6 +61,8 @@ REPORTS_WHERE = ROOT / REPORTS_SHOWN
 # crosses unchanged, and a check asserts that what came out carries exactly these.
 AS_JAVASCRIPT_SPELLS_IT = {
     "day_in_words_is": "dayInWordsIs",
+    "day_in_words_of": "dayInWordsOf",
+    "press_again": "pressAgain",
     "range_days": "rangeDays",
     "switched_off_days_change_the_cursor": "switchedOffDaysChangeTheCursor",
     "ready_in_minutes": "readyInMinutes",
@@ -99,6 +95,31 @@ def a_find(find):
         # and a wrong guess finds no row at all for nine days of every month.
         # Empty on every lookup that does not name a row in words.
         AS_JAVASCRIPT_SPELLS_IT["day_in_words_is"]: find.day_in_words_is,
+        # **AND WHICH DAY IT MEANS -- the day the data is about, or the day the
+        # export was made.** Flipkart's Reports Centre names a row by the end of
+        # its range, which is the data date; Meesho's exported-files panel names
+        # one by the day the export was made, which is the day of the run. Left
+        # on this side, the walker would fill in whichever it happened to hold
+        # and find nothing on one of the two portals every single night.
+        AS_JAVASCRIPT_SPELLS_IT["day_in_words_of"]: find.day_in_words_of,
+    }
+
+
+def a_press_again(press):
+    """A control that toggles, pressed again while a step waits, as the extension
+    reads it.
+
+    **NO USE AT ALL ON THIS SIDE.** The thing that presses it runs in the
+    seller's own Chrome. Said in the Python and not carried across, Flipkart's
+    date box and Custom chip are pressed once each and the night waits quietly at
+    a calendar that was never drawn.
+    """
+    if press is None:
+        return None
+    return {
+        "by": a_find(press.by),
+        "after": press.after,
+        "times": press.times,
     }
 
 
@@ -133,6 +154,9 @@ def a_step(step):
         # the step says what to shut and open again between looks. Null on every
         # step but one.
         AS_JAVASCRIPT_SPELLS_IT["look_again"]: a_look_again(step.look_again),
+        # **A CONTROL THAT TOGGLES, PRESSED AGAIN WHILE THIS STEP WAITS.** Null on
+        # every step but two, both of them on Flipkart's Reports Centre.
+        AS_JAVASCRIPT_SPELLS_IT["press_again"]: a_press_again(step.press_again),
     }
 
 
@@ -157,23 +181,23 @@ def what_the_extension_reads():
         "recipes": {name: a_recipe(book.RECIPES[name]) for name in sorted(book.RECIPES)},
         "whatItMeans": dict(sorted(language.WHAT_IT_MEANS.items())),
         "buildsInThePageSince": dict(sorted(book.BUILDS_IN_THE_PAGE_SINCE.items())),
-        # **HOW EACH PORTAL WRITES A DAY, ONE ENTRY PER PORTAL AND NEVER ONE
-        # SHARED ENTRY.** A row in a list of finished exports is named by the day,
-        # and the two portals disagree about the leading nought -- Meesho writes
-        # `1 Sep 2026`, Flipkart's Reports Centre writes `05 Jun 2026`.
+        # **HOW EACH PORTAL WRITES A DAY -- SEVERAL SPELLINGS PER PORTAL, BECAUSE
+        # EACH HAS BEEN MET WRITING MORE THAN ONE.** A row in a list of finished
+        # exports is named by the day, and a row matches if it carries ANY of the
+        # spellings that portal writes. The working reference builds six on
+        # Meesho and five on Flipkart rather than choosing one.
         #
-        # **THE PARTS CROSS, NOT A SECOND COPY OF THE RULE.** The walker in the
-        # extension joins them; nothing on that side carries its own month names
-        # or its own opinion about the nought. **And the nought is MEASURED off
-        # the Python function rather than declared beside it** -- asked of a day
-        # whose number is under ten, so that a portal's wording and what crosses
-        # for it cannot become two answers.
+        # **THE PARTS CROSS, NOT A SECOND COPY OF THE RULE.** A spelling is a
+        # shape -- `{d} {Mon} {yyyy}` -- and the walker in the extension only
+        # puts the day into it. Nothing on that side carries its own month names,
+        # its own opinion about a leading nought, or its own idea of what order
+        # the pieces come in.
         "daysInWords": {
             whose: {
                 "months": list(book.MONTHS),
-                "leadingNought": book.the_day_in_words(whose, A_SINGLE_FIGURE_DAY).startswith("0"),
+                "spellings": list(shapes),
             }
-            for whose in sorted(book.HOW_A_DAY_IS_WRITTEN)
+            for whose, shapes in sorted(book.HOW_A_DAY_IS_WRITTEN.items())
         },
         # **THE WORDS ONLY A SIGNED-OUT PORTAL SHOWS.** The extension refuses to
         # build a door without them rather than answering "signed in" for ever --

@@ -25,7 +25,8 @@
 
 import { FakeNode, installFakeBrowser } from '../test/fake-browser.js';
 import {
-  BY_PRESSABLE_TEXT, BY_ROLE_AND_TEXT, BY_TEST_ID, BY_TEXT, CAUGHT_A_FILE, THE_CALLS,
+  BY_PRESSABLE_TEXT, BY_ROLE_AND_TEXT, BY_TEST_ID, BY_TEXT, BY_THE_CONTROL_BESIDE,
+  CAUGHT_A_FILE, THE_CALLS,
   pageDoor, theCatcherSaid,
 } from './driver.js';
 
@@ -524,7 +525,87 @@ function everyDateBox(page) {
    * nothing, and the step still refuses rather than guessing. */
   check('words that are on every row narrow nothing and still refuse',
     (await door.find(BY_PRESSABLE_TEXT, 'Download', true, 0,
-                     'completed_delivered_last_2_week')) === 3);
+                     ['completed_delivered_last_2_week'])) === 3);
+
+  /* ---------- SEVERAL WAYS THE SAME ROW COULD BE NAMED (A53)
+   *
+   * **NEITHER PORTAL WRITES A DAY ONLY ONE WAY**, and the working reference does
+   * not pretend they do: it builds five spellings on Flipkart and six on Meesho
+   * and takes a row that carries ANY of them. Committing to one is what put a
+   * spelling on Flipkart that the reference's own matcher excludes. */
+  check('given several ways one day could be written, a row matching any of them counts',
+    (await door.find(BY_PRESSABLE_TEXT, 'Download', true, 0,
+                     ['Aug 24 2026', '24 Aug 2026', '2026-08-24'])) === 1);
+  check('and the one that matched need not be the first tried',
+    (await door.find(BY_PRESSABLE_TEXT, 'Download', true, 0,
+                     ['nothing like it', 'still nothing', '22 Aug 2026'])) === 1);
+  /* **THEY ALL NAME THE SAME DAY, so a longer list can never reach a different
+   * row -- only a right row that would otherwise have been missed.** */
+  check('while a list of spellings none of which is on the page still finds nothing',
+    (await door.find(BY_PRESSABLE_TEXT, 'Download', true, 0,
+                     ['Aug 23 2026', '23 Aug 2026', '2026-08-23'])) === 0);
+  check('and an empty list narrows nothing at all, which is most lookups',
+    (await door.find(BY_PRESSABLE_TEXT, 'Download', true, 0, [])) === 3);
+  door.click(BY_PRESSABLE_TEXT, 'Download', true, ['Aug 22 2026', '22 Aug 2026']);
+  check('and clicking with a list presses the row one of them named',
+    pressed.length === 2 && pressed[1] === '22 Aug 2026, 08:09 PM');
+}
+
+/* ------------------------------- the box a label names, not the label (A53) */
+
+{
+  /* **FLIPKART'S REPORTS CENTRE, AS THE DOCUMENT RECORDS IT.** The words
+   * "Select Date Range" are a plain leaf with the calendar hidden behind a box
+   * beside them. A step that pressed the WORDS could never have worked twice
+   * over: the words are not pressable, and the box does not carry them -- what
+   * an input carries is its VALUE, which there is the range currently showing
+   * (`DOCS.md:1803`). */
+  const page = aPage();
+  const door = doorOn();
+  const pressed = [];
+  const row = thing('div');
+  const label = thing('span', 'Select Date Range');
+  const box = thing('input', '', { type: 'text', value: '01 Jun 2026 - 06 Jun 2026' });
+  box.addEventListener('click', () => pressed.push('the box'));
+  label.addEventListener('click', () => pressed.push('the label'));
+  row.append(label, box);
+  page.body.append(row);
+
+  check('the label is not something a person can press, so pressable finds nothing',
+    (await door.find(BY_PRESSABLE_TEXT, 'Select Date Range')) === 0);
+  /* **AND NOTHING READING WORDS REACHES THE BOX EITHER**, which is the other
+   * half of why a fifth way of finding had to exist. */
+  check('and the box does not carry those words at all -- it carries its own value',
+    (await door.find(BY_TEXT, 'Select Date Range')) === 1
+    && (await door.find(BY_TEXT, '01 Jun 2026 - 06 Jun 2026')) === 1);
+
+  check('THE BOX A LABEL NAMES IS FOUND, and it is exactly one thing',
+    (await door.find(BY_THE_CONTROL_BESIDE, 'Select Date Range')) === 1);
+  door.click(BY_THE_CONTROL_BESIDE, 'Select Date Range');
+  check('and it is the BOX that is pressed, never the words',
+    pressed.length === 1 && pressed[0] === 'the box');
+
+  /* **A CALENDAR ICON WHERE THERE IS NO INPUT**, which is the second of the
+   * three things the reference reaches for. */
+  const page2 = aPage();
+  const door2 = doorOn();
+  const iconRow = thing('div');
+  const iconLabel = thing('span', 'Select Date Range');
+  const icon = thing('svg', '', { attrs: { class: 'calendar-icon' } });
+  iconRow.append(iconLabel, icon);
+  page2.body.append(iconRow);
+  check('where the portal draws an icon instead of an input, the icon is the box',
+    (await door2.find(BY_THE_CONTROL_BESIDE, 'Select Date Range')) === 1);
+
+  /* **AND A LABEL WITH NOTHING BESIDE IT FINDS NOTHING, rather than pressing
+   * the container it sits in.** The reference falls back to clicking the whole
+   * row; that is a guess, and a click landing somewhere nobody has measured is
+   * worse than a refusal that says what it was looking for. */
+  const page3 = aPage();
+  const door3 = doorOn();
+  page3.body.append(thing('div', 'Select Date Range'));
+  check('and a label with no box beside it finds nothing, rather than guessing',
+    (await door3.find(BY_THE_CONTROL_BESIDE, 'Select Date Range')) === 0);
 }
 
 /* --------------------------------------------------------------- waiting */
@@ -1332,7 +1413,7 @@ function labelled(node, label) {
   check('and neither is nothing at all', theCatcherSaid(null, 'the-secret') === null);
 }
 
-const EXPECTED = 161;
+const EXPECTED = 172;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

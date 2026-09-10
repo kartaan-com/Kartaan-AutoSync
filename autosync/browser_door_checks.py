@@ -62,6 +62,12 @@ def check(name, passed):
 
 
 DAY = date(2026, 8, 26)
+# **THE DAY THE RUN IS HAPPENING, AND IT IS DELIBERATELY NOT `DAY`.** Meesho's
+# exported-files panel names a row by the day the export was MADE, and Flipkart's
+# Reports Centre by the day the data is about. Held equal here, every check below
+# would pass whichever day the door filled in -- which is exactly how the fault
+# survived two nights of fixing.
+RUN_DAY = date(2026, 8, 27)
 # **THE SLUG ALONE**, the short word in the middle of every Meesho address --
 # not the section around it, which is Meesho's own and lives in the recipe.
 PANEL = "some-slug"
@@ -89,7 +95,13 @@ class FakeMeesho:
         # was read as a page that had renamed its buttons.
         self.patience_told = []
         # Which row each lookup was narrowed to, in the order they were asked.
+        # **EVERY WAY THE ROW COULD BE NAMED, because a lookup is now narrowed to
+        # several spellings of one day and matches on any of them.** Kept flat as
+        # well, so a check can ask whether one spelling reached the page at all.
         self.near_asked = []
+        self.rows_asked = []
+        # How many times the box in front of the Custom chip has been pressed.
+        self.box_presses = 0
         # **HOW LONG IT WAS TOLD TO PASS, AND IN WHAT ORDER THINGS HAPPENED.**
         # Meesho's orders export is built where the page cannot see it, so the
         # recipe can only wait -- and whether the wait came before or after the
@@ -157,9 +169,18 @@ class FakeMeesho:
             return [{"width": 250, "height": 60, "text": "Saved", "blocks": False}]
         return []
 
-    def find(self, how, what, exact, patience, near=""):
+    def find(self, how, what, exact, patience, near=()):
         self.steps_seen += 1
         self.patience_told.append(("find", patience))
+        # **THE CHIP THAT IS NOT THERE UNTIL THE BOX HAS BEEN PRESSED AGAIN.**
+        # Flipkart's date box toggles, so a press that arrives while the sub-page
+        # is still drawing opens nothing at all. Told to, this stand-in behaves
+        # that way -- and a door that pressed the box only once never sees the
+        # chip.
+        held_back = self.how.get("chip_after_box_presses")
+        if held_back is not None and what == "Custom":
+            self.near_asked.append(near)
+            return 1 if self.box_presses >= held_back else 0
         # **WHICH ROW IT WAS ASKED TO LOOK ON, kept.** This is the whole of the
         # day-in-words fix as it reaches the page: a lookup narrowed either to a
         # row named the way that portal writes a day, or to a row no page has
@@ -167,6 +188,7 @@ class FakeMeesho:
         # cross unfilled with nothing anywhere looking wrong -- which is exactly
         # the state five reports were in.
         self.near_asked.append(near)
+        self.rows_asked.extend(near if isinstance(near, (list, tuple)) else [near])
         # **THE FINISHED FILE IS NOT IN THE LIST YET, and this is the only way to
         # say so.** Meesho draws the list of finished exports as the download
         # menu OPENS, so the list only ever changes when the menu is shut and
@@ -208,7 +230,7 @@ class FakeMeesho:
             return True
         return not self.clicked_away
 
-    def click(self, how, what, exact, near=""):
+    def click(self, how, what, exact, near=()):
         # **A CONTROL THAT IS NOT THERE CANNOT BE CLICKED, AND THE REAL DOOR
         # THROWS.** `driver.js` looks the thing up and refuses when nothing
         # matches. A stand-in that quietly accepted the click would let a door
@@ -219,6 +241,8 @@ class FakeMeesho:
             )
         self.clicked.append(what)
         self.order.append(f"clicked {what}")
+        if what == "Select Date Range":
+            self.box_presses += 1
         # **OPENING A SHUT MENU IS THE ONLY THING THAT REDRAWS ITS LIST.** Pressed
         # while it is already open, this counts for nothing at all -- which is
         # exactly what a second press of the opener would be worth if Meesho's
@@ -278,7 +302,7 @@ THREW = []
 NOTHING = tool.Fetched(state="it threw instead of answering", report_id="", data_date=DAY)
 
 
-def a_fetch(fake, panel=PANEL):
+def a_fetch(fake, panel=PANEL, run_day=RUN_DAY):
     """The door, with anything it throws turned into an answer of nothing.
 
     **THE SIGNED-OUT CASE DOES NOT COME THROUGH HERE.** `NeedsSigningIn` is a
@@ -286,7 +310,7 @@ def a_fetch(fake, panel=PANEL):
     directly so that it can catch it by name -- while one raised anywhere else
     lands in THREW below and goes red, which is what it should do.
     """
-    door = tool.a_door(fake, panel, say)
+    door = tool.a_door(fake, panel, say, run_day)
 
     def fetch(report_id, day, **rest):
         try:
@@ -414,7 +438,7 @@ was_its_own_kind = False
 # which says nothing about whether these checks are any good.
 message = ""
 try:
-    tool.a_door(fake, PANEL, say)("me_orders", DAY)
+    tool.a_door(fake, PANEL, say, RUN_DAY)("me_orders", DAY)
 except tool.NeedsSigningIn as wrong:
     was_its_own_kind = True
     message = str(wrong)
@@ -788,42 +812,107 @@ FIFTH_OF_JUNE = date(2026, 6, 5)
 fake = FakeMeesho()
 a_fetch(fake)("me_orders", DAY)
 check("the day a Meesho orders row is ABOUT reaches the page as the plain day",
-      answered(lambda: "2026-08-26" in fake.near_asked))
+      answered(lambda: "2026-08-26" in fake.rows_asked))
 check("and nothing reaches the page still holding a placeholder",
-      answered(lambda: all("{" not in one for one in fake.near_asked)))
+      answered(lambda: all("{" not in one for one in fake.rows_asked)))
 
+# ------------- WHICH DAY NAMES THE ROW, AND THE TWO PORTALS DIFFER (A53)
+#
+# **THE SECOND WRONG STRING.** The fix of 2026-09-10 put Meesho's wording into
+# these lookups and then filled it with the day being FETCHED. Meesho's panel
+# stamps a row with the moment the file was built: on a run of the 27th fetching
+# the 26th, the row reads `27 Aug 2026, 04:49 PM` and the lookup asked for
+# `26 Aug 2026`. Right wording, wrong day, nothing found, in silence.
+#
+# **`RUN_DAY` IS THE 27th AND `DAY` IS THE 26th ON PURPOSE.** Held equal, both
+# of the checks below would pass whichever day the door chose.
 fake = FakeMeesho()
 a_fetch(fake)("me_returns", DAY)
-check("A MEESHO RETURNS ROW IS LOOKED FOR BY THE DAY WRITTEN MEESHO'S WAY",
-      answered(lambda: "26 Aug 2026" in fake.near_asked))
-fake = FakeMeesho()
-a_fetch(fake)("me_returns", FIFTH_OF_JUNE)
-check("and a day under ten loses its nought, because that is what Meesho shows",
-      answered(lambda: "5 Jun 2026" in fake.near_asked))
+check("A MEESHO RETURNS ROW IS LOOKED FOR BY THE DAY THE EXPORT WAS MADE",
+      answered(lambda: "27 Aug 2026" in fake.rows_asked))
+check("AND NOT BY THE DAY BEING FETCHED, which is on no row of that panel",
+      answered(lambda: "26 Aug 2026" not in fake.rows_asked))
 
 fake = FakeMeesho()
 a_fetch(fake)("me_claims", DAY)
-check("A MEESHO CLAIMS ROW TOO, which has been broken the same way since it was written",
-      answered(lambda: "26 Aug 2026" in fake.near_asked))
+check("A MEESHO CLAIMS ROW TOO, which carries the same rolling-window row",
+      answered(lambda: "27 Aug 2026" in fake.rows_asked
+               and "26 Aug 2026" not in fake.rows_asked))
+
+# ------------- AND SEVERAL SPELLINGS OF IT, WHICH IS THE TOLERANCE (A53)
+#
+# **THE REFERENCE BUILDS SIX ON MEESHO AND FIVE ON FLIPKART AND TAKES A ROW THAT
+# CARRIES ANY OF THEM.** Committing to one is what put a spelling on Flipkart
+# that the reference's own working matcher excludes. Every expectation here is
+# typed out by hand.
+fake = FakeMeesho()
+# **A RUN DAY UNDER TEN, because the whole of what the two portals disagree
+# about is the leading nought and it cannot be seen at all on the 27th.**
+# **THROUGH THE SAME HARNESS AS EVERY OTHER FETCH HERE, and that is not
+# tidiness.** Called directly, a door that throws ends this whole run in a
+# traceback -- the file's own count check never runs and nothing goes red, which
+# is exactly the shape of hole the sweep of 2026-09-10 was closing. **A traceback
+# is not a refusal.**
+a_fetch(fake, run_day=date(2026, 9, 1))("me_returns", DAY)
+check("a Meesho row is offered with the nought and without, so neither spelling can miss it",
+      answered(lambda: "1 Sep 2026" in fake.rows_asked and "01 Sep 2026" in fake.rows_asked))
+check("and the plain day is among them too, which is what the reference tries first",
+      answered(lambda: "2026-09-01" in fake.rows_asked))
+check("and the slash and dash forms the reference also tries",
+      answered(lambda: "01/09/2026" in fake.rows_asked and "01-09-2026" in fake.rows_asked))
 
 # **FLIPKART'S THREE, COLLECTED RATHER THAN ASKED FOR**, which is the half that
 # names a row. `asked_already` is what the report was asked under.
 fake = FakeMeesho()
 a_fetch(fake)("fk_returns", FIFTH_OF_JUNE, asked_already=FIFTH_OF_JUNE.isoformat())
-check("A FLIPKART ROW IS LOOKED FOR BY THE END OF ITS RANGE, WRITTEN FLIPKART'S WAY",
-      answered(lambda: "To 05 Jun 2026" in fake.near_asked))
-# **THE NOUGHT IS THE WHOLE DIFFERENCE, and the same day proves it both ways.**
-# Meesho's `5 Jun 2026` is on no Flipkart row, and Flipkart's `05 Jun 2026` is on
-# no Meesho row.
-check("and it is NOT the way Meesho writes the same day",
-      answered(lambda: "To 5 Jun 2026" not in fake.near_asked))
+# **FLIPKART GOES THE OTHER WAY: the row is named by the day the data is ABOUT**,
+# because the end of the range it asked for IS that day.
+check("A FLIPKART ROW IS LOOKED FOR BY THE DAY THE DATA IS ABOUT",
+      answered(lambda: "To 05 Jun 2026" in fake.rows_asked))
+check("AND NOT BY THE DAY THE RUN IS HAPPENING, which is Meesho's rule and not this one",
+      answered(lambda: not any("Aug" in one for one in fake.rows_asked)))
+# **THE REFERENCE'S OWN FIVE SPELLINGS, AND THE MONTH-FIRST ONE ITS COMMENT
+# RECORDS OFF A REAL ROW.** `DOCS.md:1766` records a day-first row instead; both
+# are tried, because two written records of one portal disagree and choosing
+# between them is what went wrong twice.
+check("the reference's month-first spelling reaches the page",
+      answered(lambda: "To Jun 5 2026" in fake.rows_asked))
+check("and the document's day-first-with-a-nought spelling reaches it as well",
+      answered(lambda: "To 05 Jun 2026" in fake.rows_asked))
+# **CONTAINMENT DOES NOT RESCUE THE UNPADDED ONE**, which is why the padded one
+# has to be listed: `To 5 Jun 2026` is not inside `To 05 Jun 2026`.
+check("and so does the unpadded one, which does not sit inside the padded one",
+      answered(lambda: "To 5 Jun 2026" in fake.rows_asked))
 check("both the wait for a finished report and the taking are narrowed to that row",
-      answered(lambda: len([one for one in fake.near_asked if one == "To 05 Jun 2026"]) == 2))
+      answered(lambda: len([one for one in fake.rows_asked if one == "To 05 Jun 2026"]) == 2))
 for which in ("fk_orders", "fk_payments"):
     fake = FakeMeesho()
     a_fetch(fake)(which, FIFTH_OF_JUNE, asked_already=FIFTH_OF_JUNE.isoformat())
     check(f"and {which} the same way",
-          answered(lambda: "To 05 Jun 2026" in fake.near_asked))
+          answered(lambda: "To 05 Jun 2026" in fake.rows_asked
+                   and "To Jun 5 2026" in fake.rows_asked))
+
+# ------------- A CONTROL THAT TOGGLES IS PRESSED AGAIN WHILE WAITING (A53)
+#
+# **FLIPKART'S DATE BOX OPENS NOTHING IF THE PRESS ARRIVES TOO EARLY**, and the
+# reference presses it again on every third look for the Custom chip. Dropped,
+# the only symptom is a step that waits its whole patience out at a page that
+# will never change, and then reports the chip as missing.
+fake = FakeMeesho(chip_after_box_presses=2)
+a_fetch(fake)("fk_returns", FIFTH_OF_JUNE)
+check("A CHIP THAT NEEDS THE BOX PRESSING AGAIN IS STILL REACHED",
+      answered(lambda: fake.box_presses >= 2))
+check("and the walk got past it, rather than stopping at a calendar that never drew",
+      answered(lambda: "Submit" in fake.clicked))
+check("and the run log says the control was pressed again, and why",
+      answered(lambda: any("toggles" in one for one in SAID)))
+# **PRESSED AGAIN ONLY WHEN IT IS NEEDED.** A control pressed again every time
+# would be pressed once to open and once to shut, which is worse than not
+# pressing it at all.
+fake = FakeMeesho()
+a_fetch(fake)("fk_returns", FIFTH_OF_JUNE)
+check("while a chip that was there straight away leaves the box pressed once",
+      answered(lambda: fake.box_presses == 1))
 
 # **A RECIPE NAMING THE OTHER PORTAL'S WORDING NEVER REACHES THE PAGE AT ALL.**
 # The fault is put back here and the door watched refusing it -- refused only by
@@ -864,7 +953,7 @@ check("and the book was put back exactly as it was found, again",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 121
+EXPECTED = 131
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

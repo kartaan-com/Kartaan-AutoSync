@@ -19,7 +19,8 @@
           "why": "opening the ads reports page for Consolidated Daily Report",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "wait-for",
@@ -29,14 +30,16 @@
             "exact": true,
             "called": "the other reports tab",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 60,
           "why": "waiting for the ads page to finish drawing",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -46,14 +49,16 @@
             "exact": true,
             "called": "the other reports tab",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "opening the other reports tab",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -63,14 +68,16 @@
             "exact": true,
             "called": "",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "choosing Consolidated Daily Report",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "pick-range",
@@ -80,7 +87,8 @@
           "why": "setting the day to fetch",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "take-file",
@@ -90,14 +98,16 @@
             "exact": true,
             "called": "",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 90,
           "why": "taking the Consolidated Daily Report file",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         }
       ]
     },
@@ -113,7 +123,8 @@
           "why": "opening the ads reports page for Consolidated FSN Report",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "wait-for",
@@ -123,14 +134,16 @@
             "exact": true,
             "called": "the other reports tab",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 60,
           "why": "waiting for the ads page to finish drawing",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -140,14 +153,16 @@
             "exact": true,
             "called": "the other reports tab",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "opening the other reports tab",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -157,14 +172,16 @@
             "exact": true,
             "called": "",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "choosing Consolidated FSN Report",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "pick-range",
@@ -174,7 +191,8 @@
           "why": "setting the day to fetch",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "take-file",
@@ -184,14 +202,16 @@
             "exact": true,
             "called": "",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 90,
           "why": "taking the Consolidated FSN Report file",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         }
       ]
     },
@@ -207,7 +227,8 @@
           "why": "opening the ads reports page for Keyword Report",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "wait-for",
@@ -217,14 +238,16 @@
             "exact": true,
             "called": "the other reports tab",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 60,
           "why": "waiting for the ads page to finish drawing",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -234,14 +257,16 @@
             "exact": true,
             "called": "the other reports tab",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "opening the other reports tab",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -251,14 +276,16 @@
             "exact": true,
             "called": "",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "choosing Keyword Report",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "pick-range",
@@ -268,7 +295,8 @@
           "why": "setting the day to fetch",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "take-file",
@@ -278,14 +306,16 @@
             "exact": true,
             "called": "",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 90,
           "why": "taking the Keyword Report file",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         }
       ]
     },
@@ -301,7 +331,8 @@
           "why": "opening the ads reports page for Campaign Order Report",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "wait-for",
@@ -311,14 +342,16 @@
             "exact": true,
             "called": "the other reports tab",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 60,
           "why": "waiting for the ads page to finish drawing",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -328,14 +361,16 @@
             "exact": true,
             "called": "the other reports tab",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "opening the other reports tab",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -345,14 +380,16 @@
             "exact": true,
             "called": "",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "choosing Campaign Order Report",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "pick-range",
@@ -362,7 +399,8 @@
           "why": "setting the day to fetch",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "take-file",
@@ -372,14 +410,16 @@
             "exact": true,
             "called": "",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 90,
           "why": "taking the Campaign Order Report file",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         }
       ]
     },
@@ -395,7 +435,8 @@
           "why": "opening the ads reports page for Overall Performance Report",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "wait-for",
@@ -405,14 +446,16 @@
             "exact": true,
             "called": "the other reports tab",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 60,
           "why": "waiting for the ads page to finish drawing",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -422,14 +465,16 @@
             "exact": true,
             "called": "the other reports tab",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "opening the other reports tab",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -439,14 +484,16 @@
             "exact": true,
             "called": "",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "choosing Overall Performance Report",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "pick-range",
@@ -456,7 +503,8 @@
           "why": "setting the day to fetch",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "take-file",
@@ -466,14 +514,16 @@
             "exact": true,
             "called": "",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 90,
           "why": "taking the Overall Performance Report file",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         }
       ]
     },
@@ -489,7 +539,8 @@
           "why": "opening the ads reports page for Placement Performance Report",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "wait-for",
@@ -499,14 +550,16 @@
             "exact": true,
             "called": "the other reports tab",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 60,
           "why": "waiting for the ads page to finish drawing",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -516,14 +569,16 @@
             "exact": true,
             "called": "the other reports tab",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "opening the other reports tab",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -533,14 +588,16 @@
             "exact": true,
             "called": "",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "choosing Placement Performance Report",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "pick-range",
@@ -550,7 +607,8 @@
           "why": "setting the day to fetch",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "take-file",
@@ -560,14 +618,16 @@
             "exact": true,
             "called": "",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 90,
           "why": "taking the Placement Performance Report file",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         }
       ]
     },
@@ -583,7 +643,8 @@
           "why": "opening the ads reports page for Search Term Report",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "wait-for",
@@ -593,14 +654,16 @@
             "exact": true,
             "called": "the other reports tab",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 60,
           "why": "waiting for the ads page to finish drawing",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -610,14 +673,16 @@
             "exact": true,
             "called": "the other reports tab",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "opening the other reports tab",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -627,14 +692,16 @@
             "exact": true,
             "called": "",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "choosing Search Term Report",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "pick-range",
@@ -644,7 +711,8 @@
           "why": "setting the day to fetch",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "take-file",
@@ -654,14 +722,16 @@
             "exact": true,
             "called": "",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 90,
           "why": "taking the Search Term Report file",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         }
       ]
     },
@@ -677,7 +747,8 @@
           "why": "opening the claims page",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "wait-for",
@@ -687,14 +758,16 @@
             "exact": true,
             "called": "the claims tab",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 60,
           "why": "waiting for the claims page to finish drawing",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -704,14 +777,16 @@
             "exact": true,
             "called": "the claims tab",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "opening the claims tab",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -721,14 +796,16 @@
             "exact": true,
             "called": "the download menu",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "opening the download menu",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -738,14 +815,16 @@
             "exact": true,
             "called": "",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "choosing the days",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "pick-range",
@@ -755,7 +834,8 @@
           "why": "setting the day to fetch",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "take-file",
@@ -765,14 +845,16 @@
             "exact": true,
             "called": "",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 90,
           "why": "taking the claims file",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         }
       ]
     },
@@ -787,7 +869,8 @@
           "why": "opening the listings page",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "wait-for",
@@ -797,14 +880,16 @@
             "exact": true,
             "called": "the downloads menu",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 60,
           "why": "waiting for the listings page to finish drawing",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -814,14 +899,16 @@
             "exact": true,
             "called": "the downloads menu",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "opening the downloads menu",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -831,14 +918,16 @@
             "exact": true,
             "called": "",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "asking for the listing file",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         }
       ],
       "toTake": [
@@ -850,7 +939,8 @@
           "why": "coming back for the listing file",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "wait-for",
@@ -860,14 +950,16 @@
             "exact": true,
             "called": "the downloads menu",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 60,
           "why": "waiting for the listings page to finish drawing",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -877,14 +969,16 @@
             "exact": true,
             "called": "the downloads menu",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "opening the downloads menu",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -894,14 +988,16 @@
             "exact": true,
             "called": "",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "opening the downloads history",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "take-file",
@@ -911,14 +1007,16 @@
             "exact": true,
             "called": "",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 90,
           "why": "taking the finished listing file",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         }
       ]
     },
@@ -933,7 +1031,8 @@
           "why": "opening the reports centre for orders",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "wait-for",
@@ -943,14 +1042,16 @@
             "exact": true,
             "called": "the request button",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 60,
           "why": "waiting for the reports centre to finish drawing",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -960,14 +1061,16 @@
             "exact": true,
             "called": "the request button",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "starting a new request",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -977,14 +1080,16 @@
             "exact": true,
             "called": "",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "choosing Fulfilment Reports",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -994,31 +1099,35 @@
             "exact": true,
             "called": "",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "choosing Orders",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
           "find": {
-            "how": "pressable",
+            "how": "beside",
             "what": "Select Date Range",
             "exact": true,
             "called": "the date range box",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "opening the date range box, which is what the calendar is hidden behind",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -1028,14 +1137,28 @@
             "exact": true,
             "called": "the custom range chip",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "choosing a custom range, which is what draws the days",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": {
+            "by": {
+              "how": "beside",
+              "what": "Select Date Range",
+              "exact": true,
+              "called": "the date range box",
+              "near": "",
+              "dayInWordsIs": "",
+              "dayInWordsOf": ""
+            },
+            "after": 3,
+            "times": 4
+          }
         },
         {
           "do": "pick-range",
@@ -1045,7 +1168,20 @@
           "why": "setting the two-day range Flipkart insists on",
           "rangeDays": 2,
           "switchedOffDaysChangeTheCursor": true,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": {
+            "by": {
+              "how": "pressable",
+              "what": "Custom",
+              "exact": true,
+              "called": "the custom range chip",
+              "near": "",
+              "dayInWordsIs": "",
+              "dayInWordsOf": ""
+            },
+            "after": 4,
+            "times": 1
+          }
         },
         {
           "do": "click",
@@ -1055,14 +1191,16 @@
             "exact": true,
             "called": "",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "submitting the request",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "wait-for",
@@ -1072,14 +1210,16 @@
             "exact": false,
             "called": "the confirmation",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 45,
           "why": "confirming Flipkart took the request",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         }
       ],
       "toTake": [
@@ -1091,7 +1231,8 @@
           "why": "coming back for orders",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "wait-for",
@@ -1101,14 +1242,16 @@
             "exact": true,
             "called": "the requested tab",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 60,
           "why": "waiting for the reports centre to finish drawing",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -1118,14 +1261,16 @@
             "exact": true,
             "called": "the requested tab",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "opening the list of requested reports",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "wait-for",
@@ -1135,14 +1280,16 @@
             "exact": false,
             "called": "a finished report",
             "near": "To {day_in_words}",
-            "dayInWordsIs": "flipkart"
+            "dayInWordsIs": "flipkart",
+            "dayInWordsOf": "about"
           },
           "address": "",
           "patience": 120,
           "why": "looking for a finished report for the day being fetched",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "take-file",
@@ -1152,14 +1299,16 @@
             "exact": true,
             "called": "",
             "near": "To {day_in_words}",
-            "dayInWordsIs": "flipkart"
+            "dayInWordsIs": "flipkart",
+            "dayInWordsOf": "about"
           },
           "address": "",
           "patience": 90,
           "why": "taking the finished orders file for the day being fetched",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         }
       ]
     },
@@ -1174,7 +1323,8 @@
           "why": "opening the reports centre for payments",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "wait-for",
@@ -1184,14 +1334,16 @@
             "exact": true,
             "called": "the request button",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 60,
           "why": "waiting for the reports centre to finish drawing",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -1201,14 +1353,16 @@
             "exact": true,
             "called": "the request button",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "starting a new request",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -1218,14 +1372,16 @@
             "exact": true,
             "called": "",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "choosing Payment Reports",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -1235,31 +1391,35 @@
             "exact": true,
             "called": "",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "choosing Settled Transactions",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
           "find": {
-            "how": "pressable",
+            "how": "beside",
             "what": "Select Date Range",
             "exact": true,
             "called": "the date range box",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "opening the date range box, which is what the calendar is hidden behind",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -1269,14 +1429,28 @@
             "exact": true,
             "called": "the custom range chip",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "choosing a custom range, which is what draws the days",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": {
+            "by": {
+              "how": "beside",
+              "what": "Select Date Range",
+              "exact": true,
+              "called": "the date range box",
+              "near": "",
+              "dayInWordsIs": "",
+              "dayInWordsOf": ""
+            },
+            "after": 3,
+            "times": 4
+          }
         },
         {
           "do": "pick-range",
@@ -1286,7 +1460,20 @@
           "why": "setting the two-day range Flipkart insists on",
           "rangeDays": 2,
           "switchedOffDaysChangeTheCursor": true,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": {
+            "by": {
+              "how": "pressable",
+              "what": "Custom",
+              "exact": true,
+              "called": "the custom range chip",
+              "near": "",
+              "dayInWordsIs": "",
+              "dayInWordsOf": ""
+            },
+            "after": 4,
+            "times": 1
+          }
         },
         {
           "do": "click",
@@ -1296,14 +1483,16 @@
             "exact": true,
             "called": "",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "submitting the request",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "wait-for",
@@ -1313,14 +1502,16 @@
             "exact": false,
             "called": "the confirmation",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 45,
           "why": "confirming Flipkart took the request",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         }
       ],
       "toTake": [
@@ -1332,7 +1523,8 @@
           "why": "coming back for payments",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "wait-for",
@@ -1342,14 +1534,16 @@
             "exact": true,
             "called": "the requested tab",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 60,
           "why": "waiting for the reports centre to finish drawing",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -1359,14 +1553,16 @@
             "exact": true,
             "called": "the requested tab",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "opening the list of requested reports",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "wait-for",
@@ -1376,14 +1572,16 @@
             "exact": false,
             "called": "a finished report",
             "near": "To {day_in_words}",
-            "dayInWordsIs": "flipkart"
+            "dayInWordsIs": "flipkart",
+            "dayInWordsOf": "about"
           },
           "address": "",
           "patience": 120,
           "why": "looking for a finished report for the day being fetched",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "take-file",
@@ -1393,14 +1591,16 @@
             "exact": true,
             "called": "",
             "near": "To {day_in_words}",
-            "dayInWordsIs": "flipkart"
+            "dayInWordsIs": "flipkart",
+            "dayInWordsOf": "about"
           },
           "address": "",
           "patience": 90,
           "why": "taking the finished payments file for the day being fetched",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         }
       ]
     },
@@ -1415,7 +1615,8 @@
           "why": "opening the reports centre for returns",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "wait-for",
@@ -1425,14 +1626,16 @@
             "exact": true,
             "called": "the request button",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 60,
           "why": "waiting for the reports centre to finish drawing",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -1442,14 +1645,16 @@
             "exact": true,
             "called": "the request button",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "starting a new request",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -1459,14 +1664,16 @@
             "exact": true,
             "called": "",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "choosing Fulfilment Reports",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -1476,31 +1683,35 @@
             "exact": true,
             "called": "",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "choosing Returns",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
           "find": {
-            "how": "pressable",
+            "how": "beside",
             "what": "Select Date Range",
             "exact": true,
             "called": "the date range box",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "opening the date range box, which is what the calendar is hidden behind",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -1510,14 +1721,28 @@
             "exact": true,
             "called": "the custom range chip",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "choosing a custom range, which is what draws the days",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": {
+            "by": {
+              "how": "beside",
+              "what": "Select Date Range",
+              "exact": true,
+              "called": "the date range box",
+              "near": "",
+              "dayInWordsIs": "",
+              "dayInWordsOf": ""
+            },
+            "after": 3,
+            "times": 4
+          }
         },
         {
           "do": "pick-range",
@@ -1527,7 +1752,20 @@
           "why": "setting the two-day range Flipkart insists on",
           "rangeDays": 2,
           "switchedOffDaysChangeTheCursor": true,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": {
+            "by": {
+              "how": "pressable",
+              "what": "Custom",
+              "exact": true,
+              "called": "the custom range chip",
+              "near": "",
+              "dayInWordsIs": "",
+              "dayInWordsOf": ""
+            },
+            "after": 4,
+            "times": 1
+          }
         },
         {
           "do": "click",
@@ -1537,14 +1775,16 @@
             "exact": true,
             "called": "",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "submitting the request",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "wait-for",
@@ -1554,14 +1794,16 @@
             "exact": false,
             "called": "the confirmation",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 45,
           "why": "confirming Flipkart took the request",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         }
       ],
       "toTake": [
@@ -1573,7 +1815,8 @@
           "why": "coming back for returns",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "wait-for",
@@ -1583,14 +1826,16 @@
             "exact": true,
             "called": "the requested tab",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 60,
           "why": "waiting for the reports centre to finish drawing",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -1600,14 +1845,16 @@
             "exact": true,
             "called": "the requested tab",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "opening the list of requested reports",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "wait-for",
@@ -1617,14 +1864,16 @@
             "exact": false,
             "called": "a finished report",
             "near": "To {day_in_words}",
-            "dayInWordsIs": "flipkart"
+            "dayInWordsIs": "flipkart",
+            "dayInWordsOf": "about"
           },
           "address": "",
           "patience": 120,
           "why": "looking for a finished report for the day being fetched",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "take-file",
@@ -1634,14 +1883,16 @@
             "exact": true,
             "called": "",
             "near": "To {day_in_words}",
-            "dayInWordsIs": "flipkart"
+            "dayInWordsIs": "flipkart",
+            "dayInWordsOf": "about"
           },
           "address": "",
           "patience": 90,
           "why": "taking the finished returns file for the day being fetched",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         }
       ]
     },
@@ -1656,7 +1907,8 @@
           "why": "opening the traffic report",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "wait-for",
@@ -1666,14 +1918,16 @@
             "exact": true,
             "called": "the date range dropdown",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 60,
           "why": "waiting for the traffic report to finish drawing",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -1683,14 +1937,16 @@
             "exact": true,
             "called": "the date range dropdown",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "opening the date range dropdown",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "pick-range",
@@ -1700,7 +1956,8 @@
           "why": "setting the day to fetch",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -1710,14 +1967,16 @@
             "exact": true,
             "called": "the request button",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "asking Flipkart to build the report",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         }
       ],
       "toTake": [
@@ -1729,7 +1988,8 @@
           "why": "coming back for the traffic report",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "wait-for",
@@ -1739,14 +1999,16 @@
             "exact": true,
             "called": "the download button",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 120,
           "why": "waiting for the finished report",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "take-file",
@@ -1756,14 +2018,16 @@
             "exact": true,
             "called": "",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 90,
           "why": "taking the finished traffic file",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         }
       ]
     },
@@ -1779,7 +2043,8 @@
           "why": "opening the inventory page",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "wait-for",
@@ -1789,14 +2054,16 @@
             "exact": true,
             "called": "the bulk stock button",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 45,
           "why": "waiting for the inventory page to finish drawing",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -1806,14 +2073,16 @@
             "exact": true,
             "called": "the bulk stock button",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "opening the bulk stock panel",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "take-file",
@@ -1823,14 +2092,16 @@
             "exact": true,
             "called": "",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 60,
           "why": "taking the stock file",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         }
       ]
     },
@@ -1846,7 +2117,8 @@
           "why": "opening the claims page",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "wait-for",
@@ -1856,14 +2128,16 @@
             "exact": true,
             "called": "the download menu",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 45,
           "why": "waiting for the claims page to finish drawing",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -1873,14 +2147,16 @@
             "exact": true,
             "called": "the download menu",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "opening the download menu",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -1890,14 +2166,16 @@
             "exact": true,
             "called": "",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "asking for the export",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -1907,14 +2185,16 @@
             "exact": true,
             "called": "the download menu",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "opening the download menu again, where the finished file now is",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -1924,14 +2204,16 @@
             "exact": true,
             "called": "",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "opening the list of files already exported",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "take-file",
@@ -1941,14 +2223,16 @@
             "exact": true,
             "called": "",
             "near": "{day_in_words}",
-            "dayInWordsIs": "meesho"
+            "dayInWordsIs": "meesho",
+            "dayInWordsOf": "made"
           },
           "address": "",
           "patience": 300,
           "why": "taking the finished file",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         }
       ]
     },
@@ -1964,7 +2248,8 @@
           "why": "opening the orders page",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "wait-for",
@@ -1974,14 +2259,16 @@
             "exact": true,
             "called": "the download menu",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 45,
           "why": "waiting for the orders page to finish drawing",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -1991,14 +2278,16 @@
             "exact": true,
             "called": "the download menu",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "opening the download menu",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -2008,14 +2297,16 @@
             "exact": true,
             "called": "",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "choosing which days to export",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "pick-range",
@@ -2025,7 +2316,8 @@
           "why": "setting the day to export",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -2035,14 +2327,16 @@
             "exact": true,
             "called": "",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "asking for the export",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "wait",
@@ -2052,7 +2346,8 @@
           "why": "waiting for Meesho to finish building the file, because the list below is drawn as the page loads and a page loaded too early is loaded without it",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "go",
@@ -2062,7 +2357,8 @@
           "why": "loading the page again, which is the only way the finished file appears",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "wait-for",
@@ -2072,14 +2368,16 @@
             "exact": true,
             "called": "the download menu",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 60,
           "why": "waiting for the orders page to finish drawing again",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -2089,14 +2387,16 @@
             "exact": true,
             "called": "the download menu",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "opening the download menu again, where the finished file now is",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "take-file",
@@ -2106,7 +2406,8 @@
             "exact": true,
             "called": "",
             "near": "{day}",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
@@ -2120,11 +2421,13 @@
               "exact": true,
               "called": "the download menu",
               "near": "",
-              "dayInWordsIs": ""
+              "dayInWordsIs": "",
+              "dayInWordsOf": ""
             },
             "times": 6,
             "after": 30
-          }
+          },
+          "pressAgain": null
         }
       ]
     },
@@ -2140,7 +2443,8 @@
           "why": "opening the payments page",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "wait-for",
@@ -2150,14 +2454,16 @@
             "exact": true,
             "called": "the download menu",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 45,
           "why": "waiting for the payments page to finish drawing",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -2167,14 +2473,16 @@
             "exact": true,
             "called": "the download menu",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "opening the download menu",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -2184,14 +2492,16 @@
             "exact": true,
             "called": "",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "choosing the payments export",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -2201,14 +2511,16 @@
             "exact": true,
             "called": "",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "opening the date range",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "pick-range",
@@ -2218,7 +2530,8 @@
           "why": "setting the day, which Meesho then ignores",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "take-file",
@@ -2228,14 +2541,16 @@
             "exact": true,
             "called": "",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 120,
           "why": "taking the finished file",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         }
       ]
     },
@@ -2251,7 +2566,8 @@
           "why": "opening the returns page",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "wait-for",
@@ -2261,14 +2577,16 @@
             "exact": true,
             "called": "the return tracking tab",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 45,
           "why": "waiting for the returns page to finish drawing",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -2278,14 +2596,16 @@
             "exact": true,
             "called": "the return tracking tab",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "opening return tracking",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -2295,14 +2615,16 @@
             "exact": false,
             "called": "the exported files panel",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "opening the panel that exports and lists the files",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "click",
@@ -2312,14 +2634,16 @@
             "exact": true,
             "called": "",
             "near": "",
-            "dayInWordsIs": ""
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
           "patience": 30,
           "why": "asking for the export",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         },
         {
           "do": "take-file",
@@ -2329,14 +2653,16 @@
             "exact": true,
             "called": "",
             "near": "{day_in_words}",
-            "dayInWordsIs": "meesho"
+            "dayInWordsIs": "meesho",
+            "dayInWordsOf": "made"
           },
           "address": "",
           "patience": 120,
           "why": "taking the finished file",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null
+          "lookAgain": null,
+          "pressAgain": null
         }
       ]
     }
@@ -2370,7 +2696,14 @@
         "Nov",
         "Dec"
       ],
-      "leadingNought": true
+      "spellings": [
+        "{Mon} {d} {yyyy}",
+        "{Mon} {dd} {yyyy}",
+        "{Mon} {d}, {yyyy}",
+        "{d} {Mon} {yyyy}",
+        "{yyyy}-{mm}-{dd}",
+        "{dd} {Mon} {yyyy}"
+      ]
     },
     "meesho": {
       "months": [
@@ -2387,7 +2720,14 @@
         "Nov",
         "Dec"
       ],
-      "leadingNought": false
+      "spellings": [
+        "{yyyy}-{mm}-{dd}",
+        "{d} {Mon} {yyyy}",
+        "{dd} {Mon} {yyyy}",
+        "{d} {Mon}",
+        "{dd}/{mm}/{yyyy}",
+        "{dd}-{mm}-{yyyy}"
+      ]
     }
   },
   "signedOutSigns": [

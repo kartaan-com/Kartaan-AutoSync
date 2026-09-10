@@ -311,7 +311,17 @@ check("and a step may use it",
 # **THE OTHER THREE ARE UNCHANGED.** Flipkart's pages are full of real controls
 # -- thirty-two painted ones and eight kinds of role on its dashboard -- so the
 # role way is right there and stays.
-check("and all four ways are known", answered(lambda: len(tool.WAYS_OF_FINDING) == 4))
+# **AND THE FIFTH IS FLIPKART'S DATE BOX.** The words "Select Date Range" are a
+# plain label with nothing pressable about them, and the box beside them carries
+# its own value rather than those words -- so no way above can reach it, and a
+# step that pressed the words could never have worked.
+check("there is a way of finding the box a label names",
+      answered(lambda: tool.BY_THE_CONTROL_BESIDE in tool.WAYS_OF_FINDING))
+check("and a step may use it",
+      answered(lambda: tool.why_step_is_refused(tool.Step(
+          tool.CLICK, find=tool.Find(tool.BY_THE_CONTROL_BESIDE, "Select Date Range"),
+          why="x")) is None))
+check("and all five ways are known", answered(lambda: len(tool.WAYS_OF_FINDING) == 5))
 check("a way nobody has heard of is still refused",
       answered(lambda: tool.why_step_is_refused(tool.Step(
           tool.CLICK, find=tool.Find("xpath", "//div"), why="x")) is not None))
@@ -332,20 +342,128 @@ check("and the refusal names what was asked for",
 # **THIS FILE STILL KNOWS NOTHING ABOUT EITHER PORTAL.** All it insists on is
 # that whose wording is SAID. Which wordings exist, and which portal each belongs
 # to, is `recipes.py`'s to answer.
-check("a row named by the day in words, saying whose wording, is allowed",
+check("a row named by the day in words, saying whose wording and which day, is allowed",
       answered(lambda: tool.why_step_is_refused(tool.Step(
           tool.CLICK, find=tool.Find(tool.BY_TEXT, "Download", near="{day_in_words}",
-                                     day_in_words_is="meesho"),
+                                     day_in_words_is="meesho",
+                                     day_in_words_of=tool.THE_DAY_IT_WAS_MADE),
           why="x")) is None))
 check("and the same row with nobody's wording said is refused",
       answered(lambda: tool.why_step_is_refused(tool.Step(
-          tool.CLICK, find=tool.Find(tool.BY_TEXT, "Download", near="{day_in_words}"),
+          tool.CLICK, find=tool.Find(tool.BY_TEXT, "Download", near="{day_in_words}",
+                                     day_in_words_of=tool.THE_DAY_IT_WAS_MADE),
           why="x")) is not None))
 check("and the refusal says why -- no two platforms write a day the same way",
       answered(lambda: "no two platforms write a day the same way" in tool.why_step_is_refused(
           tool.Step(tool.CLICK,
-                    find=tool.Find(tool.BY_TEXT, "Download", near="{day_in_words}"),
+                    find=tool.Find(tool.BY_TEXT, "Download", near="{day_in_words}",
+                                   day_in_words_of=tool.THE_DAY_IT_WAS_MADE),
                     why="x"))))
+
+# ------------------- WHICH day names the row, which is the other half (A53)
+#
+# **WHOSE WORDING AND WHICH DAY ARE TWO QUESTIONS AND ONLY ONE WAS ASKED.** A
+# lookup that says Meesho's wording and is then filled with the day being fetched
+# asks for `24 Aug 2026` on a row reading `25 Aug 2026, 04:49 PM` -- right
+# wording, wrong day, nothing found, in silence. Meesho's panel names a row by
+# the day the export was MADE; Flipkart's Reports Centre by the end of the range,
+# which is the day the data is about.
+#
+# **THIS FILE STILL KNOWS NOTHING ABOUT EITHER PORTAL.** All it insists on is
+# that WHICH day is said, and that it is one of the two.
+check("a row named by the day in words with nobody saying WHICH day is refused",
+      answered(lambda: tool.why_step_is_refused(tool.Step(
+          tool.CLICK, find=tool.Find(tool.BY_TEXT, "Download", near="{day_in_words}",
+                                     day_in_words_is="meesho"),
+          why="x")) is not None))
+check("and the refusal offers both answers, so the fix is obvious",
+      answered(lambda: ("the day the data is about" in tool.why_step_is_refused(tool.Step(
+          tool.CLICK, find=tool.Find(tool.BY_TEXT, "Download", near="{day_in_words}",
+                                     day_in_words_is="meesho"), why="x"))
+          and "the day the export was made" in tool.why_step_is_refused(tool.Step(
+              tool.CLICK, find=tool.Find(tool.BY_TEXT, "Download", near="{day_in_words}",
+                                         day_in_words_is="meesho"), why="x")))))
+check("the day the data is about is one of the two",
+      answered(lambda: tool.why_step_is_refused(tool.Step(
+          tool.CLICK, find=tool.Find(tool.BY_TEXT, "Download", near="{day_in_words}",
+                                     day_in_words_is="flipkart",
+                                     day_in_words_of=tool.THE_DAY_IT_IS_ABOUT),
+          why="x")) is None))
+check("and a day nobody has heard of is refused by name",
+      answered(lambda: "yesterday" in tool.why_step_is_refused(tool.Step(
+          tool.CLICK, find=tool.Find(tool.BY_TEXT, "Download", near="{day_in_words}",
+                                     day_in_words_is="meesho", day_in_words_of="yesterday"),
+          why="x"))))
+check("and there are exactly two days a row can be named by",
+      answered(lambda: len(tool.WHICH_DAY_A_ROW_IS_NAMED_BY) == 2))
+# **SAID WHERE THERE IS NO DAY IN WORDS TO WRITE, it describes a placeholder the
+# lookup does not carry** -- the same shape as the rule about whose wording.
+check("saying which day where no row is named in words is refused",
+      answered(lambda: tool.why_step_is_refused(tool.Step(
+          tool.CLICK, find=tool.Find(tool.BY_TEXT, "Download", near="{day}",
+                                     day_in_words_of=tool.THE_DAY_IT_WAS_MADE),
+          why="x")) is not None))
+
+# ------------------------ a row is never named by the seller's panel name (A53)
+#
+# **IT PASSED EVERY RULE ON BOTH SIDES AND THE TWO SIDES DID DIFFERENT THINGS
+# WITH IT.** The Python filled `{panel}` into the address only; the JavaScript
+# filled it into `near` as well. So one half would have narrowed to a real row
+# and the other to a row carrying the literal characters `{panel}`.
+check("a row named by the seller's own panel name is refused",
+      answered(lambda: tool.why_step_is_refused(tool.Step(
+          tool.CLICK, find=tool.Find(tool.BY_TEXT, "Download", near="{panel} {day}"),
+          why="x")) is not None))
+check("and the refusal says what a row IS named by",
+      answered(lambda: "named by the day" in tool.why_step_is_refused(tool.Step(
+          tool.CLICK, find=tool.Find(tool.BY_TEXT, "Download", near="{panel} {day}"),
+          why="x"))))
+check("while an address may still carry it, which is where it belongs",
+      answered(lambda: tool.why_step_is_refused(tool.Step(
+          tool.GO, address="https://x/{panel}/orders", why="x")) is None))
+
+# ------------------------- a control that toggles, pressed again (A53)
+#
+# **THE REFERENCE PRESSES BOTH OF FLIPKART'S DATE CONTROLS AGAIN WHILE IT
+# WAITS**, because both toggle: the date box on every third look for the Custom
+# chip, and the chip once while waiting for the calendar. Both were dropped when
+# those steps were carried across, with no reason given -- and dropped, the only
+# symptom is a step that waits its whole patience out in silence.
+A_TOGGLE = tool.PressAgain(by=tool.Find(tool.BY_PRESSABLE_TEXT, "Custom"), after=3, times=2)
+check("a step waiting for something may press a control that toggles again",
+      answered(lambda: tool.why_step_is_refused(tool.Step(
+          tool.CLICK, find=tool.Find(tool.BY_PRESSABLE_TEXT, "Custom"),
+          press_again=A_TOGGLE, why="x")) is None))
+check("and so may a step picking a range, which is what waits for the calendar",
+      answered(lambda: tool.why_step_is_refused(tool.Step(
+          tool.PICK_RANGE, press_again=A_TOGGLE, why="x")) is None))
+check("but a step that only goes somewhere has nothing to press again for",
+      answered(lambda: tool.why_step_is_refused(tool.Step(
+          tool.GO, address="https://x", press_again=A_TOGGLE, why="x")) is not None))
+check("and neither has the step that takes the file, which has its own way",
+      answered(lambda: tool.why_step_is_refused(tool.Step(
+          tool.TAKE_FILE, press_again=A_TOGGLE, why="x")) is not None))
+check("pressing again has to say what to press",
+      answered(lambda: tool.why_step_is_refused(tool.Step(
+          tool.PICK_RANGE, why="x",
+          press_again=tool.PressAgain(by=tool.Find(tool.BY_PRESSABLE_TEXT, ""), after=3,
+                                      times=2))) is not None))
+check("and by a way of finding something that is known",
+      answered(lambda: "xpath" in tool.why_step_is_refused(tool.Step(
+          tool.PICK_RANGE, why="x",
+          press_again=tool.PressAgain(by=tool.Find("xpath", "//div"), after=3, times=2)))))
+check("pressing again no times at all is refused",
+      answered(lambda: tool.why_step_is_refused(tool.Step(
+          tool.PICK_RANGE, why="x",
+          press_again=tool.PressAgain(by=tool.Find(tool.BY_PRESSABLE_TEXT, "Custom"),
+                                      after=3, times=0))) is not None))
+# **NOUGHT SECONDS IS NOT WAITING, IT IS DOUBLE-CLICKING** -- the second press
+# lands on a control the first one has just opened, and shuts it.
+check("and pressing again with no time in between is refused, because it would shut it",
+      answered(lambda: "shuts it" in tool.why_step_is_refused(tool.Step(
+          tool.PICK_RANGE, why="x",
+          press_again=tool.PressAgain(by=tool.Find(tool.BY_PRESSABLE_TEXT, "Custom"),
+                                      after=0, times=2)))))
 # **A ROW NAMED BY THE PLAIN DAY NEEDS NOBODY'S WORDING**, and saying one there
 # describes a placeholder the lookup does not carry -- the same shape as a step
 # that is not a range saying how its calendar switches a day off.
@@ -392,7 +510,7 @@ check("nor a failure once it has happened",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 87
+EXPECTED = 106
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

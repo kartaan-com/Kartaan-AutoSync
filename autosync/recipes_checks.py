@@ -232,11 +232,19 @@ check("and both are pressed, not merely waited for",
 # both. It is asked for on these three and no others because an unstyled cell on
 # anybody else's calendar has no pointer cursor either, so read everywhere it
 # would refuse days that are perfectly available.
-BY_THE_CURSOR = sorted({r for r in tool.every_recipe()
-                        for s in (tool.recipe(r).to_ask + tool.recipe(r).to_take)
-                        if s.switched_off_days_change_the_cursor})
+# **WORKED OUT INSIDE `answered`, NOT BESIDE IT.** Read at the top level, a
+# deliberate breakage that takes the field away ends this whole run in a
+# traceback and NOTHING goes red -- the run reads as "noticed" while saying
+# nothing about whether any check here is any good. A run that stops is not a
+# check going red.
+def by_the_cursor():
+    return sorted({r for r in tool.every_recipe()
+                   for s in (tool.recipe(r).to_ask + tool.recipe(r).to_take)
+                   if s.switched_off_days_change_the_cursor})
+
+
 check("the reports-centre calendar is the one read by the cursor as well",
-      answered(lambda: BY_THE_CURSOR == sorted(RC)))
+      answered(lambda: by_the_cursor() == sorted(RC)))
 check("and every other calendar in the book is not",
       answered(lambda: all(not s.switched_off_days_change_the_cursor
                            for r in tool.every_recipe() if r not in RC
@@ -574,47 +582,80 @@ check("and one that names the day is not",
           pages.CLICK, find=pages.Find(pages.BY_TEXT, "Download", near="{day}"),
           why="x")) is None))
 
-# **HOW MEESHO WRITES A DAY, read off that page: `25 Aug 2026`.**
-check("a day is written the way Meesho writes one",
-      answered(lambda: tool.as_meesho_writes_a_day(date(2026, 8, 25)) == "25 Aug 2026"))
-# **NO LEADING NOUGHT.** The page shows `1 Sep 2026`, and "01 Sep 2026" is on no
-# row at all -- which would find nothing, every time, for nine days a month.
-check("with no leading nought, which is what the page shows",
-      answered(lambda: tool.as_meesho_writes_a_day(date(2026, 9, 1)) == "1 Sep 2026"))
+# **HOW MEESHO WRITES A DAY -- SIX SPELLINGS, NOT ONE, AND THAT IS THE A53
+# CORRECTION.** The reference builds six and takes a row carrying any of them
+# (`content/meesho.js findExportDownloadByTodayDate`). What stood here was the
+# one spelling off one recorded row, which is the shape of mistake that has cost
+# this project a week in both directions.
+#
+# **EVERY EXPECTATION BELOW IS TYPED OUT BY HAND**, never built from the shapes,
+# so a shape edited into nonsense reddens these rather than moving with them.
+ME_25_AUG = ("2026-08-25", "25 Aug 2026", "25 Aug 2026", "25 Aug", "25/08/2026", "25-08-2026")
+check("a day is written every way Meesho has been met writing one",
+      answered(lambda: tool.the_days_in_words("meesho", date(2026, 8, 25)) == ME_25_AUG))
+# **THE ROW HE READ OFF HIS OWN PANEL ON 2026-08-28 IS AMONG THEM.**
+check("and the wording off his own returns panel is one of them",
+      answered(lambda: "25 Aug 2026" in tool.the_days_in_words("meesho", date(2026, 8, 25))))
+# **BOTH NOUGHTS, WHICH IS THE WHOLE OF THE TOLERANCE.** The page shows
+# `1 Sep 2026`; a matcher that knew only `01 Sep 2026` would find nothing for the
+# first nine days of every month, and one that knew only `1 Sep 2026` would miss
+# a panel that had padded it.
+check("a single-figure day is offered both with the nought and without",
+      answered(lambda: "1 Sep 2026" in tool.the_days_in_words("meesho", date(2026, 9, 1))
+               and "01 Sep 2026" in tool.the_days_in_words("meesho", date(2026, 9, 1))))
 check("and the month by name, not by number",
-      answered(lambda: tool.as_meesho_writes_a_day(date(2026, 12, 31)) == "31 Dec 2026"))
+      answered(lambda: "31 Dec 2026" in tool.the_days_in_words("meesho", date(2026, 12, 31))))
 
-# **AND HOW FLIPKART'S REPORTS CENTRE WRITES ONE, WHICH IS NOT THE SAME.** Its
-# Requested list carries rows reading `Fulfilment Reports  Orders  05 Jun 2026 To
-# 06 Jun 2026  Generated` -- with the leading nought Meesho drops. **These are two
-# separate measurements of two separate pages** and they are not to be folded into
-# one helper, however alike they look on the twenty-two days a month when they
-# agree.
-check("a day is written the way Flipkart's Reports Centre writes one",
-      answered(lambda: tool.as_flipkart_writes_a_day(date(2026, 6, 5)) == "05 Jun 2026"))
-check("and the end of the range that names the row is written the same way",
-      answered(lambda: tool.as_flipkart_writes_a_day(date(2026, 6, 6)) == "06 Jun 2026"))
+# **AND HOW FLIPKART'S REPORTS CENTRE WRITES ONE, WHICH IS NOT THE SAME.** Four
+# of the reference's five put the MONTH FIRST -- its own comment records a real
+# row reading `Jun 10 2026 To Jun 11 2026`. `DOCS.md:1766` records a row reading
+# `05 Jun 2026` instead, which is not among the reference's five at all.
+#
+# **TWO WRITTEN RECORDS OF ONE PORTAL DISAGREE, SO BOTH ARE TRIED.** Choosing
+# between them is what went wrong on 2026-09-10; carrying both is what the
+# reference itself does whenever it meets more than one wording.
+FK_5_JUN = ("Jun 5 2026", "Jun 05 2026", "Jun 5, 2026", "5 Jun 2026", "2026-06-05",
+            "05 Jun 2026")
+check("a day is written every way Flipkart's Reports Centre has been recorded writing one",
+      answered(lambda: tool.the_days_in_words("flipkart", date(2026, 6, 5)) == FK_5_JUN))
+check("the reference's own month-first spelling is among them",
+      answered(lambda: "Jun 5 2026" in tool.the_days_in_words("flipkart", date(2026, 6, 5))))
+# **AND THE DOCUMENT'S, WHICH THE REFERENCE'S MATCHER EXCLUDES.** Containment
+# does not rescue it: a row is narrowed by `To 06 Jun 2026`, and `To 6 Jun 2026`
+# is not inside that, because the nought falls between the `To ` and the `6`.
+check("and the spelling DOCS.md:1766 recorded, which the reference's five leave out",
+      answered(lambda: "05 Jun 2026" in tool.the_days_in_words("flipkart", date(2026, 6, 5))))
+check("and the end of the range that names the row is written every way too",
+      answered(lambda: "06 Jun 2026" in tool.the_days_in_words("flipkart", date(2026, 6, 6))
+               and "Jun 6 2026" in tool.the_days_in_words("flipkart", date(2026, 6, 6))))
 check("a day over nine is written plainly, with nothing added",
-      answered(lambda: tool.as_flipkart_writes_a_day(date(2026, 12, 31)) == "31 Dec 2026"))
-# **THE ONE THING THE TWO DISAGREE ABOUT, ASKED DIRECTLY.** If this ever went
-# green the other way, one shared way of writing a day would do -- and every
-# other check here would still pass while five reports found nothing for nine
-# days of every month.
-check("THE TWO PORTALS WRITE A SINGLE-FIGURE DAY DIFFERENTLY, and that is the whole point",
-      answered(lambda: tool.as_meesho_writes_a_day(date(2026, 9, 1)) == "1 Sep 2026"
-               and tool.as_flipkart_writes_a_day(date(2026, 9, 1)) == "01 Sep 2026"))
-check("while on a day over nine they agree, which is why this was never noticed",
-      answered(lambda: tool.as_meesho_writes_a_day(date(2026, 8, 25))
-               == tool.as_flipkart_writes_a_day(date(2026, 8, 25))))
-# **ONE WAY OF WRITING A DAY PER PORTAL, LOOKED UP BY NAME.**
+      answered(lambda: "31 Dec 2026" in tool.the_days_in_words("flipkart", date(2026, 12, 31))))
+# **THE TWO PORTALS ARE STILL NOT ONE THING.** If this ever went green the other
+# way, one shared list would do -- and every other check here would still pass
+# while a lookup narrowed to a row the other portal writes.
+check("THE TWO PORTALS ARE ASKED SEPARATELY AND ANSWER DIFFERENTLY",
+      answered(lambda: tool.the_days_in_words("meesho", date(2026, 9, 1))
+               != tool.the_days_in_words("flipkart", date(2026, 9, 1))))
+# **A SPELLING IS A SHAPE, AND EVERY PIECE IT CAN NAME HAS TO BE ANSWERED.** A
+# piece nobody fills in stays on the page as its own four or six characters, and
+# the lookup narrows to a row nothing carries -- silently, at night. Both names
+# for the day are asked for together because they are the pair most easily
+# confused for one another.
+check("every piece a shape can name is answered",
+      answered(lambda: tool.a_day_written("{yyyy}|{mm}|{dd}|{Mon}|{d}", date(2026, 6, 5))
+               == "2026|06|05|Jun|5"))
+check("and the padded day and the plain one are two different pieces, not one",
+      answered(lambda: tool.a_day_written("{dd}{d}", date(2026, 6, 5)) == "055"))
+check("and every piece the shapes actually use is one this fills in",
+      answered(lambda: all("{" not in tool.a_day_written(shape, date(2026, 6, 5))
+                           for shapes in tool.HOW_A_DAY_IS_WRITTEN.values()
+                           for shape in shapes)))
+# **ONE LIST OF SPELLINGS PER PORTAL, LOOKED UP BY NAME.**
 check("both portals' wordings are written down and no others",
       answered(lambda: sorted(tool.HOW_A_DAY_IS_WRITTEN) == ["flipkart", "meesho"]))
-check("and asking for one by name gives that portal's own answer",
-      answered(lambda: (tool.the_day_in_words("meesho", date(2026, 9, 1)),
-                        tool.the_day_in_words("flipkart", date(2026, 9, 1)))
-               == ("1 Sep 2026", "01 Sep 2026")))
 check("while a portal nobody has written a wording for is refused, by name",
-      answered(lambda: "amazon" in said(lambda: tool.the_day_in_words("amazon", date(2026, 9, 1)))))
+      answered(lambda: "amazon" in said(lambda: tool.the_days_in_words("amazon",
+                                                                      date(2026, 9, 1)))))
 
 # ------------------- and every recipe names its OWN portal's wording (A52)
 
@@ -622,16 +663,20 @@ check("while a portal nobody has written a wording for is refused, by name",
 # have looked for a row named `2026-08-25` since the day they were written;
 # Flipkart's three joined them the night they were given a row to match. Not one
 # of those strings appears on either portal.
-NAMES_A_ROW_IN_WORDS = sorted(
-    r for r in tool.every_recipe()
-    for s in (tool.recipe(r).to_ask + tool.recipe(r).to_take)
-    if s.find is not None and "{day_in_words}" in s.find.near
-)
+# **WORKED OUT INSIDE `answered`, for the same reason as `by_the_cursor` above.**
+def names_a_row_in_words():
+    return sorted(
+        r for r in tool.every_recipe()
+        for s in (tool.recipe(r).to_ask + tool.recipe(r).to_take)
+        if s.find is not None and "{day_in_words}" in s.find.near
+    )
+
+
 check("exactly the five reports that name a row by the day in words do so",
-      answered(lambda: sorted(set(NAMES_A_ROW_IN_WORDS))
+      answered(lambda: sorted(set(names_a_row_in_words()))
                == ["fk_orders", "fk_payments", "fk_returns", "me_claims", "me_returns"]))
 check("and Flipkart's three name it on BOTH the wait and the taking, which is six lookups",
-      answered(lambda: len([r for r in NAMES_A_ROW_IN_WORDS if r.startswith("fk_")]) == 6))
+      answered(lambda: len([r for r in names_a_row_in_words() if r.startswith("fk_")]) == 6))
 check("every one of them says whose wording it means",
       answered(lambda: all(s.find.day_in_words_is
                            for r in tool.every_recipe()
@@ -651,6 +696,92 @@ check("and the three Flipkart ones ask for Flipkart's",
                            for r in ("fk_orders", "fk_returns", "fk_payments")
                            for s in tool.recipe(r).to_take
                            if s.find is not None and s.find.day_in_words_is)))
+# ------------------- and WHICH day each portal names a row by (A53)
+#
+# **THE OTHER HALF OF THE SAME QUESTION, AND IT WAS MISSED TWICE.** Saying whose
+# wording answers `1 Sep` against `01 Sep`. It says nothing about which day is
+# written on the row -- and the two portals answer that differently:
+#
+#   Meesho    the day the export was MADE   `25 Aug 2026, 04:49 PM`
+#   Flipkart  the end of the range, which IS the day the data is about
+#
+# Filled with the wrong one, a run on 25 August looked for `24 Aug 2026` on a row
+# reading `25 Aug 2026`. Nothing found, every night, in silence.
+check("every lookup naming a row in words also says WHICH day",
+      answered(lambda: all(s.find.day_in_words_of
+                           for r in tool.every_recipe()
+                           for s in (tool.recipe(r).to_ask + tool.recipe(r).to_take)
+                           if s.find is not None and "{day_in_words}" in s.find.near)))
+# **THE TWO PORTALS SAID SEPARATELY.** "Every recipe says something" would pass
+# just as well if both of them said the same thing -- which is the bug.
+check("Meesho's two name the row by the day the export was MADE",
+      answered(lambda: all(s.find.day_in_words_of == pages.THE_DAY_IT_WAS_MADE
+                           for r in ("me_returns", "me_claims")
+                           for s in tool.recipe(r).to_take
+                           if s.find is not None and s.find.day_in_words_of)))
+check("and Flipkart's three by the day the data is ABOUT, which is the end of its range",
+      answered(lambda: all(s.find.day_in_words_of == pages.THE_DAY_IT_IS_ABOUT
+                           for r in ("fk_orders", "fk_returns", "fk_payments")
+                           for s in tool.recipe(r).to_take
+                           if s.find is not None and s.find.day_in_words_of)))
+check("SO THE TWO PORTALS REALLY DO ANSWER IT DIFFERENTLY, which is the whole point",
+      answered(lambda: tool.recipe("me_returns").to_take[-1].find.day_in_words_of
+               != tool.recipe("fk_returns").to_take[-1].find.day_in_words_of))
+
+# ------------------- the two controls on Flipkart that toggle (A53)
+#
+# **THE REFERENCE PRESSES BOTH AGAIN WHILE IT WAITS, and both were dropped.** Its
+# StepD re-presses the date box on every third look for the Custom chip, and
+# re-presses the chip once while waiting for the calendar -- because both toggle,
+# so a press that arrived while the sub-page was still drawing opened nothing.
+def presses_again():
+    return sorted({(r, s.do) for r in tool.every_recipe()
+                   for s in (tool.recipe(r).to_ask + tool.recipe(r).to_take)
+                   if s.press_again is not None})
+
+
+check("the reports-centre three press a toggling control again, and nothing else does",
+      answered(lambda: sorted({r for r, _ in presses_again()}) == sorted(RC)))
+check("each of them does it twice -- once waiting for the chip, once for the calendar",
+      answered(lambda: sorted(do for r, do in presses_again() if r == "fk_orders")
+               == [pages.CLICK, pages.PICK_RANGE]))
+# **WHICH CONTROL IS PRESSED AGAIN IS NOT THE SAME ONE BOTH TIMES**, and getting
+# that the wrong way round would press the chip to open the box.
+check("waiting for the chip presses the DATE BOX again",
+      answered(lambda: [s.press_again.by.how for s in tool.recipe("fk_orders").to_ask
+                        if s.press_again is not None and s.do == pages.CLICK]
+               == [tool.BY_THE_CONTROL_BESIDE]))
+check("and waiting for the calendar presses the CHIP again",
+      answered(lambda: [s.press_again.by.what for s in tool.recipe("fk_orders").to_ask
+                        if s.press_again is not None and s.do == pages.PICK_RANGE]
+               == ["Custom"]))
+
+# ------------- the date range box is the BOX, never the words (A53)
+#
+# **PRESSING THE WORDS COULD NEVER HAVE WORKED.** "Select Date Range" is a plain
+# leaf: no control tag, no role, no pointer cursor, so nothing pressable matches
+# it -- and the box beside it carries its VALUE rather than those words, so
+# nothing reading words matches that either. The wording was carried over from
+# Meesho's orders step, where Meesho really does have a pressable box.
+check("Flipkart's date range step reaches the box, not the words",
+      answered(lambda: [s.find.how for s in tool.recipe("fk_orders").to_ask
+                        if s.find is not None and s.find.what == "Select Date Range"
+                        and s.do == pages.CLICK]
+               == [tool.BY_THE_CONTROL_BESIDE]))
+check("and no Flipkart step asks for those words as something pressable, which finds nothing",
+      answered(lambda: not any(s.find is not None and s.find.what == "Select Date Range"
+                               and s.find.how == tool.BY_PRESSABLE_TEXT
+                               for r in tool.every_recipe() if r.startswith("fk_")
+                               for s in (tool.recipe(r).to_ask + tool.recipe(r).to_take))))
+# **AND MEESHO IS NOT MOVED WITH IT.** Meesho's orders page really does have a
+# pressable box carrying those words, and that step is untouched -- a finding
+# about one platform applied to the other is how a working thing gets broken
+# alongside a broken one.
+check("while Meesho's orders step still presses the words, because Meesho really has a box",
+      answered(lambda: any(s.find is not None and s.find.what == "Select Date Range"
+                           and s.find.how == tool.BY_PRESSABLE_TEXT
+                           for s in tool.recipe("me_orders").to_take)))
+
 # **A RECIPE NAMING THE OTHER PORTAL'S WORDING IS REFUSED, and the fault is put
 # back here to watch it go red.** It would look perfectly correct in the file,
 # submit perfectly correctly on the night, and then look for `6 Jun 2026` on a
@@ -717,9 +848,21 @@ CLICKED = [s.find for r in tool.RECIPES.values()
 check("there are things being clicked to judge", answered(lambda: len(CLICKED) > 20))
 check("and not one of them is asked for as plain words on the page",
       answered(lambda: not any(f.how == tool.BY_TEXT for f in CLICKED)))
-check("every one of them is asked for as something a person can press",
-      answered(lambda: all(f.how in (tool.BY_PRESSABLE_TEXT, tool.BY_ROLE_AND_TEXT)
+# **AND THE ONE EXCEPTION IS NAMED RATHER THAN LEFT IN THE SET.** Flipkart's
+# date box carries no words of its own -- what an input carries is its value,
+# which there is the range currently showing -- so it is reached by the label
+# beside it. It is still not plain words: `BY_THE_CONTROL_BESIDE` presses the
+# box, never the words.
+check("every one of them is pressable, or the box a label names",
+      answered(lambda: all(f.how in (tool.BY_PRESSABLE_TEXT, tool.BY_ROLE_AND_TEXT,
+                                     tool.BY_THE_CONTROL_BESIDE)
                            for f in CLICKED)))
+check("and the box-beside way is asked for on Flipkart's date range and nowhere else",
+      answered(lambda: sorted({r for r in tool.every_recipe()
+                               for one in (tool.recipe(r).to_ask + tool.recipe(r).to_take)
+                               if one.find is not None
+                               and one.find.how == tool.BY_THE_CONTROL_BESIDE})
+               == ["fk_orders", "fk_payments", "fk_returns"]))
 # **WAITING IS DIFFERENT FROM PRESSING.** Waiting for a heading or a status to
 # appear is safe as plain words -- it presses nothing.
 check("while waiting for something may still be plain words, because it presses nothing",
@@ -831,7 +974,7 @@ check("and the panel name was still filled into the addresses on the way",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 254
+EXPECTED = 270
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

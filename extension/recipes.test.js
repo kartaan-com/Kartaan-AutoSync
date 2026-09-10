@@ -163,6 +163,7 @@ function aPortal(how = {}) {
      * which no page carries. Dropped here, that crosses unfilled with nothing
      * anywhere looking wrong. */
     nearAsked: [],
+    rowsAsked: [],
     /* **THE MENU, AS MEESHO REALLY BEHAVES.** Its list of finished exports is
      * drawn AS it opens and never again while it is open. So this holds the two
      * facts that follow: whether it is open, and how many times it has been SHUT
@@ -205,6 +206,10 @@ function aPortal(how = {}) {
        * order is the only thing that can be checked about a "before". */
       it.whatHappened.push(`found ${what}`);
       it.nearAsked.push(near);
+      /* **AND EVERY WAY THE ROW COULD BE NAMED, FLAT.** A lookup is narrowed to
+       * several spellings of one day and matches on any of them, so a check
+       * asking whether one spelling reached the page needs them apart. */
+      it.rowsAsked.push(...(Array.isArray(near) ? near : [near]));
       /* **THE FINISHED FILE IS NOT IN THE LIST YET, and this is the only way to
        * say so.** Meesho draws its list of finished exports as the download menu
        * opens, so the list only ever changes when the menu is shut and opened
@@ -543,25 +548,55 @@ function aWalk(portal) {
    * which is why this went unnoticed. The expected words are typed out by hand. */
   const FIFTH_OF_JUNE = '2026-06-05';
 
+  /* **AND THE DAY MEESHO'S ROW IS NAMED BY IS THE DAY THE EXPORT WAS MADE, WHICH
+   * IS TODAY (A53).** Its exported-files panel stamps a row with the moment the
+   * file was built -- a returns export is always the last two weeks, so there is
+   * no data date on the row at all. Filled with the day being fetched, a run on
+   * 25 August looked for `24 Aug 2026` on a row reading `25 Aug 2026, 04:49 PM`.
+   *
+   * **THE EXPECTATION IS ARITHMETIC DONE HERE, not the walk's answer read back.**
+   * The month names are the real ones because this is the real book. */
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const now = new Date();
+  const todayPlainly = `${now.getDate()} ${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
+
   const meesho = aPortal();
   await aWalk(meesho)('me_returns', FIFTH_OF_JUNE);
-  check("HIS REAL MEESHO RETURNS RECIPE LOOKS FOR THE ROW MEESHO'S OWN WAY",
-    meesho.nearAsked.includes('5 Jun 2026'));
+  check('HIS REAL MEESHO RETURNS RECIPE LOOKS FOR THE ROW BY THE DAY IT WAS MADE',
+    meesho.rowsAsked.includes(todayPlainly));
+  check('and NOT by the day being fetched, which is on no row of that panel',
+    !meesho.rowsAsked.includes('5 Jun 2026'));
 
   const claims = aPortal();
   await aWalk(claims)('me_claims', FIFTH_OF_JUNE);
   check('and so does claims, which has had the same hole since it was written',
-    claims.nearAsked.includes('5 Jun 2026'));
+    claims.rowsAsked.includes(todayPlainly) && !claims.rowsAsked.includes('5 Jun 2026'));
+
+  /* **AND EVERY WAY MEESHO WRITES IT, NOT ONE.** The working reference builds six
+   * spellings and takes a row carrying any of them. */
+  check('and every spelling Meesho writes goes with it, plain day included',
+    meesho.rowsAsked.includes(
+      `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+      + `-${String(now.getDate()).padStart(2, '0')}`));
 
   /* **FLIPKART'S THREE, COLLECTED RATHER THAN ASKED FOR**, which is the half
-   * that names a row -- and it names it by the END of the range, after " To ". */
+   * that names a row -- and it names it by the END of the range, after " To ",
+   * which IS the day the data is about. **The other way round from Meesho, and
+   * that is the whole of what A53 corrected.** */
   for (const which of ['fk_orders', 'fk_returns', 'fk_payments']) {
     const flipkart = aPortal();
     // eslint-disable-next-line no-await-in-loop
     await aWalk(flipkart)(which, FIFTH_OF_JUNE, { askedAlready: FIFTH_OF_JUNE });
-    check(`${which} looks for the row FLIPKART's own way, with the leading nought`,
-      flipkart.nearAsked.includes('To 05 Jun 2026')
-      && !flipkart.nearAsked.includes('To 5 Jun 2026'));
+    check(`${which} looks for the row by the day the data is ABOUT`,
+      flipkart.rowsAsked.includes('To 05 Jun 2026')
+      && !flipkart.rowsAsked.includes(`To ${todayPlainly}`));
+    /* **AND IN EVERY SPELLING THE REFERENCE TRIES, month-first included.**
+     * Committing to one is what chose, on Flipkart, a spelling the reference's
+     * own working matcher excludes. */
+    check(`and ${which} tries the reference's month-first spelling too`,
+      flipkart.rowsAsked.includes('To Jun 5 2026')
+      && flipkart.rowsAsked.includes('To 5 Jun 2026'));
   }
 
   /* **AND NOTHING ANYWHERE REACHES A PAGE STILL HOLDING A PLACEHOLDER.** That is
@@ -572,13 +607,13 @@ function aWalk(portal) {
     const portal = aPortal();
     // eslint-disable-next-line no-await-in-loop
     await aWalk(portal)(one, FIFTH_OF_JUNE, { askedAlready: FIFTH_OF_JUNE });
-    stillHolding.push(...portal.nearAsked.filter((row) => String(row || '').includes('{')));
+    stillHolding.push(...portal.rowsAsked.filter((row) => String(row || '').includes('{')));
   }
   check(`no real recipe reaches the page still holding a placeholder -- ${stillHolding.slice(0, 3)}`,
     stillHolding.length === 0);
 }
 
-const EXPECTED = 51;
+const EXPECTED = 56;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

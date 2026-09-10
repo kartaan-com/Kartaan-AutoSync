@@ -83,6 +83,14 @@ export const TAKE_FILE = 'take-file';
  * whole reason under `WAIT`, and the number lives in the recipe. */
 export const WAIT = 'wait';
 
+/* **WHICH DAY NAMES A ROW, and the two portals answer it differently.** The
+ * Python spellings exactly (`autosync/browser.py`), because they cross the wire
+ * on every lookup that narrows to a row. Meesho's exported-files panel names a
+ * row by the day the export was MADE -- the day of the run -- and Flipkart's
+ * Reports Centre by the end of the range, which is the day the data is about. */
+export const THE_DAY_IT_IS_ABOUT = 'about';
+export const THE_DAY_IT_WAS_MADE = 'made';
+
 /* What went wrong, by name. **Every one of these is its own failure and that is
  * the point.** The reference had one -- "button not found" -- and it covered all
  * of them, so a month of diagnosis went at the wrong thing because "it is
@@ -213,6 +221,24 @@ export function whyStepIsRefused(step) {
       return 'Looking again has to leave it closed for some time, or nothing is redrawn.';
     }
   }
+  if (step.pressAgain) {
+    /* **A CONTROL THAT TOGGLES, PRESSED AGAIN WHILE THIS STEP WAITS.** Flipkart's
+     * Reports Centre hides its calendar behind a date box and a Custom chip, both
+     * of which toggle. The same rules the Python holds. */
+    if (![CLICK, WAIT_FOR, PICK_RANGE].includes(step.do)) {
+      return 'Only a step waiting for something to appear can press a control again while it '
+        + 'waits.';
+    }
+    if (!step.pressAgain.by || !step.pressAgain.by.what) {
+      return 'Pressing again has to say what to press.';
+    }
+    if (!(Number(step.pressAgain.times) >= 1)) {
+      return 'Pressing again no times at all is not pressing again.';
+    }
+    if (!(Number(step.pressAgain.after) >= 1)) {
+      return 'Pressing again has to wait some time first, or the second press shuts it.';
+    }
+  }
   if (step.find && !step.find.what) return 'A way of finding something has to say what to look for.';
   if (!(Number(step.patience) > 0)) return 'A step that waits no time at all cannot succeed.';
   if (!step.why) {
@@ -225,34 +251,102 @@ export function whyStepIsRefused(step) {
 }
 
 /**
- * One day, written the way one portal writes it.
+ * Every way one portal has been met writing one day.
+ *
+ * **SEVERAL, NEVER ONE, AND THAT IS THE 2026-09-10 CORRECTION.** What stood here
+ * built a single string per portal from a single leading-nought rule. Neither
+ * portal writes a day only one way, and the working reference does not pretend
+ * they do: `content/flipkart.js findReportRowDownloadBtn` builds five spellings
+ * and `content/meesho.js findExportDownloadByTodayDate` builds six, and a row
+ * matches if it carries ANY of them. Committing to one chose, on Flipkart, a
+ * spelling the reference's own matcher excludes.
  *
  * **THE RULE IS NOT WRITTEN HERE. IT CROSSES.** `book.daysInWords` comes out of
  * `autosync/recipes.py` through `tools/export_recipes.py`, one entry per portal,
- * carrying that portal's month names and whether a day under ten takes a leading
- * nought. **Nothing on this side has an opinion about either**, which is the only
- * way the two halves cannot drift -- and the nought is the whole of what the two
- * portals disagree about:
+ * carrying that portal's month names and its spellings. A spelling is a SHAPE --
+ * `{d} {Mon} {yyyy}` -- and all this does is put the day into it. **Nothing on
+ * this side has an opinion about noughts, month names or the order the pieces
+ * come in**, which is the only way the two halves cannot drift.
  *
- *    Meesho    `1 Sep 2026`
- *    Flipkart  `05 Jun 2026`
+ * **THE FIVE NAMES ARE THE WHOLE OF WHAT BOTH HALVES HAVE TO AGREE ABOUT.** A
+ * half that had never heard of `{dd}` would leave those four characters sitting
+ * on the page, and the lookup would narrow to a row nothing carries. The order
+ * is not the point -- each piece carries its own braces, so none can be found
+ * inside another -- and a check runs this side against the Python's answer.
  *
  * **A PORTAL THAT DID NOT CROSS IS A REFUSAL, NOT A FALLBACK.** Filled in with
  * anything else, the lookup narrows to a row the page does not carry and the
  * night reports a renamed button -- the failure this whole door was built to
  * stop being reported that way.
  */
-export function theDayInWords(book, whose, dataDate) {
+export function theDaysInWords(book, whose, dataDate) {
   const rule = book && book.daysInWords && book.daysInWords[whose];
   if (!rule) {
     throw new Error(
       `There is no wording of a day for "${whose || ''}" in the recipe file, so a row named by `
-      + 'the day in a platform\'s own wording cannot be filled in.'
+      + "the day in a platform's own wording cannot be filled in."
     );
   }
   const [year, month, day] = String(dataDate).split('-').map(Number);
-  const written = rule.leadingNought ? String(day).padStart(2, '0') : String(day);
-  return `${written} ${rule.months[month - 1]} ${year}`;
+  const pieces = {
+    yyyy: String(year),
+    mm: String(month).padStart(2, '0'),
+    dd: String(day).padStart(2, '0'),
+    Mon: rule.months[month - 1],
+    d: String(day),
+  };
+  return rule.spellings.map(
+    (shape) => String(shape).replace(/\{(yyyy|mm|dd|Mon|d)\}/g, (_, piece) => pieces[piece])
+  );
+}
+
+/**
+ * Every way the row one lookup wants could be named. **Empty when it wants any
+ * row at all**, which is most lookups.
+ *
+ * **OUTSIDE THE WALK ON PURPOSE, so that both halves can be asked the same
+ * question directly.** `tools/export_recipes_checks.py` runs this against the
+ * shipped `extension/walk.js` and `extension/recipes.json`, lookup by lookup
+ * across every recipe, and holds its answers to `browser_door`'s own -- which is
+ * what makes "the two halves fill a step the same way" a thing that is measured
+ * rather than a thing that is claimed.
+ */
+export function theRowsItCouldBe(book, find, dataDate, runDay) {
+  const near = String(find.near || '');
+  if (!near) return [];
+  if (!near.includes('{day_in_words}')) {
+    return [near.split('{day}').join(dataDate)];
+  }
+  /* **WHICH DAY NAMES THE ROW IS THE LOOKUP'S OWN ANSWER, and there is no
+   * default here either.** A lookup that has not said is refused by the Python
+   * before it is ever written out, and a walker that quietly picked one would be
+   * the guess the whole field exists to remove. */
+  const namedBy = find.dayInWordsOf === THE_DAY_IT_WAS_MADE ? runDay : dataDate;
+  return theDaysInWords(book, find.dayInWordsIs, namedBy).map(
+    (inWords) => near.split('{day_in_words}').join(inWords).split('{day}').join(dataDate)
+  );
+}
+
+/**
+ * The day this run is happening, as `YYYY-MM-DD`.
+ *
+ * **THIS IS NOT THE DAY BEING FETCHED, AND THAT IS THE WHOLE POINT.** The day
+ * being fetched is yesterday on an ordinary night and can be weeks back on a
+ * catch-up. **Meesho's exported-files panel names a row by the day the export
+ * was MADE**, which is neither of those -- it is now.
+ *
+ * **IT IS READ OFF THE BROWSER'S OWN CLOCK BECAUSE THE BROWSER IS THE ONLY
+ * THING THAT KNOWS.** The export is made by this machine, at this moment, in
+ * the seller's own timezone, and Meesho stamps the row in that same timezone.
+ * The reference reads exactly this and calls it `todayISO()`.
+ *
+ * **AND IT IS NOT AN OPTION A CALLER MAY HAND IN.** That shape is what A52 had
+ * to take out of this very function: a value nothing ever supplied, quietly
+ * defaulting, filling five lookups with a day no page carries.
+ */
+export function theDayOfTheRun(now = new Date()) {
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    + `-${String(now.getDate()).padStart(2, '0')}`;
 }
 
 /**
@@ -382,41 +476,49 @@ export function theWalk({
     return anAnswer(FAILED, reportId, dataDate, { say: said, pageWas });
   }
 
-  /** The seller's own panel, and the day being fetched, put into a step.
+  /** The seller's own panel, and the days, put into a step.
    *
    *  **THE DAY IN WORDS IS WORKED OUT HERE, FROM THE RECIPE, AND IS NOT HANDED
-   *  IN ANY MORE (A52).** It used to be an option on the walk, defaulting to the
-   *  plain ISO day -- and NOTHING anywhere ever supplied one. So every lookup
-   *  narrowed to a row in the platform's own wording was narrowed to
-   *  `2026-06-06`, which appears on no row of either portal. That is
-   *  `me_returns` and `me_claims` broken since the day they were written, and
-   *  Flipkart's three broken from the night they were given a row to match.
+   *  IN (A52).** It used to be an option on the walk, defaulting to the plain
+   *  ISO day -- and NOTHING anywhere ever supplied one. So every lookup narrowed
+   *  to a row in the platform's own wording was narrowed to `2026-06-06`, which
+   *  appears on no row of either portal.
    *
    *  **AND WHOSE WORDING IS THE RECIPE'S TO SAY, because the two portals
    *  disagree.** Meesho writes `1 Sep 2026`, Flipkart's Reports Centre writes
    *  `05 Jun 2026`. A lookup that names a row in words without saying whose
    *  wording it means cannot be filled in at all, and this refuses rather than
    *  guessing -- guessed wrong it finds nothing for nine days of every month.
+   *
+   *  **AND SO IS WHICH DAY, WHICH IS THE 2026-09-10 CORRECTION.** Whose wording
+   *  answers `1 Sep` against `01 Sep`; it says nothing about WHICH day is on the
+   *  row. Meesho's exported-files panel names a row by the day the export was
+   *  MADE -- that is `runDay`, not `dataDate` -- and Flipkart's Reports Centre
+   *  names one by the end of its range, which is the data date. Filled with the
+   *  wrong one, a run on 25 August looked for `24 Aug 2026` on a row reading
+   *  `25 Aug 2026, 04:49 PM`.
+   *
+   *  **`near` COMES OUT AS AN ARRAY, ALWAYS, EVEN OF ONE.** A row matches if it
+   *  carries any of the ways that portal writes a day. A value that is sometimes
+   *  one row and sometimes several would be two things wearing one name.
    */
-  function filledIn(step, panel, dataDate) {
+  function filledIn(step, panel, dataDate, runDay) {
     /* **EVERY OCCURRENCE, NOT THE FIRST (cycle 46, R6#15).**
      *
-     * What stood here said `{day_in_words}` had to be filled before `{day}`
-     * because the short name sits inside the long one. **It does not** --
-     * `{day_in_words}` has no `{day}` in it, so the order never mattered and
-     * the comment was describing a danger that does not exist. A reason that is
-     * not true is worse than no reason: the next person keeps the ordering,
-     * believes it is load-bearing, and never looks at what is.
+     * Filling by name replaces the FIRST one only, so a recipe naming the same
+     * day twice -- a page that wants it in the address and again in the row it
+     * looks for -- would go out half-filled and find nothing, on the platform,
+     * at night, with no one watching. No recipe does that today. Nothing
+     * stopped one, and a recipe is data, added without touching this file.
      *
-     * **What IS load-bearing is this line.** Filling by name replaces the FIRST
-     * one only, so a recipe naming the same day twice -- a page that wants it in
-     * the address and again in the row it looks for -- would go out half-filled
-     * and find nothing, on the platform, at night, with no one watching. No
-     * recipe does that today. Nothing stopped one, and a recipe is data, added
-     * without touching this file. */
-    const put = (into, inWords) => String(into || '')
+     * **AND `{panel}` IS NOT FILLED INTO A ROW ANY MORE.** It was, here and
+     * nowhere else: the Python filled it into the address only, so one half
+     * would have narrowed to a real row and the other to a row holding the
+     * literal characters `{panel}`. A row is named by the day, never by the
+     * seller's own panel name, and the Python now refuses a recipe that says
+     * otherwise. */
+    const put = (into) => String(into || '')
       .split('{panel}').join(panel || '')
-      .split('{day_in_words}').join(inWords)
       .split('{day}').join(dataDate);
     /* **AN ADDRESS NAMES THE DAY PLAINLY OR NOT AT ALL.** Whose wording is said
      * on a lookup, and an address has no lookup -- so there is nothing to fill
@@ -427,16 +529,86 @@ export function theWalk({
         "An address names the day plainly, not in a platform's own wording."
       );
     }
-    const near = step.find ? String(step.find.near || '') : '';
-    let inWords = '';
-    if (near.includes('{day_in_words}')) {
-      inWords = theDayInWords(book, step.find.dayInWordsIs, dataDate);
-    }
     return {
       ...step,
-      address: put(step.address, inWords),
-      find: step.find ? { ...step.find, near: put(near, inWords) } : step.find,
+      address: put(step.address),
+      find: step.find
+        ? { ...step.find, near: theRowsItCouldBe(book, step.find, dataDate, runDay) }
+        : step.find,
     };
+  }
+
+
+  /** How many things on the page match this step's lookup.
+   *
+   *  **AND A CONTROL THAT TOGGLES IS PRESSED AGAIN WHILE IT WAITS, when the step
+   *  says one does.** Flipkart's Reports Centre hides its calendar behind a date
+   *  box and then a Custom chip, and both toggle: a press that arrived while the
+   *  sub-page was still drawing opened nothing, and this step would then wait out
+   *  its whole patience at a page that will never change. The reference presses
+   *  the date box again on every third look (`content/flipkart.js` StepD).
+   *
+   *  **THE SAME SHAPE THE PYTHON HALF HOLDS** (`browser_door._how_many_match`),
+   *  because a walk driven from one and checked against the other has to be one
+   *  walk.
+   */
+  async function howManyMatch(step, reportId) {
+    const look = (patience) => door.find(
+      step.find.how, step.find.what, step.find.exact, patience, step.find.near);
+    const press = step.pressAgain;
+    if (!press) return look(step.patience);
+    let spent = 0;
+    for (let turn = 0; turn < press.times; turn += 1) {
+      /* **A GO THAT THREW IS A GO THAT DID NOT FIND IT, AND NOTHING MORE.** The
+       * last go below is NOT caught, so a real failure still carries its own
+       * words out -- what is passed over here is only the middle of the wait,
+       * and every press in between is said out loud. */
+      const many = await answered(() => look(press.after));
+      if (many) return many;
+      spent += press.after;
+      await pressItAgain(press, reportId);
+    }
+    return look(Math.max(1, step.patience - spent));
+  }
+
+  /** Put the range into the page, pressing again the control that draws it. */
+  async function theRangeGoesIn(step, reportId, start, end) {
+    const putIn = async (patience) => {
+      await door.pick_range(start, end, patience,
+        Boolean(step.switchedOffDaysChangeTheCursor));
+      return true;
+    };
+    const press = step.pressAgain;
+    if (!press) { await putIn(step.patience); return; }
+    let spent = 0;
+    for (let turn = 0; turn < press.times; turn += 1) {
+      if (await answered(() => putIn(press.after))) return;
+      spent += press.after;
+      await pressItAgain(press, reportId);
+    }
+    await putIn(Math.max(1, step.patience - spent));
+  }
+
+  /** What one go answered, or nothing at all when it threw. */
+  async function answered(work) {
+    try {
+      return await work();
+    } catch (wrong) {
+      return null;
+    }
+  }
+
+  /** Press the toggling control once more. **Said, never swallowed.** */
+  async function pressItAgain(press, reportId) {
+    try {
+      await door.click(press.by.how, press.by.what, press.by.exact, []);
+    } catch (wrong) {
+      say(`${reportId}: ${press.by.called || press.by.what} could not be pressed again -- `
+        + `${(wrong && wrong.message) || wrong}`);
+      return;
+    }
+    say(`${reportId}: pressed ${press.by.called || press.by.what} again, because it is a `
+      + 'control that toggles.');
   }
 
   function stepsFor(reportId, panel, collecting) {
@@ -455,7 +627,40 @@ export function theWalk({
         + "panel. It is the seller's own data and is never written into the product."
       );
     }
+    const wrongWording = whyTheWordingIsWrong(reportId, steps);
+    if (wrongWording) throw new Error(wrongWording);
     return { recipe, twoPhase, steps };
+  }
+
+  /** Why this recipe names another portal's wording of a day, or null.
+   *
+   *  **THE PYTHON ALREADY REFUSES THIS AND THAT WAS NOT ENOUGH.** Its refusal
+   *  lives in `recipes.steps_for`, which the tool that writes `recipes.json` has
+   *  never called -- so a wording edited by hand into the shipped file reached
+   *  the portal with nothing anywhere complaining. This is the same refusal on
+   *  the side that would actually walk it.
+   *
+   *  **AND THE PORTAL IS THE REPORT'S OWN, taken from the report list that
+   *  already crosses** (`book.fileNames`), never off the front of the report's
+   *  name -- a name is a spelling and a spelling is not a fact (D170).
+   */
+  function whyTheWordingIsWrong(reportId, steps) {
+    const belongsTo = (book.fileNames && book.fileNames[reportId]
+      && book.fileNames[reportId].platform) || '';
+    for (const one of steps) {
+      const whose = one.find ? String(one.find.dayInWordsIs || '') : '';
+      if (!whose) continue;
+      if (!(book.daysInWords && book.daysInWords[whose])) {
+        return `${reportId} asks for a day written the way "${whose}" writes one, and no wording `
+          + 'of a day is written down for that.';
+      }
+      if (belongsTo && whose !== belongsTo) {
+        return `${reportId} is a ${belongsTo} report and asks for a day written the way ${whose} `
+          + `writes one. A row on ${belongsTo}'s own page is never written the way ${whose} `
+          + 'writes it.';
+      }
+    }
+    return null;
   }
 
   /** What to call a lookup that found nothing: covered up, or simply not there.
@@ -695,7 +900,7 @@ export function theWalk({
       const found = stepsFor(reportId, panel, collecting);
       plan = {
         ...found,
-        steps: found.steps.map((one) => filledIn(one, panel, dataDate)),
+        steps: found.steps.map((one) => filledIn(one, panel, dataDate, theDayOfTheRun())),
         collecting,
       };
     } catch (wrong) {
@@ -801,10 +1006,13 @@ export function theWalk({
          * one of them shows only in the cursor -- which is that portal's own
          * habit, not a rule of browsers, so it is a fact the recipe carries
          * rather than something the door assumes about every calendar. */
-        await door.pick_range(
-          daysBefore(dataDate, (step.rangeDays || 1) - 1), dataDate, step.patience,
-          Boolean(step.switchedOffDaysChangeTheCursor),
-        );
+        /* **AND THE CHIP THAT DRAWS THE CALENDAR IS PRESSED AGAIN WHILE THIS
+         * WAITS, BECAUSE IT TOGGLES.** The reference re-presses it once, part
+         * way through its own wait for the month heading, "in case it toggled
+         * off" -- and without that the only symptom is a quiet wait followed by
+         * "no calendar was showing", which reads as the portal having changed. */
+        await theRangeGoesIn(step, reportId,
+          daysBefore(dataDate, (step.rangeDays || 1) - 1), dataDate);
         continue;
       }
 
@@ -871,7 +1079,7 @@ export function theWalk({
         });
       }
 
-      const many = await door.find(step.find.how, step.find.what, step.find.exact, step.patience, step.find.near);
+      const many = await howManyMatch(step, reportId);
       if (many === 0) {
         /* **ITS OWN NAMED FAILURE, decided after the lookup rather than before
          * it.** "Button not found" sent a month of diagnosis at a button that was

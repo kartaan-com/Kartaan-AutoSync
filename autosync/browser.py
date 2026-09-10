@@ -84,7 +84,64 @@ BY_PRESSABLE_TEXT = "pressable"  # these words, on something the page shows as p
 # this door exists to stop being made about buttons.
 
 
-WAYS_OF_FINDING = (BY_TEXT, BY_ROLE_AND_TEXT, BY_TEST_ID, BY_PRESSABLE_TEXT)
+BY_THE_CONTROL_BESIDE = "beside"  # the box these words label, not the words
+
+# **THE FIFTH ONE EXISTS BECAUSE OF FLIPKART'S REPORTS CENTRE, and it is the
+# 2026-09-10 correction.** That sub-page shows the words **Select Date Range**
+# with the calendar hidden behind a box beside them. A step here pressed the
+# WORDS, and it could never have worked twice over:
+#
+#   - the words are a plain label with nothing pressable about them, so
+#     `BY_PRESSABLE_TEXT` refuses them -- no control tag, no role, no pointer
+#     cursor;
+#   - and the box itself does not carry the words at all. What an input carries
+#     is its VALUE, which on that page is the range currently showing --
+#     `01 Jun 2026 - 06 Jun 2026` (`DOCS.md:1803`), never the words being looked
+#     for. So no way of finding that reads words could reach it either.
+#
+# **THE REFERENCE HAS NEVER PRESSED THE LABEL** (`content/flipkart.js` StepD-0):
+# it finds the leaf holding those words, walks up as far as five ancestors, and
+# presses the input, the calendar icon or the date value sitting beside them.
+# That is what this is, and it is nothing else -- the words say WHICH box, and
+# the box is what is pressed.
+#
+# **IT IS ASKED FOR BY NAME, NEVER FALLEN BACK TO.** A way of finding that
+# quietly tried the label and then the box beside it would be two lookups
+# wearing one name, and the day one of them stopped working nothing would say so.
+
+
+WAYS_OF_FINDING = (BY_TEXT, BY_ROLE_AND_TEXT, BY_TEST_ID, BY_PRESSABLE_TEXT,
+                   BY_THE_CONTROL_BESIDE)
+
+# ---------------------------------------------------- which day names the row
+
+# **WHICH DAY A ROW IS NAMED BY, and the two portals answer it differently.**
+#
+# **THIS IS THE 2026-09-10 CORRECTION AND IT REPLACED ONE WRONG STRING WITH
+# ANOTHER BEFORE IT WAS CAUGHT.** Naming a row by "the day, in the portal's own
+# wording" is not one question but two, and only the first was ever asked:
+#
+#   whose wording  -- `1 Sep 2026` or `01 Sep 2026`; already said, and needed;
+#   WHICH DAY      -- the day the data is about, or the day the export was made.
+#
+# **MEESHO'S PANEL NAMES A ROW BY THE DAY THE EXPORT WAS MADE.** Read off his own
+# returns page on 2026-08-28: `completed_delivered_last_2_week | 25 Aug 2026,
+# 04:49 PM | Download`. A returns export is always the last two weeks, so there
+# is no data date on the row at all -- the only day it carries is the moment the
+# file was built, which is the day the run is happening. The reference says so
+# in one function: `content/meesho.js:1055` matches the row with `todayISO()`
+# and names the saved file with `yesterdayISO()`, two lines apart.
+#
+# **FLIPKART'S REPORTS CENTRE NAMES A ROW BY THE END OF ITS RANGE**, which IS the
+# day the data is about: `... 05 Jun 2026 To 06 Jun 2026 Generated`, and the
+# reference passes yesterday to its row matcher.
+#
+# **FILLED IN WITH THE WRONG ONE IT FINDS NOTHING, EVERY NIGHT, IN SILENCE.** On
+# a run of 25 August, Meesho's row was looked for as `24 Aug 2026` on a row
+# reading `25 Aug 2026` -- and that reads as the portal having renamed something.
+THE_DAY_IT_IS_ABOUT = "about"   # the data date: Flipkart's Reports Centre
+THE_DAY_IT_WAS_MADE = "made"    # the day of the run: Meesho's exported-files panel
+WHICH_DAY_A_ROW_IS_NAMED_BY = (THE_DAY_IT_IS_ABOUT, THE_DAY_IT_WAS_MADE)
 
 
 @dataclass(frozen=True)
@@ -145,6 +202,15 @@ class Find:
     # belongs to, are platform facts and live in `recipes.py` with everything
     # else that was measured off a real page.
     day_in_words_is: str = ""
+    # **AND WHICH DAY `{day_in_words}` MEANS -- the day the data is about, or the
+    # day the export was made. The two portals answer it differently.** See
+    # `WHICH_DAY_A_ROW_IS_NAMED_BY` above for the measurements.
+    #
+    # **IT IS A SECOND QUESTION, NOT A REFINEMENT OF THE FIRST.** Saying whose
+    # wording answers `1 Sep` against `01 Sep`; it says nothing at all about
+    # WHICH day is written there, and a lookup that gets the wording right and
+    # the day wrong finds exactly as little as one that gets both wrong.
+    day_in_words_of: str = ""
 
     def name(self) -> str:
         return self.called or self.what
@@ -216,6 +282,39 @@ class LookAgain:
 
 
 @dataclass(frozen=True)
+class PressAgain:
+    """Press a control again, while this step is still waiting for what it opens.
+
+    **BECAUSE THE CONTROL TOGGLES, AND A PRESS THAT WENT ASTRAY LEAVES IT SHUT.**
+    Flipkart's Reports Centre hides its calendar behind two controls in a row --
+    a date box, and a **Custom** chip underneath it -- and both of them toggle.
+    A press that arrives while the sub-page is still drawing opens nothing; a
+    press that arrives twice shuts what it opened. Either way the step after it
+    waits out its whole patience at a page that will never change.
+
+    **THE REFERENCE DOES BOTH OF THESE AND HAS DONE EVERY NIGHT FOR MONTHS**
+    (`content/flipkart.js` StepD): while polling for the Custom chip it presses
+    the date box again on every third look, and while polling for the calendar
+    it presses the chip again once. **Both were dropped when those two steps were
+    carried across on 2026-09-10, with no reason given** -- and dropped, the only
+    symptom is a step that quietly waits its full patience out.
+
+    **IT IS NOT `LookAgain`, AND THE TWO ARE NOT TO BE FOLDED TOGETHER.**
+    `LookAgain` shuts a menu on purpose, leaves it shut so the platform can
+    finish, and opens it again to make it REDRAW. This presses one control again
+    because the first press may not have landed. Different gesture, different
+    reason, different portal.
+    """
+
+    by: Find
+    # How long to wait before pressing it again, in seconds.
+    after: int
+    # At most how many extra presses. Never unlimited: a control pressed for ever
+    # is a control being toggled open and shut for ever.
+    times: int
+
+
+@dataclass(frozen=True)
 class Step:
     """One thing to do to a page."""
 
@@ -263,6 +362,10 @@ class Step:
     # control opens which menu is a platform fact, and platform facts live in
     # the recipe.
     look_again: Optional[LookAgain] = None
+    # **A CONTROL THAT TOGGLES, PRESSED AGAIN WHILE THIS STEP WAITS.** See
+    # `PressAgain`. On the step rather than in the door for the same reason as
+    # everything else here: which control toggles is a platform fact.
+    press_again: Optional[PressAgain] = None
 
 
 def why_step_is_refused(step: Step) -> Optional[str]:
@@ -311,6 +414,38 @@ def why_step_is_refused(step: Step) -> Optional[str]:
         # it at all would look as though it had one.
         return ("Only a lookup that names a row by the day in the platform's own wording can say "
                 "whose wording of a day it means.")
+    if (step.find is not None and "{day_in_words}" in step.find.near
+            and not step.find.day_in_words_of):
+        # **WHOSE WORDING IS ONLY HALF THE QUESTION, and the other half cost a
+        # night.** A row named `25 Aug 2026` on Meesho is named by the day the
+        # export was MADE; a row named `06 Jun 2026` on Flipkart is named by the
+        # day the data is ABOUT. Said in Meesho's wording and filled with the
+        # data date, the lookup asks for `24 Aug 2026` on a row that reads
+        # `25 Aug 2026` -- right wording, wrong day, nothing found, in silence.
+        return ("A row named by the day in the platform's own wording has to say WHICH day -- "
+                "the day the data is about, or the day the export was made.")
+    if (step.find is not None and step.find.day_in_words_of
+            and step.find.day_in_words_of not in WHICH_DAY_A_ROW_IS_NAMED_BY):
+        # **A TYPO HERE IS NOT A DIFFERENT DAY, IT IS NO DAY AT ALL**, and it says
+        # so by name rather than falling back to one of the two.
+        return (f"{step.find.day_in_words_of!r} is not a day a row can be named by. It is either "
+                "the day the data is about or the day the export was made.")
+    if (step.find is not None and step.find.day_in_words_of
+            and "{day_in_words}" not in step.find.near):
+        # Same shape as the rule about whose wording: it describes one
+        # placeholder, and only one lookup carries one.
+        return ("Only a lookup that names a row by the day in the platform's own wording can say "
+                "which day it means.")
+    if step.find is not None and "{panel}" in step.find.near:
+        # **A ROW IS NEVER NAMED BY THE SELLER'S OWN PANEL NAME**, and until this
+        # rule existed nothing said so on either side: the Python filled `{panel}`
+        # into the address only, while the JavaScript filled it into `near` as
+        # well. So one half would have narrowed to a real row and the other to a
+        # row containing the literal characters `{panel}`. **Two halves quietly
+        # disagreeing is the fault the whole generated crossing exists to stop**,
+        # and the cheaper cure is to refuse the placeholder in the one place it
+        # has no business being. The panel name belongs in an address.
+        return "A row is named by the day, never by the seller's own panel name."
     if "{day_in_words}" in step.address:
         # **AN ADDRESS CANNOT SAY WHOSE WORDING IT WANTS**, because whose wording
         # is said on the lookup and an address has no lookup. Filled in anyway it
@@ -353,6 +488,31 @@ def why_step_is_refused(step: Step) -> Optional[str]:
             # nothing is watching; with no time it is opened again on the same
             # list it was closed on, every time, and reads as having tried.
             return "Looking again has to leave it closed for some time, or nothing is redrawn."
+    if step.press_again is not None:
+        press = step.press_again
+        if step.do not in (CLICK, WAIT_FOR, PICK_RANGE):
+            # **ONLY A STEP THAT WAITS FOR SOMETHING TO APPEAR HAS ANYTHING TO
+            # PRESS AGAIN FOR.** A `go` or a `wait` is not waiting on a control,
+            # and a `take-file` already has `look_again` for the one menu that
+            # needs redrawing -- two mechanisms on one step would be two ways of
+            # saying one thing, which is what this door exists to avoid.
+            return ("Only a step waiting for something to appear can press a control again while "
+                    "it waits.")
+        if not isinstance(press.by, Find):
+            return "Pressing again has to say what to press."
+        if press.by.how not in WAYS_OF_FINDING:
+            return f"{press.by.how!r} is not a way of finding something."
+        if not press.by.what:
+            return "Pressing again has to say what to press."
+        if press.times < 1:
+            return "Pressing again no times at all is not pressing again."
+        if press.after < 1:
+            # **NOUGHT SECONDS IS NOT WAITING, IT IS DOUBLE-CLICKING.** The whole
+            # reason to press a toggling control again is that time has passed and
+            # what it opens has still not appeared. With no time between them the
+            # second press lands on a control the first one has just opened, and
+            # shuts it.
+            return "Pressing again has to wait some time first, or the second press shuts it."
     if not step.why:
         # **NOT DECORATION.** A failure says what was being attempted, and without
         # this it can only say what could not be found -- which is how a month of
