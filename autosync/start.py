@@ -151,8 +151,9 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
         save_run=a_run_sink(google, their_project),
         # **AND THE HOUR THE SELLER CHOSE, READ AND NEVER WRITTEN (D113, D114).**
         # It is written on the business record from the This business tab. Until
-        # this line it reached nothing, and a seller who chose eleven at night was
-        # fetched at two in the morning for ever with nothing saying so.
+        # this line it reached nothing, and a seller who chose eight in the
+        # morning was fetched at the default hour for ever with nothing saying
+        # so.
         ask_the_hour=lambda: what_they_chose(google, their_project),
         send=send,
         # **WHAT IS NEW IN THE SELLER'S FOLDER.** Both of these are real and both

@@ -43,52 +43,58 @@ on:
   # minute**, so twenty-four ten-second refusals cost twenty-four minutes a day,
   # not four -- about 720 of the free 2,000 a month, for nothing.
   #
-  # **THE HOUR IS WRITTEN INTO THIS LINE WHEN THE WORKFLOW IS PUT IN THE SELLER'S
-  # REPOSITORY AT ONBOARDING**, and never afterwards. Changing it later is a
-  # one-off the seller triggers -- **never standing permission for Kartaan to
-  # write files in their repository**, which is the thing D113 was right to
-  # refuse: anything that can write a workflow can write one that carries their
-  # secrets away.
+  # **THE HOUR THIS LINE NAMES IS THE ONLY HOUR ANY SELLER IS EVER WOKEN AT, AND
+  # NOTHING REWRITES IT.** An earlier version of this comment said the hour was
+  # written in here at onboarding. **No such step exists, and saying it did is
+  # part of what hid the fault below for as long as it stood.** It is not built,
+  # and it is not the repair: writing a seller's hour in would need standing
+  # permission to write files in their repository, **which is exactly what D113
+  # refused -- anything that can write a workflow can write one that carries
+  # their secrets away.**
   #
-  # **THE CLOCK DECIDES WHETHER A TICK RUNS. IT CANNOT MAKE ONE HAPPEN, AND THIS
-  # COMMENT USED TO SAY IT COULD.**
+  # **THE CLOCK DECIDES WHETHER A TICK RUNS. IT CANNOT MAKE ONE HAPPEN.** The
+  # cron line is the ONLY thing that wakes this job. `clock.why_not_now` can
+  # refuse a tick; it has nothing to start one with.
   #
-  # What stood here said "a workflow whose line was never rewritten still fetches
-  # at the hour the seller can see rather than at the one written here". **That
-  # is false, and it is the sentence that hid the fault below.** The cron line is
-  # the ONLY thing that wakes this job. `clock.why_not_now` can refuse a tick; it
-  # has nothing to start one with.
+  # **AND THE HOUR A SELLER CHOOSES IS STILL A FLOOR, NOT AN APPOINTMENT.** That
+  # has not changed and must not: GitHub's own documentation says a scheduled run
+  # can be delayed, and D108 says no day is ever lost, so the run happens at the
+  # first tick at or after the chosen hour. **With one tick a day, an hour later
+  # than the one on this line still fetches nothing** -- there is no second tick
+  # to catch it.
   #
-  # **SO WITH ONE TICK A DAY AND NOBODY REWRITING THIS LINE, A SELLER WHO CHOSE
-  # ANY HOUR FROM 3 TO 23 NEVER FETCHES, ON ANY DAY.** The chosen hour is a FLOOR
-  # -- "not before eight" -- and the one tick arrives at 02:23 in his time, which
-  # is before every one of them. Driven against `clock.why_not_now`, hour by
-  # hour: 0, 1 and 2 fetch; the other twenty-one never do, and the seller is told
-  # only "It is 02:23 and fetching is set for 11:00 or later", which reads
-  # exactly like a tick that will succeed later today. There is no later tick
-  # today. `autosync/nightly_checks.py` pins this, so the day it is repaired the
-  # check has to be changed on purpose.
+  # **WHAT WAS WRONG UNTIL 2026-09-10, AND WHAT HE DECIDED.** The tick was
+  # twenty to nine in the evening UTC -- 02:23 in his morning. Driven against
+  # `clock.why_not_now` hour by hour: **hours 0, 1 and 2 fetched, and the other
+  # twenty-one never did, on any day.** He was given the three ways out and
+  # answered with an hour: **four in the afternoon.** So the one tick moved, and
+  # nothing else about the mechanism did. It costs nothing to run and asks for no
+  # new permission on anybody's repository.
   #
-  # **WHY IT IS NOT REPAIRED IN THIS LINE.** The three ways out are all his to
-  # choose and none is a line of YAML: wake every hour again (reverses D120 and
-  # costs about 720 of the free 2,000 minutes a month); build the onboarding step
-  # that writes his hour in here (the thing this file already says happens and
-  # which does not exist); or let something rewrite the workflow (D113 refused
-  # standing write permission on a seller's repository, and was right --
-  # anything that can write a workflow can write one that carries their secrets
-  # away). It is written up as its own piece in `tools/work.json`.
+  # **SEVENTEEN OF THE TWENTY-FOUR HOURS NOW FETCH. THE OTHER SEVEN ARE REFUSED
+  # WHERE THEY ARE READ, RATHER THAN LEFT SILENT.** A seller who chooses 17:00 to
+  # 23:00 is still above the only tick there is, so `clock.why_the_hour_is_no_good`
+  # refuses that setting in words and says to set it to 16:00 or earlier --
+  # instead of the old sentence, which read like a tick that would succeed later
+  # today when there was none. `autosync/nightly_checks.py` drives all twenty-four
+  # hours against this line and holds it to `clock.THE_ONE_TICK_HOUR`, so moving
+  # either without the other is red.
   #
   # **UTC, deliberately, and not the timezone field GitHub now offers.** That
   # field is in public preview, and a seller's data arriving depends on it.
   # India's clock lives in `clock.py`, said out loud, where it is checked --
   # `HOURS_AHEAD_OF_UTC = 5`, `MINUTES_AHEAD_OF_UTC = 30`. One clock, in the file
-  # that can prove it. **20:53 UTC is 02:23 the next morning in his time**, which
-  # is `clock.NOT_BEFORE_HOUR` -- the default for a seller who has not chosen.
+  # that can prove it. **10:30 UTC is 16:00 the same day in his time**, which is
+  # `clock.THE_ONE_TICK_HOUR`, and also `clock.NOT_BEFORE_HOUR` -- the default for
+  # a seller who has not chosen.
   #
-  # **:53 RATHER THAN :00** because GitHub's own documentation names the start of
-  # the hour as when a scheduled run is most likely to be delayed.
+  # **:30 RATHER THAN :00, AND IT IS THE SAME REASON AS BEFORE.** GitHub's own
+  # documentation names the start of the hour as when a scheduled run is most
+  # likely to be delayed, and this is the middle of the UTC hour. **It lands on
+  # the top of HIS hour on purpose:** a tick a few minutes before four would
+  # refuse a seller who chose four, because the floor is asked of the hour.
   schedule:
-    - cron: '53 20 * * *'
+    - cron: '30 10 * * *'
 
   # **STARTABLE BY HAND**, which is what makes a first run, and any morning
   # something looks wrong, possible without waiting for a tick.

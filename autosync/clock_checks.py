@@ -37,7 +37,11 @@ def answered(work):
         return None
 
 
-AT = datetime(2026, 8, 28, 10, 30)
+# **THE MOMENT EVERY RULE BELOW IS ASKED AT IS THE ONE TICK OF THE DAY**, four
+# in the afternoon in his time -- hand-typed, not read off the clock it checks.
+# It used to be half past ten in the morning, which stopped being a moment any
+# tick arrives at on 2026-09-10.
+AT = datetime(2026, 8, 28, 16, 0)
 
 # ---------------------------------------------- whose day it is
 
@@ -158,7 +162,7 @@ check("and nothing at all means the default too",
 check("and only spaces means the default", answered(lambda: tool.the_hour_they_mean("   ")) == tool.NOT_BEFORE_HOUR)
 # **ANYTHING ELSE COMES BACK AS THEY WROTE IT**, so it can be refused in their own
 # words. Tidied into the default here, a seller who typed "elevenish" would be
-# fetched at two in the morning and never told their setting was ignored.
+# fetched at the default hour and never told their setting was ignored.
 check("something that is not an hour comes back exactly as it was written",
       answered(lambda: tool.the_hour_they_mean("elevenish")) == "elevenish")
 check("and the clock then refuses it",
@@ -194,9 +198,16 @@ check("a tick before it is refused", too_early is not None)
 # cannot be told from a tick that failed, and there are twenty-three of them now.
 check("and it says what time it is", "08:23" in (too_early or ""))
 check("and what time fetching is set for", "09:00" in (too_early or ""))
+# **AND IT NAMES THE ONE TICK, because the sentence without it was the fault.**
+# "It is 02:23 and fetching is set for 11:00 or later" reads exactly like a tick
+# that will succeed later today. Naming the single fetch is what lets a reader
+# tell a wait from a dead end.
+check("and it says there is one fetch a day", "one fetch a day" in (too_early or ""))
+check("and says when that one fetch is", "16:00" in (too_early or ""))
 
 # **EVEN A FIRST RUN WAITS FOR THE HOUR.** Otherwise a seller who chose the
-# evening has their very first run at two in the morning.
+# afternoon has their very first run on whatever hour a hand-started tick
+# happened to land on.
 check("a seller who has never run still waits for their hour",
       answered(lambda: tool.why_not_now(None, MORNING, 9)) is not None)
 
@@ -214,16 +225,61 @@ check("and one that ran an hour ago is refused for the rest of the day",
 for wrong in (24, -1, "8", None, 8.5, True):
     check(f"{wrong!r} is not an hour a seller can choose",
           tool.why_the_hour_is_no_good(wrong) is not None)
-for right in (0, 2, 23):
+for right in (0, 2, 16):
     check(f"{right} is", tool.why_the_hour_is_no_good(right) is None)
 check("and a setting that is wrong stops the run rather than being ignored",
       answered(lambda: tool.why_not_now(tool.LastRun(), MORNING, 25)) is not None)
 check("midnight is a real choice, not a missing one",
       answered(lambda: tool.why_not_now(tool.LastRun(), datetime(2026, 8, 28, 0, 23), 0)) is None)
 
-# The default is written down here rather than living in a cron line nobody can
-# see, and it is after his day has ended.
-check("the default hour is after his day has ended", tool.NOT_BEFORE_HOUR == 2)
+# ------------------------------------ the one tick, and the seven hours above it
+#
+# **HIS DECISION, 2026-09-10: FOUR IN THE AFTERNOON.** There is one tick a day and
+# the chosen hour is a FLOOR, so the tick's hour is the ceiling on what a seller
+# can usefully choose. It used to be 02:23, which left three usable hours out of
+# twenty-four; it is 16:00, which leaves seventeen.
+#
+# **BOTH NUMBERS ARE HAND-TYPED HERE.** Read off `clock` they would agree with
+# themselves whatever either of them said.
+check("the one tick of the day is at four in the afternoon, his time",
+      tool.THE_ONE_TICK_HOUR == 16)
+check("and the default for a seller who has not chosen IS that tick -- higher "
+      "would fetch nothing and lower would name an hour the tick cannot honour",
+      tool.NOT_BEFORE_HOUR == 16)
+
+# **THE SEVEN HOURS THAT STILL CANNOT WORK ARE REFUSED WHERE THEY ARE READ.**
+# Left alone they are refused every night by `_too_early` instead, which reads
+# like a tick that will succeed later today -- and that sentence is the fault
+# this whole repair exists for. A setting that can NEVER work is a wrong setting,
+# not a wait.
+for above in (17, 18, 19, 20, 21, 22, 23):
+    check(f"{above} is a real hour of a real day and still not one a seller can "
+          f"be fetched at, so it is refused",
+          tool.why_the_hour_is_no_good(above) is not None)
+_seven = tool.why_the_hour_is_no_good(20) or ""
+# **AND IT SAYS ALL THREE THINGS A SELLER NEEDS**, rather than only that it is
+# wrong: what they set, when the one fetch is, and what to set instead.
+check("and the refusal says what they set", "20:00" in _seven)
+check("and when the one fetch of the day actually is", "16:00" in _seven)
+check("and that nothing would be fetched on ANY day, which is what tells it "
+      "apart from a wait", "on any day" in _seven)
+# **AND IT IS REFUSED AT THE TICK ITSELF, not merely by the range guard.** A
+# seller who chose 20:00 is not early at 16:00 -- they are unreachable -- and the
+# whole point is that the sentence they get says so.
+_at_the_tick = answered(lambda: tool.why_not_now(None, AT, 20)) or ""
+check("a seller who chose an hour above the tick is refused ON the tick",
+      _at_the_tick != "")
+check("and told it is the setting that is wrong, not the moment",
+      "on any day" in _at_the_tick)
+# **AND THE TICK'S OWN HOUR IS REACHABLE**, which is what makes the ceiling a
+# ceiling rather than one off it. Asserted positively, so a change that moved the
+# tick without moving this could not pass by making a phrase absent.
+check("and the tick's own hour is a choice that works",
+      answered(lambda: tool.why_not_now(None, AT, 16)) is None)
+check("and so is every hour below it, taking the middle of the day as the case "
+      "that used to fail",
+      all(answered(lambda: tool.why_not_now(None, AT, hour)) is None
+          for hour in range(0, 17)))
 
 # **THE FLOOR IS A FLOOR WHATEVER HAPPENED BEFORE IT.**
 long_ago = tool.LastRun(started=MORNING - timedelta(days=2), finished=MORNING - timedelta(days=2))
@@ -247,7 +303,7 @@ check("and the next one starts at the chosen hour",
 # before the tally now, which is the only place it covers everything.
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 63
+EXPECTED = 80
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

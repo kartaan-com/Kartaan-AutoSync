@@ -46,15 +46,36 @@ MINUTES_AHEAD_OF_UTC = 30
 # start another one.
 GONE_AFTER = timedelta(hours=4)
 
+# **THE ONE TICK A DAY, TOLD IN HIS TIME.** The `cron:` line in
+# `.github/workflows/autosync.yml` is the only thing that wakes the nightly job,
+# and it wakes it once. It is written down here as well because nothing in
+# Python can read a cron line, and a number that lives only in YAML is a number
+# no check can hold anything to. `autosync/nightly_checks.py` reads the real
+# line, moves it into his time, and refuses if it is not this hour.
+#
+# **FOUR IN THE AFTERNOON. HIS DECISION, 2026-09-10.** The tick used to land at
+# 02:23, and the hour a seller chooses is a FLOOR rather than an appointment --
+# so a seller who chose anything above three in the morning was refused on the
+# only tick there was, on every day, for ever. Twenty-one of the twenty-four
+# hours fetched nothing. **Moving the one tick costs nothing to run and needs no
+# new permission on a seller's repository**, which is what D113 refused.
+#
+# **AND IT IS AFTER FLIPKART HAS FINISHED YESTERDAY.** The reference records that
+# Flipkart only finalises settlement data in the afternoon, roughly after
+# 13:00-14:00, and worked around a morning request by rescheduling itself an
+# hour later, up to three times. A run at 16:00 is past that boundary.
+THE_ONE_TICK_HOUR = 16
+
 # The hour of HIS day a run is not started before, when the seller has not said.
 #
-# **TWO IN THE MORNING, because that is after his day has ended and the platforms
-# have yesterday to give.** It is the hour the schedule already effectively used;
-# it is written down here now because a seller can change it, and a default that
-# lives in a cron line is a default nobody can see or reason about.
-NOT_BEFORE_HOUR = 2
+# **THE TICK ITSELF.** A default above the tick would fetch nothing at all, and a
+# default below it would name an hour the one tick cannot honour. A seller who
+# has never chosen is fetched on the one tick there is.
+NOT_BEFORE_HOUR = THE_ONE_TICK_HOUR
 
-# The earliest and latest hour a seller may choose. Both ends of a real day.
+# The earliest and latest hour of a real day. **NOT the hours a seller can
+# usefully choose** -- that set is narrower, because of the one tick, and
+# `why_the_hour_is_no_good` is where the difference is said out loud.
 FIRST_HOUR = 0
 LAST_HOUR = 23
 
@@ -109,7 +130,14 @@ def why_the_hour_is_no_good(hour) -> Optional[str]:
 
     **AN HOUR NOBODY CAN CHOOSE IS A SETTING THAT SILENTLY DOES NOTHING.** Read
     as a default when it is out of range, a seller who typed 25 would be fetched
-    at two in the morning and never told why.
+    at four in the afternoon and never told why.
+
+    **AND AN HOUR ABOVE THE ONE TICK IS REFUSED HERE TOO, WHICH IS THE WHOLE
+    POINT OF REFUSING IT AT ALL.** 17 to 23 are real hours of a real day, and
+    there is no tick left in the day to reach them -- so a seller who chose one
+    would be refused every night, for ever, and told only that it was too early.
+    A setting that can never work is refused where it is read, in words that say
+    what to do instead.
 
     **AND IT SAYS WHAT WAS ACTUALLY SET.** Since D114 this value comes off the
     seller's own business record rather than out of a file somebody could go and
@@ -122,6 +150,12 @@ def why_the_hour_is_no_good(hour) -> Optional[str]:
         return (
             f"The hour to fetch at has to be between {FIRST_HOUR} and {LAST_HOUR}, "
             f"and it is set to {hour}."
+        )
+    if hour > THE_ONE_TICK_HOUR:
+        return (
+            f"Fetching is set for {hour:02d}:00 or later, and the one fetch of the day "
+            f"is at {THE_ONE_TICK_HOUR:02d}:00. Nothing would be fetched, on any day. "
+            f"Set it to {THE_ONE_TICK_HOUR:02d}:00 or earlier."
         )
     return None
 
@@ -139,8 +173,8 @@ def the_hour_they_mean(said):
 
     **AND ANYTHING THAT IS NOT A WHOLE HOUR COMES BACK AS THEY WROTE IT**, so
     `why_the_hour_is_no_good` can refuse it in their own words. Tidied into the
-    default here, a seller who typed "elevenish" would be fetched at two in the
-    morning and never told their setting was ignored.
+    default here, a seller who typed "elevenish" would be fetched at the default
+    hour and never told their setting was ignored.
     """
     text = str(said if said is not None else "").strip()
     if text == "":
@@ -176,8 +210,9 @@ def why_not_now(last: LastRun, moment: datetime, not_before_hour: int = NOT_BEFO
     too_early = _too_early(moment, not_before_hour)
     if last is None or last.started is None:
         # **EVEN A FIRST RUN WAITS FOR THE HOUR.** Otherwise a seller who chose
-        # the evening would have their very first run at two in the morning, on
-        # a day the platforms may not have finished writing.
+        # the afternoon would have their very first run on whatever hour a
+        # hand-started tick happened to land on, on a day the platforms may not
+        # have finished writing.
         return too_early
     if last.still_going:
         if moment - last.started < GONE_AFTER:
@@ -217,9 +252,16 @@ def _too_early(moment: datetime, not_before_hour: int) -> Optional[str]:
         return wrong
     if moment.hour >= not_before_hour:
         return None
+    # **AND IT SAYS THERE IS ONLY ONE TICK, because the sentence without that
+    # clause was the fault.** "It is 02:23 and fetching is set for 11:00 or
+    # later" reads exactly like a tick that will succeed later today, and for
+    # every seller above the tick there was no later tick, ever. The hour of the
+    # one tick is named so the reader can work out for themselves whether this
+    # is a wait or a dead end.
     return (
         f"It is {moment.hour:02d}:{moment.minute:02d} and fetching is set for "
-        f"{not_before_hour:02d}:00 or later."
+        f"{not_before_hour:02d}:00 or later. There is one fetch a day, at "
+        f"{THE_ONE_TICK_HOUR:02d}:00, and nothing is fetched before it."
     )
 
 

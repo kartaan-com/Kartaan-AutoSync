@@ -156,7 +156,7 @@ def one_tick(
         # finished setting the business up has no record and no choice, and
         # `the_hour_they_mean` answers the default for them. Anything that is not
         # a whole hour comes back as they wrote it, so the clock refuses it in
-        # their own words rather than quietly fetching at two in the morning.
+        # their own words rather than quietly fetching at the default hour.
         not_before_hour = clock.the_hour_they_mean(said)
 
     # **THE RECORD IS READ BEFORE ANYTHING ELSE, and a damaged one stops

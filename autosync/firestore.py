@@ -460,8 +460,8 @@ def the_hour_they_chose(document: Optional[Dict]) -> Optional[str]:
         page writes an empty string for a business that has not chosen one.
       - anything else -- handed on **exactly as written**, whether or not it is
         an hour. `clock.why_not_now` refuses a setting that is not an hour, in
-        words, rather than quietly falling back to two in the morning. A setting
-        that silently does nothing is worse than one that says it is wrong.
+        words, rather than quietly falling back to the default. A setting that
+        silently does nothing is worse than one that says it is wrong.
     """
     if not isinstance(document, dict):
         return None

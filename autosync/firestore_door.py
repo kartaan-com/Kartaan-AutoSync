@@ -174,8 +174,8 @@ def what_they_chose(transport, project: str) -> Optional[str]:
 
     **EVERYTHING ELSE IS THROWN.** A database that would not answer is not the
     same as a seller who has not chosen, and quietly treating the two alike would
-    fetch at two in the morning for a seller who asked for eleven at night, for
-    ever, with nothing anywhere saying why.
+    fetch at the default hour for a seller who asked for eight in the morning,
+    for ever, with nothing anywhere saying why.
     """
     where = ONE_DOCUMENT.format(api=API, name=firestore.where_the_business_is(project))
     reply = transport.get(where)

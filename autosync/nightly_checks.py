@@ -50,10 +50,15 @@ def answered(work):
 
 
 # **EVERY MOMENT HERE IS ALREADY HIS.** `clock.his_clock` is applied once, at the
-# edge, before anything in this file is reached -- so two in the morning means
-# two in the morning where he is, and the day it is about is the one that just
+# edge, before anything in this file is reached -- so four in the afternoon means
+# four in the afternoon where he is, and the day it is about is the one that just
 # ended.
-AT = datetime(2026, 8, 29, 2, 0)
+#
+# **AND IT IS THE ONE TICK OF THE DAY**, hand-typed rather than read off `clock`.
+# It was two in the morning until 2026-09-10, when the tick moved to four in the
+# afternoon on his decision -- a night driven at an hour no tick ever arrives at
+# proves the night and not the schedule.
+AT = datetime(2026, 8, 29, 16, 0)
 HIS_DAY = date(2026, 8, 29)
 YESTERDAY = date(2026, 8, 28)
 
@@ -805,8 +810,8 @@ check("an hour nobody can choose stops the run", tick.ran is False)
 check("and says what was wrong with it", "elevenish" in (tick.why_not or ""))
 
 # **A QUESTION THAT CANNOT BE ANSWERED IS OUR OWN DEFECT AND STOPS THE RUN.**
-# Falling back to the default would fetch at two in the morning for a seller who
-# asked for eleven at night, for ever, with nothing saying why.
+# Falling back to the default would fetch at the default hour for a seller who
+# asked for something else, for ever, with nothing saying why.
 h = Harness()
 tick = h.go(ask_the_hour=Database(hour_throws=True).hour)
 check("an hour that cannot be read at all stops the run", tick.ran is False)
@@ -1619,37 +1624,57 @@ check("AND AT LEAST ONE STEP WORKS IN A FOLDER ON EVERY RUN, CONNECTED OR NOT --
       any(not re.search(r"^\s*if:", s, re.M) for s in _WORKING_STEPS))
 
 
-# ------------- the one tick a day, and the hours it can never reach (A33)
+# ------------- the one tick a day, and the seven hours above it (A33, A54)
 
-# **THE SELLER'S CHOSEN HOUR HAS NEVER REACHED THE SCHEDULE SINCE D120, AND
-# NOTHING ANYWHERE ASKED WHETHER IT DID.**
+# **THERE IS ONE TICK A DAY AND IT IS AT FOUR IN THE AFTERNOON, HIS TIME.**
 #
 # The cron line is the only thing that wakes this job -- `clock.why_not_now` can
-# refuse a tick, it has nothing to start one with. The line ticks once a day at
-# 20:53 UTC, which is 02:23 in his time, and the chosen hour is a FLOOR ("not
-# before eight"). So every seller who chose an hour from 3 to 23 is refused on
-# every tick, on every day, for ever -- and is told only "It is 02:23 and
-# fetching is set for 11:00 or later", which reads exactly like a tick that will
-# succeed later today.
+# refuse a tick, it has nothing to start one with -- and the hour a seller
+# chooses is a FLOOR rather than an appointment. **So the tick's hour is the
+# ceiling on what a seller can usefully choose**, and everything below asks what
+# that ceiling really is rather than what any comment says it is.
 #
-# **DRIVEN AGAINST `clock.why_not_now`, HOUR BY HOUR, AND NOT ARGUED.** The hour
-# the tick really lands at is read out of the cron line and moved into his time
-# by `clock`'s own constants, so a change to either is a change here.
+# **WHAT THIS REPLACED, AND WHY IT MATTERS THAT IT DID.** Until 2026-09-10 the
+# tick was 02:23 in his morning, so hours 0, 1 and 2 fetched and the other
+# twenty-one never did, on any day. A check stood here pinning that fault and
+# saying it must be turned round the day it was repaired. **It would not have
+# gone red on its own**: it asked whether the tick's hour equalled
+# `clock.NOT_BEFORE_HOUR`, and on the repair both moved together. That is
+# written down here because it is the more useful half of the lesson -- a pin
+# compared against something that moves with it is not a pin.
 #
-# **THIS PINS A FAULT RATHER THAN A REPAIR.** It is written this way round on
-# purpose: the three ways out are all his (wake hourly again and reverse D120;
-# build the onboarding step that writes his hour into the line; or let something
-# rewrite a seller's workflow, which D113 refused). The day one is taken, this
-# check goes red and somebody has to change it deliberately -- which is the only
-# thing that stops the hole being quietly re-believed closed.
-# **EVERY SCHEDULE LINE, NOT THE FIRST ONE (A33R).** Read with `re.search` this
-# took whichever `cron:` came first and asked nothing about the rest -- so adding
-# a SECOND line, `- cron: '53 * * * *'`, which is the wake-hourly repair named
-# above, fixed the fault and left all these checks green. **A pin that survives
-# the repair it exists to demand is not a pin.** Every entry is read, and the
-# earliest hour of his day that any of them reaches is what the seller gets.
-_CRONS = re.findall(r"cron:\s*'(\d+)\s+([\d*/,-]+)\s", SAID_IN_THE_WORKFLOW)
-check("the schedule can be read out of the workflow at all", len(_CRONS) > 0)
+# **EVERY EXPECTED NUMBER BELOW IS HAND-TYPED.** Read out of `clock`, they would
+# agree with themselves whatever `clock` said.
+#
+# **THE WHOLE LINE, ALL FIVE FIELDS OF IT, AND EVERY LINE THERE IS.**
+#
+# Two earlier versions of this were each defeated by something they did not read.
+# `re.search` took whichever `cron:` came first and asked nothing about the rest,
+# so a SECOND line -- the wake-every-hour repair -- left it green (A33R). Then
+# `re.findall` read every line and still took only the MINUTE and the HOUR out of
+# each, **so a schedule restricted to Mondays, or to the first of the month, or
+# to weekdays, passed every check here** (found by an independent reviewer,
+# 2026-09-10, who escaped four ways in a scratch copy).
+#
+# **A CRON LINE IS FIVE FIELDS AND WHAT IT MEANS IS ALL FIVE.** So the whole
+# expression is taken, hand-typed against, and only then split for the hours.
+_CRON_LINES = re.findall(r"^\s*-\s*cron:\s*'([^']+)'\s*$", SAID_IN_THE_WORKFLOW, re.M)
+check("the schedule can be read out of the workflow at all", len(_CRON_LINES) > 0)
+check("THERE IS EXACTLY ONE SCHEDULE LINE -- a second line is a second tick and "
+      "changes what every seller gets, whatever hour it lands in",
+      len(_CRON_LINES) == 1)
+check("and the whole line is 10:30 UTC, EVERY day of every month, hand-typed "
+      "rather than read off anything -- a schedule narrowed to Mondays or to the "
+      "first of the month reads exactly like this one in its first two fields",
+      _CRON_LINES == ["30 10 * * *"])
+_FIELDS = [line.split() for line in _CRON_LINES]
+check("and every line has all five fields, so nothing below is reading a "
+      "half-written one", all(len(one) == 5 for one in _FIELDS))
+check("and the day of the month, the month and the day of the week are every "
+      "one of them -- said separately, so a legitimate change to the minute "
+      "does not quietly take this claim with it",
+      all(one[2:] == ["*", "*", "*"] for one in _FIELDS))
+_CRONS = [(one[0], one[1]) for one in _FIELDS]
 
 
 def _hours_his_day_is_woken_at(crons):
@@ -1687,44 +1712,122 @@ def _the_hours_meant(field):
 
 
 _WOKEN = _hours_his_day_is_woken_at(_CRONS)
-check("and it wakes at at least one hour of his day", len(_WOKEN) > 0)
+# **THE MINUTE OF HIS HOUR THE TICK LANDS ON, and it is not decoration.** A tick
+# a few minutes BEFORE four would refuse a seller who chose four, because the
+# floor is asked of the hour. So the UTC minute is chosen to land on the top of
+# his hour, and that is asserted rather than assumed.
+_MINUTE = (int(_CRONS[0][0]) + clock.MINUTES_AHEAD_OF_UTC) % 60 if _CRONS else None
+check("IT WAKES AT EXACTLY ONE HOUR OF HIS DAY, AND IT IS FOUR IN THE AFTERNOON "
+      "-- a second line is a second tick and changes what every seller gets",
+      _WOKEN == {16})
+check("and it lands on the top of that hour, so a seller who chose it is not "
+      "refused by a tick a few minutes early", _MINUTE == 0)
 
-# **WHICH HOURS A SELLER COULD CHOOSE AND ACTUALLY BE FETCHED AT.** The chosen
-# hour is a FLOOR, so a tick at 02:23 satisfies 0, 1 and 2 and nothing above.
-_EARLIEST = min(_WOKEN)
+# **AND THE SELLER'S OWN CALLER CARRIES THE SAME LINE.** The template in this
+# repository is the whole content of `kartaan-com/kartaan-pipeline-template`, and
+# it is the file that actually holds the schedule in a seller's account. **The
+# two were never held to each other until now** -- the secret names and the tag
+# were, the hour was not, so one of them could have moved alone and no check
+# anywhere would have said a word.
+_CALLER_LINES = re.findall(r"^\s*-\s*cron:\s*'([^']+)'\s*$", SAID_IN_THE_CALLER, re.M)
+check("the seller's own file carries a schedule of its own", len(_CALLER_LINES) > 0)
+check("AND IT IS THE SAME SCHEDULE AS THIS WORKFLOW'S, ALL FIVE FIELDS OF EVERY "
+      "LINE -- one of them moving alone is a seller woken at an hour nothing "
+      "else expects, and until 2026-09-10 nothing anywhere asked",
+      _CALLER_LINES == _CRON_LINES)
+check("and it too wakes at four in the afternoon his time, and only then",
+      _hours_his_day_is_woken_at([(one.split()[0], one.split()[1])
+                                  for one in _CALLER_LINES]) == {16})
+
+# **AND THE HOUR IN THE YAML IS THE HOUR THE PYTHON BELIEVES.** Nothing in Python
+# can read a cron line, so `clock.THE_ONE_TICK_HOUR` is a second copy of one
+# number -- and a second copy is a place for two things to disagree unless
+# something holds them together. This is that thing.
+check("THE TICK THE WORKFLOW REALLY MAKES IS THE ONE `clock` REFUSES HOURS "
+      "AGAINST -- moving either one alone is red here",
+      _WOKEN == {clock.THE_ONE_TICK_HOUR})
+
+# **WHICH HOURS A SELLER COULD CHOOSE AND ACTUALLY BE FETCHED AT**, driven
+# through `clock.why_not_now` at the tick itself rather than argued.
 _REACHED = tuple(
     hour for hour in range(clock.FIRST_HOUR, clock.LAST_HOUR + 1)
-    if any(clock.why_not_now(None, datetime(2026, 9, 8, at, 23), hour) is None
+    if any(clock.why_not_now(None, datetime(2026, 9, 8, at, _MINUTE), hour) is None
            for at in sorted(_WOKEN))
 )
+check("SEVENTEEN OF THE TWENTY-FOUR HOURS A SELLER CAN CHOOSE NOW FETCH, and "
+      "they are midnight through four in the afternoon",
+      _REACHED == (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16))
 
-# **THIS PINS A FAULT, NOT A REPAIR, AND IT IS WRITTEN THAT WAY ROUND ON
-# PURPOSE.** The day somebody repairs it -- by any of the three ways -- this goes
-# red by NAME rather than by the count at the bottom, and says what to do.
-check("KNOWN FAULT, NOT FIXED: the workflow wakes at ONE hour of his day, so most "
-      "of the hours a seller can choose are never reached. **IF THIS IS RED, THE "
-      "SCHEDULE HAS CHANGED -- read the finding on `the-run-that-starts-itself` in "
-      "tools/work.json and turn this check round rather than widening it.**",
-      len(_WOKEN) == 1 and _EARLIEST == clock.NOT_BEFORE_HOUR)
-check("and only the hours at or below that one tick are ever fetched at",
-      _REACHED == tuple(range(clock.FIRST_HOUR, _EARLIEST + 1)))
-# **SAID AS WHAT IT IS RATHER THAN OVERSTATED.** An earlier wording here said
-# hours 3 to 23 never fetch "on any day", and that is not honest for the hour or
-# two just above the tick: `clock.why_not_now` is a floor precisely because
-# GitHub's own documentation says a scheduled run can be DELAYED, and a delayed
-# tick does reach the hour after it. It is the hours well above the tick that
-# never fetch, and there are twenty of them.
-check("and the hours well above the one tick can never be reached, delay or no delay",
-      all(hour not in _REACHED for hour in range(_EARLIEST + 2, clock.LAST_HOUR + 1)))
-# **AND THE SENTENCE THAT HID IT IS GONE.** The workflow used to claim the clock
-# made a run happen at the seller's hour whatever the cron line said.
-check("and the workflow no longer claims the clock fetches at the chosen hour "
-      "whatever this line says",
-      "still fetches at the hour the seller can see" not in SAID_IN_THE_WORKFLOW)
+# **THE SEVEN THAT STILL CANNOT, AND THEY ARE NOT LEFT SILENT.** This is the part
+# that would otherwise be the old fault in a smaller box: an hour that can never
+# work, refused every night by a sentence that reads like a wait.
+_SEVEN = tuple(range(17, 24))
+check("and the other seven are five in the evening to eleven at night",
+      tuple(hour for hour in range(clock.FIRST_HOUR, clock.LAST_HOUR + 1)
+            if hour not in _REACHED) == _SEVEN)
+check("EACH OF THOSE SEVEN IS REFUSED WHERE THE SETTING IS READ, not merely "
+      "left to fail quietly at the tick",
+      all(clock.why_the_hour_is_no_good(hour) is not None for hour in _SEVEN))
+check("and the refusal says nothing would be fetched on ANY day, which is what "
+      "tells it apart from a tick that will succeed later today",
+      all("on any day" in (clock.why_the_hour_is_no_good(hour) or "")
+          for hour in _SEVEN))
+# **THE WHOLE INSTRUCTION, NOT THE HOUR IN IT.** "16:00" already appears earlier
+# in that same sentence, so a check asking only for the hour would stay green
+# with the instruction deleted -- which is what it is named for. Found by an
+# independent reviewer, 2026-09-10, by deleting exactly that.
+check("and it says in words what to set instead",
+      all("Set it to 16:00 or earlier." in (clock.why_the_hour_is_no_good(hour) or "")
+          for hour in _SEVEN))
+
+# **AND THE REFUSAL A SELLER BELOW THE TICK GETS NAMES THE ONE FETCH TOO.** The
+# sentence that hid the whole fault was "It is 02:23 and fetching is set for
+# 11:00 or later", which reads exactly like a tick that will succeed later today.
+_TOO_EARLY = clock.why_not_now(None, datetime(2026, 9, 8, 9, 0), 12) or ""
+check("a tick genuinely before a seller's hour still says what time it is and "
+      "what they set", "09:00" in _TOO_EARLY and "12:00" in _TOO_EARLY)
+check("AND IT SAYS THERE IS ONE FETCH A DAY AND WHEN, so a reader can tell a "
+      "wait from a dead end",
+      "one fetch a day" in _TOO_EARLY and "16:00" in _TOO_EARLY)
+
+# **AND THE SENTENCES THAT HID IT ARE GONE FROM THE WORKFLOW.** Each absence is
+# asserted beside something POSITIVE, because a phrase that no longer exists
+# anywhere is absent from everything and an absence check alone cannot tell that
+# world apart from the one where the behaviour is right.
+check("the workflow no longer claims the clock fetches at the chosen hour "
+      "whatever this line says, and does say what really decides it",
+      "still fetches at the hour the seller can see" not in SAID_IN_THE_WORKFLOW
+      and "THE CLOCK DECIDES WHETHER A TICK RUNS. IT CANNOT MAKE ONE HAPPEN."
+      in SAID_IN_THE_WORKFLOW)
+check("and it no longer claims onboarding writes the hour into this line, and "
+      "does say that no such step exists",
+      "THE HOUR IS WRITTEN INTO THIS LINE WHEN THE WORKFLOW IS PUT"
+      not in SAID_IN_THE_WORKFLOW
+      and "No such step exists" in SAID_IN_THE_WORKFLOW)
+check("and it still says the chosen hour is a floor and not an appointment, "
+      "which has not changed and must not",
+      "FLOOR, NOT AN APPOINTMENT" in SAID_IN_THE_WORKFLOW)
+# **AND THE SELLER'S OWN FILE CARRIED THE SAME FALSE CLAIM.** It said the hour
+# was written into its line when the repository was set up. It was taken out and
+# nothing held it out, which is how a sentence like that comes back.
+check("the seller's own file no longer claims its hour is written in at set-up, "
+      "and does say what really decides it",
+      "THE HOUR IS WRITTEN INTO THIS LINE WHEN THE SELLER'S REPOSITORY IS SET UP"
+      not in SAID_IN_THE_CALLER
+      and "THIS LINE IS THE ONLY THING THAT WAKES A SELLER'S FETCHING"
+      in SAID_IN_THE_CALLER)
+# **READ WITH THE WRAPPING TAKEN OUT.** A sentence in a comment is broken across
+# lines wherever it happens to fall, so a check quoting it must not depend on
+# where. The `#` markers and the runs of spaces go, and the words stay.
+_CALLER_PLAIN = " ".join(SAID_IN_THE_CALLER.replace("#", " ").split())
+check("and it says out loud that an hour above the tick is refused rather than "
+      "left to fail quietly every night",
+      "refuses that setting in words instead of failing quietly every night"
+      in _CALLER_PLAIN)
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 220
+EXPECTED = 237
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

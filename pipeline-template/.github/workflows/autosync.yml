@@ -37,22 +37,30 @@ permissions:
   contents: read
 
 on:
-  # **THE HOUR IS WRITTEN INTO THIS LINE WHEN THE SELLER'S REPOSITORY IS SET UP,
-  # AND NEVER AFTERWARDS.** Nothing Kartaan holds may rewrite a seller's workflow
-  # (D113): anything that can write a workflow can write one that carries their
-  # secrets away.
+  # **THIS LINE IS THE ONLY THING THAT WAKES A SELLER'S FETCHING, AND NOTHING
+  # REWRITES IT.** Nothing Kartaan holds may rewrite a seller's workflow (D113):
+  # anything that can write a workflow can write one that carries their secrets
+  # away. **THE SAME LINE IS IN `Kartaan-AutoSync/.github/workflows/autosync.yml`
+  # AND `autosync/nightly_checks.py` REFUSES IF THE TWO EVER DISAGREE**, because
+  # one of them moving alone is a seller woken at an hour nothing else expects.
   #
-  # **UTC. 20:53 UTC is 02:23 the next morning in his time**, which is
-  # `clock.NOT_BEFORE_HOUR`, the default for a seller who has not chosen. :53
-  # rather than :00 because GitHub's own documentation names the start of the
-  # hour as when a scheduled run is most likely to be delayed.
+  # **UTC. 10:30 UTC is 16:00 the same day in his time** -- four in the afternoon,
+  # which is `clock.THE_ONE_TICK_HOUR` and also `clock.NOT_BEFORE_HOUR`, the
+  # default for a seller who has not chosen. :30 rather than :00 because GitHub's
+  # own documentation names the start of the hour as when a scheduled run is most
+  # likely to be delayed; it lands on the top of HIS hour so that a seller who
+  # chose four is not refused by a tick a few minutes before it.
   #
-  # **KNOWN, NOT FIXED: one tick a day and the chosen hour is a FLOOR**, so a
-  # seller who chose any hour well above this one is refused on the only tick
-  # there is. It is written up as its own piece in `tools/work.json`, and the
-  # button below is what a seller has in the meantime.
+  # **HIS DECISION, 2026-09-10.** This was 02:23 in his morning, and the hour a
+  # seller chooses is a FLOOR rather than an appointment -- so twenty-one of the
+  # twenty-four hours a seller could choose fetched nothing, on any day.
+  #
+  # **STILL TRUE, AND NOW SAID OUT LOUD RATHER THAN LEFT SILENT: one tick a day
+  # and the chosen hour is a FLOOR.** A seller who chooses 17:00 to 23:00 is above
+  # the only tick there is, and `clock.why_the_hour_is_no_good` now refuses that
+  # setting in words instead of failing quietly every night.
   schedule:
-    - cron: '53 20 * * *'
+    - cron: '30 10 * * *'
 
   # **STARTABLE BY HAND**, which is what makes a first run, and any morning
   # something looks wrong, possible without waiting for a tick.
