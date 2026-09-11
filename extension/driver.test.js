@@ -27,7 +27,7 @@ import { FakeNode, installFakeBrowser } from '../test/fake-browser.js';
 import {
   BY_PRESSABLE_TEXT, BY_ROLE_AND_TEXT, BY_TEST_ID, BY_TEXT, BY_THE_CONTROL_BESIDE,
   CAUGHT_A_FILE, THE_CALLS,
-  pageDoor, theCatcherSaid,
+  pageDoor, theCatcherSaid, theExtensionIsGone,
 } from './driver.js';
 
 process.on('uncaughtException', (err) => {
@@ -1521,7 +1521,24 @@ function labelled(node, label) {
   check('and neither is nothing at all', theCatcherSaid(null, 'the-secret') === null);
 }
 
-const EXPECTED = 180;
+
+/* ------------- a page whose extension was reloaded under it (11 Sep 2026) */
+
+/* **TWICE IN ONE DAY A DEAD PAGE WAS READ AS AN EMPTY RECORD.** The swallow in
+ * `content.js` answered `null` to both the ordinary torn-down-mid-sentence case
+ * and the permanent one, and `null` reads as "asked, and there was nothing
+ * there". These two are the whole of the difference. */
+{
+  const gone = theExtensionIsGone({});
+  check('a page whose extension is gone is answered, not given nothing',
+    gone !== null && gone.extensionWasReloaded === true
+      && /reload the page/i.test(gone.wrong));
+
+  check('and an ordinary failure with the extension still there is still swallowed',
+    theExtensionIsGone({ id: 'aaaabbbbccccddddeeeeffffgggghhhh' }) === null);
+}
+
+const EXPECTED = 182;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

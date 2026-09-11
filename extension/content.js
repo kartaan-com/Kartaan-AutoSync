@@ -48,6 +48,7 @@
   let pageDoor;
   let theCatcherSaid;
   let RELAY_TO_THE_PAGE;
+  let theExtensionIsGone;
   let theWalk;
   let NeedsSigningIn;
   let capture;
@@ -55,7 +56,9 @@
   let looksLikeAPage;
   let book;
   try {
-    ({ pageDoor, theCatcherSaid, RELAY_TO_THE_PAGE } = await import(
+    ({
+      pageDoor, theCatcherSaid, RELAY_TO_THE_PAGE, theExtensionIsGone,
+    } = await import(
       chrome.runtime.getURL('driver.js')
     ));
     ({
@@ -255,11 +258,31 @@
    *
    *  **A MESSAGE THAT CANNOT BE DELIVERED IS NOT A REASON TO LOSE WHAT IT WAS
    *  CARRYING.** The page can be torn down mid-sentence -- that is the ordinary
-   *  case here, not the odd one -- and the background can be starting up. */
+   *  case here, not the odd one -- and the background can be starting up.
+   *
+   *  **ONE SWALLOW USED TO COVER TWO THINGS AND ONE OF THEM IS PERMANENT.**
+   *  Reloading the extension leaves this file running in every tab that was
+   *  already open, belonging to a copy that is gone -- and then every send
+   *  throws for ever and `null` came back each time, which reads as "asked, and
+   *  there was nothing there". `theExtensionIsGone` in `driver.js` tells the
+   *  two apart and says why; the ordinary case below is untouched. */
+  let alreadySaidTheExtensionIsGone = false;
   const said = async (what) => {
     try {
       return await chrome.runtime.sendMessage(what);
     } catch (wrong) {
+      const gone = theExtensionIsGone(chrome.runtime);
+      if (gone) {
+        /* **ONCE, NOT ONCE A SECOND.** Every send after this one throws the
+         * same way, and a sentence a person can act on is worth nothing
+         * repeated forty times. And it is a sentence, not a stack trace. */
+        if (!alreadySaidTheExtensionIsGone) {
+          alreadySaidTheExtensionIsGone = true;
+          console.error(`Kartaan Auto-sync: ${gone.wrong}`);
+        }
+        /* **THE PAGE IS NOT RELOADED FROM HERE.** He may be working in it. */
+        return gone;
+      }
       console.error('Kartaan Auto-sync: could not say what happened.', wrong);
       return null;
     }

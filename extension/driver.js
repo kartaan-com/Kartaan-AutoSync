@@ -679,6 +679,56 @@ export const CAUGHT_A_FILE = 'kartaan-caught-a-file';
  * the page left to reach, and `background.js` refuses those questions again. */
 export const RELAY_TO_THE_PAGE = true;
 
+/** Nothing, or the answer to give when this page's extension is gone for good.
+ *
+ *  **RELOADING THE EXTENSION DOES NOT STOP THE FILE ALREADY RUNNING IN AN OPEN
+ *  TAB.** That file keeps going, and it belongs to the copy that was taken
+ *  away -- so every word it tries to say to the other half throws "Extension
+ *  context invalidated" for as long as that tab stays open. **Only reloading
+ *  the page itself ends it.** Nothing here can end it, and nothing here should
+ *  try: the seller may be working in that page.
+ *
+ *  **IT COST ABOUT AN HOUR TWICE ON 11 SEPTEMBER 2026**, both times because the
+ *  swallow in `content.js` answered `null` -- and a `null` reads exactly like
+ *  "the extension answered, and the answer was nothing". A dead page was read
+ *  as an empty record, by the owner and by a session, on the same day.
+ *
+ *  **THE TWO CASES THROW ALIKE AND ARE NOTHING ALIKE.** A page torn down
+ *  mid-sentence is the ORDINARY case here -- a walk goes somewhere on almost
+ *  every turn -- and swallowing that is right and stays right. A page whose
+ *  extension is gone is permanent, and everything it says afterwards is a lie.
+ *
+ *  **WHAT TELLS THEM APART IS `chrome.runtime.id`.** Chrome's own reference
+ *  gives that as a string. **Chrome does not document what it becomes once a
+ *  content script's context is invalidated** -- that gap is written down here
+ *  rather than guessed past (Golden Rule 1) -- so the question is asked the way
+ *  `webext-detect` asks it, `typeof chrome?.runtime?.id === 'string'`, and a
+ *  handle that THROWS when it is read counts as gone as well, which is what
+ *  Safari does with one.
+ *
+ *  **IT IS HERE AND NOT IN `content.js` BECAUSE IT IS A DECISION.** That file
+ *  holds wiring by design, so that nothing in it needs proving.
+ */
+export function theExtensionIsGone(runtime) {
+  let id;
+  try {
+    id = runtime && runtime.id;
+  } catch (cannotEvenBeRead) {
+    id = undefined;
+  }
+  if (typeof id === 'string') return null;
+  return Object.freeze({
+    extensionWasReloaded: true,
+    /* **`wrong` IS THE WORD THE REST OF THIS EXTENSION ALREADY READS AS "this
+     * failed, and here is why".** An answer carrying it cannot be filed as an
+     * outcome by anything downstream, which is the whole point of it not being
+     * `null`. */
+    wrong: 'Kartaan Auto-sync was reloaded while this page was open. This page is still '
+      + 'running the copy that was taken away and can no longer reach the extension, so '
+      + 'nothing it says about a report is worth reading. Reload the page.',
+  });
+}
+
 export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
   if (typeof go !== 'function') {
     throw new Error('A door needs to be given a way of going to an address.');
