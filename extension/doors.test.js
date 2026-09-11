@@ -600,19 +600,32 @@ function aFetch(answers) {
 }
 
 {
-  /* **AND IF SOMETHING ELSE IS OPENED IN OUR WINDOW, OURS IS MADE THE SELECTED
-   * ONE AGAIN.** An unselected tab is a throttled tab whatever window it is in,
-   * so being in our own window is not on its own enough. */
+  /* **WHAT HAPPENS WHEN SOMETHING ELSE IS OPENED BESIDE OUR TAB, AND IT IS NOT
+   * THE SAME ANSWER IN THE TWO ARRANGEMENTS -- WHICH IS THE WHOLE OF WHAT HE
+   * ASKED FOR ON 11 SEPTEMBER 2026.**
+   *
+   * **In a window of our own, ours is made the selected one again.** An
+   * unselected tab is a throttled tab whatever window it is in, so being in our
+   * own window is not on its own enough -- and taking the selection back there
+   * costs him nothing, because the only tab in that window is ours.
+   *
+   * **SHARING HIS WINDOW, IT MUST LEAVE THE SELECTION WHERE HE PUT IT.** Every
+   * turn of a walk comes back through `aTabToWalkIn`, so taking it back is
+   * taking the page off him every few seconds: "it is constantly fighting with
+   * me for that page". The cost is Chrome throttling our tab, and that cost is
+   * his choice while the fetching is being watched. */
   const browser = installFakeChrome();
   const ours = await aTabToWalkIn(browser.chrome);
   await browser.chrome.tabs.create({
     url: 'https://example.invalid/', windowId: ours.windowId, active: true,
   });
-  check('something else opened in our window takes the selection away',
+  check('something else opened beside our tab takes the selection away',
     browser.tabs().find((one) => one.id === ours.id).active === false);
   await aTabToWalkIn(browser.chrome);
-  check('and the next walk takes it back rather than running throttled',
-    browser.tabs().find((one) => one.id === ours.id).active === true);
+  check(WALK_IN_HIS_OWN_WINDOW
+    ? 'in a window of its own the next walk takes the selection back, because unselected is throttled'
+    : 'sharing his window the next walk LEAVES the selection where he put it, and takes the throttling',
+    browser.tabs().find((one) => one.id === ours.id).active === WALK_IN_HIS_OWN_WINDOW);
 }
 
 {

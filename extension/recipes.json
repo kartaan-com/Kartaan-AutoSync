@@ -2085,6 +2085,17 @@
           "pressAgain": null
         },
         {
+          "do": "wait",
+          "find": null,
+          "address": "",
+          "patience": 3,
+          "why": "letting the bulk stock panel switch its download button on, because it is drawn switched off and a switched-off button is not clicked",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null
+        },
+        {
           "do": "take-file",
           "find": {
             "how": "pressable",
@@ -2172,25 +2183,6 @@
           "address": "",
           "patience": 30,
           "why": "asking for the export",
-          "rangeDays": 1,
-          "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null,
-          "pressAgain": null
-        },
-        {
-          "do": "click",
-          "find": {
-            "how": "pressable",
-            "what": "Download",
-            "exact": true,
-            "called": "the download menu",
-            "near": "",
-            "dayInWordsIs": "",
-            "dayInWordsOf": ""
-          },
-          "address": "",
-          "patience": 30,
-          "why": "opening the download menu again, where the finished file now is",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null,
@@ -2449,7 +2441,7 @@
         {
           "do": "wait-for",
           "find": {
-            "how": "pressable",
+            "how": "text",
             "what": "Download",
             "exact": true,
             "called": "the download menu",
@@ -2468,7 +2460,7 @@
         {
           "do": "click",
           "find": {
-            "how": "pressable",
+            "how": "text",
             "what": "Download",
             "exact": true,
             "called": "the download menu",
@@ -2657,11 +2649,23 @@
             "dayInWordsOf": "made"
           },
           "address": "",
-          "patience": 120,
+          "patience": 30,
           "why": "taking the finished file",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
-          "lookAgain": null,
+          "lookAgain": {
+            "by": {
+              "how": "pressable",
+              "what": "files ready",
+              "exact": false,
+              "called": "the exported files panel",
+              "near": "",
+              "dayInWordsIs": "",
+              "dayInWordsOf": ""
+            },
+            "times": 9,
+            "after": 30
+          },
           "pressAgain": null
         }
       ]

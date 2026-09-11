@@ -576,6 +576,28 @@ RECIPES: Dict[str, Recipe] = {
                  patience=45, why="waiting for the inventory page to finish drawing"),
             Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Bulk Stock Update", called="the bulk stock button"),
                  why="opening the bulk stock panel"),
+            # **TWO AND A HALF SECONDS, ROUNDED UP TO THE WHOLE ONE THIS STEP
+            # COUNTS IN, AND IT IS WHAT THIS RECIPE HAS BEEN MISSING ALL ALONG.**
+            #
+            # Run against his own live panel on 2026-09-11 this recipe said
+            # **"Download is on the page but switched off, so nothing was
+            # clicked"** -- so the panel HAD opened and the right button HAD been
+            # found. Meesho draws that button switched off and switches it on a
+            # moment later, and the step below looks the instant the panel
+            # appears: a lookup answers as soon as one thing matches, a quarter
+            # of a second in, and a switched-off button matches. Waiting longer
+            # on the lookup cannot help, because it has already found what it was
+            # asked for.
+            #
+            # **THE REFERENCE NEVER MEETS THIS, AND THE NUMBER IS ITS OWN**
+            # (`content/meesho.js handleCatalog`: `clickAndWait(bulkBtn, 2500)`).
+            # It waits two and a half seconds after opening the panel before it
+            # so much as looks -- by which time the button is on -- and it never
+            # asks whether a button is switched off at all. So the fix is the
+            # wait it already does, not a different way of naming the button.
+            Step(WAIT, patience=3,
+                 why="letting the bulk stock panel switch its download button on, because it "
+                     "is drawn switched off and a switched-off button is not clicked"),
             # **MEASURED ON HIS OWN INVENTORY PAGE, 2026-08-28.** This used to
             # look for the word "Download" loosely, anywhere: that finds TWO --
             # the button, and the line of writing above it that reads "Download
@@ -626,10 +648,43 @@ RECIPES: Dict[str, Recipe] = {
             # stamped with today's -- which is what the second fix on 2026-09-10
             # left in place. `content/meesho.js:1055` takes today for the row and
             # yesterday for the file name, two lines apart, on purpose.
+            # **AND IF TODAY'S ROW IS NOT THERE YET, THE PANEL IS SHUT AND OPENED
+            # AGAIN -- WHICH IS WHY THIS FAILED ON HIS OWN PANEL ON 2026-09-11
+            # WITH "could not find Download. It is not on the page at all".**
+            # The export had been asked for; the file was not in the list. This
+            # step then waited a hundred and twenty seconds at an OPEN panel --
+            # **and Meesho draws that list AS the panel opens**, so those two
+            # minutes were two minutes of looking at the same picture, exactly as
+            # `me_orders` above says of its own menu. Nought matching rows, and
+            # the failure reads as a portal that has changed.
+            #
+            # **THE REFERENCE HAS DONE THE SHUTTING AND REOPENING EVERY NIGHT FOR
+            # MONTHS** (`content/meesho.js handleReturns`, the poll loop at
+            # 1053-1081): `document.body.click()` to shut it, thirty seconds
+            # shut, then the `\d+/\d+ files ready` control looked up afresh and
+            # pressed once. **Nine rounds, because the reference's own bound is
+            # five minutes at thirty seconds apart** -- it is a deadline rather
+            # than a count, and five minutes of thirty-second sleeps is nine of
+            # them. Orders is written as six because the reference writes six
+            # there in so many words; the two numbers are different because the
+            # reference's two loops are different, and folding them into one
+            # would be inventing a third.
+            #
+            # **AND THE PATIENCE COMES DOWN FROM 120 TO 30, WHICH IS NOT TIDYING.**
+            # Each round may burn the patience twice over, so nine rounds at 120
+            # is a worst case of forty-seven minutes -- **past the twenty-five
+            # `doors.ARMED_FOR_MS` believes a walk for**, which would have it
+            # swept up as "stopped part way through and never said why". Thirty
+            # is the number the same step in `me_orders` carries.
             Step(TAKE_FILE, find=Find(BY_PRESSABLE_TEXT, "Download", near="{day_in_words}",
                                       day_in_words_is=MEESHO_WRITES_IT,
                                       day_in_words_of=THE_DAY_IT_WAS_MADE),
-                 patience=120, why="taking the finished file"),
+                 patience=30,
+                 look_again=LookAgain(
+                     by=Find(BY_PRESSABLE_TEXT, "files ready", exact=False,
+                             called="the exported files panel"),
+                     times=9, after=30),
+                 why="taking the finished file"),
         ),
     ),
     "me_payments": Recipe(
@@ -638,9 +693,31 @@ RECIPES: Dict[str, Recipe] = {
             # **THE NINE-DAY OUTAGE LIVES HERE.** A chart legend on this very page
             # reads "Payments to Date", exactly like the menu item, and sits
             # earlier in the page. Matched exactly, and two matches refuse.
-            Step(WAIT_FOR, find=Find(BY_PRESSABLE_TEXT, "Download", called="the download menu"),
+            # **ASKED FOR AS WORDS ON THE PAGE, NOT AS SOMETHING PRESSABLE, AND
+            # THAT IS THE MEASURED FIX OF 2026-09-11.** Run against his own live
+            # panel, this step said "could not find the download menu. It is not
+            # on the page at all" -- after forty-five seconds, with nothing
+            # covering the page, on a page that has this control on it.
+            #
+            # **THE REFERENCE DOES NOT ASK FOR ANYTHING PRESSABLE HERE, AND SAYS
+            # WHY IN ITS OWN SOURCE** (`content/meesho.js handlePayments`): "The
+            # element is a `<P class="dropdown_la">` -- not a `<button>` or
+            # role="button"." It looks through `p, button, [role="button"]` for
+            # the whole word, and a bare `<p>` passes. **Kartaan's `pressable`
+            # asks for a control OR the cursor changing over it, and this `<p>` is
+            # neither** -- Meesho styles the cursor on some of its own panels and
+            # not on others, which is also why the identically-shaped claims
+            # opener two recipes down WAS found the same morning. Payments lives
+            # under `payouts` and claims under `fulfillment`: two sub-sites, two
+            # stylesheets, and this product had been treating one measurement as
+            # covering both.
+            #
+            # **STILL THE WHOLE WORD, WHICH IS THE HALF THAT MATTERS.** The
+            # nine-day outage was a loose match, not a pressable one. Nothing
+            # here is loosened.
+            Step(WAIT_FOR, find=Find(BY_TEXT, "Download", called="the download menu"),
                  patience=45, why="waiting for the payments page to finish drawing"),
-            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Download", called="the download menu"),
+            Step(CLICK, find=Find(BY_TEXT, "Download", called="the download menu"),
                  why="opening the download menu"),
             Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Payments to Date"), why="choosing the payments export"),
             # **THE DAYS ARE ASKED FOR EVEN THOUGH MEESHO IGNORES THEM.** Its
@@ -674,13 +751,32 @@ RECIPES: Dict[str, Recipe] = {
             # period once, on the very first run, and never again. A range step
             # would be asking for something this page does not offer.
             Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Export Data"), why="asking for the export"),
-            # **THE MENU HAS TO BE OPENED AGAIN, and it is not the same reopening
-            # as orders.** Orders needs the whole page loaded again before a
-            # finished file appears; claims does not -- the reference reopens
-            # this menu and steps into "Exported Files" on every poll, from the
-            # same page. So the menu is reopened and nothing is reloaded.
-            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Download", called="the download menu"),
-                 why="opening the download menu again, where the finished file now is"),
+            # **THE STEP THAT REOPENED THIS MENU IS GONE, AND IT IS GONE BECAUSE
+            # OF WHAT HIS OWN PANEL SAID ON 2026-09-11:** "opening the download
+            # menu again: 11 things match the download menu. More than one thing
+            # on the page matches, so which one was meant cannot be known."
+            #
+            # **ELEVEN, AND THE FIRST CLICK ON THE VERY SAME WORDS TWO STEPS
+            # ABOVE FOUND EXACTLY ONE.** So the ten arrived because "Export Data"
+            # was pressed: the list of exports already made is now on the page,
+            # each row with its own Download, exactly as the returns panel has ten
+            # of on his account. The menu was never shut, so there was nothing to
+            # reopen -- **the step was asking to open something that was already
+            # open, and paying for it with ten rows of ambiguity.**
+            #
+            # **AND THE REFERENCE'S REOPENING IS NOT EVIDENCE FOR KEEPING IT
+            # HERE, which is the part worth being careful about.** It does press
+            # this opener on every poll (`content/meesho.js handleClaims`,
+            # 1493-1503) -- but it presses it at the top of a LOOP whose bottom
+            # is `document.body.click()`, which shuts the menu. It is reopening
+            # what its own previous round closed. Nothing closes it here, so the
+            # press has no work to do. **The one press that does real work is
+            # "Exported Files", and that is kept.**
+            #
+            # **AND ITS OWN LOOKUP TAKES THE FIRST MATCH RATHER THAN REFUSING ON
+            # SEVERAL**, so eleven never troubled it and it never had to tell
+            # these two states apart. This half does refuse, which is how the
+            # eleven came to be known at all.
             Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Exported Files"),
                  why="opening the list of files already exported"),
             # **NAMED BY THE DAY IT WAS MADE, because that is all a claims row

@@ -196,10 +196,18 @@ check("and so does what to shut and open again while it waits for the finished f
 check("with the whole of how to find it, so the extension needs nothing more",
       answered(lambda: isinstance(_again, dict) and _again["by"]["what"] == "Download Orders Data"
                        and _again["by"]["how"] in set(language.WAYS_OF_FINDING)))
-# **AND NOTHING ELSE CARRIES ONE.** Every other step says null rather than
-# leaving the field out, so the extension reads one shape everywhere.
-check("and every other step says plainly that it has none",
-      answered(lambda: sum(1 for s in STEPS if s["lookAgain"] is not None) == 1))
+# **AND TWO STEPS IN THE WHOLE BOOK CARRY ONE, NOT ONE. THIS LINE SAID ONE AND IS
+# REWRITTEN WITH THE CHANGE.** `me_returns` joined it on 2026-09-11: its panel
+# draws the list of finished exports AS it opens, so the hundred and twenty
+# seconds it used to wait at an open panel were two minutes of looking at the same
+# picture, and it said "could not find Download. It is not on the page at all".
+# Every other step says null rather than leaving the field out, so the extension
+# reads one shape everywhere.
+check("orders and returns are the only two steps that shut and open something again",
+      answered(lambda: sorted(f'{rid}.{half}' for rid, one in HELD.get("recipes", {}).items()
+                              for half in ("toAsk", "toTake")
+                              for s in one.get(half, []) if s["lookAgain"] is not None)
+               == ["me_orders.toTake", "me_returns.toTake"]))
 
 # ------------------------------------------------ what a step carries
 

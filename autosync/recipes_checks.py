@@ -121,7 +121,15 @@ SHAPES = {
     "me_orders": ((), (pages.GO, pages.WAIT_FOR, pages.CLICK, pages.CLICK, pages.PICK_RANGE,
                        pages.CLICK, pages.WAIT, pages.GO, pages.WAIT_FOR, pages.CLICK,
                        pages.TAKE_FILE)),
-    "me_catalog": ((), (pages.GO, pages.WAIT_FOR, pages.CLICK, pages.TAKE_FILE)),
+    # **THE WAIT WAS NOT HERE AND THIS LINE SAID SO, and it is rewritten with the
+    # change rather than deleted for going red.** Run against his own panel on
+    # 2026-09-11 this recipe said "Download is on the page but switched off, so
+    # nothing was clicked": Meesho draws that button switched off and switches it
+    # on a moment later, and a lookup answers as soon as anything matches -- a
+    # quarter of a second in. The reference waits two and a half seconds after
+    # opening the panel before it so much as looks.
+    "me_catalog": ((), (pages.GO, pages.WAIT_FOR, pages.CLICK, pages.WAIT,
+                        pages.TAKE_FILE)),
     # Returns has no Export button: the way in is a control whose whole label is
     # a count of files, and it opens the panel that exports and lists them.
     "me_returns": ((), (pages.GO, pages.WAIT_FOR, pages.CLICK, pages.CLICK, pages.CLICK,
@@ -133,10 +141,17 @@ SHAPES = {
     # **CLAIMS IS PAYMENTS WITHOUT THE RANGE, and that missing step is the whole
     # difference.** `reports.py` says Meesho hands back a rolling window here
     # rather than a chosen day, so there is no day to pick and a range step would
-    # be asking for something the page does not offer. The menu is opened twice --
-    # once to ask for the export, once to find the finished file -- and the page
-    # is never loaded again, which is what makes it not the orders shape.
-    "me_claims": ((), (pages.GO, pages.WAIT_FOR, pages.CLICK, pages.CLICK, pages.CLICK,
+    # be asking for something the page does not offer. The page is never loaded
+    # again, which is what makes it not the orders shape.
+    #
+    # **AND THE MENU IS OPENED ONCE, NOT TWICE. THIS LINE SAID TWICE AND IS
+    # REWRITTEN WITH THE CHANGE RATHER THAN DELETED FOR GOING RED.** Run against
+    # his own panel on 2026-09-11 the second opening said "11 things match the
+    # download menu" -- pressing "Export Data" puts the list of exports already
+    # made on the page, each row with its own Download, and the menu was never
+    # shut, so there was nothing to reopen. The reference reopens it only because
+    # its own poll loop shuts it at the bottom of every round.
+    "me_claims": ((), (pages.GO, pages.WAIT_FOR, pages.CLICK, pages.CLICK,
                        pages.CLICK, pages.TAKE_FILE)),
     # **THE THREE REPORTS CENTRE REPORTS PRESS TWO MORE THINGS BEFORE THE RANGE,
     # and this line said five clicks for as long as they could not have worked.**
@@ -846,16 +861,35 @@ check("Flipkart still asks for controls, which it really has",
 CLICKED = [s.find for r in tool.RECIPES.values()
            for s in (r.to_ask + r.to_take) if s.do == pages.CLICK and s.find is not None]
 check("there are things being clicked to judge", answered(lambda: len(CLICKED) > 20))
-check("and not one of them is asked for as plain words on the page",
-      answered(lambda: not any(f.how == tool.BY_TEXT for f in CLICKED)))
-# **AND THE ONE EXCEPTION IS NAMED RATHER THAN LEFT IN THE SET.** Flipkart's
+# **AND THERE IS NOW ONE THING CLICKED BY PLAIN WORDS, WHICH THIS LINE USED TO
+# FORBID OUTRIGHT. IT IS REWRITTEN WITH THE CHANGE AND NAMED, rather than
+# loosened to "some of them are".** Meesho's payments download menu is a bare
+# `<p>` -- the reference says so in its own source and looks through
+# `p, button, [role="button"]` for it, requiring nothing pressable -- and on his
+# own panel on 2026-09-11 asking for something pressable found NOTHING AT ALL
+# after forty-five seconds. The identically-shaped claims opener WAS found the
+# same morning, which is the measurement that rules out treating the two pages
+# as one: payments lives under `payouts`, claims under `fulfillment`.
+#
+# **THE WHOLE WORD IS STILL REQUIRED, AND THAT IS THE HALF THAT MATTERS.** The
+# nine-day payments outage was a LOOSE match on two things reading the same
+# words, not a pressable one.
+check("the only thing clicked by plain words is Meesho's payments download menu",
+      answered(lambda: sorted({(r, one.find.what) for r in tool.every_recipe()
+                               for one in (tool.recipe(r).to_ask + tool.recipe(r).to_take)
+                               if one.do == pages.CLICK and one.find is not None
+                               and one.find.how == tool.BY_TEXT})
+               == [("me_payments", "Download")]))
+check("and it is asked for as the whole word, because a loose one is what cost nine days",
+      answered(lambda: all(f.exact for f in CLICKED if f.how == tool.BY_TEXT)))
+# **AND THE OTHER EXCEPTION IS NAMED RATHER THAN LEFT IN THE SET.** Flipkart's
 # date box carries no words of its own -- what an input carries is its value,
 # which there is the range currently showing -- so it is reached by the label
 # beside it. It is still not plain words: `BY_THE_CONTROL_BESIDE` presses the
 # box, never the words.
-check("every one of them is pressable, or the box a label names",
+check("every one of them is pressable, the box a label names, or that one menu",
       answered(lambda: all(f.how in (tool.BY_PRESSABLE_TEXT, tool.BY_ROLE_AND_TEXT,
-                                     tool.BY_THE_CONTROL_BESIDE)
+                                     tool.BY_THE_CONTROL_BESIDE, tool.BY_TEXT)
                            for f in CLICKED)))
 check("and the box-beside way is asked for on Flipkart's date range and nowhere else",
       answered(lambda: sorted({r for r in tool.every_recipe()
@@ -927,11 +961,52 @@ check("me_orders waits between asking for the export and loading the page again"
 check("and it is the reference's own thirty-five seconds, which it has waited every night",
       answered(lambda: [one.patience for one in _orders[_asked + 1:_loaded_again]
                         if one.do == pages.WAIT] == [35]))
-check("and nothing else in the book waits with nothing to look at, because nothing else needs to",
+# --------------------------- and what Meesho's returns panel needs, for the same
+#                             reason: a list drawn once and never again
+
+# **MEASURED ON HIS OWN PANEL, 2026-09-11: "taking the finished file: could not
+# find Download. It is not on the page at all."** The export had been asked for
+# and the file was not in the list yet. This step then waited a hundred and twenty
+# seconds at an OPEN panel -- and Meesho draws that list AS the panel opens, so
+# those two minutes were two minutes of looking at the same picture. The only way
+# to see a newer list is to shut the panel, leave it shut, and open it again.
+_returns_take = tool.recipe("me_returns").to_take[-1].look_again
+check("me_returns shuts and opens its panel again rather than staring at a list that cannot change",
+      answered(lambda: _returns_take is not None))
+# **NINE ROUNDS THIRTY SECONDS APART, AND THEY ARE THE REFERENCE'S OWN.** Its
+# returns loop is bounded by a five-minute deadline with a thirty-second sleep
+# each round (`content/meesho.js handleReturns`), and five minutes of
+# thirty-second sleeps is nine of them. **Orders is six because the reference
+# writes six there in so many words** -- two different loops, two different
+# numbers, and folding them into one would be inventing a third.
+check("and it is nine rounds thirty seconds apart, which is the reference's own five minutes",
+      answered(lambda: _returns_take.times == 9 and _returns_take.after == 30))
+# **AND WHAT IT SHUTS AND OPENS IS THE PANEL THE FILE IS LISTED INSIDE**, whose
+# whole label is a count of files. Reopening anything else would leave the list
+# exactly as stale as not reopening at all.
+check("and the thing it shuts and opens is the panel the file is listed inside",
+      answered(lambda: "files ready" in _returns_take.by.what and not _returns_take.by.exact))
+# **AND ITS PATIENCE CAME DOWN TO THIRTY WITH THEM, WHICH IS NOT TIDYING.** Each
+# round may burn the patience twice over, so nine rounds at the hundred and twenty
+# it used to carry is a worst case of forty-seven minutes -- past the twenty-five
+# `doors.ARMED_FOR_MS` believes a walk for, which would have it swept up as
+# "stopped part way through and never said why". `extension/doors.test.js` works
+# that bound out from the recipes themselves and would go red.
+check("and its patience came down with them, so the walk still fits inside the armed cancel",
+      answered(lambda: tool.recipe("me_returns").to_take[-1].patience == 30))
+
+# **AND TWO REPORTS IN THE BOOK WAIT WITH NOTHING TO LOOK AT, NOT ONE. THIS LINE
+# SAID ONE AND IS REWRITTEN WITH THE CHANGE.** `me_catalog` joined it on
+# 2026-09-11: its download button is drawn switched off and switched on a moment
+# later, and there is nothing a `wait-for` could watch, because the button it
+# would watch for is already there. **Both waits are the reference's own numbers**
+# -- thirty-five seconds for orders, two and a half rounded up to three for the
+# stock panel -- and nothing else in the book may grow one without saying why here.
+check("orders and the stock file are the only two that wait with nothing to look at",
       answered(lambda: [r for r in sorted(tool.every_recipe())
                         if any(s.do == pages.WAIT
                                for s in tool.recipe(r).to_ask + tool.recipe(r).to_take)]
-               == ["me_orders"]))
+               == ["me_catalog", "me_orders"]))
 
 # **TWO: THE MENU IS SHUT AND OPENED AGAIN BETWEEN LOOKS**
 # (`content/meesho.js:860-878`, six times, thirty seconds apart). Meesho draws
@@ -974,7 +1049,7 @@ check("and the panel name was still filled into the addresses on the way",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 270
+EXPECTED = 275
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

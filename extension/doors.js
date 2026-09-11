@@ -204,10 +204,28 @@ export async function aTabToWalkIn(chrome, { address = 'about:blank' } = {}) {
       if (ourTab !== undefined && ourTab !== null) {
         const tab = await chrome.tabs.get(ourTab);
         if (tab.windowId === ourWindow) {
-          /* **MADE THE SELECTED TAB, every time.** If anything else was ever
-           * opened in this window, ours is no longer the selected one -- and an
-           * unselected tab is a throttled tab whatever window it is in. */
-          await chrome.tabs.update(ourTab, { active: true });
+          /* **MADE THE SELECTED TAB -- IN A WINDOW OF OUR OWN ONLY, AND THIS
+           * IS THE ONE THING HE ASKED FOR ON 11 SEPTEMBER 2026.**
+           *
+           * This used to happen every time, in either arrangement. In a window
+           * of our own that costs him nothing: the only tab in it is ours, so
+           * selecting it takes no screen and nothing of his is ever moved away
+           * from. **Sharing his window it is a different act entirely.** A walk
+           * is a sequence of turns, one per page, and each turn comes back
+           * through here -- so every few seconds it took the selection back off
+           * whatever tab he had just opened. In his own words it was
+           * "constantly fighting with me for that page".
+           *
+           * **AND THE COST OF NOT DOING IT IS REAL AND IS HIS CHOICE, NOT A
+           * DEFECT.** Chrome slows a tab that is not the selected one in its
+           * window. So while `WALK_IN_HIS_OWN_WINDOW` is `false` and he is
+           * looking at another tab, **a walk can run slow or stall outright**,
+           * and a wait stretched far enough reports a perfectly good page as a
+           * missing button -- it looks identical to a real failure. He has
+           * chosen to watch the fetching and to pay that. Setting
+           * `WALK_IN_HIS_OWN_WINDOW` back to `true` ends both the fighting and
+           * the throttling at once. */
+          if (WALK_IN_HIS_OWN_WINDOW) await chrome.tabs.update(ourTab, { active: true });
           return tab;
         }
       }
