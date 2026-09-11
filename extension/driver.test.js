@@ -956,6 +956,52 @@ function labelled(node, label) {
 }
 
 {
+  /* **HIS REAL MEESHO ORDERS MODAL, READ OFF THE LIVE PAGE ON 2026-09-11**, and
+   * every line of it is a measurement rather than a reading of code:
+   *
+   *   - not one `input[type="date"]` anywhere on the modal;
+   *   - the From and To boxes are `type="text"` and `readOnly`, placeholders
+   *     "Select From Date" and "DD/MM/YYYY" -- **typing into them could never
+   *     have worked**;
+   *   - the day cells say `aria-label="Tue Sep 01 2026"`;
+   *   - **and the month is a DROPDOWN of all twelve names, so what the heading
+   *     reads is "JanuaryFebruaryMarch..." and never "September 2026".**
+   *
+   * The step used to ask whether a month heading was showing before it would
+   * believe a calendar was there at all. On this page no heading can ever
+   * match, so it refused -- "0 date boxes were found and no calendar was
+   * showing" -- **while the cells beside it were naming the day outright.** */
+  const page = aPage();
+  const door = doorOn();
+
+  const modal = thing('div');
+  const months = thing('select');
+  for (const name of MONTHS_IN_FULL) months.append(thing('option', name));
+  modal.append(months);
+  modal.append(thing('button', '', { attrs: { 'aria-label': 'Previous month' } }));
+  modal.append(thing('button', '', { attrs: { 'aria-label': 'Next month' } }));
+
+  const from = thing('input', '', { type: 'text', readOnly: true, placeholder: 'Select From Date' });
+  const to = thing('input', '', { type: 'text', readOnly: true, placeholder: 'DD/MM/YYYY' });
+  modal.append(from, to);
+
+  const grid = thing('div');
+  for (let d = 1; d <= 30; d += 1) {
+    grid.append(thing('td', String(d), { attrs: { 'aria-label': meeshoOrdersLabel(2026, 9, d) } }));
+  }
+  modal.append(grid);
+  const pressed = watchTheDays(grid, 2026, 9);
+  page.body.append(modal);
+
+  check('a calendar whose month is a dropdown, so no heading ever matches, still gets the range set',
+    (await saidAfterWaiting(() => door.pick_range('2026-09-01', '2026-09-02'))) === '');
+  check('and the two days pressed are the two asked for',
+    JSON.stringify(pressed) === JSON.stringify(['2026-09-01', '2026-09-02']));
+  check('and the read-only boxes it could never have typed into were left alone',
+    from.value === '' && to.value === '');
+}
+
+{
   /* **THE SAME PORTAL WRITES THE SAME DAY TWO DIFFERENT WAYS**, and the
    * reference knows both because it was caught by the second: orders and
    * returns say "Fri May 01 2026", payments says "Jun 2, 2026". */
@@ -1413,7 +1459,7 @@ function labelled(node, label) {
   check('and neither is nothing at all', theCatcherSaid(null, 'the-secret') === null);
 }
 
-const EXPECTED = 172;
+const EXPECTED = 175;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

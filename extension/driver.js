@@ -780,7 +780,18 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
        * and a calendar, or three, is a page nobody has read yet -- and picking
        * a strategy in that state is the guess this whole file exists to
        * refuse. */
-      if (boxes.length === 0 && everyMonthOnShow().length > 0) {
+      /* **A MONTH HEADING IS NOT WHAT SAYS A CALENDAR IS THERE, and that was
+       * read off his own Meesho on 2026-09-09.** Its month is a DROPDOWN of all
+       * twelve names, so what the heading reads is
+       * "JanuaryFebruaryMarch..." and never "September 2026" -- no heading here
+       * can ever match. Meanwhile its day cells say outright
+       * `aria-label="Tue Sep 01 2026"`, which is the first of the four ways
+       * `theWaysADayIsWritten` already writes. So this refused while holding the
+       * answer. **A cell naming the day wanted is a calendar, heading or no
+       * heading**, which is the reference's own order: it never asks whether a
+       * calendar is showing, it looks for the day. */
+      if (boxes.length === 0
+        && (everyCellNaming(start).length > 0 || everyMonthOnShow().length > 0)) {
         await clickTheDay(start, switchedOffDaysChangeTheCursor);
         /* HALF A SECOND BETWEEN THE TWO, WHICH IS THE REFERENCE'S OWN NUMBER.
          * A range picker redraws itself once the first day is taken. */
@@ -791,8 +802,9 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
       if (Date.now() >= giveUpAt) {
         throw new Error(
           'A date range needs two date boxes on the page, or a calendar to press days on. '
-          + `${boxes.length} date boxes were found and no calendar was showing, so no dates `
-          + 'were set.'
+          + `${boxes.length} date boxes were found, no cell on the page said it was `
+          + `${theWaysADayIsWritten(start).map((w) => `"${w}"`).join(' or ')}, and no month `
+          + 'heading was showing either, so no dates were set.'
         );
       }
       await rest(LOOK_AGAIN_MS);
