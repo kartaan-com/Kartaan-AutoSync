@@ -47,6 +47,7 @@
    * reason it never cost a silent night. The guard was one line too low. */
   let pageDoor;
   let theCatcherSaid;
+  let RELAY_TO_THE_PAGE;
   let theWalk;
   let NeedsSigningIn;
   let capture;
@@ -54,7 +55,9 @@
   let looksLikeAPage;
   let book;
   try {
-    ({ pageDoor, theCatcherSaid } = await import(chrome.runtime.getURL('driver.js')));
+    ({ pageDoor, theCatcherSaid, RELAY_TO_THE_PAGE } = await import(
+      chrome.runtime.getURL('driver.js')
+    ));
     ({
       theWalk, NeedsSigningIn, capture, hasNotFinished,
     } = await import(chrome.runtime.getURL('walk.js')));
@@ -345,6 +348,64 @@
     await said({ do: 'walk-done', answer: came, from: startedAt });
     return came;
   };
+
+  /* ── The debug relay, and it is NOT the guarded listener above ───────────────
+   *
+   * **ASKED FOR ON 11 SEPTEMBER 2026, TO DEBUG THE FETCHING.** Nothing can reach
+   * this extension from a live page, so every question about a walk going wrong
+   * costs the seller a screenshot. This lets a page in the SAME TAB ask the
+   * extension to run one report, and to read back the words and the state the
+   * panel shows. The reference has had the same three for months.
+   *
+   * **IT IS TURNED OFF BY SETTING `RELAY_TO_THE_PAGE` IN `driver.js` TO
+   * `false`**, and then this listener is never registered at all -- there is no
+   * listener sitting there ignoring things, there is nothing on the page to
+   * reach.
+   *
+   * **SAME ORIGIN ONLY, AND THAT IS CHECKED ON THE ORIGIN RATHER THAN ON
+   * `event.source`** -- exactly as the reference does it, for the reason the
+   * reference writes down: in an isolated world the page's `window` is a
+   * different proxy from this half's, so the two are never equal and a source
+   * test would refuse everything. The catcher above can test the source because
+   * it listens for its own posts; this listens for the page's.
+   *
+   * **IT MAY ASK FOR TWO THINGS AND THE BACKGROUND DECIDES WHICH** -- see
+   * `theRelayAllows` in `background.js`, which is where that decision can be
+   * checked. This file is the wiring. */
+  if (RELAY_TO_THE_PAGE) {
+    const putItBack = (name, what) => {
+      window[name] = what;
+      /* **NOT `'*'`, WHICH D135 NAMES AS A REAL FAULT IN THE REFERENCE'S OWN
+       * `catch-blob.js`.** The page asking is same-origin by the test above, so
+       * naming the origin costs nothing and keeps a report's states and failure
+       * reasons out of any other-origin frame the portal has embedded. */
+      window.postMessage({ __kartaanAnswer: name, what }, location.origin);
+      window.dispatchEvent(new CustomEvent(`${name}Ready`));
+    };
+    window.addEventListener('message', async (heard) => {
+      /* **NOT CALLED `said`**, which is this file's way of speaking to the other
+       * half a few lines above; shadowed, every relay answer would be a crash. */
+      if (heard.origin !== location.origin) return;
+      if (!heard.data || !heard.data.__kartaan) return;
+      const msg = heard.data.msg;
+      if (!msg || !msg.type) return;
+      if (msg.type === 'RUN_NOW') {
+        putItBack('__kartaanRun', await said({
+          do: 'run-now', reportIds: msg.reportIds || [],
+        }));
+        return;
+      }
+      if (msg.type === 'READ_LOG' || msg.type === 'READ_STATUS') {
+        /* **THE PANEL'S OWN QUESTION, NOT A SECOND ONE.** `how-it-stands` is
+         * what the panel polls every two seconds; `inWords` is the log section
+         * it draws and `stands` is every row's state, last run and reason. */
+        const back = await said({ do: 'how-it-stands' });
+        const stands = (back && back.stands) || back;
+        if (msg.type === 'READ_LOG') putItBack('__kartaanLog', (stands && stands.inWords) || back);
+        else putItBack('__kartaanStatus', stands);
+      }
+    });
+  }
 
   chrome.runtime.onMessage.addListener((asked, from, answer) => {
     if (!asked || asked.do !== 'walk') return false;

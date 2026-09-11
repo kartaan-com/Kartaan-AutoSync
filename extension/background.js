@@ -36,6 +36,7 @@
  */
 
 import { catchTheNextFile } from './catch-blob.js';
+import { RELAY_TO_THE_PAGE } from './driver.js';
 import { ARMED_FOR_MS, aTabToWalkIn, goTo } from './doors.js';
 import { FAILED, TOO_BIG_TO_CARRY, whyTheDayIsRefused } from './walk.js';
 import { carryTheNightOn } from './nightly.js';
@@ -675,6 +676,17 @@ export const KNOWN = ['go', 'arm-the-catcher', 'take-file', 'land-the-file', 'sa
  *  the page that is believed cannot be two different files. */
 export const THE_PANEL = 'panel.html';
 
+/** What the debug relay may ask for, and it is not `THE_PANEL_ASKS`. Connecting
+ *  a Drive, saving the panel name and moving the daily clock stay panel-only,
+ *  because a page we do not control should never be able to do those. */
+export const THE_RELAY_ASKS = Object.freeze(['run-now', 'how-it-stands']);
+
+/** May the relay be answered this? Separate and pure so both answers can be
+ *  checked, which a constant read straight out of the module cannot be. */
+export function theRelayAllows(on, asked) {
+  return Boolean(on) && THE_RELAY_ASKS.includes(asked && asked.do);
+}
+
 /** An address without whatever follows the `?` or the `#`. */
 export function theSamePage(address) {
   return String(address || '').split('#')[0].split('?')[0];
@@ -717,7 +729,13 @@ export function answerThePanel(chrome, parts) {
      * same page -- a seller who bookmarks the panel with a fragment on the end
      * would otherwise get a panel that silently answers nothing, which reads as
      * the extension being broken. */
-    if (theSamePage(from.url) !== chrome.runtime.getURL(THE_PANEL)) return null;
+    /* **AND THE ONE HOLE IN THAT, OPENED ON 11 SEPTEMBER 2026 AND MEANT TO BE
+     * SHUT.** While `RELAY_TO_THE_PAGE` is on, the walk's own page may ask these
+     * two and only these two, so the fetching can be driven and read from a live
+     * page instead of a screenshot at a time. Off, this clause is false for
+     * everything and the door is exactly the door it was. */
+    if (theSamePage(from.url) !== chrome.runtime.getURL(THE_PANEL)
+      && !theRelayAllows(RELAY_TO_THE_PAGE, asked)) return null;
     if (!parts.mayAsk.includes(asked.do)) return null;
     return parts.answer(asked);
   };

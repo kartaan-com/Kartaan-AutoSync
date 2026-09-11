@@ -51,6 +51,7 @@ import {
   startAWalk,
   theWalkInFlight,
   theWalkMovedOn,
+  theRelayAllows,
   whyTheseAreNotNames,
 } from './background.js';
 import { CAUGHT, TOO_BIG, catchTheNextFile } from './catch-blob.js';
@@ -1467,7 +1468,35 @@ const LATER = '2026-08-27T16:04:00.000Z';
     && browser.stored()[THE_WALK].answer.state === 'failed');
 }
 
-const EXPECTED = 172;
+/* ── The debug relay, and the two things about it worth proving ──────────────
+ *
+ * **THE WHOLE SAFETY CLAIM IS THAT TURNING IT OFF LEAVES NOTHING TO REACH.**
+ * `content.js` has no checks by design, so the one thing that can be proved
+ * about it from here is the shape of the file: its relay listener sits inside
+ * `if (RELAY_TO_THE_PAGE)`, which means off it is never registered at all --
+ * not registered and ignoring, not there. */
+{
+  const page = readFileSync(new URL('./content.js', import.meta.url), 'utf8');
+  const behindTheConstant = page.slice(page.indexOf('if (RELAY_TO_THE_PAGE) {'));
+  const relayListens = behindTheConstant.indexOf("window.addEventListener('message'");
+  check('with the relay off no relay listener is registered at all',
+    page.indexOf('if (RELAY_TO_THE_PAGE) {') !== -1 && relayListens !== -1
+    /* And it is the only `message` listener after that point, so the guarded
+     * one above it is untouched and outside. */
+    && behindTheConstant.indexOf("window.addEventListener('message'",
+      relayListens + 1) === -1);
+
+  /* **AND OFF IT ALSO STOPS BEING ANSWERED**, which is the other half: the
+   * panel's door opens for the relay only while it is on, and never for the
+   * questions that connect a Drive or move the clock. */
+  check('the relay is answered two questions while it is on, and none while it is off',
+    theRelayAllows(true, { do: 'run-now' }) === true
+    && theRelayAllows(true, { do: 'how-it-stands' }) === true
+    && theRelayAllows(true, { do: 'connect-the-drive' }) === false
+    && theRelayAllows(false, { do: 'run-now' }) === false);
+}
+
+const EXPECTED = 174;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

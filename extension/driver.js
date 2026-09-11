@@ -661,6 +661,24 @@ export function theCatcherSaid(said, waitingFor) {
 /** What the catcher calls itself. One spelling, read by both halves. */
 export const CAUGHT_A_FILE = 'kartaan-caught-a-file';
 
+/* **TEMPORARY, ASKED FOR ON 11 SEPTEMBER 2026, AND MEANT TO BE PUT BACK.**
+ *
+ * `true` lets a page in the walk's own tab ask the extension to run a report and
+ * to read back what the panel shows -- which is the only way to watch the
+ * fetching go wrong without asking the seller for a screenshot at every step.
+ * `false` is the arrangement everything else here was built for: the page half
+ * may ask for the seven things in `KNOWN` and nothing else, and the panel's own
+ * questions are refused to anything that is not `panel.html`.
+ *
+ * **IT LIVES HERE BECAUSE BOTH HALVES HAVE TO AGREE ABOUT IT.** `content.js`
+ * reads it to decide whether to listen at all, and `background.js` reads it to
+ * decide whether to answer -- one fact, one place.
+ *
+ * **TURN IT OFF BY SETTING THIS LINE TO `false`.** Nothing else has to change:
+ * `content.js` then registers no relay listener at all, so there is nothing on
+ * the page left to reach, and `background.js` refuses those questions again. */
+export const RELAY_TO_THE_PAGE = true;
+
 export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
   if (typeof go !== 'function') {
     throw new Error('A door needs to be given a way of going to an address.');

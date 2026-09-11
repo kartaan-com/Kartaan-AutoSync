@@ -43,6 +43,7 @@ import {
   whyThatIsNotATimeOfDay,
   wireUp,
 } from './background.js';
+import { RELAY_TO_THE_PAGE } from './driver.js';
 import {
   A_DAYS_ALLOWANCE, THE_NIGHT, carryTheNightOn, endTheNight, howTheNightWent, oneWasAskedFor,
   startTheNight, thatOneIsBeingTried, theNight,
@@ -162,12 +163,21 @@ check('nothing the panel may ask for is also something the page half may ask for
 
   check('the panel is answered', Boolean(listen({ do: 'how-it-stands' }, fromThePanel)));
 
-  check('a portal page running our own content script is NOT answered',
-    listen({ do: 'run-now', reportIds: ['fk_orders'] }, {
-      id: chrome.runtime.id,
-      url: 'https://seller.flipkart.com/index.html#dashboard',
-      tab: { id: 7 },
-    }) === null);
+  /* **THIS USED TO SAY A PORTAL PAGE IS NEVER ANSWERED, AND THE DEBUG RELAY IS
+   * exactly that hole, opened on purpose on 11 September 2026.** Written against
+   * the constant so it is true in both positions: off, a portal page is refused
+   * everything as before; on, it is refused everything EXCEPT the two the relay
+   * may ask, which is the promise `theRelayAllows` keeps. */
+  const aPortalPage = {
+    id: chrome.runtime.id,
+    url: 'https://seller.flipkart.com/index.html#dashboard',
+    tab: { id: 7 },
+  };
+  check('a portal page is answered only the two the relay may ask, and only while it is on',
+    (listen({ do: 'run-now', reportIds: ['fk_orders'] }, aPortalPage) === null)
+      !== RELAY_TO_THE_PAGE
+    && listen({ do: 'connect-the-drive' }, aPortalPage) === null
+    && listen({ do: 'set-the-hour', at: '03:00' }, aPortalPage) === null);
 
   check('another extension saying it is the panel is NOT answered',
     listen({ do: 'connect-the-drive' }, {
@@ -197,7 +207,8 @@ check('nothing the panel may ask for is also something the page half may ask for
     listen({ do: 'how-it-stands' }, { ...fromThePanel, url: `${fromThePanel.url}?opened=1#top` })));
 
   check('only the messages that were let through were carried out',
-    asked.length === 3 && asked.every((one) => one === 'how-it-stands'));
+    asked.filter((one) => one === 'how-it-stands').length === 3
+    && asked.length === (RELAY_TO_THE_PAGE ? 4 : 3));
 }
 
 /* **THE WHOLE GATE ABOVE RESTS ON ONE MANIFEST KEY, AND NOTHING SAID SO UNTIL AN
