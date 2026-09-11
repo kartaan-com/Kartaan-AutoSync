@@ -744,7 +744,18 @@ export function theWalk({
       if (many === 0) {
         return { failed: await whyNothingWasFound(step, reportId, dataDate) };
       }
-      if (many > 1) {
+      /* **A STEP THAT NARROWED TO A DAY AND STILL HAS SEVERAL TAKES THE NEWEST;
+       * ONE THAT NARROWED NOTHING STILL REFUSES.** Measured on his own Meesho on
+       * 2026-09-11: ten Download rows on the page, and `near` cut them to TWO --
+       * both reading `2026-09-10_2026-09-10_2026-09-11`, one made at 08:51 and
+       * one at 08:30, because he ran the export twice that morning. Those are two
+       * RIGHT rows, not two wrong ones, and refusing them leaves the day
+       * unfetched for a reason that is no fault at all. The payments outage this
+       * refusal was built for had nothing narrowing its candidates, which is
+       * exactly the case `near` being empty still covers. Newest is topmost; the
+       * door says why. */
+      const newestOfSeveral = (step.find.near || []).length > 0;
+      if (many > 1 && !newestOfSeveral) {
         return { failed: await gaveUp(reportId, dataDate, {
           kind: FOUND_SEVERAL, lookingFor: step.find.called || step.find.what,
           doing: step.why, matches: many,
@@ -803,7 +814,8 @@ export function theWalk({
        * taken on an older secret, and the report fails out loud. Falling back to
        * the older secret would be the one thing this change exists to stop. */
       await armTheCatcher();
-      await door.click(step.find.how, step.find.what, step.find.exact, step.find.near);
+      await door.click(step.find.how, step.find.what, step.find.exact, step.find.near,
+        newestOfSeveral);
     }
 
     const body = await door.take_file(step.patience);

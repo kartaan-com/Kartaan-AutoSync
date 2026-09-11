@@ -551,6 +551,68 @@ function everyDateBox(page) {
     pressed.length === 2 && pressed[1] === '22 Aug 2026, 08:09 PM');
 }
 
+/* ------------------- TWO RIGHT ROWS, WHICH IS NOT TWO WRONG ONES (2026-09-11)
+ *
+ * **HIS OWN MEESHO ORDERS PANEL, READ IN HIS SIGNED-IN CHROME THAT MORNING.**
+ * Ten Download rows. `near` cut them to TWO, and both were genuinely the day
+ * asked for -- `2026-09-10_2026-09-10_2026-09-11`, one made at 08:51 AM and one
+ * at 08:30 AM, because he ran the export twice. The walk refused, and the day
+ * went unfetched for a reason that was no fault at all. */
+{
+  const page = aPage();
+  const door = doorOn();
+  const pressed = [];
+  /* The file name carries FROM, TO and the day the export was MADE. The two
+   * that survive the day filter are the first two; the other eight are other
+   * days, and are what makes this ten rows rather than two. */
+  const rows = [
+    ['2026-09-10_2026-09-10_2026-09-11', '11 Sep 2026, 08:51 AM'],
+    ['2026-09-10_2026-09-10_2026-09-11', '11 Sep 2026, 08:30 AM'],
+    ['2026-09-08_2026-09-08_2026-09-09', '9 Sep 2026, 09:02 AM'],
+    ['2026-09-07_2026-09-07_2026-09-08', '8 Sep 2026, 08:44 AM'],
+    ['2026-09-06_2026-09-06_2026-09-07', '7 Sep 2026, 08:40 AM'],
+    ['2026-09-05_2026-09-05_2026-09-06', '6 Sep 2026, 08:55 AM'],
+    ['2026-09-04_2026-09-04_2026-09-05', '5 Sep 2026, 08:31 AM'],
+    ['2026-09-03_2026-09-03_2026-09-04', '4 Sep 2026, 08:38 AM'],
+    ['2026-09-02_2026-09-02_2026-09-03', '3 Sep 2026, 08:47 AM'],
+    ['2026-09-01_2026-09-01_2026-09-02', '2 Sep 2026, 08:52 AM'],
+  ];
+  for (const [called, when] of rows) {
+    const row = thing('div');
+    row.append(thing('p', called), thing('p', when));
+    /* A `span` with a pointer cursor, which is what Meesho really draws. */
+    const press = thing('span', 'Download');
+    press.style.cursor = 'pointer';
+    press.addEventListener('click', () => pressed.push(when));
+    row.append(press);
+    page.body.append(row);
+  }
+  /* **HOW MEESHO NAMES THE ROW: the day the export was MADE**, which is the
+   * third date in the file name and the one `me_orders` narrows by. */
+  const theDay = ['11 Sep 2026', '2026-09-11'];
+
+  check('ten rows carry the word, which is what the panel really showed',
+    (await door.find(BY_PRESSABLE_TEXT, 'Download')) === 10);
+  check('and the day narrows the ten to the two he really made that morning',
+    (await door.find(BY_PRESSABLE_TEXT, 'Download', true, 0, theDay)) === 2);
+  /* **THE WHOLE RULE, IN ONE LINE.** Told it may take the newest of several that
+   * a day already narrowed, it presses the topmost -- 08:51, not 08:30. */
+  /* **`said` RATHER THAN A BARE CALL, so that the day this rule is taken out
+   * again the check below goes red by its own name instead of stopping the whole
+   * file on a throw nobody can place. */
+  said(() => door.click(BY_PRESSABLE_TEXT, 'Download', true, theDay, true));
+  check('TWO ROWS OF THE RIGHT DAY: THE NEWEST IS TAKEN, NOT REFUSED',
+    pressed.length === 1 && pressed[0] === '11 Sep 2026, 08:51 AM');
+
+  /* **AND THE PAYMENTS INCIDENT STAYS RED.** Nothing narrowed these ten: no
+   * day, so nothing distinguishes a right row from a chart legend that reads
+   * like a menu item. Permission to take the newest must not reach this. */
+  check('SEVERAL WITH NOTHING NARROWING THEM STILL REFUSES, EVEN TOLD TO TAKE THE NEWEST',
+    said(() => door.click(BY_PRESSABLE_TEXT, 'Download', true, [], true))
+      .includes('10 things'));
+  check('and nothing more was pressed', pressed.length === 1);
+}
+
 /* ------------------------------- the box a label names, not the label (A53) */
 
 {
@@ -1459,7 +1521,7 @@ function labelled(node, label) {
   check('and neither is nothing at all', theCatcherSaid(null, 'the-secret') === null);
 }
 
-const EXPECTED = 175;
+const EXPECTED = 180;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

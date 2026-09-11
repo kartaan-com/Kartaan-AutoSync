@@ -1187,6 +1187,18 @@ check('asked to step back by nothing at all, it answers the day itself',
   const noneNamed = aPortal({ matches: { Download: 0 } });
   const gone = await aWalk(noneNamed)('snapshot_no_ask', DAY);
   check('and a missing one says the same name', gone.say.includes('the download button'));
+
+  /* **BUT A STEP THAT NARROWED TO A DAY AND STILL HAS TWO IS TWO RIGHT ROWS.**
+   * Read off his own Meesho on 2026-09-11: the day filter cut ten Download rows
+   * to two, and both were genuinely the day asked for, because he ran the export
+   * twice that morning. `me_catalog` above narrows by nothing and still refuses
+   * -- that is the payments outage and it stays red. `me_in_words` names its row
+   * by the day, so two is not ambiguity and the newest is taken. */
+  const twoOfTheDay = aPortal({ matches: { Download: 2 } });
+  const landed = await aWalk(twoOfTheDay)('me_in_words', DAY);
+  check('TWO ROWS OF THE DAY IT ASKED FOR ARE NOT AMBIGUOUS, AND THE FILE IS TAKEN',
+    landed.state === LANDED);
+  check('and the file really was put away', twoOfTheDay.putAway.length === 1);
 }
 
 /* ------------------------- a file built inside the page is a door closing */
@@ -1973,7 +1985,7 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
     TOO_BIG_TO_CARRY === TOO_BIG);
 }
 
-const EXPECTED = 250;
+const EXPECTED = 252;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

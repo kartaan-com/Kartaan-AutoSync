@@ -733,13 +733,23 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
    * the single thing this whole design exists to prevent. If it is not exactly
    * one now, nothing is clicked and the number is reported.
    */
-  function click(how, what, exact = true, near = []) {
+  function click(how, what, exact = true, near = [], newestOfSeveral = false) {
     refuseAnUnknownWay(how);
     const found = whatMatches(how, what, exact, near);
     if (found.length === 0) {
       throw new Error(`Nothing on the page matches "${what}", so nothing was clicked.`);
     }
-    if (found.length > 1) {
+    /* **SEVERAL RIGHT ROWS IS NOT SEVERAL WRONG ONES, AND ONLY A CALLER THAT
+     * NARROWED BY A DAY MAY SAY SO.** The nine-day payments outage was a chart
+     * legend reading like a menu item with NOTHING narrowing the two apart.
+     * Here `near` has already cut the page's ten rows down to the ones carrying
+     * the day that was asked for, so everything left is genuinely that day --
+     * and the seller having run the same export twice in one morning is the
+     * ordinary reason two remain. **The newest is the topmost**, and
+     * `everything` walks the page in the order it is written, so that is
+     * `found[0]`. With nothing narrowed -- no `near`, or a `near` that named no
+     * day -- this is the refusal it has always been. */
+    if (found.length > 1 && !(newestOfSeveral && theRows(near).length)) {
       throw new Error(
         `${found.length} things on the page match "${what}", so which one was meant cannot be `
         + 'known. Nothing was clicked.'
