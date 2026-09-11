@@ -260,6 +260,17 @@ export function installFakeChrome({ now = () => 0, identityIsOn = true, refuseTh
         windows.set(id, { id, focused: Boolean(focused), state: state || 'normal', width, height });
         return { ...windows.get(id), tabs: [{ ...tabs.get(tabId) }] };
       },
+      /* **THE WINDOW THE SELLER IS IN.** Chrome always has one, so this makes
+       * one when nothing has yet -- focused and not minimised, the way a window
+       * somebody is actually sitting in front of is. */
+      async getCurrent() {
+        owner._noteACall();
+        const open = [...windows.values()];
+        if (open.length) return { ...open[open.length - 1] };
+        const id = nextWindowId++;
+        windows.set(id, { id, focused: true, state: 'normal' });
+        return { ...windows.get(id) };
+      },
       async get(id) {
         owner._noteACall();
         /* **THROWS WHEN IT IS GONE, the way Chrome's does.** A stand-in that

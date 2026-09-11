@@ -36,6 +36,24 @@
  * checked with no browser and no extension installed.
  */
 
+/* **TEMPORARY, ASKED FOR ON 11 SEPTEMBER 2026, AND MEANT TO BE PUT BACK.**
+ *
+ * `true` is the arrangement everything else here was built for: the walk opens a
+ * WINDOW OF ITS OWN, so its tab is always the selected one and Chrome never
+ * throttles it. `false` -- what runs today -- opens a TAB IN THE WINDOW THE
+ * SELLER IS ALREADY IN, so he can watch the fetching happen over its shoulder
+ * while it is being debugged.
+ *
+ * **WHAT THAT COSTS IS THE THROTTLING PROTECTION, AND IT IS NOT SMALL.** Chrome
+ * slows a tab that is not the selected one in its window. The moment he looks at
+ * another tab, the walk is that tab. The reference measured a fifteen-second
+ * wait stretching PAST NINE MINUTES for exactly this reason, and a walk that
+ * slow reports a perfectly good page as a missing button -- it looks identical
+ * to a real failure.
+ *
+ * **PUT IT BACK BY SETTING THIS LINE TO `true`.** Nothing else has to change. */
+export const WALK_IN_HIS_OWN_WINDOW = false;
+
 /* How often to look again while waiting for a page or a download, in
  * milliseconds. */
 const LOOK_AGAIN_MS = 200;
@@ -200,6 +218,15 @@ export async function aTabToWalkIn(chrome, { address = 'about:blank' } = {}) {
       /* The window or the tab has been closed. Said plainly rather than
        * treated as a failure: a seller closing a window is not a fault. */
     }
+  }
+
+  if (!WALK_IN_HIS_OWN_WINDOW) {
+    /* **THE TEMPORARY ARRANGEMENT. See `WALK_IN_HIS_OWN_WINDOW` at the top of
+     * this file.** A tab in the window he is already in, so he can watch it. */
+    const hisWindow = await chrome.windows.getCurrent();
+    const tabInHis = await chrome.tabs.create({ url: address, windowId: hisWindow.id, active: true });
+    await chrome.storage.session.set({ [OUR_WINDOW]: hisWindow.id, [OUR_TAB]: tabInHis.id });
+    return tabInHis;
   }
 
   const made = await chrome.windows.create({

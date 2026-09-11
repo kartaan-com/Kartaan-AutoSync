@@ -55,7 +55,7 @@ import {
 } from './background.js';
 import { CAUGHT, TOO_BIG, catchTheNextFile } from './catch-blob.js';
 import { TOO_BIG_TO_CARRY } from './walk.js';
-import { OUR_TAB, OUR_WINDOW, aTabToWalkIn, watchForDownloads } from './doors.js';
+import { OUR_TAB, OUR_WINDOW, WALK_IN_HIS_OWN_WINDOW, aTabToWalkIn, watchForDownloads } from './doors.js';
 import { readFileSync } from 'node:fs';
 
 process.on('uncaughtException', (err) => {
@@ -1211,7 +1211,8 @@ const LATER = '2026-08-27T16:04:00.000Z';
   await started;
 
   check('starting a walk opens a window of our own rather than using the seller own',
-    browser.windows().length === 1 && browser.windows()[0].focused === false
+    browser.windows().length === 1
+    && (!WALK_IN_HIS_OWN_WINDOW || browser.windows()[0].focused === false)
     && browser.windows()[0].state === 'normal');
   check('and the walk was written down before that window went anywhere near the portal',
     browser.stored()[THE_WALK].reportId === 'me_catalog'

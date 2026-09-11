@@ -18,7 +18,8 @@
 import { readFileSync } from 'node:fs';
 import { installFakeChrome } from '../test/fake-chrome.js';
 import {
-  ARMED_FOR_MS, OUR_TAB, OUR_WINDOW, aTabToWalkIn, goTo, sameDocumentAs, takeTheFile,
+  ARMED_FOR_MS, OUR_TAB, OUR_WINDOW, WALK_IN_HIS_OWN_WINDOW, aTabToWalkIn, goTo, sameDocumentAs,
+  takeTheFile,
   watchForDownloads,
 } from './doors.js';
 
@@ -554,7 +555,7 @@ function aFetch(answers) {
    * nothing to be gained by taking the screen from somebody using their
    * computer, and everything to lose. */
   check('and it never takes the screen: the window is made unfocused',
-    window.focused === false);
+    !WALK_IN_HIS_OWN_WINDOW || window.focused === false);
   /* **AND NOT MINIMISED, because that IS what throttling watches.** */
   check('and it is not minimised, which is the state that would be throttled',
     window.state === 'normal');
@@ -671,7 +672,22 @@ function aFetch(answers) {
   check('and their page is left exactly where it was',
     browser.tabs().find((one) => one.id === theirTab.id).url === 'https://mail.google.com/');
   check('and their window is not the one the walk runs in',
-    got.windowId !== theirs.id);
+    !WALK_IN_HIS_OWN_WINDOW || got.windowId !== theirs.id);
+}
+
+{
+  /* **THE TEMPORARY SHARED WINDOW (11 September 2026).** `WALK_IN_HIS_OWN_WINDOW`
+   * at the top of `doors.js` decides where a first tab is opened, and this is
+   * what fails if it ever stops being honoured in either direction. */
+  const browser = installFakeChrome();
+  const his = await browser.chrome.windows.create({ url: 'https://mail.google.com/', focused: true });
+  const tab = await aTabToWalkIn(browser.chrome);
+  check(WALK_IN_HIS_OWN_WINDOW
+    ? 'with the constant on, the walk makes a window of its own and not his'
+    : 'with the constant off, the walk opens a tab in the window he is already in',
+    (tab.windowId === his.id) === !WALK_IN_HIS_OWN_WINDOW);
+  check('and either way it is the selected tab, because an unselected tab is throttled',
+    browser.tabs().find((one) => one.id === tab.id).active === true);
 }
 
 /* ------------------- how long a walk may go on, worked out rather than guessed */
@@ -729,7 +745,7 @@ function aFetch(answers) {
     ARMED_FOR_MS - longestMs <= 10 * 60 * 1000);
 }
 
-const EXPECTED = 70;
+const EXPECTED = 72;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;
