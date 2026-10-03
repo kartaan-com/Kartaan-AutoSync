@@ -25,9 +25,13 @@
 
 import { FakeNode, installFakeBrowser } from '../test/fake-browser.js';
 import {
+  BY_A_REAL_BUTTON,
   BY_PRESSABLE_TEXT, BY_ROLE_AND_TEXT, BY_TEST_ID, BY_TEXT, BY_THE_CONTROL_BESIDE,
-  CAUGHT_A_FILE, THE_CALLS,
-  pageDoor, theCatcherSaid, theExtensionIsGone,
+  BY_THE_BUTTON_BESIDE,
+  CAUGHT_A_FILE, THE_CALLS, ASKED_ONLY_BY_THE_WALK,
+  pageDoor, theCatcherSaid, theExtensionIsGone, aFileReallyComesFrom,
+  DECLINED_A_LINK, looksLikeASpreadsheet, onThePlatformsOwnSite, whatThePageTriedToOpen,
+  aBannerRecorder, whatABannerSays,
 } from './driver.js';
 
 process.on('uncaughtException', (err) => {
@@ -133,9 +137,25 @@ function everyDateBox(page) {
    * tenth NAMES nothing: shutting a menu is a click where nothing is, and it is
    * its own instruction because pressing the opener a second time is a guess
    * that it toggles. */
-  check('the door answers exactly the ten calls the Python side makes',
-    JSON.stringify(Object.keys(door).sort()) === JSON.stringify([...THE_CALLS].sort()));
-  check('and there are ten of them', THE_CALLS.length === 10);
+  /* **AND THE ONE QUESTION ONLY THE WALK ASKS, NAMED SEPARATELY (2026-09-14).**
+   * `where_they_sit` is not a call the Python side makes, so it is not in the
+   * eleven -- and a door growing a twelfth thing nobody named still goes red. */
+  /* **AND TWO MORE ONLY THE WALK ASKS, HIS RULING OF 2026-09-14:** the banners the
+   * page showed, and shutting pop-ups before a page's first step. Named, and
+   * still kept out of the Python eleven. */
+  check('the door answers exactly the eleven Python calls and the three the walk asks',
+    JSON.stringify(Object.keys(door).sort())
+      === JSON.stringify([...THE_CALLS, ...ASKED_ONLY_BY_THE_WALK].sort()));
+  check('and no walk-only question is dressed up as a Python call',
+    ASKED_ONLY_BY_THE_WALK.length === 5
+      && ASKED_ONLY_BY_THE_WALK.every((one) => !THE_CALLS.includes(one))
+      && ['where_they_sit', 'banners_seen', 'close_pop_ups', 'type_in', 'try_signing_in']
+        .every((one) => ASKED_ONLY_BY_THE_WALK.includes(one)));
+  check('and there are eleven of them', THE_CALLS.length === 11);
+  /* **THE ELEVENTH IS THE ONLY ONE THAT BRINGS A VALUE BACK.** Everything else
+   * presses, waits or counts. Meesho sells no export of the day's views. */
+  check('and the eleventh is the one that reads a number off a page',
+    THE_CALLS.includes('read_number'));
   check('the names are spelt the way the Python side spells them',
     THE_CALLS.includes('pick_range') && THE_CALLS.includes('needs_signing_in')
     && THE_CALLS.includes('take_file') && THE_CALLS.includes('page_text')
@@ -352,6 +372,36 @@ function everyDateBox(page) {
 }
 
 {
+  /* **AND NOT SOMETHING PRESSABLE EITHER, HOWEVER ITS CURSOR IS STYLED -- HIS
+   * OWN ADS FSN REPORT, 2026-09-14.** It refused three times on "2 things match
+   * Consolidated FSN Report", and the refusal named them: the Report Type list's
+   * own SEARCH BOX, pointer cursor, holding the report's name as its value; and
+   * the real option, a `div` in the popover. */
+  const page = aPage();
+  const door = doorOn();
+  const pressed = [];
+  const search = thing('input', '', { type: 'text', value: 'Consolidated FSN Report' });
+  search.style.cursor = 'pointer';
+  search.click = () => pressed.push('the search box');
+  const popover = thing('div', '', { attrs: { id: 'popover-content' } });
+  const option = thing('div', 'Consolidated FSN Report');
+  option.style.cursor = 'pointer';
+  option.click = () => pressed.push('the option');
+  popover.append(option);
+  page.body.append(search, popover);
+  check('a search box holding the words is not a pressable match for them',
+    (await door.find(BY_PRESSABLE_TEXT, 'Consolidated FSN Report')) === 1);
+  door.click(BY_PRESSABLE_TEXT, 'Consolidated FSN Report');
+  check('and it is the option that is pressed, never the search box',
+    pressed.length === 1 && pressed[0] === 'the option');
+  /* **A BUTTON DRAWN AS AN INPUT STILL COUNTS**, which is the case reading an
+   * input's value exists for. */
+  page.body.replaceChildren(thing('input', '', { type: 'submit', value: 'Export data' }));
+  check('while a button drawn as an input is still pressable by its words',
+    (await door.find(BY_PRESSABLE_TEXT, 'Export data')) === 1);
+}
+
+{
   /* **MEESHO'S SUPPLIER PANEL, AS IT REALLY IS.** Read off his own on
    * 2026-08-27, signed in and fully drawn: no button, no link, and not one role
    * attribute on the whole page. The sidebar's "Orders" is an `h5` and "Manage
@@ -450,6 +500,169 @@ function everyDateBox(page) {
   page.body.append(also);
   check('something that is both a control and pressable is counted once',
     (await door.find(BY_PRESSABLE_TEXT, 'Submit')) === 1);
+}
+
+/* ------------- the button on the row some words name (A57), and both halves
+ * of why it needs to know what else that row says */
+
+{
+  /* **FLIPKART'S REPORTS CENTRE REQUEST DIALOG, READ OFF HIS OWN PANEL ON
+   * 2026-09-11, ROW BY ROW.** Each row is a `span` naming a report and a real
+   * `button` reading `REQUEST REPORT` beside it. **The name is a `span` with
+   * `cursor: auto`** -- a row heading, pressing it does nothing -- and the five
+   * buttons read identical words, so by its words alone a step finds five and
+   * refuses. */
+  const page = aPage();
+  const door = doorOn();
+  const pressed = [];
+  const dialog = thing('div');
+  for (const name of ['DBD Breached Shipments Report', 'Orders', 'Returns']) {
+    const row = thing('div');
+    const label = thing('span', name);
+    const button = thing('button', 'REQUEST REPORT');
+    button.click = () => pressed.push(name);
+    row.append(label, button);
+    dialog.append(row);
+  }
+  page.body.append(dialog);
+
+  check('the report name is not pressable, so nothing can find it that way',
+    (await door.find(BY_PRESSABLE_TEXT, 'Orders')) === 0);
+  check('and its words alone find every row button, which is a refusal',
+    (await door.find(BY_A_REAL_BUTTON, 'REQUEST REPORT')) === 3);
+  check('THE BUTTON ON THE ROW THOSE WORDS NAME IS FOUND, and it is exactly one',
+    (await door.find(BY_THE_BUTTON_BESIDE, 'Orders')) === 1);
+  door.click(BY_THE_BUTTON_BESIDE, 'Orders');
+  check('and it is that row button that is pressed, and not another',
+    pressed.length === 1 && pressed[0] === 'Orders');
+}
+
+{
+  /* **AND THE SAME WORD IS ON THE PAGE TWICE, WHICH IS WHY IT ALSO ASKS WHAT
+   * ELSE THAT ROW SAYS.** Behind the dialog sits the list of reports already
+   * requested, and `Orders` is a leaf there too -- in a row with its own
+   * Download button. Both walk up to a button, so without narrowing the step
+   * finds two and refuses. **The dialog's row says `REQUEST REPORT`; the
+   * list's row does not.** */
+  const page = aPage();
+  const door = doorOn();
+  const pressed = [];
+
+  const dialogRow = thing('div');
+  const dialogName = thing('span', 'Orders');
+  const request = thing('button', 'REQUEST REPORT');
+  request.click = () => pressed.push('the request button');
+  dialogRow.append(dialogName, request);
+
+  const listRow = thing('div');
+  const listName = thing('span', 'Orders');
+  const range = thing('span', 'Aug 31 2026 To Sep 01 2026');
+  const download = thing('button', 'Download');
+  download.click = () => pressed.push('the download button');
+  listRow.append(listName, range, download);
+
+  page.body.append(dialogRow, listRow);
+
+  check('both rows walk up to a button, so the words alone find two and refuse',
+    (await door.find(BY_THE_BUTTON_BESIDE, 'Orders')) === 2);
+  check('narrowed by what else that row says, it is one again',
+    (await door.find(BY_THE_BUTTON_BESIDE, 'Orders', true, 0, [], 'REQUEST REPORT')) === 1);
+  door.click(BY_THE_BUTTON_BESIDE, 'Orders', true, [], false, 'REQUEST REPORT');
+  check('and it is the request button, never the one in the list behind it',
+    pressed.length === 1 && pressed[0] === 'the request button');
+}
+
+/* ------------------------ a label is a control, and it has no pointer (A57) */
+
+{
+  /* **HIS OWN FLIPKART REPORTS CENTRE, READ ELEMENT BY ELEMENT ON 2026-09-11.**
+   * The `Requested`, `Scheduled` and `All` tabs are each a **`<label>` with
+   * `cursor: default`** -- no role, no button, no pointer. **So before `label`
+   * joined the control tags, NEITHER way of looking could find them**: not as a
+   * control, and not as something pressable, because the cursor never changes.
+   * A recipe asking for the Requested tab could only answer that it was not on
+   * the page, on every night, for ever.
+   *
+   * **AND IT IS THE BROWSER'S OWN RULE, NOT FLIPKART'S**, which is the test
+   * everything on that list has to pass: a click on a `<label>` is delivered by
+   * the browser to the input it labels. These tabs each wrap a radio nobody
+   * sees. */
+  const page = aPage();
+  const door = doorOn();
+  const tab = thing('label', 'Requested');
+  page.body.append(tab);
+  check('a tab drawn as a label with no pointer cursor is a control',
+    tab.style.cursor === '' && (await door.find(BY_ROLE_AND_TEXT, 'Requested')) === 1);
+  check('and so it is pressable too, which is what a recipe asks for',
+    (await door.find(BY_PRESSABLE_TEXT, 'Requested')) === 1);
+  /* **AND IT IS NOT A REAL BUTTON**, so the strictest way still tells them
+   * apart -- the way `me_payments` needs to find the one thing in the modal. */
+  check('but it is not a real button, so the strictest way still says no',
+    (await door.find(BY_A_REAL_BUTTON, 'Requested')) === 0);
+}
+
+{
+  /* **THE REASON WIDENING THIS LIST DID NOT BREAK A WORKING REPORT.** A label
+   * wrapping words that something inside it also carries would be a SECOND
+   * match of one thing -- and two matches is a refusal, so a Meesho report that
+   * works today could have started refusing. **Only the innermost element
+   * carrying the words is counted**, so the span wins and the label around it is
+   * not a second answer. */
+  const page = aPage();
+  const door = doorOn();
+  const pressed = [];
+  const wrapper = thing('label');
+  const inner = thing('span', 'Export Data');
+  inner.style.cursor = 'pointer';
+  inner.click = () => pressed.push('the span');
+  wrapper.click = () => pressed.push('the label');
+  wrapper.append(inner);
+  page.body.append(wrapper);
+  check('a label wrapping the same words is not a second match of them',
+    (await door.find(BY_PRESSABLE_TEXT, 'Export Data')) === 1);
+  door.click(BY_PRESSABLE_TEXT, 'Export Data');
+  check('and it is the innermost thing that is pressed, not the label around it',
+    pressed.length === 1 && pressed[0] === 'the span');
+}
+
+{
+  const page = aPage();
+  const door = doorOn();
+  /* **MEESHO'S PAYMENTS PAGE, READ OFF HIS OWN PANEL ON 2026-09-11 WITH THE
+   * EXPORT MODAL OPEN.** Two things read the single word "Download": the opener
+   * at the top right, a `div` wearing `role="button"`, and the real `<button>`
+   * inside the modal. His own runs said "2 things match" twice -- once asking for
+   * something pressable, once asking for a control -- because both of those match
+   * both things. `role="button"` is exactly how a page declares a div to be a
+   * control, so no test of control-ness can ever separate them. */
+  const opener = thing('div', 'Download', { attrs: { role: 'button', tabindex: '0' } });
+  opener.style.cursor = 'pointer';
+  const inTheModal = thing('button', 'Download');
+  page.body.append(opener, inTheModal);
+
+  check('asking for a control finds both, which is the refusal his run reported',
+    (await door.find(BY_ROLE_AND_TEXT, 'Download')) === 2);
+  check('and asking for pressable words finds both as well',
+    (await door.find(BY_PRESSABLE_TEXT, 'Download')) === 2);
+  check('asking for a real button finds the one in the modal and nothing else',
+    (await door.find(BY_A_REAL_BUTTON, 'Download')) === 1);
+  /* **AND IT IS THE RIGHT ONE OF THE TWO, not merely one of them.** A count of
+   * one proves the step would click; it does not prove what it would click. */
+  const pressed = [];
+  inTheModal.click = () => pressed.push('the modal');
+  opener.click = () => pressed.push('the opener');
+  door.click(BY_A_REAL_BUTTON, 'Download');
+  check('and it is the modal it presses, not the opener',
+    pressed.length === 1 && pressed[0] === 'the modal');
+
+  /* **A DIV THAT SAYS IT IS A BUTTON IS STILL NOT ONE.** Alone on a page it is
+   * found by every other way here and by this one never. */
+  const page2 = aPage();
+  const door2 = doorOn();
+  page2.body.append(thing('div', 'Export', { attrs: { role: 'button' } }));
+  check('a div wearing the role alone is a control but not a real button',
+    (await door2.find(BY_ROLE_AND_TEXT, 'Export')) === 1
+      && (await door2.find(BY_A_REAL_BUTTON, 'Export')) === 0);
 }
 
 {
@@ -613,6 +826,153 @@ function everyDateBox(page) {
   check('and nothing more was pressed', pressed.length === 1);
 }
 
+/* ------- THREE REPORTS, ONE END DATE, AND ONLY THE KIND BETWEEN THEM (2026-09-11)
+ *
+ * **FLIPKART'S REQUESTED LIST, AS THE REFERENCE DESCRIBES IT.** Orders, returns
+ * and settled transactions are all asked for on the same night over the same
+ * range, so on any ordinary morning all three rows end `To 06 Jun 2026`.
+ * Narrowed by the day alone, one lookup matches three rows -- and the rule
+ * directly above, which takes the newest of several a day already narrowed,
+ * then presses whichever is topmost. **That is the payments file landing under
+ * the orders name and being read into the seller's books as sales.**
+ *
+ * The reference asks the report's own kind FIRST and the date second, of the
+ * same row (`content/flipkart.js` `findReportRowDownloadBtn` opens with
+ * `if (!rowLow.includes(subLow)) continue;`). These checks are that test. */
+{
+  const page = aPage();
+  const door = doorOn();
+  const pressed = [];
+  /* **THE ROW AS THE REFERENCE QUOTES IT:** kind, sub-kind, the range, the
+   * state, then the control. The topmost is deliberately NOT the orders one --
+   * taking the topmost is precisely the fault. */
+  const rows = [
+    ['Payment Reports', 'Settled Transactions'],
+    ['Fulfilment Reports', 'Returns'],
+    ['Fulfilment Reports', 'Orders'],
+  ];
+  for (const [kind, subKind] of rows) {
+    const row = thing('div');
+    row.append(thing('span', kind), thing('span', subKind),
+      thing('span', '05 Jun 2026 To 06 Jun 2026'), thing('span', 'Generated'));
+    const press = thing('span', 'Download');
+    press.style.cursor = 'pointer';
+    press.addEventListener('click', () => pressed.push(subKind));
+    row.append(press);
+    page.body.append(row);
+  }
+  const theDay = ['To 06 Jun 2026', 'To Jun 6 2026'];
+
+  check('all three rows carry the same end date, which is what the night really shows',
+    (await door.find(BY_PRESSABLE_TEXT, 'Download', true, 0, theDay)) === 3);
+  /* **THE FAULT ITSELF, PINNED.** Told it may take the newest of several the day
+   * narrowed, and with nothing else narrowing them, it presses the topmost --
+   * and the topmost here is payments. */
+  said(() => door.click(BY_PRESSABLE_TEXT, 'Download', true, theDay, true));
+  check('and the day alone would have pressed the payments row under the orders name',
+    pressed.length === 1 && pressed[0] === 'Settled Transactions');
+
+  check('THE KIND OF REPORT THE ROW IS FOR CUTS THE THREE TO ONE',
+    (await door.find(BY_PRESSABLE_TEXT, 'Download', true, 0, theDay, 'Orders')) === 1);
+  door.click(BY_PRESSABLE_TEXT, 'Download', true, theDay, true, 'Orders');
+  check('AND IT IS THE ORDERS ROW THAT IS PRESSED, NOT THE TOPMOST',
+    pressed.length === 2 && pressed[1] === 'Orders');
+
+  /* **THE OTHER TWO ARE REACHABLE BY THEIR OWN KIND**, which is what makes this
+   * a narrowing rather than a rule that only ever finds orders. */
+  check('and each of the other two is reached by its own kind',
+    (await door.find(BY_PRESSABLE_TEXT, 'Download', true, 0, theDay,
+                     'Settled Transactions')) === 1
+    && (await door.find(BY_PRESSABLE_TEXT, 'Download', true, 0, theDay, 'Returns')) === 1);
+
+  /* **IT NARROWS, IT NEVER LOOSENS.** A kind on no row takes the right row away
+   * too, and nought found refuses -- which is the safe direction. */
+  check('a kind that is on no row finds nothing at all, rather than the nearest',
+    (await door.find(BY_PRESSABLE_TEXT, 'Download', true, 0, theDay, 'Tax Reports')) === 0);
+  /* **AND BOTH TESTS ARE ASKED OF THE SAME ROW.** Asked of any row, the kind on
+   * one row and the day on another would both be satisfied by the page. */
+  check('and the kind is asked of the row the day named, not of the page',
+    (await door.find(BY_PRESSABLE_TEXT, 'Download', true, 0,
+                     ['To 07 Jun 2026'], 'Orders')) === 0);
+  /* **AND WITH NOTHING NAMING THE DAY IT STILL REFUSES**, so this cannot become
+   * a second way in for the incident the refusal exists for. */
+  check('several with nothing narrowing them still refuses, kind or no kind',
+    said(() => door.click(BY_PRESSABLE_TEXT, 'Download', true, [], true, 'Orders'))
+      .includes('3 things'));
+  check('and nothing more was pressed', pressed.length === 2);
+}
+
+/* ------ A ROW REACHES SIX LEVELS ABOVE ITS CONTROL AND NO FURTHER (2026-09-11)
+ *
+ * **HIS OWN MEESHO CLAIMS PANEL, MEASURED ANCESTOR BY ANCESTOR.** The panel's
+ * own menu button carries the single word `Download`, exactly as every row in
+ * the list below it does. Climbing from that button, **nine levels up**, the
+ * page's heading block contains `11 Sep` -- so the button counted as today's
+ * row. The real row matched **one level up**. Two matched, the button is first
+ * in the page, and the rule that takes the newest of several took it: **the walk
+ * pressed the menu shut and then waited five minutes for a file nobody had asked
+ * for**, and reported it as the platform having changed. */
+{
+  const page = aPage();
+  const door = doorOn();
+  const pressed = [];
+  /* **THE HEADING BLOCK, WHICH IS WHERE THE DAY REALLY IS.** Nine levels above
+   * the menu button on the real page; three here, which is the same fault at a
+   * size a checks file can hold. */
+  const header = thing('div');
+  header.append(thing('span', 'Claim Tracking All (146) Open (3) Filter by: Created Date 11 Sep'));
+  const menu = thing('span', 'Download');
+  menu.style.cursor = 'pointer';
+  menu.addEventListener('click', () => pressed.push('the menu button'));
+  /* **EIGHT WRAPPERS BETWEEN THE BUTTON AND THE HEADING**, so the day really is
+   * further above it than a row ever reaches. Nine on the real page. */
+  let inside = menu;
+  for (let deep = 0; deep < 8; deep += 1) {
+    const wrapper = thing('div');
+    wrapper.append(inside);
+    inside = wrapper;
+  }
+  header.append(inside);
+  page.body.append(header);
+
+  /* The exported files, each row with its own Download, below the heading. */
+  for (const [called, when] of [
+    ['Supplier-1244938_Status-all_Created-from-13-06-2026-to-11-09-2026', '11 Sept 2026, 10:20 AM'],
+    ['Supplier-1244938_Status-all_Created-from-12-06-2026-to-10-09-2026', '10 Sept 2026, 08:01 PM'],
+  ]) {
+    const row = thing('div');
+    row.append(thing('p', called), thing('p', when));
+    const press = thing('span', 'Download');
+    press.style.cursor = 'pointer';
+    press.addEventListener('click', () => pressed.push(when));
+    row.append(press);
+    page.body.append(row);
+  }
+
+  /* **THE SPELLING THAT DID IT IS THE ONE WITH NO YEAR.** `recipes.py` calls it
+   * the loosest thing in that file and keeps it knowingly; it is safe inside a
+   * row and was not safe nine levels above one. */
+  const theDay = ['11 Sep 2026', '11 Sep', '11-09-2026'];
+
+  check('three things on the page carry the word, the menu button and two rows',
+    (await door.find(BY_PRESSABLE_TEXT, 'Download')) === 3);
+  check('AND THE DAY NARROWS THEM TO THE ONE ROW, not to the menu button as well',
+    (await door.find(BY_PRESSABLE_TEXT, 'Download', true, 0, theDay)) === 1);
+  door.click(BY_PRESSABLE_TEXT, 'Download', true, theDay, true);
+  check('SO IT IS THE ROW THAT IS PRESSED, NOT THE BUTTON THAT SHUTS THE MENU',
+    pressed.length === 1 && pressed[0] === '11 Sept 2026, 10:20 AM');
+
+  /* **AND YESTERDAY'S ROW IS STILL REACHABLE BY ITS OWN DAY**, so this is a
+   * narrowing and not a rule that only ever finds the topmost. */
+  check('and yesterday is still reached by its own day',
+    (await door.find(BY_PRESSABLE_TEXT, 'Download', true, 0, ['10-09-2026'])) === 1);
+  /* **AND A DAY ON NO ROW FINDS NOTHING, rather than the heading that mentions
+   * it.** This is the whole check in one line. */
+  check('while a day that is only in the heading finds nothing at all',
+    (await door.find(BY_PRESSABLE_TEXT, 'Download', true, 0, ['146'])) === 0);
+  check('and nothing more was pressed', pressed.length === 1);
+}
+
 /* ------------------------------- the box a label names, not the label (A53) */
 
 {
@@ -670,6 +1030,49 @@ function everyDateBox(page) {
     (await door3.find(BY_THE_CONTROL_BESIDE, 'Select Date Range')) === 0);
 }
 
+{
+  /* **TYPING INTO THE BOX A LABEL NAMES (2026-09-15)** -- Flipkart's campaign
+   * search, whose Download stays off until a campaign is typed and chosen. */
+  const page = aPage();
+  const door = doorOn();
+  const row = thing('div');
+  const label = thing('span', 'Campaign ID');
+  const box = thing('input', '', { type: 'text', value: '' });
+  const heard = [];
+  box.addEventListener('input', () => heard.push('input'));
+  row.append(label, box);
+  page.body.append(row);
+  door.type_in(BY_THE_CONTROL_BESIDE, 'Campaign ID', true, [], '', '0PTESTCAMP001');
+  check('WORDS ARE TYPED INTO THE BOX A LABEL NAMES', box.value === '0PTESTCAMP001');
+  check('and the page is told, the way typing tells it', heard.length >= 1);
+  const page2 = aPage();
+  const door2 = doorOn();
+  page2.body.append(thing('div', 'Campaign ID'));
+  let refused = '';
+  try {
+    door2.type_in(BY_TEXT, 'Campaign ID', true, [], '', 'x');
+  } catch (wrong) {
+    refused = wrong.message;
+  }
+  check('and something that is not a box is never typed into, and says so',
+    refused.includes('nothing there can be typed into'));
+}
+
+{
+  /* **A LIST THAT PICKS ON BUTTON DOWN (2026-09-15)** -- Flipkart's campaign
+   * suggestion, measured on his page: a bare click selected nothing. */
+  const page = aPage();
+  const door = doorOn();
+  const suggestion = thing('div', 'ID 0PTESTCAMP001');
+  let picked = 0;
+  suggestion.addEventListener('mousedown', () => { picked += 1; });
+  page.body.append(suggestion);
+  door.click(BY_TEXT, '0PTESTCAMP001', false);
+  check('A PLAIN PRESS NEVER REACHES A LIST THAT PICKS ON BUTTON DOWN', picked === 0);
+  door.click(BY_TEXT, '0PTESTCAMP001', false, [], false, '', true);
+  check('while a press like a mouse does, once', picked === 1);
+}
+
 /* --------------------------------------------------------------- waiting */
 
 {
@@ -703,6 +1106,126 @@ function everyDateBox(page) {
   setTimeout(() => page.body.append(thing('button', 'Payments to Date')), 40);
   check('a second match arriving a moment later is counted, not missed',
     (await door.find(BY_TEXT, 'Payments to Date', true, 2)) === 2);
+}
+
+{
+  const page = aPage();
+  const door = doorOn();
+  /* **THE OTHER HALF OF THAT SETTLE, AND IT COST `me_payments` (2026-09-11).**
+   * The count taken after the settle used to be handed straight back -- nought
+   * included -- so a thing that was on the page and then was not ended the wait
+   * in a quarter of a second. A step allowed forty-five seconds spent 250
+   * milliseconds of them and reported "it is not on the page at all", which
+   * reads as a portal that has changed rather than a page still drawing.
+   *
+   * **THE MENU DOES NOT GO AWAY HERE, IT STOPS SAYING THE WORD**, which is the
+   * shape a portal redrawing itself actually has: the same place on the page,
+   * different words in it for a moment. */
+  const early = thing('span', 'Download');
+  page.body.append(early);
+  setTimeout(() => { early.textContent = 'Downloading 1 of 3'; }, 100);
+  setTimeout(() => page.body.append(thing('button', 'Download')), 600);
+  const startedAt = Date.now();
+  const many = await door.find(BY_TEXT, 'Download', true, 3);
+  check('a thing that stops matching before the settle is waited for, not called absent',
+    many === 1);
+  check('and the waiting really carried on past the settle',
+    Date.now() - startedAt >= 600);
+}
+
+/* ------------------------------------------- reading a number off a page */
+
+/* **MEASURED ON HIS OWN MEESHO DASHBOARD, 2026-09-11.** The card is built exactly
+ * like this: the label, the card's own day in brackets, the figure with a comma
+ * in it, and how much it moved as a percentage. */
+function aCard(label, day, figure, moved) {
+  const card = thing('div');
+  const head = thing('div');
+  head.append(thing('p', label), thing('span', day));
+  card.append(head, thing('p', figure), thing('span', moved));
+  return card;
+}
+
+{
+  const page = aPage();
+  const door = doorOn();
+  page.body.append(aCard('Views', '(10 Sep)', '34,877', '14.15%'));
+  check('the number a label names is read, commas and all',
+    (await door.read_number(BY_TEXT, 'Views')) === 34877);
+  /* **THE TWO THINGS IN THE SAME CARD THAT MUST NOT BE TAKEN.** The day is the
+   * card's own and the percentage is how much the figure moved -- either would
+   * be taken by a rule that merely looked for digits, and a wrong number is
+   * worse than none because nothing about it looks wrong afterwards. */
+  check('and the day in the card is not mistaken for it',
+    (await door.read_number(BY_TEXT, 'Views')) !== 10);
+  check('and neither is how much it moved',
+    (await door.read_number(BY_TEXT, 'Views')) !== 14);
+}
+
+{
+  const page = aPage();
+  const door = doorOn();
+  /* **THREE LEVELS UP THE TWO CARDS MERGE**, which is why the climb is two. A
+   * climb of three reads the views figure for orders, quietly. */
+  const both = thing('div');
+  both.append(aCard('Views', '(10 Sep)', '34,877', '14.15%'),
+    aCard('Orders', '(10 Sep)', '6', '2.00%'));
+  page.body.append(both);
+  check('two cards side by side are read apart, not together',
+    (await door.read_number(BY_TEXT, 'Views')) === 34877
+      && (await door.read_number(BY_TEXT, 'Orders')) === 6);
+}
+
+{
+  const page = aPage();
+  const door = doorOn();
+  /* **AND THE CLIMB REALLY STOPS AT TWO, WHICH THE CHECK ABOVE CANNOT SHOW.**
+   * There the number is found at two and the loop returns, so a longer climb
+   * would never be taken and raising the limit changes nothing. **This is the
+   * card that proves it:** its own two levels hold no number at all, and the
+   * block three levels up holds its NEIGHBOUR'S. A climb of three reads 34,877
+   * as the order count, silently, and a wrong number is worse than none because
+   * nothing about it looks wrong afterwards. */
+  const both = thing('div');
+  const mine = thing('div');
+  const head = thing('div');
+  head.append(thing('p', 'Orders'), thing('span', '(10 Sep)'));
+  mine.append(head);
+  const neighbour = thing('div');
+  neighbour.append(thing('p', '34,877'));
+  both.append(mine, neighbour);
+  page.body.append(both);
+  check("a card whose own levels hold no number refuses, rather than taking the next one's",
+    (await saidAfterWaiting(() => door.read_number(BY_TEXT, 'Orders')))
+      .includes('no plain number'));
+}
+
+{
+  const page = aPage();
+  const door = doorOn();
+  /* **HIS SIDEBAR CARRIES `Orders` TOO**, so the words alone match twice. */
+  page.body.append(thing('p', 'Orders'), aCard('Orders', '(10 Sep)', '6', '2.00%'));
+  check('a label that matches twice is refused rather than guessed at',
+    (await saidAfterWaiting(() => door.read_number(BY_TEXT, 'Orders'))).includes('2 things'));
+  /* **AND THE DAY THE CARD CARRIES IS WHAT TELLS THEM APART**, which is the same
+   * tool every other lookup here uses to say which row it means. */
+  check('and narrowed by the day the card carries, it reads the one that has it',
+    (await door.read_number(BY_TEXT, 'Orders', true, 0, ['10 Sep'])) === 6);
+}
+
+{
+  const page = aPage();
+  const door = doorOn();
+  page.body.append(thing('p', 'Views'));
+  check('a label with no number beside it says so, rather than saying not found',
+    (await saidAfterWaiting(() => door.read_number(BY_TEXT, 'Views')))
+      .includes('no plain number'));
+  const empty = aPage();
+  const door2 = doorOn();
+  check('and a label that is not there at all says that instead',
+    (await saidAfterWaiting(() => door2.read_number(BY_TEXT, 'Views')))
+      .includes('Nothing on the page matches'));
+  check('the page is there to be read', empty.body.tagName === 'body');
 }
 
 /* --------------------------------------------------------------- clicking */
@@ -1217,6 +1740,26 @@ function labelled(node, label) {
 }
 
 {
+  /* **AND THE REFUSAL CARRIES A MARK, NOT ONLY WORDS -- HIS RULING, 2026-09-14.**
+   * A day the portal has not built is "not available yet" rather than a failure,
+   * and the walk tells the two apart by this mark alone, so the sentence stays
+   * free to change. */
+  const page = aPage();
+  const door = doorOn();
+  const panel = aMonthPanel(2026, 8, { label: meeshoOrdersLabel, days: 31 });
+  page.body.append(panel);
+  labelled(panel, meeshoOrdersLabel(2026, 8, 26)).style.pointerEvents = 'none';
+  let thrown = null;
+  try {
+    await door.pick_range('2026-08-25', '2026-08-26');
+  } catch (wrong) {
+    thrown = wrong;
+  }
+  check('a day the portal has not built is marked as not available, not only described',
+    Boolean(thrown) && thrown.dayNotAvailable === true);
+}
+
+{
   /* **THE SECOND WAY THE SAME PORTAL SWITCHES A DAY OFF, WHICH THE CHECK ABOVE
    * CANNOT SEE AT ALL.** Confirmed with the browser's own tools on 2026-07-14,
    * a day later than the one above: a day genuinely outside the range gets a
@@ -1245,6 +1788,56 @@ function labelled(node, label) {
   check('and a day on that same calendar that keeps its pointer is still pressed',
     (await saidAfterWaiting(() => door.pick_range('2026-08-24', '2026-08-25', 0, true))) === ''
     && JSON.stringify(pressed) === JSON.stringify(['2026-08-24', '2026-08-25']));
+}
+
+{
+  /* **THE NEXT MONTH'S FIRST DAYS, DRAWN GREYED AT THE END OF THIS MONTH'S GRID.**
+   * Measured on his Flipkart traffic calendar, 2026-09-14: the `Sep 2026` panel
+   * reads `1 ... 30 1 2 3 4`, the spill-over days `cursor: not-allowed`, and
+   * asking for 09-01 refused on two "1"s. */
+  const spillOver = (switchOffTheRealOne = false) => {
+    const panel = aMonthPanel(2026, 9, { days: 30 });
+    for (const cell of everyDayCell(panel)) cell.style.cursor = 'pointer';
+    const grid = everyDayCell(panel)[0].parentNode;
+    for (let d = 1; d <= 4; d += 1) {
+      const next = thing('td', String(d));
+      next.style.cursor = 'not-allowed';
+      grid.append(next);
+    }
+    const real = everyDayCell(panel)[0];
+    if (switchOffTheRealOne) real.style.cursor = 'not-allowed';
+    return { panel, real, greyed: everyDayCell(panel)[30] };
+  };
+
+  {
+    const page = aPage();
+    const door = doorOn();
+    const { panel, real, greyed } = spillOver();
+    const hits = [];
+    real.addEventListener('click', () => hits.push('real'));
+    greyed.addEventListener('click', () => hits.push('greyed'));
+    page.body.append(panel);
+    check('a greyed spill-over day is not mistaken for the day asked for',
+      (await saidAfterWaiting(() => door.pick_range('2026-09-01', '2026-09-01', 0, true))) === ''
+      && hits.length > 0 && hits.every((one) => one === 'real'));
+  }
+  {
+    const page = aPage();
+    const door = doorOn();
+    const { panel } = spillOver();
+    page.body.append(panel);
+    check('and on a calendar the recipe says nothing about, two matches are still refused',
+      (await saidAfterWaiting(() => door.pick_range('2026-09-01', '2026-09-01'))).includes('2 things'));
+  }
+  {
+    const page = aPage();
+    const door = doorOn();
+    const { panel } = spillOver(true);
+    page.body.append(panel);
+    check('and when the real day is greyed too, it is switched off, not ambiguous',
+      (await saidAfterWaiting(() => door.pick_range('2026-09-01', '2026-09-01', 0, true)))
+        .includes('switched off'));
+  }
 }
 
 {
@@ -1347,6 +1940,98 @@ function labelled(node, label) {
   }));
   check('nor does the page own content, which is not laid over anything',
     door.overlays().length === 0);
+
+  /* **MEASURED ON HIS OWN FLIPKART SELLER INSIGHTS, 2026-09-21 (A58, Job 3).**
+   * The only full-window thing laid over that page was
+   * `div.styles__Backdrop-sc-93p85o-1`: fixed, 1280 x 529, and
+   * `visibility: hidden` with `opacity: 0` -- a drawer's backdrop kept ready,
+   * not shown. It made every miss on that page read "something is covering the
+   * page". A backdrop nobody can see, or that lets clicks through, covers
+   * nothing. */
+  const hiddenOne = (set) => {
+    page.body.replaceChildren();
+    const sheet = thing('div', '', {
+      box: { top: 0, bottom: 800, left: 0, right: 1280, width: 1280, height: 800 },
+    });
+    sheet.style.position = 'fixed';
+    set(sheet.style);
+    page.body.append(sheet);
+    return door.overlays().every((one) => one.blocks === false);
+  };
+  check('a full-window backdrop that is visibility:hidden does not block',
+    hiddenOne((s) => { s.visibility = 'hidden'; }));
+  check('nor one drawn with opacity 0',
+    hiddenOne((s) => { s.opacity = '0'; }));
+  check('nor one that lets every click through (pointer-events: none)',
+    hiddenOne((s) => { s.pointerEvents = 'none'; }));
+
+  /* **UNDER INVESTIGATION, JOB 3B, 2026-09-22 -- NOT YET NAMED AS THE CAUSE.**
+   * `fk_views` read "something is covering the page" again in the 03:30 timed
+   * sync, after Job 3's hidden-backdrop fix. Looking at what "sits over the
+   * whole page" measures: `position`, `visibility`, `opacity`, `pointer-events`
+   * and a box `width`/`height` at least 90% of the window -- **never where that
+   * box actually SITS**. A React picker kept mounted and moved off-screen
+   * (`transform: translate(-9999px, 0)`, or a large negative `left`) after its
+   * own "Done" is clicked -- which is exactly what `fk_views` presses right
+   * before this wait -- would still report a box that size and still pass
+   * every check here, though it swallows no click at all. **This is written
+   * down because it is a real gap, not because it is proved to be today's
+   * cause** -- his console line settles that. */
+  const offScreenOne = (left) => {
+    page.body.replaceChildren();
+    const sheet = thing('div', '', {
+      box: { top: 0, bottom: 800, left, right: left + 1280, width: 1280, height: 800 },
+    });
+    sheet.style.position = 'fixed';
+    page.body.append(sheet);
+    return door.overlays().every((one) => one.blocks === false);
+  };
+  check('a full-size backdrop moved off-screen does not block',
+    offScreenOne(-4000));
+
+  /* **THE EDGES OF THAT MEASUREMENT (EX1, 2026-10-03).** Only a box that does
+   * not overlap the window at all stops blocking. Anything that overlaps it
+   * still blocks what it covers, so nothing that blocked before stops. */
+  const placed = (box) => {
+    page.body.replaceChildren();
+    const sheet = thing('div', '', { box });
+    sheet.style.position = 'fixed';
+    page.body.append(sheet);
+    return door.overlays().some((one) => one.blocks === true);
+  };
+  const full = (left, top) => ({
+    top, bottom: top + 800, left, right: left + 1280, width: 1280, height: 800,
+  });
+  check('a full-size backdrop moved off to the right does not block', !placed(full(4000, 0)));
+  check('nor one moved above the window', !placed(full(0, -4000)));
+  check('nor one moved below it', !placed(full(0, 4000)));
+  check('nor one whose right edge only just touches the window edge', !placed(full(-1280, 0)));
+  check('a backdrop in its place still blocks', placed(full(0, 0)));
+  check('and one slid part-way off to the left still blocks what it covers',
+    placed(full(-640, 0)));
+  check('and one slid part-way off the top still blocks what it covers',
+    placed(full(0, -400)));
+  check('and one slid just a little off the window still blocks', placed(full(-100, -50)));
+  check('and one overhanging the window on every side still blocks',
+    placed({ top: -50, bottom: 850, left: -50, right: 1330, width: 1380, height: 900 }));
+  /* A box that gives a size and no position is judged by size, as it always was. */
+  check('a box that reports only its size is still judged by size',
+    placed({ width: 1280, height: 800 }));
+  /* An absolutely positioned one scrolled out of a container reads the same way
+   * as a translated one: its window position is off the window. */
+  page.body.replaceChildren();
+  const scrolledAway = thing('div', '', { box: full(0, -2400) });
+  scrolledAway.style.position = 'absolute';
+  page.body.append(scrolledAway);
+  check('an absolute backdrop scrolled out of the window does not block',
+    door.overlays().every((one) => one.blocks === false));
+  /* A dialog moved off-screen is still said to be there, but not to block. */
+  page.body.replaceChildren();
+  const parkedDialog = thing('div', 'Pick a date', { attrs: { role: 'dialog' }, box: full(-4000, 0) });
+  parkedDialog.style.position = 'fixed';
+  page.body.append(parkedDialog);
+  check('a dialog parked off-screen is still reported', door.overlays().length === 1);
+  check('but it does not block', door.overlays()[0].blocks === false);
 }
 
 {
@@ -1519,6 +2204,109 @@ function labelled(node, label) {
   check('and neither is one with nothing in it',
     theCatcherSaid({ source: theWindow, currentTarget: theWindow }, 'the-secret') === null);
   check('and neither is nothing at all', theCatcherSaid(null, 'the-secret') === null);
+
+  /* ---- AN ADDRESS IS NOT A FILE, AND IT IS NARROWED TWICE (2026-09-11)
+   *
+   * **THE BYTES OF A FILE CROSSED AS BYTES THE BROWSER ITSELF COPIED. AN
+   * ADDRESS IS A STRING THE PAGE CHOSE**, and the extension goes and fetches
+   * whatever it names with the seller's own cookies. An address nobody narrowed
+   * is a way to put anything at all into the seller's Drive under a real
+   * report's name -- the same harm as D135, by a shorter road. */
+  const saying = (address) => theCatcherSaid({
+    source: theWindow,
+    currentTarget: theWindow,
+    data: { kartaan: CAUGHT_A_FILE, secret: 'the-secret', address },
+  }, 'the-secret');
+
+  check('AN ADDRESS A REPORT REALLY COMES FROM IS BELIEVED',
+    saying('https://storage.googleapis.com/meesho-prod/inventory.xlsx?X-Goog-Signature=aa')
+      !== null);
+  /* **THE ONE MEASURED ON HIS OWN PANEL ON 11 SEPTEMBER 2026**, 884 characters
+   * of signed Google storage link behind a `target="_blank"` anchor. */
+  check('and so is the one his own Meesho panel really hands over',
+    aFileReallyComesFrom('https://storage.googleapis.com/x?y=1'));
+  check('and a Flipkart one is reached by its own name, not by the Meesho one',
+    aFileReallyComesFrom('https://seller-api.flipkart.com/a/b.csv'));
+  /* **THE LISTING FILE, MEASURED ON HIS OWN PANEL 2026-09-14** -- opened with
+   * `window.open(..., "_blank")`, which Chrome blocked while nothing took it. */
+  check('AND FLIPKART\'S LISTING FILE, BY ITS OWN PATH, IS BELIEVED',
+    saying('https://seller.flipkart.com/napi/listing/stockFileDownload?requestId=ab&fileName=S_listing.xls')
+      !== null);
+  check('while the portal\'s other addresses on the same name are still refused',
+    saying('https://seller.flipkart.com/napi/riddler/fetchAssignedQuestionsCount?x=1') === null);
+
+  /* **THE FORGERY THIS ONE STOPS.** Right page, right secret shape, right
+   * everything -- and an address belonging to whoever wrote the advert. */
+  check('AN ADDRESS THE PAGE CHOSE FOR ITSELF IS REFUSED, secret or no secret',
+    saying('https://an-advert.example.com/whatever.xlsx') === null);
+  check('and so is one on the portal own name, which is not where files come from',
+    saying('https://supplier.meesho.com/panel/v3/new/services/x/inventory') === null);
+  /* **AND NOT OVER A PLAIN CONNECTION.** A report fetched over `http:` can be
+   * replaced in flight by anything between here and there. */
+  check('and so is the same address without the secure connection',
+    saying('http://storage.googleapis.com/x?y=1') === null);
+  check('and so is one that is not an address at all',
+    saying('') === null && saying('javascript:alert(1)') === null);
+  /* **AND THE WORD IS NOT ENOUGH -- IT HAS TO BE THE HOST.** Otherwise anybody
+   * can put it in their own path. This is written down as a known limit rather
+   * than claimed as closed: the list matches anywhere in the address, which is
+   * the reference's own rule, and a host that ENDS in one of these names is what
+   * it really means. */
+  check('a file that merely mentions the name in its path is still taken -- a known limit',
+    saying('https://somewhere.example.com/storage.googleapis.com/x') !== null);
+
+  /* **AND A FILE STILL CROSSES AS A FILE**, untouched by any of this. */
+  check('and a message carrying a file rather than an address is unaffected',
+    theCatcherSaid(genuine, 'the-secret') !== null);
+}
+
+{
+  /* ---- A LINK THAT IS NOT ON THE LIST (HIS RULING, 2026-09-14)
+   *
+   * **HIS QUESTION:** what happens when a real report link is not on the list?
+   * Named when it is let go, and -- on the platform's own site only -- taken and
+   * kept only if the bytes really open as a spreadsheet. */
+  const bytesOf = (...numbers) => new Uint8Array(numbers);
+  const textOf = (text) => new TextEncoder().encode(text);
+  check('AN .xlsx (A ZIP) OPENS AS A SPREADSHEET', looksLikeASpreadsheet(bytesOf(0x50, 0x4b, 0x03, 0x04, 1, 2)));
+  check('and so does an old .xls', looksLikeASpreadsheet(bytesOf(0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1)));
+  check('and so does a CSV', looksLikeASpreadsheet(textOf('Order ID,SKU,Quantity\nOD1,DJ-5,1\n')));
+  check('A WEB PAGE DOES NOT, whatever the server called it',
+    !looksLikeASpreadsheet(textOf('<!doctype html><html><body>Sign in</body></html>')));
+  check('nor does plain text with no columns', !looksLikeASpreadsheet(textOf('hello\nworld\n')));
+  check('nor does nothing at all', !looksLikeASpreadsheet(new Uint8Array(0)) && !looksLikeASpreadsheet(null));
+
+  const flipkartPage = 'https://seller.flipkart.com/index.html#dashboard/listings-management';
+  check('A LINK ON FLIPKART\'S OWN SITE, ASKED FROM A FLIPKART PAGE, IS ON THE PLATFORM\'S OWN SITE',
+    onThePlatformsOwnSite('https://seller.flipkart.com/napi/listing/somethingNew?x=1', flipkartPage));
+  check('but not when the page asking is Meesho\'s',
+    !onThePlatformsOwnSite('https://seller.flipkart.com/napi/x', 'https://supplier.meesho.com/panel/v3/new/'));
+  check('and never another site, whatever page asks',
+    !onThePlatformsOwnSite('https://files.example.com/report.xls', flipkartPage));
+  check('and never over a plain connection',
+    !onThePlatformsOwnSite('http://seller.flipkart.com/napi/x', 'http://seller.flipkart.com/index.html'));
+
+  const theSameWindow = {};
+  const asTheCatcherSaysIt = (address, origin) => theCatcherSaid({
+    source: theSameWindow, currentTarget: theSameWindow, origin,
+    data: { kartaan: CAUGHT_A_FILE, secret: 's', address },
+  }, 's');
+  const unlisted = asTheCatcherSaysIt('https://seller.flipkart.com/napi/listing/somethingNew', 'https://seller.flipkart.com');
+  check('A NEW LINK ON THE SAME SITE IS BELIEVED ONLY AS SOMETHING STILL TO BE PROVED A SPREADSHEET',
+    unlisted !== null && unlisted.mustBeASpreadsheet === true);
+  check('while a new link on another site is still refused outright',
+    asTheCatcherSaysIt('https://files.example.com/report.xls', 'https://seller.flipkart.com') === null);
+  const listed = asTheCatcherSaysIt('https://storage.googleapis.com/x.xlsx', 'https://supplier.meesho.com');
+  check('and a link on the list is believed as before, with nothing added to prove',
+    listed !== null && listed.mustBeASpreadsheet === undefined);
+
+  check('NOTHING LET GO SAYS NOTHING', whatThePageTriedToOpen([]) === '' && whatThePageTriedToOpen(null) === '');
+  const named = whatThePageTriedToOpen(['https://files.example.com/report.xls?token=the-key', 'not an address']);
+  check('A LINK LET GO IS NAMED IN A FAILURE -- WITHOUT THE KEY AFTER THE ?',
+    named.includes('https://files.example.com/report.xls') && !named.includes('the-key'));
+  const { readFileSync: readIt } = await import('node:fs');
+  check('and the catcher spells "a link it did not take" exactly as this file does',
+    readIt(new URL('./catch-blob.js', import.meta.url), 'utf8').includes(`'${DECLINED_A_LINK}'`));
 }
 
 
@@ -1538,7 +2326,227 @@ function labelled(node, label) {
     theExtensionIsGone({ id: 'aaaabbbbccccddddeeeeffffgggghhhh' }) === null);
 }
 
-const EXPECTED = 182;
+
+/* ------------- a thing drawn rather than pressed, and the press that walks up */
+
+{
+  /* **HIS OWN ADS REPORT, 2026-09-14: `found[0].click is not a function`.** A
+   * calendar's month arrow is drawn as a picture, and the innermost thing
+   * carrying it is an `<svg>`. **`click()` is a method of HTML elements and an
+   * SVG element has none**, so pressing the innermost thing threw a JavaScript
+   * error -- and what reached the seller was a sentence about a function, naming
+   * no report, no page and no control.
+   *
+   * **WALKING UP IS WHAT A PERSON'S CLICK DOES.** A picture inside a button is
+   * not the button. */
+  const page = aPage();
+  const door = doorOn();
+  const pressed = [];
+  const button = thing('button');
+  const picture = thing('svg', 'Submit');
+  picture.style.cursor = 'pointer';
+  delete picture.click;
+  Object.defineProperty(picture, 'click', { value: undefined, configurable: true });
+  button.click = () => pressed.push('the button');
+  button.append(picture);
+  page.body.append(button);
+
+  check('a picture with the words on it is what the innermost rule finds',
+    (await door.find(BY_PRESSABLE_TEXT, 'Submit')) === 1);
+  door.click(BY_PRESSABLE_TEXT, 'Submit');
+  check('and the press goes to the button around it, not to the picture',
+    pressed.length === 1 && pressed[0] === 'the button');
+}
+
+{
+  /* **AND WHEN NOTHING AROUND IT CAN BE PRESSED, IT SAYS SO NAMING THE TAG**
+   * rather than throwing a language error at a seller. */
+  const page = aPage();
+  const door = doorOn();
+  const picture = thing('svg', 'Submit');
+  picture.style.cursor = 'pointer';
+  Object.defineProperty(picture, 'click', { value: undefined, configurable: true });
+  Object.defineProperty(page.body, 'click', { value: undefined, configurable: true });
+  page.body.append(picture);
+  let said = '';
+  try { door.click(BY_PRESSABLE_TEXT, 'Submit'); } catch (wrong) { said = wrong.message; }
+  check('nothing pressable anywhere is a sentence, not a crash about a function',
+    said.includes('drawn rather than pressed') && said.includes('<svg>'));
+  check('and it never says anything about a function',
+    !said.includes('is not a function'));
+}
+
+
+/* ------------ an ambiguous refusal names where each match sits (A58) */
+
+{
+  /* **HIS OWN ADS FSN REPORT, 2026-09-14.** It refused saying *"2 things match
+   * Consolidated FSN Report"* -- and by hand, on the same page, there was one.
+   * The page the walk kept did not contain the words at all, so a count and
+   * nothing else could only be answered by guessing. **The refusal now carries
+   * the shape of each match, and nothing of the page's own words.** */
+  const page = aPage();
+  const door = doorOn();
+  const list = thing('div', '', { attrs: { id: 'popover-content' } });
+  const option = thing('div', 'Consolidated FSN Report');
+  option.style.cursor = 'pointer';
+  list.append(option);
+  const shown = thing('div', '', { attrs: { role: 'status' } });
+  const echo = thing('span', 'Consolidated FSN Report');
+  echo.style.cursor = 'pointer';
+  shown.append(echo);
+  page.body.append(list, shown);
+  let said = '';
+  try { door.click(BY_PRESSABLE_TEXT, 'Consolidated FSN Report'); } catch (wrong) { said = wrong.message; }
+  check('an ambiguous refusal still says how many matched',
+    said.includes('2 things on the page match'));
+  check('and names where each one sits, so the next run is a measurement',
+    said.includes('#popover-content') && said.includes('role=status'));
+}
+
+{
+  /* ---- BANNERS AND POP-UPS (HIS RULING, 2026-09-14)
+   *
+   * **HIS WORDS:** banners "come and go very frequently. So your code has to be
+   * that fast." A red banner on his returns page was gone before anybody read
+   * it. Banners are kept by their words the moment they are drawn; pop-ups are
+   * shut by a control that says it closes something, never in the top bar. */
+  const alert = thing('div', 'Report is requested successfully.', { attrs: { role: 'alert' }, box: BIG });
+  check('A BANNER THAT SAYS IT IS AN ALERT IS READ',
+    whatABannerSays(alert) === 'Report is requested successfully.');
+  const toast = thing('div', 'Report has already been requested',
+    { className: 'styles__Toast-sc-1 red', box: BIG });
+  check('and so is one named like a toast, however the page styles it',
+    whatABannerSays(toast) === 'Report has already been requested');
+  check('while an ordinary piece of the page is not a banner',
+    whatABannerSays(thing('div', 'Date of Closure', { box: BIG })) === '');
+  const topBar = thing('header', '', { box: BIG });
+  const bell = thing('div', '3 new notifications', { className: 'notification-count', box: BIG });
+  topBar.append(bell);
+  check('and nothing in the top bar counts, though its bell is named like one',
+    whatABannerSays(bell) === '');
+
+  const recorder = aBannerRecorder({ now: () => 7 });
+  const page = aPage();
+  const holder = thing('div', '', { box: BIG });
+  const flash = thing('div', 'Something went wrong. Please try again', { attrs: { role: 'status' }, box: BIG });
+  holder.append(flash);
+  page.body.append(holder);
+  recorder.look(holder);
+  flash.remove();
+  check('A BANNER THAT CAME AND WENT AT ONCE IS STILL KEPT, WORDS ONLY',
+    recorder.seen().length === 1 && recorder.seen()[0].words === 'Something went wrong. Please try again');
+  recorder.look(flash);
+  check('and the same banner seen twice in a row is kept once', recorder.seen().length === 1);
+
+  const withAPopUp = aPage();
+  const door = doorOn();
+  const bar = thing('header', '', { box: BIG });
+  const barClose = thing('button', '', { attrs: { 'aria-label': 'Close' }, box: BIG });
+  bar.append(barClose);
+  const dialog = thing('div', '', { attrs: { role: 'dialog' }, box: BIG });
+  const dialogClose = thing('button', '', { attrs: { 'aria-label': 'Close' }, box: BIG });
+  dialog.append(dialogClose);
+  withAPopUp.body.append(bar, dialog);
+  const pressedWhich = [];
+  barClose.addEventListener('click', () => pressedWhich.push('top bar'));
+  dialogClose.addEventListener('click', () => { pressedWhich.push('dialog'); dialog.remove(); });
+  const closed = door.close_pop_ups();
+  check('A POP-UP\'S OWN CLOSE BUTTON IS PRESSED BEFORE THE FIRST STEP', pressedWhich.includes('dialog'));
+  check('BUT NOTHING IN THE TOP BAR IS EVER PRESSED', !pressedWhich.includes('top bar'));
+  check('and it says what it closed', closed.length === 1);
+
+  const nothingToClose = aPage();
+  const quietDoor = doorOn();
+  const okButton = thing('button', 'OK', { box: BIG });
+  let okPressed = false;
+  okButton.addEventListener('click', () => { okPressed = true; });
+  nothingToClose.body.append(okButton);
+  check('and a button that merely says "OK" is never pressed',
+    quietDoor.close_pop_ups().length === 0 && !okPressed);
+
+  /* **MEASURED ON HIS OWN MEESHO PANEL, 2026-09-16.** The promotion that stopped
+   * `me_views` is laid over the whole window and its only way out is a picture of
+   * a cross: an `<img src=".../cross-grey.svg">` with no label, no role and no
+   * pointer cursor. Every rule here asked the page to SAY it closed something. */
+  const withACross = aPage();
+  const crossDoor = doorOn();
+  const promo = thing('div', '', { className: 'fixed inset-0 z-modal', box: BIG });
+  const cross = thing('img', '', { attrs: { src: 'https://x.com/merlin/lined/cross-grey.svg' }, box: BIG });
+  const takePart = thing('button', 'Participate Now', { box: BIG });
+  promo.append(cross, takePart);
+  withACross.body.append(promo);
+  let crossPressed = false;
+  let tookPart = false;
+  cross.addEventListener('click', () => { crossPressed = true; promo.remove(); });
+  takePart.addEventListener('click', () => { tookPart = true; });
+  const shut = crossDoor.close_pop_ups();
+  check('A PROMOTION WHOSE ONLY WAY OUT IS A PICTURE OF A CROSS IS SHUT',
+    crossPressed && shut.length === 1);
+  check('and nothing that would join the promotion is ever pressed', !tookPart);
+
+  /* The reference's own text route (`content/meesho.js:301`), and the reason it
+   * is kept inside an overlay: a bare "x" on a portal page could be anything. */
+  const withWords = aPage();
+  const wordDoor = doorOn();
+  const sheet = thing('div', '', { attrs: { role: 'dialog' }, box: BIG });
+  const later = thing('span', 'Maybe later', { box: BIG });
+  sheet.append(later);
+  const looseX = thing('span', 'x', { box: BIG });
+  withWords.body.append(sheet, looseX);
+  let saidLater = false;
+  let looseXPressed = false;
+  later.addEventListener('click', () => { saidLater = true; sheet.remove(); });
+  looseX.addEventListener('click', () => { looseXPressed = true; });
+  const byWords = wordDoor.close_pop_ups();
+  check('a way out named in words inside an overlay is pressed',
+    saidLater && byWords.length === 1);
+  check('and the same word loose on the page is left alone', !looseXPressed);
+}
+
+{
+  /* **THE PASSWORD BOX IS CLICKED FIRST, THEN LOG IN -- HIS RULING, 2026-09-16.**
+   * *"Try to click on the password box; if a password is saved it will pop up,
+   * and then click the login button. If able to login continue with the job,
+   * else send notification and wait for resume."* Chrome offers a saved password
+   * on the box it belongs to, so clicking the email box first fills the address,
+   * leaves the password empty, and presses Log in on a form that cannot pass. */
+  const loginPage = aPage();
+  const door = doorOn();
+  const form = thing('form', '', { box: BIG });
+  const email = thing('input', '', { type: 'text', box: BIG });
+  const password = thing('input', '', { type: 'password', box: BIG });
+  const logIn = thing('button', 'Log in', { box: BIG });
+  form.append(email, password, logIn);
+  loginPage.body.append(form);
+  const order = [];
+  email.addEventListener('click', () => order.push('email box'));
+  password.addEventListener('click', () => order.push('password box'));
+  logIn.addEventListener('click', () => {
+    order.push('Log in');
+    /* What a saved password getting through looks like: the wall is gone. */
+    password.remove();
+  });
+  check('the page counts as asking to be signed in to', door.needs_signing_in() === true);
+  const signedIn = await door.try_signing_in();
+  check('THE PASSWORD BOX IS PRESSED FIRST, AND THE EMAIL BOX IS NOT',
+    order[0] === 'password box' && !order.includes('email box'));
+  check('and the Log in button is pressed after it', order[1] === 'Log in');
+  check('and a sign-in that got through is answered as signed in, so the job carries on',
+    signedIn === true && door.needs_signing_in() === false);
+
+  /* Still walled: it answers no, and the walk pauses and asks the seller. */
+  const stillOut = aPage();
+  const shutDoor = doorOn();
+  const shutForm = thing('form', '', { box: BIG });
+  shutForm.append(thing('input', '', { type: 'password', box: BIG }),
+    thing('button', 'Log in', { box: BIG }));
+  stillOut.body.append(shutForm);
+  check('a sign-in that did not get through is answered as still signed out',
+    (await shutDoor.try_signing_in()) === false);
+}
+
+const EXPECTED = 309;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

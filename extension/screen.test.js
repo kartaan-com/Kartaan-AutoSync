@@ -54,7 +54,16 @@ import {
   THE_NIGHTS,
   THE_PANEL_ASKS,
   THROUGH_THE_BROWSER,
+  alreadyCarriedOn,
   answerThePanelsQuestion,
+  askingFirst,
+  markCarriedOn,
+  startTheNextPlatform,
+  startTheScheduledSync,
+  theSignInAlert,
+  theSyncSummary,
+  theDaysBetween,
+  whyThatRangeCannotBeFetched,
   askedForToday,
   buildThePanel,
   howItStands,
@@ -63,12 +72,15 @@ import {
   rememberTheNight,
   saySomething,
   showHowItStands,
+  whenItNextWakes,
   theDay,
   theDayToFetch,
+  whyThatDayCannotBeFetched,
   theNights,
   thePlatformOf,
   thePlatformOfTheNight,
   theSetup,
+  theTimedList,
   AS_LONG_AS_A_PANEL_NAME_GETS,
   whatIsTicked,
   whatTheBannerSays,
@@ -211,6 +223,177 @@ check('nothing the panel may ask for is also something the page half may ask for
     && asked.length === (RELAY_TO_THE_PAGE ? 4 : 3));
 }
 
+{
+  /* **A53: THE EXTENSION RELOADS ITSELF WHEN ASKED -- NEVER IN THE MIDDLE OF A RUN.** */
+  const { chrome } = installFakeChrome();
+  let reloads = 0;
+  chrome.runtime.reload = () => { reloads += 1; };
+  const parts = { book: { recipes: {} }, later: (fn) => fn() };
+  await startTheNight(chrome, { doing: ['fk_claims'], mayAskFor: 0, at: 1, openAt: 'https://x/' });
+  const refused = await answerThePanelsQuestion(chrome, parts, { do: 'reload-the-extension' });
+  check('a reload asked for while a run is going is refused',
+    String(refused && refused.wrong).includes('run is going') && reloads === 0);
+  await endTheNight(chrome, { at: 2, why: 'done' });
+  const done = await answerThePanelsQuestion(chrome, parts, { do: 'reload-the-extension' });
+  check('and once nothing is going, the extension reloads itself',
+    done && done.reloading === true && reloads === 1);
+}
+
+/* **A53: THE TWO DATE BOXES -- HIS ASK, 2026-09-16.** */
+{
+  const now = Date.UTC(2026, 8, 16, 3, 0);
+  check('a range whose first day is after its last is refused, saying which box to change',
+    whyThatRangeCannotBeFetched('2026-09-10', '2026-09-01', now).includes('is after'));
+  check('a range longer than a month is refused, saying how many days it was',
+    whyThatRangeCannotBeFetched('2026-06-01', '2026-09-01', now).includes('93 days'));
+  check('a range that has not happened yet is refused as a single day is',
+    whyThatRangeCannotBeFetched('2026-09-14', '2026-09-30', now).includes('not over yet'));
+  check('and a good range becomes every day in it, oldest first',
+    theDaysBetween('2026-09-13', '2026-09-15').join() === '2026-09-13,2026-09-14,2026-09-15');
+}
+
+/* **A53: THE END-OF-SYNC NOTIFICATION, RUMEE'S "SYNC COMPLETE".** */
+{
+  const said = theSyncSummary({
+    startedAt: 1,
+    finishedAt: 2,
+    done: [
+      { reportId: 'fk_claims', state: 'landed' },
+      { reportId: 'me_returns', state: 'failed', say: 'Nothing began downloading in 30 seconds' },
+      { reportId: 'me_orders', state: 'needs-you', dataDate: '2026-09-10' },
+    ],
+  });
+  check('the end-of-sync notification says what landed and names each failure with its reason',
+    said.message.startsWith('1 landed, 1 failed: me_returns (Nothing began downloading in 30 seconds)')
+    && said.message.includes('me_orders for 2026-09-10 needs you')
+    && said.title.includes('with problems'));
+}
+
+/* **A53: A SYNC ASKS FOR THE REPORTS THAT MUST BE REQUESTED FIRST, RUMEE'S ORDER.** */
+check('a sync puts the reports that must be requested first, keeping the rest in order',
+  askingFirst({
+    recipes: { a: { toTake: [1] }, b: { toAsk: [1], toTake: [1] }, c: { toTake: [1] } },
+  }, ['a', 'b', 'c']).join() === 'b,a,c');
+
+/* **A53: AND A REPORT THAT READS ANOTHER'S FILE COMES AFTER IT** -- the live sync of
+ * 2026-09-16 ran `fk_ads_overall` before `fk_ads_daily` and fetched nothing. */
+check('a report that reads another report\'s file is fetched after it',
+  askingFirst(BOOK, ['fk_ads_overall', 'fk_ads_daily']).join() === 'fk_ads_daily,fk_ads_overall');
+
+{
+  /* **A60, JOB 5 -- HIS DECISION B (2026-09-21): THE TIMED SYNC KEEPS ITS OWN LIST.**
+   * By default every report that needs downloading, Flipkart and Meesho; the Run now
+   * ticks are for a one-off run and never change it. On 09-18..09-20 two ticked ad
+   * reports became the whole daily sync, and no Meesho ran at all. */
+  const every = (platform) => (BOOK.reports || [])
+    .filter((one) => one.platform === platform && (BOOK.recipes || {})[one.id]
+      && one.id !== 'fk_keywords')
+    .map((one) => one.id);
+  check('the default timed list leaves out fk_keywords (his decision E)',
+    !theTimedList(BOOK, { timed: null }).includes('fk_keywords')
+    && theTimedList(BOOK, { timed: null }).length > 0);
+  const { chrome } = installFakeChrome();
+  const started = [];
+  const parts = {
+    book: BOOK,
+    now: () => Date.UTC(2026, 8, 16, 3, 0),
+    startTheNight: async (c, how) => { started.push(how.doing); return startTheNight(c, how); },
+    carryOn: async () => {},
+  };
+  await answerThePanelsQuestion(chrome, parts, { do: 'save-the-panel-name', panel: 'xuptj' });
+  await answerThePanelsQuestion(chrome, parts, { do: 'check-the-drive' });
+  const fresh = await howItStands(chrome, { book: BOOK, now: Date.UTC(2026, 8, 16, 3, 0) });
+  check('a fresh install\'s timed list is the full list',
+    Boolean(fresh.timed) && fresh.timed.flipkart === every('flipkart').length
+    && fresh.timed.meesho === every('meesho').length && every('meesho').length > 0);
+  check('and the panel says it: "The timed sync will fetch: N reports (Flipkart x, Meesho y)"',
+    Boolean(fresh.timed) && fresh.timed.said === `The timed sync will fetch: `
+      + `${every('flipkart').length + every('meesho').length} reports `
+      + `(Flipkart ${every('flipkart').length}, Meesho ${every('meesho').length})`);
+  await answerThePanelsQuestion(chrome, parts, { do: 'save-the-ticks', reportIds: ['fk_claims'] });
+  const after = await howItStands(chrome, { book: BOOK, now: Date.UTC(2026, 8, 16, 3, 0) });
+  check('Run now ticks do not change the timed list',
+    Boolean(after.timed) && after.timed.said === (fresh.timed && fresh.timed.said));
+  const first = await startTheScheduledSync(chrome, parts);
+  check('and the timed sync runs every Flipkart report, not the one tick',
+    Boolean(first.started) && [...first.started].sort().join() === [...every('flipkart')].sort().join());
+  await endTheNight(chrome, { at: Date.UTC(2026, 8, 16, 3, 30), why: 'Every report was reached.' });
+  const second = await startTheNextPlatform(chrome, parts);
+  check('then every Meesho report, though none was ticked',
+    Boolean(second.started) && [...second.started].sort().join() === [...every('meesho')].sort().join());
+}
+
+{
+  /* **A53: THE SCHEDULED SYNC RUNS ONE PLATFORM AFTER ANOTHER.** Since A60 it runs
+   * the timed list, set here as a stored list of two; the ticks no longer feed it. */
+  const { chrome } = installFakeChrome();
+  const started = [];
+  const parts = {
+    book: BOOK,
+    now: () => Date.UTC(2026, 8, 16, 3, 0),
+    startTheNight: async (c, how) => { started.push(how.doing); return startTheNight(c, how); },
+    carryOn: async () => {},
+  };
+  await answerThePanelsQuestion(chrome, parts, { do: 'save-the-panel-name', panel: 'xuptj' });
+  await answerThePanelsQuestion(chrome, parts, { do: 'check-the-drive' });
+  const unknown = await answerThePanelsQuestion(chrome, parts, {
+    do: 'save-the-ticks', reportIds: ['not_a_report'],
+  });
+  check('ticks naming a report that does not exist are refused',
+    String(unknown && unknown.wrong).includes('not_a_report'));
+  await answerThePanelsQuestion(chrome, parts, {
+    do: 'save-the-ticks', reportIds: ['me_orders', 'fk_claims'],
+  });
+  check('the ticks are saved for Run now',
+    (await theSetup(chrome)).ticked.join() === 'me_orders,fk_claims');
+  const held = (await chrome.storage.local.get('kartaan-autosync-setup'))['kartaan-autosync-setup'];
+  await chrome.storage.local.set({
+    'kartaan-autosync-setup': { ...held, ticked: [], timed: ['me_orders', 'fk_claims'] },
+  });
+  const first = await startTheScheduledSync(chrome, parts);
+  check('the scheduled sync starts with Flipkart, running only its own list',
+    first.started && first.started.join() === 'fk_claims' && started.length === 1);
+  const whileGoing = await startTheNextPlatform(chrome, parts);
+  check('and the next platform waits while that sync is going',
+    whileGoing.waiting === true && started.length === 1);
+  await endTheNight(chrome, { at: Date.UTC(2026, 8, 16, 3, 30), why: 'Every report was reached.' });
+  const second = await startTheNextPlatform(chrome, parts);
+  check('then Meesho starts when Flipkart has ended',
+    second.started && second.started.join() === 'me_orders' && started.length === 2);
+  check('and a sync knows which of its reports can be fetched for a past day',
+    ((await theNight(chrome)).canGoBack || []).includes('me_orders'));
+}
+
+{
+  /* **A53: A SYNC PAUSED FOR A SIGN-IN ASKS FOR IT, AND RESUME CARRIES ON FROM
+   * THAT REPORT -- RUMEE'S RESUME SYNC.** */
+  const { chrome } = installFakeChrome();
+  const started = [];
+  const parts = {
+    book: BOOK,
+    now: () => Date.UTC(2026, 8, 16, 3, 0),
+    startTheNight: async (c, how) => { started.push(how.doing); return startTheNight(c, how); },
+    carryOn: async () => {},
+  };
+  await answerThePanelsQuestion(chrome, parts, { do: 'save-the-panel-name', panel: 'xuptj' });
+  await answerThePanelsQuestion(chrome, parts, { do: 'check-the-drive' });
+  const nothing = await answerThePanelsQuestion(chrome, parts, { do: 'resume' });
+  check('resume with nothing paused says so', String(nothing && nothing.wrong).includes('Nothing is paused'));
+  await chrome.storage.local.set({
+    'kartaan-autosync-paused': { reportIds: ['fk_claims', 'fk_ads_daily'], dataDate: '2026-09-15', at: 5 },
+  });
+  const stands = await howItStands(chrome, { book: BOOK, now: Date.UTC(2026, 8, 16, 3, 0) });
+  check('the panel asks the seller to sign in while a sync is paused',
+    whatTheBannerSays(stands).said.startsWith('Sign in needed'));
+  check('and the notification names the platform',
+    theSignInAlert(BOOK, stands.paused).title.includes(CALLED.flipkart));
+  const resumed = await answerThePanelsQuestion(chrome, parts, { do: 'resume' });
+  check('resume carries on from the report that met the sign-in, for the same day',
+    Boolean(resumed && resumed.started) && [...started[0]].sort().join() === 'fk_ads_daily,fk_claims'
+    && (await theNight(chrome)).dataDate === '2026-09-15'
+    && !(await chrome.storage.local.get('kartaan-autosync-paused'))['kartaan-autosync-paused']);
+}
+
 /* **THE WHOLE GATE ABOVE RESTS ON ONE MANIFEST KEY, AND NOTHING SAID SO UNTIL AN
  * INDEPENDENT REVIEWER LOOKED.** `sender.url` for a content script in a SUB-FRAME
  * is that frame's address -- so a portal page that could put `panel.html` in a
@@ -246,7 +429,7 @@ check('panel.html is not something a portal page is allowed to load',
 check('the manifest declares something to press', Boolean(MANIFEST.action));
 check('and no popup, because he asked for a page', !(MANIFEST.action || {}).default_popup);
 check('the panel needs no permission the manifest did not already have',
-  MANIFEST.permissions.join(',') === 'alarms,storage,downloads,scripting,identity');
+  MANIFEST.permissions.join(',') === 'alarms,storage,downloads,scripting,identity,notifications');
 check('the page the manifest opens and the page the worker believes are one name',
   PANEL_HTML.includes('panel.js') && THE_PANEL === 'panel.html');
 
@@ -365,12 +548,17 @@ check('Amazon is not fetched through the browser at all',
    * page nothing is listening in, and it would stall for ever, at night.
    * **Asked as a match rather than as equality**, because the address is now a
    * whole page and the manifest holds patterns. */
-  const runsOn = (address) => MANIFEST.content_scripts[0].matches
+  /* **FOUND BY WHAT IT RUNS, NOT BY BEING FIRST IN THE LIST.** This read the
+   * first content script, which was the page half -- until 2026-09-14, when the
+   * early Flipkart catcher was put in front of it (his decision, Rumee's way).
+   * A check that means "the page half" has to ask for the page half. */
+  const thePageHalf = MANIFEST.content_scripts.find((one) => (one.js || []).includes('content.js'));
+  const runsOn = (address) => thePageHalf.matches
     .some((one) => address.startsWith(one.replace(/\*$/, '')));
   check('and it is a page the content script actually runs on',
     runsOn(meesho) && runsOn(flipkart));
   check('a report with no recipe says nowhere rather than guessing',
-    whereToStartFrom(BOOK, ['me_views']) === '');
+    whereToStartFrom(BOOK, ['me_ads']) === '');
   /* **AN ADDRESS WITH A HOLE IN IT IS NOWHERE.** Filled with no panel name the
    * Meesho address becomes `.../fulfillment//orders/`, which Meesho does not
    * know -- and an address Meesho does not know is answered with the marketing
@@ -394,8 +582,20 @@ check('Amazon is not fetched through the browser at all',
     (no({ reportIds: ['me_orders'] }) || '').includes('fulfillment/'));
   check('a Meesho run with a panel name is allowed',
     no({ reportIds: ['me_orders'], panel: 'mine' }) === null);
-  check('a report this door cannot fetch at all is refused by name',
-    (no({ reportIds: ['me_views'] }) || '').includes('me_views'));
+  /* **THE KEYWORDS WERE THE LAST REPORT THIS DOOR COULD NOT FETCH, AND SINCE
+   * 2026-09-15 THEY CAN BE**, so they are allowed like any other. */
+  check('the keywords, now built, can be started like any other report',
+    no({ reportIds: ['fk_keywords'] }) === null);
+  /* **AND `me_views` IS NO LONGER ONE OF THEM, which is the point of the change
+   * on 2026-09-11.** The door learned to read a number off a card and to add a
+   * row to a running list, so the one report Meesho sells no export of became
+   * fetchable. It needs the panel name like every other Meesho report. */
+  check('and the views card can be ticked now, like any other Meesho report',
+    no({ reportIds: ['me_views'], panel: 'mine' }) === null);
+  /* **AND THE ADS SWEEP CAN BE TICKED TOO**, which is the change of 2026-09-11:
+   * it asks Meesho's own addresses rather than pressing anything. */
+  check('and so can the ads sweep, which asks rather than presses',
+    no({ reportIds: ['me_ads'], panel: 'mine' }) === null);
 }
 
 /* ------------------------------------------------- the seller's twenty a day */
@@ -448,8 +648,18 @@ check('the allowance is twenty, and it is a number a program can read',
    * cannot fail for the thing it is named for, which is this register's most
    * expensive repeated fault. */
   const { chrome } = installFakeChrome();
-  const lateLastNight = new Date(2026, 8, 8, 23, 55).getTime();
-  const earlyToday = new Date(2026, 8, 9, 0, 10).getTime();
+  /* **RELATIVE TO TODAY, NOT FIXED DATES (EX1, 2026-10-03).** This used 2026-09-08
+   * and 09, and the ledger only keeps the last fourteen days from the real clock
+   * (`screen.js` KEEP_THE_LAST_DAYS), so from about 2026-09-23 the filed ledger came
+   * back empty and this went red on every run -- a check that had stopped being
+   * able to pass, not one that caught a fault. Five minutes before and ten minutes
+   * after the real midnight is the same night across the same midnight. */
+  const midnight = new Date();
+  midnight.setHours(0, 0, 0, 0);
+  const lateLastNight = midnight.getTime() - 5 * 60 * 1000;
+  const earlyToday = midnight.getTime() + 10 * 60 * 1000;
+  const lastNightsDay = theDay(lateLastNight);
+  const todaysDay = theDay(earlyToday);
   await startTheNight(chrome, {
     doing: ['fk_orders', 'fk_returns'], mayAskFor: 4, at: lateLastNight,
     openAt: 'https://seller.flipkart.com',
@@ -459,7 +669,7 @@ check('the allowance is twenty, and it is a number a program can read',
   await oneWasAskedFor(chrome, { at: earlyToday });
   const night = await theNight(chrome);
   check('every request is stamped with the day it was actually spent on',
-    night.spentOn['2026-09-08'] === 1 && night.spentOn['2026-09-09'] === 2);
+    night.spentOn[lastNightsDay] === 1 && night.spentOn[todaysDay] === 2);
   check('and the night\'s own total still agrees with them', night.spent === 3);
   check('so the panel shows only what went out today, not the whole night',
     askedForToday({ flipkartAskedOn: {}, byPlatform: {}, filedNight: 0 },
@@ -471,7 +681,7 @@ check('the allowance is twenty, and it is a number a program can read',
   await rememberTheNight(chrome, { book: BOOK });
   const led = (await theNights(chrome)).flipkartAskedOn;
   check('and the ledger is split across the two days when it is filed',
-    led['2026-09-08'] === 1 && led['2026-09-09'] === 2);
+    led[lastNightsDay] === 1 && led[todaysDay] === 2);
 }
 
   check('a run may spend only what is left of the day',
@@ -567,6 +777,37 @@ check('the allowance is twenty, and it is a number a program can read',
     stored()[THE_NIGHTS].filedNight === 5000);
 }
 
+/* ------------------------------------------------ carryOn's own once (Job 7) */
+
+{
+  /* **THE RACE THAT LEFT THE 2026-09-17 SYNC WITH NO RUN LOG.** `howItStands`
+   * calls `rememberTheNight` on every panel poll and throws the answer away --
+   * exactly what a poll landing the instant a walk finishes does here. Before
+   * `alreadyCarriedOn` existed, `carryOn` asked `rememberTheNight` that same
+   * question and, having lost the race, believed its own log/notice/next-
+   * platform work was already done. */
+  const { chrome } = installFakeChrome();
+  const began = Date.now() - 2 * 3600000;
+  const ended = Date.now() - 3600000;
+  await chrome.storage.local.set({
+    [THE_NIGHT]: {
+      startedAt: began, finishedAt: ended, left: [], doing: null, spent: 0, mayAskFor: 0,
+      spentOn: {}, why: 'Every report was reached.',
+      done: [{ reportId: 'fk_orders', state: 'landed', size: 10 }],
+    },
+  });
+  /* The panel's poll, winning the ledger's one-shot race first. */
+  await rememberTheNight(chrome, { book: BOOK });
+  const night = await theNight(chrome);
+  check('carryOn\'s own once is untouched by a panel poll that already filed the ledger',
+    (await alreadyCarriedOn(chrome, night)) === false);
+  await markCarriedOn(chrome, night);
+  check('and once carryOn has actually carried it through, it is not carried through twice',
+    (await alreadyCarriedOn(chrome, night)) === true);
+  check('a night still going needs no follow-through yet, so carryOn is not told to act',
+    (await alreadyCarriedOn(chrome, { startedAt: began, finishedAt: null })) === true);
+}
+
 /* --------------------------------------------------------- what the panel sees */
 
 {
@@ -583,23 +824,33 @@ check('the allowance is twenty, and it is a number a program can read',
     stands.setUp.done === false && stands.setUp.panel === '' && stands.setUp.driveConnectedAt === 0);
   check('the whole twenty is left', stands.flipkart.leftToday === 20);
 
-  /* **THE FIVE THAT CANNOT BE FETCHED ARE NAMED WITH THEIR REASONS.** They are
+  /* **THE ONE THAT CANNOT BE FETCHED IS NAMED WITH ITS REASON.** They are
    * written down in `autosync/recipes.py` as `NOT_YET_A_RECIPE` and until now
    * reached nobody at all. */
-  check('every report this door cannot fetch is on the page',
-    stands.cannotBeFetched.length === 5);
+  /* **NONE SINCE 2026-09-15** -- the keywords were the last. */
+  check('every report this door cannot fetch is on the page, and there are none left',
+    stands.cannotBeFetched.length === 0);
   check('and each one carries the reason written down in the Python',
     stands.cannotBeFetched.every((one) => one.why.length > 40));
   check('the reasons are the Python\'s own words, not words invented here',
     stands.cannotBeFetched.every((one) => one.why === BOOK.notYetARecipe[one.id]));
-  check('a report that cannot be fetched cannot be ticked either',
-    stands.reports.filter((one) => !one.canBeFetched).length === 5);
+  check('so every report can be ticked',
+    stands.reports.filter((one) => !one.canBeFetched).length === 0);
+  /* **AND THE TWO THE ADS SWEEP BRINGS ARE TICKABLE AND SAY WHO BRINGS THEM.**
+   * Listed as unfetchable, a seller would read "cannot be fetched" about two
+   * files that arrive in their Drive every night. */
+  const bySweep = stands.reports.filter((one) => one.fetchedBy);
+  check('the two the ads sweep brings are not called unfetchable',
+    bySweep.length === 2 && bySweep.every((one) => one.canBeFetched));
+  check('and each says in words what fetches it',
+    bySweep.every((one) => one.fetchedBy.length > 40));
   check('and every report that is declared is on the page, fetchable or not',
     stands.reports.length
       === BOOK.reports.filter((one) => THROUGH_THE_BROWSER.includes(one.platform)).length);
-  check('the three that cost the seller something are marked as costing it',
+  /* Two since 2026-09-14: returns left the Reports Centre. */
+  check('the two that cost the seller something are marked as costing it',
     stands.reports.filter((one) => one.spends).map((one) => one.id).join(',')
-      === 'fk_orders,fk_payments,fk_returns');
+      === 'fk_orders,fk_payments');
 }
 
 /* ------------------------------------------------------- what the banner says */
@@ -621,6 +872,30 @@ check('a clean run says when it finished',
 check('a state nothing has ever been in reads as "not run yet", not as an error',
   whatThatStateIsCalled('') === 'not run yet');
 check('never is said as a word, not as a nought', inWordsWhen(0) === 'never');
+
+/* **HIS RULING, 2026-09-14.** A day the platform has not built is not a failure;
+ * one still not built after three days of trying is the seller's to fetch, and
+ * the page says so before it says anything about the last run. */
+check('a day not built yet is said as not available yet, not as a failure',
+  whatThatStateIsCalled('not-available-yet') === 'not available yet');
+check('and a day given up on is said as needing the seller',
+  whatThatStateIsCalled('needs-you') === 'needs you');
+{
+  const banner = whatTheBannerSays({
+    setUp: { done: true },
+    night: { finishedAt: 2000, doing: null, left: [], done: [{ state: 'landed' }] },
+    needsYou: [{ reportId: 'fk_orders', dataDate: '2026-09-13' }],
+  });
+  check('A DAY THAT NEEDS THE SELLER IS NAMED IN THE BANNER, even after a clean run',
+    banner.how === 'wrong' && banner.said.includes('fk_orders for 2026-09-13')
+      && banner.said.includes('by hand'));
+}
+check('while a run that is going is still said first',
+  whatTheBannerSays({
+    setUp: { done: true },
+    night: { finishedAt: null, doing: 'fk_orders', left: [] },
+    needsYou: [{ reportId: 'fk_views', dataDate: '2026-09-12' }],
+  }).how === 'running');
 
 /* --------------------------------------------------------------- the clock */
 
@@ -710,6 +985,19 @@ function panelParts(chrome, held = {}) {
     watching: { stopExpecting: () => { held.disarmed = true; } },
     setTheHour,
     whyThatIsNotATimeOfDay,
+    /* **THE SAME CLOCK THE WORKER HANDS OVER**, written here too because
+     * `worker.js` has no checks by design -- the panel name was lost exactly
+     * that way once. */
+    theClock: async () => {
+      const chosen = await theHourItRuns(chrome);
+      const clock = await chrome.alarms.get(DAILY);
+      return {
+        chosen: chosen
+          ? `${String(chosen.hour).padStart(2, '0')}:${String(chosen.minute).padStart(2, '0')}`
+          : '',
+        nextAt: (clock && (clock.scheduledTime || clock.when)) || null,
+      };
+    },
     ...held.more,
   };
 }
@@ -755,6 +1043,52 @@ function panelParts(chrome, held = {}) {
 
   const again = await say({ do: 'run-now', reportIds: ['fk_views'] });
   check('a second run while one is going is refused', (again.wrong || '').includes('already'));
+
+  /* **A57, JOB 2: `fk_ads_overall` ALONE PULLS IN ITS CAMPAIGN LIST.** On 09-18..09-21
+   * it was ticked without `fk_ads_daily`, nothing fetched the list, and every day was
+   * "not known yet". */
+  await chrome.storage.local.remove(THE_NIGHT);
+  await say({ do: 'run-now', reportIds: ['fk_ads_overall'] });
+  const alone = (await chrome.storage.local.get(THE_NIGHT))[THE_NIGHT];
+  check('A CAMPAIGN REPORT TICKED ALONE PULLS ITS CAMPAIGN LIST IN, IN FRONT OF IT',
+    alone.left.join() === 'fk_ads_daily,fk_ads_overall');
+  check('and the night knows which report reads which list',
+    (alone.listFrom || {}).fk_ads_overall === 'fk_ads_daily');
+}
+
+{
+  /* **A RUN MAY NAME ITS DAY**, so a report is proved on a day the platform has
+   * surely built -- and a day that is not one, or not over yet, is refused. */
+  const at = Date.parse('2026-09-14T12:00:00');
+  check('a named day that is yesterday or earlier may be fetched',
+    whyThatDayCannotBeFetched('2026-09-01', at) === ''
+    && whyThatDayCannotBeFetched('2026-09-13', at) === '');
+  check('today is refused, because nothing has built it',
+    whyThatDayCannotBeFetched('2026-09-14', at).includes('not over yet'));
+  check('a day that is not one is refused',
+    whyThatDayCannotBeFetched('2026-02-30', at).includes('not a day')
+    && whyThatDayCannotBeFetched('1 Sep', at).includes('not a day'));
+
+  const { chrome } = installFakeChrome();
+  const held = { more: { now: () => at } };
+  const say = (asked) => answerThePanelsQuestion(chrome, panelParts(chrome, held), asked);
+  await say({ do: 'connect-the-drive' });
+  await say({ do: 'save-the-panel-name', panel: 'rumee-panel' });
+  const refused = await say({ do: 'run-now', reportIds: ['fk_views'], day: 'soon' });
+  check('a run naming a day that is not one does not start', Boolean(refused.wrong)
+    && !(await chrome.storage.local.get(THE_NIGHT))[THE_NIGHT]);
+  await say({ do: 'run-now', reportIds: ['fk_views'], day: '2026-09-01' });
+  const night = (await chrome.storage.local.get(THE_NIGHT))[THE_NIGHT];
+  check('and a run naming a real day fetches that day, not yesterday',
+    night.dataDate === '2026-09-01');
+  /* **THE DATE BOXES REACH THE NIGHT (A53).** The panel sends `from` and `to`;
+   * until this check the answering code read only `day`, so a seller who typed
+   * 8 September got yesterday's figures under yesterday's name. */
+  await chrome.storage.local.remove(THE_NIGHT);
+  await say({ do: 'run-now', reportIds: ['fk_views'], from: '2026-09-01', to: '2026-09-03' });
+  const ranged = (await chrome.storage.local.get(THE_NIGHT))[THE_NIGHT];
+  check('a run started from the date boxes fetches those days',
+    (ranged.days || []).join(',') === '2026-09-01,2026-09-02,2026-09-03');
 }
 
 {
@@ -815,6 +1149,22 @@ function panelParts(chrome, held = {}) {
   const set = alarms().find((one) => one.name === DAILY);
   check('a time chosen on the panel really moves the daily alarm',
     new Date(set.when).getHours() === 3 && new Date(set.when).getMinutes() === 45);
+
+  /* **AND THE PAGE CAN SAY WHEN IT NEXT WAKES (A53, 2026-09-16).** The scheduled
+   * sync did not start at the hour he had just saved, and nothing anywhere --
+   * panel, log or status -- could say whether the hour was saved, whether the
+   * clock existed, or when it would next come round. A seller whose daily sync
+   * has quietly moved to tomorrow must not read the same page as one whose sync
+   * is minutes away. */
+  const told = await say({ do: 'how-it-stands' });
+  check('the panel is told the hour that is saved and when it next wakes',
+    told.stands.clock.chosen === '03:45' && told.stands.clock.nextAt === set.when);
+  check('and it says so in words a seller reads',
+    whenItNextWakes(told.stands.clock).startsWith('Next wakes'));
+  check('an hour saved with no clock behind it is called out, not shown as fine',
+    whenItNextWakes({ chosen: '03:45', nextAt: null }).includes('nothing will start by itself'));
+  check('and an hour nobody ever chose says what happens instead',
+    whenItNextWakes(null).includes('half past two'));
 }
 
 {
@@ -857,12 +1207,17 @@ function panelParts(chrome, held = {}) {
   check('Run now is off until the setup is done', parts.runNow.disabled === true);
   check('Stop is off while nothing is going', parts.stop.disabled === true);
   check('every report there is has a row', parts.boxes.size === stands.reports.length);
-  check('the five that cannot be fetched cannot be ticked',
-    [...parts.boxes.values()].filter((one) => one.disabled).length === 5);
+  /* **THE BOX IS OFF FOR EXACTLY THE REPORTS THAT ARRIVE WITH ANOTHER ONE.** This
+   * check read "no box is switched off" until A53, and that is the line that let
+   * a seller tick `me_ads_catalog`: the worker has no recipe for it, refuses the
+   * whole set, and Run now then saved no ticks and started nothing. */
+  check('the box is off for exactly the reports that arrive with another',
+    [...parts.boxes.entries()].filter(([, one]) => one.disabled).map(([id]) => id).join(',')
+    === stands.reports.filter((one) => one.fetchedBy).map((one) => one.id).join(','));
   check('what cannot be fetched is on the page with its reason',
-    parts.cannot.children.length === 5);
+    parts.cannot.children.length === 1);
   check('the log says no night has been run rather than nothing at all',
-    parts.log.textContent.includes('No night has been run'));
+    parts.log.textContent.includes('No sync has been run'));
 
   parts.connectDrive.click();
   parts.savePanel.click();
@@ -893,6 +1248,14 @@ function panelParts(chrome, held = {}) {
   check('the setup screen goes when both halves are done', parts.setup.hidden === true);
   check('and Run now comes on', parts.runNow.disabled === false);
 
+  /* **A61, JOB 5b: EVERYTHING STARTS TICKED, and he unticks it all to run one
+   * report** -- his way since "make it like Rumee". The checks below then run from
+   * nothing ticked, as they always have. */
+  check('5b: the panel opens with every report ticked, and the button says Untick all',
+    whatIsTicked(parts).length > 0 && parts.selectAll.textContent === 'Untick all');
+  parts.selectAll.click();
+  check('5b: one press of Untick all leaves nothing ticked', whatIsTicked(parts).length === 0);
+
   /* Ticking is kept by the page, not read back off it every poll -- so a tick
    * made two seconds ago is still there after the next answer arrives. */
   const box = parts.boxes.get('fk_views');
@@ -906,9 +1269,28 @@ function panelParts(chrome, held = {}) {
   check('Run now sends what was ticked', pressed.includes('run:fk_views'));
 
   parts.selectAll.click();
-  check('Tick all ticks everything that can be fetched',
-    whatIsTicked(parts).length === stands.reports.filter((one) => one.canBeFetched).length);
+  check('Tick all ticks everything that can be asked for on its own',
+    whatIsTicked(parts).length
+    === stands.reports.filter((one) => one.canBeFetched && !one.fetchedBy).length);
+  /* **AND EVERY ONE OF THEM IS SOMETHING THE WORKER WILL ACCEPT.** `save-the-ticks`
+   * and Run now both refuse a whole set holding one id with no recipe, so a
+   * single untickable row makes "Tick all" do nothing at all, silently. */
+  check('and the worker would accept every one of them',
+    whatIsTicked(parts).every((id) => BOOK.recipes[id]));
   parts.selectAll.click();
+  check('and pressing it again unticks them', whatIsTicked(parts).length === 0);
+
+  /* **A53: THE REPORTS ARE GROUPED BY PLATFORM, EACH GROUP TICKED IN ONE PRESS.** */
+  check('the reports are grouped by platform, each group with its own tick-all',
+    parts.platformTicks.size === 2
+    && parts.platformTicks.get('flipkart').textContent === 'Tick all Flipkart'
+    && parts.platformTicks.get('meesho').textContent === 'Tick all Meesho');
+  parts.platformTicks.get('meesho').click();
+  check('and ticking a platform ticks that platform\'s reports and no others',
+    whatIsTicked(parts).length > 0
+    && whatIsTicked(parts).every((id) => id.startsWith('me_'))
+    && parts.platformTicks.get('meesho').textContent === 'Untick all Meesho');
+  parts.platformTicks.get('meesho').click();
   check('and pressing it again unticks them', whatIsTicked(parts).length === 0);
 
   /* **A REBUILT LIST CLEARS WHAT WAS TICKED, and only the boxes used to be
@@ -918,8 +1300,9 @@ function panelParts(chrome, held = {}) {
   parts.boxes.get('fk_views').checked = true;
   parts.boxes.get('fk_views').dispatchEvent({ type: 'change' });
   showHowItStands(parts, { ...setUp, reports: setUp.reports.slice(0, 3) });
+  /* Since 5b a rebuilt list is ticked again from what he saved, but only its own rows. */
   check('rebuilding the list forgets what was ticked on the old one',
-    whatIsTicked(parts).length === 0 && parts.states.size === 3);
+    whatIsTicked(parts).every((id) => parts.boxes.has(id)) && parts.states.size === 3);
 
   saySomething(parts, 'Started.');
   check('what a button press said back is shown', parts.said.hidden === false);
@@ -987,10 +1370,16 @@ function panelParts(chrome, held = {}) {
    * `go` to `.../fulfillment/{panel}/orders/`. */
   const went = [];
   const walking = theWalk({
+      /* **NOT SLEPT, BECAUSE A CHECK IS NOT A NIGHT.** The walk paces itself
+       * like a person now; a check file that really paused would turn seconds of
+       * checking into minutes of nothing. `walk.test.js` is where the pacing
+       * itself is held to its numbers. */
+      pause: () => {},
     book: BOOK,
     say: () => {},
     putTheFile: async () => ({}),
     armTheCatcher: async () => 'a-secret',
+    addToTheList: async () => ({ size: 0 }),
     door: {
       async needs_signing_in() { return false; },
       async go(address) { went.push(address); },
@@ -1014,10 +1403,16 @@ function panelParts(chrome, held = {}) {
    * on -- it says where to find the name. */
   const went = [];
   const walking = theWalk({
+      /* **NOT SLEPT, BECAUSE A CHECK IS NOT A NIGHT.** The walk paces itself
+       * like a person now; a check file that really paused would turn seconds of
+       * checking into minutes of nothing. `walk.test.js` is where the pacing
+       * itself is held to its numbers. */
+      pause: () => {},
     book: BOOK,
     say: () => {},
     putTheFile: async () => ({}),
     armTheCatcher: async () => 'a-secret',
+    addToTheList: async () => ({ size: 0 }),
     door: {
       async needs_signing_in() { return false; },
       async go(address) { went.push(address); },
@@ -1048,6 +1443,132 @@ function panelParts(chrome, held = {}) {
   check('and Run now refuses a Meesho run before that, with the name unsaved',
     (stopped.wrong || '').includes('fulfillment/'));
   check('and no night was written at all', (await theNight(chrome)) === null);
+}
+
+{
+  /* **THE ALERT SAYS WHAT IS STILL LEFT FOR HIM TO DO (his ruling, 2026-09-16).**
+   * Flipkart signs in in three steps and the third is a code only he receives;
+   * told merely "sign in", he does not know a code is waiting for him. */
+  const flipkart = theSignInAlert(BOOK, { reportIds: ['fk_orders'], at: 1, dataDate: '2026-09-15' });
+  check('the sign-in alert names the one-time code on Flipkart',
+    flipkart.message.includes('one-time code') && flipkart.title.includes('Flipkart'));
+  const meesho = theSignInAlert(BOOK, { reportIds: ['me_orders'], at: 1, dataDate: '2026-09-15' });
+  check('while Meesho, which does not send one, is not told it does',
+    !meesho.message.includes('one-time code') && meesho.title.includes('Meesho'));
+  check('and both say that resuming carries on from where it stopped',
+    flipkart.message.includes('carries on') && meesho.message.includes('carries on'));
+}
+
+/* ============================================================================
+ *   A61, JOB 5b -- THE RUN NOW PANEL WORKS LIKE RUMEE (his ruling, 2026-09-21:
+ *   "yes, make it like Rumee"; `D:/rumee-auto-sync/popup.js:81`, `:271-274`,
+ *   `background.js:191-209`)
+ * ==========================================================================*/
+
+{
+  /* **1. EVERY REPORT IS TICKED UNTIL HE UNTICKS IT.** A report he never chose is
+   * ticked; a report he unticked stays unticked when the panel opens again. */
+  installFakeBrowser();
+  const { chrome } = installFakeChrome();
+  const parts = {
+    book: BOOK, now: () => Date.UTC(2026, 8, 16, 3, 0),
+    startTheNight: async (c, how) => startTheNight(c, how), carryOn: async () => {},
+  };
+  const ownTick = (stands) => stands.reports
+    .filter((one) => one.canBeFetched && !one.fetchedBy).map((one) => one.id);
+  const fresh = await howItStands(chrome, { book: BOOK, now: Date.now() });
+  check('5b: on a fresh install every report that can be ticked is ticked',
+    ownTick(fresh).length > 0 && [...fresh.setUp.ticked].sort().join() === ownTick(fresh).sort().join());
+  const panel = buildThePanel(document.body, {
+    connectTheDrive() {}, saveThePanelName() {}, runNow() {}, stop() {}, setTheHour() {},
+  });
+  showHowItStands(panel, fresh);
+  check('5b: and the panel draws every one of those boxes ticked',
+    ownTick(fresh).every((id) => panel.boxes.get(id).checked)
+    && whatIsTicked(panel).sort().join() === ownTick(fresh).sort().join());
+  await answerThePanelsQuestion(chrome, parts, { do: 'save-the-ticks', reportIds: ['fk_claims'] });
+  const later = await howItStands(chrome, { book: BOOK, now: Date.now() });
+  check('5b: what he unticked stays unticked when the panel opens again',
+    later.setUp.ticked.join() === 'fk_claims');
+  /* A report the extension gains later was never unticked by him, so it is ticked. */
+  const held = (await chrome.storage.local.get('kartaan-autosync-setup'))['kartaan-autosync-setup'];
+  await chrome.storage.local.set({ 'kartaan-autosync-setup': {
+    ...held, unticked: (held.unticked || []).filter((id) => id !== 'me_orders'),
+  } });
+  const gained = await howItStands(chrome, { book: BOOK, now: Date.now() });
+  check('5b: a report he never chose is ticked, one he unticked is not',
+    gained.setUp.ticked.includes('me_orders') && !gained.setUp.ticked.includes('fk_orders'));
+}
+
+{
+  /* **2. THE TWO MEESHO ADS FILES SHOW TICKED WHENEVER THE ADS SWEEP IS**, and
+   * are never sent on their own: no request of theirs exists. */
+  installFakeBrowser();
+  const { chrome } = installFakeChrome();
+  const stands = await howItStands(chrome, { book: BOOK, now: Date.now() });
+  const panel = buildThePanel(document.body, {
+    connectTheDrive() {}, saveThePanelName() {}, runNow() {}, stop() {}, setTheHour() {},
+  });
+  showHowItStands(panel, stands);
+  const tied = ['me_ads_catalog', 'me_ads_summary'];
+  check('5b: each ads file says which report brings it',
+    tied.every((id) => (stands.reports.find((one) => one.id === id) || {}).broughtBy === 'me_ads'));
+  check('5b: the two ads files show ticked while the ads sweep is ticked',
+    panel.boxes.get('me_ads').checked && tied.every((id) => panel.boxes.get(id).checked));
+  check('5b: and cannot be ticked on their own, nor are they sent',
+    tied.every((id) => panel.boxes.get(id).disabled && !whatIsTicked(panel).includes(id)));
+  panel.boxes.get('me_ads').checked = false;
+  panel.boxes.get('me_ads').dispatchEvent({ type: 'change' });
+  check('5b: unticking the ads sweep unticks the two files with it',
+    tied.every((id) => !panel.boxes.get(id).checked));
+  panel.platformTicks.get('meesho').click();
+  check('5b: and "Tick all Meesho" ticks them again with the sweep',
+    panel.boxes.get('me_ads').checked && tied.every((id) => panel.boxes.get(id).checked));
+}
+
+{
+  /* **3. RUN NOW WITH BOTH WEBSITES TICKED RUNS THEM ALL, FLIPKART THEN MEESHO**,
+   * the way the timed sync does -- no "one platform at a time" refusal. */
+  const { chrome } = installFakeChrome();
+  const started = [];
+  const parts = {
+    book: BOOK, now: () => Date.UTC(2026, 8, 16, 3, 0),
+    startTheNight: async (c, how) => { started.push(how); return startTheNight(c, how); },
+    carryOn: async () => {},
+  };
+  await answerThePanelsQuestion(chrome, parts, { do: 'save-the-panel-name', panel: 'xuptj' });
+  await answerThePanelsQuestion(chrome, parts, { do: 'check-the-drive' });
+  const said = await answerThePanelsQuestion(chrome, parts, {
+    do: 'run-now', reportIds: ['me_orders', 'fk_claims'], day: '2026-09-14',
+  });
+  check('5b: Run now with both websites ticked starts, and Flipkart goes first',
+    !said.wrong && started.length === 1 && started[0].doing.join() === 'fk_claims');
+  await endTheNight(chrome, { at: Date.UTC(2026, 8, 16, 3, 30), why: 'Every report was reached.' });
+  const next = await startTheNextPlatform(chrome, parts);
+  check('5b: then Meesho runs when Flipkart ends, for the same day',
+    Boolean(next.started) && started.length === 2 && started[1].doing.join() === 'me_orders'
+    && started[1].dataDate === '2026-09-14');
+  const again = await startTheNextPlatform(chrome, parts);
+  check('5b: and nothing more is left to start', again.started === null && started.length === 2);
+}
+
+{
+  /* **A REFUSAL THAT REMAINS SAYS WHY AND WHAT TO DO (Rule 29)**, and starts nothing:
+   * Meesho with no panel name must not let Flipkart spend requests first. */
+  const { chrome } = installFakeChrome();
+  const started = [];
+  const parts = {
+    book: BOOK, now: () => Date.UTC(2026, 8, 16, 3, 0),
+    startTheNight: async (c, how) => { started.push(how); return startTheNight(c, how); },
+    carryOn: async () => {},
+  };
+  await answerThePanelsQuestion(chrome, parts, { do: 'check-the-drive' });
+  const said = await answerThePanelsQuestion(chrome, parts, {
+    do: 'run-now', reportIds: ['fk_claims', 'me_orders'],
+  });
+  check('5b: a Meesho part that cannot start stops the whole run, saying which and why',
+    started.length === 0 && (said.wrong || '').includes('Meesho')
+    && (said.wrong || '').includes('fulfillment/') && (said.wrong || '').includes('Nothing was started'));
 }
 
 reachedTheEnd = true;
