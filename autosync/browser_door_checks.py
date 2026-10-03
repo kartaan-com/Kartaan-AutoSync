@@ -100,6 +100,11 @@ class FakeMeesho:
         # well, so a check can ask whether one spelling reached the page at all.
         self.near_asked = []
         self.rows_asked = []
+        # **AND WHAT ELSE EACH LOOKUP SAID ITS ROW MUST SAY, kept for the same
+        # reason `near` is.** On Flipkart's Reports Centre the day alone names
+        # three rows; a door that dropped this would narrow to all three and take
+        # the topmost, which is the payments file under the orders name.
+        self.also_asked = []
         # How many times the box in front of the Custom chip has been pressed.
         self.box_presses = 0
         # **HOW LONG IT WAS TOLD TO PASS, AND IN WHAT ORDER THINGS HAPPENED.**
@@ -169,7 +174,8 @@ class FakeMeesho:
             return [{"width": 250, "height": 60, "text": "Saved", "blocks": False}]
         return []
 
-    def find(self, how, what, exact, patience, near=()):
+    def find(self, how, what, exact, patience, near=(), also_saying=""):
+        self.also_asked.append(also_saying)
         self.steps_seen += 1
         self.patience_told.append(("find", patience))
         # **THE CHIP THAT IS NOT THERE UNTIL THE BOX HAS BEEN PRESSED AGAIN.**
@@ -230,7 +236,7 @@ class FakeMeesho:
             return True
         return not self.clicked_away
 
-    def click(self, how, what, exact, near=()):
+    def click(self, how, what, exact, near=(), also_saying=""):
         # **A CONTROL THAT IS NOT THERE CANNOT BE CLICKED, AND THE REAL DOOR
         # THROWS.** `driver.js` looks the thing up and refuses when nothing
         # matches. A stand-in that quietly accepted the click would let a door
@@ -453,15 +459,17 @@ got = a_fetch(fake)("me_nonsense", DAY)
 check("a report nobody has ever heard of is a failure, not a crash", answered(lambda: got.state == tool.FAILED))
 check("and it says Kartaan does not know it", answered(lambda: "not a report Kartaan knows about" in got.say))
 
-# **A REPORT KARTAAN KNOWS BUT THIS DOOR HAS NO RECIPE FOR IS A DIFFERENT THING**,
-# and it says so. `fk_keywords` is real and deliberately has no recipe: it needs
-# somebody sitting on the page, so it is named that way in the report list rather
-# than pretended at here.
+# **A REPORT ONLY THE EXTENSION CAN WALK IS REFUSED HERE, BEFORE ANYTHING IS DRIVEN
+# (2026-09-15).** `fk_keywords` used to stand here as the report with no recipe at
+# all; it now reads Flipkart's keyword pop-ups off the page, which only the
+# browser extension can do, and a page opened by this door would be opened for
+# nothing.
 quiet_fake = FakeMeesho()
 got = a_fetch(quiet_fake)("fk_keywords", DAY)
-check("a real report this door has no recipe for is a failure", answered(lambda: got.state == tool.FAILED))
-check("and says the browser door does not know how to fetch it",
-      answered(lambda: "browser door knows how to fetch" in got.say))
+check("a report only the extension can walk is a failure on this door",
+      answered(lambda: got.state == tool.FAILED))
+check("and says only the browser extension can walk it",
+      answered(lambda: "only the browser extension" in got.say))
 check("and nothing was driven at all", answered(lambda: quiet_fake.went == []))
 # **AND AN AMAZON REPORT IS NOT DRIVEN THROUGH A BROWSER EITHER.** It has an API
 # door; reaching it through this one would be fetching the same thing twice.
@@ -566,7 +574,7 @@ finally:
     book.RECIPES.clear()
     book.RECIPES.update(was)
 
-check("and the real recipes are back afterwards", answered(lambda: len(book.every_recipe()) == 18))
+check("and the real recipes are back afterwards", answered(lambda: len(book.every_recipe()) == 21))
 
 # ------------------------------------------------------------ the record
 
@@ -864,7 +872,8 @@ check("and the slash and dash forms the reference also tries",
 # **FLIPKART'S THREE, COLLECTED RATHER THAN ASKED FOR**, which is the half that
 # names a row. `asked_already` is what the report was asked under.
 fake = FakeMeesho()
-a_fetch(fake)("fk_returns", FIFTH_OF_JUNE, asked_already=FIFTH_OF_JUNE.isoformat())
+# **PAYMENTS, SINCE RETURNS LEFT THE REPORTS CENTRE ON 2026-09-14.**
+a_fetch(fake)("fk_payments", FIFTH_OF_JUNE, asked_already=FIFTH_OF_JUNE.isoformat())
 # **FLIPKART GOES THE OTHER WAY: the row is named by the day the data is ABOUT**,
 # because the end of the range it asked for IS that day.
 check("A FLIPKART ROW IS LOOKED FOR BY THE DAY THE DATA IS ABOUT",
@@ -899,7 +908,7 @@ for which in ("fk_orders", "fk_payments"):
 # the only symptom is a step that waits its whole patience out at a page that
 # will never change, and then reports the chip as missing.
 fake = FakeMeesho(chip_after_box_presses=2)
-a_fetch(fake)("fk_returns", FIFTH_OF_JUNE)
+a_fetch(fake)("fk_orders", FIFTH_OF_JUNE)
 check("A CHIP THAT NEEDS THE BOX PRESSING AGAIN IS STILL REACHED",
       answered(lambda: fake.box_presses >= 2))
 check("and the walk got past it, rather than stopping at a calendar that never drew",
@@ -910,7 +919,7 @@ check("and the run log says the control was pressed again, and why",
 # would be pressed once to open and once to shut, which is worse than not
 # pressing it at all.
 fake = FakeMeesho()
-a_fetch(fake)("fk_returns", FIFTH_OF_JUNE)
+a_fetch(fake)("fk_orders", FIFTH_OF_JUNE)
 check("while a chip that was there straight away leaves the box pressed once",
       answered(lambda: fake.box_presses == 1))
 

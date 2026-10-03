@@ -10,8 +10,8 @@ above here changes at all.
 the seller's own Chrome, driven by an extension:
 
     browser.go(address, patience)            -> None, or raises
-    browser.find(how, what, exact, patience, near) -> how many things match
-    browser.click(how, what, exact, near)    -> None, or raises
+    browser.find(how, what, exact, patience, near, also_saying) -> how many match
+    browser.click(how, what, exact, near, also_saying)  -> None, or raises
 
 **`near` IS A LIST OF WAYS THE SAME ROW COULD BE NAMED, AND A ROW MATCHES IF IT
 CARRIES ANY ONE OF THEM.** Not one string. Both portals have been met writing a
@@ -155,6 +155,16 @@ def do_the_steps(
     except (KeyError, ValueError) as wrong:
         return Fetched(FAILED, report_id, data_date, say=str(wrong))
 
+    # **A REPORT ONLY THE EXTENSION CAN WALK IS REFUSED BEFORE ANYTHING IS DRIVEN**
+    # (2026-09-15). Typing a campaign into Flipkart's search and reading keywords off
+    # its pop-ups both need the page itself, so a page opened here would be opened
+    # for nothing.
+    if any(s.do in (pages.TYPE_IN, pages.READ_THE_KEYWORDS) or s.for_each_campaign for s in steps):
+        return Fetched(FAILED, report_id, data_date,
+                       say="This report needs the page itself -- a campaign typed into Flipkart's "
+                           "search, or keywords read off it -- which only the browser extension "
+                           "can walk.")
+
     for step in steps:
         wrong = pages.why_step_is_refused(step)
         if wrong:
@@ -220,6 +230,14 @@ def do_the_steps(
 
         # CLICK and WAIT_FOR both have to find something first.
         many = _how_many_match(browser, step, say, report_id)
+        # **A WAIT MAY COUNT SOMETHING ELSE INSTEAD -- HIS RULING, 2026-09-14.** The
+        # same rule `extension/walk.js` `whatElseCounts` holds: the durable row a
+        # platform lists a request under, when the banner came and went.
+        if many == 0 and step.do == pages.WAIT_FOR and step.or_find is not None:
+            if browser.find(step.or_find.how, step.or_find.what, step.or_find.exact, 1,
+                            step.or_find.near, step.or_find.also_saying) == 1:
+                say(f"{report_id}: {step.or_find.name()} was found instead, which confirms it.")
+                many = 1
         if many == 0:
             # **WHICH OF THE TWO IT WAS, decided now that the lookup has failed.**
             # "Button not found" sent a month of diagnosis at a button that was
@@ -240,7 +258,8 @@ def do_the_steps(
             ))
 
         if step.do == pages.CLICK:
-            browser.click(step.find.how, step.find.what, step.find.exact, step.find.near)
+            browser.click(step.find.how, step.find.what, step.find.exact, step.find.near,
+                          step.find.also_saying)
             say(f"{report_id}: {step.why}.")
 
     if not collecting:
@@ -302,6 +321,11 @@ def _with_the_day_in(step, data_date, run_day):
     if step.find is not None:
         changed["find"] = replace(step.find, near=_the_rows_it_could_be(
             step.find, data_date, run_day))
+    # **AND WHAT ELSE A WAIT MAY COUNT, FILLED THE SAME WAY** (his ruling,
+    # 2026-09-14) -- the same as `extension/walk.js` `filledIn` does for `orFind`.
+    if step.or_find is not None:
+        changed["or_find"] = replace(step.or_find, near=_the_rows_it_could_be(
+            step.or_find, data_date, run_day))
     return replace(step, **changed) if changed else step
 
 
@@ -338,7 +362,7 @@ def _how_many_match(browser, step, say, report_id):
     """
     def look(patience):
         return browser.find(step.find.how, step.find.what, step.find.exact, patience,
-                            step.find.near)
+                            step.find.near, step.find.also_saying)
 
     press = step.press_again
     if press is None:
@@ -413,7 +437,7 @@ def _take_the_file(browser, step, report_id, data_date, which):
     """
     if step.find is not None:
         many = browser.find(step.find.how, step.find.what, step.find.exact, step.patience,
-                            step.find.near)
+                            step.find.near, step.find.also_saying)
         # **NOT THERE YET IS NOT THE SAME AS NOT THERE, WHEN IT LIVES IN A MENU.**
         # Meesho draws its list of finished exports as the download menu opens, so
         # an open menu shows what was ready at that moment and never changes. The

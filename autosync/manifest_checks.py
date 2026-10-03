@@ -179,6 +179,11 @@ check(
 # ---------------------------------------------------------- a folder to ask
 
 def a_real_file(a_report, day, size=4021):
+    # **A RUNNING LIST CARRIES ITS DAYS INSIDE IT, because its name has none.**
+    # The same thing the real folder lister has to do -- a helper that made one
+    # look dated would be checking a product that does not exist.
+    if a_report.a_running_list:
+        return Arrived(file_name_for(a_report, day), size, days_inside=(day,))
     return Arrived(file_name_for(a_report, day), size)
 
 

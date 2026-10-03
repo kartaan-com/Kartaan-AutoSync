@@ -31,15 +31,22 @@ from typing import Dict, Optional, Tuple
 
 from browser import (
     BY_PRESSABLE_TEXT,
+    ADD_TO_THE_LIST,
+    SWEEP_THE_ADS,
+    BY_A_REAL_BUTTON,
     BY_ROLE_AND_TEXT,
+    READ_NUMBER,
+    READ_THE_KEYWORDS,
     BY_TEXT,
     BY_THE_CONTROL_BESIDE,
+    BY_THE_BUTTON_BESIDE,
     CLICK,
     GO,
     PICK_RANGE,
     TAKE_FILE,
     THE_DAY_IT_IS_ABOUT,
     THE_DAY_IT_WAS_MADE,
+    TYPE_IN,
     WAIT,
     WAIT_FOR,
     Find,
@@ -52,6 +59,21 @@ from browser import (
 # another portal's wording of a day. Read off the front of the report's name it
 # would be a spelling, and a spelling is not a fact (D170).
 from reports import report as kartaan_report
+
+
+@dataclass(frozen=True)
+class CampaignsFrom:
+    """Where the campaigns that ran on a day are read from (2026-09-15).
+
+    **THE REFERENCE'S OWN SOURCE FOR THEM** (`background.js`
+    `_setFkAdsDailyCacheFromBuffer`): the ads daily file for the same day, the rows
+    whose day column is that day, each campaign id once. Kept in the browser when
+    that file lands, and read back by the report that is done once per campaign.
+    """
+
+    report: str
+    id_column: str
+    day_column: str
 
 
 @dataclass(frozen=True)
@@ -70,6 +92,9 @@ class Recipe:
     # **Only meaningful for a two-phase report** -- a one-shot one is not built by
     # anybody, so it says nothing rather than a number nothing reads.
     ready_in_minutes: int = 0
+    # **WHICH CAMPAIGNS RAN, FOR A REPORT DONE ONCE PER CAMPAIGN.** None on every
+    # recipe but Flipkart's overall performance report.
+    campaigns_from: Optional[CampaignsFrom] = None
 
     @property
     def two_phase(self) -> bool:
@@ -113,7 +138,7 @@ FLIPKART_WRITES_IT = "flipkart"
 #
 #   {yyyy}  2026        {mm}  06        {dd}  05
 #   {Mon}   Jun         {d}   5
-THE_PIECES_OF_A_DAY = ("yyyy", "mm", "dd", "Mon", "d")
+THE_PIECES_OF_A_DAY = ("yyyy", "mm", "dd", "Mon", "Month", "d")
 _A_PIECE = re.compile(r"\{(" + "|".join(THE_PIECES_OF_A_DAY) + r")\}")
 
 # **HOW MEESHO WRITES A DAY. Six spellings, taken one for one from
@@ -159,10 +184,31 @@ HOW_FLIPKART_WRITES_A_DAY = (
     "{Mon} {d} {yyyy}",       # Jun 5 2026
     "{Mon} {dd} {yyyy}",      # Jun 05 2026
     "{Mon} {d}, {yyyy}",      # Jun 5, 2026
+    # **WITH THE NOUGHT, read off his own returns Previous Downloads on
+    # 2026-09-14**: `16:24, Sep 06, 2026`. `Sep 6, 2026` is not inside that.
+    "{Mon} {dd}, {yyyy}",     # Jun 05, 2026
     "{d} {Mon} {yyyy}",       # 5 Jun 2026
     "{yyyy}-{mm}-{dd}",       # 2026-06-05
     "{dd} {Mon} {yyyy}",      # 05 Jun 2026  <- DOCS.md:1766, not in the reference's five
+    # **THE FULL MONTH NAME AND NO YEAR, read off his own listings Downloads
+    # History on 2026-09-11.** Its rows say `11 September, 11:10 PM` -- and not
+    # one of the six spellings above matches that, so the row holding the file
+    # the walk had just asked for could not be found.
+    #
+    # **IT IS THE LOOSEST SPELLING IN THIS FILE AND IT IS KEPT KNOWINGLY, for the
+    # same reason the Meesho list keeps its own no-year one:** narrowing to a row
+    # only ever takes candidates away, and an extra candidate cannot invent a
+    # row. **What it costs is that `11 September` sits inside `11 September 2025`
+    # as well**, so it is only ever used where the day being matched is TODAY --
+    # the day a file was made -- and never to pick a day out of a history.
+    "{d} {Month}",            # 11 September  <- his own Downloads History
 )
+
+# **THE MONTH NAMES IN FULL, because one portal writes them out.** Kept beside
+# the short ones rather than derived from them: a name is a spelling, and a
+# spelling worked out by slicing another is two records of one fact.
+MONTHS_IN_FULL = ("January", "February", "March", "April", "May", "June",
+                  "July", "August", "September", "October", "November", "December")
 
 # Whose wording is whose. **Nothing works this out from a report's name** -- a
 # name is a spelling and a spelling is not a fact (D170).
@@ -189,6 +235,8 @@ def a_day_written(shape: str, day) -> str:
         "mm": f"{day.month:02d}",
         "dd": f"{day.day:02d}",
         "Mon": MONTHS[day.month - 1],
+        # **THE SIXTH PIECE, ADDED 2026-09-11 for Flipkart's listings history.**
+        "Month": MONTHS_IN_FULL[day.month - 1],
         "d": f"{day.day}",
     }
     return _A_PIECE.sub(lambda found: pieces[found.group(1)], shape)
@@ -273,6 +321,14 @@ def why_the_wording_is_wrong(report_id: str) -> Optional[str]:
 FULFILMENT = "https://supplier.meesho.com/panel/v3/new/fulfillment/{panel}"
 PAYOUTS = "https://supplier.meesho.com/panel/v3/new/payouts/{panel}"
 SERVICES = "https://supplier.meesho.com/panel/v3/new/services/{panel}"
+# **THE SELLER'S OWN DASHBOARD**, which is where the day's views are shown and
+# nowhere else. Same address the working reference starts every Meesho job from
+# (`config.js` `startUrl`), which is also why it is known to be a panel page and
+# not the public site -- the sign-in check depends on that.
+GROWTH = "https://supplier.meesho.com/panel/v3/new/growth/{panel}"
+# **WHERE THE ADS SWEEP STANDS WHILE IT ASKS.** Same address the reference uses
+# (`content/meesho.js` JOB_PAGES `me_ads`), and it presses nothing on it.
+ADS = "https://supplier.meesho.com/panel/v3/new/ads/{panel}"
 
 # **EVERY MENU ITEM ON BOTH PLATFORMS IS ASKED FOR AS A PRESSABLE THING, NOT AS
 # WORDS ON THE PAGE, and that is measured rather than tidy.** Read off his own
@@ -303,8 +359,26 @@ SERVICES = "https://supplier.meesho.com/panel/v3/new/services/{panel}"
 FLIPKART = "https://seller.flipkart.com/index.html#{where}"
 
 REPORTS_CENTRE = FLIPKART.format(where="dashboard/metrics/report-centre")
+# **THE LAST THREE PIECES WERE MISSING AND THE PAGE DREW SOMETHING ELSE ENTIRELY.**
+# Read off his own Flipkart on 2026-09-11, twice, with the address bar copied back
+# both times:
+#
+#   without them   `...selectedPeriod=weekly&startDate=2026-09-04&endDate=2026-09-10
+#                   &activeProductType=significant_visibility_drop`
+#   with them      `...selectedPeriod=latest&startDate=2026-09-10&endDate=2026-09-10
+#                   &activeProductType=ALL`
+#
+# **SO THE SHORT ADDRESS ASKS FOR A WEEK, AND FOR ONLY THE LISTINGS WHOSE VIEWS
+# HAVE DROPPED.** Not an error, not a page-not-found -- a real, signed-in, fully
+# drawn traffic report of the wrong week and a filtered slice of his catalogue.
+# A file fetched from it would have been believed.
+#
+# **THE THREE PIECES ARE THE REFERENCE'S OWN** (`content/flipkart.js`
+# `fkViewsSelectRange`, its `cleanHash`), and `DOCS.md:957` asks in bold for the
+# platform selector to stay on "All".
 TRAFFIC = FLIPKART.format(
     where="dashboard/growth/seller-insights?businessVertical=ALL&section=purchase_funnel"
+          "&selectedPeriod=latest&activeMetric=impression&activeProductType=ALL"
 )
 # **THESE THREE WERE WRONG, AND THEY COST A WHOLE NIGHT (2026-09-06).** Nine of
 # ten reports failed within twenty minutes of each other -- seven ads reports
@@ -332,6 +406,12 @@ TRAFFIC = FLIPKART.format(
 # not throttle it.
 ADS_REPORTS = FLIPKART.format(where="dashboard/ads/reports/others")
 CLAIMS = FLIPKART.format(where="dashboard/payments/spf")
+# **THE ALL RETURNS TAB, BY ITS OWN ADDRESS -- THE REFERENCE'S ROUTE, READ IN ITS
+# CODE AND MEASURED ON HIS PANEL 2026-09-14.** `#dashboard/returnsV2` alone opens
+# on `Important for Today`, and the words `All Returns` match TWO things on the
+# page (a `button role=tab` and a `label`), so the tab is reached by the address
+# the reference collects from (`content/flipkart.js:2812`), never by clicking it.
+RETURNS = FLIPKART.format(where="dashboard/returnsV2?tab=all_returns&state=all")
 LISTINGS = FLIPKART.format(where="dashboard/listings-management")
 
 
@@ -346,12 +426,49 @@ def _reports_centre(kind: str, sub_kind: str, why_it_is: str) -> Recipe:
         ready_in_minutes=30,
         to_ask=(
             Step(GO, address=REPORTS_CENTRE, why=f"opening the reports centre for {why_it_is}"),
-            Step(WAIT_FOR, find=Find(BY_ROLE_AND_TEXT, "Request New Report", called="the request button"),
+            # **A `span`, NOT A CONTROL. MEASURED ON HIS OWN REPORTS CENTRE,
+            # 2026-09-11.** `Request New Report` carries no role and no control
+            # tag; the only thing marking it is `cursor: pointer`. Asked for as a
+            # control the page answers nothing, so **all three of these reports
+            # would have stopped one step in, every night** -- which is the same
+            # fault that cost the traffic report its first run the same day.
+            Step(WAIT_FOR, find=Find(BY_PRESSABLE_TEXT, "Request New Report", called="the request button"),
                  patience=60, why="waiting for the reports centre to finish drawing"),
-            Step(CLICK, find=Find(BY_ROLE_AND_TEXT, "Request New Report", called="the request button"),
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Request New Report", called="the request button"),
                  why="starting a new request"),
+            # **THE KIND REALLY IS A BUTTON** -- measured, and the only one of
+            # these four that was already right. The five on offer are
+            # `Fulfilment Reports`, `Invoices`, `Listings reports`,
+            # `Payment Reports` and `Tax Reports`.
             Step(CLICK, find=Find(BY_PRESSABLE_TEXT, kind), why=f"choosing {kind}"),
-            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, sub_kind), why=f"choosing {sub_kind}"),
+            # **AND THE SUB-KIND IS NOT A CONTROL AT ALL. THIS STEP PRESSED A ROW
+            # HEADING.** Measured in the open dialog, row by row: each row is a
+            # `span` naming the report and a real `button` reading
+            # `REQUEST REPORT` beside it. `Orders` is a `span` with
+            # `cursor: auto` -- pressing it does nothing whatever, and nothing on
+            # the door's list could even find it.
+            #
+            #   SPAN "DBD Breached Shipments Report"   BUTTON "REQUEST REPORT"
+            #   SPAN "Orders"                          BUTTON "REQUEST REPORT"
+            #   SPAN "Pickup Report"                   BUTTON "REQUEST REPORT"
+            #   SPAN "Returns"                         BUTTON "REQUEST REPORT"
+            #   SPAN "Seller Cancelled Shipments..."   BUTTON "REQUEST REPORT"
+            #
+            # **FIVE BUTTONS READING THE SAME WORDS, AND ONLY THE ROW TELLS THEM
+            # APART.** So the words name the row and the button beside them is
+            # what is pressed -- which is what the reference has done for months
+            # (`content/flipkart.js` StepC).
+            #
+            # **AND `REQUEST REPORT` IS SAID AS WHAT ELSE THAT ROW SAYS, BECAUSE
+            # THE SAME WORD IS ON THE PAGE TWICE.** `Orders` is also a leaf in
+            # the list of reports already requested sitting behind the dialog,
+            # and that row walks up to a Download button -- so without this the
+            # step finds two and refuses. That row does not say
+            # `REQUEST REPORT`; this one does.
+            Step(CLICK, find=Find(BY_THE_BUTTON_BESIDE, sub_kind,
+                                  also_saying="REQUEST REPORT",
+                                  called=f"the request button on the {sub_kind} row"),
+                 patience=30, why=f"asking for {sub_kind}"),
             # **THERE IS NO CALENDAR ON THIS PAGE UNTIL TWO THINGS ARE PRESSED,
             # and without them the step below has nothing whatever to press days
             # on.** This went straight from choosing the report to picking a
@@ -425,7 +542,15 @@ def _reports_centre(kind: str, sub_kind: str, why_it_is: str) -> Recipe:
             # **THE BANNER IS WAITED FOR, and its absence is a real failure.** The
             # reference read a submitted report as failed because the banner had
             # already faded on a throttled tab, and then re-submitted three times.
+            # **AND IF THE BANNER CAME AND WENT, THE REQUEST'S OWN ROW COUNTS -- HIS
+            # RULING, 2026-09-14.** The reference falls back to the Requested list
+            # for exactly this (`content/flipkart.js:1382-1390`): a toast can vanish
+            # between two looks on a slowed tab, and the row does not.
             Step(WAIT_FOR, find=Find(BY_TEXT, "successfully", exact=False, called="the confirmation"),
+                 or_find=Find(BY_TEXT, sub_kind, near="To {day_in_words}",
+                              day_in_words_is=FLIPKART_WRITES_IT,
+                              day_in_words_of=THE_DAY_IT_IS_ABOUT,
+                              called=f"the {why_it_is} request in the requested list"),
                  patience=45, why="confirming Flipkart took the request"),
         ),
         to_take=(
@@ -470,12 +595,48 @@ def _reports_centre(kind: str, sub_kind: str, why_it_is: str) -> Recipe:
             # export was MADE. The range asked for is [the day before, the day],
             # so the end of it IS the data date, and the reference passes
             # yesterday to its row matcher.
+            # **AND BY THE REPORT'S OWN KIND AS WELL AS BY THE DAY, WHICH IS
+            # THE ONE THING THE DAY CANNOT DO HERE.** All three Reports Centre
+            # reports are asked for on the same night over the same range, so on
+            # any ordinary morning the Requested list holds
+            # `Fulfilment Reports Orders ... To 06 Jun 2026`,
+            # `Fulfilment Reports Returns ... To 06 Jun 2026` and
+            # `Payment Reports Settled Transactions ... To 06 Jun 2026` --
+            # **three rows, one end date, and nothing between them but the
+            # kind.** Narrowed by the day alone, this matches all three, the step
+            # that takes the newest of several takes whichever is topmost, and
+            # **the payments file lands under the orders name and is read into
+            # the seller's books as sales.** That is the nine-day payments
+            # outage again, arriving by the other door.
+            #
+            # The reference asks the kind FIRST and the date second, of the same
+            # row, in one pass -- `content/flipkart.js` `findReportRowDownloadBtn`
+            # opens with `if (!rowLow.includes(subLow)) continue;`, and the
+            # sub-type it tests is the same wording asked for in the request
+            # (`REPORTS_CENTRE_CFG`: `Orders`, `Settled Transactions`). So the
+            # words used here are `sub_kind` itself, not a second spelling of it.
+            #
+            # **ON THE WAIT AS WELL AS ON THE TAKING.** A wait that passes on
+            # somebody else's finished row hands the next step a report that is
+            # still being built -- the same reason the day is asked of both.
             Step(WAIT_FOR, find=Find(BY_TEXT, "Generated", exact=False,
                                      near="To {day_in_words}", called="a finished report",
+                                     also_saying=sub_kind,
                                      day_in_words_is=FLIPKART_WRITES_IT,
                                      day_in_words_of=THE_DAY_IT_IS_ABOUT),
-                 patience=120, why="looking for a finished report for the day being fetched"),
-            Step(TAKE_FILE, find=Find(BY_ROLE_AND_TEXT, "Download", near="To {day_in_words}",
+                 patience=120, why=f"looking for a finished {why_it_is} report for the day being fetched"),
+            # **THE ROW'S DOWNLOAD IS A REAL `<button>` WHOSE WORDS ARE
+            # `downloadDownload`, NOT `Download`. MEASURED ON HIS OWN REPORTS
+            # CENTRE, 2026-09-14,** on the row `Orders | Sep 12 2026 To Sep 13
+            # 2026 | Generated`: an icon whose own text is `download`, then the
+            # label. Asked for the exact words, nothing on the page matched, and
+            # the collect failed with the file sitting there -- the same shape as
+            # the traffic report's `Request Listings Reportdownload`. **Holding
+            # the word is enough here, because the row is already pinned** by the
+            # day and by the report's own kind, and the reference matches a
+            # download control in the row by the word alone.
+            Step(TAKE_FILE, find=Find(BY_ROLE_AND_TEXT, "Download", exact=False, near="To {day_in_words}",
+                                      also_saying=sub_kind,
                                       day_in_words_is=FLIPKART_WRITES_IT,
                                       day_in_words_of=THE_DAY_IT_IS_ABOUT),
                  patience=90,
@@ -494,15 +655,109 @@ def _ads(report_type: str) -> Recipe:
     return Recipe(
         to_take=(
             Step(GO, address=ADS_REPORTS, why=f"opening the ads reports page for {report_type}"),
+            # **A REAL BUTTON WITH `role="tab"`, measured 2026-09-11 -- the one
+            # thing on this page that was already asked for correctly.** The same
+            # words also appear as a `div` heading with `cursor: auto`, so asking
+            # for a control finds exactly one and asking for pressable words
+            # would too.
             Step(WAIT_FOR, find=Find(BY_ROLE_AND_TEXT, "Other Reports", called="the other reports tab"),
                  patience=60, why="waiting for the ads page to finish drawing"),
             Step(CLICK, find=Find(BY_ROLE_AND_TEXT, "Other Reports", called="the other reports tab"),
                  why="opening the other reports tab"),
+            # **THE STEP THAT WAS MISSING, AND WITHOUT IT CHOOSING A REPORT TYPE
+            # COULD NEVER HAVE WORKED.** The list of report types is not on the
+            # page until its control is opened, so the step below stood in front
+            # of a page that did not carry those words and answered that nothing
+            # matched.
+            #
+            # **`Report Type` IS A `div` LABEL WITH `cursor: auto` AND THE
+            # CONTROL IS A SIBLING** -- and that sibling is a real `input`, so the
+            # door's first choice reaches it with nothing new needed.
+            #
+            # **AND `Ad Product` IS NOT SET AT ALL, WHICH THE REFERENCE DOES SET.**
+            # Measured with it untouched: the Report Type list already offers all
+            # seven. **And its step could not have been copied anyway** -- `PLA`
+            # is also a `role="tab"` button at the top of this page, so asking for
+            # it finds two and refuses.
+            Step(CLICK, find=Find(BY_THE_CONTROL_BESIDE, "Report Type",
+                                  called="the report type box"),
+                 patience=30, why="opening the list of report types"),
             Step(CLICK, find=Find(BY_PRESSABLE_TEXT, report_type), why=f"choosing {report_type}"),
+            # **AND THE DAY CANNOT BE SET UNTIL ITS OWN CONTROL IS OPENED EITHER.**
+            # `Date` is a `div` label whose ONLY sibling is a
+            # `div role="presentation"` with a pointer cursor, reading the range
+            # currently showing (`This Week : 06-Sep-26 - 11-Sep-26`). **No input
+            # and no calendar icon**, which is why the door needed the third way
+            # of reaching what a label names.
+            Step(CLICK, find=Find(BY_THE_CONTROL_BESIDE, "Date", called="the date box"),
+                 patience=30, why="opening the date box, which is what the calendar is behind"),
+            # **THE PRESETS ARE NOT USED, AND THAT IS DELIBERATE.** This page
+            # offers `Yesterday`, which is one press and is what the reference
+            # takes. **But the day this run is fetching is not always yesterday**
+            # -- a day that was missed is fetched later, and `Yesterday` would
+            # then fetch the wrong one and file it under the right name. The
+            # calendar is always the day asked for.
             Step(PICK_RANGE, patience=30, why="setting the day to fetch"),
-            Step(TAKE_FILE, find=Find(BY_ROLE_AND_TEXT, "Download"), patience=90,
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Done", called="the accept button"),
+                 patience=30, why="accepting the day, which is what draws the download control"),
+            # **`Download` IS NOT ON THIS PAGE UNTIL A REPORT TYPE AND A DAY ARE
+            # BOTH CHOSEN**, measured -- so this step could not have run even if
+            # everything above it had.
+            Step(TAKE_FILE, find=Find(BY_PRESSABLE_TEXT, "Download"), patience=90,
                  why=f"taking the {report_type} file"),
         ),
+    )
+
+
+def _ads_overall() -> Recipe:
+    """The overall performance report: the ads page, then once per campaign.
+
+    **ITS DOWNLOAD STAYS SWITCHED OFF UNTIL A CAMPAIGN IS CHOSEN**, measured on his
+    own Flipkart on 2026-09-14: choosing the report adds a `Campaign ID` box whose
+    placeholder reads `Search by Campaign name or ID`. **The reference's route,
+    read in its code** (`content/flipkart.js` `_handleFkAdsOverall`): the day is set
+    first, then for each campaign the id is typed, its suggestion pressed, `Ad Group`
+    waited for, and Download pressed -- one file per campaign.
+    """
+    everything_but_the_download = _ads("Overall Performance Report").to_take[:-1]
+    return Recipe(
+        to_take=everything_but_the_download + (
+            # **THE REFERENCE'S ORDER, COPIED AS IT IS -- HIS RULING, 2026-09-15.**
+            # `_handleFkAdsOverall`: click the box, then type the id, then press the
+            # smallest thing holding the id that is not the box itself.
+            Step(CLICK, find=Find(BY_THE_CONTROL_BESIDE, "Campaign ID", called="the campaign id box"),
+                 for_each_campaign=True, patience=30,
+                 why="pressing the campaign id box first, as the reference does"),
+            Step(TYPE_IN, find=Find(BY_THE_CONTROL_BESIDE, "Campaign ID", called="the campaign id box"),
+                 words="{campaign}", for_each_campaign=True, patience=30,
+                 why="typing the campaign id into the campaign search box"),
+            # **PRESSABLE, SO THE BOX IS NOT COUNTED -- MEASURED 2026-09-15.** Asked as
+            # plain words, the typed id in the box matched as well as the suggestion,
+            # and the step refused on two. A box is never a pressable match, which is
+            # the reference's own "not the input" rule.
+            Step(WAIT_FOR, find=Find(BY_PRESSABLE_TEXT, "{campaign}", exact=False,
+                                     called="the campaign's suggestion"),
+                 for_each_campaign=True, patience=30,
+                 why="waiting for Flipkart to suggest that campaign"),
+            # **PRESSED LIKE A MOUSE, MEASURED 2026-09-15.** The suggestion is a
+            # `div.item` holding the name and a `div.subTitle` reading `ID <id>`,
+            # both `cursor: pointer`. The walk found the subtitle and clicked it, and
+            # the list stayed open; the same element given button down, button up and
+            # click drew `Ad Group` and switched Download on.
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "{campaign}", exact=False,
+                                  called="the campaign's suggestion"),
+                 for_each_campaign=True, press_like_a_mouse=True,
+                 why="pressing that campaign's suggestion"),
+            # **THE LABEL READS `Ad Group ID (optional)`, MEASURED ON HIS PAGE
+            # 2026-09-15** with a campaign chosen -- the reference's loose "ad group"
+            # hid the rest of it, and an exact `Ad Group` could never have matched.
+            Step(WAIT_FOR, find=Find(BY_TEXT, "Ad Group ID (optional)", called="the ad group box"),
+                 for_each_campaign=True, patience=30,
+                 why="waiting for the campaign to be chosen, which draws the ad group box"),
+            Step(TAKE_FILE, find=Find(BY_PRESSABLE_TEXT, "Download"), for_each_campaign=True,
+                 patience=90, why="taking this campaign's overall performance file"),
+        ),
+        campaigns_from=CampaignsFrom("fk_ads_daily", id_column="Campaign ID", day_column="Date"),
     )
 
 
@@ -618,6 +873,32 @@ RECIPES: Dict[str, Recipe] = {
                  patience=45, why="waiting for the returns page to finish drawing"),
             Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Return Tracking", called="the return tracking tab"),
                  why="opening return tracking"),
+            # **AND THEN DELIVERED, WHICH THE STEP ABOVE HAS JUST THROWN AWAY.**
+            #
+            # **MEASURED ON HIS OWN SIGNED-IN PANEL, 2026-09-11.** The address at
+            # the top of this recipe lands on
+            # `returnTracking-completed_delivered`, which is the right list.
+            # **Pressing the Return Tracking tab moves the page to
+            # `returnTracking-intransit`** -- the tab's own default sub-list --
+            # so the recipe navigated away from the only list it wanted, and the
+            # panel it opened next belonged to returns that have not come back
+            # yet. **That is not a failure, it is the wrong file under the right
+            # name**, which is the quiet kind.
+            #
+            # **THE DOCUMENT SAID SO ALL ALONG AND NOBODY DID IT.**
+            # `D:
+            # the reference's own `DOCS.md:498-506` lists six numbered steps and
+            # the fourth is *"Click 'Delivered' filter (shows completed returns,
+            # not in-transit)"*. The reference's own code does it two lines after
+            # the tab click (`content/meesho.js:1032-1034`). **This recipe had
+            # steps 1, 3, 5, 6 and 7 and was missing step 4.**
+            #
+            # **`Delivered` ALONE, AND IT IS EXACT ON PURPOSE.** The sub-tabs read
+            # `In transit`, `Out for Delivery`, `Delivered`, `Lost`,
+            # `No Return No Charge`, `New`, `Disposed` -- read off the page on
+            # 2026-09-11. A loose match would take `Out for Delivery` as well.
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Delivered", called="the delivered list"),
+                 why="going back to the returns that have actually come back"),
             # **THERE IS NO "EXPORT" BUTTON ON THIS PAGE, read live 2026-08-28.**
             # The way in is a control whose whole label is a COUNT -- it reads
             # "0/0 files ready" and changes as exports are made -- so it is the
@@ -727,8 +1008,108 @@ RECIPES: Dict[str, Recipe] = {
             # page will not hand anything over until a range has been chosen.
             Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Custom Date Range"), why="opening the date range"),
             Step(PICK_RANGE, patience=30, why="setting the day, which Meesho then ignores"),
-            Step(TAKE_FILE, find=Find(BY_PRESSABLE_TEXT, "Download"), patience=120,
+            # **TWO THINGS ARE CALLED "Download" BY THE TIME THIS STEP RUNS, AND
+            # BOTH ARE PRESSABLE. MEASURED ON HIS OWN PANEL, 2026-09-11**, with the
+            # modal open exactly as this step meets it:
+            #
+            #   DIV role="button" tabindex="0"   the opener, top right, in the HEADER
+            #   BUTTON type="button"             the one inside the export modal
+            #
+            # The opener never goes away when the modal opens. **ASKING FOR A
+            # CONTROL DOES NOT SEPARATE THEM EITHER, AND THAT WAS TRIED FIRST:**
+            # the first reading saw only the opener's inner `<span>`, which is not
+            # a control, and missed the `div` wrapping it that carries the role. A
+            # second run said the same thing as the first -- *"2 things match
+            # 'Download'"* -- which is what sent the measurement back to the page.
+            # `role="button"` is exactly how a page declares a div to be a
+            # control, so no test of control-ness can tell these two apart.
+            #
+            # **THIS IS THE REFERENCE'S OWN ANSWER, NOT ONE DERIVED FROM IT**
+            # (`content/meesho.js handlePayments`): for the final button it
+            # searches `querySelectorAll('button')` and nothing else, while for
+            # the opener two steps above it searches `p, button, [role="button"]`.
+            # It tells the two apart by the same thing this line does.
+            #
+            # **AND IT IS NARROWER THAN WHAT IT REPLACES, NOT LOOSER.** Everything
+            # a control finds, pressable found too; this only takes away the
+            # things that merely look pressable. It cannot reach a row it could
+            # not reach before.
+            Step(TAKE_FILE, find=Find(BY_A_REAL_BUTTON, "Download"), patience=120,
                  why="taking the finished file"),
+        ),
+    ),
+    # **THE ADS SWEEP: NOTHING IS PRESSED AND NO FILE IS OFFERED.** Meesho's ads
+    # figures are not an export at all -- they come from two of its own addresses,
+    # called from inside the seller's signed-in page. `extension/ads.js` carries
+    # what those addresses are and what their fields are called; this recipe
+    # carries only where to stand while asking.
+    #
+    # **WHY IT STANDS ON THE ADS PAGE AT ALL, since it presses nothing.** Those
+    # addresses answer to the session the page carries. Asked from anywhere else
+    # they answer to nobody. The reference stands on the same page for the same
+    # reason, and this is also what makes the sign-in check in front of every step
+    # mean something here.
+    #
+    # **THE PATIENCE IS THE WHOLE SWEEP, and it is the largest in the book.**
+    # Every campaign is one call, paced like a person so a portal does not read
+    # the run as a machine -- so the time it takes is the seller's own number of
+    # live campaigns, not a fixed cost. `doors.test.js` holds the total against
+    # how long a walk is believed for.
+    "me_ads": Recipe(
+        to_take=(
+            Step(GO, address=ADS + "/advertisement?tab=ALL", patience=60,
+                 why="opening the ads page"),
+            Step(SWEEP_THE_ADS, patience=600,
+                 why="asking Meesho for every campaign that is running"),
+        ),
+    ),
+    # **THE ONE REPORT THAT IS NOT A FILE ANYWHERE, and until 2026-09-11 this door
+    # could not reach it at all.** Meesho shows the day's views and orders on two
+    # cards on the seller's own dashboard and sells no export of them short of a
+    # paid subscription. There is no button to press. So the figures are read off
+    # the page and added to a running list -- his decision, put to him as a
+    # question and answered, and `reports.a_running_list` carries the reasoning.
+    #
+    # **MEASURED ON HIS OWN DASHBOARD, 2026-09-11, rather than taken from the
+    # reference, whose own version of this is a pile of fallbacks that gives up
+    # saying "selectors need updating".** The card is built like this:
+    #
+    #     Views        <- the label, a <p>
+    #     (10 Sep)     <- THE CARD'S OWN DAY, one level up with the label
+    #     34,877       <- the figure, two levels up
+    #     14.15%       <- how much it moved, in the same card
+    #
+    # **THE CARD CARRYING ITS OWN DAY SETTLES TWO THINGS AT ONCE.** `DOCS.md:666`
+    # asks in bold that the day be read off the page rather than assumed -- it
+    # showed `(10 Sep)` while the day was the 11th. **And `Orders` on its own
+    # matches TWICE**, because the sidebar has an `Orders` item as well; narrowing
+    # by the day the card carries is what tells them apart, and it makes reading
+    # the wrong day impossible rather than unlikely.
+    "me_views": Recipe(
+        to_take=(
+            Step(GO, address=GROWTH + "/home", why="opening the dashboard"),
+            # **A LONG WAIT BEFORE ANYTHING IS READ.** The reference sleeps five
+            # seconds on this page in so many words -- "dashboard takes time to
+            # hydrate" -- and a figure read while a card is still drawing is a
+            # figure read wrong, which is worse than one not read at all.
+            Step(WAIT_FOR,
+                 find=Find(BY_TEXT, "Views", near="{day_in_words}",
+                           day_in_words_is=MEESHO_WRITES_IT,
+                           day_in_words_of=THE_DAY_IT_IS_ABOUT,
+                           called="the views card for the day"),
+                 patience=60, why="waiting for the dashboard cards to finish drawing"),
+            Step(READ_NUMBER,
+                 find=Find(BY_TEXT, "Views", near="{day_in_words}",
+                           day_in_words_is=MEESHO_WRITES_IT,
+                           day_in_words_of=THE_DAY_IT_IS_ABOUT),
+                 patience=30, why="reading the views for the day"),
+            Step(READ_NUMBER,
+                 find=Find(BY_TEXT, "Orders", near="{day_in_words}",
+                           day_in_words_is=MEESHO_WRITES_IT,
+                           day_in_words_of=THE_DAY_IT_IS_ABOUT),
+                 patience=30, why="reading the orders for the day"),
+            Step(ADD_TO_THE_LIST, patience=30,
+                 why="adding the day to the running list"),
         ),
     ),
     # **DECLARED SINCE THE LIST WAS WRITTEN AND NEVER BUILT.** Its steps are read
@@ -777,8 +1158,34 @@ RECIPES: Dict[str, Recipe] = {
             # SEVERAL**, so eleven never troubled it and it never had to tell
             # these two states apart. This half does refuse, which is how the
             # eleven came to be known at all.
-            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Exported Files"),
-                 why="opening the list of files already exported"),
+            #
+            # **AND THE "Exported Files" PRESS HAS GONE TOO, 2026-09-11, AND THE
+            # PARAGRAPH ABOVE CALLING IT "the one press that does real work" WAS
+            # WRONG.** Measured on his own claims panel, element by element:
+            #
+            #   `Exported Files`  a `<p>`, **`cursor: auto`**
+            #   `Export Data`     a `<button>`, `cursor: pointer`
+            #   `Download`        a `<p>`, `cursor: pointer`
+            #
+            # **IT IS A HEADING, NOT A CONTROL.** Something pressable is asked for
+            # and a heading is not pressable, so this step could never find it on
+            # any day -- and it did not: the run of 2026-09-11 waited out its
+            # whole thirty seconds and said *"could not find 'Exported Files'. It
+            # is not on the page at all."* The words were on the page the entire
+            # time.
+            #
+            # **AND THERE IS NOTHING FOR IT TO DO.** The moment the Download menu
+            # opens, the list of exports already made is drawn with it -- eleven
+            # Downloads where a shut menu has one, today's row among them. There
+            # is no second view to switch to.
+            #
+            # **A CORRECTION OWED TO THE REFERENCE (Rule 36.4).**
+            # `content/meesho.js:1502-1505` presses this same heading on every
+            # poll, finding it with `querySelectorAll('p')` and no test of whether
+            # it is a control at all. Pressing a `<p>` that is not one does
+            # nothing, so it has been a no-op there for months and nothing ever
+            # said so. **Copied here into a door that asks for something
+            # pressable, the same no-op became a report that never arrives.**
             # **NAMED BY THE DAY IT WAS MADE, because that is all a claims row
             # carries.** The panel keeps every export ever made, so "Download"
             # alone finds all of them and refuses -- which is right, and useless.
@@ -804,14 +1211,68 @@ RECIPES: Dict[str, Recipe] = {
 
     # ---- Flipkart: the Reports Centre three, two-phase
     "fk_orders": _reports_centre("Fulfilment Reports", "Orders", "orders"),
-    "fk_returns": _reports_centre("Fulfilment Reports", "Returns", "returns"),
+    # **RETURNS DO NOT GO THROUGH THE REPORTS CENTRE, AND THEY NEVER DID IN THE
+    # REFERENCE'S CODE.** Its `DOCS.md:688-746` says they do; its code
+    # (`content/flipkart.js:2620-2900`) goes to the Returns page, and his ruling of
+    # 2026-09-14 is to do it exactly that way: *"going through the entire flow,
+    # picking the date, on apply, and then requesting download, then going to the
+    # previous downloads and getting it."* This recipe used the Reports Centre and
+    # refused twice on two `Request New Report` matches. **It also spends none of
+    # Flipkart's twenty** -- that allowance is the Reports Centre's.
+    "fk_returns": Recipe(
+        ready_in_minutes=30,
+        to_ask=(
+            Step(GO, address=RETURNS, patience=60, why="opening all returns"),
+            # **A `DIV` WITH `cursor: auto`, MEASURED.** Waited for as words.
+            Step(WAIT_FOR, find=Find(BY_TEXT, "Date of Closure", called="the returns page"),
+                 patience=60, why="waiting for the returns page to finish drawing"),
+            # **THE WORDS THEMSELVES OPEN THE CALENDAR, AND THE BOX BESIDE THEM DOES
+            # NOT.** Measured: clicking the text `INPUT` next to them drew nothing;
+            # clicking the `DIV` drew two months (`Sep 2026`). The reference clicks
+            # the words too (`content/flipkart.js:2658-2679`).
+            Step(CLICK, find=Find(BY_TEXT, "Date of Closure", called="the date of closure filter"),
+                 why="opening the date of closure calendar"),
+            # **A DAY IT HAS NOT BUILT SAYS SO IN THE CURSOR**: the 15th read
+            # `not-allowed` on the 14th while the 12th-14th read `pointer`.
+            Step(PICK_RANGE, patience=30, switched_off_days_change_the_cursor=True,
+                 why="setting the day to fetch"),
+            # A `span` inside a real `button`, measured, as is `Request Download`.
+            Step(CLICK, find=Find(BY_ROLE_AND_TEXT, "Apply"), why="applying the day"),
+            Step(CLICK, find=Find(BY_ROLE_AND_TEXT, "Request Download"),
+                 why="asking for the returns file"),
+        ),
+        to_take=(
+            Step(GO, address=RETURNS, patience=60, why="coming back for the returns file"),
+            Step(WAIT_FOR, find=Find(BY_ROLE_AND_TEXT, "Previous Downloads",
+                                     called="the previous downloads button"),
+                 patience=60, why="waiting for the returns page to finish drawing"),
+            Step(CLICK, find=Find(BY_ROLE_AND_TEXT, "Previous Downloads",
+                                  called="the previous downloads button"),
+                 why="opening the returns files already asked for"),
+            # **EVERY ROW IS A `TR` READING `16:24, Sep 14, 2026 | 1 Locations |
+            # 17/06/26 -> 14/09/26 | 3 Filters | Ready to download | Download`,
+            # with a real `<button>` `Download`. MEASURED 2026-09-14.** Named by the
+            # day it was ASKED FOR, and only a row that is ready. The reference
+            # matches the row by its request time (`content/flipkart.js:2824-2845`).
+            Step(TAKE_FILE, find=Find(BY_ROLE_AND_TEXT, "Download", near="{day_in_words}",
+                                      also_saying="Ready to download",
+                                      day_in_words_is=FLIPKART_WRITES_IT,
+                                      day_in_words_of=THE_DAY_IT_WAS_MADE,
+                                      called="the finished returns file"),
+                 patience=90, why="taking the finished returns file"),
+        ),
+    ),
     "fk_payments": _reports_centre("Payment Reports", "Settled Transactions", "payments"),
 
     # ---- Flipkart: the traffic report, two-phase and the live selector fix
     "fk_views": Recipe(
         ready_in_minutes=30,
         to_ask=(
-            Step(GO, address=TRAFFIC, why="opening the traffic report"),
+            # **SIXTY SECONDS TO LOAD, MEASURED 2026-09-14.** A `go` waits for the
+            # browser to call the page finished, and this one took 38 seconds in
+            # his own Chrome -- the default thirty failed the report before its
+            # first step. The content itself was ready at 3.
+            Step(GO, address=TRAFFIC, patience=60, why="opening the traffic report"),
             # **THE LIVE FIX, read off his own Flipkart on 2026-08-27.** The words
             # "Custom Dates" DO NOT EXIST on this page any more -- Flipkart replaced
             # the button with a dropdown whose label is one word, `Custom`. That is
@@ -820,20 +1281,162 @@ RECIPES: Dict[str, Recipe] = {
             # **MATCHED EXACTLY, and that matters on this page**: a loose match for
             # "custom" also hits the "Customer Segments" tab sitting beside it,
             # which is the chart-legend trap all over again.
-            Step(WAIT_FOR, find=Find(BY_ROLE_AND_TEXT, "Custom", called="the date range dropdown"),
+            # **NOT A CONTROL. MEASURED ON HIS OWN PANEL, 2026-09-11, ELEMENT BY
+            # ELEMENT, AFTER THE FIRST FLIPKART RUN THIS PRODUCT HAS EVER MADE
+            # FAILED HERE.** The run said *"could not find the date range
+            # dropdown"*. It was on the page the whole time:
+            #
+            #   `Custom`   a `div`, **no role, no control tag, `cursor: pointer`**
+            #   `Latest`   the same
+            #   `Done`     a `span`, the same
+            #
+            # **THIS WHOLE PAGE IS BUILT OUT OF DIVS WITH A POINTER CURSOR.** Of
+            # the eighty-six pressable things read off it, not one of the period
+            # chips is a button, a link or carries a role. Asked for as a control
+            # the page answers nothing at all -- which is the Meesho sidebar
+            # fault (`driver.js:243`) on the other portal, and it is why
+            # `BY_PRESSABLE_TEXT` exists.
+            #
+            # **AND THE MATCH IS EXACT, WHICH ON THIS PAGE IS NOT A DETAIL.**
+            # `Customer Segments` sits beside it and is also a pointer div, so a
+            # loose match finds two and refuses.
+            # **AND THE TRAFFIC REPORT IS ITS OWN TAB, WHICH NOTHING HERE HAD
+            # EVER PRESSED. HE POINTED THIS OUT ON 2026-09-14 AND HE WAS RIGHT.**
+            #
+            # **WHAT WAS WRITTEN HERE ON THE 11TH -- that Flipkart had removed the
+            # export -- WAS WRONG, and it is corrected rather than left standing.**
+            # This address opens Seller Insights on a tab row reading
+            # `Today's Sales | Business Health | Traffic Report | Earn More |
+            # Search Trends | Category Research | Customer Segments`, and the
+            # listings-report button lives on the **Traffic Report** tab only.
+            # Everything measured that day was measured on the wrong tab.
+            #
+            # **IT IS A REAL `button` WITH `role="tab"`**, measured -- the one
+            # control on this page that is not a bare div. The same words also
+            # appear as a `div` leaf inside it, so asking for a control finds
+            # exactly one.
+            Step(WAIT_FOR, find=Find(BY_ROLE_AND_TEXT, "Traffic Report", called="the traffic report tab"),
+                 patience=60, why="waiting for seller insights to finish drawing"),
+            Step(CLICK, find=Find(BY_ROLE_AND_TEXT, "Traffic Report", called="the traffic report tab"),
+                 why="opening the traffic report tab"),
+            Step(WAIT_FOR, find=Find(BY_PRESSABLE_TEXT, "Custom", called="the date range chip"),
                  patience=60, why="waiting for the traffic report to finish drawing"),
-            Step(CLICK, find=Find(BY_ROLE_AND_TEXT, "Custom", called="the date range dropdown"),
-                 why="opening the date range dropdown"),
-            Step(PICK_RANGE, patience=30, why="setting the day to fetch"),
-            Step(CLICK, find=Find(BY_ROLE_AND_TEXT, "Request Listings Report", called="the request button"),
-                 why="asking Flipkart to build the report"),
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Custom", called="the date range chip"),
+                 why="opening the date range chip"),
+            # **AND A DAY FLIPKART HAS NO DATA FOR IS SWITCHED OFF IN THE CURSOR
+            # AND IN NOTHING ELSE -- WHICH IS THE WHOLE OF WHAT HE ASKED FOR.**
+            # His words, 2026-09-14: the `Latest` chip announces its own day, and
+            # *"if the report is not generated for yesterday it will be showing
+            # the day before yesterday. In that case code has to understand this
+            # is not available for the intended date."*
+            #
+            # **MEASURED ON HIS OWN CALENDAR THE SAME DAY, and it was exactly that
+            # case:** `Latest` read `12 Sep 26` while the day was the 14th, and in
+            # the open calendar **the 13th reported `cursor: not-allowed` on both
+            # panels** while the 12th reported `pointer`. Of 84 cells, 58 were
+            # switched off.
+            #
+            # **SO NO NEW KIND OF STEP IS NEEDED. The door already refuses a day
+            # whose cursor says it is off** -- it simply had never been told that
+            # this calendar says it that way. Told, the report fails out loud
+            # naming the day, instead of Flipkart quietly clamping the range to
+            # the latest day it does have and the file landing under the name of
+            # the day that was asked for. **That clamping is real: this address
+            # was opened asking for 09-10 and came back reading
+            # `startDate=2026-09-12&endDate=2026-09-12`.**
+            Step(PICK_RANGE, patience=30,
+                 switched_off_days_change_the_cursor=True,
+                 why="setting the day to fetch, and refusing a day Flipkart has no data for"),
+            # **AND THE RANGE HAS TO BE ACCEPTED BEFORE THE REQUEST BUTTON EXISTS
+            # AT ALL.** Read off the page with the period left on `Latest`: there
+            # is no `Request Listings Report` anywhere on it, shown or hidden --
+            # only the app's own stylesheet carrying `generateReportCard` and
+            # `downloadReport` classes for a component that is not drawn. The
+            # reference's step 7 says the page reloads for the chosen range and
+            # step 8 then presses the request button (`DOCS.md:962-970`).
+            #
+            # **`Done` IS A `span` WITH A POINTER CURSOR**, measured in the open
+            # calendar. The reference looks for it with `findBtn`, which searches
+            # buttons, links and roles only -- so **the reference has never found
+            # this control either**, and gets away with it because its own call
+            # is `if (doneBtn)`. A correction is owed to it (Rule 36.4).
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Done", called="the accept button"),
+                 patience=30, why="accepting the range, which is what draws the request button"),
+            # **MATCHED LOOSELY, AND THAT IS MEASURED RATHER THAN CAUTIOUS.** The
+            # button is a real `<button>` with a pointer cursor, and **its words
+            # read `Request Listings Reportdownload`** -- the trailing word comes
+            # from the icon inside it. Asked for exactly, nothing matches.
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Request Listings Report", exact=False,
+                                  called="the request button"),
+                 patience=60, why="asking Flipkart to build the report"),
         ),
         to_take=(
-            Step(GO, address=TRAFFIC, why="coming back for the traffic report"),
-            Step(WAIT_FOR, find=Find(BY_ROLE_AND_TEXT, "Download Listings Report", called="the download button"),
+            # Sixty for the same measured reason as the asking phase's `go`.
+            Step(GO, address=TRAFFIC, patience=60, why="coming back for the traffic report"),
+            # **THE SAME RANGE HAS TO BE CHOSEN AGAIN, AND WITHOUT THIS THE
+            # DOWNLOAD BUTTON CAN NEVER APPEAR.** The report Flipkart built is
+            # keyed to the range that was asked for, and arriving at this address
+            # puts the page back on `Latest` every time -- the reference says so
+            # in its own words at `DOCS.md:1832`: *"navigating directly to the
+            # Traffic Report page resets to the Latest preset, so the range must
+            # be re-applied each time"*, and it calls the identical
+            # `fkViewsSelectRange` in both of its phases for exactly this.
+            #
+            # **THIS HALF ASKED FOR THE DOWNLOAD BUTTON ON A PAGE SHOWING THE
+            # WRONG RANGE**, waited out two minutes, and would have reported
+            # Flipkart as still building a report that was finished.
+            Step(WAIT_FOR, find=Find(BY_ROLE_AND_TEXT, "Traffic Report", called="the traffic report tab"),
+                 patience=60, why="waiting for seller insights to finish drawing"),
+            Step(CLICK, find=Find(BY_ROLE_AND_TEXT, "Traffic Report", called="the traffic report tab"),
+                 why="opening the traffic report tab"),
+            Step(WAIT_FOR, find=Find(BY_PRESSABLE_TEXT, "Custom", called="the date range chip"),
+                 patience=60, why="waiting for the traffic report to finish drawing"),
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Custom", called="the date range chip"),
+                 why="opening the date range chip"),
+            Step(PICK_RANGE, patience=30,
+                 switched_off_days_change_the_cursor=True,
+                 why="choosing the same range the report was built for"),
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Done", called="the accept button"),
+                 patience=30, why="accepting the range, which is what draws the download button"),
+            # **LOOSELY, for the same measured reason as the request button: the
+            # icon inside it puts `download` on the end of its words.** And the
+            # two never sit on the page together -- the same button changes from
+            # one to the other once the report has been asked for, which is his
+            # own description of it.
+            Step(WAIT_FOR, find=Find(BY_PRESSABLE_TEXT, "Download Listings Report", exact=False,
+                                     called="the download button"),
                  patience=120, why="waiting for the finished report"),
-            Step(TAKE_FILE, find=Find(BY_ROLE_AND_TEXT, "Download Listings Report"), patience=90,
-                 why="taking the finished traffic file"),
+            Step(TAKE_FILE, find=Find(BY_PRESSABLE_TEXT, "Download Listings Report", exact=False),
+                 patience=90, why="taking the finished traffic file"),
+        ),
+    ),
+
+    # ---- Flipkart: the top search keywords, read off the traffic report
+    # **THE REFERENCE'S `handleFkKeywords`, WITH THE ONE PART A PERSON DID DONE HERE
+    # (2026-09-15).** There a person opened the Traffic Report and pressed `Latest`
+    # and `All`; here the recipe does. **LATEST, NOT A CHOSEN DAY -- the reference
+    # requires it** ("only Latest is single-day") and his first run, on a Custom
+    # day, drew the listings with no keyword buttons at all. So the keywords are
+    # Flipkart's latest day only; the reading step compares that day with the day
+    # asked for before it presses anything. `All` products is in the address and
+    # already chosen on arrival.
+    "fk_keywords": Recipe(
+        to_take=(
+            Step(GO, address=TRAFFIC, patience=60, why="opening the traffic report"),
+            Step(WAIT_FOR, find=Find(BY_ROLE_AND_TEXT, "Traffic Report", called="the traffic report tab"),
+                 patience=60, why="waiting for seller insights to finish drawing"),
+            Step(CLICK, find=Find(BY_ROLE_AND_TEXT, "Traffic Report", called="the traffic report tab"),
+                 why="opening the traffic report tab"),
+            Step(WAIT_FOR, find=Find(BY_PRESSABLE_TEXT, "Latest", called="the latest day chip"),
+                 patience=60, why="waiting for the traffic report to finish drawing"),
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Latest", called="the latest day chip"),
+                 why="choosing the latest day, the only period the keywords are offered for"),
+            # **SIXTY SECONDS FOR THE LISTING TABLE TO DRAW**, which is what this
+            # patience waits for. The reading itself takes the reference's own pace,
+            # about seven seconds a listing -- ten to fifteen minutes on his catalogue,
+            # inside the twenty-five a walk is believed for.
+            Step(READ_THE_KEYWORDS, patience=60,
+                 why="reading every listing's top search keywords, page by page"),
         ),
     ),
 
@@ -841,15 +1444,41 @@ RECIPES: Dict[str, Recipe] = {
     "fk_claims": Recipe(
         to_take=(
             Step(GO, address=CLAIMS, why="opening the claims page"),
-            Step(WAIT_FOR, find=Find(BY_ROLE_AND_TEXT, "SPF Claims", called="the claims tab"),
+            # **`SPF Claims` IS THE PAGE'S OWN `h1`, NOT A TAB. MEASURED ON HIS
+            # OWN PANEL, 2026-09-11.** It has no role, no control tag and
+            # `cursor: auto`. This waited for it as a CONTROL and then PRESSED
+            # it, so the report could never get past its second step -- and the
+            # failure would have read as a renamed tab.
+            #
+            # **THE STEP THAT PRESSED IT IS GONE, because there is nothing to
+            # press.** The words are still waited for, as words, because they
+            # are the honest signal that this page has finished drawing.
+            #
+            # **AND THE TWO REAL TABS ARE NOT WORTH PRESSING EITHER:** they read
+            # `NFBF  Raised by you (150)` and `FBF  Auto approved (12)`, **with
+            # the counts inside the words**, so nothing can match them exactly
+            # and they change every day. The page opens on the first of them
+            # already, measured -- its own address says `SELLER_PENDING`.
+            Step(WAIT_FOR, find=Find(BY_TEXT, "SPF Claims", called="the claims page"),
                  patience=60, why="waiting for the claims page to finish drawing"),
-            Step(CLICK, find=Find(BY_ROLE_AND_TEXT, "SPF Claims", called="the claims tab"),
-                 why="opening the claims tab"),
-            Step(CLICK, find=Find(BY_ROLE_AND_TEXT, "Download Report", called="the download menu"),
+            # **A `div` WITH A POINTER CURSOR, like almost everything on this
+            # portal.** Asked for as a control it answers nothing.
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Download Report", called="the download menu"),
                  why="opening the download menu"),
+            # The menu offers `Last 3 days`, `Last 7 days`, `Last 15 days`,
+            # `Last 30 days` and `Custom Date Range` -- each a `div` with a
+            # pointer cursor. **The custom range is the only one that can name
+            # the day this run is fetching.**
             Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Custom Date Range"), why="choosing the days"),
+            # **ITS CALENDAR OPENS TWO MONTHS BEHIND, measured: `Jul 2026` and
+            # `Aug 2026` while the day was the 11th of September.** So the door
+            # has to step it forward, which it does by the arrows -- and the
+            # headings are `label` elements, which is a second reason `label` had
+            # to become something the door can see.
             Step(PICK_RANGE, patience=30, why="setting the day to fetch"),
-            Step(TAKE_FILE, find=Find(BY_ROLE_AND_TEXT, "Done"), patience=90,
+            # **`Done` IS A `span` WITH A POINTER CURSOR**, and pressing it is
+            # what starts the download. Asked for as a control, nothing matched.
+            Step(TAKE_FILE, find=Find(BY_PRESSABLE_TEXT, "Done"), patience=90,
                  why="taking the claims file"),
         ),
     ),
@@ -870,7 +1499,49 @@ RECIPES: Dict[str, Recipe] = {
             Step(CLICK, find=Find(BY_ROLE_AND_TEXT, "Downloads", called="the downloads menu"),
                  why="opening the downloads menu"),
             Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "View Recent Downloads"), why="opening the downloads history"),
-            Step(TAKE_FILE, find=Find(BY_ROLE_AND_TEXT, "Download"), patience=90,
+            # **THERE IS NO "Download" ON A ROW AT ALL. THE FILE NAME IS THE
+            # CONTROL.** Read off his own Downloads History on 2026-09-11, and
+            # this is what the run of the same evening refused on -- *"9 things
+            # match Download"*, because the page's own menu and every other
+            # control on it carry that word and no row does.
+            #
+            #   Document                              File Type   Requested On
+            #   S_listing--ui--group_..._default.xls  Listing     11 September, 11:10 PM
+            #   S_listing--ui--group_..._default.xls  Listing     10 September, 11:46 AM
+            #   E_bangle-bracelet-armlet_...xls       Catalog     16 August, 10:34 PM
+            #
+            # **THE FILE NAME IS A `div` WITH A POINTER CURSOR and pressing it is
+            # the download** -- but it is the seller's own name and cannot be
+            # written here. **What can is `Listing`**, the File Type cell, which
+            # is the only stable word separating the listing file from the
+            # catalogue file. So the words name the row and the pressable thing
+            # beside them is taken, exactly as the date box is reached.
+            #
+            # **AND NARROWED BY THE DAY THE FILE WAS MADE, NOT THE DAY IT IS
+            # ABOUT.** A listings file is a snapshot of the whole catalogue and
+            # carries no data date; his panel holds four `Listing` rows from four
+            # different days, so `Listing` alone finds four and refuses. The row
+            # says `11 September, 11:10 PM` -- **the full month name and no year,
+            # which is why `{d} {Month}` had to be added to Flipkart's
+            # spellings.**
+            #
+            # **AND BY 2026-09-14 THE ROW HAS A REAL `Download` BUTTON, AND THE
+            # FILE NAME PRESSES NOTHING.** Measured on his own Downloads History
+            # that afternoon, row by row: `S_listing--ui--group_..._default.xls
+            # | Listing | 14 September, 04:30 PM | Download`, the last a real
+            # `<button>`. The collect pressed the file name as written above and
+            # waited ninety seconds for a download that never began. **The
+            # reference presses the button in the Listing row that is not still
+            # generating** (`content/flipkart.js` `findReadyListingDownloadBtn`),
+            # so this now asks for that button, on the row made on the run's day
+            # that says `Listing` -- which also keeps it off the Catalog rows.
+            Step(TAKE_FILE, find=Find(BY_ROLE_AND_TEXT, "Download",
+                                      near="{day_in_words}",
+                                      also_saying="Listing",
+                                      day_in_words_is=FLIPKART_WRITES_IT,
+                                      day_in_words_of=THE_DAY_IT_WAS_MADE,
+                                      called="the finished listing file"),
+                 patience=90,
                  why="taking the finished listing file"),
         ),
     ),
@@ -879,7 +1550,7 @@ RECIPES: Dict[str, Recipe] = {
     "fk_ads_daily": _ads("Consolidated Daily Report"),
     "fk_ads_fsn": _ads("Consolidated FSN Report"),
     "fk_ads_placements": _ads("Placement Performance Report"),
-    "fk_ads_overall": _ads("Overall Performance Report"),
+    "fk_ads_overall": _ads_overall(),
     "fk_ads_search": _ads("Search Term Report"),
     "fk_ads_orders": _ads("Campaign Order Report"),
     "fk_ads_kw": _ads("Keyword Report"),
@@ -1022,31 +1693,31 @@ def every_recipe() -> Tuple[str, ...]:
 # report on the browser door is either in `RECIPES` or named here -- so the day
 # somebody adds a report and forgets its recipe, that goes red, instead of the
 # report quietly never being fetched.
-NOT_YET_A_RECIPE: Dict[str, str] = {
-    "fk_keywords": (
-        "The keywords are not a file Flipkart hands over. Somebody has to be on "
-        "the traffic report with the day and all products chosen, and then every "
-        "row's own keyword panel is opened in turn and read off the screen. The "
-        "door has no step for reading a page, and no step for waiting on a person."
-    ),
-    "me_views": (
-        "The views figure is not a file. It is two numbers read off the Meesho "
-        "dashboard and added to a running list. The door has no step for reading "
-        "a number off a page."
-    ),
-    "me_ads": (
-        "The ads figures are not a file either. Meesho's own ads addresses are "
-        "called from inside the signed-in page -- the campaign list, then each "
-        "live campaign in turn -- and the rows are built from what comes back. "
-        "The door has no step for calling an address."
-    ),
+# **EMPTY SINCE 2026-09-15.** `fk_keywords` was the last: the door learned to read
+# the keyword pop-ups off the traffic report, and the part the reference left to a
+# person -- opening the report and choosing the day -- is the traffic report's own
+# steps.
+NOT_YET_A_RECIPE: Dict[str, str] = {}
+
+
+# **REPORTS THAT ARE REAL AND ARE FETCHED BY A DIFFERENT REPORT'S RUN.**
+#
+# **THIS IS A THIRD ANSWER AND IT HAD TO EXIST.** Until now a report either had a
+# recipe or was written down as one this door cannot reach -- and the ads sweep is
+# neither. `me_ads_summary` and `me_ads_catalog` are fetched every time `me_ads`
+# runs, out of the same two calls, because asking Meesho for the same campaign
+# three times to write three files would be three times the load for the same
+# answer. **Left in `NOT_YET_A_RECIPE` they would show a seller "cannot be
+# fetched" about two reports that arrive in their Drive**, which is worse than
+# saying nothing.
+MADE_BY_ANOTHER: Dict[str, str] = {
     "me_ads_summary": (
-        "It comes out of the same sweep as the campaigns, and for the same "
-        "reason cannot be reached by the five steps this door has."
+        "Fetched by the Meesho ads sweep, which asks for a campaign's day once "
+        "and writes all three files from the one answer."
     ),
     "me_ads_catalog": (
-        "It comes out of the same sweep as the campaigns, and for the same "
-        "reason cannot be reached by the five steps this door has."
+        "Fetched by the Meesho ads sweep, which asks for a campaign's day once "
+        "and writes all three files from the one answer."
     ),
 }
 

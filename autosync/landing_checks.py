@@ -82,13 +82,62 @@ check("the extension comes off the report", answered(lambda: tool.file_name_for(
 
 # **BUILT IN ONE PLACE AND READ BACK IN ONE PLACE, so the two cannot drift.**
 check("the date can be read back out of the name it was built into", answered(lambda: tool.data_date_in(name) == DAY("2026-08-26")))
+# One file per campaign puts the campaign id AFTER the day (walk.theCampaignsFileName).
 check(
-    "and that holds for every report in the real list",
+    "and out of a per-campaign ads file, where the day is not last",
+    answered(lambda: tool.data_date_in("flipkart_fk_ads_overall_2026-09-20_0PTESTCAMP001.csv") == DAY("2026-09-20")),
+)
+check(
+    "and that holds for every report whose file is named by a day",
     answered(lambda: all(
         tool.data_date_in(tool.file_name_for(r, DAY("2026-08-26"))) == DAY("2026-08-26")
-        for r in REPORTS
+        for r in REPORTS if not r.a_running_list
     )),
 )
+
+# ------------------------------------------------- the other shape: a running list
+#
+# **HIS DECISION, 2026-09-11, asked as a question and answered.** Meesho shows the
+# day's views on a card and sells no export of them, so there is nothing to fetch:
+# the figure is read off the page and added to one file. **That file has no day in
+# its name, which is exactly what every line above is built on** -- so the
+# exception is NAMED here rather than the rule being softened.
+check(
+    "the only reports without a day in the name are the running lists, by name",
+    answered(lambda: sorted(r.id for r in REPORTS if r.a_running_list) == ["me_views"]),
+)
+VIEWS = next(r for r in REPORTS if r.id == "me_views")
+check("a running list is named without a day, because it holds many",
+      answered(lambda: tool.file_name_for(VIEWS, DAY("2026-08-26")) == "meesho_me_views.csv"))
+# **ASKED FOR TWO DIFFERENT DAYS IT IS THE SAME FILE**, which is the whole idea.
+# A caller should not have to know which shape it is holding to ask a fair
+# question, and "the 26th's views file" has an honest answer: the one there is.
+check("and it is the same file whichever day is asked for",
+      answered(lambda: tool.file_name_for(VIEWS, DAY("2026-08-26"))
+               == tool.file_name_for(VIEWS, DAY("2026-09-10"))))
+check("and the day cannot be read back out of it, which is the truth",
+      answered(lambda: tool.data_date_in(tool.file_name_for(VIEWS, DAY("2026-08-26"))) is None))
+check("and one place builds that name too",
+      answered(lambda: tool.the_running_list_is_called(VIEWS) == "meesho_me_views.csv"))
+
+# **AND THE DAYS COME OUT OF THE FILE INSTEAD, THROUGH THE SAME ONE FUNCTION.**
+# `days_that_arrived` says of itself that ONE place turns files into days, because
+# the day the board and the schedule could disagree about what is owed, every day
+# gets fetched again for ever.
+_LIST = tool.Arrived("meesho_me_views.csv", 120,
+                     days_inside=(DAY("2026-09-09"), DAY("2026-09-10")))
+check("a running list answers with the days inside it",
+      answered(lambda: tool.days_that_arrived([_LIST])
+               == (DAY("2026-09-09"), DAY("2026-09-10"))))
+check("and an empty one answers with no days at all, however many it claims",
+      answered(lambda: tool.days_that_arrived([
+          tool.Arrived("meesho_me_views.csv", 0, days_inside=(DAY("2026-09-10"),))]) == ()))
+# **AND NOTHING ELSE CHANGED SHAPE.** An ordinary report still answers by its name.
+check("while an ordinary report still answers by the day in its name",
+      answered(lambda: tool.days_that_arrived([tool.Arrived(name, 5)]) == (DAY("2026-08-26"),)))
+check("and the two can sit in one answer together",
+      answered(lambda: tool.days_that_arrived([_LIST, tool.Arrived(name, 5)])
+               == (DAY("2026-08-26"), DAY("2026-09-09"), DAY("2026-09-10"))))
 
 # ------------------------------------------- THE SEVEN FILES NOTHING COULD FIND
 
@@ -482,7 +531,7 @@ check("and it says so", bool(said))
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 92
+EXPECTED = 102
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

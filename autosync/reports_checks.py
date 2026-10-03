@@ -336,13 +336,16 @@ check(
 
 # ----------------------------------------- a report that needs somebody says so
 
+# **AND SINCE 2026-09-15 NONE DOES.** `fk_keywords` was the one: the reference
+# waited for a person to open the traffic report and choose the day, and Kartaan's
+# recipe now does both.
 check(
-    "the report that needs a person on the page says so",
-    answered(lambda: tool.report("fk_keywords").needs_a_person is True),
+    "the keywords no longer need a person on the page",
+    answered(lambda: tool.report("fk_keywords").needs_a_person is False),
 )
 check(
-    "and almost nothing else does",
-    answered(lambda: sum(1 for r in tool.REPORTS if r.needs_a_person) == 1),
+    "and no report does",
+    answered(lambda: sum(1 for r in tool.REPORTS if r.needs_a_person) == 0),
 )
 
 

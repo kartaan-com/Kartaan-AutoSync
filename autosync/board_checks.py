@@ -278,7 +278,55 @@ check("while a daily report still says which days did not arrive",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 55
+# ------------------------------------------------ the other shape: a running list
+#
+# **HIS DECISION, 2026-09-11.** Meesho sells no export of the day's views, so the
+# figure is read off the dashboard and added to ONE file. That file has no day in
+# its name, which is what every line above is built on.
+VIEWS = Report("me_views", "meesho", "Meesho views", BROWSER, DAILY, "csv",
+               a_running_list=True)
+_TODAY = date.fromisoformat("2026-09-11")
+_LIST = Arrived("meesho_me_views.csv", 300,
+                days_inside=(date.fromisoformat("2026-09-09"),
+                             date.fromisoformat("2026-09-10")))
+
+_rows = tool.rows_for([VIEWS], lambda _r: [_LIST], _TODAY, look_back_days=5)
+_said = {r.data_date: r.state for r in _rows}
+check("a running list's days are read out of the file and each one is a row",
+      answered(lambda: _said[date.fromisoformat("2026-09-10")] == tool.ARRIVED
+               and _said[date.fromisoformat("2026-09-09")] == tool.ARRIVED))
+# **AND THE DAYS IT DOES NOT HOLD ARE STILL MISSING**, which is the whole reason
+# the board exists. Forgiving the name must not turn into forgiving the days.
+check("and a day the file does not hold is still missing",
+      answered(lambda: _said[date.fromisoformat("2026-09-08")] == tool.MISSING))
+check("and the row names the file the day really came from",
+      answered(lambda: all(r.file_name == "meesho_me_views.csv"
+                           for r in _rows if r.state == tool.ARRIVED)))
+# **WITHOUT THIS THE BOARD IS CONFIDENTLY WRONG.** The file sits in the folder
+# holding every day and the board calls them all missing -- the seven-files-for-
+# six-weeks failure, arriving through a shape that did not exist then.
+check("an empty running list holds no days, however many it claims",
+      answered(lambda: all(
+          r.state != tool.ARRIVED for r in tool.rows_for(
+              [VIEWS], lambda _r: [Arrived("meesho_me_views.csv", 0,
+                                           days_inside=(date.fromisoformat("2026-09-10"),))],
+              _TODAY, look_back_days=5))))
+
+# **AND ITS OWN FILE IS NOT A STRAY, while anything else in that folder still is.**
+check("a running list's own file is not called a file nothing can find",
+      answered(lambda: tool.files_nothing_can_find([VIEWS], lambda _r: [_LIST]) == {}))
+check("but anything else undated in that folder still is",
+      answered(lambda: tool.files_nothing_can_find(
+          [VIEWS], lambda _r: [_LIST, Arrived("views (1).csv", 40)])
+          == {"me_views": ("views (1).csv",)}))
+# **AND NOTHING ELSE CHANGED SHAPE.** An ordinary report's undated files are
+# exactly as they were.
+check("while an ordinary report forgives nothing",
+      answered(lambda: tool.files_nothing_can_find(
+          [PAY], lambda _r: [Arrived("meesho_me_payments.csv", 40)])
+          == {"me_payments": ("meesho_me_payments.csv",)}))
+
+EXPECTED = 62
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

@@ -108,6 +108,37 @@ check("and one day is what a step means unless it says otherwise",
 check("a step that is not a range may not say how many days it covers",
       answered(lambda: tool.why_step_is_refused(tool.Step(tool.GO, address="x", range_days=2, why="y")) is not None))
 check("while a range step may", answered(lambda: tool.why_step_is_refused(tool.Step(tool.PICK_RANGE, range_days=2, why="y")) is None))
+# **TYPING, AND WHAT IS DONE ONCE PER CAMPAIGN (2026-09-15)** -- Flipkart's overall
+# performance report, whose Download stays off until a campaign is typed and chosen.
+check("typing into nothing in particular is refused",
+      answered(lambda: tool.why_step_is_refused(tool.Step(tool.TYPE_IN, words="x", why="y")) is not None))
+check("typing nothing is refused",
+      answered(lambda: tool.why_step_is_refused(
+          tool.Step(tool.TYPE_IN, find=tool.Find(tool.BY_TEXT, "box"), why="y")) is not None))
+check("a step that does not type may not say what to type",
+      answered(lambda: tool.why_step_is_refused(
+          tool.Step(tool.CLICK, find=tool.Find(tool.BY_TEXT, "x"), words="y", why="z")) is not None))
+check("going somewhere is never done once per campaign",
+      answered(lambda: tool.why_step_is_refused(
+          tool.Step(tool.GO, address="x", for_each_campaign=True, why="y")) is not None))
+check("a step not done once per campaign may not name the campaign",
+      answered(lambda: tool.why_step_is_refused(
+          tool.Step(tool.TYPE_IN, find=tool.Find(tool.BY_TEXT, "box"), words="{campaign}", why="y"))
+          is not None))
+check("a campaign is never named in an address",
+      answered(lambda: tool.why_step_is_refused(
+          tool.Step(tool.GO, address="x/{campaign}", why="y")) is not None))
+check("only a step that presses something may say to press it like a mouse",
+      answered(lambda: tool.why_step_is_refused(
+          tool.Step(tool.WAIT_FOR, find=tool.Find(tool.BY_TEXT, "x"), press_like_a_mouse=True, why="y"))
+          is not None
+          and tool.why_step_is_refused(
+              tool.Step(tool.CLICK, find=tool.Find(tool.BY_TEXT, "x"), press_like_a_mouse=True, why="y"))
+          is None))
+check("while typing the campaign, once per campaign, is fine",
+      answered(lambda: tool.why_step_is_refused(
+          tool.Step(tool.TYPE_IN, find=tool.Find(tool.BY_TEXT, "box"), words="{campaign}",
+                    for_each_campaign=True, why="y")) is None))
 # **AND HOW A CALENDAR SWITCHES A DAY OFF IS THE SAME KIND OF THING.** Flipkart's
 # Reports Centre disables a day two different ways and one of them shows only in
 # the cursor -- that portal's own habit, not a rule of browsers, so it is asked
@@ -321,7 +352,31 @@ check("and a step may use it",
       answered(lambda: tool.why_step_is_refused(tool.Step(
           tool.CLICK, find=tool.Find(tool.BY_THE_CONTROL_BESIDE, "Select Date Range"),
           why="x")) is None))
-check("and all five ways are known", answered(lambda: len(tool.WAYS_OF_FINDING) == 5))
+# **AND A SIXTH, WHICH IS THE NARROWEST OF THEM ALL.** Meesho's payments page
+# reads "Download" twice by the time the last step runs -- a `div` with
+# `role="button"` at the top right, and a real `<button>` in the export modal --
+# and every other way here matches both. Asking for a control cannot separate
+# them, because `role="button"` is how a page declares a div to be one.
+check("there is a way of finding a real button and nothing pretending to be one",
+      answered(lambda: tool.BY_A_REAL_BUTTON in tool.WAYS_OF_FINDING))
+check("and a step may use it",
+      answered(lambda: tool.why_step_is_refused(tool.Step(
+          tool.TAKE_FILE, find=tool.Find(tool.BY_A_REAL_BUTTON, "Download"),
+          patience=120, why="x")) is None))
+# **AND A SEVENTH, FOR THE ROW THAT NAMES A BUTTON RATHER THAN CARRYING ITS
+# WORDS.** Flipkart's Reports Centre request dialog lists five reports, each row
+# a `span` naming it and a real `button` reading `REQUEST REPORT` -- read off his
+# own panel on 2026-09-11. **The name is a `span` with `cursor: auto` and is not
+# a control at all**, so nothing could find it, and the five buttons read
+# identical words, so by its words alone a step finds five and refuses. **Until
+# this existed the three Reports Centre reports could not be asked for at all.**
+check("there is a way of finding the button on the row some words name",
+      answered(lambda: tool.BY_THE_BUTTON_BESIDE in tool.WAYS_OF_FINDING))
+check("and a step may use it",
+      answered(lambda: tool.why_step_is_refused(tool.Step(
+          tool.CLICK, find=tool.Find(tool.BY_THE_BUTTON_BESIDE, "Orders"),
+          why="x")) is None))
+check("and all seven ways are known", answered(lambda: len(tool.WAYS_OF_FINDING) == 7))
 check("a way nobody has heard of is still refused",
       answered(lambda: tool.why_step_is_refused(tool.Step(
           tool.CLICK, find=tool.Find("xpath", "//div"), why="x")) is not None))
@@ -422,6 +477,44 @@ check("while an address may still carry it, which is where it belongs",
       answered(lambda: tool.why_step_is_refused(tool.Step(
           tool.GO, address="https://x/{panel}/orders", why="x")) is None))
 
+# ---------- what else a row says narrows a row already named by the day (2026-09-11)
+#
+# **FLIPKART'S THREE REPORTS CENTRE ROWS CARRY ONE END DATE BETWEEN THEM**, so
+# the day alone matches all three and the newest-of-several rule takes whichever
+# is topmost -- the payments file under the orders name. The report's own kind is
+# the second test. It is second, never first and never alone.
+check("a lookup may name what else its row has to say, alongside the day",
+      answered(lambda: tool.why_step_is_refused(tool.Step(
+          tool.CLICK, find=tool.Find(tool.BY_TEXT, "Download", near="To {day_in_words}",
+                                     also_saying="Orders",
+                                     day_in_words_is="flipkart",
+                                     day_in_words_of=tool.THE_DAY_IT_IS_ABOUT),
+          why="x")) is None))
+# **ON ITS OWN IT IS THE SAME ROW EVERY NIGHT.** The kind is on that report's row
+# in every month it has ever been fetched.
+check("but naming one with no day at all is refused",
+      answered(lambda: tool.why_step_is_refused(tool.Step(
+          tool.CLICK, find=tool.Find(tool.BY_TEXT, "Download", also_saying="Orders"),
+          why="x")) is not None))
+check("and the refusal says it only narrows a row the day already named",
+      answered(lambda: "narrows a row already named by the day" in tool.why_step_is_refused(
+          tool.Step(tool.CLICK,
+                    find=tool.Find(tool.BY_TEXT, "Download", also_saying="Orders"),
+                    why="x"))))
+# **AND THE DAY IS ASKED IN ONE PLACE.** Every rule about whose wording and which
+# day hangs off `near`; a day named here is filled in by nothing and crosses to
+# the page as the literal characters, finding no row at all, in silence.
+check("and a day named there rather than in the row is refused",
+      answered(lambda: tool.why_step_is_refused(tool.Step(
+          tool.CLICK, find=tool.Find(tool.BY_TEXT, "Download", near="To {day}",
+                                     also_saying="Orders {day}"),
+          why="x")) is not None))
+check("and so is one named there in a portal's own wording",
+      answered(lambda: tool.why_step_is_refused(tool.Step(
+          tool.CLICK, find=tool.Find(tool.BY_TEXT, "Download", near="To {day}",
+                                     also_saying="Orders {day_in_words}"),
+          why="x")) is not None))
+
 # ------------------------- a control that toggles, pressed again (A53)
 #
 # **THE REFERENCE PRESSES BOTH OF FLIPKART'S DATE CONTROLS AGAIN WHILE IT
@@ -510,7 +603,7 @@ check("nor a failure once it has happened",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 106
+EXPECTED = 123
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

@@ -93,7 +93,18 @@ for report_id in tool.every_recipe():
     # **THE LAST STEP TAKES THE FILE.** A recipe that clicks about and never takes
     # anything runs perfectly and produces nothing -- which reads as the platform
     # being broken rather than as a recipe missing its end.
-    check(f"and {report_id} ends by taking a file", answered(lambda: one.to_take[-1].do == pages.TAKE_FILE))
+    # **AND ONE RECIPE ENDS THE OTHER WAY, which is named rather than excused.**
+    # Meesho sells no export of the day's views, so `me_views` reads the figures
+    # off two cards and ends by adding a row to a running list. It still ENDS with
+    # the thing that puts the day away -- that is what this check is about, and
+    # there are now two ways of doing it.
+    # **AND A THIRD WAY SINCE 2026-09-15: FLIPKART'S KEYWORDS**, read off the
+    # traffic report's pop-ups and put away as one file by the reading step itself.
+    ENDS_WITH = {"me_views": pages.ADD_TO_THE_LIST, "me_ads": pages.SWEEP_THE_ADS,
+                 "fk_keywords": pages.READ_THE_KEYWORDS}
+    check(f"and {report_id} ends by putting the day away",
+          answered(lambda: one.to_take[-1].do
+                   == ENDS_WITH.get(report_id, pages.TAKE_FILE)))
     check(f"and {report_id} starts by going somewhere", answered(lambda: one.to_take[0].do == pages.GO))
 
 # **EVERY RECIPE IS FOR A REPORT KARTAAN ACTUALLY HAS.** A recipe for a report that
@@ -132,8 +143,11 @@ SHAPES = {
                         pages.TAKE_FILE)),
     # Returns has no Export button: the way in is a control whose whole label is
     # a count of files, and it opens the panel that exports and lists them.
+    # **FOUR CLICKS, NOT THREE, SINCE 2026-09-11.** The tab, then the DELIVERED
+    # list the tab click had just thrown the page off, then the panel, then the
+    # export. The document named all four and the recipe had three.
     "me_returns": ((), (pages.GO, pages.WAIT_FOR, pages.CLICK, pages.CLICK, pages.CLICK,
-                        pages.TAKE_FILE)),
+                        pages.CLICK, pages.TAKE_FILE)),
     # Payments asks for a range that Meesho then ignores -- the page will not
     # hand anything over until one has been chosen.
     "me_payments": ((), (pages.GO, pages.WAIT_FOR, pages.CLICK, pages.CLICK, pages.CLICK,
@@ -151,8 +165,11 @@ SHAPES = {
     # made on the page, each row with its own Download, and the menu was never
     # shut, so there was nothing to reopen. The reference reopens it only because
     # its own poll loop shuts it at the bottom of every round.
+    # **TWO CLICKS, NOT THREE, SINCE 2026-09-11.** The menu, then Export Data.
+    # The third pressed "Exported Files", which is a heading with `cursor: auto`
+    # and never was a control -- so the step could not succeed on any day.
     "me_claims": ((), (pages.GO, pages.WAIT_FOR, pages.CLICK, pages.CLICK,
-                       pages.CLICK, pages.TAKE_FILE)),
+                       pages.TAKE_FILE)),
     # **THE THREE REPORTS CENTRE REPORTS PRESS TWO MORE THINGS BEFORE THE RANGE,
     # and this line said five clicks for as long as they could not have worked.**
     # There is no calendar on that sub-page at all until the **Select Date Range**
@@ -164,18 +181,49 @@ SHAPES = {
                    pages.CLICK, pages.CLICK,
                    pages.PICK_RANGE, pages.CLICK, pages.WAIT_FOR),
                   (pages.GO, pages.WAIT_FOR, pages.CLICK, pages.WAIT_FOR, pages.TAKE_FILE)),
-    "fk_views": ((pages.GO, pages.WAIT_FOR, pages.CLICK, pages.PICK_RANGE, pages.CLICK),
-                 (pages.GO, pages.WAIT_FOR, pages.TAKE_FILE)),
-    "fk_claims": ((), (pages.GO, pages.WAIT_FOR, pages.CLICK, pages.CLICK, pages.CLICK,
+    # **THE TAKING PHASE NOW CHOOSES THE RANGE AGAIN, AND UNTIL IT DID THE
+    # DOWNLOAD BUTTON COULD NEVER HAVE BEEN THERE.** Arriving at the traffic
+    # report puts the page back on `Latest`, and the finished report belongs to
+    # the range that was asked for -- `DOCS.md:1832` says so in its own words and
+    # the reference runs the identical range-choosing in both of its phases.
+    # **AND BOTH PHASES NOW ACCEPT THE RANGE**: with the period left on `Latest`
+    # there is no request button anywhere on the page, shown or hidden.
+    # Rewritten with the change rather than deleted for going red.
+    # **AND BOTH PHASES GAINED THE TRAFFIC REPORT TAB ON 2026-09-14.** He pointed
+    # out that the listings-report button had not moved and had not gone -- it
+    # lives on the **Traffic Report** tab, and nothing here had ever pressed it.
+    # Everything measured on the 11th was measured on the wrong tab of the same
+    # page. Rewritten with the change rather than deleted for going red.
+    "fk_views": ((pages.GO, pages.WAIT_FOR, pages.CLICK, pages.WAIT_FOR, pages.CLICK,
+                  pages.PICK_RANGE, pages.CLICK, pages.CLICK),
+                 (pages.GO, pages.WAIT_FOR, pages.CLICK, pages.WAIT_FOR, pages.CLICK,
+                  pages.PICK_RANGE, pages.CLICK, pages.WAIT_FOR, pages.TAKE_FILE)),
+    # **`fk_claims` LOST A STEP ON 2026-09-11: it was pressing the page's own
+    # `h1`.** `SPF Claims` has no role, no control tag and `cursor: auto` --
+    # measured -- so waiting for it as a control and then pressing it could never
+    # get past the second step. The words are still waited for, as words, because
+    # they are the honest signal the page has drawn. Rewritten with the change.
+    "fk_claims": ((), (pages.GO, pages.WAIT_FOR, pages.CLICK, pages.CLICK,
                        pages.PICK_RANGE, pages.TAKE_FILE)),
+    # **THE ADS SEVEN GAINED TWO STEPS THAT OPEN WHAT THEY THEN CHOOSE FROM,
+    # 2026-09-11.** Neither the report types nor the calendar is on that page
+    # until its own control is pressed -- `Report Type` and `Date` are `div`
+    # labels and the control is a sibling -- so choosing a report type stood in
+    # front of a page not carrying those words, and the range step stood in front
+    # of no calendar. And the day is accepted with `Done` before `Download` is
+    # drawn at all. Rewritten with the change rather than deleted for going red.
     "fk_ads_daily": ((), (pages.GO, pages.WAIT_FOR, pages.CLICK, pages.CLICK,
-                          pages.PICK_RANGE, pages.TAKE_FILE)),
+                          pages.CLICK, pages.CLICK, pages.PICK_RANGE, pages.CLICK,
+                          pages.TAKE_FILE)),
     "fk_listings": ((pages.GO, pages.WAIT_FOR, pages.CLICK, pages.CLICK),
                     (pages.GO, pages.WAIT_FOR, pages.CLICK, pages.CLICK, pages.TAKE_FILE)),
-    "fk_returns": ((pages.GO, pages.WAIT_FOR, pages.CLICK, pages.CLICK, pages.CLICK,
-                    pages.CLICK, pages.CLICK,
-                    pages.PICK_RANGE, pages.CLICK, pages.WAIT_FOR),
-                   (pages.GO, pages.WAIT_FOR, pages.CLICK, pages.WAIT_FOR, pages.TAKE_FILE)),
+    # **RETURNS LEFT THE REPORTS CENTRE ON 2026-09-14, by his ruling -- the
+    # reference's own route, measured on his panel.** All Returns by address,
+    # Date of Closure, one day, Apply, Request Download; then Previous Downloads
+    # and the ready row's Download.
+    "fk_returns": ((pages.GO, pages.WAIT_FOR, pages.CLICK, pages.PICK_RANGE, pages.CLICK,
+                    pages.CLICK),
+                   (pages.GO, pages.WAIT_FOR, pages.CLICK, pages.TAKE_FILE)),
     "fk_payments": ((pages.GO, pages.WAIT_FOR, pages.CLICK, pages.CLICK, pages.CLICK,
                      pages.CLICK, pages.CLICK,
                      pages.PICK_RANGE, pages.CLICK, pages.WAIT_FOR),
@@ -195,13 +243,34 @@ for report_id, (ask, take) in sorted(SHAPES.items()):
 # orders and not to payments, and they were meant to be identical.
 ADS = [r for r in tool.every_recipe() if r.startswith("fk_ads_")]
 check("all seven ad reports have recipes", answered(lambda: len(ADS) == 7))
+# **SIX OF THEM, AND THE SEVENTH IS THE SIX PLUS ONE RUN PER CAMPAIGN (2026-09-15).**
+# The overall performance report's Download stays off until a campaign is typed
+# and chosen, so it shares every step up to the download and then does its own
+# download once per campaign -- the reference's `_handleFkAdsOverall`.
+ONE_DOWNLOAD = [r for r in ADS if r != "fk_ads_overall"]
 check("and they are all the same shape",
-      answered(lambda: len({tuple(s.do for s in tool.recipe(r).to_take) for r in ADS}) == 1))
+      answered(lambda: len({tuple(s.do for s in tool.recipe(r).to_take) for r in ONE_DOWNLOAD}) == 1))
+check("except the overall report, which is that shape up to the download and then once per campaign",
+      answered(lambda: tuple(s.do for s in tool.recipe("fk_ads_overall").to_take)
+               == tuple(s.do for s in tool.recipe("fk_ads_daily").to_take)[:-1]
+               + (pages.CLICK, pages.TYPE_IN, pages.WAIT_FOR, pages.CLICK, pages.WAIT_FOR,
+                  pages.TAKE_FILE)
+               and all(s.for_each_campaign for s in tool.recipe("fk_ads_overall").to_take[-6:])
+               and tool.recipe("fk_ads_overall").campaigns_from is not None
+               and tool.recipe("fk_ads_overall").campaigns_from.report == "fk_ads_daily"))
+# **READ BY WHAT THE STEP IS FOR, NOT BY COUNTING TO THREE.** This named the
+# fourth step by its position, and the day the page gained a step that opens the
+# list of report types -- 2026-09-11 -- the position moved and this compared
+# seven copies of the same label instead. **A check that counts places in a list
+# goes wrong silently the moment the list changes.**
 check("differing only in which report is chosen",
-      answered(lambda: len({tool.recipe(r).to_take[3].find.what for r in ADS}) == 7))
+      answered(lambda: len({one.find.what for r in ADS
+                            for one in tool.recipe(r).to_take
+                            if one.find is not None and one.why.startswith("choosing ")}) == 7))
 
-# The Reports Centre three, likewise.
-RC = ["fk_orders", "fk_returns", "fk_payments"]
+# The Reports Centre ones, likewise. **TWO SINCE 2026-09-14**: returns moved to the
+# Returns page, which is the reference's own route.
+RC = ["fk_orders", "fk_payments"]
 check("the three reports-centre reports are the same shape",
       answered(lambda: len({tuple(s.do for s in tool.recipe(r).to_ask) for r in RC}) == 1))
 check("and all three are two-phase", answered(lambda: all(tool.recipe(r).two_phase for r in RC)))
@@ -258,11 +327,28 @@ def by_the_cursor():
                    if s.switched_off_days_change_the_cursor})
 
 
-check("the reports-centre calendar is the one read by the cursor as well",
-      answered(lambda: by_the_cursor() == sorted(RC)))
+# **AND THE TRAFFIC REPORT'S CALENDAR JOINED THEM ON 2026-09-14, which is the
+# whole of what he asked for that day.** His words: the `Latest` chip announces
+# its own day, and *"if the report is not generated for yesterday it will be
+# showing the day before yesterday. In that case code has to understand this is
+# not available for the intended date."*
+#
+# **MEASURED THE SAME DAY AND IT WAS EXACTLY THAT CASE:** `Latest` read
+# `12 Sep 26` while the day was the 14th, and in the open calendar **the 13th
+# reported `cursor: not-allowed` on both panels** while the 12th reported
+# `pointer`. 58 of its 84 cells were switched off.
+#
+# **AND WITHOUT IT FLIPKART CLAMPS SILENTLY**: that address was opened asking for
+# 09-10 and came back reading `startDate=2026-09-12&endDate=2026-09-12`, so the
+# wrong day's figures would have landed under the right day's name.
+# **AND THE RETURNS PAGE'S, 2026-09-14**: its `Date of Closure` calendar read the
+# 15th `cursor: not-allowed` on the 14th while the 12th-14th read `pointer`.
+BY_THE_CURSOR = sorted(RC + ["fk_returns", "fk_views"])
+check("the reports-centre calendar and the traffic report's are read by the cursor",
+      answered(lambda: by_the_cursor() == BY_THE_CURSOR))
 check("and every other calendar in the book is not",
       answered(lambda: all(not s.switched_off_days_change_the_cursor
-                           for r in tool.every_recipe() if r not in RC
+                           for r in tool.every_recipe() if r not in BY_THE_CURSOR
                            for s in (tool.recipe(r).to_ask + tool.recipe(r).to_take))))
 
 # **THE ROW IS NAMED BY THE END OF ITS RANGE, and for a while this was written in
@@ -320,7 +406,7 @@ for report_id in two:
 # facts.
 ASKS_BY = {
     "fk_orders": "Submit",
-    "fk_returns": "Submit",
+    "fk_returns": "Request Download",
     "fk_payments": "Submit",
     "fk_views": "Request Listings Report",
     "fk_listings": "Download Listing File",
@@ -358,8 +444,31 @@ check("and the two really are different",
 # something that could not happen.
 loose = {s.find.what for r in tool.RECIPES.values()
          for s in (r.to_ask + r.to_take) if s.find is not None and not s.find.exact}
-check("only these three things are matched loosely, and no others",
-      answered(lambda: loose == {"successfully", "Generated", "files ready"}))
+# **AND TWO MORE SINCE 2026-09-14, both measured and both for one reason: the
+# icon inside the button puts a word on the end of its own words.** The traffic
+# report's button reads `Request Listings Reportdownload`, and turns into
+# `Download Listings Reportdownload` once the report has been asked for. Asked
+# for exactly, neither matches anything at all.
+# **AND A SIXTH THE SAME DAY, FOR THE SAME ICON REASON: THE REPORTS CENTRE ROW'S
+# DOWNLOAD.** Measured on his own `Orders | Sep 12 2026 To Sep 13 2026 |
+# Generated` row: a real `<button>` whose words read `downloadDownload`. Asked for
+# exactly, the collect found nothing with the finished file on the screen.
+# **It is not the loose `Download` removed below**, which was Meesho's inventory
+# page, read as ANY text, where a sentence matched too: this one is asked of
+# CONTROLS only, and only on the row pinned by the day and the report's own kind
+# -- and several matches there are still refused, never guessed between. The
+# reference matches it the same way (`content/flipkart.js:1476-1481`).
+# **AND A SEVENTH ON 2026-09-15: THE CAMPAIGN'S OWN ID, ON FLIPKART'S CAMPAIGN
+# SUGGESTION.** An id belongs to one campaign only, so a loose match on it cannot
+# pick another campaign; the suggestion carries the campaign's name beside the id,
+# so an exact match would find nothing. The reference presses the smallest element
+# containing the id (`content/flipkart.js` `_handleFkAdsOverall`). **MEASURED ON
+# HIS PAGE 2026-09-15:** the lookup found the `div.subTitle` reading `ID <id>`, the
+# one leaf holding it; several matches are still refused, never guessed between.
+check("only these seven things are matched loosely, and no others",
+      answered(lambda: loose == {"successfully", "Generated", "files ready",
+                                 "Request Listings Report", "Download Listings Report",
+                                 "Download", "{campaign}"}))
 # **TWO OF THEM ARE WORDS THE PLATFORM SAYS**, written in its own case to report
 # what has happened -- never the name of a thing to press. `Download` used to be
 # a third and is gone: read loosely on his own inventory page it found TWO -- the
@@ -371,17 +480,32 @@ check("only these three things are matched loosely, and no others",
 # so there is no exact wording to match. It is asked for on something PRESSABLE,
 # which is what keeps it from matching the sentence elsewhere on that page that
 # also says "files ready".
-check("the one loose thing that is pressed is the count that has no fixed wording",
+# **AND A SECOND SINCE 2026-09-14, with its own measured reason.** The traffic
+# report's request button is a real `<button>` whose words read
+# `Request Listings Reportdownload` -- the trailing word is the icon inside it.
+# **There is nothing else on that page carrying those words**, so the loose match
+# cannot pick the wrong thing; asked for exactly it picks nothing at all.
+check("the three loose things that are pressed each have a reason written down",
       answered(lambda: {s.find.what for r in tool.RECIPES.values()
                         for s in (r.to_ask + r.to_take)
                         if s.do == pages.CLICK and s.find is not None and not s.find.exact}
-               == {"files ready"}))
+               == {"files ready", "Request Listings Report", "{campaign}"}))
 # **AND NOTHING THAT IS CLICKED IS MATCHED LOOSELY.** Waiting for a heading
 # loosely is safe; clicking on a loose match is the coin toss.
+PRESSED_LOOSELY = ("files ready", "Request Listings Report", "{campaign}")
+# **AND ONE THING IS PRESSED LIKE A MOUSE -- BUTTON DOWN, BUTTON UP, CLICK -- AND IT
+# IS MEASURED (2026-09-15).** Flipkart's campaign suggestion picks on button down;
+# a bare click left the list open. His ruling: a flag on that one step, not a
+# change to every press.
+check("only the campaign suggestion is pressed like a mouse",
+      answered(lambda: sorted((r, s.find.what) for r in tool.every_recipe()
+                              for s in (tool.recipe(r).to_ask + tool.recipe(r).to_take)
+                              if s.press_like_a_mouse) == [("fk_ads_overall", "{campaign}")]))
 check("everything else that is CLICKED is matched exactly",
       answered(lambda: all(s.find.exact for r in tool.RECIPES.values()
           for s in (r.to_ask + r.to_take)
-          if s.do == pages.CLICK and s.find is not None and s.find.what != "files ready")))
+          if s.do == pages.CLICK and s.find is not None
+          and s.find.what not in PRESSED_LOOSELY)))
 
 # ---------------------- FLIPKART'S REPORTS CENTRE NEEDS TWO DAYS, NOT ONE
 
@@ -408,10 +532,54 @@ check("it looks for the dropdown Flipkart actually has now",
       answered(lambda: any((s.find.what if s.find else "") == "Custom" for s in views.to_ask)))
 # **AND MATCHED EXACTLY**, because a loose match for "custom" also hits the
 # "Customer Segments" tab sitting beside it -- the chart-legend trap again.
-check("and matches it exactly, or it would also hit 'Customer Segments'",
-      answered(lambda: all(s.find.exact for s in views.to_ask if s.find is not None)))
+# **AND THE CHIP ITSELF IS STILL EXACT, which is the part that matters:** a loose
+# match for "custom" also hits the `Customer Segments` tab sitting beside it.
+# **The two listings-report buttons are the named exceptions**, each with the
+# icon-word measured on the end of it.
+check("and the chip matches exactly, or it would also hit 'Customer Segments'",
+      answered(lambda: all(s.find.exact for s in views.to_ask
+                           if s.find is not None
+                           and "Listings Report" not in s.find.what)))
 check("and still asks for the listings report, which has not changed",
       answered(lambda: any("Request Listings Report" in (s.find.what if s.find else "") for s in views.to_ask)))
+# **AND ASKS FOR ALL OF IT AS SOMETHING PRESSABLE, NEVER AS A CONTROL.**
+#
+# **THIS IS WHAT THE FIRST FLIPKART RUN THIS PRODUCT EVER MADE COST, 2026-09-11.**
+# It failed saying *"could not find the date range dropdown"*, and the control
+# was on the page throughout. Read off his own panel afterwards, element by
+# element: `Custom`, `Latest` and `Done` are each a `div` or a `span` with **no
+# role, no control tag and `cursor: pointer`** -- and of the eighty-six pressable
+# things on that page not one period chip is a button, a link or carries a role.
+#
+# **SO THE WHOLE PAGE IS OUTSIDE WHAT `BY_ROLE_AND_TEXT` CAN SEE**, which is the
+# Meesho sidebar fault on the other portal. Held here so it cannot come back:
+# a lookup on this recipe asking for a control again goes red.
+# **EXCEPT THE TAB ITSELF, WHICH REALLY IS A CONTROL -- measured 2026-09-14.**
+# `Traffic Report` is a `button` carrying `role="tab"`, the only thing on this
+# page that is not a bare div. Everything else stays pressable-only.
+check("every lookup on the traffic report asks for something PRESSABLE, except the tab",
+      answered(lambda: all(s.find.how == pages.BY_PRESSABLE_TEXT
+                           for s in (views.to_ask + views.to_take)
+                           if s.find is not None and s.find.what != "Traffic Report")))
+check("and the tab is asked for as the control it really is",
+      answered(lambda: all(s.find.how == pages.BY_ROLE_AND_TEXT
+                           for s in (views.to_ask + views.to_take)
+                           if s.find is not None and s.find.what == "Traffic Report")))
+# **AND THE RANGE IS ACCEPTED IN BOTH PHASES, because nothing is drawn until it
+# is.** With the period on `Latest` there is no request button and no download
+# button anywhere on the page -- only the app's own stylesheet carrying the
+# classes for a component it has not drawn.
+check("and both phases accept the range, which is what draws the two buttons",
+      answered(lambda: all(any((s.find.what if s.find else "") == "Done" for s in phase)
+                           for phase in (views.to_ask, views.to_take))))
+# **AND THE ADDRESS CARRIES THE THREE PIECES THE PAGE DEFAULTS WRONG WITHOUT.**
+# Measured twice on 2026-09-11: without them Flipkart draws `selectedPeriod=weekly`
+# over a whole week and `activeProductType=significant_visibility_drop`, a filtered
+# slice of his catalogue -- a real, signed-in, fully drawn report of the wrong
+# scope, which a file fetched from it would have been believed to be.
+check("and the traffic address asks for one latest day over the whole catalogue",
+      answered(lambda: all(piece in views.to_ask[0].address
+                           for piece in ("selectedPeriod=latest", "activeProductType=ALL"))))
 
 # ----------------------- WHAT FLIPKART NOW BUILDS INSIDE THE PAGE
 
@@ -494,9 +662,10 @@ for report_id in tool.every_recipe():
 # anywhere in the project said so -- the door was being measured by what it had
 # built rather than by what it had been asked for. They now say what they count,
 # and the coverage check below is the one that holds the two together.
-check("thirteen Flipkart reports can be fetched by this door",
-      answered(lambda: len(tool.on_the_browser_door_for("flipkart")) == 13))
-check("and five Meesho ones", answered(lambda: len(tool.on_the_browser_door_for("meesho")) == 5))
+check("fourteen Flipkart reports can be fetched by this door -- all of them, since the keywords (2026-09-15)",
+      answered(lambda: len(tool.on_the_browser_door_for("flipkart")) == 14))
+check("and seven Meesho ones, now that the views card and the ads sweep are built",
+      answered(lambda: len(tool.on_the_browser_door_for("meesho")) == 7))
 # **AMAZON NEEDS NONE, and that is the number the others should fall to.**
 check("Amazon needs none at all", answered(lambda: tool.on_the_browser_door_for("amazon") == ()))
 check("a platform this does not know is refused", answered(lambda: refuses(lambda: tool.on_the_browser_door_for("etsy"))))
@@ -523,25 +692,57 @@ check("the prefixes are written down rather than derived from the name",
 DECLARED_ON_THE_BROWSER_DOOR = {
     rid for rid, r in KARTAAN_REPORTS.items() if r.door == NEEDS_A_BROWSER
 }
-check("every report that needs a browser is either built or says why it is not",
+# **THREE ANSWERS NOW, NOT TWO.** A report has a recipe, or is written down as
+# one this door cannot reach, or is fetched by a different report's run -- the ads
+# sweep writes three files from one pair of calls. **A report in none of the three
+# is a report nothing fetches with nothing anywhere saying so**, which is what
+# this line has always been for.
+check("every report that needs a browser is built, or fetched by another, or says why not",
       answered(lambda: DECLARED_ON_THE_BROWSER_DOOR
-               == set(tool.RECIPES) | set(tool.NOT_YET_A_RECIPE)))
+               == set(tool.RECIPES) | set(tool.NOT_YET_A_RECIPE) | set(tool.MADE_BY_ANOTHER)))
+check("and none of them is in two of those three at once",
+      answered(lambda: not (set(tool.RECIPES) & set(tool.MADE_BY_ANOTHER))
+               and not (set(tool.NOT_YET_A_RECIPE) & set(tool.MADE_BY_ANOTHER))))
+# **AND EACH ONE NAMES WHAT FETCHES IT**, or a seller reads "this arrives somehow".
+check("and each one fetched by another says so in a sentence somebody can read",
+      answered(lambda: all(len(why.split()) >= 8 for why in tool.MADE_BY_ANOTHER.values())))
+# **AND THE ONE THAT FETCHES THEM REALLY EXISTS.** Written against a report that
+# was later renamed, these two would quietly be fetched by nothing.
+check("and the report that fetches them has a recipe of its own",
+      answered(lambda: all(
+          set(tool.KARTAAN_REPORTS[rid].depends_on if hasattr(tool, "KARTAAN_REPORTS")
+              else KARTAAN_REPORTS[rid].depends_on) <= set(tool.RECIPES)
+          for rid in tool.MADE_BY_ANOTHER)))
 check("and none of them is called both built and not built",
       answered(lambda: not set(tool.RECIPES) & set(tool.NOT_YET_A_RECIPE)))
 # **NAMED ONE BY ONE RATHER THAN COUNTED.** A count taken from the list it checks
 # moves with the list, so one of these quietly gaining a recipe -- or quietly
 # losing one -- would look like the list simply being a different length. These
 # five are the whole of what this door cannot reach, and the number should fall.
-check("the five it cannot reach are exactly these five",
-      answered(lambda: set(tool.NOT_YET_A_RECIPE) == {
-          "fk_keywords", "me_views", "me_ads", "me_ads_summary", "me_ads_catalog"}))
-check("each of them is a report Kartaan actually declares",
-      answered(lambda: all(rid in KARTAAN_REPORTS for rid in tool.NOT_YET_A_RECIPE)))
-# **A REFUSAL WITHOUT A REASON IS THE THING THE FIELD EXISTS TO PREVENT**, and
-# the same holds here: "there is no recipe" tells the next person nothing at all
-# about whether one can be written.
-check("and each says why, in a sentence somebody can read",
-      answered(lambda: all(len(why.split()) >= 8 for why in tool.NOT_YET_A_RECIPE.values())))
+# **AND THE NUMBER HAS FALLEN BY ONE, WHICH IS WHAT THE LINE ABOVE ASKED FOR.**
+# `me_views` left this list on 2026-09-11: the door learned to read a number off a
+# page and to add a row to a running list, so the reason it carried -- *"the door
+# has no step for reading a number off a page"* -- stopped being true.
+# **AND ON 2026-09-15 IT FELL TO NOUGHT.** `fk_keywords` left: the door learned to
+# read the keyword pop-ups off the traffic report, and the part the reference left
+# to a person -- opening the report and choosing the day -- is recipe steps.
+check("there is no report left that this door cannot reach",
+      answered(lambda: set(tool.NOT_YET_A_RECIPE) == set()))
+# **AND THE TWO CHECKS THAT USED TO ASK MORE OF THIS LIST ARE GONE, 2026-10-03,
+# BECAUSE AN EMPTY LIST MADE THEM PASS BY LOOKING AT NOTHING.** They asked that
+# each entry was a report Kartaan declares, and that each said why in a sentence
+# somebody could read. With the list empty -- and the check directly above
+# PROVING it empty -- both answered true about no entries at all, for ever, while
+# being counted among the checks this file reports as passing. **Golden Rule 24s
+# addition of 2026-10-02, in his own words: a check that looks at nothing passes,
+# and that is worse than no check.** Found by an independent review of this work
+# before it was committed.
+#
+# **AND NOTHING WENT WITH THEM.** Both are the same two rules asked of
+# `MADE_BY_ANOTHER` above, which has two entries, so each is still exercised
+# against something real rather than against nothing. **The day a report comes
+# back onto this list, they have to be written again** -- said here rather than
+# left for somebody to notice.
 
 # ------------------------------------------------------------ the records
 
@@ -629,8 +830,12 @@ check("and the month by name, not by number",
 # **TWO WRITTEN RECORDS OF ONE PORTAL DISAGREE, SO BOTH ARE TRIED.** Choosing
 # between them is what went wrong on 2026-09-10; carrying both is what the
 # reference itself does whenever it meets more than one wording.
-FK_5_JUN = ("Jun 5 2026", "Jun 05 2026", "Jun 5, 2026", "5 Jun 2026", "2026-06-05",
-            "05 Jun 2026")
+# **A SEVENTH SINCE 2026-09-11: the full month name with no year**, read off his
+# own listings Downloads History, whose rows say `11 September, 11:10 PM`.
+# **AN EIGHTH SINCE 2026-09-14: the month first, a comma and the nought**, read
+# off his returns Previous Downloads, whose rows say `16:24, Sep 06, 2026`.
+FK_5_JUN = ("Jun 5 2026", "Jun 05 2026", "Jun 5, 2026", "Jun 05, 2026", "5 Jun 2026",
+            "2026-06-05", "05 Jun 2026", "5 June")
 check("a day is written every way Flipkart's Reports Centre has been recorded writing one",
       answered(lambda: tool.the_days_in_words("flipkart", date(2026, 6, 5)) == FK_5_JUN))
 check("the reference's own month-first spelling is among them",
@@ -687,10 +892,26 @@ def names_a_row_in_words():
     )
 
 
-check("exactly the five reports that name a row by the day in words do so",
+# **SEVEN SINCE 2026-09-11: `fk_listings` joined them.** Its Downloads History
+# holds four `Listing` rows from four different days, so the word alone finds
+# four and refuses -- the row has to be named by the day the file was MADE.
+check("exactly the seven reports that name a row by the day in words do so",
       answered(lambda: sorted(set(names_a_row_in_words()))
-               == ["fk_orders", "fk_payments", "fk_returns", "me_claims", "me_returns"]))
-check("and Flipkart's three name it on BOTH the wait and the taking, which is six lookups",
+               == ["fk_listings", "fk_orders", "fk_payments", "fk_returns",
+                   "me_claims", "me_returns", "me_views"]))
+# **AND THE SIXTH NAMES NO ROW AT ALL -- IT NAMES A CARD.** On his dashboard the
+# words `Orders` match twice, the sidebar item and the card, and the card carries
+# its own day. So the same tool that says which ROW a file is on says which CARD a
+# number is in, and it is the same question: which of these is today's.
+check("and the sixth is the views card, which carries its own day",
+      answered(lambda: all("{day_in_words}" in s.find.near
+                           for s in tool.recipe("me_views").to_take if s.find is not None)))
+# **SEVEN LOOKUPS: the Reports Centre three on both their wait and their taking,
+# and `fk_listings` on its taking alone** -- its wait is for the Downloads menu,
+# which carries no day.
+# **SIX SINCE 2026-09-14**: returns left the Reports Centre and names its row on
+# the taking alone, like listings.
+check("the Reports Centre two name it on BOTH the wait and the taking, listings and returns on their taking",
       answered(lambda: len([r for r in names_a_row_in_words() if r.startswith("fk_")]) == 6))
 check("every one of them says whose wording it means",
       answered(lambda: all(s.find.day_in_words_is
@@ -734,14 +955,68 @@ check("Meesho's two name the row by the day the export was MADE",
                            for r in ("me_returns", "me_claims")
                            for s in tool.recipe(r).to_take
                            if s.find is not None and s.find.day_in_words_of)))
-check("and Flipkart's three by the day the data is ABOUT, which is the end of its range",
+check("and the Reports Centre two by the day the data is ABOUT, which is the end of its range",
       answered(lambda: all(s.find.day_in_words_of == pages.THE_DAY_IT_IS_ABOUT
-                           for r in ("fk_orders", "fk_returns", "fk_payments")
+                           for r in ("fk_orders", "fk_payments")
                            for s in tool.recipe(r).to_take
                            if s.find is not None and s.find.day_in_words_of)))
+# **WHILE FLIPKART'S RETURNS LIST NAMES A ROW BY THE DAY IT WAS ASKED FOR**, like
+# Meesho's -- `16:24, Sep 14, 2026`, measured on 2026-09-14.
+check("and Flipkart's returns list by the day the file was MADE",
+      answered(lambda: tool.recipe("fk_returns").to_take[-1].find.day_in_words_of
+               == pages.THE_DAY_IT_WAS_MADE))
 check("SO THE TWO PORTALS REALLY DO ANSWER IT DIFFERENTLY, which is the whole point",
       answered(lambda: tool.recipe("me_returns").to_take[-1].find.day_in_words_of
-               != tool.recipe("fk_returns").to_take[-1].find.day_in_words_of))
+               != tool.recipe("fk_orders").to_take[-1].find.day_in_words_of))
+
+# ------------- and the report's own kind, because the day names three rows here
+#
+# **THE DAY IS ENOUGH ON MEESHO AND IS NOT ENOUGH ON FLIPKART, and that is the
+# whole of this.** Orders, returns and settled transactions are all asked for on
+# the same night over the same range, so on any ordinary morning the Requested
+# list holds three rows all ending `To 06 Jun 2026`. Narrowed by the day alone
+# one lookup matches all three, the newest-of-several rule takes whichever is
+# topmost, and **the payments file lands under the orders name and is read into
+# the seller's books as sales.** The reference asks the kind FIRST and the date
+# second, of the same row (`content/flipkart.js` `findReportRowDownloadBtn`).
+
+
+def rc_lookups(report_id):
+    return [s.find for s in tool.recipe(report_id).to_take
+            if s.find is not None and s.find.near]
+
+
+check("BOTH FLIPKART LOOKUPS THAT NAME A ROW ALSO NAME THE KIND OF REPORT IT IS FOR",
+      answered(lambda: all(one.also_saying
+                           for r in ("fk_orders", "fk_payments")
+                           for one in rc_lookups(r))))
+# **THE WAIT AS WELL AS THE TAKING.** A wait that passes on somebody else's
+# finished row hands the next step a report that is still being built.
+check("and it is two lookups each, the wait for a finished report and the taking",
+      answered(lambda: all(len(rc_lookups(r)) == 2
+                           for r in ("fk_orders", "fk_payments"))))
+# **IT IS THE WORDING THE REQUEST ITSELF ASKED FOR**, which is what the row
+# carries -- not a second spelling of it kept somewhere else to drift.
+check("and the kind each names is the sub-kind its own request asked Flipkart for",
+      answered(lambda: [rc_lookups(r)[0].also_saying
+                        for r in ("fk_orders", "fk_payments")]
+               == ["Orders", "Settled Transactions"]))
+# **AND NO TWO OF THEM ARE THE SAME.** Two lookups naming the same kind would pass
+# every check above and narrow nothing at all.
+check("AND THE TWO DO NOT NAME THE SAME KIND, or nothing is narrowed",
+      answered(lambda: len({rc_lookups(r)[0].also_saying
+                            for r in ("fk_orders", "fk_payments")}) == 2))
+# **AND THE RETURNS ROW NAMES ONLY A READY FILE**, read off the row itself:
+# `... | Ready to download | Download`.
+check("and Flipkart's returns row names only a file that is ready",
+      answered(lambda: [one.also_saying for one in rc_lookups("fk_returns")] == ["Ready to download"]))
+# **MEESHO NAMES NO KIND, and that is right rather than an omission.** Its panel
+# lists one report's own exports, so the day already names the row; the two that
+# survive it are two exports of the same report on the same morning.
+check("while no Meesho lookup names one, because its panel holds one report's own exports",
+      answered(lambda: not any(one.also_saying
+                               for r in tool.every_recipe() if r.startswith("me_")
+                               for one in rc_lookups(r))))
 
 # ------------------- the two controls on Flipkart that toggle (A53)
 #
@@ -838,15 +1113,37 @@ check("and the book was put back exactly as it was found",
 MEESHO_LOOKUPS = [s.find for r in ("me_orders", "me_catalog", "me_returns", "me_payments",
                                    "me_claims")
                   for s in (tool.RECIPES[r].to_ask + tool.RECIPES[r].to_take) if s.find]
+# **AND THE SENTENCE ABOVE IS NOW TOO WIDE BY ONE THING, MEASURED ON HIS OWN
+# PANEL ON 2026-09-11 WITH THE PAYMENTS EXPORT MODAL OPEN.** The 2026-08-27
+# reading was taken of Meesho's ordinary panels, and on those it holds. **Inside
+# that modal there IS a real `<button>`** -- and by the time the last step runs
+# two things read "Download": the opener at the top right, a `div` wearing
+# `role="button"`, and that `<button>` in the modal. Words match both. Pressable
+# matches both. **Asking for a control matches both as well**, which was tried
+# and failed on his own panel, because `role="button"` is precisely how a page
+# declares a div to be a control. Only the TAG separates them, which is how the
+# reference has separated them for months.
+#
+# **SO THE EXCEPTION IS NAMED HERE RATHER THAN THE RULE BEING LOOSENED**, exactly
+# as the payments opener is named below. The old sentence still holds in full: no
+# Meesho lookup asks for a control, and the line below keeps saying so.
+MEESHO_ASKING_FOR_A_BUTTON = sorted({
+    (r, one.find.what)
+    for r in ("me_orders", "me_catalog", "me_returns", "me_payments", "me_claims")
+    for one in (tool.RECIPES[r].to_ask + tool.RECIPES[r].to_take)
+    if one.find is not None and one.find.how == tool.BY_A_REAL_BUTTON})
 FLIPKART_LOOKUPS = [s.find for r in tool.every_recipe() if r.startswith("fk_")
                     for s in (tool.RECIPES[r].to_ask + tool.RECIPES[r].to_take) if s.find]
 
 check("there are Meesho lookups to judge", answered(lambda: len(MEESHO_LOOKUPS) > 10))
-check("and NOT ONE of them asks for a control, because Meesho has none",
+check("still NOT ONE Meesho lookup asks for a control, because a role is what both wear",
       answered(lambda: not any(f.how == tool.BY_ROLE_AND_TEXT for f in MEESHO_LOOKUPS)))
-check("every Meesho lookup is by words or by pressable words",
+check("the only Meesho lookup asking for a real button is the payments file itself",
+      answered(lambda: MEESHO_ASKING_FOR_A_BUTTON == [("me_payments", "Download")]))
+check("and every other Meesho lookup is by words or by pressable words",
       answered(lambda: all(f.how in (tool.BY_TEXT, tool.BY_PRESSABLE_TEXT)
-                           for f in MEESHO_LOOKUPS)))
+                           for f in MEESHO_LOOKUPS
+                           if not (f.how == tool.BY_A_REAL_BUTTON and f.what == "Download"))))
 # **AND FLIPKART IS NOT MOVED WITH IT.** A finding about one platform applied to
 # the other is how a working thing gets broken alongside a broken one.
 check("Flipkart still asks for controls, which it really has",
@@ -874,12 +1171,16 @@ check("there are things being clicked to judge", answered(lambda: len(CLICKED) >
 # **THE WHOLE WORD IS STILL REQUIRED, AND THAT IS THE HALF THAT MATTERS.** The
 # nine-day payments outage was a LOOSE match on two things reading the same
 # words, not a pressable one.
-check("the only thing clicked by plain words is Meesho's payments download menu",
+# **AND A SECOND SINCE 2026-09-14: FLIPKART'S RETURNS `Date of Closure`.** It is
+# a `DIV` with `cursor: auto`, measured, and the words themselves open the
+# calendar -- the text box beside them drew nothing when pressed. The reference
+# clicks the words too (`content/flipkart.js:2658-2679`). Named, not loosened.
+check("the only things clicked by plain words are Meesho's payments menu and Flipkart's returns date filter",
       answered(lambda: sorted({(r, one.find.what) for r in tool.every_recipe()
                                for one in (tool.recipe(r).to_ask + tool.recipe(r).to_take)
                                if one.do == pages.CLICK and one.find is not None
                                and one.find.how == tool.BY_TEXT})
-               == [("me_payments", "Download")]))
+               == [("fk_returns", "Date of Closure"), ("me_payments", "Download")]))
 check("and it is asked for as the whole word, because a loose one is what cost nine days",
       answered(lambda: all(f.exact for f in CLICKED if f.how == tool.BY_TEXT)))
 # **AND THE OTHER EXCEPTION IS NAMED RATHER THAN LEFT IN THE SET.** Flipkart's
@@ -887,16 +1188,51 @@ check("and it is asked for as the whole word, because a loose one is what cost n
 # which there is the range currently showing -- so it is reached by the label
 # beside it. It is still not plain words: `BY_THE_CONTROL_BESIDE` presses the
 # box, never the words.
-check("every one of them is pressable, the box a label names, or that one menu",
+# **AND A SECOND NAMED EXCEPTION SINCE 2026-09-11: the button on the row some
+# words name.** The Reports Centre request dialog's sub-kind is a `span` with
+# `cursor: auto` -- a row heading, measured -- and what starts a request is a
+# real button reading `REQUEST REPORT`, one on every row. So the words name the
+# row and the button beside them is pressed, exactly as the box-beside way does.
+check("every one of them is pressable, a thing beside some words, or that one menu",
       answered(lambda: all(f.how in (tool.BY_PRESSABLE_TEXT, tool.BY_ROLE_AND_TEXT,
-                                     tool.BY_THE_CONTROL_BESIDE, tool.BY_TEXT)
+                                     tool.BY_THE_CONTROL_BESIDE, tool.BY_THE_BUTTON_BESIDE,
+                                     tool.BY_TEXT)
                            for f in CLICKED)))
-check("and the box-beside way is asked for on Flipkart's date range and nowhere else",
+check("and the button-beside way is asked for on the Reports Centre two and nowhere else",
+      answered(lambda: sorted({r for r in tool.every_recipe()
+                               for one in (tool.recipe(r).to_ask + tool.recipe(r).to_take)
+                               if one.find is not None
+                               and one.find.how == tool.BY_THE_BUTTON_BESIDE})
+               == ["fk_orders", "fk_payments"]))
+# **AND IT SAYS WHAT ELSE THAT ROW SAYS, WHICH IS THE WHOLE OF WHY IT FINDS ONE
+# THING.** `Orders` is a leaf in the dialog's row AND a leaf in the list of
+# reports already requested behind it; both walk up to a button. Without this it
+# finds two and refuses.
+check("and every use of it says what else that row says, or it would find two",
+      answered(lambda: all(one.find.also_saying == "REQUEST REPORT"
+                           for r in tool.every_recipe()
+                           for one in (tool.recipe(r).to_ask + tool.recipe(r).to_take)
+                           if one.find is not None
+                           and one.find.how == tool.BY_THE_BUTTON_BESIDE)))
+# **AND IT IS NO LONGER ONLY THE DATE RANGE, WHICH IS THE 2026-09-11 CHANGE.**
+# Flipkart names a control in one element and puts the control in a sibling all
+# over its portal, measured: the Reports Centre date box, the ads Report Type box
+# and Date box, and the listings history row where **the file name itself is the
+# control and the only stable word beside it is `Listing`**.
+# **AND THE LISTINGS ROW LEFT THIS LIST ON 2026-09-14.** Measured on his own
+# Downloads History that afternoon: every row now ends in a real `<button>`
+# reading `Download`, and pressing the file name -- what this way pressed --
+# started no download in ninety seconds. The reference presses the button in the
+# Listing row (`content/flipkart.js` `findReadyListingDownloadBtn`), and so does
+# the recipe now, as a control on the row made that day that says `Listing`.
+check("the box-beside way is asked for exactly where Flipkart names a control it does not carry",
       answered(lambda: sorted({r for r in tool.every_recipe()
                                for one in (tool.recipe(r).to_ask + tool.recipe(r).to_take)
                                if one.find is not None
                                and one.find.how == tool.BY_THE_CONTROL_BESIDE})
-               == ["fk_orders", "fk_payments", "fk_returns"]))
+               == ["fk_ads_daily", "fk_ads_fsn", "fk_ads_kw", "fk_ads_orders",
+                   "fk_ads_overall", "fk_ads_placements", "fk_ads_search",
+                   "fk_orders", "fk_payments"]))
 # **WAITING IS DIFFERENT FROM PRESSING.** Waiting for a heading or a status to
 # appear is safe as plain words -- it presses nothing.
 check("while waiting for something may still be plain words, because it presses nothing",
@@ -1049,7 +1385,7 @@ check("and the panel name was still filled into the addresses on the way",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 275
+EXPECTED = 308
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

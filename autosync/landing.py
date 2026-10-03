@@ -34,13 +34,60 @@ from reports import Report
 DATE_IN_NAME = re.compile(r"(\d{4}-\d{2}-\d{2})")
 
 
+def the_running_list_is_called(a_report: Report) -> str:
+    """What a running list is called. **No day in it, and that is the point.**
+
+    A running list is one file that every day is added to, so there is no day it
+    belongs to. Its days are the first column INSIDE it -- see `Arrived`.
+
+    **IT IS ITS OWN FUNCTION RATHER THAN A BRANCH SOMEWHERE, because three
+    different places have to agree about this name:** the walk that writes it, the
+    board that must not call it a stray, and whoever looks for it by hand.
+    """
+    return f"{a_report.platform}_{a_report.id}.{a_report.extension}"
+
+
+def the_days_in_the_list(text: str) -> Tuple[date, ...]:
+    """Which days a running list holds, read out of its own first column.
+
+    **THE OTHER HALF OF `the_running_list_is_called`.** The name says nothing
+    about days, so this is the only thing that can -- and the day board, the
+    manifest and the schedule all rest on it.
+
+    **ONLY A REAL DAY COUNTS.** A half-written line, a blank, or a note somebody
+    typed into the file by hand is not a day that arrived, and counting one would
+    stop that day ever being fetched again -- the quietest way there is to lose a
+    day for good.
+
+    **`extension/drive.js theDaysInTheList` IS THE SAME RULE ON THE OTHER SIDE**,
+    because the half that writes the file and the half that reads it back have to
+    agree about what a row is.
+    """
+    lines = str(text or "").strip().splitlines()
+    out = []
+    for one in lines[1:]:
+        first = one.split(",")[0].strip()
+        try:
+            out.append(date.fromisoformat(first))
+        except ValueError:
+            continue
+    return tuple(sorted(set(out)))
+
+
 def file_name_for(a_report: Report, data_date: date) -> str:
     """What one day's file of this report is called.
 
     **ONE PLACE BUILDS IT AND ONE PLACE READS IT BACK.** Two spellings of a naming
     convention is two records of one fact, and the day board's entire idea of
     whether something arrived rests on these agreeing.
+
+    **AND A RUNNING LIST HAS ONE NAME FOR EVERY DAY, so the day is ignored rather
+    than refused.** Callers ask this the same way for every report and should not
+    have to know which shape they are holding; asking for "the 10th of September's
+    views file" is a fair question and the honest answer is the one file there is.
     """
+    if a_report.a_running_list:
+        return the_running_list_is_called(a_report)
     return f"{a_report.platform}_{a_report.id}_{data_date.isoformat()}.{a_report.extension}"
 
 
@@ -82,6 +129,16 @@ class Arrived:
 
     name: str
     size: int
+    # **THE DAYS A RUNNING LIST HOLDS, READ OUT OF THE FILE ITSELF.**
+    #
+    # **ONE RULE, TWO SOURCES, AND BOTH ARE NAMED.** An ordinary report's day is
+    # in its NAME. A running list has no day in its name at all -- it is one file
+    # added to every day -- so its days are the first column inside it, and
+    # whoever listed the folder reads them and puts them here.
+    #
+    # **EMPTY IS THE ORDINARY CASE and means "ask the name", not "no days".**
+    # Every report but the running lists leaves this alone.
+    days_inside: Tuple[date, ...] = ()
 
     @property
     def data_date(self) -> Optional[date]:
@@ -90,6 +147,22 @@ class Arrived:
     @property
     def is_empty(self) -> bool:
         return self.size <= 0
+
+    def covers(self, day: date) -> bool:
+        """Does this file hold that day's data?
+
+        **THE ONE QUESTION THE DAY BOARD, THE MANIFEST AND THE SCHEDULE ALL ASK,
+        ASKED IN ONE PLACE.** It used to be spelt `one.data_date == day` in three
+        of them, which was true of every report there was -- and the moment one
+        report stopped having its day in its name, all three would have quietly
+        answered "no" about a file holding every day it was asked about.
+
+        **ONE RULE, TWO SOURCES, BOTH NAMED:** an ordinary report's day is in its
+        NAME; a running list's days are the first column INSIDE it.
+        """
+        if self.days_inside:
+            return day in self.days_inside
+        return self.data_date == day
 
 
 def days_that_arrived(records: Iterable["Arrived"]) -> Tuple[date, ...]:
@@ -119,8 +192,19 @@ def days_that_arrived(records: Iterable["Arrived"]) -> Tuple[date, ...]:
     """
     out = set()
     for one in records or ():
+        if one.is_empty:
+            continue
+        # **A RUNNING LIST ANSWERS WITH WHAT IS INSIDE IT, and it still answers
+        # here rather than anywhere else.** This function's own rule is that ONE
+        # place turns files into days -- the moment a second place learned about
+        # running lists, the schedule and the board would be able to disagree
+        # about what is still owed, which is the fault this docstring opens with.
+        inside = one.days_inside
+        if inside:
+            out.update(inside)
+            continue
         when = one.data_date
-        if when is None or one.is_empty:
+        if when is None:
             continue
         out.add(when)
     return tuple(sorted(out))

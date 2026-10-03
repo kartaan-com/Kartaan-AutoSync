@@ -110,8 +110,77 @@ BY_THE_CONTROL_BESIDE = "beside"  # the box these words label, not the words
 # wearing one name, and the day one of them stopped working nothing would say so.
 
 
+BY_A_REAL_BUTTON = "button"  # a real <button> carrying these words, nothing pretending
+
+# **THE SIXTH ONE EXISTS BECAUSE OF MEESHO'S PAYMENTS MODAL, read off his own
+# panel on 2026-09-11 with that modal open.** By the time the last step runs, two
+# things on that page read the single word "Download":
+#
+#   DIV role="button" tabindex="0"   the opener, top right, inside the HEADER
+#   BUTTON type="button"             the one inside the export modal
+#
+# **EVERY WAY OF FINDING ABOVE MATCHES BOTH, so the step refuses as ambiguous** --
+# which is what his own run said twice: *"2 things match 'Download'."* Words match
+# both. Pressable matches both (Meesho styles the opener's cursor). **And asking
+# for a CONTROL matches both too, because `role="button"` is exactly how a page
+# says a div is a control** -- that is the whole purpose of the attribute, and
+# taking it away would break Flipkart, which has real roles everywhere.
+#
+# **THE REFERENCE TELLS THEM APART BY THE TAG AND HAS FOR MONTHS**
+# (`content/meesho.js handlePayments`): for the opener it searches
+# `p, button, [role="button"]`, and for the final button it searches
+# `querySelectorAll('button')` and nothing else. Two different searches on one
+# page, on purpose. This is that second search, named.
+#
+# **IT IS THE NARROWEST WAY THERE IS, AND THAT IS THE POINT.** Everything it
+# finds, `BY_ROLE_AND_TEXT` finds too; it can never reach something the others
+# could not. So it is asked for by name where a page has both kinds and means
+# different things by them -- never fallen back to, for the same reason
+# `BY_THE_CONTROL_BESIDE` is not.
+
+
+BY_THE_BUTTON_BESIDE = "button-beside"  # the button on the row these words name
+
+# **THE SEVENTH ONE EXISTS BECAUSE OF THE REPORTS CENTRE REQUEST DIALOG, read off
+# his own Flipkart on 2026-09-11 with that dialog open, row by row.**
+#
+# **THE SUB-KIND IS NOT A CONTROL AND NEVER WAS.** Choosing the report to request
+# looked like pressing `Orders`, and measured, `Orders` is a **`span` with
+# `cursor: auto`** -- a row heading. Pressing it does nothing at all, and nothing
+# on this list could even find it. **What starts a request is a real `button`
+# reading `REQUEST REPORT`, and there is one on every row:**
+#
+#   DIV  ->  SPAN "DBD Breached Shipments Report"   BUTTON "REQUEST REPORT"
+#   DIV  ->  SPAN "Orders"                          BUTTON "REQUEST REPORT"
+#   DIV  ->  SPAN "Pickup Report"                   BUTTON "REQUEST REPORT"
+#   DIV  ->  SPAN "Returns"                         BUTTON "REQUEST REPORT"
+#   DIV  ->  SPAN "Seller Cancelled Shipments"      BUTTON "REQUEST REPORT"
+#
+# **SO FIVE BUTTONS READ THE SAME WORDS AND ONLY THE ROW TELLS THEM APART.**
+# Asked for by its words alone the step finds five and refuses -- which is right,
+# and useless. The words that name the row are the sub-kind, and what is pressed
+# is the button beside them.
+#
+# **THE REFERENCE HAS DONE EXACTLY THIS FOR MONTHS** (`content/flipkart.js`
+# StepC): it finds the leaf whose text is the sub-type, walks up as far as eight
+# ancestors, finds the element matching `/request\s*report/i` inside that
+# ancestor, and presses that.
+#
+# **WHY IT IS NOT `near` INSTEAD.** `near` names a row BY THE DAY, and the door
+# refuses a `near` with no day in it on purpose -- a row named by something that
+# never changes is the same row every night, which would fetch last month's file
+# while looking like it worked. **This dialog is a fixed menu, not a list of
+# files**, so the day has no part in it. Bending `near` would have put a hole in
+# the rule that stops a year-old file being fetched under today's name.
+#
+# **AND IT IS THE SAME SHAPE AS `BY_THE_CONTROL_BESIDE`, deliberately.** The
+# words say WHICH row; the thing pressed is what sits beside them. That one takes
+# the box something is typed in; this one takes a real button, and nothing
+# pretending -- for the same reason `BY_A_REAL_BUTTON` exists.
+
+
 WAYS_OF_FINDING = (BY_TEXT, BY_ROLE_AND_TEXT, BY_TEST_ID, BY_PRESSABLE_TEXT,
-                   BY_THE_CONTROL_BESIDE)
+                   BY_THE_CONTROL_BESIDE, BY_A_REAL_BUTTON, BY_THE_BUTTON_BESIDE)
 
 # ---------------------------------------------------- which day names the row
 
@@ -184,6 +253,29 @@ class Find:
     # only takes matches away. So it cannot turn one right answer into a wrong
     # one -- at worst it takes the right one away too, and that refuses.
     near: str = ""
+    # **AND WHAT ELSE THAT ROW HAS TO SAY, when the day alone names more than one
+    # of them. This is ANDed with `near`, never ORed with it.**
+    #
+    # **Flipkart's Reports Centre is the whole reason it exists.** Orders,
+    # returns and settled transactions are all requested on the same night for
+    # the same range, so all three rows read `... To 06 Jun 2026`. Narrowed by
+    # the day alone, one lookup matches three rows -- and the step that takes the
+    # newest of several then takes whichever is topmost. **That is the payments
+    # file landing under the orders name, silently, in the seller's books.**
+    #
+    # The working reference asks the two questions separately and asks the
+    # sub-type FIRST (`content/flipkart.js` `findReportRowDownloadBtn`: its first
+    # test is `if (!rowLow.includes(subLow)) continue;`, with the sub-type held
+    # beside each job in `REPORTS_CENTRE_CFG`). This is that test.
+    #
+    # **IT NEVER NAMES A DAY.** The day is `near`'s question, and only `near`
+    # carries the rules about whose wording and which day. Something that named
+    # the day here would be a second, unchecked way of saying the same thing.
+    #
+    # **IT NARROWS, IT NEVER LOOSENS** -- same as `near`. At worst it takes the
+    # right row away too, and then nothing is found and the step refuses, which
+    # is the safe direction.
+    also_saying: str = ""
     # **WHOSE WORDING OF A DAY `{day_in_words}` MEANS, and it has to be said
     # because no two portals write a day the same way.**
     #
@@ -224,7 +316,76 @@ WAIT_FOR = "wait-for"      # something to appear
 PICK_RANGE = "pick-range"  # a date range
 TAKE_FILE = "take-file"    # whatever download the last click produced
 WAIT = "wait"              # this long, for something that is not on the page
-STEP_KINDS = (GO, CLICK, WAIT_FOR, PICK_RANGE, TAKE_FILE, WAIT)
+READ_NUMBER = "read-number"        # the number a label on the page names
+ADD_TO_THE_LIST = "add-to-the-list"  # what was read, as a row on a running list
+SWEEP_THE_ADS = "sweep-the-ads"    # ask the platform's own ads addresses, from its page
+TYPE_IN = "type-in"                # words into the one box that matches
+READ_THE_KEYWORDS = "read-the-keywords"  # every listing's top search keywords, off the page
+STEP_KINDS = (GO, CLICK, WAIT_FOR, PICK_RANGE, TAKE_FILE, WAIT,
+              READ_NUMBER, ADD_TO_THE_LIST, SWEEP_THE_ADS, TYPE_IN, READ_THE_KEYWORDS)
+
+# **THE ELEVENTH READS FLIPKART'S TOP SEARCH KEYWORDS OFF THE TRAFFIC REPORT
+# (2026-09-15).** Named for exactly what it does, like the ads sweep: every listing
+# row's keyword pop-up opened, read and closed, on every page, made into one CSV --
+# the reference's `handleFkKeywords`, whose Flipkart words live in one checked file
+# (`extension/keywords.js`) rather than in a table of steps.
+
+# **THE TENTH TYPES, AND IT EXISTS FOR ONE REPORT: FLIPKART'S OVERALL PERFORMANCE
+# REPORT (2026-09-15).** Its Download stays switched off until a campaign is
+# chosen, and a campaign is chosen by typing its id into a search box and pressing
+# the suggestion. The reference types it with the page's own insert-text command,
+# because setting the box's value does not start Flipkart's search
+# (`content/flipkart.js` `_handleFkAdsOverall`).
+#
+# **AND THOSE STEPS ARE DONE ONCE PER CAMPAIGN**, because the report is one file per
+# campaign that ran. Which campaigns ran is read from the ads daily file for the
+# same day -- see `recipes.CampaignsFrom`.
+ONCE_PER_CAMPAIGN = (TYPE_IN, CLICK, WAIT_FOR, TAKE_FILE)
+
+# **THE NINTH IS THE ONE THAT PRESSES NOTHING AT ALL, and it is named for exactly
+# what it does rather than pretending to be general.**
+#
+# **WHY IT IS NOT A GENERAL "CALL AN ADDRESS" STEP.** Meesho's ads figures come
+# from two of its own addresses, called from inside the signed-in page: a list of
+# campaigns, ten at a time, and then one call per campaign for a day's numbers.
+# Turning that into recipe steps would need paging, a loop over what came back,
+# and a way of saying which field goes in which column -- **a recipe pretending to
+# be a program.** The names of those fields are Meesho's, they change when Meesho
+# changes them, and they belong in one file that can be read and checked
+# (`extension/ads.js`) rather than scattered through a table of steps.
+#
+# **AND THE SELLER IS NEVER WRITTEN DOWN ANYWHERE. HIS INSTRUCTION, 2026-09-11:**
+# *"make sure it is not hard coded to any one seller... it should be able to
+# handle the multi seller thing."* Both things those addresses need -- the panel
+# slug and the numeric supplier id -- are read from cookies Meesho sets for
+# whoever is signed in (`current_az_identifier` and `s_id`), measured on a real
+# panel. **The reference hard-codes one seller's slug in its own config
+# (`config.js:11`) and finds the numeric id by scraping localStorage key names --
+# which returns nothing at all on that same panel today.**
+
+# **THE LAST TWO EXIST BECAUSE SOME NUMBERS ARE NOT A DOWNLOAD AT ALL, and until
+# 2026-09-11 this door could not reach them.**
+#
+# Meesho shows the day's views and orders on a card on its dashboard and sells no
+# export of them short of a paid subscription. **There is no button to press and
+# no file to take.** Every step above is about making a platform hand over a file;
+# these two are about reading a figure off the page and writing it down.
+#
+# **THEY ARE TWO STEPS AND NOT ONE, because a card is one number and a row is
+# several.** Views and orders sit in two different cards on the same page, and a
+# single step that did both would have to carry a list of labels and a column
+# order and a file name -- which is a recipe pretending to be a program. Two
+# plain steps read two numbers; the third writes the row.
+#
+# **AND THE ROW IS ADDED TO ONE FILE, NOT WRITTEN AS A NEW ONE EACH DAY.** That is
+# his decision of 2026-09-11, put to him as a question and answered: the working
+# reference has kept these in one running CSV since it was written, and
+# `reports.a_running_list` is where that shape is declared and explained.
+#
+# **THE DAY IS WRITTEN THE WAY EVERYTHING ELSE HERE WRITES A DAY -- ISO, the same
+# `date.isoformat()` the file names use and the same spelling that reaches the
+# ledger** (`reading.a_reading` hands the ERP `data_date=when.isoformat()`). A
+# second spelling of a day is a second record of one fact.
 
 # **WHY THERE IS A STEP THAT ONLY WAITS, AND WHY NOTHING ELSE COULD DO IT.**
 #
@@ -366,6 +527,23 @@ class Step:
     # `PressAgain`. On the step rather than in the door for the same reason as
     # everything else here: which control toggles is a platform fact.
     press_again: Optional[PressAgain] = None
+    # **SOMETHING ELSE A WAIT MAY COUNT INSTEAD -- HIS RULING, 2026-09-14.** A
+    # confirmation banner can come and go before a slowed tab looks, and the
+    # reference then checks the durable place the platform lists what was asked
+    # for (`content/flipkart.js` `decideReportSubmissionOutcome`). So a wait may
+    # name that place too, and finding it counts as finding what was waited for.
+    or_find: Optional[Find] = None
+    # **WHAT A TYPING STEP TYPES.** `{campaign}` is the one placeholder it may carry.
+    words: str = ""
+    # **DONE ONCE FOR EACH CAMPAIGN THAT RAN THAT DAY** (2026-09-15). A run of these
+    # steps is repeated per campaign, with `{campaign}` filled in each time.
+    for_each_campaign: bool = False
+    # **PRESSED THE WAY A MOUSE PRESSES: BUTTON DOWN, BUTTON UP, CLICK** (2026-09-15).
+    # Flipkart's campaign suggestion picks a campaign when the button goes DOWN, so
+    # a bare click lands and selects nothing -- measured on his own page: the same
+    # element, pressed all three ways, drew `Ad Group` and switched Download on.
+    # A flag on the one step rather than a change to every press, his ruling.
+    press_like_a_mouse: bool = False
 
 
 def why_step_is_refused(step: Step) -> Optional[str]:
@@ -376,8 +554,24 @@ def why_step_is_refused(step: Step) -> Optional[str]:
         return f"{step.do!r} is not something this door knows how to do."
     if step.do == GO and not step.address:
         return "A step that goes somewhere has to say where."
-    if step.do in (CLICK, WAIT_FOR) and step.find is None:
+    if step.do in (CLICK, WAIT_FOR, READ_NUMBER, TYPE_IN) and step.find is None:
         return f"A {step.do} step has to say what to look for."
+    # **A NUMBER IS READ BY THE LABEL BESIDE IT, so the label is what names the
+    # column it lands in.** Unnamed, two cards on one page would both write into
+    # a column called nothing, and the row would be built in whatever order the
+    # steps happened to run.
+    if step.do == ADD_TO_THE_LIST and step.find is not None:
+        return ("A step that adds a row looks for nothing. It writes down what the "
+                "read-number steps before it already read.")
+    # **A SWEEP LOOKS AT NO PAGE.** It asks the platform's own addresses from
+    # inside the signed-in page; there is nothing on the screen for it to find,
+    # and a lookup written on one would never be used.
+    if step.do == SWEEP_THE_ADS and step.find is not None:
+        return ("A step that sweeps the ads addresses looks for nothing on the page. "
+                "It asks the platform directly.")
+    if step.do == READ_THE_KEYWORDS and step.find is not None:
+        return ("A step that reads the keywords looks for nothing of its own. What it reads "
+                "is written down in one place.")
     if step.do == WAIT and step.find is not None:
         # **A WAIT AND A WAIT-FOR ARE NOT THE SAME STEP.** One passes time; the
         # other watches the page. Written with something to look for, a wait
@@ -436,6 +630,39 @@ def why_step_is_refused(step: Step) -> Optional[str]:
         # placeholder, and only one lookup carries one.
         return ("Only a lookup that names a row by the day in the platform's own wording can say "
                 "which day it means.")
+    if (step.find is not None and step.find.also_saying
+            and not step.find.near
+            and step.find.how != BY_THE_BUTTON_BESIDE):
+        # **WHAT ELSE A ROW SAYS NARROWS; IT DOES NOT NAME A ROW ON ITS OWN.**
+        # The report's own kind is on the same row every night, so a lookup
+        # narrowed by it alone is narrowed to the whole of that report's history
+        # -- and would take last month's file while looking like it worked. It is
+        # the second of two tests, and the first one is the day.
+        #
+        # **AND THE ONE WAY OF FINDING THIS DOES NOT APPLY TO, WITH THE REASON,
+        # BECAUSE AN EXCEPTION WITHOUT ONE IS HOW A RULE ROTS.** The rule exists
+        # because a row in a LIST OF FILES has to be named by the day, or the
+        # same old file is fetched every night. `BY_THE_BUTTON_BESIDE` does not
+        # look at a list of files: it looks at a FIXED MENU of reports that can
+        # be requested, where the day has no part at all -- and there is nothing
+        # there to fetch, only a button to press. **What it needs narrowing
+        # against is the same words somewhere else on the page**: read off his
+        # own Reports Centre on 2026-09-11 with the dialog open, the word
+        # `Orders` is a leaf in the dialog's row AND a leaf in the list of
+        # reports already requested behind it. Both walk up to a button, so the
+        # step finds two and refuses. **The dialog's row also says
+        # `REQUEST REPORT` and the list's row does not**, which is exactly what
+        # this field means and is what tells them apart.
+        return ("What else a row says only narrows a row already named by the day. "
+                "On its own it is the same row every time.")
+    if (step.find is not None and ("{day}" in step.find.also_saying
+                                   or "{day_in_words}" in step.find.also_saying)):
+        # **THE DAY IS ASKED IN ONE PLACE, and this is not it.** Every rule about
+        # whose wording a day is written in, and which day a row is named by,
+        # hangs off `near`. A day named here would be filled in by nothing and
+        # would cross to the page as the literal characters -- finding no row at
+        # all, in silence, which is the fault those rules were written after.
+        return "The day belongs in the row a lookup names, not in what else that row says."
     if step.find is not None and "{panel}" in step.find.near:
         # **A ROW IS NEVER NAMED BY THE SELLER'S OWN PANEL NAME**, and until this
         # rule existed nothing said so on either side: the Python filled `{panel}`
@@ -513,6 +740,31 @@ def why_step_is_refused(step: Step) -> Optional[str]:
             # second press lands on a control the first one has just opened, and
             # shuts it.
             return "Pressing again has to wait some time first, or the second press shuts it."
+    if step.or_find is not None:
+        if step.do != WAIT_FOR:
+            # **ONLY A WAIT HAS SOMETHING ELSE IT COULD COUNT.** A click presses one
+            # thing; letting it press another instead would be the coin toss.
+            return "Only a step that waits for something can accept something else instead."
+        if (not isinstance(step.or_find, Find) or step.or_find.how not in WAYS_OF_FINDING
+                or not step.or_find.what):
+            return "Something else a wait may count has to say what to look for."
+    if step.press_like_a_mouse and step.do != CLICK:
+        return "Only a step that presses something can say how to press it."
+    if step.do == TYPE_IN and not step.words:
+        return "A step that types has to say what to type."
+    if step.do != TYPE_IN and step.words:
+        return "Only a step that types can say what to type."
+    if step.for_each_campaign and step.do not in ONCE_PER_CAMPAIGN:
+        # **A CAMPAIGN'S STEPS STAY ON ONE PAGE.** Going somewhere ends the page the
+        # walk is running in, and a range or a wait is set once for the report.
+        return ("Only typing, pressing, waiting for something or taking a file can be done "
+                "once per campaign.")
+    if (("{campaign}" in step.words or (step.find is not None and "{campaign}" in step.find.what))
+            and not step.for_each_campaign):
+        return "Only a step done once per campaign can name the campaign."
+    if "{campaign}" in step.address or (step.find is not None and (
+            "{campaign}" in step.find.near or "{campaign}" in step.find.also_saying)):
+        return "A campaign is named in what a step types or looks for, never in an address or a row."
     if not step.why:
         # **NOT DECORATION.** A failure says what was being attempted, and without
         # this it can only say what could not be found -- which is how a month of

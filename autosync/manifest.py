@@ -318,7 +318,9 @@ def what_it_says(a_report: Report, day: date, arrived: Sequence[Arrived],
     """
     best: Optional[Arrived] = None
     for one in arrived or ():
-        if one.data_date != day:
+        # **ASKED OF THE RECORD RATHER THAN OF ITS NAME.** A running list has no
+        # day in its name at all and holds many -- see `landing.Arrived.covers`.
+        if not one.covers(day):
             continue
         if one.is_empty:
             # **A NOUGHT-BYTE FILE IS NOT A FILE THAT ARRIVED.** It is skipped

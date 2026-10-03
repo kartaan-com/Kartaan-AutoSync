@@ -536,14 +536,40 @@ def _arrivals_from_drive(transport, inside: str) -> Callable[[str], Sequence[Arr
     report success and still leave nothing usable behind, and the only thing that
     settles it is looking.
     """
-    from drive_door import what_has_arrived  # noqa: PLC0415
+    from drive_door import bring_the_file_back, what_has_arrived  # noqa: PLC0415
+    from landing import the_days_in_the_list  # noqa: PLC0415
+    from reports import report as which_report  # noqa: PLC0415
 
     def arrivals(report_id: str) -> Sequence[Arrived]:
         folder_id = _drive_folder(transport, inside, report_id)
-        return [
-            Arrived(name=str(one.get("name") or ""), size=int(one.get("size") or 0))
-            for one in what_has_arrived(transport, folder_id)
-        ]
+        # **A RUNNING LIST HAS NO DAY IN ITS NAME, SO THE LISTING ALONE CANNOT
+        # SAY WHICH DAYS IT HOLDS -- THE FILE HAS TO BE OPENED.** It is the one
+        # report that works this way (`reports.a_running_list`), and it is one
+        # small file, so this is one extra download a night and no more.
+        #
+        # **AND WITHOUT IT EVERYTHING DOWNSTREAM IS CONFIDENTLY WRONG.** The day
+        # board would call every day missing while the file sat there holding
+        # every one of them, the schedule would fetch them all again for ever,
+        # and the manifest would write `missing` lines nobody could clear.
+        a_list = which_report(report_id)
+        inside_them = a_list is not None and a_list.a_running_list
+        out = []
+        for one in what_has_arrived(transport, folder_id):
+            name = str(one.get("name") or "")
+            size = int(one.get("size") or 0)
+            days = ()
+            if inside_them and size > 0 and one.get("id"):
+                # **A FILE THAT CANNOT BE READ IS A FILE HOLDING NO DAYS, and
+                # that is the safe direction:** the days it holds are fetched
+                # again, which costs a run. Believing days it may not hold would
+                # lose them silently, which costs the data.
+                try:
+                    days = the_days_in_the_list(
+                        bring_the_file_back(transport, str(one["id"])).decode("utf-8", "replace"))
+                except Exception:  # noqa: BLE001 - a listing must never fail on one file
+                    days = ()
+            out.append(Arrived(name=name, size=size, days_inside=days))
+        return out
 
     return arrivals
 
