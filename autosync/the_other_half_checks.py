@@ -182,7 +182,65 @@ for _name, _value in WAS.items():
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 15
+# ----------- the seller's run never runs a file that reaches the other half
+
+# **FINDING 50.** The seller's run used to run every `autosync/*_checks.py`. Some
+# of those read the PRIVATE Kartaan-ERP, which a seller's machine never has, so
+# they refuse -- rightly -- and every ready run went red after doing its work.
+# The question is not *"is that one step gone"* but **"does anything this
+# workflow runs reach `the_other_half`, directly or through another module?"**
+HERE = Path(__file__).resolve().parent
+SELLERS_RUN = HERE.parent / ".github" / "workflows" / "autosync.yml"
+check("the seller's workflow file was found at all", SELLERS_RUN.is_file())
+SELLERS_RUN_SAYS = SELLERS_RUN.read_text(encoding="utf-8") if SELLERS_RUN.is_file() else ""
+
+# What it runs: **EVERY `.py` NAME OR `-m` MODULE ANYWHERE IN THE WORKFLOW, COMMENTS
+# LEFT OUT** -- not only `python x.py`, which a `-u`, a `-m`, a quoted variable or
+# a `for` over two lists would each slip past. A glob is expanded.
+SAID = "\n".join(re.sub(r"(^|\s)#.*$", "", line)
+                 for line in SELLERS_RUN_SAYS.splitlines())
+RUNS = set()
+for _pattern in re.findall(r"[\w*./$(){}-]*\w\.py\b", SAID):
+    RUNS.update(path.name for path in HERE.glob(Path(_pattern).name))
+for _module in re.findall(r"\bpython3?[^\n]*?\s-m\s+(\w+)", SAID):
+    RUNS.update(path.name for path in HERE.glob(_module + ".py"))
+A_SCRIPT_WE_CANNOT_READ = re.findall(r"\b(?:bash|sh|pytest|source)[ \t]+\S+|\S*_checks\S*", SAID)
+
+IMPORTS = {}
+for _file in HERE.glob("*.py"):
+    _text = _file.read_text(encoding="utf-8")
+    _names = set(re.findall(r"^\s*from\s+\.?(\w+)\s+import\b", _text, re.M))
+    for _list in re.findall(r"^\s*import\s+([\w, ]+)", _text, re.M):
+        _names.update(each.split()[0] for each in _list.split(",") if each.split())
+    for _list in re.findall(r"^\s*from\s+\.?\s+import\s+([\w, ]+)", _text, re.M):
+        _names.update(each.split()[0] for each in _list.split(",") if each.split())
+    IMPORTS[_file.stem] = _names
+
+
+# A `python -c "import x"` names no file; the modules it imports are read too.
+for _name in re.findall(r"(?:^|;|\s)(?:import|from)\s+(\w+)", SAID):
+    if _name in IMPORTS:
+        RUNS.add(_name + ".py")
+
+
+def reaches_the_other_half(stem, seen=()):
+    if stem == "the_other_half":
+        return True
+    return any(reaches_the_other_half(each, seen + (stem,))
+               for each in IMPORTS.get(stem, ()) if each in IMPORTS and each not in seen)
+
+
+REACH = sorted(name for name in RUNS if reaches_the_other_half(Path(name).stem))
+check("the seller's workflow runs something at all (a floor, so a read that found "
+      "nothing cannot pass)", "start.py" in RUNS)
+check("the files that do reach the other half were found at all", any(
+    reaches_the_other_half(stem) for stem in IMPORTS if stem != "the_other_half"))
+check(f"THE SELLER'S WORKFLOW RUNS NO FILE THAT REACHES THE OTHER REPOSITORY -- {REACH}",
+      not REACH)
+check(f"the workflow names no checks file and no script this cannot read -- {A_SCRIPT_WE_CANNOT_READ}",
+      not A_SCRIPT_WE_CANNOT_READ)
+
+EXPECTED = 20
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

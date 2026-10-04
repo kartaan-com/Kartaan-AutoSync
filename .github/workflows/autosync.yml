@@ -376,30 +376,11 @@ jobs:
         # could not get its evidence out of the building.
         run: python start.py
 
-      # **THE PACKAGE'S OWN CHECKS RUN HERE TOO.**
+      # **THIS JOB RUNS NO DEVELOPER CHECKS (FINDING 50).**
       #
-      # Not because a scheduled run changes the code -- it cannot -- but because
-      # this is the one job that runs in the seller's repository, on a machine
-      # nobody is watching. If the code that arrives there is broken, this is
-      # where it is found, and it is found before anybody notices data stopped
-      # arriving.
-      #
-      # **ONLY WHEN THERE IS SOMETHING TO FETCH.** On a repository with no
-      # secrets there is nothing for these checks to be about, and a red tick
-      # that always means nothing is a red tick nobody reads on the day it means
-      # something (D108).
-      - name: The package's own checks
-        if: steps.setup.outputs.ready == 'true'
-        working-directory: autosync
-        run: |
-          COUNT=0
-          for CHECK in *_checks.py; do
-            echo "--- $CHECK"
-            python "$CHECK"
-            COUNT=$((COUNT + 1))
-          done
-          if [ "$COUNT" -eq 0 ]; then
-            echo "::error::no checks files were found at all -- the checks are not running"
-            exit 1
-          fi
-          echo "$COUNT checks files ran"
+      # It used to run every `autosync/*_checks.py` here. Some of them read
+      # the private Kartaan-ERP repository, which a seller's machine never
+      # has, so every ready run went red after doing its work. The checks run
+      # where both repositories are present, before a version is tagged
+      # (`pm_check.yml`). `autosync/the_other_half_checks.py` goes red if this
+      # file ever runs a file that reaches `the_other_half` again.
