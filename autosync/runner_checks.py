@@ -475,10 +475,50 @@ rows_without, _ = answered(lambda: tool.look(
 check("and say nothing at all when they are not -- which is what was shipping",
       all((row.why_not or "") == "" for row in rows_without))
 
+# ------------------------------------------- piece 3 (A68): the run looks back to the ledger's last day
+import schedule  # noqa: E402
+
+PAUSED = DAY("2026-10-04")
+ends_8th = lambda _r: [Arrived(f"meesho_me_orders_2026-09-{d:02d}.csv", 900) for d in range(1, 9)]  # noqa: E731
+sink = collect()
+door = a_door()
+what = answered(lambda: tool.do_a_run("run-pause", [ORDERS], door, ends_8th, tool.InFlight(), sink, Tick(), PAUSED))
+asked_days = sorted({a["day"] for a in door.asked})
+check("A RUN AFTER A LEDGER THAT ENDS 8 SEP ASKS FROM 9 SEP",
+      bool(asked_days) and asked_days[0] == DAY("2026-09-09"))
+check("and the fortnight's floor is asked in full",
+      all(DAY("2026-09-20") + timedelta(days=n) in asked_days for n in range(14)))
+check("while the older days past it are spread over runs, and the run SAYS so",
+      DAY("2026-09-16") not in asked_days
+      and any("wait for the next run" in l.message for l in sink.lines))
+
+# A day the platform can no longer give is named in the run's own words.
+schedule.REACH_BACK_DAYS["me_orders"] = 20
+try:
+    sink = collect()
+    door = a_door()
+    answered(lambda: tool.do_a_run("run-limit", [ORDERS], door, ends_8th, tool.InFlight(), sink, Tick(), PAUSED))
+    said_lost = [l.message for l in sink.lines if "can no longer be fetched" in l.message]
+    check("a day beyond the platform's limit is named in the run's words, not dropped",
+          bool(said_lost) and "Bring them in from a file" in said_lost[0] and "2026-09-09" in said_lost[0])
+    check("and is not asked for", DAY("2026-09-09") not in {a["day"] for a in door.asked})
+finally:
+    schedule.REACH_BACK_DAYS.pop("me_orders", None)
+
+# A person naming the days gets exactly those days: no spreading, no look-back.
+sink = collect()
+door = a_door()
+answered(lambda: tool.do_a_run(
+    "run-hand", [ORDERS], door, ends_8th, tool.InFlight(), sink, Tick(), PAUSED,
+    asked_for=[schedule.Owed("me_orders", DAY("2026-09-01"), 33, True)]))
+check("a person who names the days gets exactly those days",
+      [a["day"] for a in door.asked] == [DAY("2026-09-01")])
+
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 79
+EXPECTED = 85
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

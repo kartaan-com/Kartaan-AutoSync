@@ -302,34 +302,75 @@ jobs:
       - name: Nothing to install
         run: python -c "import sys; print(sys.version)"
 
-      # **IS THIS REPOSITORY SET UP TO FETCH AT ALL?**
+      # **IS THIS REPOSITORY SET UP TO FETCH AT ALL? -- AND IF NOT, WHICH SECRET.**
       #
-      # This same workflow sits in Kartaan's own repository, where none of these
-      # secrets exist and none should. Without this, it would go red every three
-      # hours for ever, and a red tick that always means nothing is a red tick
-      # nobody looks at on the day it means something (D108).
+      # **GREEN OVER NOTHING WAS THE FAULT (PIECE 2, A68).** This used to AND all
+      # eight secrets into one yes/no, print a notice and end green -- so a seller
+      # whose run said "Success in 16s" had fetched nothing and been told nothing,
+      # and twenty-four green days could pass the same way. Now it names each
+      # missing secret **BY NAME, NEVER BY VALUE (Golden Rule 8)** and ends RED.
+      # A seller still connecting their platforms sees red once, with the reason
+      # in plain words; it turns green by itself the day the last one is set.
+      #
+      # **THE ONE EXCEPTION IS KARTAAN'S OWN REPOSITORY**, where none of these
+      # secrets exist and none should: red there every day for ever would be a
+      # red nobody looks at on the day it means something (D108).
       #
       # `secrets` cannot be read in an `if:` -- GitHub's own documentation -- so
-      # it is read where it is allowed, a step's `env`, and answered as an output.
-      # **The values are never printed; only whether they are there.**
+      # each is read where it is allowed, a step's `env`, as only whether it is
+      # there. **The names the loop reports are the names of these eight
+      # variables, so there is no second list of them to disagree with.**
       - name: Is this repository set up to fetch?
         id: setup
         env:
-          READY: >-
-            ${{ secrets.AMAZON_CLIENT_ID != ''
-             && secrets.AMAZON_CLIENT_SECRET != ''
-             && secrets.AMAZON_REFRESH_TOKEN != ''
-             && secrets.GOOGLE_CLIENT_ID != ''
-             && secrets.GOOGLE_CLIENT_SECRET != ''
-             && secrets.GOOGLE_REFRESH_TOKEN != ''
-             && secrets.DRIVE_FOLDER_ID != ''
-             && secrets.FIREBASE_PROJECT_ID != '' }}
+          HAS_AMAZON_CLIENT_ID: ${{ secrets.AMAZON_CLIENT_ID != '' }}
+          HAS_AMAZON_CLIENT_SECRET: ${{ secrets.AMAZON_CLIENT_SECRET != '' }}
+          HAS_AMAZON_REFRESH_TOKEN: ${{ secrets.AMAZON_REFRESH_TOKEN != '' }}
+          HAS_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID != '' }}
+          HAS_GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET != '' }}
+          HAS_GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN != '' }}
+          HAS_DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID != '' }}
+          HAS_FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID != '' }}
+          KARTAANS_OWN_REPOSITORY: ${{ github.repository == 'kartaan-com/Kartaan-AutoSync' }}
         run: |
-          echo "ready=$READY" >> "$GITHUB_OUTPUT"
-          if [ "$READY" != "true" ]; then
+          missing=""
+          for pair in $(env | sed -n 's/^HAS_\([A-Z0-9_]*\)=\(.*\)$/\1=\2/p' | sort); do
+            if [ "${pair#*=}" != "true" ]; then
+              missing="$missing ${pair%%=*}"
+            fi
+          done
+          missing="${missing# }"
+          if [ -z "$missing" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "ready=false" >> "$GITHUB_OUTPUT"
+          echo "missing=$missing" >> "$GITHUB_OUTPUT"
+          if [ "$KARTAANS_OWN_REPOSITORY" = "true" ]; then
             echo "::notice::No platform is connected on this repository, so there is nothing to fetch."
             echo "::notice::Auto-sync runs on the seller's own repository, where its secrets are set."
+            exit 0
           fi
+          echo "::error::Nothing was fetched: this repository is not set up to fetch yet. Not set: $missing"
+          echo "::error::If you are still connecting your platforms, this is expected. It turns green by itself once every name above is set."
+          exit 1
+
+      # **IF IT CANNOT FETCH, IT STILL SAYS IT RAN (PIECE 2, A68).** The run's own
+      # record lives in the seller's Drive, so this can only write when the Google
+      # secrets and the folder are among those that ARE set -- and it says, in the
+      # log, what it could not write when they are not. It never changes the red
+      # above: a failure here is printed and the job was already red.
+      - name: Write down that it ran and could not fetch
+        if: failure() && steps.setup.outputs.ready == 'false'
+        working-directory: autosync
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+          DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          NOT_SET: ${{ steps.setup.outputs.missing }}
+        run: python start.py not-ready
 
       - name: Fetch whatever is owed
         if: steps.setup.outputs.ready == 'true'

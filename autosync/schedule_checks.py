@@ -402,10 +402,99 @@ same_day = [one.report_id for one in owed_in_order
 check("and two reports owed for one day come back in a settled order",
       same_day == sorted(same_day))
 
+# ------------------------------------------------ the look-back: ONE number, to the ledger's last day
+# **PIECE 3 (A68).** The run asked from `today - 14` for every report whatever the
+# ledger held, so a pause longer than a fortnight left days nobody would ever ask
+# for (Finding 53: nothing 9-13 Sep, nothing 9-18 Sep, the oldest asked day 19 Sep).
+
+import board  # noqa: E402
+import manifest  # noqa: E402
+
+PAUSED = DAY("2026-10-04")
+ENDS_8TH = lambda _r: [Arrived(f"meesho_me_orders_2026-09-{d:02d}.csv", 900) for d in range(1, 9)]  # noqa: E731
+ENDS_YESTERDAY = lambda _r: [Arrived("meesho_me_orders_2026-10-03.csv", 900)]  # noqa: E731
+
+check("a ledger ending 8 Sep makes the window start on 9 Sep",
+      answered(lambda: tool.window_start("me_orders", tool.days_that_arrived(ENDS_8TH("")), PAUSED)
+               == DAY("2026-09-09")))
+check("a ledger up to date keeps the fortnight's floor",
+      answered(lambda: tool.window_start("me_orders", tool.days_that_arrived(ENDS_YESTERDAY("")), PAUSED)
+               == PAUSED - tool.timedelta(days=tool.LOOK_BACK_DAYS)))
+check("a report that has never landed anything keeps the floor, never an unbounded past",
+      answered(lambda: tool.window_start("me_orders", [], PAUSED)
+               == PAUSED - tool.timedelta(days=tool.LOOK_BACK_DAYS)))
+check("a window a person or a check NAMES is exactly that window",
+      answered(lambda: tool.window_start("me_orders", tool.days_that_arrived(ENDS_8TH("")), PAUSED,
+                                         look_back_days=3) == DAY("2026-10-01")))
+
+owed_after_pause = answered(lambda: tool.what_is_owed([ORDERS], ENDS_8TH, PAUSED))
+check("THE NEXT RUN AFTER A LEDGER THAT ENDS 8 SEP ASKS FROM 9 SEP",
+      bool(owed_after_pause) and owed_after_pause[0].data_date == DAY("2026-09-09"))
+check("and runs on to yesterday",
+      bool(owed_after_pause) and owed_after_pause[-1].data_date == DAY("2026-10-03"))
+
+# **THE THREE WINDOWS CANNOT DISAGREE, and a check that found nothing to compare
+# refuses rather than passing.**
+rows_oldest = answered(lambda: min(r.data_date for r in board.rows_for([ORDERS], ENDS_8TH, PAUSED)))
+lines_oldest = answered(lambda: min(l.data_date for l in manifest.lines_for([ORDERS], ENDS_8TH, PAUSED)))
+owed_oldest = owed_after_pause[0].data_date if owed_after_pause else None
+check("the run, the day board and the manifest all start on the same day (9 Sep)",
+      None not in (rows_oldest, lines_oldest, owed_oldest)
+      and rows_oldest == lines_oldest == owed_oldest == DAY("2026-09-09"))
+
+import re  # noqa: E402
+
+SAID_14 = []
+for _name in ("runner.py", "board.py", "manifest.py"):
+    _text = (Path(__file__).resolve().parent / _name).read_text(encoding="utf-8")
+    SAID_14 += [f"{_name}: {m}" for m in re.findall(
+        r"(?:look_back_days\s*:\s*int\s*=\s*\d+|LOOK_BACK_DAYS\s*=\s*\d+)", _text)]
+check(f"no second copy of the number is written in the run, the board or the manifest -- {SAID_14}",
+      not SAID_14)
+
+# ---- a day the platform can no longer give is SAID, never silently skipped
+LIMIT = {"me_orders": 20}
+cut = answered(lambda: tool.window_start("me_orders", tool.days_that_arrived(ENDS_8TH("")), PAUSED, reach_back=LIMIT))
+check("a written platform limit bounds the window",
+      cut == PAUSED - tool.timedelta(days=20))
+lost = answered(lambda: tool.days_beyond_reach([ORDERS], ENDS_8TH, PAUSED, reach_back=LIMIT))
+check("the days beyond it are named, with the report and how many",
+      bool(lost) and lost[0][0] == "me_orders" and lost[0][1] == DAY("2026-09-09")
+      and lost[0][2] == DAY("2026-09-13") and lost[0][3] == 5)
+said = answered(lambda: tool.what_could_not_be_fetched_said(lost or []))
+check("in words a seller can act on",
+      bool(said) and "can no longer be fetched" in said[0] and "Bring them in from a file" in said[0]
+      and "me_orders" in said[0])
+bounded = answered(lambda: tool.what_is_owed([ORDERS], ENDS_8TH, PAUSED, reach_back=LIMIT))
+check("and are not asked for",
+      bool(bounded) and bounded[0].data_date == DAY("2026-09-14"))
+check("a report with no limit written down has nothing beyond reach",
+      answered(lambda: tool.days_beyond_reach([ORDERS], ENDS_8TH, PAUSED)) == [])
+
+# ---- a long catch-up is spread, oldest first; the floor is never touched
+kept, left = answered(lambda: tool.spread_the_catch_up(owed_after_pause, PAUSED)) or ([], -1)
+check("a long catch-up asks for seven of the older days, oldest first",
+      [o.data_date for o in kept if o.data_date < PAUSED - tool.timedelta(days=14)]
+      == [DAY("2026-09-09") + tool.timedelta(days=n) for n in range(7)])
+check("every day inside the floor is still asked for",
+      len([o for o in kept if o.data_date >= PAUSED - tool.timedelta(days=14)])
+      == len([o for o in owed_after_pause if o.data_date >= PAUSED - tool.timedelta(days=14)]) > 0)
+check("and what waits is counted, so it can be said",
+      left == len(owed_after_pause) - len(kept) > 0)
+kept_asked, _ = answered(lambda: tool.spread_the_catch_up(
+    owed_after_pause, PAUSED, already_asked=lambda o: o.data_date == DAY("2026-09-19"))) or ([], 0)
+check("a day Amazon is already building is always collected",
+      any(o.data_date == DAY("2026-09-19") for o in kept_asked))
+
+
+check("a ledger that stopped long ago does not widen the window past the longest reach",
+      answered(lambda: tool.window_start("me_orders", [PAUSED - tool.timedelta(days=200)], PAUSED))
+      == PAUSED - tool.timedelta(days=tool.LONGEST_LOOK_BACK_DAYS))
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 70
+EXPECTED = 88
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

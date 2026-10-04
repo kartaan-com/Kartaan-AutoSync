@@ -31,7 +31,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Sequence, Set
 
 from landing import Arrived, the_running_list_is_called, undated
 from reports import ONLY_WHEN_ASKED, WHEN_THEY_PUBLISH_IT, Report, blocked_by
-from schedule import data_date_for, days_late, should_ask_a_person
+from schedule import data_date_for, days_late, should_ask_a_person, window_start
 
 # What a row can say about one report on one day.
 ARRIVED = "arrived"
@@ -70,7 +70,7 @@ def rows_for(
     today: date,
     reason_for: Optional[Callable[[str], Optional[str]]] = None,
     failed_ids: Iterable[str] = (),
-    look_back_days: int = 14,
+    look_back_days: Optional[int] = None,
 ) -> List[Row]:
     """The board, oldest day first.
 
@@ -119,7 +119,8 @@ def rows_for(
                 by_date[when] = got
 
         newest_owed = data_date_for(a_report, today)
-        day = today - timedelta(days=look_back_days)
+        # **THE SAME WINDOW THE RUN ASKS FOR, from one place (`window_start`).**
+        day = window_start(a_report.id, by_date.keys(), today, look_back_days, newest=newest_owed)
         while day <= newest_owed:
             got = by_date.get(day)
             if got is None and a_report.every == WHEN_THEY_PUBLISH_IT:

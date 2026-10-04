@@ -103,6 +103,88 @@ class Tick:
         return said
 
 
+def _stopped_and_said_so(
+    faults: List[str],
+    why: str,
+    moment: datetime,
+    save_run,
+    save_state=None,
+    state=None,
+    read_state=None,
+) -> None:
+    """A run that stops before it fetches still writes down that it ran, and why.
+
+    **PIECE 2 (A68).** Every early return in `one_tick` used to leave nothing at
+    all: no day in `run_days`, no run record. `nothing_ran` is worked out from
+    `run_days` alone, so a job that woke and stopped looked exactly like a job
+    that never woke -- and the one quiet alarm built for the second could not tell
+    them apart.
+
+    **TWO RECORDS, BOTH BEST-EFFORT, NEITHER ALLOWED TO CHANGE HOW THE TICK ENDS.**
+    Today is added to the days a run happened -- ONLY if the run's own record can
+    be read, because writing a record we could not read would replace what
+    Amazon is building with nothing (`state` is handed in when the caller already
+    holds it; `read_state` when it must be read here; neither when it is the
+    record that could not be read). And one run row says why, in the seller's own
+    database, finished at the same moment it started.
+
+    **A TICK THAT IS MERELY NOT DUE IS NOT THIS.** The clock refusing to start a
+    run an hour before the seller's chosen hour is the ordinary tick, and writing
+    it down as a day a run happened would silence `nothing_ran` on the very
+    days it is for.
+    """
+    if state is None and read_state is not None:
+        try:
+            state = between_runs.read(read_state())
+        except Exception:  # noqa: BLE001 - the stop is already being reported
+            state = None
+    # **A RECORD THAT SAYS A RUN IS GOING IS NEVER REWRITTEN HERE**, whatever read
+    # it: that run saves the whole record when it ends, and a copy written now
+    # could land after it and put back an older one.
+    if state is not None and between_runs.as_the_clock_reads_it(state).still_going:
+        state = None
+    if state is not None and save_state is not None:
+        try:
+            save_state(between_runs.write(state.ran_on(moment)))
+        except Exception as wrong:  # noqa: BLE001
+            faults.append(f"That the run stopped could not be written down: {wrong}")
+    _try(faults, save_run, "That the run stopped could not be written down as a run",
+         moment.strftime("%Y%m%dT%H%M%S"), moment, moment, why)
+
+
+def a_run_that_could_not_fetch(
+    not_set: Sequence[str],
+    now: Callable[[], datetime],
+    read_state: Optional[Callable[[], Optional[bytes]]],
+    save_state: Optional[Callable[[bytes], None]],
+    save_run: Optional[Callable[..., None]],
+) -> List[str]:
+    """What the job writes down when it is not set up to fetch, and what went wrong doing so.
+
+    **PIECE 2 (A68).** The workflow's own gate ends RED naming each missing secret;
+    this is the other half -- that the job still RAN, and why it did nothing. It
+    reuses the early-stop record, so it is the same two writes: today added to the
+    days a run happened (only if the record can be read) and one run row saying
+    why. **Only the names are ever passed in -- never a value (Golden Rule 8).**
+
+    Returns the faults, and never raises: the job is already red, and a failure to
+    write this must not hide the reason it is red.
+    """
+    faults: List[str] = []
+    try:
+        moment = now()
+        why = (
+            "This repository is not set up to fetch yet, so nothing was fetched. Not set: "
+            + ", ".join(not_set)
+            + "."
+        )
+        _stopped_and_said_so(faults, why, moment, save_run,
+                             save_state=save_state, read_state=read_state)
+    except Exception as wrong:  # noqa: BLE001 - reported below, never raised
+        faults.append(f"That the run could not fetch could not be written down: {wrong}")
+    return faults
+
+
 def one_tick(
     now: Callable[[], datetime],
     read_state: Callable[[], Optional[bytes]],
@@ -158,7 +240,9 @@ def one_tick(
             told = (
                 f"The hour this seller chose could not be read, so nothing has been fetched: {wrong}"
             )
-            return Tick(ran=False, why_not=told, our_faults=(told,))
+            _stopped_and_said_so(faults, told, moment, save_run,
+                                 save_state=save_state, read_state=read_state)
+            return Tick(ran=False, why_not=told, our_faults=(told, *faults))
         # **NOTHING CHOSEN IS NOT A FAULT.** A seller who has connected but not yet
         # finished setting the business up has no record and no choice, and
         # `the_hour_they_mean` answers the default for them. Anything that is not
@@ -173,10 +257,13 @@ def one_tick(
     try:
         state = between_runs.read(read_state())
     except between_runs.Damaged as damaged:
-        return Tick(ran=False, why_not=str(damaged), our_faults=(str(damaged),))
+        # **THE RECORD IS NOT WRITTEN OVER, so no day is added -- but the stop is.**
+        _stopped_and_said_so(faults, str(damaged), moment, save_run)
+        return Tick(ran=False, why_not=str(damaged), our_faults=(str(damaged), *faults))
     except Exception as wrong:  # noqa: BLE001 - reported, never swallowed
         said = f"What the last run left behind could not be fetched: {wrong}"
-        return Tick(ran=False, why_not=said, our_faults=(said,))
+        _stopped_and_said_so(faults, said, moment, save_run)
+        return Tick(ran=False, why_not=said, our_faults=(said, *faults))
 
     # **HIS DAY, and the moment handed in is already his** -- `clock.his_clock` is
     # applied once, at the edge, where the machine is asked the time. Converting
@@ -199,14 +286,16 @@ def one_tick(
     # of them is reworded.
     if even_if_not_due:
         if last.still_going and not given_up_on:
-            return Tick(
-                ran=False,
-                why_not=(
-                    f"A run started at {last.started.isoformat()} and has not finished. "
-                    "Two at once would fetch every file twice, so this one has not started "
-                    "even though it was asked for by hand."
-                ),
+            why_not_by_hand = (
+                f"A run started at {last.started.isoformat()} and has not finished. "
+                "Two at once would fetch every file twice, so this one has not started "
+                "even though it was asked for by hand."
             )
+            # **NO DAY IS ADDED TO THE RECORD HERE**: the run that is going saves
+            # the whole record when it ends, and a copy written now from what was
+            # read a moment ago could land after it and put back an older one.
+            _stopped_and_said_so(faults, why_not_by_hand, moment, save_run)
+            return Tick(ran=False, why_not=why_not_by_hand, our_faults=tuple(faults))
     else:
         # **THE HOUR THE SELLER CHOSE IS PART OF WHETHER A RUN IS DUE**, and it
         # is a floor rather than an appointment: the first tick at or after it.

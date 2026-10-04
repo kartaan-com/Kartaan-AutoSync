@@ -190,6 +190,17 @@ class Between:
         days = tuple(sorted(set(self.run_days) | {at.date()}))[-KEEP_RUN_DAYS:]
         return replace(self, last_started=at, last_finished=None, run_days=days)
 
+    def ran_on(self, at: datetime) -> "Between":
+        """The record with only today added to the days a run happened.
+
+        **NOT `started`, AND THE DIFFERENCE IS THE POINT.** `started` also says a
+        run is going, so the next tick would wait for it for ever. A run that
+        stopped before it began has nothing going: it ran, said why it stopped,
+        and left every other field exactly as it found it.
+        """
+        days = tuple(sorted(set(self.run_days) | {at.date()}))[-KEEP_RUN_DAYS:]
+        return replace(self, run_days=days)
+
     def finished(self, at: datetime) -> "Between":
         return replace(self, last_finished=at)
 

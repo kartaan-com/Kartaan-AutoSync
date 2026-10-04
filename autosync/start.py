@@ -193,5 +193,49 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
     return code
 
 
+def not_ready() -> int:  # pragma: no cover - opens a connection, like `main`
+    """The job could not fetch because secrets are not set: say that it ran.
+
+    **NEVER RED BY ITSELF AND NEVER RAISES.** The gate step before this one has
+    already ended the job red and named what is missing; this writes the record
+    that the job RAN, where it can, and prints plainly where it cannot. Only
+    names are read from the environment for the list -- the Google values are
+    used to reach the seller's own Drive and are never printed.
+    """
+    try:
+        from firestore_door import a_run_sink  # noqa: PLC0415
+        from transport import Google  # noqa: PLC0415
+
+        not_set = [n for n in os.environ.get("NOT_SET", "").split() if n]
+        needed = ("GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REFRESH_TOKEN", "DRIVE_FOLDER_ID")
+        absent = [n for n in needed if not os.environ.get(n, "").strip()]
+        if absent:
+            print("The run could not write down that it ran, because these are not set: "
+                  + ", ".join(absent))
+            return 0
+
+        def now() -> datetime:
+            return clock.his_clock(datetime.now(timezone.utc).replace(tzinfo=None))
+
+        google = Google(
+            client_id=os.environ["GOOGLE_CLIENT_ID"],
+            client_secret=os.environ["GOOGLE_CLIENT_SECRET"],
+            refresh_token=os.environ["GOOGLE_REFRESH_TOKEN"],
+            now=now,
+        )
+        read_state, save_state = nightly._state_in_drive(google, os.environ["DRIVE_FOLDER_ID"])
+        project = os.environ.get("FIREBASE_PROJECT_ID", "").strip()
+        faults = nightly.a_run_that_could_not_fetch(
+            not_set, now, read_state, save_state,
+            a_run_sink(google, project) if project else None,
+        )
+        for one in faults:
+            print(one)
+        print("Written down that the run happened and could not fetch." if not faults else "")
+    except Exception as wrong:  # noqa: BLE001 - the job is already red for its real reason
+        print(f"The run could not write down that it ran: {wrong}")
+    return 0
+
+
 if __name__ == "__main__":  # pragma: no cover
-    sys.exit(main())
+    sys.exit(not_ready() if sys.argv[1:] == ["not-ready"] else main())

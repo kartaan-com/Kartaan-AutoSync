@@ -154,9 +154,9 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
-from landing import Arrived
+from landing import Arrived, days_that_arrived
 from reports import API, BROWSER, ONLY_WHEN_ASKED, WHEN_THEY_PUBLISH_IT, Report
-from schedule import data_date_for
+from schedule import data_date_for, window_start
 
 # What the file in the seller's Drive is called. One name, beside
 # `autosync-state.json`, so nothing has to search for it and nothing can write a
@@ -176,12 +176,11 @@ VERIFIED = "verified"
 MISSING = "missing"
 WHAT_A_LINE_CAN_SAY = (VERIFIED, MISSING)
 
-# How far back a run re-asks the question. **A `missing` line is not final**: a
-# file that lands late flips its own day to `verified` the next time that half
-# runs, because the answer is asked of the folder again rather than remembered.
-# Fourteen is the day board's window, so the two say the same thing about the
-# same fortnight.
-LOOK_BACK_DAYS = 14
+# How far back a run re-asks the question is NOT written here: it is
+# `schedule.window_start`, the one answer the run and the day board read too.
+# **A `missing` line is not final**: a file that lands late flips its own day to
+# `verified` the next time that half runs, because the answer is asked of the
+# folder again rather than remembered.
 
 # **WHICH HALF OWNS A LINE, AND IT IS THE REPORT'S OWN `door` THAT DECIDES.**
 # Written down rather than worked out at each call site, because the day a report
@@ -372,7 +371,7 @@ def lines_for(
     arrivals: Callable[[str], Sequence[Arrived]],
     today: date,
     checked_on: Optional[date] = None,
-    look_back_days: int = LOOK_BACK_DAYS,
+    look_back_days: Optional[int] = None,
 ) -> List[Line]:
     """Every line this writer has an answer for, oldest day first.
 
@@ -389,7 +388,7 @@ def lines_for(
     for a_report in reports or ():
         got = list(arrivals(a_report.id) or ())
         newest = data_date_for(a_report, today)
-        day = today - timedelta(days=look_back_days)
+        day = window_start(a_report.id, days_that_arrived(got), today, look_back_days, newest=newest)
         while day <= newest:
             if is_a_day_owed(a_report, day, got):
                 out.append(what_it_says(a_report, day, got, checked_on=checked_on))

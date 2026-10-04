@@ -821,7 +821,8 @@ check("and it says nothing was fetched because of it",
       "nothing has been fetched" in "  ".join(str(one) for one in tick.our_faults))
 check("and it says what Google said", "would not let this job in" in str(tick.why_not or ""))
 check("and nothing was fetched", h.fetched == [])
-check("and nothing was written down as having started", h.saved == [])
+check("and nothing was written down as having started",
+      all(between_runs.read(body).last_started is None for body in h.saved))
 
 # ------------------------------- the evidence not leaving the building
 
@@ -1309,9 +1310,14 @@ SAID_IN_THE_WORKFLOW = WORKFLOW.read_text(encoding="utf-8") if WORKFLOW.is_file(
 GATED_ON = tuple(re.findall(r"secrets\.([A-Z0-9_]+)\s*!=\s*''", SAID_IN_THE_WORKFLOW))
 # What the run is actually handed, and under which name. **The pair matters:**
 # `GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_SECRET }}` reads perfectly well.
+# **ONLY THE FETCHING STEP'S HAND-OVER**: the step after the gate that writes down
+# a not-ready run is handed five of the same secrets, and counting those too would
+# read every one of them as written twice. They are held to the gate separately,
+# just below.
+_FETCHING_STEP = SAID_IN_THE_WORKFLOW.split("- name: Fetch whatever is owed", 1)[-1]
 HANDED_OVER = tuple(re.findall(
     r"^\s*([A-Z0-9_]+):\s*\$\{\{\s*secrets\.([A-Z0-9_]+)\s*\}\}\s*$",
-    SAID_IN_THE_WORKFLOW, re.M))
+    _FETCHING_STEP, re.M))
 
 # **WHAT THE RUN ASKS FOR IS ASKED OF THE CODE, not searched for in it.** Every
 # `nightly._needed("X")` in `start.py`, read out of the parsed file, so a name
@@ -1329,6 +1335,13 @@ ASKED_FOR = tuple(
 # **NONE OF THE THREE MAY BE EMPTY.** Without this every comparison below passes
 # by having nothing to compare -- which is the whole shape D190 is about.
 check("the workflow refuses to run without some named secrets", len(GATED_ON) > 4)
+_RECORDING_STEP = SAID_IN_THE_WORKFLOW.split("- name: Write down that it ran and could not fetch", 1)[-1]
+_RECORDING_STEP = _RECORDING_STEP.split("- name: Fetch whatever is owed", 1)[0]
+_RECORDING_HANDED = re.findall(
+    r"^\s*([A-Z0-9_]+):\s*\$\{\{\s*secrets\.([A-Z0-9_]+)\s*\}\}\s*$", _RECORDING_STEP, re.M)
+check("the not-ready record step is handed only secrets the gate knows, each under its own name",
+      len(_RECORDING_HANDED) >= 4
+      and all(under == secret and secret in GATED_ON for under, secret in _RECORDING_HANDED))
 check("and hands some named secrets to the run", len(HANDED_OVER) > 4)
 check("and the run asks for some named secrets", len(ASKED_FOR) > 4)
 
@@ -2075,9 +2088,199 @@ check("and last night's answers are still in the seller's Drive",
 check("and nothing was taken away at all", stubborn_m.deleted == [])
 
 
+# ------------------------------------ piece 2 (A68): A RUN THAT STOPS EARLY STILL SAYS IT RAN
+# **EVERY EARLY RETURN LEFT NOTHING**: no day in `run_days`, no run row. And
+# `nothing_ran` reads `run_days` alone, so a job that woke and stopped was
+# indistinguishable from a job that never woke.
+from board import nothing_ran  # noqa: E402
+
+KEPT = {("az_orders", "2026-08-28"): "their-report-1"}
+
+
+def rows_of(db):
+    return [(n, why) for (n, _s, _f, why) in db.runs]
+
+
+# -- the hour could not be read
+db = Database(hour_throws=True)
+h = Harness(a_record(in_flight=KEPT, run_days=[AT.date() - timedelta(days=3)]))
+tick = h.go(ask_the_hour=db.hour, save_run=db.run)
+after = between_runs.read(h.saved[-1]) if h.saved else None
+check("an unreadable hour: today is added to the days a run happened",
+      after is not None and AT.date() in after.run_days)
+check("and the days before it are kept",
+      after is not None and AT.date() - timedelta(days=3) in after.run_days)
+check("and it did NOT say a run is going (the next tick must not wait for one)",
+      after is not None and after.last_started is None and not between_runs.as_the_clock_reads_it(after).still_going)
+check("and what Amazon is building was kept exactly",
+      after is not None and dict(after.in_flight) == KEPT)
+check("and one run row says why it stopped",
+      len(db.runs) == 1 and "could not be read" in db.runs[0][3] and db.runs[0][2] == AT)
+check("and it is still our defect, still red", tick.is_a_defect is True)
+
+# -- the record is damaged: it is NOT written over, but the stop is said
+db = Database()
+h = Harness(b"{not a record")
+tick = h.go(save_run=db.run)
+check("a damaged record is never written over", h.saved == [])
+check("but the stop is written down as a run, with why",
+      len(db.runs) == 1 and db.runs[0][3] != "")
+db = Database()
+h = Harness(read_throws=True)
+tick = h.go(save_run=db.run)
+check("a record that could not be fetched is never written over either", h.saved == [])
+check("and the stop is written down as a run", len(db.runs) == 1 and db.runs[0][3] != "")
+
+# -- a hand-started run refused because one is going: said, record untouched
+db = Database()
+h = Harness(a_record(last_started=AT - timedelta(minutes=20)))
+tick = h.go(even_if_not_due=True, save_run=db.run)
+check("a hand run refused for one already going is written down as a run, with why",
+      len(db.runs) == 1 and "has not finished" in db.runs[0][3])
+check("and the record the running one will save is not touched", h.saved == [])
+
+# -- merely not due is the ordinary tick, and is NOT a day a run happened
+db = Database()
+h = Harness(a_record(last_finished=AT - timedelta(hours=1), last_started=AT - timedelta(hours=1, minutes=5)))
+tick = h.go(save_run=db.run)
+check("an ordinary not-due tick writes nothing", tick.ran is False and h.saved == [] and db.runs == [])
+
+# -- and what it changes: a day with no run at all makes `nothing_ran` fire
+DAYS = [AT.date() - timedelta(days=n) for n in (6, 5, 4)]
+check("this check has a day to leave out (it refuses otherwise)", len(DAYS) >= 2)
+check("a day with no run at all makes `nothing_ran` fire",
+      nothing_ran(DAYS, AT.date()) is not None)
+check("and a stopped run's day, once written, silences it for that day",
+      nothing_ran(DAYS + [after.run_days[-1]] if after else DAYS, AT.date()) is None)
+
+# ------------------------ piece 2 (A68): NOT SET UP TO FETCH GOES RED AND NAMES WHAT IS MISSING
+# **THE GATE WAS ONE YES/NO ANDED OVER EIGHT SECRETS AND ENDED GREEN.** The step's
+# own script is read out of the workflow and RUN, with each of the eight removed in
+# turn -- so the thing proved is the thing GitHub runs, not a copy of it.
+import os  # noqa: E402
+import shutil  # noqa: E402
+import subprocess  # noqa: E402
+import tempfile  # noqa: E402
+
+try:
+    import yaml  # noqa: E402
+except ImportError:  # pragma: no cover
+    yaml = None
+
+
+def the_gate_script():
+    """The `run:` text of the step with id `setup`, or None if it cannot be found."""
+    if yaml is None:
+        return None
+    parsed = yaml.safe_load(SAID_IN_THE_WORKFLOW)
+    for step in parsed["jobs"]["fetch"]["steps"]:
+        if step.get("id") == "setup":
+            return step.get("run")
+    return None
+
+
+def run_the_gate(without=None, kartaans_own=False):
+    """(exit code, what it printed, what it wrote for later steps), or None if nothing could run it."""
+    script = the_gate_script()
+    bash = shutil.which("bash")
+    if script is None or bash is None:
+        return None
+    env = {k: v for k, v in os.environ.items() if not k.startswith("HAS_")}
+    for name in GATED_ON:
+        env[f"HAS_{name}"] = "false" if name == without else "true"
+    env["KARTAANS_OWN_REPOSITORY"] = "true" if kartaans_own else "false"
+    env["GITHUB_OUTPUT"] = "out.txt"
+    with tempfile.TemporaryDirectory() as where:
+        try:
+            done = subprocess.run([bash, "-c", script.replace(chr(13), "")], cwd=where, env=env,
+                                  capture_output=True, text=True, timeout=60)
+            wrote = Path(where, "out.txt").read_text(encoding="utf-8") if Path(where, "out.txt").exists() else ""
+        except (OSError, subprocess.SubprocessError):
+            return None
+    return done.returncode, done.stdout + done.stderr, wrote
+
+
+# **REFUSES RATHER THAN PASSING when it cannot run the gate at all** -- a loop
+# over nothing is a green check for the worst reason.
+whole = run_the_gate()
+check("the gate's own script can be found and run here (else every check below is meaningless)",
+      whole is not None)
+check("with all eight set, it is ready and exits 0",
+      whole is not None and whole[0] == 0 and "ready=true" in whole[2])
+check("and there are eight secrets to remove in turn", len(GATED_ON) == 8)
+
+for gone in GATED_ON:
+    got = run_the_gate(without=gone)
+    others = [n for n in GATED_ON if n != gone]
+    names_printed = got[1] if got else ""
+    error_lines = [l for l in names_printed.splitlines() if l.startswith("::error::")]
+    check(f"with only {gone} removed the job goes RED",
+          got is not None and got[0] != 0 and "ready=false" in got[2])
+    check(f"and names {gone} and none of the other seven",
+          got is not None and bool(error_lines)
+          and any(re.search(rf"(?<![A-Z0-9_]){gone}(?![A-Z0-9_])", l) for l in error_lines)
+          and not any(re.search(rf"(?<![A-Z0-9_]){n}(?![A-Z0-9_])", l)
+                      for n in others for l in error_lines)
+          and f"missing={gone}" in got[2])
+
+two = run_the_gate(without="AMAZON_CLIENT_ID")
+check("it says in plain words that a seller still connecting is expected to see this",
+      two is not None and "still connecting" in two[1] and "turns green by itself" in two[1])
+own = run_the_gate(without="AMAZON_CLIENT_ID", kartaans_own=True)
+check("Kartaan's own repository, which never has these secrets, stays green",
+      own is not None and own[0] == 0 and "::error::" not in own[1])
+check("and nothing prints a secret's value (the script has no way to: it is only handed yes or no)",
+      "${{ secrets." not in (the_gate_script() or "") and "echo \"$" + "GOOGLE" not in (the_gate_script() or ""))
+
+WRITE_STEP = None
+if yaml is not None:
+    for _step in yaml.safe_load(SAID_IN_THE_WORKFLOW)["jobs"]["fetch"]["steps"]:
+        if _step.get("name") == "Write down that it ran and could not fetch":
+            WRITE_STEP = _step
+check("a not-ready job writes down that it ran, only when the gate said not ready",
+      WRITE_STEP is not None and "steps.setup.outputs.ready == 'false'" in WRITE_STEP.get("if", "")
+      and "failure()" in WRITE_STEP.get("if", ""))
+
+# -- what that step writes
+db = Database()
+h = Harness(a_record(in_flight=KEPT, run_days=[AT.date() - timedelta(days=3)]))
+faults = tool.a_run_that_could_not_fetch(["AMAZON_CLIENT_ID", "DRIVE_FOLDER_ID"], h.now,
+                                         h.read_state, h.save_state, db.run)
+after = between_runs.read(h.saved[-1]) if h.saved else None
+check("a not-ready run appends today to the days a run happened",
+      faults == [] and after is not None and AT.date() in after.run_days)
+check("and keeps what Amazon is building, and does not say a run is going",
+      after is not None and dict(after.in_flight) == KEPT and after.last_started is None)
+check("and its run row names the missing secrets, by name only",
+      len(db.runs) == 1 and "AMAZON_CLIENT_ID, DRIVE_FOLDER_ID" in db.runs[0][3]
+      and "Nothing was fetched" not in db.runs[0][3] and "nothing was fetched" in db.runs[0][3])
+h = Harness(b"{not a record")
+faults = tool.a_run_that_could_not_fetch(["X"], h.now, h.read_state, h.save_state, None)
+check("a damaged record is not written over by it", h.saved == [])
+h = Harness(a_record(), save_fails_on=(1,))
+faults = answered(lambda: tool.a_run_that_could_not_fetch(["X"], h.now, h.read_state, h.save_state, None))
+check("a write that fails is reported and never raised", bool(faults) and "could not be written" in faults[0])
+
+# -- review findings (A68): a record that says a run is going is never rewritten by a stop
+for label, go in (
+    ("an unreadable hour", lambda h, db: h.go(ask_the_hour=Database(hour_throws=True).hour, save_run=db.run)),
+    ("a not-ready run", lambda h, db: tool.a_run_that_could_not_fetch(["X"], h.now, h.read_state, h.save_state, db.run)),
+):
+    db = Database()
+    h = Harness(a_record(last_started=AT - timedelta(minutes=20), in_flight=KEPT))
+    answered(lambda: go(h, db))
+    check(f"{label} does not rewrite a record that says a run is going", h.saved == [])
+    check(f"but still writes the run row saying why", len(db.runs) == 1 and db.runs[0][3] != "")
+
+# -- the dispatch the workflow relies on cannot drift from start.py
+_START_TEXT = (Path(__file__).resolve().parent / "start.py").read_text(encoding="utf-8")
+check("the workflow's record step runs exactly the argument start.py dispatches on",
+      WRITE_STEP is not None and WRITE_STEP.get("run", "").strip() == "python start.py not-ready"
+      and 'sys.argv[1:] == ["not-ready"]' in _START_TEXT and "def not_ready()" in _START_TEXT)
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 269
+EXPECTED = 319
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

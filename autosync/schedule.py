@@ -31,7 +31,7 @@ morning rather than the morning it happens to run on.
 
 from dataclasses import dataclass
 from datetime import date, timedelta
-from typing import Iterable, List, Optional, Sequence, Set, Tuple
+from typing import Callable, Iterable, List, Optional, Sequence, Set, Tuple
 
 from landing import days_that_arrived
 from reports import (
@@ -45,6 +45,39 @@ GIVE_UP_AFTER_DAYS = 3
 
 # How wide the "every three days" window is.
 THREE_DAY_SPAN = 3
+
+# **THE ONE LOOK-BACK, WHERE THE RUN, THE BOARD AND THE MANIFEST ALL READ IT.**
+# It was written three times -- `runner.py` 14, `board.py` 14, `manifest.py` 14 --
+# beside this file's own default of 30, and the 14 in the runner overrode the 30
+# for every report. Fourteen is what the runs and the board have always used, so
+# it stays the floor: a hole in the last fortnight is chased whatever else is true.
+LOOK_BACK_DAYS = 14
+
+# **HOW FAR PAST THE FLOOR ONE RUN MAY REACH, PER REPORT.** A first run after a
+# long pause owes far more than a night's worth, and Amazon paces `createReport`
+# at one a minute -- so a long catch-up is spread over several runs, oldest first,
+# rather than stacked into one that outlives its own hour. What is not asked
+# tonight is still owed tomorrow; nothing is dropped.
+EXTRA_DAYS_PER_RUN = 7
+
+# **HOW FAR BACK EACH PLATFORM CAN STILL GIVE A DAY, BY REPORT, AND IT IS EMPTY ON
+# PURPOSE.** `amazon.py`'s `max_days` (orders 30, returns 60) is the SPAN OF ONE
+# REQUEST, not how old a day may be -- and Amazon's own report-type pages (read
+# 2026-10-05) say "The date range for these reports is limited to 30 days. However,
+# you can select any start date." and "You can request up to 60 days of data in a
+# single report", with no limit on how far back. Guessing one would be the
+# experiment Golden Rule 1 forbids, so nothing is bounded until a real one is
+# written here, with its source, beside its report id. The mechanism is ready and
+# is driven by a check with a made-up limit.
+REACH_BACK_DAYS: dict = {}
+
+# **THE LONGEST ANY WINDOW REACHES, WHATEVER THE LEDGER HOLDS.** A report that has
+# simply had no data for two months (a quiet source, a closed account) would
+# otherwise widen the window to match, and the board and the manifest would grow a
+# "missing" row for every empty day. The old fixed fourteen capped that by luck;
+# this caps it on purpose. **The number is a placeholder pending his word** -- sixty
+# is the widest single request Amazon documents (returns), nothing more.
+LONGEST_LOOK_BACK_DAYS = 60
 
 
 def data_date_for(a_report: Report, run_date: date) -> date:
@@ -108,6 +141,117 @@ def should_ask_a_person(owed_for: date, today: date, limit: int = GIVE_UP_AFTER_
     return days_late(owed_for, today) > limit
 
 
+def reach_limit(report_id: str, today: date, reach_back=None) -> Optional[date]:
+    """The oldest day this platform can still give for this report, or None.
+
+    None means no limit is written down for it -- NOT that there is none.
+    """
+    days = (REACH_BACK_DAYS if reach_back is None else reach_back).get(report_id)
+    return None if days is None else today - timedelta(days=days)
+
+
+def window_start(
+    report_id: str,
+    have: Iterable[date],
+    today: date,
+    look_back_days: Optional[int] = None,
+    newest: Optional[date] = None,
+    reach_back=None,
+) -> date:
+    """The first day the run, the board and the manifest all look at, for one report.
+
+    **ONE ANSWER FOR ALL THREE.** `look_back_days` given as a number is exactly
+    that window -- a person or a check naming it. Left as None it is the real
+    one: the floor, or the day after the last day this report already holds if
+    that is further back, whichever is earlier. **A ledger that ends on the 8th
+    makes the next run ask from the 9th**, instead of from a fortnight ago and
+    leaving the days between for ever. Never earlier than the platform can give.
+    """
+    if look_back_days is not None:
+        first = today - timedelta(days=look_back_days)
+    else:
+        first = today - timedelta(days=LOOK_BACK_DAYS)
+        held = [d for d in have if d is not None and (newest is None or d <= newest)]
+        if held:
+            first = min(first, max(held) + timedelta(days=1))
+        first = max(first, today - timedelta(days=LONGEST_LOOK_BACK_DAYS))
+    oldest = reach_limit(report_id, today, reach_back)
+    return max(first, oldest) if oldest else first
+
+
+def days_beyond_reach(
+    reports: Sequence[Report],
+    arrivals,
+    today: date,
+    look_back_days: Optional[int] = None,
+    reach_back=None,
+) -> List[Tuple[str, date, date, int]]:
+    """Days a platform can no longer give, as (report id, first, last, how many).
+
+    **SAID, NEVER SILENTLY SKIPPED.** The days between where the window would
+    have started and the platform's own limit. A report with no limit written
+    down has none here.
+    """
+    out: List[Tuple[str, date, date, int]] = []
+    for a_report in reports:
+        if a_report.every == ONLY_WHEN_ASKED or a_report.cannot_backfill is not None:
+            continue
+        if a_report.every == WHEN_THEY_PUBLISH_IT:
+            continue
+        oldest = reach_limit(a_report.id, today, reach_back)
+        if oldest is None:
+            continue
+        have = set(days_that_arrived(arrivals(a_report.id)))
+        newest = data_date_for(a_report, today)
+        wanted = window_start(a_report.id, have, today, look_back_days, newest, reach_back={})
+        missing = [
+            wanted + timedelta(days=n)
+            for n in range(max(0, (oldest - wanted).days))
+            if is_due(a_report, wanted + timedelta(days=n), have)
+        ]
+        if missing:
+            out.append((a_report.id, missing[0], missing[-1], len(missing)))
+    return out
+
+
+def what_could_not_be_fetched_said(lost: Sequence[Tuple[str, date, date, int]]) -> List[str]:
+    """The sentence for each report, in words a seller can act on."""
+    return [
+        f"{one[0]}: {one[3]} day(s), {one[1]} to {one[2]}, can no longer be fetched from "
+        "the platform. Bring them in from a file."
+        for one in lost
+    ]
+
+
+def spread_the_catch_up(
+    owed: Sequence["Owed"],
+    today: date,
+    already_asked: Optional[Callable[["Owed"], bool]] = None,
+    extra_per_report: int = EXTRA_DAYS_PER_RUN,
+) -> Tuple[List["Owed"], int]:
+    """What this run asks for, and how many days wait for the next one.
+
+    **THE FLOOR IS NEVER TOUCHED.** Every day inside the last `LOOK_BACK_DAYS` is
+    asked for exactly as before. Only the days reaching back PAST it are limited,
+    `extra_per_report` of them per report, oldest first -- and a day Amazon is
+    already building is always collected, because collecting costs no request.
+    """
+    floor = today - timedelta(days=LOOK_BACK_DAYS)
+    kept: List[Owed] = []
+    taken: dict = {}
+    left = 0
+    for one in owed:  # oldest first, as `what_is_owed` hands them back
+        if one.data_date >= floor or (already_asked is not None and already_asked(one)):
+            kept.append(one)
+            continue
+        if taken.get(one.report_id, 0) < extra_per_report:
+            taken[one.report_id] = taken.get(one.report_id, 0) + 1
+            kept.append(one)
+        else:
+            left += 1
+    return kept, left
+
+
 @dataclass(frozen=True)
 class Owed:
     """One report owing one day, and how late it is.
@@ -136,8 +280,9 @@ def what_is_owed(
     reports: Sequence[Report],
     arrivals,
     today: date,
-    look_back_days: int = 30,
+    look_back_days: Optional[int] = None,
     blocked=None,
+    reach_back=None,
 ) -> List[Owed]:
     """Every report-and-day still owed, oldest first.
 
@@ -162,8 +307,12 @@ def what_is_owed(
         if a_report.every == ONLY_WHEN_ASKED:
             continue
         have = set(days_that_arrived(arrivals(a_report.id)))
-        # How far back this report can honestly be chased.
-        first = today - timedelta(days=look_back_days)
+        # How far back this report can honestly be chased: the ONE answer the
+        # board and the manifest read as well (`window_start`).
+        first = window_start(
+            a_report.id, have, today, look_back_days,
+            newest=data_date_for(a_report, today), reach_back=reach_back,
+        )
         if a_report.cannot_backfill is not None:
             # Only the most recent owed day is real for these.
             first = data_date_for(a_report, today)

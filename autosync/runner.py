@@ -39,7 +39,9 @@ import runlog
 from board import Row, nothing_ran, rows_for, files_nothing_can_find
 from alarms import Alarm, alarms_for, what_changed, Changes
 from reports import ONLY_WHEN_ASKED, Report
-from schedule import Owed, what_is_owed
+from schedule import (
+    Owed, days_beyond_reach, spread_the_catch_up, what_could_not_be_fetched_said, what_is_owed,
+)
 
 # What one report's attempt came to. The door's own words, kept as they are so
 # nothing is translated twice.
@@ -129,7 +131,7 @@ def do_a_run(
     sink: Callable[[Sequence[runlog.Line]], None],
     now: Callable[[], datetime],
     today: date,
-    look_back_days: int = 14,
+    look_back_days: Optional[int] = None,
     asked_for: Optional[Sequence["Owed"]] = None,
     refused: Sequence[str] = (),
 ) -> WhatHappened:
@@ -158,6 +160,19 @@ def do_a_run(
         named_by_hand = asked_for is not None
         owed = (list(asked_for) if named_by_hand
                 else what_is_owed(reports, arrivals, today, look_back_days=look_back_days))
+        # **A LONG CATCH-UP IS SPREAD, AND WHAT CANNOT BE FETCHED AT ALL IS SAID.**
+        # Both only for a run that worked out what is owed itself -- a person who
+        # named the days gets exactly the days they named.
+        held_over = 0
+        if not named_by_hand:
+            owed, held_over = spread_the_catch_up(
+                owed, today,
+                already_asked=lambda one: in_flight.what_was_asked(one.report_id, one.data_date) is not None,
+            )
+            for said_lost in what_could_not_be_fetched_said(
+                days_beyond_reach(reports, arrivals, today, look_back_days=look_back_days)
+            ):
+                run.log.failed(runlog.SYSTEM, said_lost, now())
         # **WHAT WAS REFUSED IS SAID BEFORE ANYTHING IS TRIED**, so a person who
         # asked for six reports and got five sees why -- rather than reading a
         # clean-looking run and wondering where the sixth went.
@@ -176,6 +191,13 @@ def do_a_run(
                 f"{len(owed)} report-days owed." if owed else "Nothing is owed.",
                 now(),
             )
+            if held_over:
+                run.log.working(
+                    runlog.SYSTEM,
+                    f"{held_over} older day(s) are still owed and wait for the next run: "
+                    "Amazon allows one request a minute, so a long catch-up is spread out.",
+                    now(),
+                )
 
         for one in owed:
             tried += 1
@@ -253,7 +275,7 @@ def look(
     today: date,
     reason_for: Optional[Callable[[str], Optional[str]]] = None,
     failed_ids: Sequence[str] = (),
-    look_back_days: int = 14,
+    look_back_days: Optional[int] = None,
 ) -> Tuple[List[Row], List[Alarm]]:
     """The board and the alarms, worked out from the record.
 
