@@ -465,7 +465,8 @@ class FakeDrive:
                     continue
                 if f"name = '{one['name']}'" not in looking:
                     continue
-            found.append({"id": one["id"], "name": one["name"], "size": str(len(one["body"]))})
+            found.append({"id": one["id"], "name": one["name"], "size": str(len(one["body"])),
+                          "mimeType": one["mimeType"]})
         return Reply(200, {}, _json.dumps({"files": found}).encode("utf-8"))
 
     def post(self, url, params=None, headers=None, json=None, data=None):
@@ -490,6 +491,17 @@ class FakeDrive:
         self.deleted.append(which)
         self.things.pop(which, None)
         return Reply(204, {}, b"")
+
+    def patch(self, url, params=None, headers=None, json=None, data=None):
+        which = url.rsplit("/", 1)[1]
+        if which not in self.things:
+            return Reply(404, {}, b"no such file")
+        if url.startswith(UPLOAD + "/"):
+            # **THE CONTENTS REPLACED IN PLACE, THE ID KEPT** -- Drive's files.update.
+            self.things[which]["body"] = data
+        elif json and json.get("trashed"):
+            self.binned = getattr(self, "binned", []) + [self.things.pop(which)]
+        return Reply(200, {}, _json.dumps({"id": which}).encode("utf-8"))
 
 
 INSIDE = "the-one-folder"
@@ -526,7 +538,8 @@ answered(lambda: save_it(b"SECOND"))
 check("saving again replaces it rather than putting a second one beside it",
       len(drive.named(between_runs.FILE_NAME)) == 1)
 check("and what comes back is the newer one", answered(read_it) == b"SECOND")
-check("and the older one was actually taken away", len(drive.deleted) == 1)
+check("and it was replaced in place: the same file, and nothing was deleted",
+      len(drive.named(between_runs.FILE_NAME)) == 1 and drive.deleted == [])
 check("and the log sitting beside it was left alone",
       len(drive.named("autosync-log-2026-08-29.txt")) == 1)
 check("and reading the record does not hand back the log",
@@ -569,6 +582,11 @@ class DriveThatWillNotTake(FakeDrive):
         if "upload" in url:
             raise RuntimeError("Google would not take the file")
         return super().post(url, params=params, headers=headers, json=json, data=data)
+
+    def patch(self, url, params=None, headers=None, json=None, data=None):
+        if "upload" in url:
+            raise RuntimeError("Google would not take the file")
+        return super().patch(url, params=params, headers=headers, json=json, data=data)
 
 
 stubborn = DriveThatWillNotTake()
@@ -2037,22 +2055,19 @@ class DriveThatWillNotTidyUp(FakeDrive):
 jammed = DriveThatWillNotTidyUp()
 read_j, save_j = answered(lambda: tool._manifest_in_drive(jammed, INSIDE))
 answered(lambda: save_j(b"NIGHT ONE"))
-check("the first night leaves one copy and nothing to tidy up",
-      len(jammed.named(manifest.FILE_NAME)) == 1)
-tidy_up_failed = None
-try:
-    save_j(b"NIGHT TWO")
-except Exception as caught:  # noqa: BLE001
-    tidy_up_failed = caught
-check("a tidy-up that fails is said rather than swallowed", tidy_up_failed is not None)
-check("and it leaves two copies standing, because the new one went up first",
-      len(jammed.named(manifest.FILE_NAME)) == 2)
+answered(lambda: save_j(b"NIGHT TWO"))
+check("job 40: through a Drive that will not delete, two nights leave ONE copy, the newer",
+      len(jammed.named(manifest.FILE_NAME)) == 1 and answered(read_j) == b"NIGHT TWO")
+check("and nothing was ever taken away, so there was never a second copy to leave behind",
+      jammed.deleted == [])
+# **A SECOND COPY CAN STILL ARRIVE BY ANOTHER ROAD -- somebody copying the file by hand.**
+jammed.file(manifest.FILE_NAME, tool._drive_folder(jammed, INSIDE, tool.layout.SYSTEM), b"BY HAND")
 jammed_read = None
 try:
     read_j()
 except Exception as caught:  # noqa: BLE001
     jammed_read = caught
-check("and from that night on the record cannot be read at all", jammed_read is not None)
+check("and then the record cannot be read at all", jammed_read is not None)
 
 # **AND THE NIGHT AFTER DOES NOT LOOK ORDINARY.** The refusal is one of the run's
 # own faults, so the job goes red -- and goes red again every night until somebody
@@ -2322,6 +2337,79 @@ check("and that sign-in is the Firebase one, built from the two Firebase values"
       any(isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "FirebaseSeller"
           for n in ast.walk(START)))
 
+# ------------------------------------------- job 40: LOGS SIXTY DAYS, REPORTS KEPT AS LONG AS THE LAW ASKS
+
+TODAY = date(2026, 10, 5)
+tidy_drive = FakeDrive()
+LOGS_HERE = tool._drive_folder(tidy_drive, INSIDE, tool.layout.LOGS)
+for _age, _keeps in ((61, False), (60, True), (59, True), (0, True)):
+    tidy_drive.file(f"autosync-log-{(TODAY - timedelta(days=_age)).isoformat()}.txt", LOGS_HERE, b"log")
+tidy_drive.file("notes.txt", LOGS_HERE, b"not ours")
+tidy_drive.file("autosync-log-2020-01-01.csv", LOGS_HERE, b"not a log of ours")
+ORDERS_HERE = tool._drive_folder(tidy_drive, INSIDE, "az_orders")
+tidy_drive.file("amazon_az_orders_2017-08-01.csv", ORDERS_HERE, b"far too old")
+tidy_drive.file("amazon_az_orders_2026-09-01.csv", ORDERS_HERE, b"recent")
+tidy_drive.file("amazon_az_orders_2025-04-01.csv", ORDERS_HERE, b"inside the period")
+VIEWS_HERE = tool._drive_folder(tidy_drive, INSIDE, "me_views")
+tidy_drive.file("meesho_me_views.csv", VIEWS_HERE, b"a running list")
+told = []
+faults_found = answered(lambda: tool.tidy_the_drive(tidy_drive, INSIDE, TODAY, told.append))
+left = {one["name"] for one in tidy_drive.things.values()}
+check("a log 61 days old is gone and one 59 days old stays",
+      f"autosync-log-{(TODAY - timedelta(days=61)).isoformat()}.txt" not in left
+      and f"autosync-log-{(TODAY - timedelta(days=59)).isoformat()}.txt" in left)
+check("one exactly 60 days old stays, because the plan says older than sixty",
+      f"autosync-log-{(TODAY - timedelta(days=60)).isoformat()}.txt" in left)
+check("today's log, a file that is not one of the run's logs, and a csv with a log-like name all stay",
+      f"autosync-log-{TODAY.isoformat()}.txt" in left and "notes.txt" in left and "autosync-log-2020-01-01.csv" in left)
+check("a report file past the GST period is gone, and a recent one and one inside the period stay",
+      "amazon_az_orders_2017-08-01.csv" not in left and "amazon_az_orders_2026-09-01.csv" in left
+      and "amazon_az_orders_2025-04-01.csv" in left)
+check("a running list is never touched", "meesho_me_views.csv" in left)
+check("EVERYTHING TAKEN AWAY WENT TO THE BIN, NOT A PERMANENT DELETE",
+      tidy_drive.deleted == [] and sorted(one["name"] for one in tidy_drive.binned)
+      == sorted(["autosync-log-" + (TODAY - timedelta(days=61)).isoformat() + ".txt", "amazon_az_orders_2017-08-01.csv"]))
+check("and each one is said, with the reason", len(told) == 2 and any("GST" in one for one in told) and any("run log" in one for one in told))
+check("and nothing went wrong", faults_found == [])
+told_again = []
+check("a second tidy removes nothing and says nothing",
+      answered(lambda: tool.tidy_the_drive(tidy_drive, INSIDE, TODAY, told_again.append)) == [] and told_again == [])
+check("a seller with no folders yet is tidied without making any",
+      answered(lambda: tool.tidy_the_drive(FakeDrive(), INSIDE, TODAY, told_again.append)) == []
+      and not FakeDrive().things)
+class DriveThatWillNotBinAFile(FakeDrive):
+    """A Drive that lists and answers everything except putting a file in the bin."""
+
+    def patch(self, url, params=None, headers=None, json=None, data=None):
+        if json and json.get("trashed"):
+            raise RuntimeError("Drive would not put it in the bin")
+        return super().patch(url, params=params, headers=headers, json=json, data=data)
+
+
+awkward = DriveThatWillNotBinAFile()
+LOGS_AWKWARD = tool._drive_folder(awkward, INSIDE, tool.layout.LOGS)
+awkward.file("autosync-log-2020-01-01.txt", LOGS_AWKWARD, b"old")
+ORDERS_AWKWARD = tool._drive_folder(awkward, INSIDE, "az_orders")
+awkward.file("amazon_az_orders_2017-08-01.csv", ORDERS_AWKWARD, b"far too old")
+faults_awkward = answered(lambda: tool.tidy_the_drive(awkward, INSIDE, TODAY, told_again.append))
+tidy_drive.file("backup_2017-08-01_final.xlsx", ORDERS_HERE, b"somebody's own copy")
+tidy_drive._add("amazon_az_orders_2017-01-01.csv", [ORDERS_HERE], FOLDER_KIND, b"")
+check("a file of somebody's own with a date in its name is left, and so is a folder inside a report folder",
+      answered(lambda: tool.tidy_the_drive(tidy_drive, INSIDE, TODAY, told_again.append)) == []
+      and {"backup_2017-08-01_final.xlsx", "amazon_az_orders_2017-01-01.csv"}
+      <= {one["name"] for one in tidy_drive.things.values()})
+check("a log name is matched from its start, so a name that merely ends like a log is left",
+      tool._a_log_that_is_too_old("autosync-log-2020-01-01.txt", TODAY)
+      and not tool._a_log_that_is_too_old("x-autosync-log-2020-01-01.txt", TODAY))
+check("a Drive that will not take a file to the bin is said, one fault for each place, and the rest is still tidied",
+      faults_awkward is not None and len(faults_awkward) == 2 and "run logs" in faults_awkward[0])
+
+check("the night is tidied after it is done, and a tidy fault turns it red without stopping anything",
+      any(isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and n.func.attr == "tidy_the_drive"
+          for n in ast.walk(START))
+      and _START_RAW.index("how_the_night_ends") < _START_RAW.index("tidy_the_drive")
+      and "        code = code or 1" in _START_RAW[_START_RAW.index("tidy_the_drive"):])
+
 # **JOB 34: THE RUN'S FOLDER IS HIS ONE `Kartaan` FOLDER, FOUND BY NAME, AND THE LEDGER IS MADE INSIDE IT.**
 # Asked of the parsed file, like the tick above: a line nothing watches fail has not been proved.
 _INSIDE_IS = [
@@ -2347,7 +2435,7 @@ check("the one-time merge is started only by the button, and only as plan or app
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 338
+EXPECTED = 351
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

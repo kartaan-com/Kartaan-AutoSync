@@ -224,6 +224,12 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
     lines, code = nightly.how_the_night_ends(tick, could_not_write_sales)
     for one in lines:
         print(one)
+    # **TIDYING COMES LAST AND NEVER STOPS A NIGHT (job 40):** logs past sixty days and report files
+    # past the GST period go to his bin, each one said. A fault in it is printed and makes the job red
+    # -- after everything else is done, never instead of it.
+    for one in nightly.tidy_the_drive(google, inside, today, print):
+        print(f"TIDY FAULT  {one}")
+        code = code or 1
     return code
 
 

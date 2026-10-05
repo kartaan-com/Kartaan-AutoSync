@@ -24,7 +24,7 @@ inside what came back.**
 
 import re
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from typing import Iterable, Optional, Sequence, Tuple
 
 from reports import Report
@@ -106,6 +106,75 @@ def data_date_in(file_name: str) -> Optional[date]:
         return date.fromisoformat(found.group(1))
     except ValueError:
         return None
+
+
+# ------------------------------------------------ how long a report file is kept (job 40)
+#
+# **THE RULE, READ FROM THE OFFICIAL SOURCES ON 2026-10-05 (Golden Rule 1), NOT FROM "FIVE TO
+# SEVEN YEARS":**
+#
+#   CGST Act 2017, section 36 "Period of retention of accounts" -- *"Every registered person
+#   required to keep and maintain books of account or other records in accordance with the
+#   provisions of sub-section (1) of section 35 shall retain them until the expiry of
+#   seventy-two months from the due date of furnishing of annual return for the year pertaining
+#   to such accounts and records"*, with a proviso that a person in an appeal, revision, other
+#   proceedings or an investigation keeps what pertains to it for one year after final disposal
+#   *"or for the period specified above, whichever is later"*.
+#   https://cbic-gst.gov.in/pdf/CGST-Act-Updated-30092020.pdf (CBIC's own site, page 67 of the
+#   copy updated to 30 September 2020).
+#
+#   CGST Rules 2017, rule 80(1) as substituted by notification 30/2021-Central Tax -- the annual
+#   return (FORM GSTR-9) *"on or before the thirty-first day of December following the end of
+#   such financial year"*. https://gstcouncil.gov.in/sites/default/files/2024-05/notfctn-30-central-tax-english-2021.pdf
+#
+# So a file for a day in a financial year (April to March) is kept until 72 months after the
+# 31 December that follows that year's end. **THIS IS THE REASON, AND IT IS WHAT ANSWERS AMAZON'S
+# 18-MONTH LIMIT:** Amazon's own policy allows longer retention where *"longer retention is
+# legally required"* (Finding 44), and this section is the law that requires it.
+GST_KEEP_MONTHS = 72
+
+# **THE DUE DATE IS EXTENDED BY NOTIFICATION FROM TIME TO TIME**, which moves the end of the period
+# LATER -- and a file removed a few months early is a legal record gone, where one kept a year too
+# long costs nothing. So nothing is removed until this much after the date the rule gives. Said
+# here so that the one place that decides is one place: Control may shorten it, never silently.
+WAIT_FOR_EXTENDED_DUE_DATES = timedelta(days=366)
+
+# **THE CASE THE RUN CANNOT SEE: a seller in an appeal or an investigation must keep more.** The run
+# cannot know, so it says in the log what it removed and why, and it moves to the bin, not away.
+
+
+def gst_keep_until(data_day: date) -> date:
+    """The last day a report file for this data day must be kept, by section 36 and rule 80(1)."""
+    year_the_return_covers_ends = data_day.year + 1 if data_day.month >= 4 else data_day.year
+    return date(year_the_return_covers_ends + GST_KEEP_MONTHS // 12, 12, 31)
+
+
+# **ONLY A FILE NAMED THE WAY THE RUN AND THE EXTENSION NAME A DAY'S REPORT MAY EVER BE REMOVED**:
+# `<platform>_<report>_<day>.<ext>`, or with a campaign after the day for the per-campaign ads
+# files. A loose date anywhere in a name -- `backup_2017-08-01_final.xlsx`, or a copy the seller
+# made, `..._2017-08-01 (1).csv` -- is somebody else's file and is kept.
+A_DAYS_REPORT_FILE = re.compile(
+    r"(?:amazon|flipkart|meesho)_[a-z0-9_]+?_(\d{4}-\d{2}-\d{2})(?:_[A-Za-z0-9-]+)?\.[a-z]+"
+)
+
+
+def why_a_report_file_may_go(file_name: str, today: date) -> Optional[str]:
+    """Words saying why this file is past what the law asks to be kept, or None to keep it.
+
+    **A FILE WITH NO DAY IN ITS NAME IS KEPT, AND SO IS ANY FILE NOT NAMED AS A DAY'S REPORT** -- a
+    running list holds many days and nothing here can say which are old.
+    """
+    shape = A_DAYS_REPORT_FILE.fullmatch(file_name or "")
+    day = data_date_in(shape.group(1)) if shape else None
+    if day is None:
+        return None
+    until = gst_keep_until(day)
+    if today <= until + WAIT_FOR_EXTENDED_DUE_DATES:
+        return None
+    return (
+        f"{file_name} is for {day.isoformat()}; the GST law (CGST Act 2017 section 36, 72 months after the "
+        f"annual return's due date) asks for it to be kept until {until.isoformat()}, and that has passed"
+    )
 
 
 def undated(file_names: Iterable[str]) -> Tuple[str, ...]:

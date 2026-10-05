@@ -157,6 +157,15 @@ class FakeDrive:
         self.deleted.append(where)
         return Reply({})
 
+    def patch(self, where, params=None, headers=None, json=None, data=None):
+        self.asked.append(("patch", where, params))
+        if self.how.get("refuse_writes"):
+            return Reply(ok=False, status=403, text="not allowed")
+        self.patched = getattr(self, "patched", []) + [(where, params, headers, json, data)]
+        if (params or {}).get("uploadType") == "resumable":
+            return Reply({}, headers={"Location": "https://upload.example.invalid/again"})
+        return Reply({"id": "kept", "name": "same"})
+
 
 SAID = []
 
@@ -357,8 +366,9 @@ SAID.clear()
 check("the same day fetched again lands",
       answered(lambda: tool.a_door(again, "root", say)(
           "me_orders", "meesho_me_orders_2026-08-26.csv", b"newer")) is not None)
-check("and the one that was there is taken away first, not left beside it",
-      answered(lambda: len(again.deleted)) == 1)
+check("and the one that was there is written into by its id -- nothing deleted, no second copy",
+      answered(lambda: again.deleted) == [] and answered(lambda: again.patched[0][0].endswith("/old"))
+      and again.patched[0][1].get("uploadType") == "media" and again.patched[0][4] == b"newer")
 check("and it says so, so nobody wonders where the older one went",
       answered(lambda: any("replacing" in one for one in SAID)))
 
@@ -652,9 +662,33 @@ check("the Kartaan folder is found or made at the top of My Drive",
 check("and asking again does not make a second",
       answered(lambda: tool.the_kartaan_folder(top)) == "folder-1" and len(top.folders) == 1)
 
+# ------------------------------------------- job 40: replace in place, and the bin
+
+small = FakeDrive()
+answered(lambda: tool.replace_the_contents(small, "file-9", "autosync-state.json", b'{"a": 1}'))
+check("small contents go into the file by its id as a media upload, with their kind",
+      small.patched[0][0].endswith("/upload/drive/v3/files/file-9")
+      and small.patched[0][1]["uploadType"] == "media" and small.patched[0][2]["Content-Type"] == "application/json"
+      and small.patched[0][4] == b'{"a": 1}')
+BIGGER_BODY = b"z" * (6 * 1024 * 1024)
+large = FakeDrive()
+answered(lambda: tool.replace_the_contents(large, "file-9", "b.xlsx", BIGGER_BODY))
+check("large contents are asked about first, then sent, still by the same id",
+      large.patched[0][1]["uploadType"] == "resumable" and large.patched[0][0].endswith("/file-9")
+      and [one[0] for one in large.sent] == ["two-requests"])
+check("a Drive that refuses the write is said, and nothing else was done",
+      "Drive refused" in refused(lambda: tool.replace_the_contents(FakeDrive(refuse_writes=True), "f", "a.json", b"x"))
+      and small.deleted == [])
+check("nothing to put in is refused before anything is sent",
+      "nothing in it" in refused(lambda: tool.replace_the_contents(small, "f", "a.json", b""))
+      and len(small.patched) == 1)
+check("a file taken away by the run goes to the bin, never a permanent delete",
+      answered(lambda: tool.trash_the_file(small, "file-9", "an old log")) is None
+      and small.patched[-1][3] == {"trashed": True} and small.deleted == [])
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 104
+EXPECTED = 109
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

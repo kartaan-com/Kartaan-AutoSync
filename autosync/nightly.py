@@ -43,6 +43,7 @@ does this:
 """
 
 import os
+import re
 from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Callable, List, Optional, Sequence, Tuple
@@ -706,6 +707,26 @@ def _one_file_back(transport) -> Callable[[str], bytes]:
     return bring_it_back
 
 
+def _put_in_place(transport, folder_id: str, name: str, body: bytes) -> None:
+    """Write one named file into one folder: into the file already there, or as a new one. Never both.
+
+    **TWO COPIES OF ONE FILE ARE REFUSED, NOT TIDIED.** Which holds the real answer cannot be known.
+    """
+    from drive import Landing, kind_of  # noqa: PLC0415
+    from drive_door import put_the_file, replace_the_contents, what_is_already_there  # noqa: PLC0415
+
+    there = [one for one in what_is_already_there(transport, folder_id) if one.get("name") == name]
+    if len(there) > 1:
+        raise RuntimeError(
+            f"There are {len(there)} copies of {name} in the seller's Drive. Which one holds the real "
+            "answers cannot be known, so nothing has been written over."
+        )
+    if there:
+        replace_the_contents(transport, there[0]["id"], name, body)
+    else:
+        put_the_file(transport, Landing(folder_id=folder_id, file_name=name, kind=kind_of(name), size=len(body)), body)
+
+
 def _state_in_drive(transport, inside: str) -> Tuple[Callable[[], Optional[bytes]], Callable[[bytes], None]]:
     """Reading and writing the run's own memory, in the seller's Drive (D100).
 
@@ -738,40 +759,11 @@ def _state_in_drive(transport, inside: str) -> Tuple[Callable[[], Optional[bytes
         return bring_the_file_back(transport, there[0]["id"])
 
     def save_it(body: bytes) -> None:
-        folder_id = _drive_folder(transport, inside, layout.SYSTEM)
-        older = [
-            one["id"] for one in what_is_already_there(transport, folder_id)
-            if one.get("name") == between_runs.FILE_NAME
-        ]
-        # **THE NEW ONE GOES UP FIRST, AND THE OLD ONE COMES AWAY AFTER (cycle
-        # 46, R2#3).** Written the other way round, anything that threw between
-        # the two -- a dropped connection, a full Drive, a quota -- left the
-        # seller with NOTHING. This file is the whole memory of what Amazon is
-        # building, so losing it makes the next run ask for every one of those
-        # reports again: a rationed call spent, and two reports where there
-        # should be one.
-        #
-        # **TWO COPIES FOR A MOMENT IS RECOVERABLE. NONE IS NOT.** If the tidying
-        # below fails, the next run finds two and refuses out loud, by name --
-        # which is a morning's confusion rather than a silent wrong answer.
-        put_the_file(
-            transport,
-            Landing(
-                folder_id=folder_id,
-                file_name=between_runs.FILE_NAME,
-                kind=kind_of(between_runs.FILE_NAME),
-                size=len(body),
-            ),
-            body,
-        )
-        # **REPLACED, NEVER PUT BESIDE.** Two records of what the last run left is
-        # two answers to what Amazon is building, and nothing could say which was
-        # the real one -- which is why `read_it` above refuses when it sees two.
-        for one in older:
-            _answered(
-                transport.delete(f"{FILES}/{one}"),
-                f"taking away the older {between_runs.FILE_NAME}",
-            )
+        # **REPLACED IN PLACE, BY ITS ID (job 40).** The new one used to go up first and the old one
+        # come away after, so anything that threw between the two left TWO copies of the whole
+        # memory of what Amazon is building, and a second copy stopped the next run. Now there is
+        # never a second copy to leave behind, and a write that fails leaves the old record intact.
+        _put_in_place(transport, _drive_folder(transport, inside, layout.SYSTEM), between_runs.FILE_NAME, body)
 
     return read_it, save_it
 
@@ -855,29 +847,9 @@ def _manifest_in_drive(transport, inside: str) -> Tuple[Callable[[], Optional[by
         return bring_the_file_back(transport, there[0]["id"])
 
     def save_it(body: bytes) -> None:
-        folder_id = _drive_folder(transport, inside, layout.SYSTEM)
-        older = [
-            one["id"] for one in what_is_already_there(transport, folder_id)
-            if one.get("name") == manifest.FILE_NAME
-        ]
-        put_the_file(
-            transport,
-            Landing(
-                folder_id=folder_id,
-                file_name=manifest.FILE_NAME,
-                kind=kind_of(manifest.FILE_NAME),
-                size=len(body),
-            ),
-            body,
-        )
-        # **REPLACED, NEVER PUT BESIDE.** Two manifests is two answers to "is the
-        # file there", and nothing could say which was the real one -- which is
-        # why `read_it` above refuses when it sees two.
-        for one in older:
-            _answered(
-                transport.delete(f"{FILES}/{one}"),
-                f"taking away the older {manifest.FILE_NAME}",
-            )
+        # **REPLACED IN PLACE, BY ITS ID (job 40)** -- see `_state_in_drive`. The same fault, and the
+        # same cure: a second manifest made every night end red with nothing to clear it.
+        _put_in_place(transport, _drive_folder(transport, inside, layout.SYSTEM), manifest.FILE_NAME, body)
 
     return read_it, save_it
 
@@ -917,21 +889,78 @@ def _log_to_drive(transport, inside: str, today: date) -> Callable[[Sequence[run
             )
         adding = "".join("\t".join(line.as_row()) + "\n" for line in lines)
         body = already + adding.encode("utf-8")
-        # **UP FIRST, AWAY AFTER (cycle 46, R2#3).** This is the whole of today's
-        # log, not just the new lines -- Drive cannot add to the end of a file --
-        # so deleting before uploading and then failing loses every line already
-        # written. **That is the exact failure this package exists against**: on
-        # 25 August the reference fetched ten real files and left no trace of any
-        # of them.
-        put_the_file(
-            transport,
-            Landing(folder_id=folder_id, file_name=called, kind=kind_of(called), size=len(body)),
-            body,
-        )
-        for one in there:
-            _answered(transport.delete(f"{FILES}/{one['id']}"), f"taking away the older {called}")
+        # **REPLACED IN PLACE (job 40).** This is the whole of today's log, not just the new lines --
+        # Drive cannot add to the end of a file -- and the old file is overwritten by its id, so a
+        # write that fails leaves every line already written exactly where it was.
+        _put_in_place(transport, folder_id, called, body)
 
     return sink
+
+
+# **HIS: "LOGS / ONE PER DAY, LAST 60 DAYS ONLY"** (the layout he approved on 2026-10-03). The plan's
+# words are "older than sixty days", so a log exactly sixty days old stays.
+LOGS_ARE_KEPT_DAYS = 60
+
+
+def _a_log_that_is_too_old(file_name: str, today: date) -> bool:
+    """True for one of the run's own day logs more than sixty days old. **ITS OWN FILES ONLY.**"""
+    found = re.fullmatch(r"autosync-log-(\d{4}-\d{2}-\d{2})\.txt", file_name or "")
+    if not found:
+        return False
+    try:
+        day = date.fromisoformat(found.group(1))
+    except ValueError:
+        return False
+    return (today - day).days > LOGS_ARE_KEPT_DAYS
+
+
+def tidy_the_drive(transport, inside: str, today: date, say: Callable[[str], None]) -> List[str]:
+    """Take the run's logs past sixty days, and report files past the GST period, to the seller's bin.
+
+    **TO THE BIN, NEVER A PERMANENT DELETE (Golden Rule 9), AND EVERY ONE IS SAID.** Answers the faults
+    it met, in words, and never raises: tidying must not stop a night, and must not hide that it failed.
+    The report-file rule is `landing.why_a_report_file_may_go`, with its sources written beside it.
+    """
+    from drive_door import (  # noqa: PLC0415
+        look_for_the_folder_at,
+        trash_the_file,
+        what_is_in,
+    )
+    from drive import FOLDER  # noqa: PLC0415
+    from landing import why_a_report_file_may_go  # noqa: PLC0415
+
+    faults: List[str] = []
+
+    def go_through(path, why_it_goes, kind_of_file):
+        try:
+            folder = look_for_the_folder_at(transport, path, inside)
+            if not folder:
+                return
+            for one in what_is_in(transport, folder):
+                if one.get("mimeType") == FOLDER:
+                    continue  # a folder somebody made inside is not the run's to tidy
+                name = str(one.get("name") or "")
+                why = why_it_goes(name)
+                if not why:
+                    continue
+                trash_the_file(transport, str(one["id"]), name)
+                say(f"Tidied: {name} put in the bin -- {why}.")
+        except Exception as wrong:  # noqa: BLE001 - recorded, never swallowed
+            faults.append(f"tidying {kind_of_file}: {wrong}")
+
+    go_through(
+        layout.LOGS,
+        lambda name: (f"a run log more than {LOGS_ARE_KEPT_DAYS} days old")
+        if _a_log_that_is_too_old(name, today) else None,
+        "the old run logs",
+    )
+    for report_id in layout.BELOW_REPORTS:
+        go_through(
+            layout.where_it_goes(report_id),
+            lambda name: why_a_report_file_may_go(name, today),
+            f"the {report_id} folder",
+        )
+    return faults
 
 
 def _needed(name: str) -> str:

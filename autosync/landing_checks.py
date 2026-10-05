@@ -528,10 +528,45 @@ check("an ordinary zip with one file in it is still unwrapped", name.endswith(".
 check("and what comes out is what was inside", out == b"a,b\n1,2\n")
 check("and it says so", bool(said))
 
+# ------------------------------------------- job 40: how long a report file is kept
+
+from datetime import timedelta  # noqa: E402
+
+check("the period is seventy-two months, as CGST Act section 36 says", tool.GST_KEEP_MONTHS == 72)
+check("a day in April starts a financial year, so its return is due that December twelve months later "
+      "and the file is kept six years after it",
+      tool.gst_keep_until(date(2025, 4, 1)) == date(2032, 12, 31))
+check("the last day of March is still the year before",
+      tool.gst_keep_until(date(2025, 3, 31)) == date(2031, 12, 31))
+check("a day in January belongs to the year that ends that March",
+      tool.gst_keep_until(date(2026, 1, 15)) == date(2032, 12, 31))
+UNTIL = tool.gst_keep_until(date(2017, 8, 1))
+check("a file stays through the end of the period and the wait for extended due dates",
+      tool.why_a_report_file_may_go("amazon_az_orders_2017-08-01.csv", UNTIL + tool.WAIT_FOR_EXTENDED_DUE_DATES) is None)
+check("and the next day it may go, with the law named in the words",
+      "section 36" in (tool.why_a_report_file_may_go(
+          "amazon_az_orders_2017-08-01.csv", UNTIL + tool.WAIT_FOR_EXTENDED_DUE_DATES + timedelta(days=1)) or "")
+      and UNTIL.isoformat() in (tool.why_a_report_file_may_go(
+          "amazon_az_orders_2017-08-01.csv", UNTIL + tool.WAIT_FOR_EXTENDED_DUE_DATES + timedelta(days=1)) or ""))
+check("THE WAIT IS PINNED BY A LITERAL DATE, NOT BY THE CONSTANT: a 2017-08-01 file stays through 1 January 2026 and may go the day after",
+      tool.why_a_report_file_may_go("amazon_az_orders_2017-08-01.csv", date(2026, 1, 1)) is None
+      and tool.why_a_report_file_may_go("amazon_az_orders_2017-08-01.csv", date(2026, 1, 2)) is not None)
+check("a file the seller copied or backed up, with a date in its name but not the shape of a day's report, is kept",
+      all(tool.why_a_report_file_may_go(name, date(2099, 1, 1)) is None for name in (
+          "backup_2017-08-01_final.xlsx", "amazon_az_orders_2017-08-01 (1).csv", "x_2017-08-01.csv",
+          "notes 2017-08-01.txt")))
+check("the per-campaign ads file, with the campaign after the day, is one of ours and may go",
+      tool.why_a_report_file_may_go("flipkart_fk_ads_orders_2017-08-01_CAMP-123.csv", date(2099, 1, 1)) is not None)
+check("a recent file is kept", tool.why_a_report_file_may_go("amazon_az_orders_2026-09-01.csv", date(2026, 10, 5)) is None)
+check("a running list, whose name has no day, is never removed",
+      tool.why_a_report_file_may_go("meesho_me_views.csv", date(2099, 1, 1)) is None)
+check("and neither is a file with a name nothing can read a day from",
+      tool.why_a_report_file_may_go("notes.txt", date(2099, 1, 1)) is None)
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 102
+EXPECTED = 114
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

@@ -39,13 +39,12 @@ import manifest
 from drive import FOLDER
 from drive_door import (
     DriveSaidNo,
-    _every_file,
     _answered,
     FILES,
-    as_a_quoted_value,
     folder_at,
     look_for_the_folder_at,
     move_the_file,
+    what_is_in as _children,
 )
 
 # What the folders are called today. Written here once, as what they WERE, because they are
@@ -94,15 +93,6 @@ class Plan:
         which = "|".join(sorted(f"{one.what}:{one.file_id}:{'/'.join(one.to)}" for one in self.items))
         stamp = hashlib.sha256(which.encode("utf-8")).hexdigest()[:8]
         return f"moves={self.count(MOVE)} collisions={self.count(COLLISION)} left={self.count(LEFT)} stamp={stamp}"
-
-
-def _children(transport, folder_id: str) -> List[Dict]:
-    return _every_file(
-        transport,
-        f"'{as_a_quoted_value(folder_id)}' in parents and trashed = false",
-        "id,name,mimeType",
-        "listing what is in an old folder",
-    )
 
 
 def _where_a_run_file_goes(name: str) -> Optional[Tuple[str, ...]]:

@@ -24,6 +24,7 @@ from drive import (
     FOLDER,
     MULTIPART,
     Landing,
+    how_to_upload,
     kind_of,
     the_metadata,
     what_to_do_about,
@@ -268,6 +269,16 @@ def what_is_already_there(transport, folder_id: str) -> List[Dict]:
     )
 
 
+def what_is_in(transport, folder_id: str) -> List[Dict]:
+    """Everything in one folder, WITH WHETHER EACH IS A FOLDER, so nothing treats a folder as a file."""
+    return _every_file(
+        transport,
+        f"'{as_a_quoted_value(folder_id)}' in parents and trashed = false",
+        "id,name,mimeType",
+        "listing what is in a folder",
+    )
+
+
 def what_has_arrived(transport, folder_id: str) -> List[Dict]:
     """Every file in one folder, WITH ITS SIZE, so a day can be called arrived.
 
@@ -336,6 +347,54 @@ def put_the_file(transport, landing: Landing, body: bytes) -> Dict:
     if landing.by == MULTIPART:
         return _in_one_request(transport, landing, body)
     return _in_two_requests(transport, landing, body)
+
+
+def replace_the_contents(transport, file_id: str, file_name: str, body: bytes) -> Dict:
+    """Put new contents INTO the file that is already there, by its id. **NO SECOND COPY, EVER.**
+
+    Read from Google's own page for `files.update` (2026-10-05,
+    developers.google.com/workspace/drive/api/reference/rest/v3/files/update): a PATCH on the
+    upload address with `uploadType=media` replaces the contents and keeps the id; `resumable`
+    does the same for a large body. **A write that fails leaves the old file exactly as it was**,
+    which is what putting the new one up first and taking the old one away after could not say:
+    a failed take-away left two, and a second copy of the run's memory stopped the run.
+    """
+    wrong = why_it_cannot_be_put(file_id, file_name, body)
+    if wrong:
+        raise DriveSaidNo(wrong)
+    kind = kind_of(file_name)
+    if how_to_upload(len(body)) == MULTIPART:
+        reply = _answered(
+            transport.patch(
+                f"{UPLOAD}/{file_id}", params={"uploadType": "media", "fields": "id,name,size"},
+                headers={"Content-Type": kind}, data=body),
+            f"replacing the contents of {file_name}",
+        )
+        return reply.json() or {}
+    asking = _answered(
+        transport.patch(
+            f"{UPLOAD}/{file_id}", params={"uploadType": "resumable", "fields": "id,name,size"},
+            headers={"Content-Type": "application/json; charset=UTF-8", "X-Upload-Content-Type": kind,
+                     "X-Upload-Content-Length": str(len(body))},
+            json={}),
+        f"asking Drive where to put the new {file_name}",
+    )
+    where = (getattr(asking, "headers", {}) or {}).get("Location")
+    if not where:
+        raise DriveSaidNo(f"Drive agreed to take the new {file_name} and did not say where to send it.")
+    return (_answered(
+        transport.put(where, headers={"Content-Type": kind}, data=body),
+        f"sending the new {file_name} to the seller's Drive",
+    ).json() or {})
+
+
+def trash_the_file(transport, file_id: str, what: str) -> None:
+    """Move one file to the seller's bin. **THE BIN, NEVER A PERMANENT DELETE (Golden Rule 9).**
+
+    A file the run removes on its own is one the seller can still get back.
+    """
+    _answered(transport.patch(f"{FILES}/{file_id}", params={"fields": "id"}, json={"trashed": True}),
+              f"putting {what} in the bin")
 
 
 def _in_one_request(transport, landing: Landing, body: bytes) -> Dict:
@@ -469,11 +528,11 @@ def a_door(transport, inside: str, say: Callable[[str], None]) -> Callable[..., 
             # is a folder where nobody can say which the numbers came from -- and
             # the reference put three wrongly-dated duplicates into a real one.
             same = next(one for one in already if one.get("name") == file_name)
-            _answered(
-                transport.delete(f"{FILES}/{same['id']}"),
-                f"taking away the older {file_name}",
-            )
             say(f"{report_id}: replacing the {file_name} that was already there.")
+            # **INTO THE FILE THAT IS THERE, BY ITS ID (job 40)** -- not deleted first. A write that
+            # fails leaves the day's old file exactly as it was, and there is never a moment with
+            # none or with two.
+            return replace_the_contents(transport, same["id"], file_name, body)
         return put_the_file(transport, landing, body)
 
     return put_file
