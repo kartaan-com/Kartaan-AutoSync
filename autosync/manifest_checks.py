@@ -10,6 +10,7 @@ and watched doing it.
 Run: python autosync/manifest_checks.py
 """
 
+import json
 import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -674,6 +675,19 @@ check("TWO WRITERS, ONE FILE EACH, SAME INSTANT: every line from both is there w
 check("and neither writer's save can change the other's file by a single byte",
       tool.write(tool.merge(tool.read(None), [THE_EXTENSIONS_LINE])) == extensions_file)
 
+# **THE EXTENSION'S OWN RECORD READS WITH THE SAME READER.** This is the exact text `extension/record.js` writes
+# (`theRecordWith`), so a line the extension writes is a line here and the join can use it.
+FROM_THE_EXTENSION = (json.dumps({
+    "shape": 2, "reads": [],
+    "lines": [{"dataDate": "2026-09-20", "reportId": "me_orders", "state": "verified",
+               "fileName": "meesho_me_orders_2026-09-20.csv", "fileSize": 400, "checkedOn": "2026-09-21"}],
+}, indent=1) + chr(10)).encode("utf-8")
+the_extensions = answered(lambda: tool.read_record(FROM_THE_EXTENSION))
+check("the run reads the extension's record as it is written, line for line",
+      the_extensions is not None and the_extensions.reads == () and len(the_extensions.lines) == 1
+      and the_extensions.lines[0].report_id == "me_orders" and the_extensions.lines[0].file_size == 400
+      and tool.EXTENSION_FILE_NAME == "extension-manifest.json")
+
 # **A ROLLING FILE IS RECORDED PER DAY BY LOOKING INSIDE IT, and a day missing inside it is missing for that day only.**
 the_views = next(one for one in REPORTS if one.id == "me_views")
 inside = [Arrived(name="meesho_me_views.csv", size=500, days_inside=(date(2026, 9, 19), date(2026, 9, 21)))]
@@ -683,7 +697,7 @@ check("a views day absent from inside the rolling file is missing, and only that
       views_lines.get(date(2026, 9, 20)) == tool.MISSING and views_lines.get(date(2026, 9, 19)) == tool.VERIFIED
       and views_lines.get(date(2026, 9, 21)) == tool.VERIFIED)
 
-EXPECTED = 66 + 16
+EXPECTED = 66 + 17
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

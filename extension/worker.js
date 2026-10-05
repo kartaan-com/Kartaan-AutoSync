@@ -18,13 +18,14 @@ import {
 } from './background.js';
 import {
   RECHECK_ALARM, carryTheNightOn, clearNamedNeedsYouEntries, howTheNightWent, setTheRecheckClock,
-  startTheNight, theNight, theRecheckSync, theRunLog, whatIsBeingRechecked, whatIsPaused,
+  startTheNight, theDay, theNight, theRecheckSync, theRunLog, whatIsBeingRechecked, whatIsPaused,
   whatNeedsYou,
 } from './nightly.js';
 import { goTo, routeInThePage, takeTheFile, watchForDownloads } from './doors.js';
 import {
-  aDriveToken, aWayOfAsking, addARowTo, landTheFile, theKartaanFolder,
+  aDriveToken, aWayOfAsking, addARowTo, landTheFile, recordWhatLanded, theKartaanFolder,
 } from './drive.js';
+import { theLinesFor } from './record.js';
 import {
   THE_PANEL_ASKS, alreadyCarriedOn, answerThePanelsQuestion, markCarriedOn, rememberTheNight,
   startASync, startTheNextPlatform, startTheScheduledSync, theSetup, theSignInAlert, theSyncSummary,
@@ -245,7 +246,36 @@ const putOneFileAway = async ({ reportId, fileName, body }) => {
   const ask = aWayOfAsking(chrome, { fetch: (...args) => fetch(...args) });
   const layout = await theLayout();
   const inside = await theKartaanFolder(chrome, ask, layout);
-  return landTheFile(chrome, ask, { reportId, fileName, inside, body, layout });
+  const landed = await landTheFile(chrome, ask, { reportId, fileName, inside, body, layout });
+  /* **WRITTEN DOWN IN THE EXTENSION'S OWN RECORD (job 38)** -- only for a report, never for the night log. */
+  if (reportId !== THE_NIGHT_LOG) {
+    await writeItDown(ask, layout, inside, theLinesFor({
+      reportId,
+      fileName: landed.name || fileName,
+      size: Number(landed.size) || (body ? body.length : 0),
+      on: theDay(Date.now()),
+    }));
+  }
+  return landed;
+};
+
+/** What the night log is called to the layout. Not a report, so it has no line in the record. */
+const THE_NIGHT_LOG = 'run_log';
+
+/* **THE RECORD IS WRITTEN ONE AT A TIME, AND A FAILURE TO WRITE IT NEVER FAILS THE LANDING.** The file is
+ * already in the seller's Drive; a walk reported as failed because a bookkeeping line would not go in would
+ * be refetched and burn a Flipkart request for nothing. The failure is said where a person can see it. Only
+ * this worker writes this file, so serialising here is all that is needed to keep two landings from reading
+ * the same standing record and each writing back without the other's line. */
+let theRecordQueue = Promise.resolve();
+const writeItDown = (ask, layout, inside, lines) => {
+  theRecordQueue = theRecordQueue
+    .then(() => recordWhatLanded(chrome, ask, { layout, inside, lines }))
+    .catch((wrong) => {
+      // eslint-disable-next-line no-console
+      console.warn(`What landed could not be written in the extension's own record: ${wrong && wrong.message}`);
+    });
+  return theRecordQueue;
 };
 
 /* **AND THE OTHER WAY A DAY REACHES A DRIVE: one row added to a running list.**
@@ -255,7 +285,13 @@ const addOneRow = async ({ reportId, fileName, header, row, forTheDay }) => {
   const ask = aWayOfAsking(chrome, { fetch: (...args) => fetch(...args) });
   const layout = await theLayout();
   const inside = await theKartaanFolder(chrome, ask, layout);
-  return addARowTo(chrome, ask, { reportId, fileName, inside, header, row, forTheDay, layout });
+  const added = await addARowTo(chrome, ask, { reportId, fileName, inside, header, row, forTheDay, layout });
+  /* **A RUNNING LIST IS RECORDED PER DAY BY LOOKING INSIDE IT** -- the days the file now holds, not the day
+   * it was last touched (the old extension did exactly this). */
+  await writeItDown(ask, layout, inside, theLinesFor({
+    reportId, fileName, size: added.size, days: added.days, on: theDay(Date.now()),
+  }));
+  return added;
 };
 
 /* **THE RECIPE BOOK, READ OUT OF THE EXTENSION'S OWN FILE.** The page half

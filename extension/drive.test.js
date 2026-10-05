@@ -41,6 +41,7 @@ import {
   kindOf,
   landTheFile,
   putTheFile,
+  recordWhatLanded,
   theMetadata,
   whatIsAlreadyThere,
   theKartaanFolder,
@@ -134,6 +135,21 @@ function aDrive({ holds = [], pageAt = 0, refuseWith = 0, noLocation = false } =
      * matching loosely on the second will swallow the first. Getting this wrong
      * in the stand-in made an upload look like a folder being created. */
     const uploading = address.includes('/upload/drive/v3/files');
+
+    /* **A FILE READ BACK BY ITS ID, AND CONTENTS REPLACED IN PLACE** -- what `recordWhatLanded` does to the
+     * extension's own record. The stand-in keeps each file's text so what was written can be read again. */
+    const readingOne = !uploading && how === 'GET' && address.match(/\/drive\/v3\/files\/([^?/]+)\?alt=media/);
+    if (readingOne) {
+      const there = holds.find((one) => one.id === readingOne[1]);
+      return { ok: true, status: 200, headers: { get: () => null }, async text() { return (there && there.contents) || ''; } };
+    }
+    const replacing = uploading && how === 'PATCH' && address.match(/\/upload\/drive\/v3\/files\/([^?/]+)/);
+    if (replacing) {
+      const there = holds.find((one) => one.id === replacing[1]);
+      if (there) there.contents = new TextDecoder().decode(body);
+      it.put.push({ address, how, kind, body });
+      return reply(200, { id: replacing[1], name: there && there.name, size: String(body.length) });
+    }
 
     if (!uploading && how === 'GET' && address.includes('/drive/v3/files?')) {
       const q = decodeURIComponent((address.match(/[?&]q=([^&]*)/) || [])[1] || '');
@@ -666,7 +682,81 @@ check('and other files in the folder are none of its business',
   check('and the extension makes a folder in exactly one place', sites.length === 1);
 }
 
-const EXPECTED = 79;
+/* ------------------------------------------------------ the extension's own record (job 38) */
+
+{
+  const aLine = (day, report = 'me_orders', size = 400) => ({
+    dataDate: day, reportId: report, state: 'verified', fileName: `x_${day}.csv`, fileSize: size, checkedOn: day,
+  });
+  const browser = installFakeChrome();
+  const drive = aDrive({ holds: [] });
+  const first = await recordWhatLanded(browser.chrome, drive.ask, {
+    layout: LAYOUT, inside: 'kartaan', lines: [aLine('2026-09-20')],
+  });
+  check('the first landing makes System and puts the extension own record in it, saying how many lines',
+    first.written === 1 && drive.made.map((one) => one.name).join() === 'System'
+    && drive.made[0].parents.join() === 'kartaan' && drive.put.length === 1);
+  check('and it made nothing outside his layout', drive.made.every((one) => one.name === 'System'));
+}
+
+{
+  /* **A SECOND LANDING FINDS THE RECORD AND REPLACES IT IN PLACE, BY ITS ID, WITH BOTH DAYS IN IT.** */
+  const aLine = (day, report = 'me_orders', size = 400) => ({
+    dataDate: day, reportId: report, state: 'verified', fileName: `x_${day}.csv`, fileSize: size, checkedOn: day,
+  });
+  const browser = installFakeChrome();
+  const system = { id: 'sys', name: 'System', mimeType: FOLDER, parents: ['kartaan'] };
+  const record = { id: 'rec', name: 'extension-manifest.json', parents: ['sys'], contents: '' };
+  const drive = aDrive({ holds: [system, record] });
+  await recordWhatLanded(browser.chrome, drive.ask, { layout: LAYOUT, inside: 'kartaan', lines: [aLine('2026-09-20')] });
+  await recordWhatLanded(browser.chrome, drive.ask, { layout: LAYOUT, inside: 'kartaan', lines: [aLine('2026-09-21')] });
+  const lines = JSON.parse(record.contents).lines;
+  check('the second landing is added to the first in the same file, and both are there',
+    lines.map((one) => one.dataDate).join() === '2026-09-20,2026-09-21');
+  check('it was replaced in place by its id, and nothing was made',
+    drive.made.length === 0 && drive.put.every((one) => one.how === 'PATCH' && one.address.includes('/rec')));
+}
+
+{
+  /* **A RECORD THAT IS THERE AND CANNOT BE READ IS LEFT EXACTLY AS IT WAS.** */
+  const browser = installFakeChrome();
+  const system = { id: 'sys', name: 'System', mimeType: FOLDER, parents: ['kartaan'] };
+  const broken = { id: 'rec', name: 'extension-manifest.json', parents: ['sys'], contents: '{not a record' };
+  const drive = aDrive({ holds: [system, broken] });
+  const wrong = await said(() => recordWhatLanded(browser.chrome, drive.ask, {
+    layout: LAYOUT, inside: 'kartaan',
+    lines: [{ dataDate: '2026-09-20', reportId: 'me_orders', state: 'verified', fileName: 'x', fileSize: 1, checkedOn: '' }],
+  }));
+  check('a record that cannot be read refuses and says so', wrong.includes('cannot be read'));
+  check('and what was in it is exactly as it was, nothing written over it',
+    broken.contents === '{not a record' && drive.put.length === 0);
+}
+
+{
+  const browser = installFakeChrome();
+  const system = { id: 'sys', name: 'System', mimeType: FOLDER, parents: ['kartaan'] };
+  const drive = aDrive({
+    holds: [system,
+      { id: 'one', name: 'extension-manifest.json', parents: ['sys'], contents: '' },
+      { id: 'two', name: 'extension-manifest.json', parents: ['sys'], contents: '' }],
+  });
+  const wrong = await said(() => recordWhatLanded(browser.chrome, drive.ask, {
+    layout: LAYOUT, inside: 'kartaan',
+    lines: [{ dataDate: '2026-09-20', reportId: 'me_orders', state: 'verified', fileName: 'x', fileSize: 1, checkedOn: '' }],
+  }));
+  check('two records of the name refuse, naming how many, rather than choosing between them',
+    wrong.includes('2 copies') && drive.put.length === 0);
+}
+
+{
+  const browser = installFakeChrome();
+  const drive = aDrive({ holds: [] });
+  check('landing nothing writes nothing at all and asks Drive nothing',
+    (await recordWhatLanded(browser.chrome, drive.ask, { layout: LAYOUT, inside: 'kartaan', lines: [] })).written === 0
+    && drive.asked.length === 0);
+}
+
+const EXPECTED = 87;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

@@ -701,6 +701,8 @@
         "extension/doors.test.js",
         "extension/drive.js",
         "extension/drive.test.js",
+        "extension/record.js",
+        "extension/record.test.js",
         "extension/driver.js",
         "extension/driver.test.js",
         "extension/nightly.js",
