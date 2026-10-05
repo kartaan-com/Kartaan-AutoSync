@@ -874,7 +874,7 @@ check("and both files are written down as read, tie or no tie",
 # When the fourth arrives on a LATER night, the fifth's 9 is already in the sheet
 # and the fourth is the only reading this run has. `ledger.plan` decides newer
 # from older by the data date a READING carries, and **a row in the sheet carried
-# no date at all** -- the ledger has 49 columns, four of which are supposed to
+# no date at all** -- the ledger has 50 columns, four of which are supposed to
 # say which day's file last wrote each figure. So the fourth's 1 went over the
 # fifth's 9 and nothing anywhere could tell that it should not have.
 #
@@ -976,6 +976,32 @@ check("AND THE NIGHT IS OUR OWN DEFECT, not a quiet count of the platform's",
 check("and the night says out loud that it was Kartaan's ledger that refused",
       _was_lost is not None and "KARTAAN'S OWN LEDGER REFUSED A FILE" in _was_lost.says())
 
+# ---- job 37, second half: the new word reaches rows already in his ledger, and only that column of them
+_old_row = {c: "" for c in sales.COLUMNS}
+_old_row.update({"id": "meesho::S2::B", "platform": "meesho", "orderId": "S2", "sku": "B", "qty": "0",
+                 "status": "CANCELLED", "notes": "his own note", "ordersOn": "2026-08-30", "rev": "3"})
+_the_old_sheet = [list(sales.COLUMNS), [_old_row[c] for c in sales.COLUMNS]]
+_planned = []
+
+
+def _record_for_the_check(readings):
+    _planned.append(ledger.plan(_the_old_sheet, list(readings)))
+
+
+_again = answered(lambda: tool.read_what_is_new(
+    already_read=(),
+    what_is_in_the_folder=lambda report: [a_file("m-1", "meesho_me_orders_2026-08-30.csv")] if report == "me_orders" else [],
+    bring_it_back=lambda which: a_meesho_file("S2,B,0,2026-08-30 10:00:00,CANCELLED,0"),
+    record_the_sales=_record_for_the_check,
+))
+_changed = dict(zip(sales.COLUMNS, _planned[0].update[0][1])) if _planned and _planned[0].update else {}
+check("AN ORDER ALREADY IN HIS LEDGER, READ AGAIN, GAINS THE NEW WORD AND NOTHING ELSE CHANGES",
+      _changed.get("whatHappened") == "Cancelled" and _changed.get("status") == "CANCELLED"
+      and _changed.get("notes") == "his own note" and _changed.get("qty") == "0" and _changed.get("rev") == "4")
+check("and the orders report is entitled to write that column", "whatHappened" in tool.WHAT_ORDERS_KNOWS)
+check("and the rules the read files were read under changed, so every file already read is read once more",
+      tool.READING_RULES != "orders-with-the-platforms-status-word")
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 # ------------------------------------------- job 37: THE ORDERS READER WRITES THE PLATFORM'S STATUS WORD
@@ -1019,7 +1045,7 @@ del tool.WHAT_IS_FETCHED_AND_NOT_READ_YET["zz_gone"]
 check("and the two lists are whole again after those three", tool.why_a_report_has_no_decision() == ""
       and tool.WHAT_IS_FETCHED_AND_NOT_READ_YET == _with_a_reason_too)
 
-EXPECTED = 117
+EXPECTED = 120
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

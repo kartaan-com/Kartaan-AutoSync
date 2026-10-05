@@ -986,9 +986,90 @@ check("and taking any ONE of the four away still stops the writing, by name",
           for one in ledger.WHICH_FILE_LAST_WROTE))
 
 print()
+# ---------------------------------------- job 37, second half: moving an older ledger to the present columns
+
+class ASheetThatCanBeWidened(PretendSheets):
+    """A stand-in that knows its own grid width, takes `appendDimension`, and writes the header row it is given."""
+
+    def __init__(self, header, rows=(), columns=None, sheet_id=7):
+        super().__init__(rows=[list(header)] + [list(r) for r in rows])
+        self.columns = len(header) if columns is None else columns
+        self.sheet_id = sheet_id
+
+    def __call__(self, method, path, query=None, body=None):
+        if method == "GET" and "/values/" not in path and (query or {}).get("fields", "").startswith("sheets.properties("):
+            self.calls.append({"method": method, "path": path, "query": dict(query or {}), "body": body})
+            return {"sheets": [{"properties": {"sheetId": self.sheet_id, "title": "orders",
+                                               "gridProperties": {"columnCount": self.columns}}}]}
+        if method == "POST" and path.endswith(":batchUpdate") and "values" not in path:
+            self.calls.append({"method": method, "path": path, "query": {}, "body": body})
+            for one in body["requests"]:
+                self.columns += one["appendDimension"]["length"]
+            return {}
+        if method == "POST" and path.endswith("values:batchUpdate"):
+            self.calls.append({"method": method, "path": path, "query": {}, "body": body})
+            for one in body["data"]:
+                if one["range"].split("!")[1].split(":")[0] == "A1":
+                    if len(one["values"][0]) > self.columns:
+                        raise drive_door.DriveSaidNo("Range exceeds grid limits")
+                    self.rows[0] = list(one["values"][0])
+            return {}
+        return super().__call__(method, path, query, body)
+
+
+_OLD = list(sales.COLUMNS_BEFORE_WHAT_HAPPENED)
+_a_row_of_his = ["x"] * 49
+_old_ledger = ASheetThatCanBeWidened(_OLD, rows=[_a_row_of_his, _a_row_of_his])
+_said = answered(lambda: tool.move_an_older_ledger(LedgerDoor(_old_ledger, "s")))
+check("A LEDGER WRITTEN BEFORE THE NEW COLUMN IS MOVED: the tab is widened by one, then the header is written",
+      _said and _old_ledger.columns == 50 and _old_ledger.rows[0] == list(sales.COLUMNS)
+      and any("appendDimension" in str(c["body"]) for c in _old_ledger.calls))
+check("and it says so, in words, and that no row was changed",
+      _said and "added at the end" in _said and "No row was changed" in _said)
+check("AND NOT ONE ROW OF HIS WAS TOUCHED: the sales are as they were",
+      _old_ledger.rows[1:] == [_a_row_of_his, _a_row_of_his])
+check("the only cell written is row 1, and it is written RAW",
+      [c["body"]["data"][0]["range"] for c in _old_ledger.calls if c["path"].endswith("values:batchUpdate")] == ["orders!A1:AX1"]
+      and all(c["body"]["valueInputOption"] == "RAW" for c in _old_ledger.calls if c["path"].endswith("values:batchUpdate")))
+check("and the widening asks Google for exactly one more COLUMN on the ledger's own tab, by its numeric id",
+      [c["body"]["requests"] for c in _old_ledger.calls if c["path"].endswith(":batchUpdate") and "requests" in (c["body"] or {})]
+      == [[{"appendDimension": {"sheetId": 7, "dimension": "COLUMNS", "length": 1}}]])
+check("and the header row is asked for on its own, never as part of the whole tab",
+      any("1%3A1" in c["path"] for c in _old_ledger.calls if c["method"] == "GET"))
+_calls_before = len(_old_ledger.calls)
+_again = answered(lambda: tool.move_an_older_ledger(LedgerDoor(_old_ledger, "s")))
+check("A SECOND RUN MOVES NOTHING AND WRITES NOTHING", _again == "" and not any(
+    c["method"] == "POST" for c in _old_ledger.calls[_calls_before:]))
+_halfway = ASheetThatCanBeWidened(_OLD, rows=[_a_row_of_his], columns=50)
+check("a run that died after widening finds the sheet wide and the header short, and only writes the header",
+      answered(lambda: tool.move_an_older_ledger(LedgerDoor(_halfway, "s"))) and _halfway.rows[0] == list(sales.COLUMNS)
+      and not any("appendDimension" in str(c["body"]) for c in _halfway.calls))
+for _why, _header in (
+    ("a header that is a column short of the OLD one", _OLD[:-1]),
+    ("a header with one name changed", ["id", "platform", "WRONG"] + _OLD[3:]),
+    ("a header already the present one", list(sales.COLUMNS)),
+    ("a header with the columns in another order", _OLD[1:] + _OLD[:1]),
+):
+    _other = ASheetThatCanBeWidened(_header, rows=[_a_row_of_his])
+    _out = answered(lambda: tool.move_an_older_ledger(LedgerDoor(_other, "s")))
+    check(f"NOTHING IS MOVED FOR {_why.upper()}: it is left for the refusal that always met it",
+          _out == "" and not any(c["method"] == "POST" for c in _other.calls) and _other.columns == len(_header))
+_no_tab = ASheetThatCanBeWidened(_OLD)
+_no_tab.sheet_id = None
+check("if Google does not say which tab is the ledger's, nothing is widened and nothing is written",
+      isinstance(refused(lambda: tool.move_an_older_ledger(LedgerDoor(_no_tab, "s"))), ledger.LedgerRefused)
+      and not any(c["method"] == "POST" for c in _no_tab.calls))
+_spoken = []
+_through = ASheetThatCanBeWidened(_OLD, rows=[_a_row_of_his])
+_door_and_id = answered(lambda: tool.the_ledger(PretendDrive(), remembered="sheet-7", say=_spoken.append, ask=_through))
+check("THROUGH THE REAL START OF A NIGHT: an older ledger is moved, the night says so, and the header check then passes",
+      _door_and_id is not None and _through.rows[0] == list(sales.COLUMNS)
+      and any("added at the end" in line for line in _spoken)
+      and any("already right" in line for line in _spoken))
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 130
+EXPECTED = 144
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

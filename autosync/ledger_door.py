@@ -44,7 +44,7 @@ is refused in words rather than retried.
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 from ledger import LedgerRefused, Plan
-from sales import COLUMNS, THE_TAB, the_whole_tab
+from sales import COLUMNS, THE_TAB, column_letter, the_whole_tab
 
 # Where the Sheets API is. Written once so nothing can invent a near-miss.
 API = "https://sheets.googleapis.com"
@@ -164,6 +164,62 @@ class LedgerDoor:
             f"/v4/spreadsheets/{self._sheet_id}/values/{_quote(the_whole_tab())}:append",
             query={"valueInputOption": "RAW", "insertDataOption": "INSERT_ROWS"},
             body={"values": [list(COLUMNS)]},
+        )
+
+    def the_header_row(self) -> List[str]:
+        """Row 1 as it stands, and only row 1.
+
+        **ASKED FOR ON ITS OWN, NOT CUT OUT OF `everything()`**, because `everything()` asks for every column the ledger has TODAY, which
+        on a ledger one column short is a range past the sheet's own edge.
+        """
+        self.make_sure_it_is_ours()
+        said = self._ask(
+            "GET",
+            f"/v4/spreadsheets/{self._sheet_id}/values/{_quote(THE_TAB + '!1:1')}",
+        )
+        values = (said or {}).get("values") if isinstance(said, dict) else None
+        return [str(c) for c in (values[0] if values else [])]
+
+    def move_to_the_present_columns(self) -> None:
+        """Widen the tab to the ledger's present width and write the present header over row 1. **Only ever called on a header already
+        checked to be exactly the present one minus its trailing columns** (`ledger_sheet.move_an_older_ledger`), so the names it
+        writes over are the same names.
+
+        **TWO STEPS IN THIS ORDER, EACH SAFE TO DO AGAIN.** The tab is widened first (a cell cannot be written past the sheet's
+        edge), then the header is written. A run that died between the two finds the sheet already wide and the header still short,
+        and does only the second.
+        """
+        self.make_sure_it_is_ours()
+        about = self._ask(
+            "GET",
+            f"/v4/spreadsheets/{self._sheet_id}",
+            query={"fields": "sheets.properties(sheetId,title,gridProperties.columnCount)"},
+        )
+        mine = None
+        for one in (about or {}).get("sheets") or []:
+            props = (one or {}).get("properties") or {}
+            if str(props.get("title") or "").strip() == THE_TAB:
+                mine = props
+        if mine is None or not isinstance(mine.get("sheetId"), int):
+            raise LedgerRefused(
+                f'Google did not say which tab is "{THE_TAB}", so the ledger was not widened and nothing was written to it.'
+            )
+        have = int(((mine.get("gridProperties") or {}).get("columnCount")) or 0)
+        if have < len(COLUMNS):
+            self._ask(
+                "POST",
+                f"/v4/spreadsheets/{self._sheet_id}:batchUpdate",
+                body={"requests": [{"appendDimension": {
+                    "sheetId": mine["sheetId"], "dimension": "COLUMNS", "length": len(COLUMNS) - have,
+                }}]},
+            )
+        self._ask(
+            "POST",
+            f"/v4/spreadsheets/{self._sheet_id}/values:batchUpdate",
+            body={
+                "valueInputOption": "RAW",
+                "data": [{"range": f"{THE_TAB}!A1:{column_letter(len(COLUMNS))}1", "values": [list(COLUMNS)]}],
+            },
         )
 
     def carry_out(self, plan: Plan) -> Dict[str, int]:

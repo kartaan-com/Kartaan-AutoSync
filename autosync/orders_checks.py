@@ -263,6 +263,30 @@ check("AND IT IS CARRIED ON THE SALE EXACTLY AS THE PLATFORM SENT IT, so a cance
 check("a word is never tidied: its case and its underscores are kept as sent",
       [s.status for s in tool.read_orders(a_file(GOOD, ("S9", "A", "1", "2026-08-30", "Delivered_OK", "1")), "meesho").sales]
       == ["Delivered_OK"])
+# ---- job 37, second half: Kartaan's own word beside the platform's
+_words = {
+    "DELIVERED": "Delivered", "Delivered": "Delivered", "CANCELLED": "Cancelled", "Cancelled": "Cancelled",
+    "RETURNED": "Came back", "RTO_COMPLETE": "Came back",
+    "SHIPPED": None, "READY_TO_SHIP": None, "APPROVED": None, "HOLD": None, "PENDING": None, "Unshipped": None,
+    "RETURN_REQUESTED": None, "RTO_INITIATED": None, "RTO_LOCKED": None, "RTO_OFD": None,
+    "LOST": "not understood yet", "DOOR_STEP_EXCHANGED": "not understood yet", "SOMETHING_NEW": "not understood yet",
+}
+check("EVERY WORD HIS REAL FILES CARRY HAS ITS MEANING: an outcome says it, a word still on its way is blank",
+      {w: tool.what_happened(w) for w in _words} == _words)
+check("A WORD NOBODY HAS TRANSLATED READS 'not understood yet' -- never blank, never guessed",
+      tool.what_happened("Zorp") == "not understood yet" and tool.what_happened("  Zorp  ") == "not understood yet")
+check("and the platform saying nothing is nothing, not 'not understood'",
+      tool.what_happened("") is None and tool.what_happened(None) is None and tool.what_happened("   ") is None)
+check("and case does not change the meaning", tool.what_happened("cancelled") == "Cancelled"
+      and tool.what_happened("Delivered") == "Delivered")
+_wh = tool.read_orders(a_file(
+    GOOD, ("S1", "A", "1", "2026-08-30", "DELIVERED", "1"), ("S2", "B", "0", "2026-08-30", "CANCELLED", "1"),
+    ("S3", "C", "1", "2026-08-30", "SHIPPED", "1"), ("S4", "D", "1", "2026-08-30", "LOST", "1")), "meesho")
+check("THE SALE CARRIES BOTH: the platform's word exactly, and Kartaan's beside it",
+      [(s.status, s.what_happened) for s in _wh.sales] == [
+          ("DELIVERED", "Delivered"), ("CANCELLED", "Cancelled"), ("SHIPPED", None), ("LOST", "not understood yet")])
+check("and a cancelled order with a quantity of nought reads cancelled in the new column too",
+      _wh.sales[1].what_happened == "Cancelled" and _wh.sales[1].qty == "0")
 check("and a file with no word on a row leaves the status blank, never a guess",
       [s.status for s in tool.read_orders(a_file(GOOD, ("S9", "A", "1", "2026-08-30", "", "1")), "meesho").sales] == [None])
 check("and no sale is given a state -- a sale read from a file has not been applied",
@@ -347,7 +371,7 @@ if not_run:
 print()
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-WITH_HIS_FILES = 88
+WITH_HIS_FILES = 94
 WITHOUT = WITH_HIS_FILES - 7 * len(REAL) - 3
 EXPECTED = WITH_HIS_FILES if not not_run else WITHOUT
 if ran != EXPECTED:

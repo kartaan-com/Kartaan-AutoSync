@@ -214,6 +214,45 @@ def _unwrap_flipkart_sku(said: str) -> str:
     return text
 
 
+# **WHAT BECAME OF AN ORDER, IN FOUR WORDS (job 37).** Worked out from the platform's own word, which stays beside it untouched in
+# `status`. **ONLY A WORD WHOSE MEANING IS CERTAIN IS TRANSLATED, and only an OUTCOME is.**
+#   - an outcome the platform has finished stating: Delivered, Cancelled, Came back (returned, or an undelivered parcel that
+#     has come back to him);
+#   - a word that says the order is still on its way (shipped, ready to ship, approved, on hold, pending, a return only
+#     REQUESTED or a parcel only on its way back) leaves the cell BLANK -- blank here is the true "nothing has become of it yet",
+#     and it is filled in the day the platform states the outcome;
+#   - **any other word, which includes every word nobody has translated, reads "not understood yet"** -- never blank, never
+#     guessed, so a new word from a platform shows up on the sheet instead of passing for an order still in flight.
+# The words below are those his real files carry (counted 2026-10-05) plus Amazon's plain ones; they are compared in lower case.
+NOT_UNDERSTOOD_YET = "not understood yet"
+DELIVERED = "Delivered"
+CANCELLED = "Cancelled"
+CAME_BACK = "Came back"
+THE_OUTCOME_OF = {
+    "delivered": DELIVERED,
+    "cancelled": CANCELLED,
+    "canceled": CANCELLED,
+    "returned": CAME_BACK,
+    "rto_complete": CAME_BACK,
+}
+STILL_ON_ITS_WAY = frozenset({
+    "shipped", "ready_to_ship", "approved", "hold", "pending", "unshipped",
+    "return_requested", "rto_initiated", "rto_locked", "rto_ofd",
+})
+
+
+def what_happened(their_word: str) -> Optional[str]:
+    """The seller's word for what became of an order, from the platform's own word. **Nothing said is nothing, not "not understood".**"""
+    said = (their_word or "").strip().lower()
+    if said == "":
+        return None
+    if said in THE_OUTCOME_OF:
+        return THE_OUTCOME_OF[said]
+    if said in STILL_ON_ITS_WAY:
+        return None
+    return NOT_UNDERSTOOD_YET
+
+
 @dataclass(frozen=True)
 class Mapping:
     """What one platform calls the things a sale is made of."""
@@ -416,6 +455,8 @@ def read_orders(rows: Table, platform: str,
                 # as a sale with a quantity of nought and no price -- identical to a sale nobody had worked out.
                 # Blank when the file carries none, which is the truthful answer.
                 status=their_word or None,
+                # **AND KARTAAN'S OWN WORD BESIDE IT (job 37, second half).** See `what_happened`.
+                what_happened=what_happened(their_word),
                 # **WHICH DAY'S ORDERS FILE THIS ROW CAME OUT OF (D157).** The
                 # same value on every sale of one file, because it is a fact
                 # about the FILE and not about the row.

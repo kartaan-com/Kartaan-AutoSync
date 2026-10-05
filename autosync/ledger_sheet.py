@@ -270,8 +270,9 @@ def make_sure_the_header_is_there(door: LedgerDoor) -> str:
     What happens to a sheet written before a column existed is undecided (carried
     from D150, D151 and D152), and this refuses rather than deciding it here.
     """
-    rows = door.everything()
-    header = [str(c) for c in (rows[0] if rows else [])]
+    # **ROW 1 ONLY, NOT THE WHOLE TAB.** `everything()` asks for every column the ledger has today, which on a narrower sheet is a
+    # range past its edge, and the refusal below would then arrive as Google's words instead of ours.
+    header = [str(c) for c in door.the_header_row()]
     want = [str(c) for c in sales.the_header()]
     if not any(cell.strip() for cell in header):
         door.write_the_header()
@@ -284,6 +285,25 @@ def make_sure_the_header_is_there(door: LedgerDoor) -> str:
         f"one that differs is column {_first_difference(header, want)}). Nothing "
         "has been written to it. Rewriting row 1 would rename every column of "
         "every sale already in the sheet, so this stops instead."
+    )
+
+
+def move_an_older_ledger(door: LedgerDoor) -> str:
+    """A ledger written before the trailing `whatHappened` column is moved to the present columns. Anything else is left for the next step.
+
+    **ONLY A HEADER THAT IS EXACTLY THE PRESENT ONE MINUS ITS LAST COLUMN IS MOVED** -- all forty-nine names, in order, nothing renamed
+    and nothing missing. A header that is anything else (a column renamed, a different width, a sheet that is not this ledger) is
+    not touched here and meets the refusal in `make_sure_the_header_is_there`, which is what it always met. Moving is adding one empty
+    trailing column and naming it: no row, no figure, no other cell is written.
+
+    **IT SAYS WHEN IT HAS MOVED ONE**, in words, because a ledger that changed width under the seller is not a thing to do in silence.
+    """
+    if list(door.the_header_row()) != [str(c) for c in sales.COLUMNS_BEFORE_WHAT_HAPPENED]:
+        return ""
+    door.move_to_the_present_columns()
+    return (
+        f"The sales ledger was written before the {', '.join(sales.WHAT_HAPPENED_COLUMNS)} column existed, so that column was added "
+        f"at the end ({len(sales.COLUMNS_BEFORE_WHAT_HAPPENED)} columns to {len(sales.COLUMNS)}). No row was changed."
     )
 
 
@@ -413,6 +433,9 @@ def the_ledger(
                     speak(f"The sales ledger could not be put inside the Kartaan folder yet: {wrong}")
         door = LedgerDoor(asking, which)
 
+    moved = move_an_older_ledger(door)
+    if moved:
+        speak(moved)
     speak(f"The sales ledger: {make_sure_the_header_is_there(door)}.")
     return door, which
 
@@ -805,6 +828,10 @@ WHERE_A_COLUMN_COMES_BACK_FROM: Dict[str, Tuple[str, str]] = {
         "own history, so a new sheet starts again from nothing",
     ),
 }
+
+WHERE_A_COLUMN_COMES_BACK_FROM["whatHappened"] = (
+    FROM_THE_FILES, "worked out again from the platform's own status word, which the orders report carries",
+)
 
 for _one in sales.CHARGE_COLUMNS:
     WHERE_A_COLUMN_COMES_BACK_FROM[_one] = (

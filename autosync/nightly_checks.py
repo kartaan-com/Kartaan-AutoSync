@@ -1230,7 +1230,7 @@ check("and both files are still written down as read, tie or no tie",
 # When the fourth arrives on a LATER night, the fifth's 9 is already in the sheet
 # and the fourth is the only reading this run has to sort. `ledger.plan` tells
 # newer from older by the data date a READING carries, and **a row in the sheet
-# carried no date at all** -- 49 columns, four of which are supposed to say which
+# carried no date at all** -- 50 columns, four of which are supposed to say which
 # day's file wrote each figure. So the fourth's 1 went over the fifth's 9 and
 # nothing anywhere could tell that it should not have.
 #

@@ -179,7 +179,16 @@ CHARGE_IDS = (
 CHARGE_COLUMNS = tuple(f"charge_{one}" for one in CHARGE_IDS)
 
 # Every column, in order. **The header row is exactly this.**
-COLUMNS = PLAIN_FIELDS + CHARGE_COLUMNS
+# **WHAT BECAME OF THE ORDER, IN ONE WORD THE SELLER READS (job 37, the ERP's `8de1fbb`).** One trailing column after the charges --
+# never inserted among them, because a sheet is read by position and he raises claims off column letters. Delivered, Cancelled,
+# Came back, or "not understood yet" when a platform has said something this product has no translation for. It sits BESIDE
+# `status`, which keeps the platform's own word exactly as sent.
+WHAT_HAPPENED_COLUMNS = ("whatHappened",)
+
+# The ledger as it was before that column, which is the only older ledger that can be moved to the present one.
+COLUMNS_BEFORE_WHAT_HAPPENED = PLAIN_FIELDS + CHARGE_COLUMNS
+
+COLUMNS = PLAIN_FIELDS + CHARGE_COLUMNS + WHAT_HAPPENED_COLUMNS
 
 # The fields that are figures. **A sheet hands back TEXT for everything**, so
 # whatever reads a row back has to know which ones to turn into numbers -- and
@@ -321,6 +330,8 @@ class Sale:
     returns_on: Optional[str] = None
     payments_on: Optional[str] = None
     claims_on: Optional[str] = None
+    # Kartaan's own plain word for what became of the order (job 37). Worked out from the platform's word in `orders.what_happened`.
+    what_happened: Optional[str] = None
     charges: Dict[str, object] = field(default_factory=dict)
 
     def __post_init__(self):
@@ -397,6 +408,7 @@ FROM_FIELD = {
     "returnsOn": "returns_on",
     "paymentsOn": "payments_on",
     "claimsOn": "claims_on",
+    "whatHappened": "what_happened",
 }
 
 

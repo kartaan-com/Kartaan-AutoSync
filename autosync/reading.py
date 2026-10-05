@@ -111,14 +111,14 @@ from sales import FROM_FIELD
 #
 # **AND ONLY THIS ONE OF THE FOUR.** Returns, payments and claims have no reader,
 # so a date in one of their columns would be a date nobody measured.
-WHAT_ORDERS_KNOWS = ("platform", "orderId", "on", "sku", "qty", "gmv", "status", "ordersOn")
+WHAT_ORDERS_KNOWS = ("platform", "orderId", "on", "sku", "qty", "gmv", "status", "whatHappened", "ordersOn")
 
 # **WHICH RULES THE LIST OF READ FILES WAS MADE UNDER (job 37).** A file already read before the orders
 # reader began to write the platform's status word would never be opened again, so the five cancelled orders
 # already in his ledger would go on looking like sales for ever. Change this name whenever the orders reader
 # learns to write a column it did not, and every file is read once more -- which is safe, because reading a
 # file again writes the same figures and an older file never undoes a newer one (D150 rule 2).
-READING_RULES = "orders-with-the-platforms-status-word"
+READING_RULES = "orders-with-the-platforms-status-word-and-what-happened"
 
 
 
@@ -754,7 +754,7 @@ def _oldest_first(
     **WHAT THIS DOES NOT FIX, AND WHAT NOW DOES: a file arriving on a LATER NIGHT
     than one it is older than.** Tonight's files can be sorted because tonight
     holds them all; last night's figures are already in the sheet, and this sort
-    never sees them. **The ledger is 49 columns wide and four of them say which
+    never sees them. **The ledger is 50 columns wide and four of them say which
     day's file last wrote each figure**, and reading one of those four back is
     what settles the case this sort cannot. **That is not this function's job and never was** -- it is
     `ledger.older_than_the_row`, which reads the row's own date marker back

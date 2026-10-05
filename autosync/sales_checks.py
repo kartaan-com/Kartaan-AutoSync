@@ -168,11 +168,16 @@ check("so every charge column matches",
 
 # ---- everything together ---------------------------------------------------
 
-check("every column is the plain ones then the charge ones, as the ERP has it",
-      "export const COLUMNS = [...PLAIN_FIELDS, ...CHARGE_COLUMNS];" in SHEET_STORE)
+check("every column is the plain ones, then the charge ones, then what-happened, as the ERP has it",
+      "export const COLUMNS = [...PLAIN_FIELDS, ...CHARGE_COLUMNS, ...WHAT_HAPPENED_COLUMNS];" in SHEET_STORE)
+check("and the ERP's what-happened group is the one trailing column this declares",
+      "export const WHAT_HAPPENED_COLUMNS = ['whatHappened'];" in SHEET_STORE
+      and tool.WHAT_HAPPENED_COLUMNS == ("whatHappened",))
 check("and the whole column list matches, end to end",
       tool.COLUMNS == tuple(THEIR_PLAIN or ()) + tuple(
-          f"charge_{i}" for i in (THEIR_CHARGES or ())))
+          f"charge_{i}" for i in (THEIR_CHARGES or ())) + ("whatHappened",))
+check("and the ledger before that column is every column but the last, which is what an older sheet can be moved from",
+      tool.COLUMNS_BEFORE_WHAT_HAPPENED == tool.COLUMNS[:-1] and len(tool.COLUMNS_BEFORE_WHAT_HAPPENED) == 49)
 check("no column is listed twice", len(set(tool.COLUMNS)) == len(tool.COLUMNS))
 
 # ---- the name of a sale ----------------------------------------------------
@@ -272,7 +277,7 @@ check("the id cell is the sale's own name", row[at["id"]] == "meesho::OD1::AAA")
 check("every plain column is written from a field that exists",
       all(hasattr(sale, tool.FROM_FIELD[c]) for c in tool.PLAIN_FIELDS))
 check("and every plain column has a field named for it",
-      set(tool.FROM_FIELD) == set(tool.PLAIN_FIELDS))
+      set(tool.FROM_FIELD) == set(tool.PLAIN_FIELDS) | set(tool.WHAT_HAPPENED_COLUMNS))
 
 charged = tool.Sale(platform="p", order_id="o", charges={"commission": 30, "tcs": 0})
 crow = tool.the_row_for(charged)
@@ -296,8 +301,8 @@ check("the whole tab's range covers every column",
 # It is written out rather than derived ON PURPOSE: derived from `COLUMNS` it
 # would agree with any width at all, including a wrong one, and the whole point
 # of it is to make somebody who changes the width say so here as well.
-check("and it is 49 columns wide today, which is AW",
-      len(tool.COLUMNS) == 49 and tool.the_whole_tab() == "orders!A:AW")
+check("and it is 50 columns wide today, which is AX",
+      len(tool.COLUMNS) == 50 and tool.the_whole_tab() == "orders!A:AX")
 
 # ---- how wide the ledger is, in every place that says so -------------------
 #
@@ -510,7 +515,7 @@ check("a nonsense column count is refused rather than answered",
       refused_by(lambda: tool.column_letter(0)))
 check("and True is not a column count, whatever Python thinks",
       refused_by(lambda: tool.column_letter(True)))
-check("one row's range is that row only", tool.the_range_for(2) == "orders!A2:AW2")
+check("one row's range is that row only", tool.the_range_for(2) == "orders!A2:AX2")
 check("writing a sale to row 1 is REFUSED -- that row is the column names",
       refused_by(lambda: tool.the_range_for(1)))
 
@@ -539,7 +544,7 @@ check("two sales on one order but different SKUs are two rows",
 print()
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 82
+EXPECTED = 84
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
