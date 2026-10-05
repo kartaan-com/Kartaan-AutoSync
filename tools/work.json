@@ -1655,6 +1655,41 @@
         "run_for_real": false,
         "instead": "merge_checks (41), layout_checks (15) and the changed checks pass against a stand-in Drive that remembers parents and moves; the merge has never been run against his real Drive. The first real proof is the plan, which writes nothing."
       }
+    },
+    {
+      "id": "payments-on-the-ledger",
+      "name": "Payment files matched to the ledger's orders: settlement and charges",
+      "what": "Plan job 36. A payments file (Amazon's unified transaction report, Flipkart's settlement workbook, Meesho's payments workbook) is read by autosync/payments.py and put on the ledger rows the orders already made, matched on platform + order id + SKU. A line with no SKU goes to its order's one row; a line for an order the ledger has no row for is SAID and never written as a row. One sign for every platform (a charge is positive when money was taken), blank never nought, a file's several lines for one order added in decimals. The settlement, the twelve charge columns and paymentsOn only (D150 rule 1). Written against his three real files read for shape only: no figure from them is in the repository.",
+      "rests_on": [
+        "the-sales-ledger",
+        "report-list"
+      ],
+      "files": [
+        "autosync/payments.py",
+        "autosync/payments_checks.py"
+      ],
+      "also_touches": [
+        "autosync/ledger.py",
+        "autosync/ledger_sheet.py",
+        "autosync/ledger_sheet_checks.py",
+        "autosync/reading.py",
+        "autosync/reading_checks.py"
+      ],
+      "reviews": [
+        {
+          "round": "A70 job 36",
+          "date": "2026-10-05",
+          "reviewers": 2,
+          "note": "A general-purpose code reviewer and a security reader, both read-only and independent of the author. Fixed before the commit: a line with no SKU is placed only by the reader on the one SKU its own file names (never guessed from the ledger); payments files are applied after orders files; a settlement a newer file changes is said; wrong-width lines are counted; figures of absurd size are not figures; names are shown escaped in the log; header found in parsed rows. Left open and told to Control: newest-file-wins can replace an order's whole earlier settlement with a later part-statement (now said, not prevented); Amazon V2 settlement file shape unconfirmed."
+        }
+      ],
+      "findings": [],
+      "state": {
+        "built": true,
+        "reviewed": "2026-10-05, two independent read-only reviews",
+        "run_for_real": false,
+        "instead": "payments_checks (99) pass against made-up files and, where they are on this machine, his three real ones (shape and an independent sum only). Proved by breaking it on purpose: twenty-one faults put in one at a time, each caught by a named check. Never run against his live ledger."
+      }
     }
   ]
 }

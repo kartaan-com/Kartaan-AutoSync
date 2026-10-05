@@ -37,13 +37,12 @@ is a thing somebody notices; a sentence in a file is not.
 
 ---
 
-**WHAT CAN BE READ TODAY IS ORDERS, AND NOTHING ELSE. Named, never derived.**
+**WHAT CAN BE READ TODAY IS ORDERS AND PAYMENTS, AND NOTHING ELSE. Named, never derived.**
 
-`orders.py` is the only file that knows what a platform calls things, and it
-knows it for orders files. Returns, payments and claims have no mapping
-anywhere, so their files are **not listed, not read and not marked** -- because
-an id in the record for a file nothing has actually read is a file the reader
-written next month would never see.
+`orders.py` knows what a platform calls things in an orders file, and `payments.py` (job 36) in a payments file: a payments
+file is matched to the orders the ledger already has, on the order id, and never makes a row. Returns and claims have no
+mapping anywhere, so their files are **not listed, not read and not marked** -- because an id in the record for a file
+nothing has actually read is a file the reader written next month would never see.
 
 The list below is written out by name rather than worked out from a report id,
 because *"every id ending in `_orders`"* is a check against a spelling, and a
@@ -79,12 +78,15 @@ has its transport handed in -- so every rule above is checked with no Drive, no
 Google account and no internet.
 """
 
+import csv
+import io
 from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 import landing
 import manifest
 import orders
+import payments
 import sheet
 import table
 import whats_new
@@ -134,7 +136,17 @@ class HowToRead:
     knows: Tuple[str, ...]
     which_sheet: Optional[str] = None
     header_row: int = 1
+    # **WHAT KIND OF FILE (job 36).** Orders make the rows of the ledger; payments only add money to rows it already has, and
+    # are matched to them on the order id. Everything below that differs between the two asks this one field.
+    kind: str = "orders"
+    # **FOR A TEXT FILE WHOSE HEADER IS NOT ON A FIXED LINE** (Amazon's unified transaction report has a block of definitions
+    # above it, which the platform may lengthen): the words its header line starts with. Found, never counted down to.
+    header_starts: Optional[str] = None
 
+
+# **WHAT A PAYMENTS REPORT IS ENTITLED TO WRITE (D150 rule 1, job 36):** the settlement, the charges, and the day of the file that
+# said them. Never an order's own columns: a payment cannot change what was sold, only say what was paid for it.
+WHAT_PAYMENTS_KNOW = payments.WHAT_PAYMENTS_KNOW
 
 WHAT_CAN_BE_READ: Tuple[HowToRead, ...] = (
     HowToRead("me_orders", WHAT_ORDERS_KNOWS),
@@ -145,6 +157,26 @@ WHAT_CAN_BE_READ: Tuple[HowToRead, ...] = (
         header_row=orders.FLIPKART_HEADER_ROW,
     ),
     HowToRead("az_orders", WHAT_ORDERS_KNOWS),
+    HowToRead(
+        "fk_payments",
+        WHAT_PAYMENTS_KNOW,
+        which_sheet=payments.WHERE_FLIPKART_PAYMENTS_ARE,
+        header_row=payments.FLIPKART_HEADER_ROW,
+        kind="payments",
+    ),
+    HowToRead(
+        "me_payments",
+        WHAT_PAYMENTS_KNOW,
+        which_sheet=payments.WHERE_MEESHO_PAYMENTS_ARE,
+        header_row=payments.MEESHO_HEADER_ROW,
+        kind="payments",
+    ),
+    HowToRead(
+        "az_settlements",
+        WHAT_PAYMENTS_KNOW,
+        header_starts=payments.AMAZON_HEADER_STARTS,
+        kind="payments",
+    ),
 )
 
 
@@ -164,9 +196,6 @@ WHAT_IS_FETCHED_AND_NOT_READ_YET: Dict[str, str] = {
     "fk_keywords": (
         "switched off by his ruling (piece 49), so it is not fetched at all and has no folder"
     ),
-    "az_settlements": "decided: into the money columns of the ledger, matched on the order id -- piece 36",
-    "fk_payments": "decided: into the money columns of the ledger, matched on the order id -- piece 36",
-    "me_payments": "decided: into the money columns of the ledger, matched on the order id -- piece 36",
     "az_returns": "decided: into the returned columns and the returns screen's lookup -- pieces 78 and 77",
     "fk_returns": "decided: into the returned columns and the returns screen's lookup -- pieces 78 and 77",
     "me_returns": "decided: into the returned columns and the returns screen's lookup -- pieces 78 and 77",
@@ -321,6 +350,28 @@ def what_this_can_read(can_be_read: Sequence[HowToRead] = WHAT_CAN_BE_READ) -> T
     return tuple(one.report_id for one in can_be_read)
 
 
+def _where_the_header_is(how: HowToRead, body: bytes, called: str) -> int:
+    """The line a text file's column names are on: the one named, or the first line that starts with the words given.
+
+    **A FILE WHOSE HEADER IS NOT FOUND IS REFUSED**, not read from line 1: a block of definitions read as a header would name
+    no column the reader needs, and the file would be reported as one with no payments in it.
+    """
+    if not how.header_starts:
+        return how.header_row
+    text = table.one_line_endings(table.as_text(body))
+    wanted = how.header_starts.strip().lower()
+    # **COUNTED IN PARSED ROWS, AS `table.read` COUNTS THEM**, so a definition with a line break inside its quotes cannot make the
+    # two disagree about which row is the header.
+    for number, cells in enumerate(csv.reader(io.StringIO(text)), start=1):
+        # **THE FIRST CELL IS THE WORDS, WHOLE.** A definition above the header can START with the same words
+        # (`Date/Time: Posted date/time of the transaction`), and matching the start of the line takes that for the header.
+        if cells and cells[0].strip().lower() == wanted:
+            return number
+    raise table.CannotRead(
+        f"{called} has no line starting with {how.header_starts!r}, so there is no line to take the column names from."
+    )
+
+
 def _rows_in(how: HowToRead, body: bytes, called: str):
     """The file's rows, whatever kind of file it turns out to be.
 
@@ -338,7 +389,7 @@ def _rows_in(how: HowToRead, body: bytes, called: str):
     if really == "xlsx":
         return sheet.read(body, sheet=how.which_sheet, header_row=how.header_row)
     if really == "csv":
-        return table.read(body, header_row=how.header_row)
+        return table.read(body, header_row=_where_the_header_is(how, body, called))
     raise table.CannotRead(
         f"{called} is {really}, which is not something this can read. It reads a "
         "spreadsheet or a text file, and a page or a wrapper is not either."
@@ -383,11 +434,25 @@ def a_reading(how: HowToRead, one: whats_new.InTheFolder, body: bytes) -> Tuple[
     # there -- so there is no path through here that fills a marker with a
     # guess. Handed down rather than re-read, because two ways of reading a date
     # off a name is two answers waiting to disagree.
-    was = orders.read_orders(rows, which.platform, data_date=when.isoformat())
+    return _a_reading_of_the_rows(how, one, rows, which.platform, when.isoformat())
+
+
+def _a_reading_of_the_rows(how: HowToRead, one: whats_new.InTheFolder, rows, platform: str, day: str) -> Tuple[Reading, int]:
+    """The rows of one file, turned into a reading by whichever reader its kind needs. **The one place the two kinds part.**"""
+    if how.kind == "payments":
+        paid = payments.read_payments(rows, platform, day)
+        return (
+            Reading(
+                report=how.report_id, on=day, knows=how.knows, sales=paid.sales, which=one.which,
+                only_existing=True, set_aside=paid.set_aside,
+            ),
+            len(paid.not_read),
+        )
+    was = orders.read_orders(rows, platform, data_date=day)
     return (
         Reading(
             report=how.report_id,
-            on=when.isoformat(),
+            on=day,
             knows=how.knows,
             sales=was.sales,
             which=one.which,
@@ -439,6 +504,27 @@ def would_a_file_say_which_day_it_is(how: HowToRead) -> bool:
         # A report that writes no marker cannot say which day's file wrote a
         # row, which is the whole of what D157 asked for.
         return False
+    if how.kind == "payments":
+        # **A PAYMENTS FILE IS DRIVEN THE SAME WAY, WITH A ONE-LINE TABLE BUILT OUT OF THE READER'S OWN COLUMN LISTS.** It goes
+        # through the same `_a_reading_of_the_rows` a night uses, so the day it is handed is the day that comes back.
+        try:
+            which = the_report(how.report_id)
+            reading = _a_reading_of_the_rows(
+                how,
+                whats_new.InTheFolder(which="asking", name="", size=1),
+                payments.a_table_to_ask_with(which.platform),
+                which.platform,
+                A_DAY_TO_ASK_WITH,
+            )[0]
+        except Exception:  # noqa: BLE001 - any refusal is an answer of "no"
+            return False
+        return bool(reading.sales) and all(
+            any(
+                str(getattr(sale, FROM_FIELD[marker], "") or "").strip() == A_DAY_TO_ASK_WITH
+                for marker in markers
+            )
+            for sale in reading.sales
+        )
     try:
         which = the_report(how.report_id)
         way = orders.mapping_for(which.platform)
@@ -621,9 +707,13 @@ def _which_day_it_is_about(pair: Tuple[HowToRead, whats_new.InTheFolder]):
     own id breaks a tie, so two files of one report and one day are handed over in
     the same order every time rather than in whatever order a listing came back.
     """
-    _, one = pair
+    how, one = pair
     when = landing.data_date_in(one.name)
-    return (when is None, when.isoformat() if when is not None else "", one.which)
+    # **PAYMENTS AFTER ORDERS, WHATEVER DAY EACH IS ABOUT (job 36).** A payments file adds money to rows the orders files make, and
+    # is written down as read when it has been applied. Taken in plain day order a catch-up night applies a settlement before the
+    # orders it settles, every line finds no row, and the file is read for good with its money on nothing. The two kinds write
+    # different columns under different markers, so putting every payments file after every orders file changes no figure.
+    return (how.kind == "payments", when is None, when.isoformat() if when is not None else "", one.which)
 
 
 def _oldest_first(

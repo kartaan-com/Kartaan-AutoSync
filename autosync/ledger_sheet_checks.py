@@ -857,9 +857,12 @@ check("A READER THAT PUTS NO DAY IN THE MARKER IS REFUSED, "
       tool.why_it_must_not_write_yet() != ""
       and ledger.what_the_sheet_cannot_yet_say() == ()
       and ledger.would_an_older_file_be_stopped(reading.WHAT_ORDERS_KNOWS))
-check("and it names every report, because no reader fills one",
+check("and it names every orders report, because no orders reader fills one",
       all(one.report_id in tool.why_it_must_not_write_yet()
-          for one in reading.WHAT_CAN_BE_READ))
+          for one in reading.WHAT_CAN_BE_READ if one.kind == "orders"))
+check("and it does not blame a payments report for an orders reader's fault",
+      not any(one.report_id in tool.why_it_must_not_write_yet()
+              for one in reading.WHAT_CAN_BE_READ if one.kind == "payments"))
 orders.read_orders = _the_real_reader
 
 orders.read_orders = _a_reader_that_says_one_fixed_day
@@ -985,7 +988,7 @@ check("and taking any ONE of the four away still stops the writing, by name",
 print()
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 129
+EXPECTED = 130
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

@@ -477,6 +477,15 @@ def recording_into(
             speak(f"SALES LEDGER OLDER THAN THE ROW  {one}")
         for one in what.unreadable:
             speak(f"SALES LEDGER UNREADABLE ROW  {one}")
+        # **MONEY THAT HAS NO ORDER TO GO ON IS SAID, ONE LINE EACH (job 36).** A payment for an order the ledger does not hold
+        # is never written as a row and never dropped: it is named here, and the file it came from stays in his folder.
+        for one in what.unmatched:
+            speak(f"SALES LEDGER PAYMENT WITH NO ORDER  {one}")
+        for one in what.restated:
+            speak(f"SALES LEDGER PAYMENT RESTATED  {one}")
+        for each in readings or ():
+            for line in each.set_aside:
+                speak(f"SALES LEDGER PAYMENT FILE SET ASIDE  {each.report} of {each.on}: {line}")
         # **AND A FILE HELD BACK BY A CELL SOMEBODY TYPED OVER IS REFUSED, WHICH
         # IS THE ONLY WAY IT EVER GETS READ AGAIN (A32).**
         #

@@ -91,6 +91,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 # deciding it here would be a second answer waiting to disagree, and what it
 # decides is whether an older file may put its figure over a newer one.
 from orders import the_day_in
+from payments import two_sales_of_one_row
 from sales import COLUMNS, FROM_FIELD, Sale, a_cell, name_for, the_row_for
 from table import CannotRead
 
@@ -261,6 +262,15 @@ class Reading:
     # been decided, which is what makes a tie visible at all.
     which: str = ""
 
+    # **A PAYMENTS FILE ADDS TO ORDERS THE LEDGER ALREADY HAS, AND NEVER MAKES ONE (job 36).** A payment line for an order the
+    # ledger holds no row for is not a sale: it is money nobody has an order for, and appended it would put a row in the seller's
+    # sheet with a figure and no quantity, no price and no date -- which then looks like an order. Such a line is kept out of the
+    # sheet and SAID (`Plan.unmatched`), never dropped and never turned into a row.
+    only_existing: bool = False
+    # **WHAT THE FILE CARRIED THAT IS NOT ABOUT AN ORDER**, one sentence per kind, for the run to say (a payout, a service fee, a
+    # line the platform has not released). Carried here because only the reader knows what it set aside.
+    set_aside: Tuple[str, ...] = ()
+
     @property
     def one_statement(self) -> str:
         """What counts as ONE statement for rule 3: this file, not this report."""
@@ -384,6 +394,45 @@ class OlderThanTheRow:
 
 
 @dataclass(frozen=True)
+class Unmatched:
+    """A payment line for an order the ledger has no row for -- or no one row for. Said, never written, never lost (job 36)."""
+
+    name: str
+    why: str
+    from_report: str
+    on: str
+    from_file: str = ""
+
+    def __str__(self) -> str:
+        # The name comes out of a platform's file, so it is said with its control characters shown, not acted on.
+        said = f"{self.name!r}: {self.why} ({self.from_report} of {self.on}"
+        return said + (f", file {self.from_file})" if self.from_file else ")")
+
+
+@dataclass(frozen=True)
+class Restated:
+    """A newer payments file put a different settlement over one an earlier file had written. Said, so it can be looked at (job 36).
+
+    **THE NEWEST STATEMENT STILL WINS (D150 rule 2) -- BUT A FILE MAY STATE ONLY PART OF AN ORDER'S MONEY** (a refund line in a
+    later settlement, a deferred line released later), and then the figure it puts over the earlier one is that part, not the
+    whole. Nothing here can tell which, so the replacement is named: whoever reads the log can open both files.
+    """
+
+    name: str
+    was: str
+    now: str
+    from_report: str
+    on: str
+    from_file: str = ""
+
+    def __str__(self) -> str:
+        return (
+            f"{self.name!r}: settlement was {self.was} and {self.from_report} of {self.on} says {self.now}"
+            + (f" (file {self.from_file})" if self.from_file else "")
+        )
+
+
+@dataclass(frozen=True)
 class Plan:
     """What the door should do, and what nobody could decide."""
 
@@ -394,6 +443,10 @@ class Plan:
     touched: Tuple[str, ...] = ()
     # **WHAT AN OLDER FILE WAS NOT ALLOWED TO UNDO.** Never a count on its own.
     left_alone: Tuple[OlderThanTheRow, ...] = ()
+    # **MONEY THAT HAS NO ORDER TO GO ON (job 36).** Never a count on its own: each line is named.
+    unmatched: Tuple[Unmatched, ...] = ()
+    # **A SETTLEMENT A NEWER PAYMENTS FILE CHANGED** (job 36). Never a count on its own: each is named.
+    restated: Tuple[Restated, ...] = ()
 
     def says(self) -> str:
         """One line for the run log. **Every count, even the noughts.**"""
@@ -401,7 +454,9 @@ class Plan:
             f"{len(self.append)} sales added, {len(self.update)} updated, "
             f"{len(self.disagreements)} disagreements reported, "
             f"{len(self.left_alone)} left alone as older than the row, "
-            f"{len(self.unreadable)} rows in the sheet unreadable"
+            f"{len(self.unreadable)} rows in the sheet unreadable, "
+            f"{len(self.unmatched)} payment lines with no order to go on, "
+            f"{len(self.restated)} settlements restated by a newer payments file"
         )
 
     @property
@@ -686,6 +741,55 @@ def _what_the_sheet_remembers(
     return None
 
 
+def _put_each_on_its_row(
+    reading: "Reading",
+    now: Dict[str, Dict[str, str]],
+    poisoned,
+) -> Tuple[List[Tuple[str, Sale]], List[Unmatched]]:
+    """Which ledger row each line of a payments file is about, and which lines are about none (job 36).
+
+    **THE KEY IS PLATFORM + ORDER ID + SKU, exactly as the orders reader made the row.** A line that names a SKU goes to that row
+    or to nothing: sent to "the only row the order has" it would put one item's money on another item whenever the second item's
+    orders file had not arrived yet. **A line with NO SKU** (Amazon's shipping fee for an order is one) is placed by the READER on its order's one SKU when its
+    own file names exactly one (`payments._Lines`); any that reaches here has nothing certain to go on, and is said.
+
+    **TWO LINES OF ONE FILE FOR ONE ROW ARE ADDED TOGETHER HERE**, not left to overwrite each other: the second would otherwise
+    replace the first's figure, and what the platform said about the order would be only its last line.
+    """
+    rows_of_order: Dict[Tuple[str, str], List[str]] = {}
+    for held_name, row in now.items():
+        rows_of_order.setdefault((row.get("platform", ""), row.get("orderId", "")), []).append(held_name)
+
+    landed: Dict[str, Sale] = {}
+    said: List[Unmatched] = []
+    for sale in reading.sales:
+        target = sale.id if sale.id in now else None
+        if target is None and sale.id in poisoned:
+            continue  # reported already, as an unreadable row; written to nowhere
+        if target is None:
+            there = [n for n in rows_of_order.get((sale.platform, sale.order_id), ()) if n not in poisoned]
+            if not sale.sku and there:
+                # **NEVER PLACED BY GUESSING FROM THE LEDGER.** The reader places a line with no SKU on its order's one SKU when
+                # its own file names exactly one. What is left names none, and the ledger may not yet hold the order's other
+                # items, so "the only row it has" could be the wrong item's.
+                why = (
+                    "this line names no SKU and the file names no single SKU to put it on, so which of the order's "
+                    f"{len(there)} row(s) it belongs to cannot be said"
+                )
+            elif there:
+                why = "the ledger has this order, but not under this SKU"
+            else:
+                why = "the ledger has no row for this order"
+            if target is None:
+                said.append(Unmatched(
+                    name=sale.id, why=why, from_report=reading.report, on=reading.on,
+                    from_file=reading.one_statement,
+                ))
+                continue
+        landed[target] = two_sales_of_one_row(landed[target], sale) if target in landed else sale
+    return list(landed.items()), said
+
+
 def plan(
     values: Sequence[Sequence[str]],
     readings: Sequence[Reading],
@@ -731,9 +835,16 @@ def plan(
     # named for exactly that. It is reported, in `unreadable`, and left alone.
     poisoned = {u.name for u in unreadable if u.name}
 
+    unmatched: List[Unmatched] = []
+    restated: List[Restated] = []
+
     for reading in in_order:
-        for sale in reading.sales:
-            name = sale.id
+        if reading.only_existing:
+            sales_here, said_lines = _put_each_on_its_row(reading, now, poisoned)
+            unmatched.extend(said_lines)
+        else:
+            sales_here = [(sale.id, sale) for sale in reading.sales]
+        for name, sale in sales_here:
             if name in poisoned:
                 continue
             says = _what_a_sale_says(sale, reading.knows)
@@ -819,6 +930,11 @@ def plan(
                         ))
                     continue
                 if str(was) != str(value):
+                    if reading.only_existing and column == "settlement" and str(was) != "":
+                        restated.append(Restated(
+                            name=name, was=str(was), now=str(value), from_report=reading.report,
+                            on=reading.on, from_file=reading.one_statement,
+                        ))
                     now[name][column] = value
                     changed[name] = True
                 decided_on.now_decided(name, column, reading.on, reading.one_statement)
@@ -851,4 +967,6 @@ def plan(
         unreadable=unreadable,
         touched=tuple(touched),
         left_alone=tuple(left_alone),
+        unmatched=tuple(unmatched),
+        restated=tuple(restated),
     )
