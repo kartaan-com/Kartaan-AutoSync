@@ -17,8 +17,27 @@
  * **PURE, LIKE `drive.js` `theListWith`:** every rule below can be driven with no Drive and no token.
  */
 
-/** What the file is called. The same words as `manifest.EXTENSION_FILE_NAME` in the Python. */
-export const THE_EXTENSIONS_RECORD = 'extension-manifest.json';
+/** What every extension record's name starts with. The same words as `manifest.EXTENSION_FILE_PREFIX` in the Python.
+ *
+ *  **ONE FILE PER INSTALL, NOT PER SELLER (Control, 2026-10-05).** A seller can have the extension in two Chrome
+ *  profiles or on two machines under one Google account; two installs writing one file would lose each other's
+ *  lines and, creating it at the same moment, leave two copies that refuse every write for ever. Each install
+ *  names its file with its own short id, so every file still has exactly one writer and the reader joins them all. */
+export const THE_EXTENSIONS_RECORD_STARTS = 'extension-manifest-';
+
+/** An install's id: eight lowercase hex digits, made once and kept. */
+export function aFreshInstallId() {
+  const bytes = crypto.getRandomValues(new Uint8Array(4));
+  return [...bytes].map((one) => one.toString(16).padStart(2, '0')).join('');
+}
+
+/** What this install's record is called. Refuses an id that is not one, so no stray name is ever made. */
+export function theRecordNameFor(installId) {
+  if (!/^[0-9a-f]{8}$/.test(String(installId || ''))) {
+    throw new Error('This install has no usable id, so it has no record to write.');
+  }
+  return `${THE_EXTENSIONS_RECORD_STARTS}${installId}.json`;
+}
 
 /** Which shape of record this writes. The same number as `manifest.SHAPE`. */
 export const THE_RECORDS_SHAPE = 2;
@@ -71,19 +90,19 @@ export function theLinesIn(text) {
   try {
     said = JSON.parse(text);
   } catch (wrong) {
-    throw new TheRecordIsDamaged(`${THE_EXTENSIONS_RECORD} is there and cannot be read: ${wrong.message}`);
+    throw new TheRecordIsDamaged(`The record of what the extension landed is there and cannot be read: ${wrong.message}`);
   }
   if (!said || typeof said !== 'object' || !Array.isArray(said.lines)) {
-    throw new TheRecordIsDamaged(`${THE_EXTENSIONS_RECORD} is there and is not a record of this kind.`);
+    throw new TheRecordIsDamaged('The record of what the extension landed is there and is not a record of this kind.');
   }
   if (said.shape !== 1 && said.shape !== THE_RECORDS_SHAPE) {
     throw new TheRecordIsDamaged(
-      `${THE_EXTENSIONS_RECORD} is written in shape ${said.shape} and this writes shape ${THE_RECORDS_SHAPE}.`
+      `The record of what the extension landed is written in shape ${said.shape} and this writes shape ${THE_RECORDS_SHAPE}.`
     );
   }
   for (const one of said.lines) {
     if (!one || !aRealDay(one.dataDate) || !one.reportId || one.state !== 'verified') {
-      throw new TheRecordIsDamaged(`${THE_EXTENSIONS_RECORD} holds a line that is not one of this writer's.`);
+      throw new TheRecordIsDamaged('The record of what the extension landed holds a line that is not one of this install.');
     }
   }
   return said.lines;

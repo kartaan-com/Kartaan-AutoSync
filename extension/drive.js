@@ -33,7 +33,7 @@
  * no internet.
  */
 
-import { THE_EXTENSIONS_RECORD, theRecordWith } from './record.js';
+import { theRecordWith } from './record.js';
 import { theSpreadsheetInside } from './unzip.js';
 
 /* The one scope this asks for. **`drive.file` and nothing wider**: it reaches
@@ -684,7 +684,8 @@ export function aWayOfAsking(chrome, { fetch, interactive = false }) {
 }
 
 /**
- * Write what has just landed into the extension's own record, `Kartaan / System / extension-manifest.json`.
+ * Write what has just landed into this install's own record, `Kartaan / System / extension-manifest-<id>.json`.
+ * `fileName` is `record.js` `theRecordNameFor` of the install's id.
  *
  * **READ, MERGED AND REPLACED IN PLACE -- BY THE ONLY WRITER THERE IS (job 38).** The run keeps its own
  * file beside it, so nothing here can race anything: two writers on one file lose a line whenever both
@@ -692,21 +693,21 @@ export function aWayOfAsking(chrome, { fetch, interactive = false }) {
  * read as empty -- written over, that would say nothing has ever landed. Two files of the name refuse
  * too: which one holds the history cannot be known.
  */
-export async function recordWhatLanded(chrome, ask, { layout, inside, lines }) {
+export async function recordWhatLanded(chrome, ask, { layout, inside, lines, fileName }) {
   if (!lines || !lines.length) return { written: 0 };
   const folderId = await folderAt(chrome, ask, layout, ['System'], inside);
   const already = await whatIsAlreadyThere(chrome, ask, folderId);
-  const mine = already.filter((one) => one && one.name === THE_EXTENSIONS_RECORD);
+  const mine = already.filter((one) => one && one.name === fileName);
   if (mine.length > 1) {
     throw new DriveSaidNo(
-      `There are ${mine.length} copies of ${THE_EXTENSIONS_RECORD} in the seller's Drive, so nothing `
+      `There are ${mine.length} copies of ${fileName} in the seller's Drive, so nothing `
       + 'has been added to either: which one holds what landed cannot be known.'
     );
   }
   let standing = '';
   if (mine.length === 1) {
     const got = await ask({ address: `${FILES}/${mine[0].id}?alt=media` });
-    standing = await (await answered(chrome, got, `reading ${THE_EXTENSIONS_RECORD}`)).text();
+    standing = await (await answered(chrome, got, `reading ${fileName}`)).text();
   }
   const whole = theRecordWith(standing, lines); // refuses a record that is there and cannot be read
   const body = new TextEncoder().encode(whole);
@@ -714,15 +715,15 @@ export async function recordWhatLanded(chrome, ask, { layout, inside, lines }) {
     const reply = await ask({
       address: `${UPLOAD}/${mine[0].id}?uploadType=media&fields=id,name,size`,
       how: 'PATCH',
-      kind: kindOf(THE_EXTENSIONS_RECORD),
+      kind: kindOf(fileName),
       body,
     });
-    await answered(chrome, reply, `adding to ${THE_EXTENSIONS_RECORD}`);
+    await answered(chrome, reply, `adding to ${fileName}`);
   } else {
     await putTheFile(chrome, ask, {
       folderId,
-      fileName: THE_EXTENSIONS_RECORD,
-      kind: kindOf(THE_EXTENSIONS_RECORD),
+      fileName,
+      kind: kindOf(fileName),
       size: body.length,
       by: howToUpload(body.length),
     }, body);

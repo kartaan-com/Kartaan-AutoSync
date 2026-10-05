@@ -691,7 +691,7 @@ check('and other files in the folder are none of its business',
   const browser = installFakeChrome();
   const drive = aDrive({ holds: [] });
   const first = await recordWhatLanded(browser.chrome, drive.ask, {
-    layout: LAYOUT, inside: 'kartaan', lines: [aLine('2026-09-20')],
+    layout: LAYOUT, inside: 'kartaan', fileName: 'extension-manifest-0a1b2c3d.json', lines: [aLine('2026-09-20')],
   });
   check('the first landing makes System and puts the extension own record in it, saying how many lines',
     first.written === 1 && drive.made.map((one) => one.name).join() === 'System'
@@ -706,10 +706,10 @@ check('and other files in the folder are none of its business',
   });
   const browser = installFakeChrome();
   const system = { id: 'sys', name: 'System', mimeType: FOLDER, parents: ['kartaan'] };
-  const record = { id: 'rec', name: 'extension-manifest.json', parents: ['sys'], contents: '' };
+  const record = { id: 'rec', name: 'extension-manifest-0a1b2c3d.json', parents: ['sys'], contents: '' };
   const drive = aDrive({ holds: [system, record] });
-  await recordWhatLanded(browser.chrome, drive.ask, { layout: LAYOUT, inside: 'kartaan', lines: [aLine('2026-09-20')] });
-  await recordWhatLanded(browser.chrome, drive.ask, { layout: LAYOUT, inside: 'kartaan', lines: [aLine('2026-09-21')] });
+  await recordWhatLanded(browser.chrome, drive.ask, { layout: LAYOUT, inside: 'kartaan', fileName: 'extension-manifest-0a1b2c3d.json', lines: [aLine('2026-09-20')] });
+  await recordWhatLanded(browser.chrome, drive.ask, { layout: LAYOUT, inside: 'kartaan', fileName: 'extension-manifest-0a1b2c3d.json', lines: [aLine('2026-09-21')] });
   const lines = JSON.parse(record.contents).lines;
   check('the second landing is added to the first in the same file, and both are there',
     lines.map((one) => one.dataDate).join() === '2026-09-20,2026-09-21');
@@ -721,10 +721,10 @@ check('and other files in the folder are none of its business',
   /* **A RECORD THAT IS THERE AND CANNOT BE READ IS LEFT EXACTLY AS IT WAS.** */
   const browser = installFakeChrome();
   const system = { id: 'sys', name: 'System', mimeType: FOLDER, parents: ['kartaan'] };
-  const broken = { id: 'rec', name: 'extension-manifest.json', parents: ['sys'], contents: '{not a record' };
+  const broken = { id: 'rec', name: 'extension-manifest-0a1b2c3d.json', parents: ['sys'], contents: '{not a record' };
   const drive = aDrive({ holds: [system, broken] });
   const wrong = await said(() => recordWhatLanded(browser.chrome, drive.ask, {
-    layout: LAYOUT, inside: 'kartaan',
+    layout: LAYOUT, inside: 'kartaan', fileName: 'extension-manifest-0a1b2c3d.json',
     lines: [{ dataDate: '2026-09-20', reportId: 'me_orders', state: 'verified', fileName: 'x', fileSize: 1, checkedOn: '' }],
   }));
   check('a record that cannot be read refuses and says so', wrong.includes('cannot be read'));
@@ -737,11 +737,11 @@ check('and other files in the folder are none of its business',
   const system = { id: 'sys', name: 'System', mimeType: FOLDER, parents: ['kartaan'] };
   const drive = aDrive({
     holds: [system,
-      { id: 'one', name: 'extension-manifest.json', parents: ['sys'], contents: '' },
-      { id: 'two', name: 'extension-manifest.json', parents: ['sys'], contents: '' }],
+      { id: 'one', name: 'extension-manifest-0a1b2c3d.json', parents: ['sys'], contents: '' },
+      { id: 'two', name: 'extension-manifest-0a1b2c3d.json', parents: ['sys'], contents: '' }],
   });
   const wrong = await said(() => recordWhatLanded(browser.chrome, drive.ask, {
-    layout: LAYOUT, inside: 'kartaan',
+    layout: LAYOUT, inside: 'kartaan', fileName: 'extension-manifest-0a1b2c3d.json',
     lines: [{ dataDate: '2026-09-20', reportId: 'me_orders', state: 'verified', fileName: 'x', fileSize: 1, checkedOn: '' }],
   }));
   check('two records of the name refuse, naming how many, rather than choosing between them',
@@ -752,11 +752,25 @@ check('and other files in the folder are none of its business',
   const browser = installFakeChrome();
   const drive = aDrive({ holds: [] });
   check('landing nothing writes nothing at all and asks Drive nothing',
-    (await recordWhatLanded(browser.chrome, drive.ask, { layout: LAYOUT, inside: 'kartaan', lines: [] })).written === 0
+    (await recordWhatLanded(browser.chrome, drive.ask, { layout: LAYOUT, inside: 'kartaan', fileName: 'extension-manifest-0a1b2c3d.json', lines: [] })).written === 0
     && drive.asked.length === 0);
 }
 
-const EXPECTED = 87;
+{
+  /* **TWO INSTALLS ON ONE GOOGLE ACCOUNT NEVER TOUCH EACH OTHER'S RECORD (Control, 2026-10-05).** */
+  const browser = installFakeChrome();
+  const system = { id: 'sys', name: 'System', mimeType: FOLDER, parents: ['kartaan'] };
+  const first = { id: 'a', name: 'extension-manifest-0a1b2c3d.json', parents: ['sys'], contents: '{"shape":2,"reads":[],"lines":[]}' };
+  const drive = aDrive({ holds: [system, first] });
+  await recordWhatLanded(browser.chrome, drive.ask, {
+    layout: LAYOUT, inside: 'kartaan', fileName: 'extension-manifest-ffeeddcc.json',
+    lines: [{ dataDate: '2026-09-20', reportId: 'me_orders', state: 'verified', fileName: 'x', fileSize: 1, checkedOn: '' }],
+  });
+  check('a second install writes its own file and leaves the first install record exactly as it was',
+    first.contents === '{"shape":2,"reads":[],"lines":[]}' && drive.put.length === 1 && !drive.put[0].address.includes('/a'));
+}
+
+const EXPECTED = 88;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

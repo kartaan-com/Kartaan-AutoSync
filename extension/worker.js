@@ -25,7 +25,7 @@ import { goTo, routeInThePage, takeTheFile, watchForDownloads } from './doors.js
 import {
   aDriveToken, aWayOfAsking, addARowTo, landTheFile, recordWhatLanded, theKartaanFolder,
 } from './drive.js';
-import { theLinesFor } from './record.js';
+import { aFreshInstallId, theLinesFor, theRecordNameFor } from './record.js';
 import {
   THE_PANEL_ASKS, alreadyCarriedOn, answerThePanelsQuestion, markCarriedOn, releaseCarriedOn, rememberTheNight,
   startASync, startTheNextPlatform, startTheScheduledSync, theSetup, theSignInAlert, theSyncSummary,
@@ -272,6 +272,16 @@ const putOneFileAway = async ({ reportId, fileName, body }) => {
   return landed;
 };
 
+/** This install's own id, made once and kept, so its record is the only file it ever writes (Control, 2026-10-05). */
+const THE_INSTALL_ID = 'kartaan-install-id';
+const theInstallId = async () => {
+  const held = (await chrome.storage.local.get(THE_INSTALL_ID))[THE_INSTALL_ID];
+  if (typeof held === 'string' && /^[0-9a-f]{8}$/.test(held)) return held;
+  const made = aFreshInstallId();
+  await chrome.storage.local.set({ [THE_INSTALL_ID]: made });
+  return made;
+};
+
 /** What the night log is called to the layout. Not a report, so it has no line in the record. */
 const THE_NIGHT_LOG = 'run_log';
 
@@ -283,7 +293,9 @@ const THE_NIGHT_LOG = 'run_log';
 let theRecordQueue = Promise.resolve();
 const writeItDown = (ask, layout, inside, lines) => {
   theRecordQueue = theRecordQueue
-    .then(() => recordWhatLanded(chrome, ask, { layout, inside, lines }))
+    .then(async () => recordWhatLanded(chrome, ask, {
+      layout, inside, lines, fileName: theRecordNameFor(await theInstallId()),
+    }))
     .catch((wrong) => {
       // eslint-disable-next-line no-console
       console.warn(`What landed could not be written in the extension's own record: ${wrong && wrong.message}`);

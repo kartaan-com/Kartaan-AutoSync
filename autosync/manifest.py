@@ -150,6 +150,7 @@ rule below be driven with no Google account, no token and no internet.
 """
 
 import json
+import re
 from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
@@ -180,7 +181,12 @@ READABLE_SHAPES = (1, 2)
 # lines and writes the whole file back, and the later save puts back the other's old lines. So every writer
 # has exactly one file and it is the only writer of it; a reader puts the two together. Both sit in
 # `Kartaan / System`, in the same shape, and neither can touch the other's.
-EXTENSION_FILE_NAME = "extension-manifest.json"
+#
+# **AND ONE FILE PER INSTALL, NOT PER SELLER.** A seller can have the extension in two Chrome profiles or on
+# two machines; each names its own file `extension-manifest-<8 hex>.json`, so every file has exactly one writer,
+# and `cross_check` takes them all.
+EXTENSION_FILE_SHAPE = r"extension-manifest-[0-9a-f]{8}\.json"
+EXTENSION_FILE_PREFIX = "extension-manifest-"
 
 # The two things a line can say. **There is a third answer and it is the absence
 # of a line** -- see the table at the top of this file. It has no spelling here
@@ -529,18 +535,25 @@ class Crossing:
     rows_read: Optional[int] = None
 
 
-def cross_check(run: Standing, extension: Standing) -> Tuple[Crossing, ...]:
+def is_an_extension_record(file_name: str) -> bool:
+    """Is this file name one install's record of what the extension landed?"""
+    return re.fullmatch(EXTENSION_FILE_SHAPE, str(file_name or "")) is not None
+
+
+def cross_check(run: Standing, extension) -> Tuple[Crossing, ...]:
     """What landed and what was read, put together from the two writers' own files.
 
-    **THE RUN'S FILE AND THE EXTENSION'S ARE READ SEPARATELY AND JOINED HERE**, so neither writer ever
-    writes the other's file and no line can be lost to a race. Where both say something about one report on
+    **THE RUN'S FILE AND EVERY INSTALL'S ARE READ SEPARATELY AND JOINED HERE**, so no writer ever writes
+    another's file and no line can be lost to a race. `extension` is one install's record or a list of them
+    (a seller can have the extension on two machines). Where both say something about one report on
     one day (they should not: a report has one door), a verified line wins over a missing one.
 
     **THE THREE THINGS NOBODY MUST BE LEFT TO GUESS:** a file that landed and was never read, a reading with
     no record of the file landing, and -- from the lines themselves -- a day that is missing.
     """
     landed: Dict[Tuple[date, str], Tuple[Line, str]] = {}
-    for who, record in (("the run", run), ("the extension", extension)):
+    installs = (extension,) if isinstance(extension, Standing) else tuple(extension or ())
+    for who, record in (("the run", run),) + tuple(("the extension", one) for one in installs):
         for one in record.lines:
             was = landed.get(one.key)
             if was is None or (one.state == VERIFIED and was[0].state != VERIFIED):

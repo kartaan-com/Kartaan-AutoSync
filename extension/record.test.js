@@ -9,7 +9,7 @@
 
 import { readFileSync } from 'node:fs';
 import {
-  THE_EXTENSIONS_RECORD, THE_RECORDS_SHAPE, TheRecordIsDamaged, aLineFor, theDayInAName, theLinesFor, theLinesIn,
+  THE_EXTENSIONS_RECORD_STARTS, THE_RECORDS_SHAPE, aFreshInstallId, theRecordNameFor, TheRecordIsDamaged, aLineFor, theDayInAName, theLinesFor, theLinesIn,
   theRecordWith,
 } from './record.js';
 
@@ -39,8 +39,17 @@ const threw = (work) => {
 /* ---------------------------------------------------- the same words as the Python */
 
 const PYTHON = readFileSync(new URL('../autosync/manifest.py', import.meta.url), 'utf8');
-check('the record is called what the Python says the extension\'s record is called',
-  PYTHON.includes(`EXTENSION_FILE_NAME = "${THE_EXTENSIONS_RECORD}"`));
+check("every install record starts with what the Python says the extension records start with",
+  PYTHON.includes(`EXTENSION_FILE_PREFIX = "${THE_EXTENSIONS_RECORD_STARTS}"`));
+check("and the name is built to the pattern the Python recognises one by",
+  PYTHON.includes('EXTENSION_FILE_SHAPE = r"extension-manifest-[0-9a-f]{8}')
+  && /^extension-manifest-[0-9a-f]{8}[.]json$/.test(theRecordNameFor('0a1b2c3d')));
+check("an install id is eight lowercase hex digits, a fresh one every time it is made",
+  /^[0-9a-f]{8}$/.test(aFreshInstallId()) && aFreshInstallId() !== aFreshInstallId());
+check("an id that is not one makes no name, so no stray file is ever written",
+  [undefined, '', 'XYZ', '0A1B2C3D', '0a1b2c3', '0a1b2c3dd'].every((one) => {
+    try { theRecordNameFor(one); return false; } catch (wrong) { return true; }
+  }));
 check('and it is written in the shape the Python reads and writes',
   new RegExp(`^SHAPE = ${THE_RECORDS_SHAPE}$`, 'm').test(PYTHON));
 
@@ -107,7 +116,7 @@ check('a shape-1 record (before reads existed) is read and kept',
   theLinesIn('{"shape": 1, "lines": []}').length === 0);
 check('no text at all is a first landing, which is not damage', theLinesIn(null).length === 0 && theLinesIn('').length === 0);
 
-const EXPECTED = 20;
+const EXPECTED = 23;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

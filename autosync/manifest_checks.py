@@ -686,7 +686,23 @@ the_extensions = answered(lambda: tool.read_record(FROM_THE_EXTENSION))
 check("the run reads the extension's record as it is written, line for line",
       the_extensions is not None and the_extensions.reads == () and len(the_extensions.lines) == 1
       and the_extensions.lines[0].report_id == "me_orders" and the_extensions.lines[0].file_size == 400
-      and tool.EXTENSION_FILE_NAME == "extension-manifest.json")
+      and tool.EXTENSION_FILE_PREFIX == "extension-manifest-")
+check("an install's record is recognised by its name, and nothing else is",
+      tool.is_an_extension_record("extension-manifest-0a1b2c3d.json")
+      and not tool.is_an_extension_record("extension-manifest.json")
+      and not tool.is_an_extension_record("extension-manifest-0A1B2C3D.json")
+      and not tool.is_an_extension_record("extension-manifest-0a1b2c3d.json.bak")
+      and not tool.is_an_extension_record("autosync-manifest.json"))
+# TWO INSTALLS, ONE SELLER: each writes only its own file, and the join takes both.
+install_a = tool.Standing(lines=(THE_EXTENSIONS_LINE,), reads=())
+install_b = tool.Standing(lines=(tool.Line(data_date=D1, report_id="fk_orders", state=tool.VERIFIED,
+                                           file_name="flipkart_fk_orders_2026-09-20.xlsx", file_size=70),), reads=())
+both_installs = {(c.report_id, c.data_date): c for c in tool.cross_check(tool.Standing((), ()), [install_a, install_b])}
+check("TWO INSTALLS ON ONE GOOGLE ACCOUNT: both installs' lines are there when the records are put together",
+      set(both_installs) == {("me_orders", D1), ("fk_orders", D1)}
+      and all(c.landed_by == "the extension" for c in both_installs.values()))
+check("and one install's record alone still joins as before",
+      len(tool.cross_check(tool.Standing((), ()), install_a)) == 1)
 
 # **A ROLLING FILE IS RECORDED PER DAY BY LOOKING INSIDE IT, and a day missing inside it is missing for that day only.**
 the_views = next(one for one in REPORTS if one.id == "me_views")
@@ -697,7 +713,7 @@ check("a views day absent from inside the rolling file is missing, and only that
       views_lines.get(date(2026, 9, 20)) == tool.MISSING and views_lines.get(date(2026, 9, 19)) == tool.VERIFIED
       and views_lines.get(date(2026, 9, 21)) == tool.VERIFIED)
 
-EXPECTED = 66 + 17
+EXPECTED = 66 + 20
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
