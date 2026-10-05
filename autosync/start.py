@@ -32,6 +32,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import clock  # noqa: E402
 import ledger_sheet  # noqa: E402
 import nightly  # noqa: E402
+import views  # noqa: E402
 
 
 def the_old_data_folder() -> str:  # pragma: no cover - one secret, read in one place
@@ -61,7 +62,7 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
     from amazon_door import AmazonDoor, fetch_one
     import merge
     from drive_door import a_door, the_kartaan_folder
-    from firestore_door import a_board_sink, a_log_sink, a_run_sink, both_places, what_they_chose
+    from firestore_door import a_board_sink, a_log_sink, a_run_sink, a_views_sink, both_places, what_they_chose
     from transport import FirebaseSeller, Google, for_amazon
 
     def now() -> datetime:
@@ -208,6 +209,9 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
         # says so by name. Either way `read_what_is_new` answers it the same -- no
         # file opened, none marked read, and the night's summary saying so.
         record_the_sales=record_the_sales,
+        # **AND WHERE HOW EACH LISTING IS DOING GOES (job 86 part A):** a record per listing in the seller's own database, a
+        # figure at a time, held to the newest sixty days.
+        record_views=a_views_sink(their_login, their_project, today.isoformat(), views.DAYS_KEPT),
         # Set only by somebody pressing the button in GitHub. The workflow passes
         # it through; nothing on a schedule ever sets it.
         even_if_not_due=os.environ.get("EVEN_IF_NOT_DUE", "").strip().lower() == "true",

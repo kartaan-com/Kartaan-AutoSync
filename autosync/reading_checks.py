@@ -205,6 +205,8 @@ class Folder:
             what_is_in_the_folder=self.in_the_folder,
             bring_it_back=self.bring_it_back,
             record_the_sales=None if self._no_ledger else self.record,
+            # The ledger's own readers only: how each listing is doing has its own checks (views_checks.py).
+            can_be_read=tool.WHAT_CAN_BE_READ,
         ))
 
 
@@ -1018,8 +1020,9 @@ check("the rules the read-files list was made under are named, so a change to th
 
 check("every report in REPORTS has a reader or a written reason it is not yet read",
       tool.why_a_report_has_no_decision() == "")
-check("the 26 reports are 6 read and 20 with a reason, which is Finding 51 stated as numbers (job 36 moved the three payments readers up)",
-      len(tool.WHAT_CAN_BE_READ) == 6 and len(tool.WHAT_IS_FETCHED_AND_NOT_READ_YET) == 20
+check("the 26 reports are 9 read (6 into the ledger, 3 into listing records) and 17 with a reason, which is Finding 51 stated as numbers (job 36 moved the three payments readers up)",
+      len(tool.WHAT_CAN_BE_READ) == 6 and len(tool.WHAT_VIEWS_CAN_BE_READ) == 3
+      and len(tool.WHAT_IS_FETCHED_AND_NOT_READ_YET) == 17
       and len(reports.REPORTS) == 26)
 every_reason = list(tool.WHAT_IS_FETCHED_AND_NOT_READ_YET.values())
 check("every reason is words and names the piece that will read it, or says it is off",

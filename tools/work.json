@@ -1690,6 +1690,42 @@
         "run_for_real": false,
         "instead": "payments_checks (99) pass against made-up files and, where they are on this machine, his three real ones (shape and an independent sum only). Proved by breaking it on purpose: twenty-one faults put in one at a time, each caught by a named check. Never run against his live ledger."
       }
+    },
+    {
+      "id": "listing-views",
+      "name": "How each listing is doing: traffic and ad figures into a record per listing",
+      "what": "Plan job 86 part A, AutoSync half. fk_views (Flipkart traffic), fk_ads_fsn and me_ads_catalog are read by autosync/views.py into one record per listing, listing_views/<platform>__<listingId>, with days{yyyy-mm-dd: views, clicks, sales, revenue, adViews, adClicks, adSpend, adSales}, the newest 60 days kept (the ERP's rules half is its commit 94de631). Each figure is written on its own field path, so the traffic file and an ads file never undo each other; a blank is left out, never nought; a row that is not a figure is refused by name; a file in which no row could be read is not marked read; a database that refuses is named as ours. Column names come from the old dashboard's code that read his real files; no value of his is in the repository.",
+      "rests_on": [
+        "report-list"
+      ],
+      "files": [
+        "autosync/views.py",
+        "autosync/views_checks.py"
+      ],
+      "also_touches": [
+        "autosync/firestore.py",
+        "autosync/firestore_checks.py",
+        "autosync/firestore_door.py",
+        "autosync/reading.py",
+        "autosync/reading_checks.py",
+        "autosync/nightly.py",
+        "autosync/start.py"
+      ],
+      "reviews": [
+        {
+          "round": "A71 job 15 (a)",
+          "date": "2026-10-05",
+          "reviewers": 1,
+          "note": "One independent read-only reviewer (code, checks by mutation in a copy, security). Fixed before the commit: a database that refuses is now a defect and said as the database's; a non-list batchGet answer now stops the sink instead of meaning nothing is held; money may be negative, counts may not; the figure count says read, not written. Left open: Meesho Catalog ID could arrive as 12345.0 if a sheet reader gives a float (no real me_ads_catalog file seen); a platform that later blanks a cell leaves the old figure standing (the stated rule); batchGet chunking is not exercised past 100 listings."
+        }
+      ],
+      "findings": [],
+      "state": {
+        "built": true,
+        "reviewed": "2026-10-05, one independent read-only review",
+        "run_for_real": false,
+        "instead": "views_checks (61) pass against made-up files and a stand-in database; thirteen faults put in one at a time were each caught. Never run against his Drive or database; fk_views, fk_ads_fsn and me_ads_catalog have not been read from a real file yet."
+      }
     }
   ]
 }

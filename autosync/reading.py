@@ -89,7 +89,9 @@ import orders
 import payments
 import sheet
 import table
+import views
 import whats_new
+from firestore_door import TheirDatabaseSaidNo
 from ledger import LedgerRefused, Reading, which_markers
 from reports import report as the_report
 from sales import FROM_FIELD
@@ -180,6 +182,14 @@ WHAT_CAN_BE_READ: Tuple[HowToRead, ...] = (
 )
 
 
+# **HOW EACH LISTING IS DOING (job 86 part A).** These three make no sale and touch no ledger column, so they are kept apart from the
+# list above (which the ledger's own guards walk) and joined to it only where a night reads a folder. Each is read into a record per
+# listing in the seller's own database (`firestore_door.a_views_sink`), not into the sheet.
+WHAT_VIEWS_CAN_BE_READ: Tuple[HowToRead, ...] = tuple(
+    HowToRead(report_id, (), header_row=views.way_for(report_id).header_row, kind="views")
+    for report_id in ("fk_views", "fk_ads_fsn", "me_ads_catalog")
+)
+
 # **EVERY REPORT THE RUN FETCHES IS READ, OR SAYS IN WORDS WHY IT IS NOT YET (job 35).**
 #
 # **THE FAULT THIS CLOSES (Finding 51):** `reports.REPORTS` declares twenty-six reports and
@@ -203,23 +213,18 @@ WHAT_IS_FETCHED_AND_NOT_READ_YET: Dict[str, str] = {
     "me_claims": "decided: into the claims columns of the ledger and the ERP's Claims section -- piece 78",
     "fk_listings": "decided: into Needs Review, for him to let in -- piece 41",
     "me_catalog": "decided: into Needs Review, for him to let in -- piece 41",
-    "fk_views": (
-        "decided: a views record per listing per day, shown on Products. Waits for the place those "
-        "records go in his own database to be decided, which needs new protection rules in the ERP"
-    ),
     "me_views": (
-        "decided: a views record per listing per day, shown on Products. Waits for the place those "
-        "records go in his own database to be decided, which needs new protection rules in the ERP"
+        "a whole-shop figure with no listing in it, so it has no per-listing record; Meesho's views per product "
+        "are piece 44 (Product Performance), which will write them into the same listing record"
     ),
 }
 for _ads in (
-    "fk_ads_daily", "fk_ads_fsn", "fk_ads_placements", "fk_ads_overall", "fk_ads_search", "fk_ads_orders",
-    "fk_ads_kw", "me_ads", "me_ads_summary", "me_ads_catalog",
+    "fk_ads_daily", "fk_ads_placements", "fk_ads_overall", "fk_ads_search", "fk_ads_orders",
+    "fk_ads_kw", "me_ads", "me_ads_summary",
 ):
     WHAT_IS_FETCHED_AND_NOT_READ_YET[_ads] = (
         "decided: an ads record per day, shown beside sales, and the ad spend becomes a charge on the ledger. "
-        "Waits for the place those records go in his own database to be decided, which needs new protection "
-        "rules in the ERP"
+        "Its reader is the next piece built; the place its record will go (a listing's ad figures) exists since job 86 part A"
     )
 del _ads
 
@@ -232,7 +237,7 @@ def why_a_report_has_no_decision() -> str:
     """
     from reports import REPORTS  # noqa: PLC0415 - kept beside its one use
 
-    read = {one.report_id for one in WHAT_CAN_BE_READ}
+    read = {one.report_id for one in WHAT_CAN_BE_READ + WHAT_VIEWS_CAN_BE_READ}
     said = set(WHAT_IS_FETCHED_AND_NOT_READ_YET)
     known = {one.id for one in REPORTS}
     wrong = []
@@ -283,6 +288,14 @@ class WhatTheNightRead:
     # **WHAT EACH FILE READ TONIGHT CAME TO, FOR THE STANDING RECORD (job 38):** which report and day, what the
     # file held and what was read from it -- two numbers, never one.
     reads: Tuple["manifest.Read", ...] = ()
+    # **HOW EACH LISTING IS DOING (job 86 part A):** figures written into listing records tonight, and files left unread because
+    # there was nowhere to write them.
+    listing_figures: int = 0
+    views_waiting: int = 0
+    # Why the seller's own database refused a listing record. **OURS, like the ledger refusing**: the usual cause is the ERP's rules
+    # (commit 94de631) not yet published to that seller, and a night that says green while every night refuses is the fault kept
+    # apart above.
+    the_database_refused: Tuple[str, ...] = ()
 
     @property
     def is_a_defect(self) -> bool:
@@ -298,7 +311,7 @@ class WhatTheNightRead:
         single file was refused by our own rule would report GREEN while the
         seller's files piled up unread for ever -- **found by an independent
         reviewer, and it is Golden Rule 29 exactly.**"""
-        return bool(self.could_not_list or self.the_ledger_refused)
+        return bool(self.could_not_list or self.the_ledger_refused or self.the_database_refused)
 
     def says(self) -> str:
         """One line for the night's summary. **EVERY COUNT, EVEN THE NOUGHTS.**
@@ -327,6 +340,13 @@ class WhatTheNightRead:
                 f"{self.empty_files} arrived empty, {self.already_read} already read, "
                 f"{len(self.let_go_of)} id(s) let go of."
             )
+        if self.listing_figures or self.views_waiting:
+            said += f"  {self.listing_figures} listing figure(s) read into the listing records."
+        if self.views_waiting:
+            said += (
+                f"  {self.views_waiting} listing traffic/ads file(s) were left unread because the seller's database "
+                "could not be reached for them; they will be read when it can."
+            )
         if self.refused_to_forget:
             said += f"  Nothing was let go of: {self.refused_to_forget}"
         for why in self.could_not_list:
@@ -337,6 +357,8 @@ class WhatTheNightRead:
         # platform's would go and look at the platform.
         for why in self.the_ledger_refused:
             said += f"  KARTAAN'S OWN LEDGER REFUSED A FILE: {why}"
+        for why in self.the_database_refused:
+            said += f"  THE SELLER'S DATABASE REFUSED A LISTING RECORD (publish the ERP's rules to this project, then run again): {why}"
         return said
 
 
@@ -461,6 +483,30 @@ def _a_reading_of_the_rows(how: HowToRead, one: whats_new.InTheFolder, rows, pla
     )
 
 
+def a_views_reading(how: HowToRead, one: whats_new.InTheFolder, body: bytes) -> views.WhatViewsSaid:
+    """One traffic or ads file turned into figures per listing per day.
+
+    **THE DAY OF A FILE WITH NO DATE INSIDE IT (Flipkart's ads by product) IS THE ONE ON ITS FIRST LINE, else the one in its
+    name.** A rolling file names its days row by row, so the name only has to carry a day at all -- the same refusal every
+    reader here makes, because which of two files is newer decides a figure.
+    """
+    when = landing.data_date_in(one.name)
+    if when is None:
+        raise table.CannotRead(
+            f"{one.name or one.which} has no day in its name, so there is no way to say whether what it holds is newer or older "
+            "than what is already written. Nothing in it was read."
+        )
+    rows = _rows_in(how, body, one.name or one.which)
+    day = None
+    if views.way_for(how.report_id).day is None:
+        day = views.day_in_ads_header(body) or when.isoformat()
+    said = views.read_views(how.report_id, rows, day)
+    if not said.records and said.not_read:
+        # **NOTHING READ FROM A FILE THAT HAD ROWS IS A FILE NOT READ, not a file read for good**: marked, it would never be opened again.
+        raise table.CannotRead(f"no row of {one.name or one.which} could be read; the first was {said.not_read[0]}")
+    return said
+
+
 # A day no real file could ever be about, used only to drive the question below.
 # **It is a real day** -- everything on the way through refuses one that is not --
 # and it is nothing any fixture in this package also carries.
@@ -566,9 +612,14 @@ def read_what_is_new(
     what_is_in_the_folder: Optional[Callable[[str], Sequence[whats_new.InTheFolder]]] = None,
     bring_it_back: Optional[Callable[[str], bytes]] = None,
     record_the_sales: Optional[Callable[[Sequence[Reading]], None]] = None,
-    can_be_read: Sequence[HowToRead] = WHAT_CAN_BE_READ,
+    can_be_read: Optional[Sequence[HowToRead]] = None,
+    record_views: Optional[Callable[[str, Dict], int]] = None,
 ) -> WhatTheNightRead:
     """Read every file in the seller's folders that has not been read before.
+
+    `can_be_read` left out is every report this can read: the ledger's and how each listing is doing.
+    `record_views(platform, records)` is where a listing's figures go and answers how many records it wrote; left out, the
+    traffic and ads files are not opened and not marked, and the night says how many are waiting.
 
     **THE ONLY TWO THINGS THAT DECIDE WHAT IS NEW ARE THE FOLDER AND THE LIST OF
     WHAT HAS BEEN READ.** Nothing about tonight's fetching reaches this -- not a
@@ -580,6 +631,8 @@ def read_what_is_new(
     where this stands until the seller's sales ledger exists, and it is said in
     words rather than as a night of noughts.
     """
+    if can_be_read is None:
+        can_be_read = WHAT_CAN_BE_READ + WHAT_VIEWS_CAN_BE_READ
     remembered = tuple(sorted({
         str(one).strip() for one in (already_read or ()) if str(one).strip()
     }))
@@ -632,15 +685,46 @@ def read_what_is_new(
     read_tonight: List[whats_new.InTheFolder] = []
     could_not_read: List[str] = []
     the_ledger_refused: List[str] = []
+    the_database_refused: List[str] = []
     how_many_sales = 0
     rows_refused = 0
     reads: List["manifest.Read"] = []
+    listing_figures = 0
+    views_waiting = 0
 
     # **OLDEST FIRST, AND EVERY FOLDER'S FILES TOGETHER.** Handed over in the
     # order Drive answered a listing in, the last file to be recorded is the last
     # one Drive happened to name -- and the last one recorded is the one whose
     # figures stand. See `_oldest_first`.
     for how, one in _oldest_first(listed, can_be_read, remembered):
+        if how.kind == "views":
+            if record_views is None:
+                views_waiting += 1
+                continue
+            try:
+                said = a_views_reading(how, one, bring_it_back(one.which))
+                record_views(said.platform, said.records)
+            except TheirDatabaseSaidNo as wrong:
+                the_database_refused.append(f"{one.name or one.which}: {wrong}")
+                continue
+            except Exception as wrong:  # noqa: BLE001 - named, never swallowed
+                could_not_read.append(f"{one.name or one.which}: {wrong}")
+                continue
+            read_tonight.append(one)
+            listing_figures += said.figures
+            rows_refused += len(said.not_read)
+            if said.not_read:
+                could_not_read.append(
+                    f"{one.name or one.which}: {len(said.not_read)} row(s) not read, the first being {said.not_read[0]}"
+                )
+            the_day = landing.data_date_in(one.name)
+            if the_day is not None:
+                reads.append(manifest.Read(
+                    data_date=the_day, report_id=how.report_id, file_name=one.name or one.which,
+                    into="listing records", rows_in_file=said.rows_in_file,
+                    rows_read=said.rows_in_file - len(said.not_read),
+                ))
+            continue
         try:
             body = bring_it_back(one.which)
             reading, refused_rows = a_reading(how, one, body)
@@ -687,9 +771,12 @@ def read_what_is_new(
         let_go_of=let_go_of,
         could_not_read=tuple(could_not_read),
         the_ledger_refused=tuple(the_ledger_refused),
+        the_database_refused=tuple(the_database_refused),
         could_not_list=tuple(could_not_list),
         refused_to_forget=refused_to_forget,
         reads=tuple(reads),
+        listing_figures=listing_figures,
+        views_waiting=views_waiting,
     )
 
 

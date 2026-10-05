@@ -64,12 +64,16 @@ internet.
 """
 
 import json
+import re
 from datetime import date, datetime
 from typing import Dict, Iterator, List, Optional, Sequence, Tuple
 
 # Where Firestore is, and which database. Written once so nothing can invent a
 # near-miss of either.
 API = "https://firestore.googleapis.com/v1"
+
+# **THE EIGHT FIELDS OF A LISTING'S DAY** (the ERP's record, commit 94de631), in `views.FIELDS`'s order.
+VIEW_FIELDS = ("views", "clicks", "sales", "revenue", "adViews", "adClicks", "adSpend", "adSales")
 
 # **THE ONE FIRESTORE A FIREBASE PROJECT STARTS WITH.** Firebase creates it under
 # this exact name, brackets and all, and every seller's is this one. A project
@@ -87,7 +91,10 @@ RUNS = "sync_runs"
 # **THE WHOLE OF THE NARROWNESS, IN ONE TUPLE.** The scope this job holds can
 # write anywhere in the seller's project; this is what stops it. A fourth name
 # added here is a decision, made in a diff somebody read.
-WHAT_IT_MAY_WRITE = (LOG, BOARD, RUNS)
+# **AND FOURTH, FROM JOB 86 PART A: HOW EACH LISTING IS DOING.** The ERP's rules (commit 94de631) let the run write it as the
+# owner and nobody else; it is written only by `a_views_write`, with a mask, so one report never undoes another's figures.
+LISTING_VIEWS = "listing_views"
+WHAT_IT_MAY_WRITE = (LOG, BOARD, RUNS, LISTING_VIEWS)
 
 # Where the seller's own business record lives, and the one field this job reads
 # out of it. **READ, NEVER WRITTEN (D114):** the hour is the seller's setting,
@@ -423,6 +430,58 @@ def one_write(project: str, collection: str, doc_id: str, record: Dict) -> Dict:
             "fields": fields_of(record),
         }
     }
+
+
+A_DAY = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def _a_number(held) -> Dict:
+    """A figure for a listing's day: a whole number as one, money as a double. Bools are not figures."""
+    if isinstance(held, bool) or not isinstance(held, (int, float)):
+        raise Refused(f"{held!r} is not a figure a listing's day can hold.")
+    return a_value(held)
+
+
+def a_views_write(project: str, doc_id: str, platform: str, listing_id: str, days: Dict, drop: Sequence[str], updated_on: str) -> Dict:
+    """One listing's record, written WITH A MASK so only what is said changes (job 86 part A).
+
+    **THE MASK IS THE WHOLE POINT, and it is the opposite of `one_write`.** The traffic file says a day's views and the ads file
+    says the same day's ad spend; written whole, whichever came second would erase the other. Each figure is its own field path
+    (days.`2026-10-04`.views), so a figure in the file replaces that figure and nothing else. **Days named in `drop` are in the
+    mask and not in the record, which Firestore documents as deleting them** ("Fields referenced in the mask, but not present in
+    the input document, are deleted") -- that is how a record is held to its newest sixty days.
+
+    A day is quoted in backticks because `2026-10-04` is not a simple field name (docs: Document.fields).
+    """
+    for day in list(days) + list(drop):
+        if not A_DAY.match(str(day)):
+            raise Refused(f"{day!r} is not a day written year-month-day, so no record was written for it.")
+    paths = ["platform", "listingId", "updatedOn"]
+    in_days: Dict[str, Dict] = {}
+    for day, figures in sorted(days.items()):
+        said = {name: _a_number(held) for name, held in figures.items() if name in VIEW_FIELDS}
+        if len(said) != len(figures):
+            raise Refused(f"{sorted(set(figures) - set(VIEW_FIELDS))} are not fields of a listing's day.")
+        if said:
+            in_days[day] = {"mapValue": {"fields": said}}
+            paths += [f"days.`{day}`.{name}" for name in sorted(said)]
+    paths += [f"days.`{day}`" for day in sorted(set(drop) - set(days))]
+    fields: Dict[str, Dict] = {
+        "platform": a_value(str(platform)), "listingId": a_value(str(listing_id)), "updatedOn": a_value(str(updated_on)),
+    }
+    if in_days:
+        fields["days"] = {"mapValue": {"fields": in_days}}
+    return {
+        "update": {"name": where_a_document_lives(project, LISTING_VIEWS, doc_id), "fields": fields},
+        "updateMask": {"fieldPaths": paths},
+    }
+
+
+def days_held(document: Optional[Dict]) -> Tuple[str, ...]:
+    """The days a record already holds, read from what Firestore answered for it. None when there is no record."""
+    fields = (document or {}).get("fields") or {}
+    inside = ((fields.get("days") or {}).get("mapValue") or {}).get("fields") or {}
+    return tuple(sorted(inside))
 
 
 def how_big(writes: Sequence[Dict]) -> int:

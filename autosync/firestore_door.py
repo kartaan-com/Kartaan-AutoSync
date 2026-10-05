@@ -208,3 +208,58 @@ def both_places(first: Callable[[Sequence], None], then: Callable[[Sequence], No
         then(lines)
 
     return sink
+
+
+BATCH_GET = "{api}/projects/{project}/databases/{database}/documents:batchGet"
+# How many records are asked for in one call. Google's page states no maximum, so this is only to keep a call small -- not a limit.
+ASKED_AT_A_TIME = 100
+
+
+def _what_is_held(transport, project: str, doc_ids: Sequence[str]) -> Dict[str, tuple]:
+    """For each record asked for, the days it already holds (none for a record that is not there yet)."""
+    held: Dict[str, tuple] = {}
+    for at in range(0, len(doc_ids), ASKED_AT_A_TIME):
+        chunk = list(doc_ids[at:at + ASKED_AT_A_TIME])
+        names = [firestore.where_a_document_lives(project, firestore.LISTING_VIEWS, one) for one in chunk]
+        where = BATCH_GET.format(api=API, project=project, database=DATABASE)
+        got = _answered(transport.post(where, json={"documents": names}), "asking which days each listing already holds").json()
+        if not isinstance(got, list):
+            # **A REPLY THAT IS NOT A LIST IS NOT "NOTHING HELD".** Taken so, no old day would ever be dropped and a record would
+            # grow past its sixty days with no error.
+            raise TheirDatabaseSaidNo("asking which days each listing already holds: the answer was not a list of records.")
+        for answer in got:
+            found = answer.get("found")
+            if found:
+                held[found["name"].rsplit("/", 1)[-1]] = firestore.days_held(found)
+    return held
+
+
+def a_views_sink(transport, project: str, today: str, keep: int) -> Callable[..., int]:
+    """How each listing is doing, into its record, one figure at a time (job 86 part A).
+
+    **THE RECORDS ARE ASKED FOR FIRST** so a record can be held to its newest `keep` days: the days it has plus the days this
+    file brings, newest `keep` of them, stay; every older day is deleted by the same write. A day older than all of them that a
+    file brings is not written at all. Answers how many records were written.
+    """
+
+    def sink(platform: str, records: Dict[str, Dict[str, Dict]]) -> int:
+        ids = {listing: firestore_name(platform, listing) for listing in records}
+        held = _what_is_held(transport, project, sorted(ids.values()))
+        writes = []
+        for listing, days in sorted(records.items()):
+            doc_id = ids[listing]
+            have = set(held.get(doc_id, ()))
+            stay = set(sorted(have | set(days))[-keep:])
+            writes.append(firestore.a_views_write(
+                project, doc_id, platform, listing,
+                {day: figures for day, figures in days.items() if day in stay},
+                sorted(have - stay), today,
+            ))
+        return write_them(transport, project, writes, "writing how each listing is doing")
+
+    return sink
+
+
+def firestore_name(platform: str, listing: str) -> str:
+    """`<platform>__<listingId>`, the name the ERP's rules and screens look a listing up by."""
+    return f"{platform}__{listing}"
