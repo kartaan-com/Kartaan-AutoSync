@@ -76,6 +76,12 @@ export async function readTheKeywords(page, {
   if (dataDate && shownDay && shownDay !== dataDate) {
     return { rows: [], listings: 0, pages: 0, shownDay, csv: '' };
   }
+  /* **A DAY THAT CANNOT BE TOLD FAILS CLOSED (review finding, 2026-10-05).** An address naming no day used to skip
+   * the check and read the page under the day asked for -- the wrong day's figures in the right day's file.
+   * Nothing is pressed, and the walk says it could not tell. */
+  if (dataDate && !shownDay) {
+    return { rows: [], listings: 0, pages: 0, shownDay: '', csv: '', dayNotShown: true };
+  }
   const buttonsOnThe = (row) => [...row.querySelectorAll('button')]
     .filter((one) => String(one.textContent || '').includes(THE_BUTTON));
   /* **THE LIST IS WAITED FOR**, because the traffic report draws its listing table
@@ -87,6 +93,9 @@ export async function readTheKeywords(page, {
   const pages = thePageCount([...page.querySelectorAll('button, a')].map((one) => one.textContent));
   const rows = [];
   let listings = 0;
+  /* Listings whose keyword pop-up never opened: counted and named, never skipped quietly -- a file missing
+   * those listings would land as the whole day. */
+  const notOpened = [];
   for (let at = 1; at <= pages; at += 1) {
     if (at > 1) {
       const next = [...page.querySelectorAll('button, a')]
@@ -112,7 +121,10 @@ export async function readTheKeywords(page, {
       // eslint-disable-next-line no-await-in-loop
       await rest(4000);
       const popUp = thePopUpIn(page);
-      if (!popUp) continue;
+      if (!popUp) {
+        notOpened.push(sku);
+        continue;
+      }
       for (const line of [...popUp.querySelectorAll('table tbody tr')]) {
         const cells = [...line.querySelectorAll('td')].map((one) => String(one.innerText || '').trim());
         if (cells.length >= 3 && cells[0]) rows.push([sku, cells[0], cells[1], cells[2]]);
@@ -125,5 +137,5 @@ export async function readTheKeywords(page, {
     }
     say(`keywords: page ${at} of ${pages}, ${here} listings read.`);
   }
-  return { rows, listings, pages, shownDay, csv: theCsv(dataDate, rows) };
+  return { rows, listings, pages, shownDay, notOpened, csv: theCsv(dataDate, rows) };
 }

@@ -1580,6 +1580,12 @@ export function theWalk({
             pageWas: capture(await door.page_text()),
           });
         }
+        if (read && read.dayNotShown) {
+          return anAnswer(FAILED, reportId, dataDate, {
+            say: 'The traffic report does not say which day it shows, so there is no telling whose day the '
+              + `keywords are. Nothing was read, rather than ${dataDate}'s file holding another day's figures.`,
+          });
+        }
         /* **ONLY FLIPKART'S LATEST DAY HAS KEYWORDS** (the reference's rule), so a
          * latest day before the one asked for is "not available yet", and one after
          * it means the day asked for can no longer be read. Nothing was pressed. */
@@ -1604,6 +1610,13 @@ export function theWalk({
             say: `${(read && read.listings) || 0} listings were looked at and no search keywords `
               + 'were read, so nothing was put away.',
             pageWas: capture(await door.page_text()),
+          });
+        }
+        if (Array.isArray(read.notOpened) && read.notOpened.length) {
+          return anAnswer(FAILED, reportId, dataDate, {
+            say: `${read.notOpened.length} of ${read.listings} listings had no keyword pop-up open (`
+              + `${read.notOpened.slice(0, 5).join(', ')}${read.notOpened.length > 5 ? ', ...' : ''}), so a part `
+              + 'of the day was read and nothing was put away rather than a file missing those listings.',
           });
         }
         const called = fileName || theFileName(book, reportId, dataDate);

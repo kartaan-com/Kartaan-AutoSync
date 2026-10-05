@@ -52,7 +52,15 @@ check('and an address naming no day shows none', theDayShown('https://seller.fli
     got.shownDay === '2026-09-13' && got.rows.length === 0 && got.listings === 0);
 }
 
-const EXPECTED = 10;
+{
+  /* **A DAY THAT CANNOT BE TOLD FAILS CLOSED (review finding, 2026-10-05).** */
+  const untouchable = new Proxy({}, { get: () => { throw new Error('the page was touched'); } });
+  const got = await readTheKeywords(untouchable, { dataDate: '2026-09-14', whereNow: () => '#x?selectedPeriod=latest' });
+  check('an address that names no day is answered before anything is pressed, saying the day could not be told',
+    got.dayNotShown === true && got.rows.length === 0 && got.listings === 0);
+}
+
+const EXPECTED = 11;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

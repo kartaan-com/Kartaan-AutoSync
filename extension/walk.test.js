@@ -2707,13 +2707,22 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
   const nothing = await aWalk(none)('fk_keywords', DAY);
   check('while not one keyword read is a failure saying how many listings were looked at, and nothing is put away',
     nothing.state === FAILED && nothing.say.includes('82 listings') && none.putAway.length === 0);
+  const undated = await aWalk(aPortal({ keywords: { rows: [], listings: 0, pages: 0, shownDay: '', dayNotShown: true, csv: '' } }))('fk_keywords', DAY);
+  check('a traffic report that does not say its day fails the walk instead of filing another day under this one',
+    undated.state === 'failed' && undated.say.includes('does not say which day'));
+  const partial = aPortal({ keywords: {
+    rows: [['SKU1', 'kw', '1%', '2%']], listings: 3, pages: 1, notOpened: ['SKU2', 'SKU3'], csv: 'x',
+  } });
+  const partlyRead = await aWalk(partial)('fk_keywords', DAY);
+  check('listings whose keyword pop-up never opened fail the walk, naming how many, and nothing is put away',
+    partlyRead.state === 'failed' && partlyRead.say.includes('2 of 3 listings') && partial.putAway.length === 0);
   const older = aPortal({ keywords: { rows: [], listings: 0, pages: 0, shownDay: '2026-08-25', csv: '' } });
   const notYet = await aWalk(older)('fk_keywords', DAY);
   check('A LATEST DAY BEFORE THE ONE ASKED FOR IS NOT AVAILABLE YET, NAMING THE LATEST DAY',
     notYet.state === NOT_AVAILABLE_YET && notYet.say.includes('2026-08-25') && older.putAway.length === 0);
 }
 
-const EXPECTED = 344;
+const EXPECTED = 346;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;
