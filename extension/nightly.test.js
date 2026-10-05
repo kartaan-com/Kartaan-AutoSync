@@ -1405,6 +1405,43 @@ async function seedLandedRangeForTest(c, reportId, from, to) {
 }
 
 {
+  /* **NOTHING IS OWED BEFORE THE FIRST DAY A REPORT EVER LANDED (review finding, 2026-10-05).** The reach used to
+   * run back 14 days from the sync's day whatever the report's history, so a report first landed on 09-10 was
+   * walked for 09-06..09-09 -- days nobody ever asked for. */
+  const browser = installFakeChrome();
+  const c = browser.chrome;
+  await rememberLastLanded(c, 'me_orders', '2026-09-10');
+  const owed = await daysNobodyTried(c, 'me_orders', '2026-09-20');
+  check('a report first landed on 09-10 owes nothing before 09-10, and every day after it up to its own day',
+    owed.join() === '2026-09-11,2026-09-12,2026-09-13,2026-09-14,2026-09-15,2026-09-16,2026-09-17,2026-09-18,2026-09-19');
+}
+
+{
+  /* **A DAY THE WALK FOUND NOTHING TO FETCH FOR IS SETTLED (review finding, 2026-10-05).** */
+  const browser = installFakeChrome();
+  const c = browser.chrome;
+  await rememberLastLanded(c, 'fk_ads_daily', '2026-09-10');
+  await startTheNight(c, {
+    doing: ['fk_ads_daily'], at: Date.UTC(2026, 8, 21, 3), openAt: 'https://x/', dataDate: '2026-09-15',
+    canGoBack: ['fk_ads_daily'],
+  });
+  const before = await daysNobodyTried(c, 'fk_ads_daily', '2026-09-20');
+  await thatOneIsDone(c, {
+    reportId: 'fk_ads_daily', state: 'nothing-to-fetch', say: 'no campaign ran', dataDate: '2026-09-15',
+    at: Date.UTC(2026, 8, 21, 3), settled: true,
+  });
+  const after = await daysNobodyTried(c, 'fk_ads_daily', '2026-09-20');
+  check('a day with nothing to fetch is not walked again on the next sync',
+    before.includes('2026-09-15') && !after.includes('2026-09-15') && after.length === before.length - 1);
+  await thatOneIsDone(c, {
+    reportId: 'fk_ads_daily', state: 'nothing-to-fetch', say: 'only asked for what is left of the twenty',
+    dataDate: '2026-09-16', at: Date.UTC(2026, 8, 21, 3),
+  });
+  check('but one skipped for any other reason (the allowance, the newest-day rule) is still owed',
+    (await daysNobodyTried(c, 'fk_ads_daily', '2026-09-20')).includes('2026-09-16'));
+}
+
+{
   /* **JOB 6, THE ACTUAL SHAPE OF F14: A HOLE BEHIND A LATER LANDED DAY.** His
    * real Drive has `me_orders` landed 09-16, missing 09-17..09-19, landed
    * again 09-20 (a later sync caught up on ITS OWN day, past the hole). A
@@ -1561,7 +1598,7 @@ async function seedLandedRangeForTest(c, reportId, from, to) {
       && one.say.includes('has not been asked for')).length === 3);
 }
 
-const EXPECTED = 171;
+const EXPECTED = 174;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

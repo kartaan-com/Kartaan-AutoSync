@@ -431,6 +431,10 @@ export async function daysNobodyTried(chrome, reportId, day) {
   ]);
   const cursor = new Date(`${day}T00:00:00Z`);
   cursor.setUTCDate(cursor.getUTCDate() - CATCH_UP_REACH_DAYS);
+  /* **NOTHING IS OWED BEFORE THE FIRST DAY THIS REPORT EVER LANDED (review finding, 2026-10-05):** that is the
+   * "known starting point" the paragraph above promises; the reach used to run past it. */
+  const firstLanded = [...landedDays].sort()[0];
+  if (cursor.toISOString().slice(0, 10) < firstLanded) cursor.setTime(new Date(`${firstLanded}T00:00:00Z`).getTime());
   const gap = [];
   while (cursor.toISOString().slice(0, 10) < String(day)) {
     const one = cursor.toISOString().slice(0, 10);
@@ -696,7 +700,7 @@ export async function thatOneIsBeingTried(chrome, reportId, day = null) {
  */
 export async function thatOneIsDone(chrome, {
   reportId, state, say = '', size = 0, at, pageWas = '', theirId = null, dataDate = '',
-  listMissing = false, needsSigningIn = false,
+  listMissing = false, needsSigningIn = false, settled = false,
 }) {
   const night = await theNight(chrome);
   if (!night) throw new Error('Nothing can be recorded against a sync that is not going.');
@@ -772,6 +776,11 @@ export async function thatOneIsDone(chrome, {
       });
     }
   }
+  /* **A DAY THE WALK FOUND NOTHING TO FETCH FOR IS SETTLED, NOT OWED AGAIN (review finding, 2026-10-05).** Only
+   * days that really landed were remembered, so a day with no campaign running (or none to record) was walked
+   * again on every sync for the whole reach. `settled` comes from the walk's own answer only -- never from the
+   * allowance or the only-its-newest-day refusals, which are not facts about the platform. */
+  if (settled && day) await rememberLastLanded(chrome, reportId, day);
   const counted = thatOneAndThatDay(reportId, day);
   const givenBack = ((written.state === NOT_AVAILABLE_YET || written.state === NEEDS_YOU_STATE)
     && night.lastCounted && night.lastCounted.key === counted)
@@ -1031,6 +1040,7 @@ async function carryItOn(chrome, {
       dataDate: walk.answer.dataDate || walk.dataDate || '',
       listMissing: Boolean(walk.answer.listMissing),
       needsSigningIn: Boolean(walk.answer.needsSigningIn),
+      settled: walk.answer.state === 'nothing-to-fetch',
       at,
     });
     /* **AND THE WALK IS CLEARED, or the next call reads this same finished walk
