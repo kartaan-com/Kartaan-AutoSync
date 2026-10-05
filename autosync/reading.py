@@ -451,18 +451,42 @@ def a_reading(how: HowToRead, one: whats_new.InTheFolder, body: bytes) -> Tuple[
         )
     which = the_report(how.report_id)
     rows = _rows_in(how, body, one.name or one.which)
+    extras = _the_other_sheets(how, body, which.platform) if how.kind == "payments" else None
     # **THE FILE'S OWN DAY GOES ONTO EVERY SALE IT PRODUCES (D157).** It is
     # already worked out above, out of the file's name, and refused if it is not
     # there -- so there is no path through here that fills a marker with a
     # guess. Handed down rather than re-read, because two ways of reading a date
     # off a name is two answers waiting to disagree.
-    return _a_reading_of_the_rows(how, one, rows, which.platform, when.isoformat())
+    return _a_reading_of_the_rows(how, one, rows, which.platform, when.isoformat(), extras)
 
 
-def _a_reading_of_the_rows(how: HowToRead, one: whats_new.InTheFolder, rows, platform: str, day: str) -> Tuple[Reading, int]:
+def _the_other_sheets(how: HowToRead, body: bytes, platform: str) -> Dict[str, object]:
+    """The sheets of a payments workbook besides its orders sheet (job 15 c), each as a table, or as the words saying why it would not read.
+
+    **A SHEET THAT IS NOT THERE IS NOT AN ERROR** (a workbook only carries what the period held), and **A SHEET THAT WILL NOT READ DOES NOT
+    STOP THE ORDERS' MONEY**: it is said in the night's summary instead, which is the opposite of dropping it.
+    """
+    wanted = payments.other_sheets_of(platform)
+    if not wanted or landing.what_it_really_is(body) != "xlsx":
+        return {}
+    present = set(sheet.sheets_in(body))
+    found: Dict[str, object] = {}
+    for name in wanted:
+        if name not in present:
+            continue
+        try:
+            found[name] = sheet.read(body, sheet=name, header_row=payments.EXTRA_HEADER_ROW)
+        except table.CannotRead as wrong:
+            found[name] = str(wrong)
+    return found
+
+
+def _a_reading_of_the_rows(
+    how: HowToRead, one: whats_new.InTheFolder, rows, platform: str, day: str, extras: Optional[Dict[str, object]] = None,
+) -> Tuple[Reading, int]:
     """The rows of one file, turned into a reading by whichever reader its kind needs. **The one place the two kinds part.**"""
     if how.kind == "payments":
-        paid = payments.read_payments(rows, platform, day)
+        paid = payments.read_payments(rows, platform, day, extras)
         return (
             Reading(
                 report=how.report_id, on=day, knows=how.knows, sales=paid.sales, which=one.which,

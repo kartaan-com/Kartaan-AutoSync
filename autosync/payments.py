@@ -173,6 +173,10 @@ class _Lines:
         self._settlement: Dict[Tuple[str, str], Optional[Decimal]] = {}
         self._charges: Dict[Tuple[str, str], Dict[str, Decimal]] = {}
 
+    def states(self, key: Tuple[str, str]) -> bool:
+        """Does this file already state money for that order and SKU?"""
+        return key in self._settlement
+
     def put(self, key: Tuple[str, str], settlement: Optional[Decimal], charges: Dict[str, Decimal]) -> None:
         if settlement is None and not charges:
             return  # a line with nothing in it states nothing
@@ -266,7 +270,36 @@ def _places(columns: Sequence[str], spec: Sequence[Tuple[str, str]], **how) -> D
     return out
 
 
-def read_flipkart(rows: Table, data_date: str) -> WhatWasPaid:
+def _flipkart_rebates(lines: "_Lines", found) -> List[str]:
+    """Flipkart's `MP Fee Rebate` sheet added to its orders: a fee given back is money paid and a charge negated. Returns what to say."""
+    if isinstance(found, str):
+        # **REFUSES THE FILE, like a moved column does**: said and carried on, the file would be marked read and the rebates lost.
+        raise CannotRead(f"the {FLIPKART_REBATE_SHEET!r} sheet could not be read ({found}). Nothing in this file was read, so it is read again once mended.")
+    columns = found.columns
+    order_at = _where(columns, FLIPKART_ORDER_ID)
+    sku_at = _where(columns, "SKU")
+    paid_at = _where(columns, "Settlement Value (Rs.)")
+    said = []
+    for row in found:
+        order_id = _cell(row, order_at).strip()
+        paid = a_decimal(_cell(row, paid_at))
+        if paid is None:
+            continue
+        if order_id == "":
+            said.append("rebate line(s) with no order id")
+            continue
+        key = (order_id, _unwrap_flipkart_sku(_cell(row, sku_at)))
+        if not lines.states(key):
+            # **A REBATE ADDS TO WHAT THIS FILE STATES FOR THE ORDER, AND ONLY THEN.** The rebate sheet is often for orders paid in an
+            # earlier workbook; as a line of its own it would REPLACE that order's settlement and other charges (the newest statement
+            # wins), turning a real figure into the rebate. So it is said, and the order's money is left as it is.
+            said.append("rebate line(s) for an order this file does not otherwise state, left out so they cannot replace its money")
+            continue
+        lines.put(key, paid, {"otherServices": -paid})
+    return [f"{said.count(one)} {one}" for one in sorted(set(said))]
+
+
+def read_flipkart(rows: Table, data_date: str, extras: Optional[Dict[str, object]] = None) -> WhatWasPaid:
     columns = rows.columns
     order_at = _where(columns, FLIPKART_ORDER_ID)
     sku_at = _where(columns, FLIPKART_SKU)
@@ -288,19 +321,27 @@ def read_flipkart(rows: Table, data_date: str) -> WhatWasPaid:
             continue
         lines.put((order_id, _unwrap_flipkart_sku(_cell(row, sku_at))), paid, charges)
 
-    aside = ()
+    aside: List[str] = []
     if nameless_money:
-        aside = (f"{nameless_money} lines with money in them and no order id",)
-    return WhatWasPaid(FLIPKART, lines.sales(FLIPKART, data_date), tuple(not_read), aside)
+        aside.append(f"{nameless_money} lines with money in them and no order id")
+    for name, found in (extras or {}).items():
+        if name == FLIPKART_REBATE_SHEET:
+            aside += _flipkart_rebates(lines, found)
+        else:
+            said = _lines_stating_money(name, found, lambda one: one.strip().lower().startswith("settlement value"))
+            if said:
+                aside.append(said)
+    return WhatWasPaid(FLIPKART, lines.sales(FLIPKART, data_date), tuple(not_read), tuple(aside))
 
 
 # ---------------------------------------------------------------- Meesho
 
 # **MEESHO'S DEDUCTIONS BLOCK.** Meesho uses some names twice -- once among the revenue columns and once among the deductions --
-# so these are read only AFTER the commission column, which opens the deductions. Whether the revenue block's copies (the first
-# `Fixed Fee`, `Warehousing fee (inc Gst)` and the two `Return premium`s) are money charged or only the working behind it is not
-# something his sample shows (every one of them is nought in it), so they are NOT read: a blank is honest, a guess in the money is
-# not.
+# so these are read only AFTER the commission column, which opens the deductions. Whether the revenue block's copies of the first
+# `Fixed Fee` and of `Warehousing fee (inc Gst)` are money charged or only the working behind it is not something his sample shows
+# (every one of them is nought in it), so they are NOT read: a blank is honest, a guess in the money is not. **The two `Return
+# premium` columns are the exception and ARE read (MEESHO_RETURN_PREMIUM)**: they have no copy in the deductions block, so nothing
+# is counted twice, and Control asked for them.
 MEESHO_ANCHOR = "Meesho Commission (Incl. GST)"
 MEESHO_AFTER_THE_ANCHOR: Tuple[Tuple[str, str], ...] = (
     ("commission", MEESHO_ANCHOR),
@@ -318,9 +359,64 @@ MEESHO_AFTER_THE_ANCHOR: Tuple[Tuple[str, str], ...] = (
 MEESHO_ORDER_ID = "Sub Order No"
 MEESHO_SKU = "Supplier SKU"
 MEESHO_SETTLEMENT = "Final Settlement Amount"
+# **MEESHO'S RETURN PREMIUM (job 15 c):** two columns in the revenue block, each named exactly once in the file. Both are in Meesho's own
+# settlement formula (read off the sample's formula row), so each is money that belongs on the order, and it is read like every other
+# charge: the platform's sign, turned over. **His sample has nought in both, so the sign is the platform's usual, not one seen.**
+MEESHO_RETURN_PREMIUM: Tuple[Tuple[str, str], ...] = (
+    ("returnPremium", "Return premium (incl GST)"),
+    ("returnPremium", "Return premium (incl GST) of Return"),
+)
+
+# **THE OTHER SHEETS OF A PAYMENTS WORKBOOK (job 15 c).** Each has group names on row 1 and column names on row 2, like the orders sheet.
+EXTRA_HEADER_ROW = 2
+# Flipkart's `MP Fee Rebate` names an order and an item: a marketplace fee given back for it. It is added to that order's settlement and,
+# as a fee returned, to its other charges as a negative.
+FLIPKART_REBATE_SHEET = "MP Fee Rebate"
+# Every other Flipkart sheet carrying money names no order (a claim, a fine, a storage fee, an ad top-up, a tax recovery). Said by kind,
+# counted by the lines that state a figure under the sheet's `Settlement Value` column. **COUNTS ONLY, never the amounts**: this goes
+# in a log, and what he was fined is in the file.
+FLIPKART_SHEETS_WITH_NO_ORDER = (
+    "Non_Order_SPF", "Storage_Recall", "Value Added Services", "Support Services Services", "Fines", "Google Ads Services",
+    "Review Accelerator Services", "Insight Subscription Services", "Ads", "TCS_Recovery", "TDS",
+)
+# Meesho's three money sheets that are not about one order, and the column whose figure makes a line a line.
+MEESHO_SHEETS_WITH_NO_ORDER = {
+    "Ads Cost": "Total Ads Cost",
+    "Referral Payments": "Net Referral Amount",
+    "Compensation and Recovery": "Amount (inc GST) INR",
+}
 
 
-def read_meesho(rows: Table, data_date: str) -> WhatWasPaid:
+def other_sheets_of(platform: str) -> Tuple[str, ...]:
+    """The sheets besides the orders sheet that this reads, by name. None for Amazon, whose file is one report."""
+    key = (platform or "").strip().lower()
+    if key == FLIPKART:
+        return (FLIPKART_REBATE_SHEET,) + FLIPKART_SHEETS_WITH_NO_ORDER
+    if key == MEESHO:
+        return tuple(MEESHO_SHEETS_WITH_NO_ORDER)
+    return ()
+
+
+def _lines_stating_money(name: str, found, amount_test: Callable[[str], bool]) -> Optional[str]:
+    """One sentence about a sheet that belongs to no sale, or nothing when it holds no line with a figure.
+
+    `found` is the sheet read as a table, or the words saying why it could not be read -- which is said too, since a sheet whose
+    columns moved may be holding money.
+    """
+    if isinstance(found, str):
+        return f"the {name!r} sheet could not be read ({found}), so any money in it is not counted"
+    amounts = [at for at, one in enumerate(found.columns) if amount_test(one)]
+    if len(amounts) != 1:
+        return (
+            f"the {name!r} sheet has {len(amounts)} columns that could state its money, so its lines could not be counted"
+        )
+    count = sum(1 for row in found if a_decimal(_cell(row, amounts[0])) is not None)
+    if not count:
+        return None
+    return f"{count} line(s) in the {name!r} sheet, which belong to no sale"
+
+
+def read_meesho(rows: Table, data_date: str, extras: Optional[Dict[str, object]] = None) -> WhatWasPaid:
     columns = rows.columns
     order_at = _where(columns, MEESHO_ORDER_ID)
     sku_at = _where(columns, MEESHO_SKU)
@@ -330,6 +426,8 @@ def read_meesho(rows: Table, data_date: str) -> WhatWasPaid:
     for charge, name in MEESHO_AFTER_THE_ANCHOR:
         at = anchor if name == MEESHO_ANCHOR else _where(columns, name, after=anchor)
         places.setdefault(charge, []).append(at)
+    for charge, name in MEESHO_RETURN_PREMIUM:
+        places.setdefault(charge, []).append(_where(columns, name))
 
     lines = _Lines()
     nameless_money = 0
@@ -343,10 +441,15 @@ def read_meesho(rows: Table, data_date: str) -> WhatWasPaid:
             continue
         lines.put((order_id, _cell(row, sku_at).strip()), paid, charges)
 
-    aside = ()
+    aside: List[str] = []
     if nameless_money:
-        aside = (f"{nameless_money} lines with money in them and no order id",)
-    return WhatWasPaid(MEESHO, lines.sales(MEESHO, data_date), tuple(_the_refused(rows)), aside)
+        aside.append(f"{nameless_money} lines with money in them and no order id")
+    for name, found in (extras or {}).items():
+        wanted = MEESHO_SHEETS_WITH_NO_ORDER[name]
+        said = _lines_stating_money(name, found, lambda one, wanted=wanted: one.strip() == wanted)
+        if said:
+            aside.append(said)
+    return WhatWasPaid(MEESHO, lines.sales(MEESHO, data_date), tuple(_the_refused(rows)), tuple(aside))
 
 
 # ---------------------------------------------------------------- Amazon
@@ -373,7 +476,7 @@ AMAZON_STATUS = "Transaction Status"
 AMAZON_RELEASED = "released"
 
 
-def read_amazon(rows: Table, data_date: str) -> WhatWasPaid:
+def read_amazon(rows: Table, data_date: str, extras: Optional[Dict[str, object]] = None) -> WhatWasPaid:
     columns = rows.columns
     order_at = _where(columns, AMAZON_ORDER_ID)
     sku_at = _where(columns, AMAZON_SKU)
@@ -410,14 +513,14 @@ def read_amazon(rows: Table, data_date: str) -> WhatWasPaid:
 
 # ---------------------------------------------------------------- the one door
 
-READERS: Dict[str, Callable[[Table, str], WhatWasPaid]] = {
+READERS: Dict[str, Callable[..., WhatWasPaid]] = {
     AMAZON: read_amazon,
     FLIPKART: read_flipkart,
     MEESHO: read_meesho,
 }
 
 
-def read_payments(rows: Table, platform: str, data_date: str) -> WhatWasPaid:
+def read_payments(rows: Table, platform: str, data_date: str, extras: Optional[Dict[str, object]] = None) -> WhatWasPaid:
     """A payments file's rows, turned into what was paid on each order.
 
     **THE FILE'S DAY IS REFUSED IF IT IS NOT A DAY**, exactly as `orders.read_orders` refuses it: it goes into `paymentsOn`,
@@ -433,7 +536,7 @@ def read_payments(rows: Table, platform: str, data_date: str) -> WhatWasPaid:
         raise CannotRead(
             f"Nothing here knows how to read {platform!r}'s payments. It knows: " + ", ".join(sorted(READERS)) + "."
         )
-    return reader(rows, data_date)
+    return reader(rows, data_date, extras)
 
 
 # ---------------------------------------------------------------- a file to ask a question with
@@ -450,8 +553,8 @@ def the_columns_a_file_of(platform: str) -> Tuple[str, ...]:
         )
     if key == MEESHO:
         return (MEESHO_ORDER_ID, MEESHO_SKU, MEESHO_SETTLEMENT) + tuple(
-            name for _, name in MEESHO_AFTER_THE_ANCHOR
-        )
+            name for _, name in MEESHO_RETURN_PREMIUM
+        ) + tuple(name for _, name in MEESHO_AFTER_THE_ANCHOR)
     if key == AMAZON:
         return (AMAZON_ORDER_ID, AMAZON_SKU, AMAZON_KIND, AMAZON_TOTAL, AMAZON_STATUS) + tuple(
             name for _, name in AMAZON_CHARGES

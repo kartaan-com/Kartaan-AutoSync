@@ -143,8 +143,9 @@ MEESHO_COLUMNS = list(tool.the_columns_a_file_of("meesho"))
 # **THE NAMES MEESHO USES TWICE, as its real file does:** `Fixed Fee (Incl. GST)` appears among the revenue columns and again
 # among the deductions, and the first is not read.
 MEESHO_HEADER = (
-    ["Sub Order No", "Supplier SKU", "Final Settlement Amount", "Fixed Fee (Incl. GST)", "Return premium (incl GST)"]
-    + MEESHO_COLUMNS[3:]
+    ["Sub Order No", "Supplier SKU", "Final Settlement Amount", "Fixed Fee (Incl. GST)"]
+    + MEESHO_COLUMNS[3:5]
+    + MEESHO_COLUMNS[5:]
 )
 
 
@@ -162,7 +163,8 @@ def a_meesho_line(order, sku, settlement, first_fixed_fee="", **charges):
     names = {
         "commission": "Meesho Commission (Incl. GST)", "shipping": "Shipping Charge (Incl. GST)",
         "returnShipping": "Return Shipping Charge (Incl. GST)", "tcs": "TCS", "tds": "TDS",
-        "warehousing": "Warehousing fee (Incl. GST)",
+        "warehousing": "Warehousing fee (Incl. GST)", "returnPremium": "Return premium (incl GST)",
+        "returnPremiumOfReturn": "Return premium (incl GST) of Return",
     }
     cells = a_line(MEESHO_HEADER, **{
         "Sub Order No": order, "Supplier SKU": sku, "Final Settlement Amount": settlement,
@@ -751,6 +753,122 @@ if _real_me is not None:
           rd is not None and len(rd.sales) >= 10 and got[1] == 0 and all(s.settlement is not None for s in rd.sales))
     real_ran += 1
 
+# ================================================================ the other sheets (job 15 c)
+
+# **MEESHO: THE RETURN PREMIUM.** Two columns in the revenue block, the platform's sign turned over, the two added.
+_prem = answered(lambda: read_as("me_payments", "meesho_me_payments_2026-10-03.xlsx", a_meesho_file(
+    a_meesho_line("MP1", "SKU-P", "100", returnPremium="-30", returnPremiumOfReturn="-5"),
+    a_meesho_line("MP2", "SKU-P", "100", returnPremium="0"),
+    a_meesho_line("MP3", "SKU-P", "100"),
+)))
+_prem_sales = {s.order_id: s for s in (_prem[0].sales if _prem else ())}
+check("MEESHO: the return premium is a charge, the two columns added, the platform's sign turned over",
+      _prem is not None and _prem_sales["MP1"].charges.get("returnPremium") == "35")
+check("and a real nought is written as a nought",
+      _prem is not None and _prem_sales["MP2"].charges.get("returnPremium") == "0")
+check("and a blank is left out, never written as nought",
+      _prem is not None and "returnPremium" not in _prem_sales["MP3"].charges)
+check("and a file that has lost a premium column is refused, naming it",
+      refused_by(lambda: read_as("me_payments", "meesho_me_payments_2026-10-03.xlsx", a_meesho_file(
+          a_meesho_line("MP1", "SKU-P", "100"), rename={"Return premium (incl GST) of Return": "Return premium (renamed)"}))))
+
+
+def a_two_row_sheet(columns, *lines):
+    return [["Payment Details"] + [""] * (len(columns) - 1), columns] + [list(l) for l in lines]
+
+
+def with_more_sheets(body_sheets, extra):
+    """A real workbook: the sheets of a made payments file plus these, by name."""
+    return a_spreadsheet(body_sheets + extra)
+
+
+FK_ORDERS_SHEET = ("Orders", [["Payment Details"] + [""] * (len(FLIPKART_HEADER) - 1), FLIPKART_HEADER,
+                              ["", "", "", "sub-heading"] + [""] * (len(FLIPKART_HEADER) - 4),
+                              a_flipkart_line("OD1", "DJ 14", "-300", commission="-40"),
+                              a_flipkart_line("OD2", "DJ 15", "50")])
+_REBATE_COLUMNS = ["NEFT ID", "Neft Type", " Payment Date", "Settlement Value (Rs.)", "SKU", "Order ID", "Order item ID",
+                   "Order Date", "Rebate Processing Date"]
+_FINES_COLUMNS = ["NEFT ID", "Payment Date", "Settlement Value(Rs.) ", "Transaction Name", "Transaction Details"]
+_fk_more = answered(lambda: read_as("fk_payments", "flipkart_fk_payments_2026-08-28.xlsx", with_more_sheets(
+    [("Report Help", [["How to read"]]), FK_ORDERS_SHEET],
+    [("MP Fee Rebate", a_two_row_sheet(_REBATE_COLUMNS,
+        ["N1", "NEFT", "2026-08-01", "12.5", "DJ 14", "OD1", "OI1", "2026-07-01", "2026-08-01"],
+        ["N1", "NEFT", "2026-08-01", "3", "DJ 99", "OD404", "OI2", "2026-07-01", "2026-08-01"],
+        ["N1", "NEFT", "2026-08-01", "4", "DJ 98", "", "OI3", "2026-07-01", "2026-08-01"])),
+     ("Fines", a_two_row_sheet(_FINES_COLUMNS, ["N2", "2026-08-02", "-100", "Late", "x"], ["N2", "2026-08-02", "-50", "Late", "y"])),
+     ("TDS", a_two_row_sheet(["NEFT ID", "Payment Date", "Settlement Value (Rs.)", "ID", "Claim Date"])),
+     ("GST_Details", [["Transaction Summary"], ["Service Type", "Amount (Rs.)"], ["x", "9"]])],
+)))
+_fk_more_reading = _fk_more[0] if _fk_more else None
+_fk_more_sales = {(s.order_id, s.sku): s for s in (_fk_more_reading.sales if _fk_more_reading else ())}
+check("FLIPKART: a marketplace fee rebate is added to its order's settlement",
+      _fk_more_reading is not None and _fk_more_sales[("OD1", "DJ 14")].settlement == "-287.5")
+check("and taken off its other charges, as a fee given back is a negative charge",
+      _fk_more_reading is not None and _fk_more_sales[("OD1", "DJ 14")].charges.get("otherServices") == "-12.5")
+check("and the order's other charges are still there beside it",
+      _fk_more_reading is not None and _fk_more_sales[("OD1", "DJ 14")].charges.get("commission") == "40")
+check("a rebate for an order this file does not otherwise state is LEFT OUT AND SAID, so it cannot replace that order's money",
+      _fk_more_reading is not None and ("OD404", "DJ 99") not in _fk_more_sales
+      and any("does not otherwise state" in x for x in _fk_more_reading.set_aside))
+check("a rebate line with no order id is said and makes no line",
+      _fk_more_reading is not None and any("rebate line" in x and "no order id" in x for x in _fk_more_reading.set_aside)
+      and len(_fk_more_sales) == 2)
+check("a sheet that belongs to no sale is said by name and by how many lines carried a figure, never by amount",
+      _fk_more_reading is not None and any(x == "2 line(s) in the 'Fines' sheet, which belong to no sale"
+                                           for x in _fk_more_reading.set_aside)
+      and not any("100" in x for x in _fk_more_reading.set_aside))
+check("and a sheet with nothing in it is not mentioned", _fk_more_reading is not None
+      and not any("TDS" in x for x in _fk_more_reading.set_aside))
+check("and a sheet that is not money is not read at all", _fk_more_reading is not None
+      and not any("GST_Details" in x for x in _fk_more_reading.set_aside))
+check("the orders sheet's own figures are unchanged by the sheets beside it",
+      _fk_more_reading is not None and _fk_more_sales[("OD2", "DJ 15")].settlement == "50")
+
+_fk_no_extras = answered(lambda: read_as("fk_payments", "flipkart_fk_payments_2026-08-28.xlsx", a_spreadsheet([FK_ORDERS_SHEET])))
+check("a workbook without the other sheets reads exactly as before, with nothing said",
+      _fk_no_extras is not None and _fk_no_extras[0].set_aside == ())
+
+_fk_bad_sheet = answered(lambda: read_as("fk_payments", "flipkart_fk_payments_2026-08-28.xlsx", a_spreadsheet(
+    [FK_ORDERS_SHEET, ("Fines", [["only one row"]])])))
+check("a sheet that will not read does not stop the orders' money, and is said",
+      _fk_bad_sheet is not None and len(_fk_bad_sheet[0].sales) == 2
+      and any("'Fines' sheet could not be read" in x for x in _fk_bad_sheet[0].set_aside))
+check("a rebate sheet that will not read at all REFUSES THE FILE too, so the same fault is not sometimes said and sometimes refused",
+      refused_by(lambda: read_as("fk_payments", "flipkart_fk_payments_2026-08-28.xlsx", a_spreadsheet(
+          [FK_ORDERS_SHEET, ("MP Fee Rebate", [["only one row"]])]))))
+check("a rebate sheet whose columns moved REFUSES THE FILE, so the file is read again once it is mended and no rebate is lost",
+      refused_by(lambda: read_as("fk_payments", "flipkart_fk_payments_2026-08-28.xlsx", a_spreadsheet(
+          [FK_ORDERS_SHEET, ("MP Fee Rebate", a_two_row_sheet(["NEFT ID", "Something else"], ["N1", "5"]))]))))
+
+_fk_two_amounts = answered(lambda: read_as("fk_payments", "flipkart_fk_payments_2026-08-28.xlsx", a_spreadsheet(
+    [FK_ORDERS_SHEET, ("Fines", a_two_row_sheet(["NEFT ID", "Settlement Value (Rs.)", "Settlement Value(Rs.)"], ["N", "1", "2"]))])))
+check("a sheet with two columns that could state its money is said as uncountable, not counted from one of them",
+      _fk_two_amounts is not None and any("'Fines' sheet has 2 columns" in x for x in _fk_two_amounts[0].set_aside))
+
+_ME_ADS = ["Deduction Duration", "Deduction Date", "Campaign ID", "Ad Cost", "Credits / Waivers / Discounts",
+           "Ad Cost incl. Credits/Waivers/Discounts", "GST", "Total Ads Cost"]
+_me_more = answered(lambda: read_as("me_payments", "meesho_me_payments_2026-10-03.xlsx", a_spreadsheet([
+    ("Disclaimer", [["Meesho"]]),
+    ("Order Payments", [["Order Related Details"] + [""] * (len(MEESHO_HEADER) - 1), MEESHO_HEADER,
+                        [""] * len(MEESHO_HEADER), a_meesho_line("MX1", "SKU-M", "100", commission="-10")]),
+    ("Ads Cost", [["Ads Cost"], _ME_ADS, ["", "", "", "A", "B", "(A + B)"],
+                  ["1-7 Aug", "2026-08-07", "C1", "10", "0", "10", "1.8", "11.8"],
+                  ["8-14 Aug", "2026-08-14", "C2", "20", "0", "20", "3.6", "23.6"]]),
+    ("Referral Payments", [["Referral Payments"], ["Reward Id", "Payment Date", "Store Name", "Reason", "Net Referral Amount",
+                                                   "Taxes (GST/TDS)"], [], ["No data is available for these dates."]]),
+    ("Compensation and Recovery", [["Platform Recovery & Compensation"], ["Date", "Program Name", "Reason", "Amount (inc GST) INR"],
+                                   ["2026-08-03", "P", "R", "-40"]]),
+])))
+_me_more_reading = _me_more[0] if _me_more else None
+check("MEESHO: the orders sheet is still read beside the other sheets", _me_more_reading is not None
+      and len(_me_more_reading.sales) == 1 and _me_more_reading.sales[0].charges.get("commission") == "10")
+check("the ads cost sheet is said by how many lines carried a figure; the formula row under the names is not one",
+      _me_more_reading is not None and "2 line(s) in the 'Ads Cost' sheet, which belong to no sale" in _me_more_reading.set_aside)
+check("the compensation and recovery sheet is said too", _me_more_reading is not None
+      and "1 line(s) in the 'Compensation and Recovery' sheet, which belong to no sale" in _me_more_reading.set_aside)
+check("and a sheet that says no data is available is not said at all",
+      _me_more_reading is not None and not any("Referral" in x for x in _me_more_reading.set_aside))
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 HIS_FILES_GROUP = 4
@@ -759,7 +877,7 @@ if failures:
     print(f"{len(failures)} FAILED: {failures}")
     sys.exit(1)
 WITHOUT = ran - real_ran
-if WITHOUT != 95:
-    print(f"FAIL  checks went missing -- {WITHOUT} ran without his files, 95 expected")
+if WITHOUT != 95 + 22:
+    print(f"FAIL  checks went missing -- {WITHOUT} ran without his files, 117 expected")
     sys.exit(1)
 print(f"all {ran} checks passed" + ("" if real_ran == HIS_FILES_GROUP else f" ({HIS_FILES_GROUP - real_ran} of his real-file checks not run -- the files are elsewhere)"))

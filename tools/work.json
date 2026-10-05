@@ -1659,7 +1659,7 @@
     {
       "id": "payments-on-the-ledger",
       "name": "Payment files matched to the ledger's orders: settlement and charges",
-      "what": "Plan job 36. A payments file (Amazon's unified transaction report, Flipkart's settlement workbook, Meesho's payments workbook) is read by autosync/payments.py and put on the ledger rows the orders already made, matched on platform + order id + SKU. A line with no SKU goes to its order's one row; a line for an order the ledger has no row for is SAID and never written as a row. One sign for every platform (a charge is positive when money was taken), blank never nought, a file's several lines for one order added in decimals. The settlement, the twelve charge columns and paymentsOn only (D150 rule 1). Written against his three real files read for shape only: no figure from them is in the repository.",
+      "what": "Plan job 36. A payments file (Amazon's unified transaction report, Flipkart's settlement workbook, Meesho's payments workbook) is read by autosync/payments.py and put on the ledger rows the orders already made, matched on platform + order id + SKU. A line with no SKU goes to its order's one row; a line for an order the ledger has no row for is SAID and never written as a row. One sign for every platform (a charge is positive when money was taken), blank never nought, a file's several lines for one order added in decimals. The settlement, the twelve charge columns and paymentsOn only (D150 rule 1). Job 15 (c) adds the workbooks' other sheets: Flipkart MP Fee Rebate onto the order, Meesho return premium, and the sheets that name no order said by count. Written against his three real files read for shape only: no figure from them is in the repository.",
       "rests_on": [
         "the-sales-ledger",
         "report-list"
@@ -1681,6 +1681,12 @@
           "date": "2026-10-05",
           "reviewers": 2,
           "note": "A general-purpose code reviewer and a security reader, both read-only and independent of the author. Fixed before the commit: a line with no SKU is placed only by the reader on the one SKU its own file names (never guessed from the ledger); payments files are applied after orders files; a settlement a newer file changes is said; wrong-width lines are counted; figures of absurd size are not figures; names are shown escaped in the log; header found in parsed rows. Left open and told to Control: newest-file-wins can replace an order's whole earlier settlement with a later part-statement (now said, not prevented); Amazon V2 settlement file shape unconfirmed."
+        },
+        {
+          "round": "A71 job 15 (c)",
+          "date": "2026-10-05",
+          "reviewers": 1,
+          "note": "One independent read-only reviewer. Fixed before the commit: a rebate for an order the same workbook does not state is left out and said (as its own line it would have replaced that order's settlement and charges); a rebate sheet that will not read now refuses the file like a moved column does. Left open and told to Control: whether Flipkart's Orders columns already carry the rebate has not been seen (the sample's rebate sheet is empty); Meesho's return premium sign rests on the platform's usual sign (the sample has noughts); Meesho's deduction-block Fixed Fee and Warehousing are the copies read while the settlement formula names the revenue-block ones."
         }
       ],
       "findings": [],
