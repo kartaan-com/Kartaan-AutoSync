@@ -2261,6 +2261,16 @@ check('and a csv whose first column happens to be angle-bracketed is judged on i
   !looksLikeAPage(asBytes('Date,Views\n2026-09-05,9200')));
 check('and nothing at all is not a page either, because it is a different failure',
   !looksLikeAPage(new Uint8Array(0)) && !looksLikeAPage(null));
+check('a PDF, a picture or a program is refused as not-a-report, whatever it was called',
+  looksLikeAPage(asBytes('%PDF-1.7 a bank statement'))
+  && looksLikeAPage(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 13, 10]))
+  && looksLikeAPage(new Uint8Array([0xff, 0xd8, 0xff, 0xe0]))
+  && looksLikeAPage(asBytes('GIF89a'))
+  && looksLikeAPage(new Uint8Array([0x4d, 0x5a, 0x90, 0])));
+check('and an old-format spreadsheet, a zip and a csv that merely starts with letters are still taken',
+  !looksLikeAPage(new Uint8Array([0xd0, 0xcf, 0x11, 0xe0, 0xa1]))
+  && !looksLikeAPage(asBytes('Pending,Order,1,2'))
+  && !looksLikeAPage(asBytes('MY ORDER,SKU,1,2')));
 
 /* --------------- somebody else's script on the same page as the report */
 
@@ -2703,7 +2713,7 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
     notYet.state === NOT_AVAILABLE_YET && notYet.say.includes('2026-08-25') && older.putAway.length === 0);
 }
 
-const EXPECTED = 342;
+const EXPECTED = 344;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

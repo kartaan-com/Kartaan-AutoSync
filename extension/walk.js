@@ -1953,6 +1953,17 @@ export function withWhatThePageShowed(answer, banners) {
 
 export function looksLikeAPage(bytes) {
   if (!bytes || !bytes.length) return false;
+  /* **AND A FILE THAT IS PLAINLY NOT A REPORT AT ALL (review finding, 2026-10-05).** While a walk is armed
+   * the first download Chrome reports is taken for the report, so a PDF, a picture or a program the
+   * seller happened to download by hand in that window would have been filed as the day's report. Every
+   * report here is a spreadsheet, a zip holding one, or text -- never these. Named by their opening
+   * bytes, so a real report is never refused for what it is called. */
+  const [a, b, c, d] = bytes;
+  if (a === 0x25 && b === 0x50 && c === 0x44 && d === 0x46) return true; // %PDF
+  if (a === 0x89 && b === 0x50 && c === 0x4e && d === 0x47) return true; // PNG
+  if (a === 0xff && b === 0xd8 && c === 0xff) return true; // JPEG
+  if (a === 0x47 && b === 0x49 && c === 0x46 && d === 0x38) return true; // GIF
+  if (a === 0x4d && b === 0x5a) return true; // a Windows program
   const opening = new TextDecoder('utf-8', { fatal: false })
     .decode(bytes.slice(0, 200)).trim().toLowerCase();
   return opening.startsWith('<');
