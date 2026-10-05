@@ -260,6 +260,46 @@ def a_views_sink(transport, project: str, today: str, keep: int) -> Callable[...
     return sink
 
 
+def _what_listings_are_held(transport, project: str, doc_ids: Sequence[str]) -> Dict[str, tuple]:
+    """For each record asked for, the listing it already holds and the day it was last changed (nothing for a record that is not there yet)."""
+    held: Dict[str, tuple] = {}
+    for at in range(0, len(doc_ids), ASKED_AT_A_TIME):
+        chunk = list(doc_ids[at:at + ASKED_AT_A_TIME])
+        names = [firestore.where_a_document_lives(project, firestore.LISTINGS_SEEN, one) for one in chunk]
+        where = BATCH_GET.format(api=API, project=project, database=DATABASE)
+        got = _answered(transport.post(where, json={"documents": names}), "asking which listings are already held").json()
+        if not isinstance(got, list):
+            # **A REPLY THAT IS NOT A LIST IS NOT "NOTHING HELD".** Taken so, every listing would be written again, as new, every night.
+            raise TheirDatabaseSaidNo("asking which listings are already held: the answer was not a list of records.")
+        for answer in got:
+            found = answer.get("found")
+            if found:
+                one = firestore.listing_held(found)
+                if one is not None:
+                    held[found["name"].rsplit("/", 1)[-1]] = (one, firestore.listing_day_held(found))
+    return held
+
+
+def a_listings_sink(transport, project: str) -> Callable[..., int]:
+    """The listings a listing file names, into their records -- ONLY the ones that are new or that differ from what is held (job 41).
+
+    **THE RECORDS ARE ASKED FOR FIRST**, so a night that brings a file naming the same listings as the last one writes nothing at all:
+    his words for it were that a second run queues nothing new. Answers how many records were written.
+    """
+
+    def sink(report_id: str, day: str, listings: Dict[str, Dict]) -> int:
+        held = _what_listings_are_held(transport, project, sorted(listings))
+        writes = [
+            firestore.a_listing_write(project, listing, report_id, day)
+            for name, listing in sorted(listings.items())
+            # **NEW, OR DIFFERENT -- AND NEVER OVER A NEWER FILE'S FIGURES.** A file uploaded late must not put an older stock over a newer one.
+            if name not in held or (held[name][0] != listing and held[name][1] <= day)
+        ]
+        return write_them(transport, project, writes, "writing the listings the platforms' files name")
+
+    return sink
+
+
 def firestore_name(platform: str, listing: str) -> str:
     """`<platform>__<listingId>`, the name the ERP's rules and screens look a listing up by."""
     return f"{platform}__{listing}"

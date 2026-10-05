@@ -94,7 +94,12 @@ RUNS = "sync_runs"
 # **AND FOURTH, FROM JOB 86 PART A: HOW EACH LISTING IS DOING.** The ERP's rules (commit 94de631) let the run write it as the
 # owner and nobody else; it is written only by `a_views_write`, with a mask, so one report never undoes another's figures.
 LISTING_VIEWS = "listing_views"
-WHAT_IT_MAY_WRITE = (LOG, BOARD, RUNS, LISTING_VIEWS)
+# **AND FIFTH, FROM JOB 41: THE LISTINGS THE PLATFORMS' LISTING FILES NAME.** One record per listing, named exactly as the ERP names a listing
+# waiting to be let in (`platform::platformId`), holding the listing as the ERP's own reader reads it. **The run writes ONLY this and never
+# `needs_review` or `products`**: the seller lets a listing in, and which listings are new is for the ERP to say, against what it already holds.
+# Written only by `a_listing_write`. The ERP's rules must let the run write it as the owner -- see the job 41 report for the exact rule.
+LISTINGS_SEEN = "listings_seen"
+WHAT_IT_MAY_WRITE = (LOG, BOARD, RUNS, LISTING_VIEWS, LISTINGS_SEEN)
 
 # Where the seller's own business record lives, and the one field this job reads
 # out of it. **READ, NEVER WRITTEN (D114):** the hour is the seller's setting,
@@ -475,6 +480,63 @@ def a_views_write(project: str, doc_id: str, platform: str, listing_id: str, day
         "update": {"name": where_a_document_lives(project, LISTING_VIEWS, doc_id), "fields": fields},
         "updateMask": {"fieldPaths": paths},
     }
+
+
+# **THE FIELDS OF A LISTING, AND NO OTHERS** (the ERP reader's listing, less the line it sat on). A field outside this list is refused rather
+# than written, so a column a platform adds can never reach a seller's database by way of a reader that was not told about it.
+LISTING_FIELDS = (
+    "platform", "platformId", "sku", "productName", "stock", "mrp", "sellingPrice", "settlement", "buyerLink", "state",
+    "stateReason", "platformVariation", "catalogId", "listingId",
+)
+# The figures among them: a whole number goes as one, money as a double, a figure a platform did not give as null.
+LISTING_FIGURES = ("stock", "mrp", "sellingPrice", "settlement")
+
+
+def a_listing_write(project: str, listing: Dict, report_id: str, changed_on: str) -> Dict:
+    """One listing's record, written whole: `{id, listing, report, changedOn}`.
+
+    **THE SHAPE IS THE ERP'S OWN QUEUE RECORD (`reviewRecord`: `{id, listing}`) WITH TWO FIELDS OF THE RUN'S ADDED**, so letting a listing in
+    copies `listing` straight across. `changedOn` is the day of the file in which this listing last differed from what was held.
+    **WHOLE, NO MASK**: nothing else writes this record, and a field dropped from a listing must go.
+    """
+    if not A_DAY.match(str(changed_on)):
+        raise Refused(f"{changed_on!r} is not a day written year-month-day, so no record was written for it.")
+    if set(listing) != set(LISTING_FIELDS):
+        raise Refused(f"A listing must have exactly the fields {LISTING_FIELDS}; this one has {sorted(listing)}.")
+    held: Dict[str, Dict] = {}
+    for name in LISTING_FIELDS:
+        value = listing[name]
+        if name in LISTING_FIGURES:
+            held[name] = a_value(None) if value is None else _a_number(value)
+        else:
+            if not isinstance(value, str):
+                raise Refused(f"{name} of a listing must be text, and {value!r} is not.")
+            held[name] = a_value(value)
+    doc_id = f"{listing['platform']}::{listing['platformId']}"
+    return {
+        "update": {
+            "name": where_a_document_lives(project, LISTINGS_SEEN, doc_id),
+            "fields": {
+                "id": a_value(doc_id),
+                "listing": {"mapValue": {"fields": held}},
+                "report": a_value(str(report_id)),
+                "changedOn": a_value(str(changed_on)),
+            },
+        }
+    }
+
+
+def listing_day_held(document: Optional[Dict]) -> str:
+    """The day (`changedOn`) a record says its listing last differed, or '' when it says none."""
+    return plain((document or {}).get("fields") or {}).get("changedOn") or ""
+
+
+def listing_held(document: Optional[Dict]) -> Optional[Dict]:
+    """The listing a record already holds, read from what Firestore answered for it. None when there is no record."""
+    inside = (((document or {}).get("fields") or {}).get("listing") or {}).get("mapValue") or {}
+    if not inside.get("fields"):
+        return None
+    return plain(inside["fields"])
 
 
 def days_held(document: Optional[Dict]) -> Tuple[str, ...]:

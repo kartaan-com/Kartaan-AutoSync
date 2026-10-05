@@ -1034,9 +1034,9 @@ check("the rules the read-files list was made under are named, so a change to th
 
 check("every report in REPORTS has a reader or a written reason it is not yet read",
       tool.why_a_report_has_no_decision() == "")
-check("the 29 reports are 9 read (6 into the ledger, 3 into listing records) and 20 with a reason, which is Finding 51 stated as numbers (job 36 moved the three payments readers up)",
-      len(tool.WHAT_CAN_BE_READ) == 6 and len(tool.WHAT_VIEWS_CAN_BE_READ) == 3
-      and len(tool.WHAT_IS_FETCHED_AND_NOT_READ_YET) == 20
+check("the 29 reports are 11 read (6 into the ledger, 3 into listing records, 2 listing files) and 18 with a reason, which is Finding 51 stated as numbers (job 41 moved the two listing files up)",
+      len(tool.WHAT_CAN_BE_READ) == 6 and len(tool.WHAT_VIEWS_CAN_BE_READ) == 3 and len(tool.WHAT_LISTINGS_CAN_BE_READ) == 2
+      and len(tool.WHAT_IS_FETCHED_AND_NOT_READ_YET) == 18
       and len(reports.REPORTS) == 29)
 every_reason = list(tool.WHAT_IS_FETCHED_AND_NOT_READ_YET.values())
 check("every reason is words and names the piece that will read it, or says it is off",

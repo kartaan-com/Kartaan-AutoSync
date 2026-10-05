@@ -99,14 +99,14 @@ WAYS: Dict[str, Way] = {
         # Two title lines, then the names (the reference skipped two lines).
         header_row=3,
     ),
-    # **NO REAL me_ads_catalog FILE SEEN YET.** The names below are the old dashboard's word rules (process.py), matched by the
-    # words a column contains, and a file with two columns that could be one of them stops rather than guessing.
+    # **READ AGAINST HIS REAL FILE (2026-10-05).** `Spend` is matched exactly: the word rule `spend` also matched `Ad Spend Per Order`
+    # and stopped the whole file. The others match by the word a column contains, and two columns that could be one stop it.
     "me_ads_catalog": Way(
         "meesho", _has("catalog id", "catalog_id"), _is("Date"),
         {
             "adViews": (_has("views"),),
             "adClicks": (_has("clicks"),),
-            "adSpend": (_has("spend"),),
+            "adSpend": (_is("Spend"),),
             # Orders (units), not money.
             "adSales": (_has("orders", "order_count"),),
         },

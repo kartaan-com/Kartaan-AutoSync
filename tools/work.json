@@ -1782,6 +1782,32 @@
         "run_for_real": false,
         "instead": "tables.test.js (33) and walk.test.js drive the reader against pages made to the shape Control read; twelve faults put in one at a time were each caught. Never run on his real pages: the first run is his, and it reads only."
       }
+    },
+    {
+      "id": "listing-files",
+      "name": "The run reads the platforms' listing files and records the listings for the ERP to put in front of the seller (plan jobs 41 and 46, AutoSync halves)",
+      "what": "fk_listings (an old-style .xls, read by a new stdlib reader) and me_catalog are read into listings, the way the ERP's Bring in a listing file reads them, and only new or changed listings are written to a run-owned collection, listings_seen, for the ERP to show for the seller to let in. Nothing is written to products or Needs Review. Amazon's Active Listings Report shape is built from his real file and waits for its stream (plan piece 42). The mapping of columns is pinned to the ERP's committed listing-files.js.",
+      "rests_on": [
+        "report-list"
+      ],
+      "files": [
+        "autosync/xls.py",
+        "autosync/xls_checks.py",
+        "autosync/listings.py",
+        "autosync/listings_checks.py"
+      ],
+      "also_touches": [
+        "autosync/sheet.py",
+        "autosync/views.py",
+        "autosync/views_checks.py",
+        "autosync/firestore.py",
+        "autosync/firestore_checks.py",
+        "autosync/firestore_door.py",
+        "autosync/reading.py",
+        "autosync/reading_checks.py",
+        "autosync/nightly.py",
+        "autosync/start.py"
+      ]
     }
   ]
 }

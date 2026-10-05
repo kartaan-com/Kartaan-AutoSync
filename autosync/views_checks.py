@@ -132,6 +132,12 @@ me = answered(lambda: read("me_ads_catalog", csv(
 check("a catalogue's ad figures are read day by day under the catalogue's id",
       me is not None and me.records["CAT1"]["2026-10-04"] == {"adViews": 2000, "adClicks": 40, "adSpend": 100.5, "adSales": 3})
 check("Meesho is the platform", me is not None and me.platform == "meesho")
+REAL_ME_HEADER = ("Date,Campaign ID,Campaign Name,Catalog ID,Category,Catalog Status,Spend,Revenue,Orders,Views,Clicks,CPC,"
+                  "Conversion %,Delivered ROI,Ad Spend Per Order,Current Performance,Avg Rating,Selected Min ROI")
+real_me = answered(lambda: read("me_ads_catalog", csv(
+    REAL_ME_HEADER, "2026-10-04,1,Camp,CAT1,Earrings,ACTIVE,10.5,50,3,200,4,0.13,1,2,3.5,EMPTY,4.1,10")))
+check("his real file's columns (Spend beside Ad Spend Per Order) are read, and the per-order figure is not the spend",
+      real_me is not None and real_me.records["CAT1"]["2026-10-04"] == {"adViews": 200, "adClicks": 4, "adSpend": 10.5, "adSales": 3})
 check("two columns that could both be the orders column stop the file",
       refused(lambda: read("me_ads_catalog", csv(ME_HEADER + ",Total Orders", "2026-10-04,1,C,CAT1,N,1,1,1,1,1,1,1")), table.CannotRead))
 
@@ -351,7 +357,7 @@ check("and they write no ledger column", all(o.knows == () for o in reading.WHAT
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 61
+EXPECTED = 62
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

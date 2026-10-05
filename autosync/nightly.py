@@ -207,6 +207,8 @@ def one_tick(
     record_the_sales: Optional[Callable[[Sequence], None]] = None,
     # **WHERE HOW EACH LISTING IS DOING GOES (job 86 part A):** platform and figures in, records written out.
     record_views: Optional[Callable[[str, dict], int]] = None,
+    # **WHERE THE LISTINGS A LISTING FILE NAMES GO (job 41):** report, day and listings in, records written out.
+    record_listings: Optional[Callable[[str, str, dict], int]] = None,
 ) -> Tick:
     """Wake up, decide whether a run is due, and if it is, do one.
 
@@ -406,6 +408,7 @@ def one_tick(
             bring_it_back=bring_the_file_back,
             record_the_sales=record_the_sales,
             record_views=record_views,
+            record_listings=record_listings,
         )
     except Exception as wrong:  # noqa: BLE001 - reported, never swallowed
         # **THE RECORD IS LEFT EXACTLY AS IT WAS.** Anything else here either

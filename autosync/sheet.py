@@ -415,7 +415,19 @@ def read(
     strings = _shared_strings(book)
     date_styles = _which_styles_are_dates(book)
     rows = _rows_of(_parse(book, part), strings, date_styles)
+    return table_from_rows(rows, header_row, expect)
 
+
+def table_from_rows(
+    rows: List[List[str]],
+    header_row: int = 1,
+    expect: Optional[Sequence[str]] = None,
+) -> Table:
+    """Rows of text, as a spreadsheet gives them, turned into the same `Table` a text file gives.
+
+    **SPLIT OUT OF `read` SO THE OLD `.xls` READER (`xls.py`) HANDS BACK EXACTLY WHAT AN `.xlsx` DOES**, with the header and
+    missing-column rules written once.
+    """
     if header_row < 1:
         raise NotASpreadsheet("The header row is a row number, counting from one.")
     if len(rows) < header_row:
