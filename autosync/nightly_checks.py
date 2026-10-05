@@ -2503,9 +2503,35 @@ check("the one-time merge is started only by the button, and only as plan or app
       'os.environ.get("MERGE"' in _START_RAW and '_merge in ("plan", "apply")' in _START_RAW
       and "nothing was done" in _START_RAW)
 
+# ------------------------------------------- job 37: THE STATUS WORD REACHES THE LEDGER'S CELL, THROUGH THE REAL CHAIN
+
+# **READ BACK OUT OF THE SHEET, never off the plan.** A check that follows the platform's word only as far as the
+# sale would stay green with the column never written -- the case an independent reviewer found.
+BODIES["d-8"] = _a_meesho_file("SO-8,DJ 14,0,2026-09-08 10:00:00,CANCELLED,")
+CANCELLED = "meesho::SO-8::DJ 14"
+cancel_sheet, cancel_into, _ = a_sales_ledger()
+Harness().go(**TheSellersDrive([_in_the_folder("d-8", "meesho_me_orders_2026-09-08.csv")], into=cancel_into).wiring())
+check("a cancelled order's status cell in the ledger holds the platform's word exactly as sent",
+      cancel_sheet.cell_for(CANCELLED, "status") == "CANCELLED")
+check("and its quantity still says what the file said, nought, so nothing else about the row was invented",
+      cancel_sheet.cell_for(CANCELLED, "qty") == "0")
+
+# A row already in the ledger from before the reader wrote the word: the file was read under the old rules.
+old_row = list(the_sheet.the_row_for(the_sheet.Sale(platform="meesho", order_id="SO-8", sku="DJ 14", qty=0,
+                                                    notes="the seller wrote this")))
+before_sheet = PretendLedgerSheet()
+before_sheet.rows.append(old_row)
+_, before_into, _ = a_sales_ledger(before_sheet)
+old_state = between_runs.write(between_runs.with_files_read(between_runs.empty(), ("d-8",)))
+Harness(old_state).go(**TheSellersDrive([_in_the_folder("d-8", "meesho_me_orders_2026-09-08.csv")], into=before_into).wiring())
+check("THE FIVE CANCELLED ROWS ALREADY IN HIS LEDGER ARE CORRECTED: the old row now reads cancelled",
+      before_sheet.cell_for(CANCELLED, "status") == "CANCELLED")
+check("and the seller's own note on that row is exactly as they left it",
+      before_sheet.cell_for(CANCELLED, "notes") == "the seller wrote this" and len(before_sheet.rows) == 2)
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 362
+EXPECTED = 366
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
