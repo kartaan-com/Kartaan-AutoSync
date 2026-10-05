@@ -66,8 +66,17 @@ export function theEntriesOf(bytes) {
   return entries;
 }
 
+/* **NOTHING INFLATES PAST THIS (review finding, 2026-10-05).** A zip of a few megabytes can declare, and
+ * really hold, many gigabytes: opened without a limit it takes the whole worker down. A real report is a
+ * few megabytes; two hundred is far past anything real and far short of what hurts. */
+export const AT_MOST_WHEN_OPENED = 200 * 1024 * 1024;
+
 /** The bytes of one entry, inflated when they were compressed. */
-export async function theBytesOf(bytes, entry) {
+export async function theBytesOf(bytes, entry, atMost = AT_MOST_WHEN_OPENED) {
+  if (entry.size > atMost) {
+    throw new Error(`${entry.name} says it opens to ${entry.size} bytes, which is more than the ${atMost} `
+      + 'this will open, so it has been left unopened.');
+  }
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   if (view.getUint32(entry.offset, true) !== LOCAL_HEADER) {
     throw new Error(`${entry.name} is not where this zip says it is, so it cannot be opened.`);
@@ -79,9 +88,26 @@ export async function theBytesOf(bytes, entry) {
   if (entry.method !== 8) {
     throw new Error(`${entry.name} is packed a way this cannot open (method ${entry.method}).`);
   }
-  const opened = new Response(new Blob([packed]).stream()
-    .pipeThrough(new DecompressionStream('deflate-raw')));
-  return new Uint8Array(await opened.arrayBuffer());
+  const reader = new Blob([packed]).stream().pipeThrough(new DecompressionStream('deflate-raw')).getReader();
+  const pieces = [];
+  let total = 0;
+  for (;;) {
+    // eslint-disable-next-line no-await-in-loop
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.length;
+    if (total > atMost) {
+      // eslint-disable-next-line no-await-in-loop
+      await reader.cancel();
+      throw new Error(`${entry.name} opened to more than the ${atMost} bytes this will open, `
+        + 'whatever it said, so it has been dropped.');
+    }
+    pieces.push(value);
+  }
+  const whole = new Uint8Array(total);
+  let at = 0;
+  for (const piece of pieces) { whole.set(piece, at); at += piece.length; }
+  return whole;
 }
 
 /**

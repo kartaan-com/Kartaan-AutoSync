@@ -9,7 +9,7 @@
 
 import { deflateRawSync } from 'node:zlib';
 import {
-  looksLikeAZip, theEntriesOf, theLatestDateInside, theSpreadsheetInside,
+  looksLikeAZip, theBytesOf, theEntriesOf, theLatestDateInside, theSpreadsheetInside,
 } from './unzip.js';
 
 process.on('uncaughtException', (err) => {
@@ -107,7 +107,21 @@ const onlyBegins = new Uint8Array([80, 75, 3, 4]);
 check('something that only begins like a zip, with no list of contents, comes through untouched',
   (await theSpreadsheetInside('a.xlsx', onlyBegins)) === onlyBegins);
 
-const EXPECTED = 9;
+/* **A ZIP BOMB IS REFUSED, BY WHAT IT SAYS AND BY WHAT IT REALLY HOLDS (review finding, 2026-10-05).** */
+const bomb = aZip([{ name: 'x.csv', text: 'a,b,'.repeat(50000) }]);
+const [bombEntry] = theEntriesOf(bomb);
+let refusedWhy = '';
+try { await theBytesOf(bomb, { ...bombEntry, size: 10 }, 1000); } catch (wrong) { refusedWhy = wrong.message; }
+check('an entry that DECLARES little but really inflates past the limit is dropped part way, and says so',
+  refusedWhy.includes('opened to more than'));
+let refusedByWhatItSays = '';
+try { await theBytesOf(bomb, { ...bombEntry, size: 5000 }, 1000); } catch (wrong) { refusedByWhatItSays = wrong.message; }
+check('and one that merely DECLARES more than the limit is left unopened without inflating anything',
+  refusedByWhatItSays.includes('left unopened'));
+check('while an ordinary entry under the limit opens as it always did',
+  new TextDecoder().decode(await theBytesOf(bomb, bombEntry)).startsWith('a,b'));
+
+const EXPECTED = 12;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;
