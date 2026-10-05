@@ -973,7 +973,38 @@ check("and the night says out loud that it was Kartaan's ledger that refused",
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 106
+# ------------------------------------------- job 35: EVERY REPORT IS READ OR SAYS WHY NOT
+
+check("every report in REPORTS has a reader or a written reason it is not yet read",
+      tool.why_a_report_has_no_decision() == "")
+check("the 26 reports are 3 read and 23 with a reason, which is Finding 51 stated as numbers",
+      len(tool.WHAT_CAN_BE_READ) == 3 and len(tool.WHAT_IS_FETCHED_AND_NOT_READ_YET) == 23
+      and len(reports.REPORTS) == 26)
+every_reason = list(tool.WHAT_IS_FETCHED_AND_NOT_READ_YET.values())
+check("every reason is words and names the piece that will read it, or says it is off",
+      all(len(one) > 30 and ("piece" in one or "pieces" in one or "protection rules" in one) for one in every_reason))
+check("Flipkart's organic keywords are the one report that is not fetched, and it says so",
+      "not fetched" in tool.WHAT_IS_FETCHED_AND_NOT_READ_YET["fk_keywords"])
+
+# **THE CHECK GOES RED FOR THE THING IT IS NAMED FOR** -- driven, not asserted about.
+_standing = reports.REPORTS
+reports.REPORTS = _standing + (reports.Report("zz_stream", "meesho", "a new stream", "browser", "daily", "csv"),)
+check("a report added with neither a reader nor a reason is named",
+      "zz_stream" in tool.why_a_report_has_no_decision())
+reports.REPORTS = _standing
+_with_a_reason_too = dict(tool.WHAT_IS_FETCHED_AND_NOT_READ_YET)
+tool.WHAT_IS_FETCHED_AND_NOT_READ_YET["me_orders"] = "left standing after its reader was built"
+check("a report that is read and also says it is not read is refused",
+      "both read and said" in tool.why_a_report_has_no_decision())
+del tool.WHAT_IS_FETCHED_AND_NOT_READ_YET["me_orders"]
+tool.WHAT_IS_FETCHED_AND_NOT_READ_YET["zz_gone"] = "a reason for a report nobody declared"
+check("and a reason for a report that does not exist is refused",
+      "do not exist" in tool.why_a_report_has_no_decision())
+del tool.WHAT_IS_FETCHED_AND_NOT_READ_YET["zz_gone"]
+check("and the two lists are whole again after those three", tool.why_a_report_has_no_decision() == ""
+      and tool.WHAT_IS_FETCHED_AND_NOT_READ_YET == _with_a_reason_too)
+
+EXPECTED = 114
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

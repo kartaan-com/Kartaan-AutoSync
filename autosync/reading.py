@@ -139,6 +139,77 @@ WHAT_CAN_BE_READ: Tuple[HowToRead, ...] = (
 )
 
 
+# **EVERY REPORT THE RUN FETCHES IS READ, OR SAYS IN WORDS WHY IT IS NOT YET (job 35).**
+#
+# **THE FAULT THIS CLOSES (Finding 51):** `reports.REPORTS` declares twenty-six reports and
+# `WHAT_CAN_BE_READ` holds three, and nothing tied the two lists -- so twenty-three reports landed in
+# his Drive every day and nothing ever read them, and nobody could say which of them was meant to be.
+# His own question: *"how does the pipeline know what files AutoSync is placing and what folders it
+# is using?"*
+#
+# **THE RULE, MECHANISED (his 19:42 ruling): a check fails if any report in `REPORTS` has neither a
+# reader above nor an entry below.** A new stream (42, 43, 44) cannot be added without one. An entry
+# below is the plan's decision for that report, taken ONE BY ONE, and the piece that builds its
+# reader; when the reader is built the entry moves up and the check refuses it in both places.
+WHAT_IS_FETCHED_AND_NOT_READ_YET: Dict[str, str] = {
+    "fk_keywords": (
+        "switched off by his ruling (piece 49), so it is not fetched at all and has no folder"
+    ),
+    "az_settlements": "decided: into the money columns of the ledger, matched on the order id -- piece 36",
+    "fk_payments": "decided: into the money columns of the ledger, matched on the order id -- piece 36",
+    "me_payments": "decided: into the money columns of the ledger, matched on the order id -- piece 36",
+    "az_returns": "decided: into the returned columns and the returns screen's lookup -- pieces 78 and 77",
+    "fk_returns": "decided: into the returned columns and the returns screen's lookup -- pieces 78 and 77",
+    "me_returns": "decided: into the returned columns and the returns screen's lookup -- pieces 78 and 77",
+    "fk_claims": "decided: into the claims columns of the ledger and the ERP's Claims section -- piece 78",
+    "me_claims": "decided: into the claims columns of the ledger and the ERP's Claims section -- piece 78",
+    "fk_listings": "decided: into Needs Review, for him to let in -- piece 41",
+    "me_catalog": "decided: into Needs Review, for him to let in -- piece 41",
+    "fk_views": (
+        "decided: a views record per listing per day, shown on Products. Waits for the place those "
+        "records go in his own database to be decided, which needs new protection rules in the ERP"
+    ),
+    "me_views": (
+        "decided: a views record per listing per day, shown on Products. Waits for the place those "
+        "records go in his own database to be decided, which needs new protection rules in the ERP"
+    ),
+}
+for _ads in (
+    "fk_ads_daily", "fk_ads_fsn", "fk_ads_placements", "fk_ads_overall", "fk_ads_search", "fk_ads_orders",
+    "fk_ads_kw", "me_ads", "me_ads_summary", "me_ads_catalog",
+):
+    WHAT_IS_FETCHED_AND_NOT_READ_YET[_ads] = (
+        "decided: an ads record per day, shown beside sales, and the ad spend becomes a charge on the ledger. "
+        "Waits for the place those records go in his own database to be decided, which needs new protection "
+        "rules in the ERP"
+    )
+del _ads
+
+
+def why_a_report_has_no_decision() -> str:
+    """Words naming every report with neither a reader nor a written reason, or '' when all are decided.
+
+    **ALSO REFUSES THE TWO LISTS HOLDING THE SAME REPORT, AND A REPORT THAT DOES NOT EXIST**: a reader built
+    and its old reason left standing is a report that says it is not read while it is.
+    """
+    from reports import REPORTS  # noqa: PLC0415 - kept beside its one use
+
+    read = {one.report_id for one in WHAT_CAN_BE_READ}
+    said = set(WHAT_IS_FETCHED_AND_NOT_READ_YET)
+    known = {one.id for one in REPORTS}
+    wrong = []
+    undecided = sorted(known - read - said)
+    if undecided:
+        wrong.append("reports with no reader and no written reason: " + ", ".join(undecided))
+    both = sorted(read & said)
+    if both:
+        wrong.append("reports both read and said to be not read: " + ", ".join(both))
+    stray = sorted((read | said) - known)
+    if stray:
+        wrong.append("entries for reports that do not exist: " + ", ".join(stray))
+    return "; ".join(wrong)
+
+
 @dataclass(frozen=True)
 class WhatTheNightRead:
     """What the reading half of one night came to.
