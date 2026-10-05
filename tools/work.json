@@ -1732,6 +1732,56 @@
         "run_for_real": false,
         "instead": "views_checks (61) pass against made-up files and a stand-in database; thirteen faults put in one at a time were each caught. Never run against his Drive or database; fk_views, fk_ads_fsn and me_ads_catalog have not been read from a real file yet."
       }
+    },
+    {
+      "id": "table-walkers",
+      "name": "Three tables with no download button read page by page: Meesho product performance and pricing, Flipkart quality insights",
+      "what": "Plan jobs 44 and 43 and listing health stream B9. A new step, read-the-table, reads one named table off the page in the seller's own browser, every page of it, and keeps it exactly as the page showed it as one CSV a day (me_product_performance, me_pricing, fk_quality_insights). The page shapes were read off his panels by Control, read only; nothing is guessed. A table whose columns moved, a pager that did not move or stopped short of the pager's own page count, a row of the wrong width, or a page that does not print its days refuses the whole read: nothing is put away. Only the pager's own buttons are pressed; Meesho's Accept, Edit and Bulk Price Update are never touched. No arithmetic is done here: the day's figure from Meesho's sliding seven-day window waits for the first real files (piece 44), and the readers for all three wait for them too, each with a written reason.",
+      "rests_on": [
+        "report-list"
+      ],
+      "files": [
+        "extension/tables.js",
+        "extension/tables.test.js"
+      ],
+      "also_touches": [
+        "autosync/browser.py",
+        "autosync/browser_door.py",
+        "autosync/browser_door_checks.py",
+        "autosync/layout.py",
+        "autosync/reading.py",
+        "autosync/reading_checks.py",
+        "autosync/recipes.py",
+        "autosync/recipes_checks.py",
+        "autosync/reports.py",
+        "autosync/reports_checks.py",
+        "extension/content.js",
+        "extension/manifest.json",
+        "extension/nightly.js",
+        "extension/nightly.test.js",
+        "extension/recipes.json",
+        "extension/recipes.test.js",
+        "extension/walk.js",
+        "extension/walk.test.js",
+        "src/shared/definitions/reports.json",
+        "tools/export_recipes.py",
+        "tools/export_recipes_checks.py"
+      ],
+      "reviews": [
+        {
+          "round": "A71 job 15 (walkers)",
+          "date": "2026-10-05",
+          "reviewers": 1,
+          "note": "One independent read-only reviewer. Fixed before the commit: the pages the pager names are asked every page and a pager with no numbers on a table that has them is refused (a one-page read could have been saved as the whole table); the page's own count of everything (All (n), All Products (n)) must equal the rows read, which also catches a filtered Meesho tab; Flipkart's pager, which has no page numbers, ends when its next button is off or moves nothing; a cell that begins like a spreadsheet formula is made plain text; the printed day range accepts a curly apostrophe and a 'Last updated' split from its time; a check holds the table names the recipes ask for to the ones the reader knows. Left open: Flipkart's next button state on the last page is not known (the quiet end covers it); the FA badge is yes whenever the cell has a picture; a title containing ' | ' cannot be told from two pieces; Python refuses an unknown table name at build time and the extension at read time."
+        }
+      ],
+      "findings": [],
+      "state": {
+        "built": true,
+        "reviewed": "",
+        "run_for_real": false,
+        "instead": "tables.test.js (33) and walk.test.js drive the reader against pages made to the shape Control read; twelve faults put in one at a time were each caught. Never run on his real pages: the first run is his, and it reads only."
+      }
     }
   ]
 }

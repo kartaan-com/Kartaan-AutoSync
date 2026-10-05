@@ -25,7 +25,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "wait-for",
@@ -49,7 +50,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -73,7 +75,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -97,7 +100,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -121,7 +125,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -145,7 +150,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "pick-range",
@@ -160,7 +166,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -184,7 +191,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "take-file",
@@ -208,7 +216,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         }
       ]
     },
@@ -230,7 +239,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "wait-for",
@@ -254,7 +264,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -278,7 +289,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -302,7 +314,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -326,7 +339,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -350,7 +364,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "pick-range",
@@ -365,7 +380,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -389,7 +405,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "take-file",
@@ -413,7 +430,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         }
       ]
     },
@@ -435,7 +453,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "wait-for",
@@ -459,7 +478,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -483,7 +503,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -507,7 +528,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -531,7 +553,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -555,7 +578,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "pick-range",
@@ -570,7 +594,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -594,7 +619,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "take-file",
@@ -618,7 +644,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         }
       ]
     },
@@ -640,7 +667,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "wait-for",
@@ -664,7 +692,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -688,7 +717,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -712,7 +742,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -736,7 +767,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -760,7 +792,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "pick-range",
@@ -775,7 +808,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -799,7 +833,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "take-file",
@@ -823,7 +858,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         }
       ]
     },
@@ -849,7 +885,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "wait-for",
@@ -873,7 +910,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -897,7 +935,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -921,7 +960,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -945,7 +985,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -969,7 +1010,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "pick-range",
@@ -984,7 +1026,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -1008,7 +1051,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -1032,7 +1076,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": true,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "type-in",
@@ -1056,7 +1101,8 @@
           "orFind": null,
           "words": "{campaign}",
           "forEachCampaign": true,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "wait-for",
@@ -1080,7 +1126,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": true,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -1104,7 +1151,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": true,
-          "pressLikeAMouse": true
+          "pressLikeAMouse": true,
+          "table": ""
         },
         {
           "do": "wait-for",
@@ -1128,7 +1176,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": true,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "take-file",
@@ -1152,7 +1201,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": true,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         }
       ]
     },
@@ -1174,7 +1224,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "wait-for",
@@ -1198,7 +1249,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -1222,7 +1274,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -1246,7 +1299,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -1270,7 +1324,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -1294,7 +1349,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "pick-range",
@@ -1309,7 +1365,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -1333,7 +1390,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "take-file",
@@ -1357,7 +1415,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         }
       ]
     },
@@ -1379,7 +1438,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "wait-for",
@@ -1403,7 +1463,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -1427,7 +1488,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -1451,7 +1513,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -1475,7 +1538,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -1499,7 +1563,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "pick-range",
@@ -1514,7 +1579,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -1538,7 +1604,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "take-file",
@@ -1562,7 +1629,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         }
       ]
     },
@@ -1584,7 +1652,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "wait-for",
@@ -1608,7 +1677,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -1632,7 +1702,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -1656,7 +1727,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "pick-range",
@@ -1671,7 +1743,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "take-file",
@@ -1695,7 +1768,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         }
       ]
     },
@@ -1717,7 +1791,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "wait-for",
@@ -1741,7 +1816,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -1765,7 +1841,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "wait-for",
@@ -1789,7 +1866,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -1813,7 +1891,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "read-the-keywords",
@@ -1828,7 +1907,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         }
       ]
     },
@@ -1849,7 +1929,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "wait-for",
@@ -1873,7 +1954,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -1897,7 +1979,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -1921,7 +2004,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         }
       ],
       "toTake": [
@@ -1938,7 +2022,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "wait-for",
@@ -1962,7 +2047,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -1986,7 +2072,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -2010,7 +2097,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "take-file",
@@ -2034,7 +2122,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         }
       ]
     },
@@ -2055,7 +2144,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "wait-for",
@@ -2079,7 +2169,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -2103,7 +2194,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -2127,7 +2219,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -2151,7 +2244,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -2175,7 +2269,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -2212,7 +2307,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "pick-range",
@@ -2240,7 +2336,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -2264,7 +2361,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "wait-for",
@@ -2297,7 +2395,8 @@
           },
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         }
       ],
       "toTake": [
@@ -2314,7 +2413,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "wait-for",
@@ -2338,7 +2438,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -2362,7 +2463,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "wait-for",
@@ -2386,7 +2488,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "take-file",
@@ -2410,7 +2513,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         }
       ]
     },
@@ -2431,7 +2535,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "wait-for",
@@ -2455,7 +2560,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -2479,7 +2585,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -2503,7 +2610,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -2527,7 +2635,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -2551,7 +2660,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -2588,7 +2698,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "pick-range",
@@ -2616,7 +2727,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -2640,7 +2752,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "wait-for",
@@ -2673,7 +2786,8 @@
           },
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         }
       ],
       "toTake": [
@@ -2690,7 +2804,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "wait-for",
@@ -2714,7 +2829,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -2738,7 +2854,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "wait-for",
@@ -2762,7 +2879,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "take-file",
@@ -2786,7 +2904,97 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
+        }
+      ]
+    },
+    "fk_quality_insights": {
+      "campaignsFrom": null,
+      "readyInMinutes": 0,
+      "toAsk": [],
+      "toTake": [
+        {
+          "do": "go",
+          "find": null,
+          "address": "https://seller.flipkart.com/index.html#dashboard/listings-management/customerFeedbackInsightsDashboard?page=portfolio",
+          "patience": 60,
+          "why": "opening product quality insights",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": ""
+        },
+        {
+          "do": "wait-for",
+          "find": {
+            "how": "pressable",
+            "what": "All Listings",
+            "exact": true,
+            "called": "the all listings filter",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 60,
+          "why": "waiting for product quality insights to finish drawing",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": ""
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "pressable",
+            "what": "All Listings",
+            "exact": true,
+            "called": "the all listings filter",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "choosing every listing",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": ""
+        },
+        {
+          "do": "read-the-table",
+          "find": null,
+          "address": "",
+          "patience": 120,
+          "why": "reading the quality table, page by page",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "flipkart-quality-insights"
         }
       ]
     },
@@ -2807,7 +3015,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "wait-for",
@@ -2831,7 +3040,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -2855,7 +3065,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "pick-range",
@@ -2870,7 +3081,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -2894,7 +3106,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -2918,7 +3131,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         }
       ],
       "toTake": [
@@ -2935,7 +3149,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "wait-for",
@@ -2959,7 +3174,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -2983,7 +3199,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "take-file",
@@ -3007,7 +3224,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         }
       ]
     },
@@ -3028,7 +3246,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "wait-for",
@@ -3052,7 +3271,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -3076,7 +3296,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "wait-for",
@@ -3100,7 +3321,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -3124,7 +3346,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "pick-range",
@@ -3139,7 +3362,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -3163,7 +3387,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -3187,7 +3412,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         }
       ],
       "toTake": [
@@ -3204,7 +3430,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "wait-for",
@@ -3228,7 +3455,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -3252,7 +3480,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "wait-for",
@@ -3276,7 +3505,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -3300,7 +3530,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "pick-range",
@@ -3315,7 +3546,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -3339,7 +3571,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "wait-for",
@@ -3363,7 +3596,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "take-file",
@@ -3387,7 +3621,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         }
       ]
     },
@@ -3409,7 +3644,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "sweep-the-ads",
@@ -3424,7 +3660,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         }
       ]
     },
@@ -3446,7 +3683,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "wait-for",
@@ -3470,7 +3708,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -3494,7 +3733,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "wait",
@@ -3509,7 +3749,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "take-file",
@@ -3533,7 +3774,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         }
       ]
     },
@@ -3555,7 +3797,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "wait-for",
@@ -3579,7 +3822,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -3603,7 +3847,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -3627,7 +3872,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "take-file",
@@ -3651,7 +3897,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         }
       ]
     },
@@ -3673,7 +3920,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "wait-for",
@@ -3697,7 +3945,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -3721,7 +3970,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -3745,7 +3995,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "pick-range",
@@ -3760,7 +4011,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -3784,7 +4036,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "wait",
@@ -3799,7 +4052,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "go",
@@ -3814,7 +4068,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "wait-for",
@@ -3838,7 +4093,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -3862,7 +4118,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "take-file",
@@ -3899,7 +4156,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         }
       ]
     },
@@ -3921,7 +4179,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "wait-for",
@@ -3945,7 +4204,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -3969,7 +4229,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -3993,7 +4254,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -4017,7 +4279,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "pick-range",
@@ -4032,7 +4295,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "take-file",
@@ -4056,7 +4320,86 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
+        }
+      ]
+    },
+    "me_pricing": {
+      "campaignsFrom": null,
+      "readyInMinutes": 0,
+      "toAsk": [],
+      "toTake": [
+        {
+          "do": "go",
+          "find": null,
+          "address": "https://supplier.meesho.com/panel/v3/new/services/{panel}/ipp/allproducts",
+          "patience": 60,
+          "why": "opening the pricing page",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": ""
+        },
+        {
+          "do": "read-the-table",
+          "find": null,
+          "address": "",
+          "patience": 120,
+          "why": "reading the pricing table, page by page",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "meesho-pricing"
+        }
+      ]
+    },
+    "me_product_performance": {
+      "campaignsFrom": null,
+      "readyInMinutes": 0,
+      "toAsk": [],
+      "toTake": [
+        {
+          "do": "go",
+          "find": null,
+          "address": "https://supplier.meesho.com/panel/v3/new/insights/{panel}/business-dashboard",
+          "patience": 60,
+          "why": "opening the business dashboard",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": ""
+        },
+        {
+          "do": "read-the-table",
+          "find": null,
+          "address": "",
+          "patience": 120,
+          "why": "reading the product performance table, page by page",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "meesho-product-performance"
         }
       ]
     },
@@ -4078,7 +4421,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "wait-for",
@@ -4102,7 +4446,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -4126,7 +4471,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -4150,7 +4496,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -4174,7 +4521,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "click",
@@ -4198,7 +4546,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "take-file",
@@ -4235,7 +4584,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         }
       ]
     },
@@ -4257,7 +4607,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "wait-for",
@@ -4281,7 +4632,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "read-number",
@@ -4305,7 +4657,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "read-number",
@@ -4329,7 +4682,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         },
         {
           "do": "add-to-the-list",
@@ -4344,7 +4698,8 @@
           "orFind": null,
           "words": "",
           "forEachCampaign": false,
-          "pressLikeAMouse": false
+          "pressLikeAMouse": false,
+          "table": ""
         }
       ]
     }
@@ -4514,6 +4869,11 @@
       "extension": "xlsx",
       "aRunningList": false
     },
+    "fk_quality_insights": {
+      "platform": "flipkart",
+      "extension": "csv",
+      "aRunningList": false
+    },
     "fk_returns": {
       "platform": "flipkart",
       "extension": "csv",
@@ -4557,6 +4917,16 @@
     "me_payments": {
       "platform": "meesho",
       "extension": "xlsx",
+      "aRunningList": false
+    },
+    "me_pricing": {
+      "platform": "meesho",
+      "extension": "csv",
+      "aRunningList": false
+    },
+    "me_product_performance": {
+      "platform": "meesho",
+      "extension": "csv",
       "aRunningList": false
     },
     "me_returns": {
@@ -4670,6 +5040,12 @@
       "cannotBeAskedForAgain": null
     },
     {
+      "id": "fk_quality_insights",
+      "platform": "flipkart",
+      "name": "Flipkart product quality insights",
+      "cannotBeAskedForAgain": "This is a picture of how things stand right now. The platform keeps no history to ask for, so a past day cannot be fetched again -- only the day it was taken."
+    },
+    {
       "id": "fk_returns",
       "platform": "flipkart",
       "name": "Flipkart returns",
@@ -4722,6 +5098,18 @@
       "platform": "meesho",
       "name": "Meesho payments",
       "cannotBeAskedForAgain": null
+    },
+    {
+      "id": "me_pricing",
+      "platform": "meesho",
+      "name": "Meesho pricing",
+      "cannotBeAskedForAgain": "This is a picture of how things stand right now. The platform keeps no history to ask for, so a past day cannot be fetched again -- only the day it was taken."
+    },
+    {
+      "id": "me_product_performance",
+      "platform": "meesho",
+      "name": "Meesho product performance",
+      "cannotBeAskedForAgain": "This is a picture of how things stand right now. The platform keeps no history to ask for, so a past day cannot be fetched again -- only the day it was taken."
     },
     {
       "id": "me_returns",
@@ -4815,6 +5203,11 @@
       "Flipkart",
       "Payments"
     ],
+    "fk_quality_insights": [
+      "Reports",
+      "Flipkart",
+      "Quality"
+    ],
     "fk_returns": [
       "Reports",
       "Flipkart",
@@ -4862,6 +5255,16 @@
       "Reports",
       "Meesho",
       "Payments"
+    ],
+    "me_pricing": [
+      "Reports",
+      "Meesho",
+      "Price"
+    ],
+    "me_product_performance": [
+      "Reports",
+      "Meesho",
+      "Product performance"
     ],
     "me_returns": [
       "Reports",

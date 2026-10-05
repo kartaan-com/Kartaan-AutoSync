@@ -37,6 +37,7 @@ from browser import (
     BY_ROLE_AND_TEXT,
     READ_NUMBER,
     READ_THE_KEYWORDS,
+    READ_THE_TABLE,
     BY_TEXT,
     BY_THE_CONTROL_BESIDE,
     BY_THE_BUTTON_BESIDE,
@@ -329,6 +330,9 @@ GROWTH = "https://supplier.meesho.com/panel/v3/new/growth/{panel}"
 # **WHERE THE ADS SWEEP STANDS WHILE IT ASKS.** Same address the reference uses
 # (`content/meesho.js` JOB_PAGES `me_ads`), and it presses nothing on it.
 ADS = "https://supplier.meesho.com/panel/v3/new/ads/{panel}"
+# **MEESHO'S INSIGHTS SECTION** -- the Business Dashboard, whose Product Performance table has no download button. The address and the
+# table's shape were read off his own panel by Control on 2026-10-05 (read only).
+INSIGHTS = "https://supplier.meesho.com/panel/v3/new/insights/{panel}"
 
 # **EVERY MENU ITEM ON BOTH PLATFORMS IS ASKED FOR AS A PRESSABLE THING, NOT AS
 # WORDS ON THE PAGE, and that is measured rather than tidy.** Read off his own
@@ -380,6 +384,9 @@ TRAFFIC = FLIPKART.format(
     where="dashboard/growth/seller-insights?businessVertical=ALL&section=purchase_funnel"
           "&selectedPeriod=latest&activeMetric=impression&activeProductType=ALL"
 )
+# **PRODUCT QUALITY INSIGHTS**, the page behind "Go to Quality Insights" on Business Health. Read off his own panel by Control on
+# 2026-10-05 (read only): a normal table, drawn late, with a pager and no download that works.
+QUALITY_INSIGHTS = FLIPKART.format(where="dashboard/listings-management/customerFeedbackInsightsDashboard?page=portfolio")
 # **THESE THREE WERE WRONG, AND THEY COST A WHOLE NIGHT (2026-09-06).** Nine of
 # ten reports failed within twenty minutes of each other -- seven ads reports
 # looking for "the other reports tab", claims looking for "the claims tab",
@@ -1110,6 +1117,36 @@ RECIPES: Dict[str, Recipe] = {
                  patience=30, why="reading the orders for the day"),
             Step(ADD_TO_THE_LIST, patience=30,
                  why="adding the day to the running list"),
+        ),
+    ),
+    # **THE THREE TABLES WITH NO DOWNLOAD BUTTON (plan jobs 44 and 43, and Flipkart's Product Quality Insights).** Each is read page by
+    # page by the extension (`extension/tables.js` says what is on each page) and kept exactly as the page showed it; the arithmetic
+    # on top waits for real files. **Nothing on any of the three pages is ever pressed but the page buttons**: Meesho's pricing page
+    # has Accept, Edit and Bulk Price Update beside the table, and none of them is touched.
+    "me_product_performance": Recipe(
+        to_take=(
+            Step(GO, address=INSIGHTS + "/business-dashboard", patience=60, why="opening the business dashboard"),
+            Step(READ_THE_TABLE, table="meesho-product-performance", patience=120,
+                 why="reading the product performance table, page by page"),
+        ),
+    ),
+    "me_pricing": Recipe(
+        to_take=(
+            Step(GO, address=SERVICES + "/ipp/allproducts", patience=60, why="opening the pricing page"),
+            Step(READ_THE_TABLE, table="meesho-pricing", patience=120,
+                 why="reading the pricing table, page by page"),
+        ),
+    ),
+    "fk_quality_insights": Recipe(
+        to_take=(
+            Step(GO, address=QUALITY_INSIGHTS, patience=60, why="opening product quality insights"),
+            Step(WAIT_FOR, find=Find(BY_PRESSABLE_TEXT, "All Listings", called="the all listings filter"),
+                 patience=60, why="waiting for product quality insights to finish drawing"),
+            # The page may open on another filter; the file must hold every listing, so the filter is put on All first.
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "All Listings", called="the all listings filter"),
+                 why="choosing every listing"),
+            Step(READ_THE_TABLE, table="flipkart-quality-insights", patience=120,
+                 why="reading the quality table, page by page"),
         ),
     ),
     # **DECLARED SINCE THE LIST WAS WRITTEN AND NEVER BUILT.** Its steps are read

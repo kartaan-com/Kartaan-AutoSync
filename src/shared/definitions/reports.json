@@ -98,6 +98,12 @@
       "cannotBeAskedForAgain": null
     },
     {
+      "id": "fk_quality_insights",
+      "platform": "flipkart",
+      "name": "Flipkart product quality insights",
+      "cannotBeAskedForAgain": "This is a picture of how things stand right now. The platform keeps no history to ask for, so a past day cannot be fetched again -- only the day it was taken."
+    },
+    {
       "id": "fk_returns",
       "platform": "flipkart",
       "name": "Flipkart returns",
@@ -150,6 +156,18 @@
       "platform": "meesho",
       "name": "Meesho payments",
       "cannotBeAskedForAgain": null
+    },
+    {
+      "id": "me_pricing",
+      "platform": "meesho",
+      "name": "Meesho pricing",
+      "cannotBeAskedForAgain": "This is a picture of how things stand right now. The platform keeps no history to ask for, so a past day cannot be fetched again -- only the day it was taken."
+    },
+    {
+      "id": "me_product_performance",
+      "platform": "meesho",
+      "name": "Meesho product performance",
+      "cannotBeAskedForAgain": "This is a picture of how things stand right now. The platform keeps no history to ask for, so a past day cannot be fetched again -- only the day it was taken."
     },
     {
       "id": "me_returns",

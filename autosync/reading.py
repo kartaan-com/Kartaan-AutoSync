@@ -213,6 +213,18 @@ WHAT_IS_FETCHED_AND_NOT_READ_YET: Dict[str, str] = {
     "me_claims": "decided: into the claims columns of the ledger and the ERP's Claims section -- piece 78",
     "fk_listings": "decided: into Needs Review, for him to let in -- piece 41",
     "me_catalog": "decided: into Needs Review, for him to let in -- piece 41",
+    "me_product_performance": (
+        "decided: the day's views, clicks, orders and conversion worked out from the kept files, as piece 44 says; waits for the "
+        "first two days' files to show how Meesho's seven-day window moves"
+    ),
+    "me_pricing": (
+        "decided: current price, recommended price and Meesho's own label put on each Meesho listing in Products, as piece 43 says; "
+        "that screen is the ERP's"
+    ),
+    "fk_quality_insights": (
+        "decided: each listing's yearly sales, rating, returns, assured badge and suppression risk shown beside it in listing "
+        "health; the reading waits for the first real file (piece 86, stream B9)"
+    ),
     "me_views": (
         "a whole-shop figure with no listing in it, so it has no per-listing record; Meesho's views per product "
         "are piece 44 (Product Performance), which will write them into the same listing record"

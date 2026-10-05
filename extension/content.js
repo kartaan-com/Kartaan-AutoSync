@@ -64,6 +64,7 @@
   let whoIsSignedIn;
   let theHeadersFor;
   let readTheKeywords;
+  let readTheTable;
   let book;
   try {
     ({
@@ -88,6 +89,9 @@
     ));
     ({ readTheKeywords } = await import(
       chrome.runtime.getURL('keywords.js')
+    ));
+    ({ readTheTable } = await import(
+      chrome.runtime.getURL('tables.js')
     ));
     book = await (await fetch(chrome.runtime.getURL('recipes.json'))).json();
   } catch (wrong) {
@@ -444,6 +448,13 @@
       rest: (ms) => new Promise((done) => { setTimeout(done, ms); }),
       say: (line) => chrome.runtime.sendMessage({ do: 'say', line }),
       whereNow: () => location.href,
+    }),
+    /* **A NAMED TABLE, READ PAGE BY PAGE (job 15).** `tables.js` carries what is on each. */
+    readTheTable: async ({ table, patience }) => readTheTable(document, {
+      table,
+      patience,
+      rest: (ms) => new Promise((done) => { setTimeout(done, ms); }),
+      say: (line) => chrome.runtime.sendMessage({ do: 'say', line }),
     }),
     /* **MOVES THIS PAGE TO A FLIPKART ROUTE (A53)**, done by the background in the
      * page's own world. See `doors.js` `routeInThePage`. */

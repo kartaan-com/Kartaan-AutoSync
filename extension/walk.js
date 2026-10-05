@@ -136,6 +136,9 @@ export const TYPE_IN = 'type-in';
 /* **THE ONE THAT READS FLIPKART'S TOP SEARCH KEYWORDS OFF THE PAGE** (2026-09-15).
  * `extension/keywords.js` carries what is read. */
 export const READ_THE_KEYWORDS = 'read-the-keywords';
+/* **THE ONE THAT READS A NAMED TABLE OFF THE PAGE, EVERY PAGE OF IT** (job 15). `extension/tables.js` says what is on each
+ * table; `autosync/browser.py` holds the names a recipe may ask for. */
+export const READ_THE_TABLE = 'read-the-table';
 /* **THE ONE STEP THAT LOOKS AT NOTHING.** Every other kind of waiting here waits
  * for something to appear. Meesho builds an orders export on its own servers and
  * the page it was asked from does not change at all while it happens, so there
@@ -251,7 +254,7 @@ function anAnswer(state, reportId, dataDate, rest = {}) {
 export function whyStepIsRefused(step) {
   if (!step || typeof step !== 'object') return 'That is not a step.';
   if (![GO, CLICK, WAIT_FOR, PICK_RANGE, TAKE_FILE, WAIT,
-    READ_NUMBER, ADD_TO_THE_LIST, SWEEP_THE_ADS, TYPE_IN, READ_THE_KEYWORDS].includes(step.do)) {
+    READ_NUMBER, ADD_TO_THE_LIST, SWEEP_THE_ADS, TYPE_IN, READ_THE_KEYWORDS, READ_THE_TABLE].includes(step.do)) {
     return `"${step.do}" is not something this door knows how to do.`;
   }
   if (step.do === GO && !step.address) return 'A step that goes somewhere has to say where.';
@@ -269,6 +272,17 @@ export function whyStepIsRefused(step) {
   if (step.do === SWEEP_THE_ADS && step.find) {
     return 'A step that sweeps the ads addresses looks for nothing on the page. '
       + 'It asks the platform directly.';
+  }
+  /* **THE SAME SENTENCES THE PYTHON REFUSES WITH.** */
+  if (step.do === READ_THE_TABLE) {
+    if (step.find) {
+      return 'A step that reads a table looks for nothing of its own. Which table it reads is '
+        + 'written down in one place.';
+    }
+    /* Which names are known is `tables.js`'s to say when the table is read; here only that one is named at all. */
+    if (!step.table) return `"${step.table}" is not a table this door knows how to read.`;
+  } else if (step.table) {
+    return 'Only a step that reads a table may name one.';
   }
   if (step.do === READ_THE_KEYWORDS && step.find) {
     return 'A step that reads the keywords looks for nothing of its own. What it reads '
@@ -684,6 +698,8 @@ export function theWalk({
   /* **FLIPKART'S TOP SEARCH KEYWORDS, READ OFF THE PAGE** (2026-09-15). Not
    * required, like the sweep: only one recipe reads them. */
   readTheKeywords = null,
+  /* **A NAMED TABLE, READ OFF THE PAGE PAGE BY PAGE** (job 15). Not required: only three recipes read one. */
+  readTheTable = null,
   /* **MOVES THE PAGE TO A ROUTE AFTER `#`, FROM INSIDE IT** (A53, 2026-09-15). A `go`
    * to such an address loads only the page before the `#`; see `doors.js`
    * `routeInThePage`. Not required: only a walk that meets such an address needs it,
@@ -1643,6 +1659,48 @@ export function theWalk({
           say: `Read the top search keywords of ${read.listings} listings over ${read.pages} `
             + `page(s): ${read.rows.length} rows. Landed ${body.length} bytes in the seller's Drive `
             + `as ${called}.`,
+        });
+      }
+
+      if (step.do === READ_THE_TABLE) {
+        if (typeof readTheTable !== 'function') {
+          return anAnswer(FAILED, reportId, dataDate, {
+            say: 'This recipe reads a table off the page and this walk was built with no way of reading one, so nothing was read.',
+          });
+        }
+        let read;
+        try {
+          read = await readTheTable({ table: step.table, patience: step.patience });
+        } catch (wrong) {
+          /* **EVERY REFUSAL OF THE READER ARRIVES HERE WITH ITS REASON**: a column that moved, a pager that did not move, a run
+           * of pages that stopped short. Nothing is put away in any of those cases. */
+          return anAnswer(FAILED, reportId, dataDate, {
+            say: `${step.why}: ${(wrong && wrong.message) || wrong}`,
+            pageWas: capture(await door.page_text()),
+          });
+        }
+        const called = fileName || theFileName(book, reportId, dataDate);
+        if (!called) {
+          return anAnswer(FAILED, reportId, dataDate, {
+            say: `There is nothing in the recipe file saying what ${reportId}'s file is `
+              + 'called, so the table has not been put anywhere.',
+          });
+        }
+        const body = new TextEncoder().encode(read.csv);
+        try {
+          await putTheFile({ reportId, fileName: called, body });
+        } catch (wrong) {
+          return anAnswer(FAILED, reportId, dataDate, {
+            fileName: called,
+            size: body.length,
+            say: `${body.length} bytes of the table could not be put in the seller's Drive: `
+              + `${(wrong && wrong.message) || wrong}`,
+          });
+        }
+        return anAnswer(LANDED, reportId, dataDate, {
+          fileName: called,
+          size: body.length,
+          say: `Read ${read.rows} rows over ${read.pages} page(s). Landed ${body.length} bytes in the seller's Drive as ${called}.`,
         });
       }
 

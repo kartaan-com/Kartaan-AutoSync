@@ -101,7 +101,8 @@ for report_id in tool.every_recipe():
     # **AND A THIRD WAY SINCE 2026-09-15: FLIPKART'S KEYWORDS**, read off the
     # traffic report's pop-ups and put away as one file by the reading step itself.
     ENDS_WITH = {"me_views": pages.ADD_TO_THE_LIST, "me_ads": pages.SWEEP_THE_ADS,
-                 "fk_keywords": pages.READ_THE_KEYWORDS}
+                 "fk_keywords": pages.READ_THE_KEYWORDS, "me_product_performance": pages.READ_THE_TABLE,
+                 "me_pricing": pages.READ_THE_TABLE, "fk_quality_insights": pages.READ_THE_TABLE}
     check(f"and {report_id} ends by putting the day away",
           answered(lambda: one.to_take[-1].do
                    == ENDS_WITH.get(report_id, pages.TAKE_FILE)))
@@ -662,10 +663,10 @@ for report_id in tool.every_recipe():
 # anywhere in the project said so -- the door was being measured by what it had
 # built rather than by what it had been asked for. They now say what they count,
 # and the coverage check below is the one that holds the two together.
-check("fourteen Flipkart reports can be fetched by this door -- all of them, since the keywords (2026-09-15)",
-      answered(lambda: len(tool.on_the_browser_door_for("flipkart")) == 14))
-check("and seven Meesho ones, now that the views card and the ads sweep are built",
-      answered(lambda: len(tool.on_the_browser_door_for("meesho")) == 7))
+check("fifteen Flipkart reports can be fetched by this door -- all of them, since the keywords (2026-09-15)",
+      answered(lambda: len(tool.on_the_browser_door_for("flipkart")) == 15))
+check("and nine Meesho ones, now that the views card and the ads sweep are built",
+      answered(lambda: len(tool.on_the_browser_door_for("meesho")) == 9))
 # **AMAZON NEEDS NONE, and that is the number the others should fall to.**
 check("Amazon needs none at all", answered(lambda: tool.on_the_browser_door_for("amazon") == ()))
 check("a platform this does not know is refused", answered(lambda: refuses(lambda: tool.on_the_browser_door_for("etsy"))))
@@ -1385,7 +1386,7 @@ check("and the panel name was still filled into the addresses on the way",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 308
+EXPECTED = 323
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

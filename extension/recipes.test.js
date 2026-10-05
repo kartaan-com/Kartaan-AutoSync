@@ -59,7 +59,7 @@ const PANEL = 'growth/some-panel';
 check('the recipe file is there and can be read', typeof BOOK === 'object' && BOOK !== null);
 check('and it says plainly that it is generated',
   Array.isArray(BOOK._generated) && BOOK._generated.join(' ').includes('DO NOT EDIT'));
-check('it carries the recipes', Object.keys(BOOK.recipes).length === 21);
+check('it carries the recipes', Object.keys(BOOK.recipes).length === 24);
 check('and both platforms are in it',
   Object.keys(BOOK.recipes).some((one) => one.startsWith('me_'))
   && Object.keys(BOOK.recipes).some((one) => one.startsWith('fk_')));
@@ -92,7 +92,8 @@ check('and the words each failure means', Object.keys(BOOK.whatItMeans).length >
    * `me_views` reads two figures off two cards and ends by adding a row to a
    * running list. What this check is really about is unchanged: a recipe that
    * clicks about and ends on neither of them runs perfectly and produces nothing. */
-  const PUTS_THE_DAY_AWAY = ['take-file', 'add-to-the-list', 'sweep-the-ads', 'read-the-keywords'];
+  const PUTS_THE_DAY_AWAY = ['take-file', 'add-to-the-list', 'sweep-the-ads', 'read-the-keywords',
+    'read-the-table'];
   const missing = Object.entries(BOOK.recipes)
     .filter(([, r]) => !r.toTake.length
       || !PUTS_THE_DAY_AWAY.includes(r.toTake[r.toTake.length - 1].do))
@@ -156,6 +157,9 @@ check('and the words each failure means', Object.keys(BOOK.whatItMeans).length >
          * check every step is asked before it runs** -- which is the real thing
          * this rule is about, and the one a wait-for could never provide. */
         if (next && next.do === 'sweep-the-ads') return;
+        /* **AND A TABLE READ WAITS FOR ITS OWN TABLE before it touches anything**, and presses nothing but the page buttons named in
+         * `tables.js`: the same reason, for the three tables with no download. */
+        if (next && next.do === 'read-the-table') return;
         if (!next || next.do !== 'wait-for') unguarded.push(`${name}.${which}[${at}]`);
       });
     }

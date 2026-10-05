@@ -321,8 +321,14 @@ ADD_TO_THE_LIST = "add-to-the-list"  # what was read, as a row on a running list
 SWEEP_THE_ADS = "sweep-the-ads"    # ask the platform's own ads addresses, from its page
 TYPE_IN = "type-in"                # words into the one box that matches
 READ_THE_KEYWORDS = "read-the-keywords"  # every listing's top search keywords, off the page
+READ_THE_TABLE = "read-the-table"  # one named table off the page, every page of it, made into one file (job 15 walkers)
 STEP_KINDS = (GO, CLICK, WAIT_FOR, PICK_RANGE, TAKE_FILE, WAIT,
-              READ_NUMBER, ADD_TO_THE_LIST, SWEEP_THE_ADS, TYPE_IN, READ_THE_KEYWORDS)
+              READ_NUMBER, ADD_TO_THE_LIST, SWEEP_THE_ADS, TYPE_IN, READ_THE_KEYWORDS, READ_THE_TABLE)
+
+# **THE TABLES THE EXTENSION KNOWS HOW TO READ (plan jobs 43 and 44, and Flipkart's Product Quality Insights).** Each is a table
+# on a page with no download button, read page by page. What is on each -- its column names, where a page's buttons are -- is
+# written once in `extension/tables.js`; this is only the list of names a recipe may ask for, and a check holds the two together.
+THE_TABLES = ("meesho-product-performance", "meesho-pricing", "flipkart-quality-insights")
 
 # **THE ELEVENTH READS FLIPKART'S TOP SEARCH KEYWORDS OFF THE TRAFFIC REPORT
 # (2026-09-15).** Named for exactly what it does, like the ads sweep: every listing
@@ -544,6 +550,8 @@ class Step:
     # element, pressed all three ways, drew `Ad Group` and switched Download on.
     # A flag on the one step rather than a change to every press, his ruling.
     press_like_a_mouse: bool = False
+    # **WHICH TABLE A READ-THE-TABLE STEP READS**, one of `THE_TABLES`. Empty on every other step.
+    table: str = ""
 
 
 def why_step_is_refused(step: Step) -> Optional[str]:
@@ -572,6 +580,14 @@ def why_step_is_refused(step: Step) -> Optional[str]:
     if step.do == READ_THE_KEYWORDS and step.find is not None:
         return ("A step that reads the keywords looks for nothing of its own. What it reads "
                 "is written down in one place.")
+    if step.do == READ_THE_TABLE:
+        if step.find is not None:
+            return ("A step that reads a table looks for nothing of its own. Which table it reads is "
+                    "written down in one place.")
+        if step.table not in THE_TABLES:
+            return f"{step.table!r} is not a table this door knows how to read. It knows: " + ", ".join(THE_TABLES) + "."
+    elif step.table:
+        return "Only a step that reads a table may name one."
     if step.do == WAIT and step.find is not None:
         # **A WAIT AND A WAIT-FOR ARE NOT THE SAME STEP.** One passes time; the
         # other watches the page. Written with something to look for, a wait

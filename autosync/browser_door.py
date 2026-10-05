@@ -159,7 +159,7 @@ def do_the_steps(
     # (2026-09-15). Typing a campaign into Flipkart's search and reading keywords off
     # its pop-ups both need the page itself, so a page opened here would be opened
     # for nothing.
-    if any(s.do in (pages.TYPE_IN, pages.READ_THE_KEYWORDS) or s.for_each_campaign for s in steps):
+    if any(s.do in (pages.TYPE_IN, pages.READ_THE_KEYWORDS, pages.READ_THE_TABLE) or s.for_each_campaign for s in steps):
         return Fetched(FAILED, report_id, data_date,
                        say="This report needs the page itself -- a campaign typed into Flipkart's "
                            "search, or keywords read off it -- which only the browser extension "

@@ -581,7 +581,11 @@ function theCountGivenBack(night) {
  *    out here they would be lost, so they are not in this list.
  * The check beside it compares this list to the recipe file, the same way
  * `SPENDS_THE_ALLOWANCE` is compared, so the two records cannot drift apart. */
-export const ONLY_ITS_NEWEST_DAY = Object.freeze(['me_views', 'me_catalog', 'me_ads']);
+/* **AND THE THREE TABLES READ OFF A PAGE (job 15)**: Meesho's product performance and pricing, and Flipkart's quality insights, are
+ * each how the page stands today. A sync for a past day would read today's page under that day's name. */
+export const ONLY_ITS_NEWEST_DAY = Object.freeze([
+  'me_views', 'me_catalog', 'me_ads', 'me_product_performance', 'me_pricing', 'fk_quality_insights',
+]);
 
 /**
  * Is this a report the platform only gives for its newest day, asked for an older one?

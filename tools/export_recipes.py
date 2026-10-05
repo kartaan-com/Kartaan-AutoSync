@@ -183,6 +183,8 @@ def a_step(step):
         # **PRESSED BUTTON DOWN, BUTTON UP, CLICK.** False on every step but
         # Flipkart's campaign suggestion.
         AS_JAVASCRIPT_SPELLS_IT["press_like_a_mouse"]: step.press_like_a_mouse,
+        # **WHICH TABLE A READ-THE-TABLE STEP READS.** Empty on every other step.
+        "table": step.table,
     }
 
 

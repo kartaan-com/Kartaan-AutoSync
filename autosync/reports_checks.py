@@ -80,9 +80,10 @@ for entry in tool.REPORTS:
 # a report leaving it silently is the whole failure it exists to prevent.
 EVERY_ID = (
     "fk_orders", "fk_returns", "fk_payments", "fk_claims", "fk_views", "fk_keywords",
-    "fk_listings", "fk_ads_daily", "fk_ads_fsn", "fk_ads_placements", "fk_ads_overall",
+    "fk_quality_insights", "fk_listings", "fk_ads_daily", "fk_ads_fsn", "fk_ads_placements", "fk_ads_overall",
     "fk_ads_search", "fk_ads_orders", "fk_ads_kw",
     "me_orders", "me_returns", "me_payments", "me_claims", "me_catalog", "me_views",
+    "me_product_performance", "me_pricing",
     "me_ads", "me_ads_summary", "me_ads_catalog",
     "az_orders", "az_settlements", "az_returns",
 )
@@ -383,7 +384,7 @@ check("and its returns are too",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 85
+EXPECTED = 88
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

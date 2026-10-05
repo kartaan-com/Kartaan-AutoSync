@@ -176,6 +176,16 @@ const BOOK = {
           why: 'reading every listing\'s top search keywords' }),
       ],
     },
+    /* **A TABLE READ OFF A PAGE, PAGE BY PAGE (job 15)**, put away as one file by the reading step. Same shape as the real
+     * `me_pricing`. */
+    me_pricing: {
+      readyInMinutes: 0,
+      toAsk: [],
+      toTake: [
+        step({ do: 'go', address: 'https://seller.example.invalid/pricing', patience: 60, why: 'opening the pricing page' }),
+        step({ do: 'read-the-table', table: 'meesho-pricing', patience: 120, why: 'reading the pricing table' }),
+      ],
+    },
     /* **TWO PAGES, WHICH IS THE SHAPE THE REAL `me_orders` HAS.** Its take list
      * goes to the orders page, asks for the export, and then GOES BACK to the
      * same address to collect it -- so a real walk of it spans three pages and
@@ -431,6 +441,7 @@ const BOOK = {
     fk_ads_overall: { platform: 'flipkart', extension: 'csv' },
     fk_ads_daily: { platform: 'flipkart', extension: 'csv' },
     fk_keywords: { platform: 'flipkart', extension: 'csv' },
+    me_pricing: { platform: 'meesho', extension: 'csv' },
     bad_recipe: { platform: 'meesho', extension: 'csv' },
   },
 };
@@ -504,6 +515,13 @@ function aPortal(how = {}) {
     pages: 1,
     csv: `Date,SKU,Keyword,Impression %,Clicks %\n"${dataDate}","DJ 14 Bahubali","jhumka earrings","45%","12%"`,
   });
+
+  /* **A TABLE, in miniature (job 15).** `how.table` is what the page gave back, or an error to throw. */
+  it.readTheTable = async ({ table }) => {
+    if (how.tableRefuses) throw new Error(how.tableRefuses);
+    return how.table !== undefined ? how.table : { csv: `"Product"
+"${table}"`, rows: 1, pages: 1 };
+  };
 
   /* **THE SWEEP, in miniature.** `how.swept` is what the platform's own addresses
    * came back with; `how.sweepRefuses` is that going wrong. */
@@ -828,6 +846,7 @@ function aWalk(portal, book = BOOK) {
         keepTheCampaigns: portal.keepTheCampaigns,
         theCampaigns: portal.theCampaigns,
         readTheKeywords: portal.readTheKeywords,
+        readTheTable: portal.readTheTable,
         /* **THE PACING IS WRITTEN DOWN RATHER THAN SLEPT.** A walk paces itself
          * like a person now -- a few seconds on landing, about a second between
          * actions -- and a harness that really slept would turn 252 checks into
@@ -2722,7 +2741,23 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
     notYet.state === NOT_AVAILABLE_YET && notYet.say.includes('2026-08-25') && older.putAway.length === 0);
 }
 
-const EXPECTED = 346;
+{
+  /* **A TABLE READ OFF A PAGE (job 15).** */
+  const read = aPortal();
+  const landed = await aWalk(read)('me_pricing', DAY);
+  check('A TABLE READ OFF THE PAGE IS PUT AWAY AS ONE FILE, UNDER THE REPORT NAME',
+    landed.state === LANDED && read.putAway.length === 1 && read.putAway[0].fileName === `meesho_me_pricing_${DAY}.csv`);
+  const refusing = aPortal({ tableRefuses: 'the columns are not the ones expected' });
+  const refused = await aWalk(refusing)('me_pricing', DAY);
+  check('while a table the reader refuses fails the walk with the reader own reason, and nothing is put away',
+    refused.state === FAILED && refused.say.includes('columns are not the ones expected') && refusing.putAway.length === 0);
+  check('and a step that reads a table must name one',
+    whyStepIsRefused({ do: 'read-the-table', patience: 30, why: 'x' }) !== null
+    && whyStepIsRefused({ do: 'read-the-table', table: 'meesho-pricing', patience: 30, why: 'x' }) === null
+    && whyStepIsRefused({ do: 'go', address: 'https://x.invalid', table: 'meesho-pricing', patience: 30, why: 'x' }) !== null);
+}
+
+const EXPECTED = 349;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;
