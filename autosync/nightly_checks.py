@@ -1289,7 +1289,7 @@ check("a night with neither is green, and says nothing extra",
 check("and a tick that decided not to run at all is green too",
       tool.how_the_night_ends(tool.Tick(ran=False, why_not="too early"), None) == ((), 0))
 
-# -------------------- the eight secret names, written down in three places
+# -------------------- the ten secret names, written down in three places
 
 # **NOTHING ANYWHERE READ `autosync.yml`.** The eight names are typed out three
 # times -- the workflow's own "is this repository set up to fetch?" gate, the
@@ -2205,9 +2205,9 @@ def run_the_gate(without=None, kartaans_own=False):
 whole = run_the_gate()
 check("the gate's own script can be found and run here (else every check below is meaningless)",
       whole is not None)
-check("with all eight set, it is ready and exits 0",
+check("with all ten set, it is ready and exits 0",
       whole is not None and whole[0] == 0 and "ready=true" in whole[2])
-check("and there are eight secrets to remove in turn", len(GATED_ON) == 8)
+check("and there are ten secrets to remove in turn", len(GATED_ON) == 10)
 
 for gone in GATED_ON:
     got = run_the_gate(without=gone)
@@ -2216,7 +2216,7 @@ for gone in GATED_ON:
     error_lines = [l for l in names_printed.splitlines() if l.startswith("::error::")]
     check(f"with only {gone} removed the job goes RED",
           got is not None and got[0] != 0 and "ready=false" in got[2])
-    check(f"and names {gone} and none of the other seven",
+    check(f"and names {gone} and none of the other nine",
           got is not None and bool(error_lines)
           and any(re.search(rf"(?<![A-Z0-9_]){gone}(?![A-Z0-9_])", l) for l in error_lines)
           and not any(re.search(rf"(?<![A-Z0-9_]){n}(?![A-Z0-9_])", l)
@@ -2278,9 +2278,53 @@ check("the workflow's record step runs exactly the argument start.py dispatches 
       WRITE_STEP is not None and WRITE_STEP.get("run", "").strip() == "python start.py not-ready"
       and 'sys.argv[1:] == ["not-ready"]' in _START_TEXT and "def not_ready()" in _START_TEXT)
 
+# ------------------------ job 25 (route (e), A69): THE VALUES THE RUN READS, FIXED BY THE SERVER'S SESSION
+# **THE TEN NAMES, TYPED OUT ONCE HERE AND HELD TO EVERY LIST ABOVE.** The server's
+# commit gate reads this workflow and wants exactly these, "and no others".
+THE_TEN = {
+    "GOOGLE_DEVICE_CLIENT_ID", "GOOGLE_DEVICE_CLIENT_SECRET", "GOOGLE_DEVICE_REFRESH_TOKEN",
+    "FIREBASE_API_KEY", "FIREBASE_REFRESH_TOKEN", "DRIVE_FOLDER_ID", "FIREBASE_PROJECT_ID",
+    "AMAZON_CLIENT_ID", "AMAZON_CLIENT_SECRET", "AMAZON_REFRESH_TOKEN",
+}
+check("the gate reads exactly the ten values the run needs, and no others", set(GATED_ON) == THE_TEN)
+check("the workflow declares exactly those ten for a caller", {n for n, _ in DECLARED} == THE_TEN)
+check("start.py asks for exactly those ten", set(ASKED_FOR) == THE_TEN)
+check("and the seller's own file hands over exactly those ten", {s for _, s in PASSED_ON} == THE_TEN)
+
+# **A RUN MUST NOT HOLD KARTAAN'S WEB CLIENT SECRET, so the three old names are in none of the files that decide
+# what a run is handed.** Built from pieces so this file does not itself spell a name it forbids elsewhere.
+_OLD = ["GOOGLE_" + part for part in ("CLIENT_ID", "CLIENT_SECRET", "REFRESH_TOKEN")]
+_START_RAW = (Path(__file__).resolve().parent / "start.py").read_text(encoding="utf-8")
+for _where, _text in (("the workflow", SAID_IN_THE_WORKFLOW), ("the seller's own file", SAID_IN_THE_CALLER),
+                      ("start.py", _START_RAW)):
+    check(f"{_where} no longer names the old Google values",
+          not any(re.search(rf"(?<![A-Z0-9_]){old}(?![A-Z0-9_])", _text) for old in _OLD))
+
+# **A REPOSITORY CONNECTED THE OLD WAY IS TOLD, IN WORDS, TO REDO THE GOOGLE STEP -- NEVER RUN SILENTLY.**
+_needs_google = run_the_gate(without="GOOGLE_DEVICE_REFRESH_TOKEN")
+check("a repository without the new Google values is told in words to redo the Google step",
+      _needs_google is not None and _needs_google[0] != 0
+      and "Google step has to be done again" in _needs_google[1])
+_only_amazon = run_the_gate(without="AMAZON_CLIENT_ID")
+check("and a repository missing only an Amazon value is not told that",
+      _only_amazon is not None and "Google step has to be done again" not in _only_amazon[1])
+
+# **THE DATABASE IS REACHED AS THE SELLER, NOT THROUGH THE DRIVE CONNECTION.** Read from the parsed file.
+_DB_DOORS = ("a_log_sink", "a_board_sink", "a_run_sink", "what_they_chose")
+_DB_FIRST_ARGS = [
+    node.args[0].id for node in ast.walk(START)
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in _DB_DOORS
+    and node.args and isinstance(node.args[0], ast.Name)
+]
+check("every call that writes or reads the seller's database is handed the seller's own sign-in",
+      len(_DB_FIRST_ARGS) >= 4 and set(_DB_FIRST_ARGS) == {"their_login"})
+check("and that sign-in is the Firebase one, built from the two Firebase values",
+      any(isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "FirebaseSeller"
+          for n in ast.walk(START)))
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 319
+EXPECTED = 334
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

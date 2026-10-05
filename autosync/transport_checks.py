@@ -433,6 +433,54 @@ check("a token Google did not put a life on is still taken", answered(quiet.toke
 check("and it is treated as short-lived rather than endless",
       tool.IF_GOOGLE_DOES_NOT_SAY < timedelta(hours=2))
 
+# --------------------------------------------------- the seller's own Firebase sign-in (job 25)
+
+def a_seller(api_key="A-FIREBASE-KEY", refresh_token="SELLER-REFRESH-VALUE", now=NOW, **more):
+    return tool.FirebaseSeller(api_key, refresh_token, now=lambda: now, **more)
+
+
+for missing, named in (({"api_key": ""}, "API key"), ({"refresh_token": ""}, "refresh token")):
+    wrong = refused(lambda m=missing: a_seller(**m))
+    check(f"a Firebase sign-in built with no {named} refuses at once, naming it",
+          wrong is not None and named in str(wrong))
+
+afresh((200, [], b'{"id_token": "IDT", "expires_in": "3600", "refresh_token": "NEW-ONE"}'))
+seller = a_seller()
+check("an ID token is asked for and handed back", answered(seller.token) == "IDT")
+check("it is asked for at Google's securetoken address, by POST",
+      CALLS[0]["url"].startswith(tool.SECURETOKEN_ENDPOINT + "?") and CALLS[0]["method"] == "POST")
+check("the project's API key goes on the address, as Google documents", "key=A-FIREBASE-KEY" in CALLS[0]["url"])
+check("as a form", sent(CALLS[0], "Content-Type") == "application/x-www-form-urlencoded")
+check("saying it is refreshing, with the seller's refresh token in the body",
+      b"grant_type=refresh_token" in (CALLS[0]["body"] or b"") and b"refresh_token=SELLER-REFRESH-VALUE" in (CALLS[0]["body"] or b""))
+check("and NO Kartaan client id or secret is in the request",
+      b"client_id" not in (CALLS[0]["body"] or b"") and b"client_secret" not in (CALLS[0]["body"] or b""))
+check("the refresh token is not in the address", "SELLER-REFRESH-VALUE" not in CALLS[0]["url"])
+check("the call is given the limit it was built with", CALLS[0]["timeout"] == tool.HOW_LONG_TO_WAIT)
+
+before = len(CALLS)
+check("an ID token still good is not asked for again", answered(seller.token) == "IDT" and len(CALLS) == before)
+afresh((200, [], b'{"id_token": "LATER", "expires_in": "3600"}'))
+check("one close to its end is replaced",
+      answered(a_seller(now=NOW + timedelta(minutes=56, seconds=30)).token) == "LATER")
+
+afresh((400, [], b'{"error": {"message": "TOKEN_EXPIRED", "sent": "SELLER-REFRESH-VALUE"}}'))
+turned_away = refused(a_seller().token)
+check("being turned away raises, saying the status", isinstance(turned_away, PermissionError) and "400" in str(turned_away))
+check("THE REFRESH TOKEN AND THE API KEY ARE NOT IN THE REFUSAL",
+      "SELLER-REFRESH-VALUE" not in str(turned_away) and "A-FIREBASE-KEY" not in str(turned_away))
+afresh((200, [], b'{"expires_in": "3600"}'))
+check("an answer with no ID token is a refusal, not an empty token", isinstance(refused(a_seller().token), PermissionError))
+afresh((400, [], b'{"id_token": "SNEAKY"}'))
+check("an ID token in a refused answer is not taken", isinstance(refused(a_seller().token), PermissionError))
+afresh((200, [], b'{"id_token": "NOLIFE", "expires_in": "soon"}'))
+check("a life that cannot be read is treated as short, not as a failure", answered(a_seller().token) == "NOLIFE")
+
+afresh((200, [], b'{"id_token": "IDT", "expires_in": "3600"}'), (200, [], b'{"writeResults": []}'))
+answered(lambda: a_seller().post("https://firestore/x:commit", json={"writes": []}))
+check("a call to Firestore carries the ID token as a Bearer", sent(CALLS[1], "Authorization") == "Bearer IDT")
+check("and the token is not in the address", "IDT" not in CALLS[1]["url"])
+
 # --------------------------------------------------- talking to Drive
 
 afresh(
@@ -480,7 +528,7 @@ for method, use in (("PUT", lambda: drive.put("https://up/1", data=b"x")),
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 87
+EXPECTED = 106
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

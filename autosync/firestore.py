@@ -46,6 +46,12 @@ it is the first check in the file beside this one.
    sending a JSON number where it wants an int64 is refused with a message about
    the value rather than about the shape.
 
+**UPDATE 2026-10-05 (job 25, route (e)): THE `datastore` SCOPE IS NO LONGER USED.**
+The paragraphs above describe the decision of 2026-08-29 as it was made. The
+run now writes as the seller through their own Firebase sign-in, so Firestore
+applies the seller's Security Rules and the lock below is the second lock, not
+the only one. See `transport.FirebaseSeller`.
+
 **NOTHING HERE OPENS A CONNECTION.** The door is `firestore_door.py`, and the
 transport is handed to it -- the same split as Drive's and Amazon's, for the same
 reason: every rule in this file is checked with no account, no token and no

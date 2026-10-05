@@ -6,8 +6,10 @@ so that all of that can be proved: what is left here is the part that genuinely
 cannot be, because it needs a real Amazon account, a real Google account, and a
 real network.
 
-**THE EIGHT VALUES IT READS ARE GITHUB ACTIONS SECRETS on the seller's own
-repository.** They are read once, handed straight to the door each belongs to,
+**THE TEN VALUES IT READS ARE GITHUB ACTIONS SECRETS on the seller's own
+repository** (job 25, route (e)): the device client's id, secret and refresh
+token for Drive and Sheets, the seller's own Firebase API key and refresh token
+for their database, the folder, the project, and Amazon's three. They are read once, handed straight to the door each belongs to,
 and never written to the log, the run's record or an error message. Golden Rule
 8: nothing here stores one, prints one, or puts one in an address.
 
@@ -42,7 +44,7 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
     from amazon_door import AmazonDoor, fetch_one
     from drive_door import a_door
     from firestore_door import a_board_sink, a_log_sink, a_run_sink, both_places, what_they_chose
-    from transport import Google, for_amazon
+    from transport import FirebaseSeller, Google, for_amazon
 
     def now() -> datetime:
         # **HIS TIME, AND THIS IS THE ONLY PLACE IT IS WORKED OUT.** The machine
@@ -56,21 +58,31 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
     inside = nightly._needed("DRIVE_FOLDER_ID")
     # **WHICH DATABASE THE RUN LOG, THE DAY BOARD AND THE RUNS GO INTO (D114).**
     # The seller's own Firebase project. Not a credential -- it names a project
-    # and grants nothing; what grants anything is the Google permission below,
-    # which the seller gave and which now covers their own database too.
+    # and grants nothing; what grants anything is the seller's own sign-in below
+    # and the Security Rules in their project.
     their_project = nightly._needed("FIREBASE_PROJECT_ID")
-    # **ONE CONNECTION, ONE REFRESH TOKEN, THREE GOOGLE SERVICES.** Drive,
-    # Firestore and now Sheets are the same seller's same permission; a second way
-    # of holding that token would be a second place it could leak.
+    # **TWO SIGN-INS, AND NEITHER IS KARTAAN'S SERVER (job 25, route (e)).** Drive
+    # and Sheets go through the device client's refresh token below; the seller's
+    # database goes through the seller's OWN Firebase sign-in, as the seller, under
+    # their own Security Rules. Google calls a device client's secret "not a
+    # secret", so nothing Kartaan has to keep private is in this repository.
+    their_login = FirebaseSeller(
+        api_key=nightly._needed("FIREBASE_API_KEY"),
+        refresh_token=nightly._needed("FIREBASE_REFRESH_TOKEN"),
+        now=now,
+    )
+    # **ONE CONNECTION, ONE REFRESH TOKEN, TWO GOOGLE SERVICES.** Drive and Sheets
+    # are the same seller's same permission; a second way of holding that token
+    # would be a second place it could leak.
     #
     # **AND THE THIRD IS WHY THE SALES LEDGER COSTS NO NEW PERMISSION (D137).**
     # `drive.file` reaches only the files this app created -- so the ledger has to
     # be MADE by this connection, and it is: the same object below both makes it
     # and writes to it, which is what makes the everyday permission carry.
     google = Google(
-        client_id=nightly._needed("GOOGLE_CLIENT_ID"),
-        client_secret=nightly._needed("GOOGLE_CLIENT_SECRET"),
-        refresh_token=nightly._needed("GOOGLE_REFRESH_TOKEN"),
+        client_id=nightly._needed("GOOGLE_DEVICE_CLIENT_ID"),
+        client_secret=nightly._needed("GOOGLE_DEVICE_CLIENT_SECRET"),
+        refresh_token=nightly._needed("GOOGLE_DEVICE_REFRESH_TOKEN"),
         now=now,
     )
     amazon = AmazonDoor(
@@ -142,14 +154,14 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
         # writing it twice writes it once, while the Drive copy is a file that is
         # appended to.
         sink=both_places(
-            a_log_sink(google, their_project),
+            a_log_sink(their_login, their_project),
             nightly._log_to_drive(google, inside, today),
         ),
         # **THE BOARD AND THE RUNS, D114.** They were worked out on every run and
         # thrown away: the three screens built for them were drawn, proved, and
         # reading nothing.
-        save_board=a_board_sink(google, their_project),
-        save_run=a_run_sink(google, their_project),
+        save_board=a_board_sink(their_login, their_project),
+        save_run=a_run_sink(their_login, their_project),
         # **AND THE STANDING ANSWER TO "IS THE FILE REALLY THERE", IN THE
         # SELLER'S OWN DRIVE (specification 25).** Read as well as written,
         # because this half replaces only its own three lines and leaves the
@@ -161,7 +173,7 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
         # this line it reached nothing, and a seller who chose eight in the
         # morning was fetched at the default hour for ever with nothing saying
         # so.
-        ask_the_hour=lambda: what_they_chose(google, their_project),
+        ask_the_hour=lambda: what_they_chose(their_login, their_project),
         send=send,
         # **WHAT IS NEW IN THE SELLER'S FOLDER.** Both of these are real and both
         # are used tonight: the folders are listed and the night's summary says
@@ -204,10 +216,10 @@ def not_ready() -> int:  # pragma: no cover - opens a connection, like `main`
     """
     try:
         from firestore_door import a_run_sink  # noqa: PLC0415
-        from transport import Google  # noqa: PLC0415
+        from transport import FirebaseSeller, Google  # noqa: PLC0415
 
         not_set = [n for n in os.environ.get("NOT_SET", "").split() if n]
-        needed = ("GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REFRESH_TOKEN", "DRIVE_FOLDER_ID")
+        needed = ("GOOGLE_DEVICE_CLIENT_ID", "GOOGLE_DEVICE_CLIENT_SECRET", "GOOGLE_DEVICE_REFRESH_TOKEN", "DRIVE_FOLDER_ID")
         absent = [n for n in needed if not os.environ.get(n, "").strip()]
         if absent:
             print("The run could not write down that it ran, because these are not set: "
@@ -218,16 +230,24 @@ def not_ready() -> int:  # pragma: no cover - opens a connection, like `main`
             return clock.his_clock(datetime.now(timezone.utc).replace(tzinfo=None))
 
         google = Google(
-            client_id=os.environ["GOOGLE_CLIENT_ID"],
-            client_secret=os.environ["GOOGLE_CLIENT_SECRET"],
-            refresh_token=os.environ["GOOGLE_REFRESH_TOKEN"],
+            client_id=os.environ["GOOGLE_DEVICE_CLIENT_ID"],
+            client_secret=os.environ["GOOGLE_DEVICE_CLIENT_SECRET"],
+            refresh_token=os.environ["GOOGLE_DEVICE_REFRESH_TOKEN"],
             now=now,
         )
         read_state, save_state = nightly._state_in_drive(google, os.environ["DRIVE_FOLDER_ID"])
         project = os.environ.get("FIREBASE_PROJECT_ID", "").strip()
+        api_key = os.environ.get("FIREBASE_API_KEY", "").strip()
+        sign_in = os.environ.get("FIREBASE_REFRESH_TOKEN", "").strip()
+        # The run row goes in the seller's own database as the seller, so it needs
+        # all three of project, key and sign-in; without them only Drive's copy is written.
+        their_login = FirebaseSeller(api_key, sign_in, now) if (project and api_key and sign_in) else None
+        if their_login is None:
+            print("The run row was not written to the seller's database, because the project, "
+                  "Firebase API key or Firebase sign-in is not set; Drive's copy is still written.")
         faults = nightly.a_run_that_could_not_fetch(
             not_set, now, read_state, save_state,
-            a_run_sink(google, project) if project else None,
+            a_run_sink(their_login, project) if their_login else None,
         )
         for one in faults:
             print(one)

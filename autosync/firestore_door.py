@@ -1,18 +1,18 @@
 """Talking to the seller's own Firestore. The doing half of `firestore.py` (D114).
 
 **THE TRANSPORT IS HANDED IN**, exactly as it is for Drive and for Amazon, so
-every line here is checked with no account, no token and no internet. The thing
-handed in is the same `Google` from `transport.py` that Drive already uses --
-**one connection, one refresh token, two Google services** -- because they are
-the same seller's same permission, and building a second way to hold that token
-would be a second place it could leak.
+every line here is checked with no account, no token and no internet. **Since
+job 25 (route (e)) the thing handed in is `transport.FirebaseSeller`: the seller's
+OWN Firebase sign-in, as the seller, with no Kartaan key and no Kartaan server in
+it.** It has the same `get`/`post` shape as the `Google` that Drive uses, so
+nothing in this file changed to take it.
 
 **WHAT IT WRITES: the run log, the day board and the runs, and nothing else.**
 Every name it writes is built by `firestore.where_a_document_lives`, which
 refuses anything outside those three by name. That refusal is the only lock there
-is -- the `datastore` scope is authorised by IAM rather than by
-`firestore.rules`, which is Google's own documented behaviour and is written out
-in full at the top of `firestore.py`.
+is -- since job 25 the writes are made as the seller, so the seller's own
+Security Rules (kept by the Kartaan ERP) decide as well; that is a second lock,
+not a replacement for this one.
 
 **WHAT IT READS: the hour the seller chose, and nothing else.** It never writes
 it. That setting is the seller's, written from the This business tab, and a job
@@ -44,11 +44,10 @@ from firestore import (
 COMMIT = "{api}/projects/{project}/databases/{database}/documents:commit"
 ONE_DOCUMENT = "{api}/{name}"
 
-# **THE SCOPE D114 ADDED, and this is the file that needs it.** Written here as
-# well as in `server/going_off.py` because this is where its absence is felt, and
-# a check pins the two against each other -- asked for in one place and needed in
-# another is how a permission quietly stops being asked for.
-SCOPE = "https://www.googleapis.com/auth/datastore"
+# **NO SCOPE IS NAMED HERE ANY MORE (job 25, route (e)).** This used to need the
+# `datastore` scope on the seller's Google token. The transport handed in is now
+# the seller's own Firebase sign-in (`transport.FirebaseSeller`), which carries a
+# Firebase ID token, and Firestore applies the seller's own Security Rules to it.
 
 
 class TheirDatabaseSaidNo(RuntimeError):
@@ -63,10 +62,9 @@ class TheirDatabaseSaidNo(RuntimeError):
 def _answered(reply, doing: str):
     """What came back, or a refusal naming what was being done.
 
-    **THE LIKELIEST CAUSE OF A 403 IS NAMED, because it is documented and it is
-    silent.** A seller who connected before D114 granted `drive.file` and nothing
-    else; their token can put files in Drive all night and cannot write one
-    record. Without this sentence that reads as a broken database.
+    **THE LIKELIEST CAUSE OF A 403 IS NAMED, because it is silent.** The writes
+    are made as the seller, so a Security Rule that does not allow one of them
+    (or a sign-in for another project) reads as a broken database without this.
     """
     if reply is None:
         raise TheirDatabaseSaidNo(f"{doing}: the seller's database said nothing at all.")
@@ -75,9 +73,10 @@ def _answered(reply, doing: str):
         said = reply.text
         if code == 403:
             raise TheirDatabaseSaidNo(
-                f"{doing}: Google would not let this job into the seller's database (403). "
-                "The likeliest reason is that the seller connected before Kartaan started "
-                "asking for it -- connecting again grants it. " + said[:200]
+                f"{doing}: the seller's database would not let this job in (403). "
+                "The likeliest reason is that the seller's Security Rules do not allow this "
+                "write for the seller's own sign-in, or the Firebase sign-in handed to the run "
+                "belongs to a different project. " + said[:200]
             )
         if code == 404:
             raise TheirDatabaseSaidNo(

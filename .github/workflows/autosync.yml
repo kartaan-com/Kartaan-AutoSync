@@ -121,7 +121,7 @@ on:
   # bad push here does not break every seller that night. What that file says is
   # kept in this repository at
   # `pipeline-template/.github/workflows/autosync.yml`, because a change to the
-  # eight names or to the tag is a change to both files.
+  # ten names or to the tag is a change to both files.
   #
   # **EVERY SECRET IS DECLARED AND PASSED BY NAME. `inherit` IS NOT AVAILABLE.**
   # From GitHub's own documentation, `secrets: inherit` works only for a called
@@ -135,7 +135,7 @@ on:
   # whose secret was never set -- which is the whole reason the "Is this
   # repository set up to fetch?" step below still asks, and still has to.
   #
-  # **THESE EIGHT NAMES ARE THE SAME EIGHT AS THE GATE AND THE `env` BLOCK, AND
+  # **THESE TEN NAMES ARE THE SAME TEN AS THE GATE AND THE `env` BLOCK, AND
   # NOTHING HERE COUNTS THEM.** `autosync/nightly_checks.py` holds all of the
   # lists to each other in every direction (D190) -- this one, the gate, the
   # `env` block, `start.py`'s own asking, and the caller next door. A ninth
@@ -161,11 +161,15 @@ on:
         required: true
       AMAZON_REFRESH_TOKEN:
         required: true
-      GOOGLE_CLIENT_ID:
+      GOOGLE_DEVICE_CLIENT_ID:
         required: true
-      GOOGLE_CLIENT_SECRET:
+      GOOGLE_DEVICE_CLIENT_SECRET:
         required: true
-      GOOGLE_REFRESH_TOKEN:
+      GOOGLE_DEVICE_REFRESH_TOKEN:
+        required: true
+      FIREBASE_API_KEY:
+        required: true
+      FIREBASE_REFRESH_TOKEN:
         required: true
       DRIVE_FOLDER_ID:
         required: true
@@ -305,7 +309,7 @@ jobs:
       # **IS THIS REPOSITORY SET UP TO FETCH AT ALL? -- AND IF NOT, WHICH SECRET.**
       #
       # **GREEN OVER NOTHING WAS THE FAULT (PIECE 2, A68).** This used to AND all
-      # eight secrets into one yes/no, print a notice and end green -- so a seller
+      # secrets into one yes/no, print a notice and end green -- so a seller
       # whose run said "Success in 16s" had fetched nothing and been told nothing,
       # and twenty-four green days could pass the same way. Now it names each
       # missing secret **BY NAME, NEVER BY VALUE (Golden Rule 8)** and ends RED.
@@ -318,7 +322,7 @@ jobs:
       #
       # `secrets` cannot be read in an `if:` -- GitHub's own documentation -- so
       # each is read where it is allowed, a step's `env`, as only whether it is
-      # there. **The names the loop reports are the names of these eight
+      # there. **The names the loop reports are the names of these ten
       # variables, so there is no second list of them to disagree with.**
       - name: Is this repository set up to fetch?
         id: setup
@@ -326,9 +330,11 @@ jobs:
           HAS_AMAZON_CLIENT_ID: ${{ secrets.AMAZON_CLIENT_ID != '' }}
           HAS_AMAZON_CLIENT_SECRET: ${{ secrets.AMAZON_CLIENT_SECRET != '' }}
           HAS_AMAZON_REFRESH_TOKEN: ${{ secrets.AMAZON_REFRESH_TOKEN != '' }}
-          HAS_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID != '' }}
-          HAS_GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET != '' }}
-          HAS_GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN != '' }}
+          HAS_GOOGLE_DEVICE_CLIENT_ID: ${{ secrets.GOOGLE_DEVICE_CLIENT_ID != '' }}
+          HAS_GOOGLE_DEVICE_CLIENT_SECRET: ${{ secrets.GOOGLE_DEVICE_CLIENT_SECRET != '' }}
+          HAS_GOOGLE_DEVICE_REFRESH_TOKEN: ${{ secrets.GOOGLE_DEVICE_REFRESH_TOKEN != '' }}
+          HAS_FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY != '' }}
+          HAS_FIREBASE_REFRESH_TOKEN: ${{ secrets.FIREBASE_REFRESH_TOKEN != '' }}
           HAS_DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID != '' }}
           HAS_FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID != '' }}
           KARTAANS_OWN_REPOSITORY: ${{ github.repository == 'kartaan-com/Kartaan-AutoSync' }}
@@ -353,6 +359,15 @@ jobs:
           fi
           echo "::error::Nothing was fetched: this repository is not set up to fetch yet. Not set: $missing"
           echo "::error::If you are still connecting your platforms, this is expected. It turns green by itself once every name above is set."
+          # **A REPOSITORY CONNECTED BEFORE JOB 25 HAS THE OLD GOOGLE VALUES AND NONE OF THE NEW ONES.**
+          # This file does not read the old names any more (a run must not hold them),
+          # so it cannot say "you still have the old ones"; it says what to do whenever
+          # a Google or Firebase sign-in value is missing, which covers that seller.
+          case " $missing " in
+            *" GOOGLE_DEVICE_"*|*" FIREBASE_API_KEY "*|*" FIREBASE_REFRESH_TOKEN "*)
+              echo "::error::The Google step has to be done again: open Kartaan and connect Google once more. Connecting before this version set different Google values, and this version needs the new ones."
+              ;;
+          esac
           exit 1
 
       # **IF IT CANNOT FETCH, IT STILL SAYS IT RAN (PIECE 2, A68).** The run's own
@@ -364,9 +379,11 @@ jobs:
         if: failure() && steps.setup.outputs.ready == 'false'
         working-directory: autosync
         env:
-          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
-          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
-          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+          GOOGLE_DEVICE_CLIENT_ID: ${{ secrets.GOOGLE_DEVICE_CLIENT_ID }}
+          GOOGLE_DEVICE_CLIENT_SECRET: ${{ secrets.GOOGLE_DEVICE_CLIENT_SECRET }}
+          GOOGLE_DEVICE_REFRESH_TOKEN: ${{ secrets.GOOGLE_DEVICE_REFRESH_TOKEN }}
+          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+          FIREBASE_REFRESH_TOKEN: ${{ secrets.FIREBASE_REFRESH_TOKEN }}
           DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
           FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
           NOT_SET: ${{ steps.setup.outputs.missing }}
@@ -385,19 +402,25 @@ jobs:
           AMAZON_CLIENT_ID: ${{ secrets.AMAZON_CLIENT_ID }}
           AMAZON_CLIENT_SECRET: ${{ secrets.AMAZON_CLIENT_SECRET }}
           AMAZON_REFRESH_TOKEN: ${{ secrets.AMAZON_REFRESH_TOKEN }}
-          # Google: the seller's own account, asked only for `drive.file`, which
-          # reaches nothing this app did not itself create.
-          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
-          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
-          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+          # Google (Drive and Sheets): the seller's own account, through Kartaan's
+          # "TVs and Limited Input devices" client, asked only for `drive.file`,
+          # which reaches nothing this app did not itself create. Google says the
+          # secret of that kind of client is not a secret.
+          GOOGLE_DEVICE_CLIENT_ID: ${{ secrets.GOOGLE_DEVICE_CLIENT_ID }}
+          GOOGLE_DEVICE_CLIENT_SECRET: ${{ secrets.GOOGLE_DEVICE_CLIENT_SECRET }}
+          GOOGLE_DEVICE_REFRESH_TOKEN: ${{ secrets.GOOGLE_DEVICE_REFRESH_TOKEN }}
+          # The database: the seller's OWN Firebase sign-in and their project's
+          # API key, which Google says is not used to control access. Firestore
+          # lets this write under the seller's own Security Rules.
+          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+          FIREBASE_REFRESH_TOKEN: ${{ secrets.FIREBASE_REFRESH_TOKEN }}
           # Not secret, and kept beside the rest so there is one place to look:
           # the id of the one folder in the seller's Drive that Kartaan was given.
           DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
           # **WHICH DATABASE THE RUN'S RECORDS GO INTO (D114, widened by D136).**
           # The seller's own
           # Firebase project. Not a credential either -- it names a project and
-          # grants nothing; what grants anything is the Google permission above,
-          # which the seller gave and which now covers their own database too.
+          # grants nothing; what grants anything is the seller's own sign-in above.
           FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
           # Only ever true because somebody pressed the button -- the one here,
           # or the one on the seller's own caller, which passes it through. A

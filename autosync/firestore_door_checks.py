@@ -24,7 +24,6 @@ import board  # noqa: E402
 import firestore  # noqa: E402
 import firestore_door as tool  # noqa: E402
 import runlog  # noqa: E402
-from the_other_half import readFromServer  # noqa: E402
 
 ran = 0
 failures = []
@@ -109,14 +108,13 @@ check("and one document is asked for by its own full name",
       tool.ONE_DOCUMENT.format(api=firestore.API, name="projects/p/databases/(default)/documents/a/b")
       == "https://firestore.googleapis.com/v1/projects/p/databases/(default)/documents/a/b")
 
-# **THE SCOPE THIS DOOR NEEDS IS THE SCOPE THE SELLER IS ASKED FOR.** Asked for in
-# `server/going_off.py` and needed here, and nothing mechanical joins the two --
-# so it is pinned, both ways.
-check("the scope it needs is the datastore one", tool.SCOPE == "https://www.googleapis.com/auth/datastore")
-GOING_OFF = readFromServer("server", "going_off.py")
-check("and it is the one the seller is actually asked for", f'"{tool.SCOPE}"' in GOING_OFF)
-check("and the seller is still asked for Drive as well",
-      '"https://www.googleapis.com/auth/drive.file"' in GOING_OFF)
+# **THIS DOOR NEEDS NO GOOGLE SCOPE ANY MORE (job 25, route (e)).** It writes as the
+# seller through their own Firebase sign-in, under their own Security Rules. A
+# scope named here again would be the `datastore` permission coming back.
+check("the door names no Google scope, so no scope can go unasked for",
+      not hasattr(tool, "SCOPE"))
+check("and the datastore scope is not mentioned in the door's code at all",
+      "auth/datastore" not in Path(tool.__file__).read_text(encoding="utf-8").replace("`datastore`", ""))
 
 # ------------------------------------------- the run log
 
@@ -195,7 +193,7 @@ check("a refusal is thrown rather than counted as sent",
 THREW.clear()
 # **THE LIKELIEST CAUSE IS NAMED**, because it is documented and it is silent.
 words = _why(lambda: tool.a_log_sink(Transport([Reply(403, "no")]), PROJECT)([LINE]))
-check("and a 403 says the seller may need to connect again", "connecting again" in words)
+check("and a 403 names the seller's Security Rules as the likeliest cause", "Security Rules" in words)
 check("and it says what was being done at the time", "writing the run log down" in words)
 check("a 404 says the record or the project is wrong",
       "project id" in _why(lambda: tool.a_log_sink(Transport([Reply(404, "no")]), PROJECT)([LINE])))
@@ -294,7 +292,7 @@ check("the door no longer accepts the old folder name",
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 47
+EXPECTED = 46
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

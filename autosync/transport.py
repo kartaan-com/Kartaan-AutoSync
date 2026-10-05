@@ -359,3 +359,77 @@ class Google:
 
     def delete(self, url: str, params: Optional[Dict] = None, headers: Optional[Dict] = None) -> Reply:
         return self._talk("DELETE", url, params=params, headers=headers)
+
+
+# ------------------------------------------------------------ the seller's Firebase
+
+# Where a Firebase refresh token is exchanged for a one-hour ID token. Read from
+# Google's Identity Platform page "Exchange a refresh token for an ID token"
+# (2026-10-05): POST, form encoded, `grant_type=refresh_token` and `refresh_token`
+# in the body, the project's web API key as `?key=` on the address.
+SECURETOKEN_ENDPOINT = "https://securetoken.googleapis.com/v1/token"
+
+
+class FirebaseSeller(Google):
+    """The seller, signed in to their OWN Firebase project, talking to Firestore.
+
+    **NO KARTAAN KEY IS INVOLVED.** The refresh token is the seller's own sign-in
+    and the API key is their own project's; neither is Kartaan's, and Kartaan's
+    server is not asked anything. What Firestore lets this write is decided by the
+    seller's own Security Rules, as it is for the seller in the ERP.
+
+    **IT IS A `Google` IN EVERYTHING BUT HOW THE TOKEN IS GOT**, so `get`, `post`,
+    `put` and `delete` are the same lines Drive already uses, and the door that
+    takes it cannot tell the difference. `Google` itself is untouched.
+
+    **A NEW REFRESH TOKEN IN THE ANSWER IS NOT KEPT.** Google's page says the answer
+    may carry "a new refresh token"; a run cannot write a repository secret, and
+    Firebase's refresh tokens expire only when the user is deleted, disabled or
+    changes something major, so the one the seller gave keeps working.
+    """
+
+    def __init__(
+        self,
+        api_key: str,
+        refresh_token: str,
+        now: Callable[[], datetime],
+        timeout: int = HOW_LONG_TO_WAIT,
+    ):
+        for named, value in (("API key", api_key), ("refresh token", refresh_token)):
+            if not value:
+                raise ValueError(f"Signing in to the seller's database needs a Firebase {named} and was not given one.")
+        self._api_key = api_key
+        self._refresh_token = refresh_token
+        self._now = now
+        self._timeout = timeout
+        self._token: Optional[tuple] = None
+
+    def token(self) -> str:
+        """A live ID token, asked for again only when the old one is near its end."""
+        if self._token and self._now() < self._token[1]:
+            return self._token[0]
+        status, _, raw = _call(
+            "POST",
+            SECURETOKEN_ENDPOINT,
+            {"Content-Type": "application/x-www-form-urlencoded"},
+            {"key": self._api_key},
+            urllib.parse.urlencode(
+                {"grant_type": "refresh_token", "refresh_token": self._refresh_token}
+            ).encode("utf-8"),
+            self._timeout,
+        )
+        said = _decoded(raw)
+        if status != 200 or not said or not said.get("id_token"):
+            # **THE STATUS, NOT THE BODY**, for the same reason as Google's above.
+            raise PermissionError(
+                f"Firebase would not sign the seller in (HTTP {status}). The Firebase API key or "
+                "refresh token is wrong, or the seller's sign-in was deleted, disabled or "
+                "changed in a major way -- signing in again from Kartaan sets a new one."
+            )
+        lasts = said.get("expires_in")
+        try:
+            for_how_long = timedelta(seconds=int(lasts)) if lasts else IF_GOOGLE_DOES_NOT_SAY
+        except (TypeError, ValueError):
+            for_how_long = IF_GOOGLE_DOES_NOT_SAY
+        self._token = (str(said["id_token"]), self._now() + for_how_long - RENEW_EARLY)
+        return self._token[0]
