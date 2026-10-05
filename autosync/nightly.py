@@ -44,7 +44,7 @@ does this:
 
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime
 from typing import Callable, List, Optional, Sequence, Tuple
 
@@ -516,8 +516,12 @@ def one_tick(
     # loud; refusing to fetch over it would turn a Drive blip into a lost day.
     if read_manifest is not None and save_manifest is not None:
         try:
-            standing = manifest.read(read_manifest())
+            standing = manifest.read_record(read_manifest())
             fresh = manifest.lines_for(which, arrivals, today, checked_on=today)
+            # **WHAT WAS READ TONIGHT GOES IN THE SAME RECORD (job 38)**, stamped with the day it was read.
+            # Only this run writes reads, and only to its own file, so nothing the extension writes is touched.
+            read_now = tuple(
+                replace(one, read_on=today) for one in (what_was_read.reads if what_was_read else ()))
             # **ASKED OF THE DOOR, NEVER OF WHAT THIS RUN HAPPENED TO BE
             # HANDED.** Derived from the list it was given, the answer would
             # always be yes and the refusal could never fire. This job is the API
@@ -526,7 +530,8 @@ def one_tick(
             if strayed:
                 faults.append(f"The download manifest was not written: {strayed}")
             else:
-                save_manifest(manifest.write(manifest.merge(standing, fresh)))
+                save_manifest(manifest.write(
+                    manifest.merge(standing.lines, fresh), manifest.merge_reads(standing.reads, read_now)))
         except Exception as wrong:  # noqa: BLE001 - recorded, never swallowed
             faults.append(
                 f"Whether the files are really in Drive could not be written down: {wrong}"

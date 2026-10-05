@@ -56,6 +56,11 @@ def answered(work):
         return None
 
 
+def _one_read_json():
+    return (b'{"dataDate": "2026-09-20", "reportId": "me_orders", "fileName": "meesho_me_orders_2026-09-20.csv", '
+            b'"into": "the sales ledger", "rowsInFile": 40, "rowsRead": 38, "readOn": "2026-09-21"}')
+
+
 def check(name, passed):
     global ran
     ran += 1
@@ -601,7 +606,84 @@ check("and there is still only one line about that day",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 66
+# ------------------------------------------- job 38: ONE RECORD PER WRITER, PUT TOGETHER ON READ
+
+D1 = date(2026, 9, 20)
+D2 = date(2026, 9, 21)
+THE_RUNS_LINE = tool.Line(data_date=D1, report_id="az_orders", state=tool.VERIFIED, file_name="amazon_az_orders_2026-09-20.csv", file_size=900)
+THE_EXTENSIONS_LINE = tool.Line(data_date=D1, report_id="me_orders", state=tool.VERIFIED, file_name="meesho_me_orders_2026-09-20.csv", file_size=400)
+A_READ = tool.Read(data_date=D1, report_id="me_orders", file_name="meesho_me_orders_2026-09-20.csv", into="the sales ledger",
+                   rows_in_file=40, rows_read=38, read_on=D2)
+
+written = answered(lambda: tool.write([THE_RUNS_LINE], [A_READ]))
+back = answered(lambda: tool.read_record(written))
+check("what was read is written beside what landed and read back, both numbers kept",
+      back is not None and back.reads == (A_READ,) and back.lines == (THE_RUNS_LINE,)
+      and (back.reads[0].rows_in_file, back.reads[0].rows_read) == (40, 38))
+check("the lines-only reader still answers from a record that holds reads",
+      answered(lambda: tool.read(written)) == (THE_RUNS_LINE,))
+check("a record written before reads existed (shape 1) is read, and has none",
+      answered(lambda: tool.read_record(b'{"shape": 1, "lines": []}')) == tool.Standing((), ()))
+check("a read that claims more rows than the file held cannot be written",
+      _refused(lambda: tool.write([], [tool.Read(D1, "me_orders", "x.csv", "the sales ledger", 5, 6)])))
+check("and one that cannot be read back refuses the whole record, not just itself",
+      _refused(lambda: tool.read_record(
+          b'{"shape": 2, "lines": [], "reads": [{"dataDate": "2026-09-20", "reportId": "me_orders", '
+          b'"fileName": "x.csv", "into": "the sales ledger", "rowsInFile": "many", "rowsRead": 1}]}')))
+check("a day recorded as read twice is refused, as a line answered twice is",
+      _refused(lambda: tool.read_record(tool.write([], [A_READ]).replace(b'"reads": [', b'"reads": [' + _one_read_json() + b','))))
+newer = tool.Read(D1, "me_orders", "meesho_me_orders_2026-09-20.csv", "the sales ledger", 41, 41, D2)
+check("a day read again replaces the earlier read in place, and every other read is untouched",
+      answered(lambda: tool.merge_reads([A_READ, tool.Read(D2, "me_orders", "b.csv", "the sales ledger", 3, 3)], [newer]))
+      == (newer, tool.Read(D2, "me_orders", "b.csv", "the sales ledger", 3, 3)))
+
+# What the two records say TOGETHER.
+RUN = tool.Standing(lines=(THE_RUNS_LINE,), reads=(A_READ,))
+EXTENSION = tool.Standing(lines=(THE_EXTENSIONS_LINE,), reads=())
+crossed = {(c.report_id, c.data_date): c for c in tool.cross_check(RUN, EXTENSION)}
+check("a file the extension saved and the run read is landed by the extension, and read, with both numbers",
+      crossed[("me_orders", D1)].verdict == tool.LANDED_AND_READ
+      and crossed[("me_orders", D1)].landed_by == "the extension"
+      and (crossed[("me_orders", D1)].rows_in_file, crossed[("me_orders", D1)].rows_read) == (40, 38))
+check("A FILE THE EXTENSION SAVES AND THE RUN NEVER READS APPEARS AS LANDED, NOT READ",
+      tool.cross_check(tool.Standing((), ()), EXTENSION)[0].verdict == tool.LANDED_NOT_READ)
+check("A FILE READ WITH NO LANDING LINE APPEARS AS READ, NEVER SEEN LANDING",
+      tool.cross_check(tool.Standing((), (A_READ,)), tool.Standing((), ()))[0].verdict == tool.READ_NEVER_SEEN_LANDING)
+check("a day that was checked and is not there reads as missing",
+      tool.cross_check(
+          tool.Standing((tool.Line(data_date=D1, report_id="az_orders", state=tool.MISSING),), ()), EXTENSION)[0].verdict
+      == tool.NOT_THERE)
+check("a report the run landed itself says so",
+      crossed[("az_orders", D1)].landed_by == "the run" and crossed[("az_orders", D1)].verdict == tool.LANDED_NOT_READ)
+
+# **TWO WRITERS AT THE SAME INSTANT LOSE NOTHING -- shown against the shape this replaces.** Both read, both
+# change their own lines, both save, in the worst order.
+one_file = tool.write(tool.merge(tool.read(None), [THE_RUNS_LINE]))
+stale_for_the_extension = tool.read(one_file)
+after_the_run = tool.write(tool.merge(tool.read(one_file), [tool.Line(data_date=D2, report_id="az_orders", state=tool.VERIFIED,
+                                                                      file_name="amazon_az_orders_2026-09-21.csv", file_size=5)]))
+after_the_extension = tool.write(tool.merge(stale_for_the_extension, [THE_EXTENSIONS_LINE]))
+check("(the old way, one file with two writers: the later save puts the older lines back and a line is lost)",
+      tool.is_it_there(tool.read(after_the_extension), "az_orders", D2) is None)
+runs_file = tool.write(tool.merge(tool.read(None), [THE_RUNS_LINE, tool.Line(data_date=D2, report_id="az_orders", state=tool.VERIFIED,
+                                                                         file_name="amazon_az_orders_2026-09-21.csv", file_size=5)]))
+extensions_file = tool.write(tool.merge(tool.read(None), [THE_EXTENSIONS_LINE]))
+both = {(c.report_id, c.data_date) for c in tool.cross_check(tool.read_record(runs_file), tool.read_record(extensions_file))}
+check("TWO WRITERS, ONE FILE EACH, SAME INSTANT: every line from both is there when they are put together",
+      both == {("az_orders", D1), ("az_orders", D2), ("me_orders", D1)})
+check("and neither writer's save can change the other's file by a single byte",
+      tool.write(tool.merge(tool.read(None), [THE_EXTENSIONS_LINE])) == extensions_file)
+
+# **A ROLLING FILE IS RECORDED PER DAY BY LOOKING INSIDE IT, and a day missing inside it is missing for that day only.**
+the_views = next(one for one in REPORTS if one.id == "me_views")
+inside = [Arrived(name="meesho_me_views.csv", size=500, days_inside=(date(2026, 9, 19), date(2026, 9, 21)))]
+views_lines = {one.data_date: one.state for one in tool.lines_for(
+    [the_views], lambda rid: inside, date(2026, 9, 22), checked_on=date(2026, 9, 22), look_back_days=3)}
+check("a views day absent from inside the rolling file is missing, and only that day",
+      views_lines.get(date(2026, 9, 20)) == tool.MISSING and views_lines.get(date(2026, 9, 19)) == tool.VERIFIED
+      and views_lines.get(date(2026, 9, 21)) == tool.VERIFIED)
+
+EXPECTED = 66 + 16
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

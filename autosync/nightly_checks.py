@@ -980,6 +980,43 @@ check("and all five are now in the record the run leaves behind",
       between_runs.read(night_two.saved[-1]).files_read
       == ("d-1", "d-2", "d-3", "d-4", "d-5"))
 
+# ------------------------------------------- job 38: WHAT WAS READ GOES IN THE STANDING RECORD
+
+record_held = {"body": None}
+reads_drive = TheSellersDrive(FIRST_THREE_AND_FIFTH)
+reads_night = Harness()
+reads_night.go(read_manifest=lambda: record_held["body"],
+               save_manifest=lambda body: record_held.__setitem__("body", body), **reads_drive.wiring())
+RECORD = answered(lambda: manifest.read_record(record_held["body"]))
+check("a night that reads files writes down, for each, which report and day, and what became of it",
+      RECORD is not None and sorted(one.file_name for one in RECORD.reads)
+      == ["meesho_me_orders_2026-09-01.csv", "meesho_me_orders_2026-09-02.csv",
+          "meesho_me_orders_2026-09-03.csv", "meesho_me_orders_2026-09-05.csv"])
+check("and each says what the file held and what was read from it, and where the rows went",
+      RECORD is not None and all(one.rows_in_file == 1 and one.rows_read == 1 and one.into == "the sales ledger"
+                                 for one in RECORD.reads))
+check("and the day it was read on, which is the run's own day",
+      RECORD is not None and all(one.read_on == AT.date() for one in RECORD.reads))
+reads_next = ANightLater(reads_night.saved[-1], nights=2)
+reads_next.go(read_manifest=lambda: record_held["body"],
+              save_manifest=lambda body: record_held.__setitem__("body", body),
+              **TheSellersDrive(FIRST_THREE_AND_FIFTH + [THE_FOURTH]).wiring())
+AFTER_NEXT = answered(lambda: manifest.read_record(record_held["body"]))
+check("the next night adds the file it read and leaves the four earlier reads exactly as they were",
+      AFTER_NEXT is not None and len(AFTER_NEXT.reads) == 5
+      and [one for one in AFTER_NEXT.reads if one.file_name != "meesho_me_orders_2026-09-04.csv"] == list(RECORD.reads))
+
+# **TWO NUMBERS, NOT ONE:** a file holding a row nobody could read says it held two and gave one.
+BODIES["d-6"] = _a_meesho_file("SO-6,DJ 14,1,2026-09-06 10:00:00,SHIPPED,100",
+                               "SO-7,DJ 14,many,2026-09-06 10:00:00,SHIPPED,100")
+two_numbers_held = {"body": None}
+Harness().go(read_manifest=lambda: two_numbers_held["body"],
+             save_manifest=lambda body: two_numbers_held.__setitem__("body", body),
+             **TheSellersDrive([_in_the_folder("d-6", "meesho_me_orders_2026-09-06.csv")]).wiring())
+TWO = answered(lambda: manifest.read_record(two_numbers_held["body"]))
+check("a file with one row nobody could read is recorded as holding two and giving one",
+      TWO is not None and len(TWO.reads) == 1 and (TWO.reads[0].rows_in_file, TWO.reads[0].rows_read) == (2, 1))
+
 # ------------------------------------------- job 37: FILES READ UNDER OLDER RULES ARE READ ONCE MORE
 
 # **THE FIVE CANCELLED ORDERS ALREADY IN HIS LEDGER ARE CORRECTED BY THE SAME RUN, NOT BY HAND.** A file
@@ -2468,7 +2505,7 @@ check("the one-time merge is started only by the button, and only as plan or app
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 357
+EXPECTED = 362
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

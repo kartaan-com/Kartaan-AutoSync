@@ -83,6 +83,7 @@ from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 import landing
+import manifest
 import orders
 import sheet
 import table
@@ -250,6 +251,9 @@ class WhatTheNightRead:
     # Why nothing was read at all, when that was the answer. Empty when reading
     # did happen.
     nowhere_to_put_it: str = ""
+    # **WHAT EACH FILE READ TONIGHT CAME TO, FOR THE STANDING RECORD (job 38):** which report and day, what the
+    # file held and what was read from it -- two numbers, never one.
+    reads: Tuple["manifest.Read", ...] = ()
 
     @property
     def is_a_defect(self) -> bool:
@@ -544,6 +548,7 @@ def read_what_is_new(
     the_ledger_refused: List[str] = []
     how_many_sales = 0
     rows_refused = 0
+    reads: List["manifest.Read"] = []
 
     # **OLDEST FIRST, AND EVERY FOLDER'S FILES TOGETHER.** Handed over in the
     # order Drive answered a listing in, the last file to be recorded is the last
@@ -573,6 +578,13 @@ def read_what_is_new(
         read_tonight.append(one)
         how_many_sales += len(reading.sales)
         rows_refused += refused_rows
+        the_day = landing.data_date_in(one.name)
+        if the_day is not None:
+            reads.append(manifest.Read(
+                data_date=the_day, report_id=how.report_id, file_name=one.name or one.which,
+                into="the sales ledger", rows_in_file=len(reading.sales) + refused_rows,
+                rows_read=len(reading.sales),
+            ))
 
     keep, let_go_of, refused_to_forget = _what_is_still_worth_remembering(
         remembered, listed, can_be_read, could_not_list,
@@ -591,6 +603,7 @@ def read_what_is_new(
         the_ledger_refused=tuple(the_ledger_refused),
         could_not_list=tuple(could_not_list),
         refused_to_forget=refused_to_forget,
+        reads=tuple(reads),
     )
 
 

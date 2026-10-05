@@ -154,6 +154,8 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
+from typing import NamedTuple
+
 from landing import Arrived, days_that_arrived
 from reports import API, BROWSER, ONLY_WHEN_ASKED, WHEN_THEY_PUBLISH_IT, Report
 from schedule import data_date_for, window_start
@@ -167,7 +169,18 @@ FILE_NAME = "autosync-manifest.json"
 # shape changes, an older reader says so rather than quietly reading the fields it
 # recognises and dropping the rest -- the same rule, and the same reason, as
 # `between_runs.SHAPE`.
-SHAPE = 1
+#
+# **SHAPE 2 (job 38) ADDS WHAT WAS READ.** A shape-1 record is still read -- it has no `reads` and says so by
+# having none. What is written is always shape 2, and a record in any other shape refuses as before.
+SHAPE = 2
+READABLE_SHAPES = (1, 2)
+
+# **THE EXTENSION KEEPS ITS OWN FILE, AND THAT IS WHAT MAKES TWO WRITERS SAFE (job 38).** One file with two
+# writers loses a line whenever both save at the same minute: each reads the whole file, changes its own
+# lines and writes the whole file back, and the later save puts back the other's old lines. So every writer
+# has exactly one file and it is the only writer of it; a reader puts the two together. Both sit in
+# `Kartaan / System`, in the same shape, and neither can touch the other's.
+EXTENSION_FILE_NAME = "extension-manifest.json"
 
 # The two things a line can say. **There is a third answer and it is the absence
 # of a line** -- see the table at the top of this file. It has no spelling here
@@ -263,6 +276,34 @@ class Line:
     @property
     def is_there(self) -> bool:
         return self.state == VERIFIED
+
+
+@dataclass(frozen=True)
+class Read:
+    """One file the run opened: which, what became of it. **TWO NUMBERS, NOT ONE (his Valmo principle).**
+
+    `rows_in_file` is what the file held and `rows_read` is what was read from it, so a file that held
+    forty rows and gave thirty-eight is not recorded as simply "read". `into` says where the rows went.
+    """
+
+    data_date: date
+    report_id: str
+    file_name: str
+    into: str
+    rows_in_file: int
+    rows_read: int
+    read_on: Optional[date] = None
+
+    @property
+    def key(self) -> Tuple[date, str]:
+        return (self.data_date, self.report_id)
+
+
+class Standing(NamedTuple):
+    """What one record file holds: what landed, and what was read."""
+
+    lines: Tuple[Line, ...]
+    reads: Tuple[Read, ...]
 
 
 def why_a_line_is_refused(line) -> Optional[str]:
@@ -467,6 +508,68 @@ def merge(standing: Sequence[Line], fresh: Sequence[Line]) -> Tuple[Line, ...]:
 # ------------------------------------------------------ reading it back out
 
 
+# What the two writers' records say TOGETHER about one report on one day (job 38). **Said in words, because
+# this is what the Data tab shows and what a seller reads: "landed, not read" is a file nothing has opened,
+# and "read, never seen landing" is a reading with no record of the file arriving.**
+LANDED_AND_READ = "landed and read"
+LANDED_NOT_READ = "landed, not read"
+READ_NEVER_SEEN_LANDING = "read, never seen landing"
+NOT_THERE = "missing"
+
+
+@dataclass(frozen=True)
+class Crossing:
+    """One report on one day, as the two records read together."""
+
+    report_id: str
+    data_date: date
+    verdict: str
+    landed_by: Optional[str] = None
+    rows_in_file: Optional[int] = None
+    rows_read: Optional[int] = None
+
+
+def cross_check(run: Standing, extension: Standing) -> Tuple[Crossing, ...]:
+    """What landed and what was read, put together from the two writers' own files.
+
+    **THE RUN'S FILE AND THE EXTENSION'S ARE READ SEPARATELY AND JOINED HERE**, so neither writer ever
+    writes the other's file and no line can be lost to a race. Where both say something about one report on
+    one day (they should not: a report has one door), a verified line wins over a missing one.
+
+    **THE THREE THINGS NOBODY MUST BE LEFT TO GUESS:** a file that landed and was never read, a reading with
+    no record of the file landing, and -- from the lines themselves -- a day that is missing.
+    """
+    landed: Dict[Tuple[date, str], Tuple[Line, str]] = {}
+    for who, record in (("the run", run), ("the extension", extension)):
+        for one in record.lines:
+            was = landed.get(one.key)
+            if was is None or (one.state == VERIFIED and was[0].state != VERIFIED):
+                landed[one.key] = (one, who)
+    reads = {one.key: one for one in run.reads}
+    out: List[Crossing] = []
+    for key in sorted(set(landed) | set(reads)):
+        line_and_who = landed.get(key)
+        line = line_and_who[0] if line_and_who else None
+        who = line_and_who[1] if line_and_who else None
+        opened = reads.get(key)
+        there = line is not None and line.state == VERIFIED
+        if there and opened:
+            verdict = LANDED_AND_READ
+        elif there:
+            verdict = LANDED_NOT_READ
+        elif opened:
+            verdict = READ_NEVER_SEEN_LANDING
+        else:
+            verdict = NOT_THERE
+        out.append(Crossing(
+            report_id=key[1], data_date=key[0], verdict=verdict,
+            landed_by=who if there else None,
+            rows_in_file=opened.rows_in_file if opened else None,
+            rows_read=opened.rows_read if opened else None,
+        ))
+    return tuple(out)
+
+
 def is_it_there(lines: Sequence[Line], report_id: str, day: date) -> Optional[str]:
     """What the record says about one report on one day -- **or None for nobody
     has checked.**
@@ -502,7 +605,7 @@ def how_it_stands(lines: Sequence[Line], day: date) -> Dict[str, int]:
 # ------------------------------------------------------------ the bytes
 
 
-def write(lines: Sequence[Line]) -> bytes:
+def write(lines: Sequence[Line], reads: Sequence[Read] = ()) -> bytes:
     """The record as bytes to put in the seller's Drive.
 
     **SORTED AND SPELT THE SAME WAY EVERY TIME**, so two runs that found the same
@@ -514,9 +617,26 @@ def write(lines: Sequence[Line]) -> bytes:
         if wrong:
             raise Damaged(wrong)
     ordered = sorted(lines or (), key=lambda one: (one.data_date, one.report_id))
+    for one in reads or ():
+        wrong = why_a_read_is_refused(one)
+        if wrong:
+            raise Damaged(wrong)
+    reads_ordered = sorted(reads or (), key=lambda one: (one.data_date, one.report_id))
     return json.dumps(
         {
             "shape": SHAPE,
+            "reads": [
+                {
+                    "dataDate": one.data_date.isoformat(),
+                    "reportId": one.report_id,
+                    "fileName": one.file_name,
+                    "into": one.into,
+                    "rowsInFile": int(one.rows_in_file),
+                    "rowsRead": int(one.rows_read),
+                    "readOn": one.read_on.isoformat() if one.read_on else "",
+                }
+                for one in reads_ordered
+            ],
             "lines": [
                 {
                     "dataDate": one.data_date.isoformat(),
@@ -535,7 +655,29 @@ def write(lines: Sequence[Line]) -> bytes:
 
 
 def read(body: Optional[bytes]) -> Tuple[Line, ...]:
-    """The record as lines, or nothing at all when there is no record yet.
+    """The record's lines, or nothing at all when there is no record yet. See `read_record`."""
+    return read_record(body).lines
+
+
+def why_a_read_is_refused(one) -> Optional[str]:
+    """What is wrong with one record of a file being read, in words, or None."""
+    if not isinstance(one, Read):
+        return "That is not a record of a file being read."
+    if not isinstance(one.data_date, date) or not one.report_id or not one.file_name or not one.into:
+        return f"{one.report_id!r}: a record of a file being read has to say which report, day, file and where it went."
+    if one.rows_in_file < 0 or one.rows_read < 0 or one.rows_read > one.rows_in_file:
+        return (
+            f"{one.report_id} for {one.data_date}: {one.rows_read} rows read from a file holding "
+            f"{one.rows_in_file} cannot be, so nothing was written."
+        )
+    return None
+
+
+def read_record(body: Optional[bytes]) -> Standing:
+    """The whole record -- what landed and what was read -- or an empty one when there is none yet.
+
+    **A SHAPE-1 FILE HAS NO `reads` AND READS AS HAVING NONE.** Any other shape refuses, rather than reading
+    the fields this happens to recognise.
 
     **NOTHING THERE AND SOMETHING BROKEN ARE NOT THE SAME THING.** Nothing there
     is an ordinary first night and answers an empty record. Broken refuses --
@@ -543,7 +685,7 @@ def read(body: Optional[bytes]) -> Tuple[Line, ...]:
     ever landed, which is the loudest possible wrong answer.
     """
     if body is None or body == b"":
-        return ()
+        return Standing((), ())
     try:
         said = json.loads(bytes(body).decode("utf-8"))
     except (ValueError, UnicodeDecodeError) as wrong:
@@ -554,9 +696,9 @@ def read(body: Optional[bytes]) -> Tuple[Line, ...]:
     if not isinstance(said, dict):
         raise Damaged(f"{FILE_NAME} is there and is not a record of this kind.")
     shape = said.get("shape")
-    if shape != SHAPE:
+    if shape not in READABLE_SHAPES:
         raise Damaged(
-            f"{FILE_NAME} is written in shape {shape!r} and this reads shape {SHAPE}. "
+            f"{FILE_NAME} is written in shape {shape!r} and this reads shapes {READABLE_SHAPES}. "
             "Nothing has been read, rather than the fields this happens to recognise."
         )
     rows = said.get("lines")
@@ -623,4 +765,48 @@ def read(body: Optional[bytes]) -> Tuple[Line, ...]:
             )
         seen[line.key] = None
         out.append(line)
-    return tuple(sorted(out, key=lambda one: (one.data_date, one.report_id)))
+
+    reads: List[Read] = []
+    seen_reads: Dict[Tuple[date, str], None] = {}
+    for row in said.get("reads") or ():
+        if not isinstance(row, dict):
+            raise Damaged(f"{FILE_NAME} holds something that is not a record of a file being read.")
+        try:
+            day = date.fromisoformat(str(row.get("dataDate")))
+            on = str(row.get("readOn") or "")
+            when = date.fromisoformat(on) if on else None
+            one = Read(
+                data_date=day, report_id=str(row.get("reportId") or ""), file_name=str(row.get("fileName") or ""),
+                into=str(row.get("into") or ""), rows_in_file=int(row.get("rowsInFile")),
+                rows_read=int(row.get("rowsRead")), read_on=when,
+            )
+        except (TypeError, ValueError):
+            raise Damaged(
+                f"{FILE_NAME}: a record of a file being read cannot be read ({row!r}). "
+                "It has not been treated as empty."
+            ) from None
+        wrong = why_a_read_is_refused(one)
+        if wrong:
+            raise Damaged(f"{FILE_NAME}: {wrong}")
+        if one.key in seen_reads:
+            raise Damaged(f"{FILE_NAME}: {one.report_id} for {one.data_date} is recorded as read twice.")
+        seen_reads[one.key] = None
+        reads.append(one)
+    return Standing(
+        lines=tuple(sorted(out, key=lambda one: (one.data_date, one.report_id))),
+        reads=tuple(sorted(reads, key=lambda one: (one.data_date, one.report_id))),
+    )
+
+
+def merge_reads(standing: Sequence[Read], fresh: Sequence[Read]) -> Tuple[Read, ...]:
+    """The reads with this night's put in place. **ONE PER (DAY, REPORT), REPLACED IN PLACE**, like a line.
+
+    A day fetched again and read again replaces what was said of the first reading; every read not in `fresh`
+    comes through exactly as it was."""
+    kept: Dict[Tuple[date, str], Read] = {}
+    for one in list(standing or ()) + list(fresh or ()):
+        wrong = why_a_read_is_refused(one)
+        if wrong:
+            raise Damaged(wrong)
+        kept[one.key] = one
+    return tuple(sorted(kept.values(), key=lambda one: (one.data_date, one.report_id)))
