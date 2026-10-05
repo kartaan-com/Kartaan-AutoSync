@@ -93,17 +93,21 @@ WAYS: Dict[str, Way] = {
             "adViews": (_is("Views"),),
             "adClicks": (_is("Clicks"),),
             "adSpend": (_is("Ad Spend"),),
+            # **UNITS SOLD, NOT MONEY** (Control, 2026-10-05): direct plus indirect. The money the ads brought is not kept.
             "adSales": (_is("Direct Units Sold"), _is("Indirect Units Sold")),
         },
         # Two title lines, then the names (the reference skipped two lines).
         header_row=3,
     ),
+    # **NO REAL me_ads_catalog FILE SEEN YET.** The names below are the old dashboard's word rules (process.py), matched by the
+    # words a column contains, and a file with two columns that could be one of them stops rather than guessing.
     "me_ads_catalog": Way(
         "meesho", _has("catalog id", "catalog_id"), _is("Date"),
         {
             "adViews": (_has("views"),),
             "adClicks": (_has("clicks"),),
             "adSpend": (_has("spend"),),
+            # Orders (units), not money.
             "adSales": (_has("orders", "order_count"),),
         },
         header_row=1,

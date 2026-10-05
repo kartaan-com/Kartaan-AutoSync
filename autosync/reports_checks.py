@@ -336,16 +336,15 @@ check(
 
 # ----------------------------------------- a report that needs somebody says so
 
-# **AND SINCE 2026-09-15 NONE DOES.** `fk_keywords` was the one: the reference
-# waited for a person to open the traffic report and choose the day, and Kartaan's
-# recipe now does both.
+# **FLIPKART KEYWORDS ARE THE ONE, SINCE HIS RULING TO SWITCH THEM OFF (job 49).** The recipe is kept but nothing fetches the
+# report, so the board must read it as "needs somebody" rather than as a report missing every day.
 check(
-    "the keywords no longer need a person on the page",
-    answered(lambda: tool.report("fk_keywords").needs_a_person is False),
+    "the keywords are marked as a report nobody is fetching",
+    answered(lambda: tool.report("fk_keywords").needs_a_person is True),
 )
 check(
-    "and no report does",
-    answered(lambda: sum(1 for r in tool.REPORTS if r.needs_a_person) == 0),
+    "and no other report is",
+    answered(lambda: [r.id for r in tool.REPORTS if r.needs_a_person] == ["fk_keywords"]),
 )
 
 

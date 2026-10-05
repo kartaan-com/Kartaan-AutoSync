@@ -167,7 +167,7 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
         now=now,
         read_state=read_state,
         save_state=save_state,
-        arrivals=nightly._arrivals_from_drive(google, inside),
+        arrivals=nightly._arrivals_from_drive(google, inside, say),
         fetch=fetch,
         # **WRITTEN TWICE, ON PURPOSE (D100), AND THE ORDER IS THE DESIGN.** The
         # seller's own database is what the three screens read; the copy in their

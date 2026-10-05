@@ -632,7 +632,9 @@ def _drive_folder(transport, inside: str, where) -> str:
     return folder_at(transport, path, inside)
 
 
-def _arrivals_from_drive(transport, inside: str) -> Callable[[str], Sequence[Arrived]]:
+def _arrivals_from_drive(
+    transport, inside: str, say: Optional[Callable[[str], None]] = None,
+) -> Callable[[str], Sequence[Arrived]]:
     """What has really arrived, asked of the seller's own folder.
 
     **ASKED OF THE FILES, NEVER OF THE RUN'S OPINION OF ITSELF (D100).** A job can
@@ -669,8 +671,15 @@ def _arrivals_from_drive(transport, inside: str) -> Callable[[str], Sequence[Arr
                 try:
                     days = the_days_in_the_list(
                         bring_the_file_back(transport, str(one["id"])).decode("utf-8", "replace"))
-                except Exception:  # noqa: BLE001 - a listing must never fail on one file
+                except Exception as wrong:  # noqa: BLE001 - a listing must never fail on one file
                     days = ()
+                    # **SAID, NOT QUIETLY COUNTED AS NO DAYS (job 49, his never-quietly-nought ruling).** The safe direction
+                    # stands, but the seller reads why the days of this file are fetched again.
+                    if say is not None:
+                        say(
+                            f"{report_id}: the running list {name} could not be read for the days it holds ({wrong}), "
+                            "so every day in it is treated as not yet fetched and will be fetched again."
+                        )
             out.append(Arrived(name=name, size=size, days_inside=days))
         return out
 

@@ -209,8 +209,11 @@ REPORTS: Tuple[Report, ...] = (
         DAILY,
         "csv",
         cannot_backfill=_SNAPSHOT,
-        # **NO LONGER NEEDS A PERSON (2026-09-15).** The reference waited for one to
-        # open the traffic report and choose the day; Kartaan's recipe does both.
+        # **OFF BY HIS RULING (2026-09-21, reaffirmed 2026-10-03), AND THE BOARD SAYS SO (job 49).** The recipe is kept, but the
+        # extension's timed list leaves this report out (`screen.js` OFF_THE_TIMED_LIST), so nothing fetches it. Without this flag
+        # the board counted it as a report missing every day -- a failure that is not one. With it the board reads "needs
+        # somebody", which is what a report nobody is fetching should say.
+        needs_a_person=True,
     ),
     Report(
         "fk_listings",

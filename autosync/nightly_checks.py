@@ -679,6 +679,26 @@ check("an empty file is not a day that arrived",
 check("and the name comes back as it is, so the day inside it can be read",
       sorted(one.name for one in GOT)[0].endswith("2026-08-26.csv"))
 
+# **A RUNNING LIST THAT CANNOT BE READ IS SAID (job 49).** It still counts as holding no days, but the run's log says why.
+class DriveThatWillNotHandOverAFile(FakeDrive):
+    def get(self, url, params=None, headers=None):
+        if url.startswith(FILES + "/"):
+            return Reply(500, {}, b"Drive would not hand it over")
+        return super().get(url, params, headers)
+
+
+drive = DriveThatWillNotHandOverAFile()
+VIEWS = tool._drive_folder(drive, INSIDE, "me_views")
+drive.file("meesho_me_views.csv", VIEWS, b"Date,Views,2026-10-04,5")
+told = []
+GOT = answered(lambda: list(tool._arrivals_from_drive(drive, INSIDE, told.append)("me_views"))) or []
+check("a running list that cannot be read still holds no days", len(GOT) == 1 and GOT[0].days_inside == ())
+check("and the log names the report, the file and what happens next",
+      len(told) == 1 and "me_views" in told[0] and "meesho_me_views.csv" in told[0] and "fetched again" in told[0])
+quiet = []
+answered(lambda: list(tool._arrivals_from_drive(drive, INSIDE)("me_views")))
+check("asked without anywhere to say it, it stays as it was and does not throw", quiet == [] and not THREW)
+
 # ------------------------------------------- the secrets
 
 _os.environ.pop("A_MADE_UP_SECRET", None)
@@ -2531,7 +2551,7 @@ check("and the seller's own note on that row is exactly as they left it",
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 366
+EXPECTED = 369
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

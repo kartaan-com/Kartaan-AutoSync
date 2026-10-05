@@ -229,6 +229,20 @@ def one_night(**rest):
     )
 
 
+# ------------------------------------------- an old file is read like any other (job 45)
+# **HIS OLD SALES DATA COMES IN AS FILES PUT IN THE REPORT'S FOLDER.** Nothing here looks at how old a file is: what decides is whether
+# it has been read. A file from long before the look-back window is read once, and the next night reads nothing.
+_old = Folder(
+    files={"me_orders": [a_file("id-old", "meesho_me_orders_2025-01-05.csv")]},
+    bodies={"id-old": ONE_MEESHO},
+)
+_first = _old.go()
+check("a file from a year and a half back is read, and carries its own day",
+      _first is not None and _first.sales == 1 and _old.recorded and _old.recorded[0].on == "2025-01-05")
+_second = _old.go(already=_first.files_read if _first else ())
+check("and the night after reads nothing from it, so a second run writes nothing",
+      _second is not None and _second.read_tonight == () and _second.sales == 0 and _second.already_read == 1)
+
 # ------------------------------------------------- one real file, end to end
 
 night = one_night()
@@ -1048,7 +1062,7 @@ del tool.WHAT_IS_FETCHED_AND_NOT_READ_YET["zz_gone"]
 check("and the two lists are whole again after those three", tool.why_a_report_has_no_decision() == ""
       and tool.WHAT_IS_FETCHED_AND_NOT_READ_YET == _with_a_reason_too)
 
-EXPECTED = 120
+EXPECTED = 122
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
