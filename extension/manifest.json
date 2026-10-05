@@ -2,6 +2,7 @@
   "manifest_version": 3,
   "name": "Kartaan Auto-sync",
   "version": "0.1.0",
+  "minimum_chrome_version": "111",
   "description": "Fetches a seller's own reports from Meesho and Flipkart, in their own browser.",
   "action": {
     "default_title": "Kartaan Auto-sync",

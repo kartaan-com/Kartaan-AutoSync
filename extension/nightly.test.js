@@ -1218,6 +1218,19 @@ check('and three days of trying is the reference\'s own number', GIVE_UP_AFTER_D
 }
 
 {
+  /* **A REQUEST KNOWN TO HAVE GONE IS NEVER HANDED BACK LATER (review finding, 2026-10-05).** */
+  const browser = installFakeChrome();
+  const c = browser.chrome;
+  await startTheNight(c, { doing: ['fk_orders'], mayAskFor: 5, at: Date.UTC(2026, 8, 21, 3), openAt: 'https://x/', dataDate: '2026-09-20' });
+  await oneWasAskedFor(c, { counting: 'fk_orders|2026-09-20', at: Date.UTC(2026, 8, 21, 3) });
+  check('the request just counted is remembered as the last one, so it can be given back if the day is refused',
+    (await theNight(c)).lastCounted.key === 'fk_orders|2026-09-20');
+  await thatOneIsDone(c, { reportId: 'fk_orders', state: 'landed', size: 5, dataDate: '2026-09-20', at: Date.UTC(2026, 8, 21, 3) });
+  check('but once the report landed the count is settled: it can no longer be handed back by a later failure',
+    (await theNight(c)).lastCounted === null && (await theNight(c)).spent === 1);
+}
+
+{
   /* **A SIGN-IN WALL IS NOT "THE PLATFORM NEVER BUILT THAT DAY" (review finding, 2026-10-05).** Three
    * syncs on three different days with the seller signed out used to put a day nobody ever reached into
    * "needs you ... will not be tried again" and drop it for good. */
@@ -1598,7 +1611,7 @@ async function seedLandedRangeForTest(c, reportId, from, to) {
       && one.say.includes('has not been asked for')).length === 3);
 }
 
-const EXPECTED = 174;
+const EXPECTED = 176;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

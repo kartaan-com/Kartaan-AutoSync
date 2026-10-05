@@ -800,9 +800,15 @@ export async function thatOneIsDone(chrome, {
     collectLater[counted] = true;
     daysLeft[reportId] = [...(daysLeft[reportId] || []), day];
   }
+  /* **ONCE THE REQUEST IS KNOWN TO HAVE GONE, IT CANNOT BE HANDED BACK LATER (review finding, 2026-10-05).**
+   * `lastCounted` was never cleared after a successful ask, so a later hourly-recheck failure for the same report
+   * and day, written as not-available, would have refunded a request that really went. */
+  const settledForGood = night.lastCounted && night.lastCounted.key === counted && !Object.keys(givenBack).length
+    ? { lastCounted: null } : {};
   const moved = {
     ...night,
     ...givenBack,
+    ...settledForGood,
     /* **WHAT THE PAGE ACTUALLY WAS IS KEPT, AND THE NIGHT OF 6 SEPTEMBER IS WHY.**
      * Nine reports failed on three different Flipkart pages looking for three
      * different things, and all nine were one cause. **The walk had ALREADY

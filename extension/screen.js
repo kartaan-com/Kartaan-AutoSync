@@ -401,6 +401,18 @@ export async function alreadyCarriedOn(chrome, night) {
   return kept.loggedNight === night.startedAt;
 }
 
+/** Give the claim back: the follow-through threw part way, so the next call must try it again (review finding,
+ *  2026-10-05). `markCarriedOn` claims first so two calls cannot both do the work; if the work then fails, the
+ *  claim must not stay spent, or the recheck clock, the notice and the next platform are never started. */
+export async function releaseCarriedOn(chrome, night) {
+  if (!night || !night.finishedAt) return;
+  const kept = await theNights(chrome);
+  if (kept.loggedNight !== night.startedAt) return;
+  await chrome.storage.local.set({
+    [THE_NIGHTS]: onlyRecentDays({ ...kept, loggedNight: null }),
+  });
+}
+
 /** Mark this finished night's follow-through as done. See `alreadyCarriedOn`. */
 export async function markCarriedOn(chrome, night) {
   if (!night || !night.finishedAt) return;
@@ -1546,7 +1558,7 @@ export function showHowItStands(parts, stands) {
   /* ----------------------------------------------------- Flipkart's twenty */
   parts.allowance.textContent = `${stands.flipkart.leftToday} of ${stands.flipkart.allowedADay}`;
   parts.allowanceNote.textContent
-    = `${stands.flipkart.askedForToday} used today. Only Flipkart's orders, returns and payments `
+    = `${stands.flipkart.askedForToday} used today. Only Flipkart's orders and payments `
     + 'reports spend one; everything else is free.';
 
   /* --------------------------------------------------------------- reports */

@@ -27,7 +27,7 @@ import {
 } from './drive.js';
 import { theLinesFor } from './record.js';
 import {
-  THE_PANEL_ASKS, alreadyCarriedOn, answerThePanelsQuestion, markCarriedOn, rememberTheNight,
+  THE_PANEL_ASKS, alreadyCarriedOn, answerThePanelsQuestion, markCarriedOn, releaseCarriedOn, rememberTheNight,
   startASync, startTheNextPlatform, startTheScheduledSync, theSetup, theSignInAlert, theSyncSummary,
 } from './screen.js';
 
@@ -89,6 +89,20 @@ const carryOn = async () => {
   const doneNight = await theNight(chrome);
   if (!(await alreadyCarriedOn(chrome, doneNight))) {
     await markCarriedOn(chrome, doneNight);
+    try {
+      await followTheNightThrough(doneNight);
+    } catch (wrong) {
+      /* **THE CLAIM IS GIVEN BACK** so the next wake tries the rest again -- the follow-through is safe to repeat
+       * (the log replaces itself, a notification has a fixed id, the next platform only starts when none is going). */
+      await releaseCarriedOn(chrome, doneNight);
+      throw wrong;
+    }
+  }
+  return moved;
+};
+
+const followTheNightThrough = async (doneNight) => {
+  {
     const log = theRunLog(doneNight);
     try {
       if (log) {
@@ -151,7 +165,6 @@ const carryOn = async () => {
       console.warn('Kartaan Auto-sync: part of the scheduled sync could not start.', next.refused);
     }
   }
-  return moved;
 };
 
 const theNightsParts = {
@@ -307,7 +320,10 @@ const theBook = async () => {
    * open -- found by an independent reviewer, 2026-09-09. Chrome shuts this
    * worker down after thirty seconds of quiet and this goes with it, so what is
    * held can only ever be as old as the last wake. */
-  if (!bookInHand) bookInHand = (await fetch(chrome.runtime.getURL('recipes.json'))).json();
+  if (!bookInHand) {
+    /* A failed read is not kept: a rejected promise held here would stay rejected until the worker restarts. */
+    bookInHand = fetch(chrome.runtime.getURL('recipes.json')).then((got) => got.json()).catch((wrong) => { bookInHand = null; throw wrong; });
+  }
   return bookInHand;
 };
 

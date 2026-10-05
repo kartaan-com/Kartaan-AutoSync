@@ -58,6 +58,7 @@ import {
   answerThePanelsQuestion,
   askingFirst,
   markCarriedOn,
+  releaseCarriedOn,
   startTheNextPlatform,
   startTheScheduledSync,
   theSignInAlert,
@@ -823,6 +824,15 @@ check('the allowance is twenty, and it is a number a program can read',
     (await alreadyCarriedOn(chrome, night)) === false);
   await markCarriedOn(chrome, night);
   check('and once carryOn has actually carried it through, it is not carried through twice',
+    (await alreadyCarriedOn(chrome, night)) === true);
+  /* **A FOLLOW-THROUGH THAT THREW GIVES THE CLAIM BACK (review finding, 2026-10-05).** Spent first and never
+   * released, a throw in the recheck clock or the notice meant the next platform was never started. */
+  await releaseCarriedOn(chrome, night);
+  check('a claim given back lets the next wake carry the night through again',
+    (await alreadyCarriedOn(chrome, night)) === false);
+  await markCarriedOn(chrome, night);
+  await releaseCarriedOn(chrome, { ...night, startedAt: night.startedAt + 1 });
+  check('and a claim is only ever given back for the night that made it',
     (await alreadyCarriedOn(chrome, night)) === true);
   check('a night still going needs no follow-through yet, so carryOn is not told to act',
     (await alreadyCarriedOn(chrome, { startedAt: began, finishedAt: null })) === true);
