@@ -2247,13 +2247,21 @@ function labelled(node, label) {
     saying('http://storage.googleapis.com/x?y=1') === null);
   check('and so is one that is not an address at all',
     saying('') === null && saying('javascript:alert(1)') === null);
-  /* **AND THE WORD IS NOT ENOUGH -- IT HAS TO BE THE HOST.** Otherwise anybody
-   * can put it in their own path. This is written down as a known limit rather
-   * than claimed as closed: the list matches anywhere in the address, which is
-   * the reference's own rule, and a host that ENDS in one of these names is what
-   * it really means. */
-  check('a file that merely mentions the name in its path is still taken -- a known limit',
-    saying('https://somewhere.example.com/storage.googleapis.com/x') !== null);
+  /* **THE WORD IS NOT ENOUGH -- IT HAS TO BE THE HOST (review finding, 2026-10-05).** This used to be
+   * written down as a known limit, because the list matched anywhere in the address; now the host
+   * and the path are what is looked at. */
+  check('a file that merely mentions the name in its path is NOT taken',
+    saying('https://somewhere.example.com/storage.googleapis.com/x') === null);
+  check('nor one that mentions it in its query, or in a host that only contains it',
+    saying('https://evil.example/x?storage.googleapis.com') === null
+    && saying('https://storage.googleapis.com.evil.example/x') === null
+    && saying('https://notamazonaws.com/x') === null);
+  check('a path word counts only on a platform host or its file storage',
+    saying('https://evil.example/downloadorders/x.csv') === null
+    && saying('https://seller.flipkart.com/napi/downloadorders/x.csv') !== null);
+  check('a real storage link, with a query, on the storage host or a subdomain of it is still taken',
+    saying('https://storage.googleapis.com/b/x.xlsx?sig=1') !== null
+    && saying('https://bucket.s3.amazonaws.com/x.xlsx?sig=1') !== null);
 
   /* **AND A FILE STILL CROSSES AS A FILE**, untouched by any of this. */
   check('and a message carrying a file rather than an address is unaffected',
@@ -2546,7 +2554,7 @@ function labelled(node, label) {
     (await shutDoor.try_signing_in()) === false);
 }
 
-const EXPECTED = 309;
+const EXPECTED = 312;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

@@ -58,7 +58,9 @@ import {
 } from './background.js';
 import { LAST_LANDED } from './nightly.js';
 import { CAUGHT, TOO_BIG, catchTheNextFile } from './catch-blob.js';
-import { DECLINED_A_LINK, WHERE_A_FILE_REALLY_COMES_FROM, aFileReallyComesFrom } from './driver.js';
+import {
+  A_PLATFORM_OR_ITS_STORAGE, DECLINED_A_LINK, RELAY_TO_THE_PAGE, WHERE_A_FILE_REALLY_COMES_FROM, aFileReallyComesFrom,
+} from './driver.js';
 import { TOO_BIG_TO_CARRY, theCampaignsFileName } from './walk.js';
 import { OUR_TAB, OUR_WINDOW, WALK_IN_HIS_OWN_WINDOW, aTabToWalkIn, watchForDownloads } from './doors.js';
 import { readFileSync } from 'node:fs';
@@ -838,7 +840,11 @@ const LATER = '2026-08-27T16:04:00.000Z';
     location: { origin: 'https://supplier.meesho.com' },
     postMessage: (data, to) => posted.push({ data, to }),
   };
-  globalThis.URL = { createObjectURL: () => 'blob:https://supplier.meesho.com/abc' };
+  /* A page's `URL` is a constructor AS WELL AS holder of `createObjectURL`; the stand-in keeps both, because
+   * the catcher now reads an address's host and path through `new URL(...)`. */
+  globalThis.URL = Object.assign(function APagesURL(...given) { return new itsOwnURL(...given); }, {
+    createObjectURL: () => 'blob:https://supplier.meesho.com/abc',
+  });
   /* **THE OTHER TWO WAYS A FILE LEAVES A PORTAL, given to the stand-in so they
    * can be driven.** Meesho's stock file goes out through neither a blob nor a
    * download: an `<a target="_blank">` to a signed Google storage link, which
@@ -1155,11 +1161,14 @@ const LATER = '2026-08-27T16:04:00.000Z';
     WHERE_A_FILE_REALLY_COMES_FROM.every((one) => source.includes(`'${one}'`)));
   check('and it carries no address the other half would refuse',
     (source.match(/'[a-z0-9.\-]+\.(com|in)'|'download[a-z]+'/g) || [])
-      .every((one) => WHERE_A_FILE_REALLY_COMES_FROM.includes(one.slice(1, -1))));
+      .every((one) => WHERE_A_FILE_REALLY_COMES_FROM.includes(one.slice(1, -1))
+        || A_PLATFORM_OR_ITS_STORAGE.includes(one.slice(1, -1))));
+  check('and the hosts a bare path word may count on are the same in both halves',
+    A_PLATFORM_OR_ITS_STORAGE.every((one) => source.includes(`'${one}'`)));
   /* **AND BOTH HALVES INSIST ON A SECURE CONNECTION.** A report fetched over
    * `http:` can be replaced in flight by anything between here and there. */
   check('and both halves refuse a plain connection',
-    source.includes("'https://'") && !aFileReallyComesFrom('http://storage.googleapis.com/x'));
+    source.includes("'https:'") && !aFileReallyComesFrom('http://storage.googleapis.com/x'));
   /* **AND NOTHING IN IT BROADCASTS.** The finding was one character wide. */
   check('and nothing in it posts to anything but this page',
     !/postMessage\([^)]*,\s*['\"]\*['\"]/.test(source));
@@ -2099,6 +2108,11 @@ const LATER = '2026-08-27T16:04:00.000Z';
  * about it from here is the shape of the file: its relay listener sits inside
  * `if (RELAY_TO_THE_PAGE)`, which means off it is never registered at all --
  * not registered and ignoring, not there. */
+/* **AND IT SHIPS OFF (review finding, 2026-10-05).** On, any script on a portal page -- an advert, a
+ * tag manager -- shares the page's origin and could ask the extension to run syncs, burn the
+ * allowance, reload itself or read the panel's state. It is a development aid he switches on by hand. */
+check('the page relay is OFF in what ships, so no script on a portal page can drive the extension',
+  RELAY_TO_THE_PAGE === false);
 {
   const page = readFileSync(new URL('./content.js', import.meta.url), 'utf8');
   const behindTheConstant = page.slice(page.indexOf('if (RELAY_TO_THE_PAGE) {'));
@@ -2121,7 +2135,7 @@ const LATER = '2026-08-27T16:04:00.000Z';
     && theRelayAllows(false, { do: 'run-now' }) === false);
 }
 
-const EXPECTED = 245;
+const EXPECTED = 247;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

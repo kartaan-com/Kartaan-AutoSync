@@ -1058,14 +1058,40 @@ export const WHERE_A_FILE_REALLY_COMES_FROM = Object.freeze([
   'seller.flipkart.com/napi/listing/stockfiledownload',
 ]);
 
+/** The hosts a bare path word may count on: the platforms' own, and the storage they hand files out of. */
+export const A_PLATFORM_OR_ITS_STORAGE = Object.freeze([
+  'flipkart.com', 'flipkart.net', 'meesho.com', 'storage.googleapis.com', 'amazonaws.com',
+]);
+
 /** Is this an address a report file really comes from? **Written out a second
  *  time inside `catch-blob.js`'s injected function, for the same reason the name and the
  *  size are: it cannot reach anything outside itself.** A check reads both copies
  *  back out of the source so they cannot drift. */
 export function aFileReallyComesFrom(address) {
-  const low = String(address || '').toLowerCase();
-  if (!low.startsWith('https://')) return false;
-  return WHERE_A_FILE_REALLY_COMES_FROM.some((one) => low.includes(one));
+  /* **THE HOST AND THE PATH ARE LOOKED AT, NEVER THE WHOLE STRING (review finding, 2026-10-05).** A
+   * plain "contains" let `https://evil.example/x?storage.googleapis.com` and any host with
+   * `downloadorders` in its name or path pass, and a script on the page could then have the
+   * extension fetch any address with the seller's cookies. An entry with a dot and no slash is a
+   * HOST (itself or a subdomain; `seller-api.flipkart` is a host prefix); an entry with a slash is
+   * a host and path start; a bare word is a PATH word, and counts only on a host that belongs to
+   * a platform or to the storage a platform hands its files out of. */
+  let there;
+  try {
+    there = new URL(String(address || ''));
+  } catch (notAnAddress) {
+    return false;
+  }
+  if (there.protocol !== 'https:') return false;
+  const host = there.hostname.toLowerCase();
+  const path = there.pathname.toLowerCase();
+  const aPlatformOrItsStorage = A_PLATFORM_OR_ITS_STORAGE
+    .some((one) => host === one || host.endsWith(`.${one}`));
+  return WHERE_A_FILE_REALLY_COMES_FROM.some((one) => {
+    if (one.includes('/')) return `${host}${path}`.startsWith(one);
+    if (!one.includes('.')) return aPlatformOrItsStorage && path.includes(one);
+    if (one === 'seller-api.flipkart') return host.startsWith(one);
+    return host === one || host.endsWith(`.${one}`);
+  });
 }
 
 /* ----------------------- a link that is not on the list (his ruling, 2026-09-14)
@@ -1290,7 +1316,7 @@ export const CAUGHT_A_FILE = 'kartaan-caught-a-file';
  * **TURN IT OFF BY SETTING THIS LINE TO `false`.** Nothing else has to change:
  * `content.js` then registers no relay listener at all, so there is nothing on
  * the page left to reach, and `background.js` refuses those questions again. */
-export const RELAY_TO_THE_PAGE = true;
+export const RELAY_TO_THE_PAGE = false;
 
 /** Nothing, or the answer to give when this page's extension is gone for good.
  *

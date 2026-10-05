@@ -150,9 +150,25 @@
     'seller.flipkart.com/napi/listing/stockfiledownload',
   ];
   const worthTaking = (address) => {
-    const low = String(address || '').toLowerCase();
-    if (!low.startsWith('https://')) return false;
-    return REALLY_FROM_HERE.some((one) => low.includes(one));
+    /* The host and the path are looked at, never the whole string -- the same rule, spelt the same,
+     * as `driver.js` `aFileReallyComesFrom` (review finding, 2026-10-05). */
+    let there;
+    try {
+      there = new URL(String(address || ''));
+    } catch (notAnAddress) {
+      return false;
+    }
+    if (there.protocol !== 'https:') return false;
+    const host = there.hostname.toLowerCase();
+    const path = there.pathname.toLowerCase();
+    const aPlatformOrItsStorage = ['flipkart.com', 'flipkart.net', 'meesho.com', 'storage.googleapis.com', 'amazonaws.com']
+      .some((one) => host === one || host.endsWith(`.${one}`));
+    return REALLY_FROM_HERE.some((one) => {
+      if (one.includes('/')) return `${host}${path}`.startsWith(one);
+      if (!one.includes('.')) return aPlatformOrItsStorage && path.includes(one);
+      if (one === 'seller-api.flipkart') return host.startsWith(one);
+      return host === one || host.endsWith(`.${one}`);
+    });
   };
   /* **A NEW LINK ON THIS VERY SITE, OPENED AS A NEW WINDOW -- HIS RULING,
    * 2026-09-14.** Taken so the other half can fetch it and keep it only if it
