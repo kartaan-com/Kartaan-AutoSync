@@ -125,6 +125,8 @@ def _what_is_in(transport, label: str, root_id: str) -> List[Tuple[Item, bool]]:
                 continue
             if name == THE_RUNS_OLD_SUBFOLDER:
                 goes = _where_a_run_file_goes(inner_name)
+            elif name == layout.THE_EXTENSIONS_LOG:
+                goes = layout.LOGS if inner_name.startswith("run_log_") else None
             elif name in layout.BELOW_REPORTS:
                 goes = layout.where_it_goes(name)
             else:

@@ -903,12 +903,17 @@ LOGS_ARE_KEPT_DAYS = 60
 
 
 def _a_log_that_is_too_old(file_name: str, today: date) -> bool:
-    """True for one of the run's own day logs more than sixty days old. **ITS OWN FILES ONLY.**"""
-    found = re.fullmatch(r"autosync-log-(\d{4}-\d{2}-\d{2})\.txt", file_name or "")
+    """True for one of the run's own day logs, or the extension's night log, more than sixty days old.
+
+    **THEIR OWN FILES ONLY**: `autosync-log-<day>.txt` from the run and `run_log_<time>.txt` from the
+    extension, which both live in `System / Logs`.
+    """
+    found = re.fullmatch(
+        r"(?:autosync-log-(\d{4}-\d{2}-\d{2})\.txt|run_log_(\d{4}-\d{2}-\d{2})T[0-9-]+Z\.txt)", file_name or "")
     if not found:
         return False
     try:
-        day = date.fromisoformat(found.group(1))
+        day = date.fromisoformat(found.group(1) or found.group(2))
     except ValueError:
         return False
     return (today - day).days > LOGS_ARE_KEPT_DAYS

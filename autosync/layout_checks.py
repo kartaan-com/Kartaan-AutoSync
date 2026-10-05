@@ -75,8 +75,10 @@ check("and the layout is whole again after those two", tool.why_a_report_has_no_
 # **THE FOLDER NAMES THE EXTENSION RECEIVES ARE THE SAME LIST.**
 crossing = tool.for_the_extension()
 check("what crosses to the extension is the whole list",
-      crossing["kartaan"] == "Kartaan" and set(crossing["folders"]) == set(tool.BELOW_REPORTS)
-      and all(crossing["folders"][one] == list(tool.where_it_goes(one)) for one in crossing["folders"]))
+      crossing["kartaan"] == "Kartaan" and set(crossing["folders"]) == set(tool.BELOW_REPORTS) | {"run_log"}
+      and all(crossing["folders"][one] == list(tool.where_it_goes(one)) for one in tool.BELOW_REPORTS))
+check("and the extension's own night log goes with the run's logs, in System / Logs, so the tidy reaches it",
+      crossing["folders"]["run_log"] == ["System", "Logs"])
 
 # **NOTHING MAKES A FOLDER EXCEPT ONE PLACE THAT REFUSES A NAME OUTSIDE THE LAYOUT.** The
 # extension's half of this check is in `extension/drive.test.js`.
@@ -90,7 +92,7 @@ for one in sorted(HERE.glob("*.py")):
 check(f"the run makes a folder in exactly one place, in drive_door.py -- {makes_a_folder_py}",
       len(makes_a_folder_py) == 1 and makes_a_folder_py[0].startswith("drive_door.py:"))
 
-EXPECTED = 15
+EXPECTED = 16
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

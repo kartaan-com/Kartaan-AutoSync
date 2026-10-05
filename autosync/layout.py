@@ -83,6 +83,12 @@ HAS_NO_FOLDER: Dict[str, str] = {
 }
 
 
+# **THE EXTENSION'S OWN NIGHT LOG IS NOT A REPORT, AND IT STILL HAS TO GO SOMEWHERE.** Its file is
+# `run_log_<time>.txt` and it belongs with the run's logs in `System / Logs` -- which is also where
+# the sixty-day tidy looks, so it cannot grow for ever.
+THE_EXTENSIONS_LOG = "run_log"
+
+
 def where_it_goes(report_id: str) -> Tuple[str, ...]:
     """The folders, from the top of `Kartaan /` down, that hold one report's files.
 
@@ -112,7 +118,10 @@ def for_the_extension() -> Dict:
     """What crosses into `recipes.json`, so the extension keeps no second list."""
     return {
         "kartaan": KARTAAN,
-        "folders": {one: list(where_it_goes(one)) for one in sorted(BELOW_REPORTS)},
+        "folders": {
+            **{one: list(where_it_goes(one)) for one in sorted(BELOW_REPORTS)},
+            THE_EXTENSIONS_LOG: list(LOGS),
+        },
     }
 
 

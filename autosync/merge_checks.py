@@ -129,6 +129,8 @@ def his_drive():
     d.add("flipkart_fk_keywords_2026-09-20.csv", [kw])
     odd = d.folder("a_folder_nobody_knows", [data])
     d.add("x.csv", [odd])
+    xl = d.folder("run_log", [ext])
+    d.add("run_log_2026-09-20T05-30-00-000Z.txt", [xl])
     d.add("loose.csv", [data])
     ledger = d.add("Kartaan sales ledger", ["root"], SHEET)
     return d, data, ext, ledger
@@ -159,6 +161,8 @@ check("the loose sales ledger goes to the top of Kartaan, by its own id",
 check("Flipkart's organic keywords have no folder, so the file stays and says why",
       by[("Kartaan AutoSync / fk_keywords", "flipkart_fk_keywords_2026-09-20.csv")].what == tool.LEFT
       and "ruling" in by[("Kartaan AutoSync / fk_keywords", "flipkart_fk_keywords_2026-09-20.csv")].why)
+check("the extension's night log goes to System / Logs",
+      by[("Kartaan AutoSync / run_log", "run_log_2026-09-20T05-30-00-000Z.txt")].to == ("System", "Logs"))
 check("a file Kartaan does not know the place of stays",
       by[("Kartaan data / autosync", "something-odd.txt")].what == tool.LEFT)
 check("a folder his layout does not have stays, with its files",
@@ -166,7 +170,7 @@ check("a folder his layout does not have stays, with its files",
 check("and a file loose at the top of an old folder stays",
       by[("Kartaan data", "loose.csv")].what == tool.LEFT)
 check("the figures are the three numbers he gives back",
-      plan.figures().startswith("moves=8 collisions=0 left=4 stamp="))
+      plan.figures().startswith("moves=9 collisions=0 left=4 stamp="))
 
 # ---------------------------------------------------------- collisions
 
@@ -322,7 +326,7 @@ check("a file already only in the folder is not moved, and nothing is sent",
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 41
+EXPECTED = 42
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

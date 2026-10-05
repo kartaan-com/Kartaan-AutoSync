@@ -2398,6 +2398,12 @@ check("a file of somebody's own with a date in its name is left, and so is a fol
       answered(lambda: tool.tidy_the_drive(tidy_drive, INSIDE, TODAY, told_again.append)) == []
       and {"backup_2017-08-01_final.xlsx", "amazon_az_orders_2017-01-01.csv"}
       <= {one["name"] for one in tidy_drive.things.values()})
+tidy_drive.file("run_log_2020-01-01T05-30-00-000Z.txt", LOGS_HERE, b"the extension's night")
+tidy_drive.file(f"run_log_{TODAY.isoformat()}T05-30-00-000Z.txt", LOGS_HERE, b"the extension's night, today")
+check("the extension's own night log is tidied by the same sixty days",
+      answered(lambda: tool.tidy_the_drive(tidy_drive, INSIDE, TODAY, told_again.append)) == []
+      and "run_log_2020-01-01T05-30-00-000Z.txt" not in {one["name"] for one in tidy_drive.things.values()}
+      and f"run_log_{TODAY.isoformat()}T05-30-00-000Z.txt" in {one["name"] for one in tidy_drive.things.values()})
 check("a log name is matched from its start, so a name that merely ends like a log is left",
       tool._a_log_that_is_too_old("autosync-log-2020-01-01.txt", TODAY)
       and not tool._a_log_that_is_too_old("x-autosync-log-2020-01-01.txt", TODAY))
@@ -2435,7 +2441,7 @@ check("the one-time merge is started only by the button, and only as plan or app
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 351
+EXPECTED = 352
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
