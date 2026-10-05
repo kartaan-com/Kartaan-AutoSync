@@ -100,7 +100,7 @@ jobs:
     # which holds only this file -- and then looked for an `autosync` folder
     # in it. Every night would have failed inside a run. `v0.1.1` is the
     # first tag a seller can actually fetch on.
-    uses: kartaan-com/Kartaan-AutoSync/.github/workflows/autosync.yml@v0.1.8
+    uses: kartaan-com/Kartaan-AutoSync/.github/workflows/autosync.yml@v0.1.9
     with:
       # **`|| false` IS NOT DECORATION.** On a scheduled tick the `inputs`
       # context has nothing in it, and an empty value handed to a boolean input
