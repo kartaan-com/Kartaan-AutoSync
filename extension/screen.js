@@ -35,7 +35,7 @@
 import { MANUAL, TOOLTIPS } from './manual.js';
 import {
   theNight, endTheNight, howTheNightWent, theDay, thatOneIsDone,
-  A_DAYS_ALLOWANCE, spendsTheAllowance, whatNeedsYou,
+  A_DAYS_ALLOWANCE, KEPT_FOR_HIS_OWN_RUNS, spendsTheAllowance, whatNeedsYou,
 } from './nightly.js';
 import { THE_WALK } from './background.js';
 import { aDriveToken } from './drive.js';
@@ -622,11 +622,15 @@ function stepsMention(book, reportId, what) {
  * is correct and useless, and is exactly the shape of "it never fetched
  * anything".
  */
-export function howManyItMaySpend(book, { reportIds, kept, night, now = Date.now() }) {
+export function howManyItMaySpend(book, { reportIds, kept, night, now = Date.now(), timed = false }) {
   const spending = reportIds.filter((one) => spendsTheAllowance(one)).length;
   if (!spending) return 0;
-  const left = A_DAYS_ALLOWANCE - askedForToday(kept, night, now);
-  return Math.max(0, Math.min(spending, left));
+  const left = Math.max(0, A_DAYS_ALLOWANCE - askedForToday(kept, night, now));
+  /* **WHAT IS LEFT OF THE DAY, NOT ONE PER REPORT (review finding, 2026-10-05).** The cap used to be the number
+   * of reports, so a sync owed several days spent its asks on the oldest and the day it was for was refused.
+   * A TIMED sync keeps a few for his own runs the same day, but never less than its own day for each report. */
+  const reserve = timed ? KEPT_FOR_HIS_OWN_RUNS : 0;
+  return Math.min(left, Math.max(spending, left - reserve));
 }
 
 /* --------------------------------------------------------- what the panel sees */
@@ -1006,13 +1010,15 @@ export async function startTheNextPlatform(chrome, parts) {
     /* A Run now entry carries its days (A61, Job 5b); a timed one is the ids alone. */
     const entry = left.shift();
     const { reportIds, ...how } = Array.isArray(entry) ? { reportIds: entry } : entry;
+    /* A timed entry is the ids alone; it is the only kind that keeps a few of the day's twenty for him. */
+    const timed = Array.isArray(entry);
     // eslint-disable-next-line no-await-in-loop
     const night = await theNight(chrome);
     if (night && !night.finishedAt) return { started: null, waiting: true, refused };
     // eslint-disable-next-line no-await-in-loop
     await chrome.storage.local.set({ [THE_QUEUE]: left });
     // eslint-disable-next-line no-await-in-loop
-    const said = await startASync(chrome, parts, { reportIds, ...how });
+    const said = await startASync(chrome, parts, { reportIds, ...how, timed });
     if (said && said.started) return { started: reportIds, refused };
     refused.push({ reportIds, wrong: (said && said.wrong) || '' });
   }
@@ -1058,7 +1064,9 @@ export async function startASync(chrome, parts, asked) {
     const started = await parts.startTheNight(chrome, {
       doing: askingFirst(book, reportIds),
       listFrom: theListsRead(book, reportIds),
-      mayAskFor: howManyItMaySpend(book, { reportIds, kept, night, now: now() }),
+      mayAskFor: howManyItMaySpend(book, {
+        reportIds, kept, night, now: now(), timed: Boolean(asked.timed),
+      }),
       at: now(),
       openAt: whereToStartFrom(book, reportIds, setUp.panel),
       dataDate: days.length ? days[days.length - 1] : theDayToFetch(now()),

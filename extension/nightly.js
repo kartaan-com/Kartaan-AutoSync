@@ -53,6 +53,11 @@ export const SPENDS_THE_ALLOWANCE = Object.freeze(['fk_orders', 'fk_payments']);
  * the day it started. */
 export const A_DAYS_ALLOWANCE = 20;
 
+/** **HOW MANY OF THE TWENTY THE TIMED SYNC LEAVES FOR HIS OWN RUNS (Control, 2026-10-05).** The timed sync
+ *  may spend up to what is left of the day minus this, so his manual runs the same day are not locked out;
+ *  its own day for each report is always allowed whatever this says. Both numbers are settings, not code. */
+export const KEPT_FOR_HIS_OWN_RUNS = 4;
+
 /**
  * A day, written the way a file name and a report's day are written.
  *
@@ -1121,7 +1126,15 @@ async function startTheNextOne(chrome, { startAWalk, at }) {
         }
       }
       const asked = (night.days && night.days.length) ? night.days : [night.dataDate];
-      daysLeft = { ...daysLeft, [next]: [...new Set([...owed, ...asked])].sort() };
+      /* **A REPORT THAT SPENDS THE FLIPKART ALLOWANCE ASKS FOR ITS OWN DAYS FIRST, THEN THE GAPS (review
+       * finding, 2026-10-05).** Oldest first meant the gap days used the request cap and yesterday -- the day
+       * the sync is for -- was refused first, so with a backlog it was never fetched until the gap was gone. */
+      daysLeft = {
+        ...daysLeft,
+        [next]: spendsTheAllowance(next)
+          ? [...new Set([...[...asked].sort(), ...[...owed].sort()])]
+          : [...new Set([...owed, ...asked])].sort(),
+      };
       // eslint-disable-next-line no-await-in-loop
       await chrome.storage.local.set({ [THE_NIGHT]: { ...night, daysLeft } });
     }

@@ -1549,9 +1549,9 @@ async function seedLandedRangeForTest(c, reportId, from, to) {
     dataDate: '2026-09-20', canGoBack: ['fk_orders'],
   });
   await carryTheNightOn(c, { ...walk, at: ON('2026-09-20') });
-  check('the oldest owed day is the one actually asked for',
-    walk.started.length === 1 && walk.started[0].reportId === 'fk_orders' && walk.started[0].dataDate === '2026-09-17');
-  walk.itFinished({ state: 'landed', reportId: 'fk_orders', size: 5, dataDate: '2026-09-17' });
+  check('the OWN day of the sync is asked for first, ahead of the older gap days (review finding, 2026-10-05)',
+    walk.started.length === 1 && walk.started[0].reportId === 'fk_orders' && walk.started[0].dataDate === '2026-09-20');
+  walk.itFinished({ state: 'landed', reportId: 'fk_orders', size: 5, dataDate: '2026-09-20' });
   await carryTheNightOn(c, { ...walk, at: ON('2026-09-20') });
   const night = await theNight(c);
   check('and the allowance spent stays exactly one, never past what the sync was allowed',

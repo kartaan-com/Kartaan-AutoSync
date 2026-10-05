@@ -45,7 +45,7 @@ import {
 } from './background.js';
 import { RELAY_TO_THE_PAGE } from './driver.js';
 import {
-  A_DAYS_ALLOWANCE, THE_NIGHT, carryTheNightOn, endTheNight, howTheNightWent, oneWasAskedFor,
+  A_DAYS_ALLOWANCE, KEPT_FOR_HIS_OWN_RUNS, THE_NIGHT, carryTheNightOn, endTheNight, howTheNightWent, oneWasAskedFor,
   startTheNight, thatOneIsBeingTried, theNight,
 } from './nightly.js';
 import { hasNotFinished, theWalk } from './walk.js';
@@ -317,6 +317,8 @@ check('a report that reads another report\'s file is fetched after it',
   const first = await startTheScheduledSync(chrome, parts);
   check('and the timed sync runs every Flipkart report, not the one tick',
     Boolean(first.started) && [...first.started].sort().join() === [...every('flipkart')].sort().join());
+  check('and the timed sync keeps a few of the twenty for his own runs, so it may spend less than all of them',
+    (await theNight(chrome)).mayAskFor === A_DAYS_ALLOWANCE - KEPT_FOR_HIS_OWN_RUNS);
   await endTheNight(chrome, { at: Date.UTC(2026, 8, 16, 3, 30), why: 'Every report was reached.' });
   const second = await startTheNextPlatform(chrome, parts);
   check('then every Meesho report, though none was ticked',
@@ -690,6 +692,24 @@ check('the allowance is twenty, and it is a number a program can read',
       kept: { flipkartAskedOn: { [today]: 18 }, byPlatform: {}, filedNight: 0 },
       night: null,
     }) === 2);
+  /* **A TIMED SYNC KEEPS A FEW FOR HIS OWN RUNS, BUT NEVER LESS THAN ITS OWN DAY (Control, 2026-10-05).** */
+  check('a timed sync may spend what is left of the day less the few kept for his own runs',
+    howManyItMaySpend(BOOK, {
+      reportIds: ['fk_orders', 'fk_payments'],
+      kept: { flipkartAskedOn: {}, byPlatform: {}, filedNight: 0 }, night: null, timed: true,
+    })
+      === 20 - KEPT_FOR_HIS_OWN_RUNS);
+  check('and when little is left it still gets its own day for each report that spends, up to what there is',
+    howManyItMaySpend(BOOK, {
+      reportIds: ['fk_orders', 'fk_payments'],
+      kept: { flipkartAskedOn: { [today]: 18 }, byPlatform: {}, filedNight: 0 },
+      night: null, timed: true,
+    }) === 2
+    && howManyItMaySpend(BOOK, {
+      reportIds: ['fk_orders', 'fk_payments'],
+      kept: { flipkartAskedOn: { [today]: 19 }, byPlatform: {}, filedNight: 0 },
+      night: null, timed: true,
+    }) === 1);
   check('a run of reports that spend nothing is allowed nothing, and needs nothing',
     howManyItMaySpend(BOOK, { reportIds: ['fk_views'], kept, night: null }) === 0);
   check('a day already spent leaves a run allowed nought rather than a negative number',
@@ -1028,8 +1048,8 @@ function panelParts(chrome, held = {}) {
   const started = await say({ do: 'run-now', reportIds: ['fk_views', 'fk_orders'] });
   check('a run starts and owes what was ticked', Array.isArray(started.started));
   const night = (await chrome.storage.local.get(THE_NIGHT))[THE_NIGHT];
-  check('the night is allowed exactly the one Flipkart request it needs',
-    night.mayAskFor === 1);
+  check('a run by hand is allowed what is left of the day twenty, not one per report',
+    night.mayAskFor === 20);
   check('and it fetches yesterday, because nothing said otherwise',
     night.dataDate === theDayToFetch(1000));
   /* **THE PAGE THE FIRST TICKED REPORT ASKS FOR, WHOLE.** Said as the book says
