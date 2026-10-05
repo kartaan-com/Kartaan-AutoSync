@@ -63,8 +63,17 @@ const parts = buildThePanel(document.body, {
     saySomething(parts, (said && said.wrong) || 'Panel name saved.');
     await refresh();
   },
-  runNow: async (reportIds) => {
-    const said = await ask({ do: 'run-now', reportIds });
+  resume: async () => {
+    const said = await ask({ do: 'resume' });
+    saySomething(parts, (said && said.wrong) || 'Resumed.');
+    await refresh();
+  },
+  saveTheTicks: async (reportIds) => {
+    const said = await ask({ do: 'save-the-ticks', reportIds });
+    if (said && said.wrong) saySomething(parts, said.wrong);
+  },
+  runNow: async (reportIds, from, to) => {
+    const said = await ask({ do: 'run-now', reportIds, from, to });
     saySomething(parts, (said && said.wrong) || 'Started.');
     await refresh();
   },

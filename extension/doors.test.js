@@ -17,9 +17,12 @@
 
 import { readFileSync } from 'node:fs';
 import { installFakeChrome } from '../test/fake-chrome.js';
+import { A_PERSON_LOOKS_AT_A_NEW_PAGE } from './walk.js';
 import {
-  ARMED_FOR_MS, OUR_TAB, OUR_WINDOW, WALK_IN_HIS_OWN_WINDOW, aTabToWalkIn, goTo, sameDocumentAs,
+  ARMED_FOR_MS, OUR_TAB, OUR_WINDOW, WALK_IN_HIS_OWN_WINDOW, aTabToWalkIn, goTo, routeInThePage,
+  sameDocumentAs,
   takeTheFile,
+  thePageToLoad,
   watchForDownloads,
 } from './doors.js';
 
@@ -142,10 +145,127 @@ check('and a tab whose address Chrome will not hand over is not assumed to be th
     tabId: tab.id, address: 'https://seller.flipkart.com/index.html#two', patienceSeconds: 30,
     now: clock.now, rest: async (ms) => { clock.goForward(ms); await new Promise((d) => setTimeout(d, 0)); },
   });
-  check('moving between two Flipkart reports really draws the page again',
-    browser.reloadedTabs().join(',') === String(tab.id));
-  check('and it lands at the report that was asked for',
-    landed.url === 'https://seller.flipkart.com/index.html#two');
+  /* **A53: THE DEEP `#` ADDRESS IS NEVER RELOADED.** Reloading it landed on
+   * `#dashboard/page-not-found` on 2026-09-14; the page before the `#` is loaded
+   * afresh and the walk moves inside it. */
+  /* **JOB 9 (A66): THE ADDRESS ACTUALLY LOADED IS PLAIN `https://seller.flipkart.com/`,
+   * NOT `/index.html`.** `index.html` with no route bounced to
+   * `#dashboard/page-not-found` before every report; the recipe file keeps its
+   * `index.html#...` addresses and only what the door loads changed. */
+  check('moving between two Flipkart reports loads the plain site address afresh',
+    landed.url === 'https://seller.flipkart.com/' && landed.status === 'complete');
+  check('and never reloads the deep # address',
+    browser.reloadedTabs().length === 0);
+}
+
+check('Flipkart\'s seller site is loaded as its plain address, never index.html',
+  thePageToLoad('https://seller.flipkart.com/index.html#dashboard/payments/spf')
+    === 'https://seller.flipkart.com/');
+check('whatever route or query the address carries after the #',
+  thePageToLoad('https://seller.flipkart.com/index.html#growth/seller-insights?section=purchase_funnel')
+    === 'https://seller.flipkart.com/');
+check('and an index.html address with no # at all',
+  thePageToLoad('https://seller.flipkart.com/index.html') === 'https://seller.flipkart.com/');
+check('while another site\'s address is only cut at the #',
+  thePageToLoad('https://supplier.meesho.com/panel/x/orders/') === 'https://supplier.meesho.com/panel/x/orders/'
+  && thePageToLoad('https://supplier.example.invalid/index.html#dashboard')
+    === 'https://supplier.example.invalid/index.html');
+check('and another page on Flipkart\'s own site is left alone',
+  thePageToLoad('https://seller.flipkart.com/napi/x#a') === 'https://seller.flipkart.com/napi/x');
+
+/* **`sameDocumentAs`, NOW THAT THE LOAD IS PLAIN.** `loadAt` never carries a `#`, so
+ * the only way the answer is yes is the very same address twice; a tab sitting on
+ * `/#route` or `/index.html#route` is not the same document as `/` (an address
+ * with no `#` is a real load), so no extra reload is made on top of that load. */
+check('a Flipkart tab sitting on a route is a real load when sent to the plain address',
+  !sameDocumentAs('https://seller.flipkart.com/#dashboard/x', 'https://seller.flipkart.com/')
+  && !sameDocumentAs('https://seller.flipkart.com/index.html#dashboard/x', 'https://seller.flipkart.com/'));
+check('and the plain address twice is the same document, so it is drawn again',
+  sameDocumentAs('https://seller.flipkart.com/', 'https://seller.flipkart.com/'));
+
+{
+  /* **RULE 2 STILL HOLDS FOR THE PLAIN ADDRESS:** a tab already ON the plain
+   * address (Flipkart may drop the route again) is told to go there and must still
+   * be made to load, or the page half never runs again. */
+  const browser = installFakeChrome();
+  const tab = await browser.chrome.tabs.create({ url: 'https://seller.flipkart.com/' });
+  browser.theTabFinishedDrawing(tab.id);
+  const clock = aClock();
+  setTimeout(() => browser.theTabFinishedDrawing(tab.id), 0);
+  await goTo(browser.chrome, {
+    tabId: tab.id, address: 'https://seller.flipkart.com/index.html#dashboard/orders', patienceSeconds: 30,
+    now: clock.now, rest: async (ms) => { clock.goForward(ms); await new Promise((d) => setTimeout(d, 0)); },
+  });
+  check('a tab already on the plain Flipkart address is still made to load it again',
+    browser.reloadedTabs().length === 1);
+}
+
+{
+  /* **A FRESH WALK TAB (about:blank) AND A TAB LEFT ON `index.html#route` BOTH LAND
+   * ON THE PLAIN ADDRESS WITHOUT AN EXTRA RELOAD.** */
+  for (const start of ['about:blank', 'https://seller.flipkart.com/index.html#dashboard/x']) {
+    const browser = installFakeChrome();
+    const tab = await browser.chrome.tabs.create({ url: start });
+    browser.theTabFinishedDrawing(tab.id);
+    const clock = aClock();
+    setTimeout(() => browser.theTabFinishedDrawing(tab.id), 0);
+    const landed = await goTo(browser.chrome, {
+      tabId: tab.id, address: 'https://seller.flipkart.com/index.html#dashboard/listings-management',
+      patienceSeconds: 30,
+      now: clock.now, rest: async (ms) => { clock.goForward(ms); await new Promise((d) => setTimeout(d, 0)); },
+    });
+    check(`from ${start} a Flipkart report loads the plain address, once`,
+      landed.url === 'https://seller.flipkart.com/' && browser.reloadedTabs().length === 0);
+  }
+}
+
+check('an address with no # is a real load even from the same page with one',
+  !sameDocumentAs('https://seller.flipkart.com/index.html#dashboard/x',
+    'https://seller.flipkart.com/index.html'));
+
+{
+  /* **`routeInThePage` IS RUN FROM ITS OWN SOURCE, IN THE PAGE'S OWN WORLD.** The
+   * stand-in page: the app has started (a link is there) and the hash takes. */
+  const browser = installFakeChrome();
+  const tab = await browser.chrome.tabs.create({ url: 'https://seller.flipkart.com/index.html' });
+  const worlds = [];
+  const realRun = browser.chrome.scripting.executeScript;
+  browser.chrome.scripting.executeScript = async (how) => { worlds.push(how.world); return realRun(how); };
+  const hadWindow = globalThis.window;
+  const hadDocument = globalThis.document;
+  const tiny = { bootMs: 5, settleMs: 1, lookMs: 1, arriveMs: 5 };
+  globalThis.document = { querySelector: () => ({}) };
+  globalThis.window = { location: { hash: '#dashboard/home-page' } };
+  const moved = await routeInThePage(browser.chrome, {
+    tabId: tab.id, timings: tiny,
+    address: 'https://seller.flipkart.com/index.html#dashboard/payments/spf',
+  });
+  check('a Flipkart route is set from inside the page, in its own world',
+    moved.arrived === true && worlds[0] === 'MAIN'
+    && globalThis.window.location.hash === '#dashboard/payments/spf');
+
+  /* Flipkart adds to the address on arrival; an asked key that is gone is not arrived. */
+  globalThis.window = { location: { hash: '#dashboard/payments/spf?query=SELLER_PENDING' } };
+  const added = await routeInThePage(browser.chrome, {
+    tabId: tab.id, timings: tiny,
+    address: 'https://seller.flipkart.com/index.html#dashboard/payments/spf',
+  });
+  check('and a route Flipkart added words to still counts as arrived', added.arrived === true);
+
+  /* The app's router sends it straight back to where it was. */
+  let stuck = '#dashboard/page-not-found';
+  globalThis.window = { location: { get hash() { return stuck; }, set hash(ignored) { stuck = '#dashboard/page-not-found'; } } };
+  let refused = '';
+  try {
+    await routeInThePage(browser.chrome, {
+      tabId: tab.id, timings: tiny,
+      address: 'https://seller.flipkart.com/index.html#growth/seller-insights?section=purchase_funnel',
+    });
+  } catch (wrong) { refused = wrong.message; }
+  check('a route that does not take is refused, naming where the page stayed',
+    refused.includes('page-not-found') && refused.includes('#growth/seller-insights'));
+  globalThis.window = hadWindow;
+  globalThis.document = hadDocument;
 }
 
 {
@@ -554,11 +674,13 @@ function aFetch(answers) {
   /* **UNFOCUSED, because focus is not what throttling watches** -- so there is
    * nothing to be gained by taking the screen from somebody using their
    * computer, and everything to lose. */
-  check('and it never takes the screen: the window is made unfocused',
-    !WALK_IN_HIS_OWN_WINDOW || window.focused === false);
+  /* **IN FRONT WHEN IT OPENS -- HIS RULING, 2026-09-15.** A window of its own left
+   * behind his was slowed by Chrome all the same. */
+  check('and it opens in front, because a window hidden behind his is slowed too',
+    !WALK_IN_HIS_OWN_WINDOW || window.focused === true);
   /* **AND NOT MINIMISED, because that IS what throttling watches.** */
   check('and it is not minimised, which is the state that would be throttled',
-    window.state === 'normal');
+    window.state === 'maximized');
   check('and the tab is the selected tab of that window',
     browser.tabs().find((one) => one.id === tab.id).active === true);
   /* **WRITTEN DOWN, because the worker that made it is shut down thirty seconds
@@ -595,8 +717,8 @@ function aFetch(answers) {
   await aTabToWalkIn(browser.chrome);
   const window = browser.windows()[0];
   check('a window somebody minimised is put back, because minimised is throttled',
-    window.state === 'normal');
-  check('and putting it back still does not take the screen', window.focused === false);
+    window.state === 'maximized');
+  check('and it is brought to the front as it is put back', window.focused === true);
 }
 
 {
@@ -639,6 +761,23 @@ function aFetch(answers) {
     second && second.windowId !== first.windowId);
   check('and the new one is remembered in place of the old',
     browser.storedForTheSession()[OUR_WINDOW] === second.windowId);
+}
+
+{
+  /* **THE TAB CLOSED BUT ITS WINDOW KEPT.** The replacement tab used to be written
+   * to `local` while it is read from `session`, so it was never found again and
+   * every later turn of the walk made another tab. Found 2026-09-14. */
+  const browser = installFakeChrome();
+  const first = await aTabToWalkIn(browser.chrome);
+  await browser.chrome.tabs.create({ url: 'https://example.invalid/', windowId: first.windowId });
+  await browser.chrome.tabs.remove(first.id);
+  const second = await aTabToWalkIn(browser.chrome);
+  check('a closed tab in a kept window is replaced, and the new tab is remembered',
+    second.id !== first.id && browser.storedForTheSession()[OUR_TAB] === second.id
+    && browser.stored()[OUR_TAB] === undefined);
+  const third = await aTabToWalkIn(browser.chrome);
+  check('so the next turn walks in that same tab instead of opening another',
+    third.id === second.id);
 }
 
 {
@@ -723,14 +862,28 @@ function aFetch(answers) {
    * for the file, once per round of shutting the menu and opening it again --
    * where the round also spends the time it is left shut -- and once waiting for
    * the bytes themselves. */
+  /* **AND EVERY STEP NOW PAUSES BEFORE IT RUNS, WHICH HAS TO BE COUNTED HERE.**
+   * The walk moves like a person so a portal does not read it as a machine and
+   * block the seller -- a few seconds taking in a page that has just drawn, about
+   * a second between one action and the next. **The longest of those is charged
+   * to every step**, because any step can be the first one a page walks: a `go`
+   * tears the page down, and whichever step comes next is a landing.
+   *
+   * **THIS LINE IS THE WHOLE REASON THIS BLOCK EXISTS.** The last time something
+   * was added to a walk and not counted here, the bound quietly became shorter
+   * than the thing it bounds, and a perfectly good night would have been ended as
+   * "stopped part way through and never said why". */
+  const A_PAUSE = (A_PERSON_LOOKS_AT_A_NEW_PAGE.least
+    + A_PERSON_LOOKS_AT_A_NEW_PAGE.upTo) / 1000;
+
   const worstOf = (one) => {
     const patience = Number(one.patience) || 0;
-    if (one.do !== 'take-file') return patience;
+    if (one.do !== 'take-file') return A_PAUSE + patience;
     const looking = one.find ? patience : 0;
     const rounds = one.lookAgain
       ? Number(one.lookAgain.times) * (Number(one.lookAgain.after) + 2 * patience)
       : 0;
-    return looking + rounds + patience;
+    return A_PAUSE + looking + rounds + patience;
   };
 
   /* **A WALK RUNS A RECIPE'S ASK LIST OR ITS TAKE LIST, NEVER BOTH**, so the two
@@ -758,7 +911,20 @@ function aFetch(answers) {
     ARMED_FOR_MS - longestMs <= 10 * 60 * 1000);
 }
 
-const EXPECTED = 72;
+{
+  /* **A53: A FRESH TAB FOR EVERY REPORT, RUMEE'S WAY**, so Chrome's per-tab block on
+   * "multiple files" never refuses a later report's download. */
+  const browser = installFakeChrome();
+  const first = await aTabToWalkIn(browser.chrome);
+  const fresh = await aTabToWalkIn(browser.chrome, { fresh: true });
+  check('a report can start in a fresh tab of our own window',
+    fresh.id !== first.id && fresh.windowId === first.windowId
+    && browser.storedForTheSession()[OUR_TAB] === fresh.id);
+  check('and the tab before it is closed, so the window never fills with dead tabs',
+    !browser.tabs().some((one) => one.id === first.id));
+}
+
+const EXPECTED = 90;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

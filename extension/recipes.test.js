@@ -59,7 +59,7 @@ const PANEL = 'growth/some-panel';
 check('the recipe file is there and can be read', typeof BOOK === 'object' && BOOK !== null);
 check('and it says plainly that it is generated',
   Array.isArray(BOOK._generated) && BOOK._generated.join(' ').includes('DO NOT EDIT'));
-check('it carries the recipes', Object.keys(BOOK.recipes).length === 18);
+check('it carries the recipes', Object.keys(BOOK.recipes).length === 21);
 check('and both platforms are in it',
   Object.keys(BOOK.recipes).some((one) => one.startsWith('me_'))
   && Object.keys(BOOK.recipes).some((one) => one.startsWith('fk_')));
@@ -87,10 +87,33 @@ check('and the words each failure means', Object.keys(BOOK.whatItMeans).length >
    * one-shot recipe whose last step is not the file is the fault the walk reports
    * as "the recipe is missing its last step" -- better found here than on the
    * night it runs. */
+  /* **THERE ARE TWO WAYS OF PUTTING A DAY AWAY NOW, and the second is named
+   * rather than excused.** Meesho sells no export of the day's views, so
+   * `me_views` reads two figures off two cards and ends by adding a row to a
+   * running list. What this check is really about is unchanged: a recipe that
+   * clicks about and ends on neither of them runs perfectly and produces nothing. */
+  const PUTS_THE_DAY_AWAY = ['take-file', 'add-to-the-list', 'sweep-the-ads', 'read-the-keywords'];
   const missing = Object.entries(BOOK.recipes)
-    .filter(([, r]) => !r.toTake.length || r.toTake[r.toTake.length - 1].do !== 'take-file')
+    .filter(([, r]) => !r.toTake.length
+      || !PUTS_THE_DAY_AWAY.includes(r.toTake[r.toTake.length - 1].do))
     .map(([name]) => name);
-  check(`every recipe finishes by taking a file -- ${missing}`, missing.length === 0);
+  check(`every recipe finishes by putting the day away -- ${missing}`, missing.length === 0);
+  /* **AND EXACTLY ONE OF THEM ENDS THE OTHER WAY.** Named, so a second recipe
+   * quietly stopping at a row instead of a file cannot pass as ordinary. */
+  /* **AND THE SWEEP IS THE THIRD WAY, named for the same reason.** It writes
+   * three reports' files from one pair of calls to Meesho's own addresses. */
+  const byASweep = Object.entries(BOOK.recipes)
+    .filter(([, r]) => r.toTake.length
+      && r.toTake[r.toTake.length - 1].do === 'sweep-the-ads')
+    .map(([name]) => name);
+  check('and the only one that ends with a sweep is the ads report',
+    JSON.stringify(byASweep) === JSON.stringify(['me_ads']));
+  const byARow = Object.entries(BOOK.recipes)
+    .filter(([, r]) => r.toTake.length
+      && r.toTake[r.toTake.length - 1].do === 'add-to-the-list')
+    .map(([name]) => name);
+  check('and the only one that ends with a row is the views card',
+    JSON.stringify(byARow) === JSON.stringify(['me_views']));
 
   /* A two-phase recipe says how long the platform takes, because the log says so
    * to whoever reads it. A one-shot one is not built by anybody and says nothing
@@ -126,6 +149,13 @@ check('and the words each failure means', Object.keys(BOOK.whatItMeans).length >
       steps.forEach((one, at) => {
         if (one.do !== 'go') return;
         const next = steps[at + 1];
+        /* **A SWEEP TOUCHES NOTHING ON THE PAGE, so there is nothing to wait for
+         * and nothing a half-drawn page could make it press by mistake.** It
+         * stands on the ads page only because Meesho's ads addresses answer to
+         * the session that page carries. **What guards it instead is the sign-in
+         * check every step is asked before it runs** -- which is the real thing
+         * this rule is about, and the one a wait-for could never provide. */
+        if (next && next.do === 'sweep-the-ads') return;
         if (!next || next.do !== 'wait-for') unguarded.push(`${name}.${which}[${at}]`);
       });
     }
@@ -284,8 +314,15 @@ function aWalk(portal) {
       /* Built again every turn, exactly as the page half is: nothing a previous
        * page held survives into the next one. */
       const walking = theWalk({
+      /* **NOT SLEPT, BECAUSE A CHECK IS NOT A NIGHT.** The walk paces itself
+       * like a person now; a check file that really paused would turn seconds of
+       * checking into minutes of nothing. `walk.test.js` is where the pacing
+       * itself is held to its numbers. */
+      pause: () => {},
         door: portal.door, book: BOOK, say: () => {}, putTheFile: portal.putTheFile,
         armTheCatcher: portal.armTheCatcher,
+        addToTheList: async () => ({ size: 0 }),
+        routeTo: async () => ({ arrived: true }),
       });
       // eslint-disable-next-line no-await-in-loop
       const answer = await walking(reportId, day, { panel: PANEL, startAt, ...rest });
@@ -469,8 +506,14 @@ function aWalk(portal) {
   /* **WHILE MEESHO STILL DOES.** A requirement of one platform must not be
    * dropped for the other. */
   const walking = theWalk({
+      /* **NOT SLEPT, BECAUSE A CHECK IS NOT A NIGHT.** The walk paces itself
+       * like a person now; a check file that really paused would turn seconds of
+       * checking into minutes of nothing. `walk.test.js` is where the pacing
+       * itself is held to its numbers. */
+      pause: () => {},
     door: aPortal().door, book: BOOK, say: () => {}, putTheFile: async () => ({}),
     armTheCatcher: async () => {},
+    addToTheList: async () => ({ size: 0 }),
   });
   const got = await walking('me_orders', DAY, { panel: '' });
   check('a Meesho report with no panel name refuses', got.state === FAILED);
@@ -511,8 +554,12 @@ function aWalk(portal) {
 {
   const walkable = Object.keys(BOOK.recipes).sort();
   const named = Object.keys(BOOK.fileNames || {}).sort();
-  check('EVERY RECIPE THE EXTENSION CAN WALK HAS A FILE NAME TO PUT IT AWAY UNDER',
-    walkable.length > 0 && walkable.join(',') === named.join(','));
+  /* **AND EVERY REPORT ANOTHER RUN PUTS AWAY (2026-09-15)** -- the ads sweep lands
+   * `me_ads_summary` and `me_ads_catalog` too, and his full run failed for want of
+   * their names on the first day a campaign was running. */
+  const putAway = [...new Set([...walkable, ...Object.keys(BOOK.madeByAnother || {})])].sort();
+  check('EVERY RECIPE THE EXTENSION CAN WALK, AND EVERY REPORT ANOTHER RUN PUTS AWAY, HAS A FILE NAME',
+    walkable.length > 0 && putAway.join(',') === named.join(','));
   check('and every one of them names a platform and a file type, never a blank',
     walkable.every((one) => BOOK.fileNames[one].platform && BOOK.fileNames[one].extension));
   /* **THE SHAPE IS THE PYTHON'S** -- `<platform>_<report id>_<data date>.<ext>`
@@ -584,7 +631,9 @@ function aWalk(portal) {
    * that names a row -- and it names it by the END of the range, after " To ",
    * which IS the day the data is about. **The other way round from Meesho, and
    * that is the whole of what A53 corrected.** */
-  for (const which of ['fk_orders', 'fk_returns', 'fk_payments']) {
+  /* **THE REPORTS CENTRE TWO.** Returns left it on 2026-09-14 and names its row by
+   * the day the file was made. */
+  for (const which of ['fk_orders', 'fk_payments']) {
     const flipkart = aPortal();
     // eslint-disable-next-line no-await-in-loop
     await aWalk(flipkart)(which, FIFTH_OF_JUNE, { askedAlready: FIFTH_OF_JUNE });

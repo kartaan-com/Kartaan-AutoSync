@@ -16,6 +16,7 @@
  */
 
 import {
+  A_PERSON_BETWEEN_TWO_STEPS, A_PERSON_LOOKS_AT_A_NEW_PAGE, aMomentLikeAPerson,
   BUILT_IN_THE_PAGE,
   COVERED_UP,
   FAILED,
@@ -37,6 +38,11 @@ import {
   whyTheDayIsRefused,
   whatIsCovering,
   whyStepIsRefused,
+  NOT_AVAILABLE_YET,
+  withWhatThePageShowed,
+  theCampaignsIn,
+  withEachCampaign,
+  theCampaignsFileName,
 } from './walk.js';
 import { TOO_BIG } from './catch-blob.js';
 
@@ -97,6 +103,77 @@ const BOOK = {
         step({ do: 'click', find: find('Export data'), why: 'asking for the export' }),
         step({ do: 'take-file', find: find('Download'), patience: 300,
           why: 'taking the finished file' }),
+      ],
+    },
+    /* **THE ONE REPORT THAT IS NOT A FILE ANYWHERE.** Meesho sells no export of
+     * the day's views, so the figures are read off two cards on the dashboard and
+     * a row is added to a running list. Same shape as the real `me_views`. */
+    me_views: {
+      readyInMinutes: 0,
+      toAsk: [],
+      toTake: [
+        step({ do: 'go', address: 'https://supplier.example.invalid/panel/{panel}/home',
+          why: 'opening the dashboard' }),
+        step({ do: 'wait-for', find: find('Views'), patience: 60,
+          why: 'waiting for the dashboard cards to finish drawing' }),
+        step({ do: 'read-number', find: find('Views'), patience: 30,
+          why: 'reading the views for the day' }),
+        step({ do: 'read-number', find: find('Orders'), patience: 30,
+          why: 'reading the orders for the day' }),
+        step({ do: 'add-to-the-list', patience: 30,
+          why: 'adding the day to the running list' }),
+      ],
+    },
+    /* **THE SWEEP: NOTHING IS PRESSED AND NO FILE IS OFFERED.** Meesho's ads
+     * figures come from two of its own addresses, asked from inside the
+     * signed-in page. Same shape as the real `me_ads`. */
+    me_ads: {
+      readyInMinutes: 0,
+      toAsk: [],
+      toTake: [
+        step({ do: 'go', address: 'https://supplier.example.invalid/panel/{panel}/ads',
+          patience: 60, why: 'opening the ads page' }),
+        step({ do: 'sweep-the-ads', patience: 600,
+          why: 'asking for every campaign that is running' }),
+      ],
+    },
+    /* **ONCE PER CAMPAIGN (2026-09-15)** -- the shape of the real `fk_ads_overall`,
+     * whose campaigns come from what the ads daily file named for the day. */
+    fk_ads_overall: {
+      readyInMinutes: 0,
+      toAsk: [],
+      campaignsFrom: { report: 'fk_ads_daily', idColumn: 'Campaign ID', dayColumn: 'Date' },
+      toTake: [
+        step({ do: 'go', address: 'https://seller.example.invalid/ads', patience: 60,
+          why: 'opening the ads page' }),
+        step({ do: 'pick-range', why: 'setting the day' }),
+        step({ do: 'type-in', find: find('Campaign ID'), words: '{campaign}', forEachCampaign: true,
+          why: 'typing the campaign id' }),
+        step({ do: 'click', find: find('{campaign}', { exact: false }), forEachCampaign: true,
+          pressLikeAMouse: true, why: 'pressing its suggestion' }),
+        step({ do: 'take-file', find: find('Download'), forEachCampaign: true, patience: 90,
+          why: 'taking its file' }),
+      ],
+    },
+    fk_ads_daily: {
+      readyInMinutes: 0,
+      toAsk: [],
+      toTake: [
+        step({ do: 'go', address: 'https://seller.example.invalid/ads', patience: 60,
+          why: 'opening the ads page' }),
+        step({ do: 'take-file', find: find('Download'), patience: 90, why: 'taking the daily file' }),
+      ],
+    },
+    /* **THE KEYWORDS (2026-09-15)** -- read off the traffic report's pop-ups and put
+     * away as one file by the reading step. Same shape as the real `fk_keywords`. */
+    fk_keywords: {
+      readyInMinutes: 0,
+      toAsk: [],
+      toTake: [
+        step({ do: 'go', address: 'https://seller.example.invalid/traffic', patience: 60,
+          why: 'opening the traffic report' }),
+        step({ do: 'read-the-keywords', patience: 60,
+          why: 'reading every listing\'s top search keywords' }),
       ],
     },
     /* **TWO PAGES, WHICH IS THE SHAPE THE REAL `me_orders` HAS.** Its take list
@@ -335,6 +412,12 @@ const BOOK = {
    * to `landing.file_name_for`, report by report. */
   fileNames: {
     me_orders: { platform: 'meesho', extension: 'csv' },
+    /* **NO DAY IN THIS ONE'S NAME, and that is the whole of the second shape.**
+     * One file, added to every night; its days are the first column inside it. */
+    me_views: { platform: 'meesho', extension: 'csv', aRunningList: true },
+    me_ads: { platform: 'meesho', extension: 'csv' },
+    me_ads_summary: { platform: 'meesho', extension: 'csv' },
+    me_ads_catalog: { platform: 'meesho', extension: 'csv' },
     me_two_pages: { platform: 'meesho', extension: 'csv' },
     me_in_words: { platform: 'loud', extension: 'csv' },
     me_made_today: { platform: 'loud', extension: 'csv' },
@@ -345,6 +428,9 @@ const BOOK = {
     snapshot_no_ask: { platform: 'meesho', extension: 'csv' },
     no_find_file: { platform: 'meesho', extension: 'csv' },
     fk_orders: { platform: 'flipkart', extension: 'xlsx' },
+    fk_ads_overall: { platform: 'flipkart', extension: 'csv' },
+    fk_ads_daily: { platform: 'flipkart', extension: 'csv' },
+    fk_keywords: { platform: 'flipkart', extension: 'csv' },
     bad_recipe: { platform: 'meesho', extension: 'csv' },
   },
 };
@@ -367,7 +453,7 @@ const aMoment = (ms = 0) => new Promise((done) => { setTimeout(done, ms); });
 function aPortal(how = {}) {
   const it = {
     went: [], clicked: [], ranges: [], cursorToldFor: [], stepsSeen: 0, patienceTold: [],
-    nearAsked: [], rowsAsked: [], tookFile: 0,
+    nearAsked: [], rowsAsked: [], tookFile: 0, numbersRead: [], rowsAdded: [], sweeps: [],
     handedOver: [], turns: 0, waited: [], clickedAway: 0,
     /* **THE MENU, AS MEESHO REALLY BEHAVES.** Its list of finished exports is
      * drawn AS it opens and never again while it is open. So this holds the two
@@ -392,6 +478,41 @@ function aPortal(how = {}) {
   };
   /* **WHERE THE BYTES GO, in miniature.** The real one is a message to the
    * background half, which is the only side that can reach `chrome.identity`. */
+  /* **THE OTHER WAY A DAY IS PUT AWAY: a row on a running list.** Recorded
+   * rather than counted, for the same reason `putAway` is -- a stand-in that
+   * answered "yes" leaves every walk looking right with the numbers on the
+   * floor. */
+  it.addToTheList = async ({ reportId, fileName, header, row, forTheDay }) => {
+    if (how.driveRefuses) throw new Error(how.driveRefuses);
+    it.rowsAdded.push({ reportId, fileName, header, row, forTheDay });
+    return { size: header.length + row.length + 1 };
+  };
+
+  /* **WHICH CAMPAIGNS RAN, in miniature (2026-09-15).** `how.campaigns` is what the
+   * background half holds for the day; left out, nothing was ever kept. */
+  it.campaignsKept = [];
+  it.keepTheCampaigns = async ({ reportId, dataDate, campaigns }) => {
+    it.campaignsKept.push({ reportId, dataDate, campaigns });
+    return { kept: campaigns.length };
+  };
+  it.theCampaigns = async () => (how.campaigns === undefined ? null : how.campaigns);
+  /* **THE KEYWORDS, in miniature (2026-09-15).** `how.keywords` is what the page
+   * gave back; left out, one listing's one keyword. */
+  it.readTheKeywords = async ({ dataDate }) => (how.keywords !== undefined ? how.keywords : {
+    rows: [['DJ 14 Bahubali', 'jhumka earrings', '45%', '12%']],
+    listings: 1,
+    pages: 1,
+    csv: `Date,SKU,Keyword,Impression %,Clicks %\n"${dataDate}","DJ 14 Bahubali","jhumka earrings","45%","12%"`,
+  });
+
+  /* **THE SWEEP, in miniature.** `how.swept` is what the platform's own addresses
+   * came back with; `how.sweepRefuses` is that going wrong. */
+  it.sweepTheAds = async ({ dataDate, patience }) => {
+    it.sweeps.push({ dataDate, patience });
+    if (how.sweepRefuses) throw new Error(how.sweepRefuses);
+    return how.swept || { lookedAt: 37, running: 0, files: [] };
+  };
+
   it.putTheFile = async ({ reportId, fileName, body }) => {
     if (how.driveRefuses) throw new Error(how.driveRefuses);
     it.putAway.push({
@@ -403,7 +524,12 @@ function aPortal(how = {}) {
        * for the other. */
       startsWith: body && body.length ? body[0] : null,
     });
-    return { put: 'an-id' };
+    /* **HOW BIG DRIVE SAYS IT REALLY LANDED (F15, Job 8, A65, 2026-09-23).**
+     * Left out, this answers the way `background.js` did before the fix --
+     * with no size at all, so the walk falls back to the bytes it sent.
+     * `how.landedSize` stands in for a zip that `drive.js` unzipped before
+     * upload, the same way `how.driveRefuses` stands in for Drive saying no. */
+    return how.landedSize === undefined ? { put: 'an-id' } : { put: 'an-id', size: how.landedSize };
   };
 
   /** Something else on the portal's page hands the browser a file of its own.
@@ -438,6 +564,21 @@ function aPortal(how = {}) {
   };
 
   it.door = {
+    /* **THE ELEVENTH CALL: a number read off a card, not a file taken off a
+     * portal.** Meesho sells no export of the day's views. `how.cards` is what
+     * the page is standing there showing, keyed by the label; `how.cardRefuses`
+     * is the page having drawn a label with no number beside it, which is the
+     * failure that matters and the one the reference could only report as
+     * "selectors need updating". */
+    async read_number(kind, what, exact, patience, near) {
+      it.numbersRead.push({ what, near, patience });
+      if (how.cardRefuses) throw new Error(how.cardRefuses);
+      const cards = how.cards || { Views: 34877, Orders: 6 };
+      if (!(what in cards)) {
+        throw new Error(`Nothing on the page matches "${what}", so no number was read.`);
+      }
+      return cards[what];
+    },
     async go(address, patience, nextAt) {
       it.went.push(address);
       it.patienceTold.push(['go', patience]);
@@ -523,6 +664,9 @@ function aPortal(how = {}) {
        * say so.** Meesho draws its list of finished exports as the download menu
        * OPENS, so the list only ever changes when the menu is shut and opened
        * again. With nothing reopening it, the row never appears at all. */
+      /* **WORDS THAT ARE NOT ON THE PAGE RIGHT NOW** -- a banner that has gone,
+       * or a row that is not listed. */
+      if (how.notOnThePage && how.notOnThePage.includes(what)) return 0;
       if (how.appearsAfterReopens !== undefined && what === 'Download') {
         return it.menuOpen && it.reopened >= how.appearsAfterReopens ? 1 : 0;
       }
@@ -532,7 +676,8 @@ function aPortal(how = {}) {
       if (how.openerGoesWhenShut && what === 'Download Orders Data' && it.clickedAway) return 0;
       return 1;
     },
-    async click(kind, what) {
+    async click(kind, what, exact, near, newestOfSeveral, alsoSaying, likeAMouse) {
+      if (likeAMouse) it.pressedLikeAMouse = [...(it.pressedLikeAMouse || []), what];
       /* **A CONTROL THAT IS NOT THERE CANNOT BE CLICKED, AND THE REAL DOOR
        * THROWS.** `driver.js` looks the thing up and refuses when nothing
        * matches. A stand-in that quietly accepted the click would let a walk
@@ -550,6 +695,11 @@ function aPortal(how = {}) {
         it.menuOpen = true;
         if (it.shutSinceLastOpened) { it.reopened += 1; it.shutSinceLastOpened = false; }
       }
+    },
+    /* **TYPING (2026-09-15)**, recorded rather than counted. */
+    async type_in(kind, what, exact, near, alsoSaying, words) {
+      it.typed = [...(it.typed || []), words];
+      it.whatHappened.push(`typed ${words}`);
     },
     /* **SHUTTING IT IS A CLICK WHERE NOTHING IS**, which is the reference's own
      * gesture (`content/meesho.js:865`, `document.body.click()`). */
@@ -576,6 +726,13 @@ function aPortal(how = {}) {
       it.ranges.push([from, to]);
       it.cursorToldFor.push(alsoByTheCursor);
       it.patienceTold.push(['pick_range', patience]);
+      /* **A DAY THE PORTAL HAS NOT BUILT, REFUSED THE WAY THE REAL DOOR REFUSES
+       * IT** -- words, and the mark `driver.js` puts on them. */
+      if (how.dayNotBuilt) {
+        const notBuilt = new Error(`${to} is on the calendar but the portal has it switched off.`);
+        notBuilt.dayNotAvailable = true;
+        throw notBuilt;
+      }
     },
     async take_file(patience) {
       it.tookFile += 1;
@@ -608,6 +765,20 @@ function aPortal(how = {}) {
       }
       return how.bytes || new Uint8Array([1, 2, 3, 4, 5]);
     },
+    /* **THE WALK-ONLY QUESTION (2026-09-14).** Answered only when a check says
+     * where the matches sit; otherwise it answers nothing, which is what a real
+     * door with no matches to describe answers. */
+    async where_they_sit() {
+      return how.whereTheySit || [];
+    },
+    /* **THE BANNERS THE PAGE SHOWED, AND THE POP-UPS SHUT (2026-09-14).** */
+    async banners_seen() {
+      return how.banners || [];
+    },
+    async close_pop_ups() {
+      it.closedPopUps = (it.closedPopUps || 0) + 1;
+      return how.closes || [];
+    },
     async page_text() {
       return how.page || 'Welcome back   Manage and grow your business';
     },
@@ -630,6 +801,10 @@ function aPortal(how = {}) {
  * the only thing carried across, a fresh walk is built each turn, and nothing
  * the previous turn held survives.
  */
+/** Every pause the walk took, in the order it took them. Written down instead
+ *  of slept: see the `pause` handed in below. */
+const PACED = [];
+
 function aWalk(portal, book = BOOK) {
   return async (reportId, day, rest = {}) => {
     let startAt = 0;
@@ -648,6 +823,17 @@ function aWalk(portal, book = BOOK) {
       const walking = theWalk({
         door: portal.door, book, say: (line) => SAID.push(line), putTheFile: portal.putTheFile,
         armTheCatcher: portal.armTheCatcher,
+        addToTheList: portal.addToTheList,
+        sweepTheAds: portal.sweepTheAds,
+        keepTheCampaigns: portal.keepTheCampaigns,
+        theCampaigns: portal.theCampaigns,
+        readTheKeywords: portal.readTheKeywords,
+        /* **THE PACING IS WRITTEN DOWN RATHER THAN SLEPT.** A walk paces itself
+         * like a person now -- a few seconds on landing, about a second between
+         * actions -- and a harness that really slept would turn 252 checks into
+         * a quarter of an hour of nothing. **The numbers are still asserted**,
+         * further down, off this very list. */
+        pause: (ms) => { PACED.push({ reportId, turn, ms }); },
       });
       let answer;
       try {
@@ -774,6 +960,194 @@ check('and it steps back over the end of a month',
 check('asked to step back by nothing at all, it answers the day itself',
   daysBefore('2026-08-26', undefined) === '2026-08-26');
 
+/* ------------------------- the day that is asked for, not pressed or downloaded */
+
+{
+  /* **THREE REPORTS' FILES OUT OF ONE PAIR OF CALLS.** Asking Meesho for the same
+   * campaign three times to write three files would be three times the load on
+   * somebody else's server for the same answer. */
+  const portal = aPortal({ swept: { lookedAt: 9, running: 3, files: [
+    { reportId: 'me_ads', text: 'Date\n1' },
+    { reportId: 'me_ads_summary', text: 'Date\n22' },
+    { reportId: 'me_ads_catalog', text: 'Date\n333' },
+  ] } });
+  const got = await aWalk(portal)('me_ads', DAY);
+  check('a sweep that found something lands', got.state === LANDED);
+  check('and all three files went away, each under its own report',
+    portal.putAway.map((one) => one.reportId).join(',')
+      === 'me_ads,me_ads_summary,me_ads_catalog');
+  /* **EACH UNDER ITS OWN REPORT'S NAME, NOT THREE COPIES OF ONE NAME.** Named by
+   * the report that swept, all three would land in one folder and two reports
+   * would be empty for ever. */
+  check('and each is named for the report it belongs to',
+    portal.putAway.map((one) => one.fileName).join(',')
+      === `meesho_me_ads_${DAY}.csv,meesho_me_ads_summary_${DAY}.csv,`
+        + `meesho_me_ads_catalog_${DAY}.csv`);
+  check('and the answer counts every byte of all three',
+    got.size === portal.putAway.reduce((all, one) => all + one.size, 0));
+  check('and says how many campaigns were running out of how many',
+    got.say.includes('3 of 9 campaigns were running'));
+  check('the sweep was told which day to ask about', portal.sweeps[0].dataDate === DAY);
+}
+
+{
+  /* **HIS OWN CASE TODAY: 37 campaigns and not one running.** His ruling was to
+   * collect only the ones that are running, told plainly what that means.
+   *
+   * **THE REFERENCE REPORTS THE JOB DONE AND WRITES NOTHING**, so a seller sees
+   * an empty folder and a clean night -- the exact shape of fault this product
+   * exists against. This is the fourth word: there was nothing to fetch, and why. */
+  const portal = aPortal();
+  const got = await aWalk(portal)('me_ads', DAY);
+  check('no campaign running is "nothing to fetch", not a success and not a failure',
+    got.state === NOTHING_TO_FETCH);
+  check('and nothing at all was put in the Drive', portal.putAway.length === 0);
+  check('and it says how many there were and why none of them counted',
+    got.say.includes('0 of 37 campaigns were running')
+      && got.say.includes('Only campaigns that are running are collected'));
+}
+
+{
+  const portal = aPortal({ sweepRefuses: 'Meesho answered 503' });
+  const got = await aWalk(portal)('me_ads', DAY);
+  check("a sweep that went wrong is this report's failure, not a crash",
+    got.state === FAILED && got.say.includes('Meesho answered 503'));
+  check('and it names the step it was doing',
+    got.say.includes('asking for every campaign'));
+  check('and what the page really was travels with it', got.pageWas.length > 0);
+}
+
+{
+  /* **A WALK BUILT WITH NO WAY OF SWEEPING REFUSES THAT STEP BY NAME, rather
+   * than every walk refusing to be built.** Only one recipe in the book sweeps. */
+  const portal = aPortal();
+  const walking = theWalk({
+    door: portal.door, book: BOOK, say: () => {}, putTheFile: portal.putTheFile,
+    armTheCatcher: portal.armTheCatcher, addToTheList: portal.addToTheList, pause: () => {},
+  });
+  const first = await walking('me_ads', DAY, { panel: PANEL });
+  const got = await walking('me_ads', DAY, { panel: PANEL, startAt: first.at });
+  check('a walk with no way of sweeping fails that report and says so',
+    got.state === FAILED && got.say.includes('no way of reaching them'));
+  /* **AND AN ORDINARY REPORT IS UNTOUCHED BY THAT.** A walk that refused to be
+   * built at all would take every other report down with the one that sweeps. */
+  const ordinary = await aWalk(aPortal())('me_orders', DAY);
+  check('while a report that presses buttons is unaffected', ordinary.state === LANDED);
+}
+
+/* --------------------------- the day that is read off a page, not downloaded */
+
+{
+  const portal = aPortal();
+  const got = await aWalk(portal)('me_views', DAY);
+  check('a day read off two cards is put away as a row', got.state === LANDED);
+  check('and it went into the running list, whose name carries no day',
+    portal.rowsAdded.length === 1 && portal.rowsAdded[0].fileName === 'meesho_me_views.csv');
+  /* **THE COLUMNS ARE THE RECIPE'S ORDER, NOT A BROWSER'S.** A file whose
+   * columns can change order between two nights is a file nothing can read. */
+  check('the header is the day and then the cards, in the order the recipe reads them',
+    portal.rowsAdded[0].header === 'Date,Views,Orders');
+  /* **AND THE DAY IS WRITTEN THE WAY EVERYTHING ELSE HERE WRITES ONE.** ISO, the
+   * same spelling the file names carry and the same one that reaches the ERP. */
+  check('and the row is that day, ISO, with the two figures after it',
+    portal.rowsAdded[0].row === `${DAY},34877,6`);
+  check('and the day is handed over on its own as well, so the row can be replaced',
+    portal.rowsAdded[0].forTheDay === DAY);
+  check('both cards were really read', portal.numbersRead.length === 2);
+  check('and nothing was downloaded, because there is nothing to download',
+    portal.putAway.length === 0 && portal.tookFile === 0);
+  check('and it says in words what it added', got.say.includes(`${DAY},34877,6`));
+}
+
+{
+  /* **A LABEL ON THE PAGE WITH NO NUMBER BESIDE IT IS ITS OWN FAILURE.** The
+   * reference could only report this as "selectors need updating" after dumping
+   * fifty elements into a console nobody reads in the morning. */
+  const portal = aPortal({ cardRefuses: '"Views" is on the page and there is no plain number beside it.' });
+  const got = await aWalk(portal)('me_views', DAY);
+  check('a card with no number in it fails, and nothing is written',
+    got.state === FAILED && portal.rowsAdded.length === 0);
+  check('and the failure says which step and what the door said',
+    got.say.includes('reading the views') && got.say.includes('no plain number'));
+  /* **AND WHAT THE PAGE REALLY WAS TRAVELS WITH IT**, exactly as it does for
+   * every other failure here. Written anywhere else it is written where nobody
+   * looks. */
+  check('and what the page really said travels with it', got.pageWas.length > 0);
+}
+
+{
+  /* **A DRIVE THAT REFUSED IS THIS REPORT'S FAILURE, NOT A CRASH**, the same as
+   * for a file. The night writes it down, moves on, and the day is owed again. */
+  const portal = aPortal({ driveRefuses: 'the columns have changed' });
+  const got = await aWalk(portal)('me_views', DAY);
+  check('a list that refused the row is a failure that says so',
+    got.state === FAILED && got.say.includes('columns have changed'));
+  check('and it names the file the row was for',
+    got.fileName === 'meesho_me_views.csv');
+}
+
+/* ------------------------------- moving like a person, so a portal does not block */
+
+/* **HIS INSTRUCTION, 2026-09-11:** *"portals may block if it is an automated
+ * approach which is downloading theirs"*. The reference has paced itself since it
+ * was written -- four to five seconds on landing, about a second after pressing
+ * something -- and nothing here did until now. */
+{
+  check('a pause on landing is never shorter than the least it may be',
+    aMomentLikeAPerson(A_PERSON_LOOKS_AT_A_NEW_PAGE, () => 0)
+      === A_PERSON_LOOKS_AT_A_NEW_PAGE.least);
+  check('and never longer than the most it may be',
+    aMomentLikeAPerson(A_PERSON_LOOKS_AT_A_NEW_PAGE, () => 0.999999)
+      === A_PERSON_LOOKS_AT_A_NEW_PAGE.least + A_PERSON_LOOKS_AT_A_NEW_PAGE.upTo);
+  /* **A DICE THAT ANSWERS 1 EXACTLY IS STILL INSIDE THE RANGE.** `Math.random`
+   * never does, and something handed in one day will. */
+  check('and a dice answering one exactly is still inside the range',
+    aMomentLikeAPerson(A_PERSON_BETWEEN_TWO_STEPS, () => 1)
+      === A_PERSON_BETWEEN_TWO_STEPS.least + A_PERSON_BETWEEN_TWO_STEPS.upTo);
+  /* **THE RANDOM PART IS THE POINT.** A pause that is the same every time is
+   * itself a signature, which is why the reference randomises every one of its
+   * own sleeps. */
+  check('landing takes longer than carrying on, because it is a page just drawn',
+    A_PERSON_LOOKS_AT_A_NEW_PAGE.least > A_PERSON_BETWEEN_TWO_STEPS.least
+      + A_PERSON_BETWEEN_TWO_STEPS.upTo);
+  check('and neither is a fixed number, because a fixed pause is a signature too',
+    A_PERSON_LOOKS_AT_A_NEW_PAGE.upTo > 0 && A_PERSON_BETWEEN_TWO_STEPS.upTo > 0);
+}
+
+{
+  /* **THREE PAGES AND TWO TEARDOWNS**, which is what `me_two_pages` is for. Six
+   * steps are walked in all, and every one of them is walked exactly once. */
+  PACED.length = 0;
+  const got = await aWalk(aPortal())('me_two_pages', DAY);
+  check('the two-page walk finishes, so what follows is about a real walk',
+    got.state === LANDED);
+  check('every step this walk took was paced, and none of them twice',
+    PACED.length === 6);
+  /* **THE STEPS AN EARLIER PAGE ALREADY WALKED ARE NOT PACED AGAIN.** A walk
+   * resuming at step 4 reads steps 0 to 3 and skips the doing of them; pacing
+   * them would add pauses for work nobody is doing, and on a long recipe that is
+   * minutes of a walk sitting still for no reason. Six steps, six pauses, is the
+   * whole of that. */
+  const perTurn = [0, 1, 2].map((t) => PACED.filter((one) => one.turn === t).map((one) => one.ms));
+  check('and they fall one page at a time, as the pages really do',
+    JSON.stringify(perTurn.map((one) => one.length)) === JSON.stringify([1, 3, 2]));
+
+  const landing = (ms) => ms >= A_PERSON_LOOKS_AT_A_NEW_PAGE.least
+    && ms <= A_PERSON_LOOKS_AT_A_NEW_PAGE.least + A_PERSON_LOOKS_AT_A_NEW_PAGE.upTo;
+  const carryingOnPace = (ms) => ms >= A_PERSON_BETWEEN_TWO_STEPS.least
+    && ms <= A_PERSON_BETWEEN_TWO_STEPS.least + A_PERSON_BETWEEN_TWO_STEPS.upTo;
+
+  check('the first thing every page does is take in the page, the longer pause',
+    perTurn.every((one) => landing(one[0])));
+  /* **AND A PAGE THE WALK RESUMED IN LANDS LIKE ANY OTHER.** It really is a new
+   * page -- Chrome drew it a moment ago -- so the walk carrying a number across
+   * must not make it look like the middle of one. */
+  check('including the two pages the walk resumed in, which really are new pages',
+    landing(perTurn[1][0]) && landing(perTurn[2][0]));
+  check('and everything after that on the same page is the shorter one',
+    perTurn.every((one) => one.slice(1).every(carryingOnPace)));
+}
+
 /* ------------------------------------------------------------ an ordinary run */
 
 {
@@ -894,7 +1268,7 @@ check('asked to step back by nothing at all, it answers the day itself',
    * export is made by this machine at this moment, in the seller's own timezone,
    * and the portal stamps the row in that same timezone. Asked with a moment
    * handed in so this says something exact rather than something about now. */
-  check('the day of the run is written the way the nightly run reads one back',
+  check('the day of the run is written the way the scheduled sync reads one back',
     theDayOfTheRun(new Date(2026, 8, 5)) === '2026-09-05');
   check('and a single-figure month and day both keep their nought',
     theDayOfTheRun(new Date(2026, 0, 1)) === '2026-01-01');
@@ -1011,6 +1385,33 @@ check('asked to step back by nothing at all, it answers the day itself',
 }
 
 {
+  /* **F15 (Job 8, A65, 2026-09-23): THE LANDED SIZE IS WHAT DRIVE ACTUALLY
+   * HOLDS, NOT WHAT CAME DOWN.** Measured on `me_payments` 09-20: the run log
+   * said 8,155 bytes -- the zip that came down -- while Drive held 9,033, the
+   * spreadsheet `drive.js` unzips out of it before uploading. `how.landedSize`
+   * stands in for that real, bigger, post-unzip number. */
+  const portal = aPortal({ landedSize: 9033 });
+  const got = await aWalk(portal)('me_orders', DAY);
+  check('a report whose zip is opened before landing reports the size that really landed',
+    got.size === 9033);
+  check('not the size of what was sent to be put away',
+    portal.putAway[0].size !== 9033 && got.size !== portal.putAway[0].size);
+  check('and says so in words, with the real number',
+    got.say === `Landed 9033 bytes in the seller's Drive as meesho_me_orders_${DAY}.csv.`);
+}
+
+{
+  /* **AND WHEN NOTHING SAYS THE REAL SIZE, THE OLD NUMBER STILL WORKS.** A
+   * caller with no size to give back -- an older wiring, or a stub in a test
+   * that never set `how.landedSize` -- must not turn every landing into a
+   * `0 bytes` file. */
+  const portal = aPortal();
+  const got = await aWalk(portal)('me_orders', DAY);
+  check('with no landed size handed back, the bytes sent are still reported',
+    got.size === portal.putAway[0].size && got.size > 0);
+}
+
+{
   /* A snapshot report has no date range at all -- it is a picture of right now. */
   const portal = aPortal();
   await aWalk(portal)('me_catalog', DAY);
@@ -1071,6 +1472,14 @@ check('asked to step back by nothing at all, it answers the day itself',
   check('and that the button is there, underneath', got.say.includes('underneath something'));
   check('nothing was clicked while something was in the way', portal.clicked.length === 0);
   check('and what was on the page is kept with the failure', got.pageWas !== '');
+  /* **JOB 3B, 2026-09-22: THE COVERING NAMES ITSELF, SO THE NEXT ONE OF THESE
+   * DOES NOT NEED A LIVE SESSION TO FIND OUT WHAT IT WAS.** The backdrop here
+   * carries no words of its own -- the words are on the panel sitting on it,
+   * exactly as measured on his own Meesho -- and `whatIsCovering` already
+   * falls back to that panel's words. Until now they were worked out and then
+   * thrown away. */
+  check('and the covering panel\'s own words are in the failure, not thrown away',
+    got.say.includes('Abhi Update Karein'));
 }
 
 {
@@ -1127,6 +1536,34 @@ check('asked to step back by nothing at all, it answers the day itself',
 }
 
 /* ------------------------------ ambiguity is a failure, not a coin toss */
+
+{
+  /* **HIS OWN ADS FSN REPORT, 2026-09-14.** It refused twice saying *"2 things
+   * match Consolidated FSN Report"*, and by hand, on the same page, there was
+   * one. **The walk refuses on a COUNT and never reaches `click`'s own words**,
+   * so the detail the door had been taught to give never surfaced. The refusal
+   * now asks the door where each match sits -- and a count alone is no longer
+   * the whole of what a person is told. */
+  const portal = aPortal({
+    matches: { 'Export data': 2 },
+    whereTheySit: ['<div> in <div#popover-content> in <div>', '<span> in <div role=status> in <div>'],
+  });
+  const got = await aWalk(portal)('me_orders', DAY);
+  check('a refusal on several says where each match sits',
+    got.say.includes('They sit:') && got.say.includes('#popover-content')
+    && got.say.includes('role=status'));
+  check('and still says how many, and that nothing was clicked',
+    got.say.includes('2 things match') && got.say.includes('Nothing was clicked'));
+}
+
+{
+  /* **AND A DOOR WITH NOTHING TO SAY LEAVES THE SENTENCE AS IT WAS.** Asked
+   * inside a failure, the question must never become one. */
+  const portal = aPortal({ matches: { 'Export data': 2 } });
+  const got = await aWalk(portal)('me_orders', DAY);
+  check('with no places to name, the refusal says nothing about where',
+    got.state === FAILED && !got.say.includes('They sit:'));
+}
 
 {
   const portal = aPortal({ matches: { 'Export data': 2 } });
@@ -1258,10 +1695,11 @@ check('asked to step back by nothing at all, it answers the day itself',
     asked.state === STILL_WAITING);
   check('and it holds what it was asked under', asked.theirId === DAY);
   check('and says roughly how long it will take', asked.say.includes('30 minutes'));
-  /* **AND THAT A LATER RUN COLLECTS IT RATHER THAN ASKING AGAIN**, because a
-   * line that only says "asked for it" reads like something went unfinished. */
-  check('and that a later run will collect it rather than asking again',
-    asked.say.includes('collect it rather than asking again'));
+  /* **AND THAT THIS SYNC COLLECTS IT AT ITS END RATHER THAN ASKING AGAIN** (A53,
+   * Rumee's way), because a line that only says "asked for it" reads like
+   * something went unfinished. */
+  check('and that it is collected at the end of this sync rather than asked for again',
+    asked.say.includes('collected at the end of this sync rather than asked for again'));
   check('and it pressed Submit', portal.clicked.includes('Submit'));
   /* **THE SMALLEST RANGE FLIPKART TAKES IS TWO DAYS**, and it names the row by
    * the END date, which is the day being fetched. */
@@ -1312,7 +1750,8 @@ check('asked to step back by nothing at all, it answers the day itself',
 {
   const walking = theWalk({
     door: aPortal().door, book: BOOK, say: () => {}, putTheFile: async () => ({}),
-    armTheCatcher: async () => {},
+    armTheCatcher: async () => {}, pause: () => {},
+    addToTheList: async () => ({ size: 0 }),
   });
   const got = await walking('me_orders', DAY, { panel: '' });
   check('a Meesho report with no panel name is a failure', got.state === FAILED);
@@ -1427,7 +1866,7 @@ check('asked to step back by nothing at all, it answers the day itself',
 
 {
   /* **A REPORT THE BOOK SAYS NOTHING ABOUT IS NOT GIVEN A MADE-UP NAME.** A file
-   * in the seller's Drive under a name the nightly run cannot read the day out
+   * in the seller's Drive under a name the scheduled sync cannot read the day out
    * of sits there for ever while the ledger stays empty. */
   const bookWithNoNames = { ...BOOK, fileNames: {} };
   const portal = aPortal();
@@ -1595,6 +2034,7 @@ ${DAY}`) !== null
   const walking = theWalk({
     door: portal.door, book: BOOK, say: () => {}, putTheFile: portal.putTheFile,
     armTheCatcher: portal.armTheCatcher,
+    addToTheList: async () => ({ size: 0 }),
   });
   const first = await walking('me_orders', DAY, { panel: PANEL });
   check('going somewhere ends the turn rather than carrying on in a page that is gone',
@@ -1627,6 +2067,7 @@ check('a walk still going is told apart from one that landed',
   const walking = theWalk({
     door: portal.door, book: BOOK, say: () => {}, putTheFile: portal.putTheFile,
     armTheCatcher: portal.armTheCatcher,
+    addToTheList: async () => ({ size: 0 }),
   });
   const got = await walking('me_orders', DAY, { panel: PANEL, startAt: 1 });
   check('a walk picked up part way through finishes', got.state === LANDED);
@@ -1690,10 +2131,107 @@ check('a walk still going is told apart from one that landed',
   const walking = theWalk({
     door: portal.door, book: bent, say: () => {}, putTheFile: portal.putTheFile,
     armTheCatcher: portal.armTheCatcher,
+    addToTheList: async () => ({ size: 0 }),
   });
   const got = await walking('me_two_pages', DAY, { panel: PANEL, startAt: 4 });
   check('a bad step before the resume point is still a refusal, not skipped past',
     got.state === FAILED && got.say.includes('This recipe is wrong'));
+}
+
+{
+  /* **A53: A PAGE PICKED UP AFTER A `go` TO AN ADDRESS WITH `#` IS MOVED THERE
+   * FIRST.** `goTo` loads only the page before the `#` now. */
+  const HASHED = 'https://supplier.example.invalid/index.html#dashboard/orders?tab=all';
+  const hashed = {
+    ...BOOK,
+    recipes: {
+      ...BOOK.recipes,
+      me_two_pages: {
+        ...BOOK.recipes.me_two_pages,
+        toTake: BOOK.recipes.me_two_pages.toTake.map(
+          (one, at) => (at === 3 ? { ...one, address: HASHED } : one)
+        ),
+      },
+    },
+  };
+  const walkingWith = (book, routeTo) => {
+    const portal = aPortal();
+    return theWalk({
+      door: portal.door, book, say: () => {}, putTheFile: portal.putTheFile,
+      armTheCatcher: portal.armTheCatcher, addToTheList: async () => ({ size: 0 }),
+      pause: () => {}, routeTo,
+    });
+  };
+  const routed = [];
+  const keep = async ({ address }) => { routed.push(address); };
+  await walkingWith(hashed, keep)('me_two_pages', DAY, { panel: PANEL, startAt: 4 });
+  check('a page picked up after a go to an address with # is moved to that route first',
+    routed.length === 1 && routed[0] === HASHED);
+  const stayed = await walkingWith(hashed, async () => {
+    throw new Error('it stayed on #dashboard/page-not-found.');
+  })('me_two_pages', DAY, { panel: PANEL, startAt: 4 });
+  check('and a route it cannot reach fails the report, saying where the page stayed',
+    stayed.state === FAILED && stayed.say.includes('page-not-found'));
+  const noWay = await walkingWith(hashed, null)('me_two_pages', DAY, { panel: PANEL, startAt: 4 });
+  check('and a walk handed no way to move the page fails in words',
+    noWay.state === FAILED && noWay.say.includes('no way to move the page'));
+  routed.length = 0;
+  await walkingWith(BOOK, keep)('me_two_pages', DAY, { panel: PANEL, startAt: 4 });
+  check('while a page picked up after a go with no # is not moved', routed.length === 0);
+}
+
+{
+  /* **A53: A RANGE CAN START ON AN EARLIER DAY** (Flipkart traffic, from the day
+   * after the last one captured). */
+  const portal = aPortal();
+  const earlier = new Date(Date.parse(`${DAY}T00:00:00Z`) - 5 * 24 * 60 * 60 * 1000)
+    .toISOString().slice(0, 10);
+  await aWalk(portal)('me_orders', DAY, { fromDay: earlier });
+  check('a report asked from an earlier day starts its range on that day and ends on the day',
+    Boolean(portal.ranges[0]) && portal.ranges[0][0] === earlier && portal.ranges[0][1] === DAY);
+}
+
+{
+  /* **A53: AT THE SIGN-IN WALL, ONE ATTEMPT -- HIS RULING.** */
+  const walkWith = (door, options = {}) => {
+    const portal = aPortal();
+    const marks = [];
+    const walking = theWalk({
+      door: { ...portal.door, ...door }, book: BOOK, say: () => {}, putTheFile: portal.putTheFile,
+      armTheCatcher: portal.armTheCatcher, addToTheList: async () => ({ size: 0 }), pause: () => {},
+      markTriedSigningIn: async () => { marks.push(1); },
+    });
+    return { run: () => walking('me_orders', DAY, { panel: PANEL, ...options }), marks };
+  };
+  let signedIn = false;
+  let tries = 0;
+  const works = walkWith({
+    needs_signing_in: async () => !signedIn,
+    try_signing_in: async () => { tries += 1; signedIn = true; return true; },
+  });
+  const carried = await works.run();
+  check('signed in by the one attempt, the report carries on',
+    tries === 1 && works.marks.length === 1 && carried.state !== FAILED);
+
+  let triesAgain = 0;
+  const fails = walkWith({
+    needs_signing_in: async () => true,
+    try_signing_in: async () => { triesAgain += 1; return false; },
+  });
+  let paused = '';
+  try { await fails.run(); } catch (wrong) { paused = wrong instanceof NeedsSigningIn ? 'paused' : ''; }
+  check('an attempt that does not sign in pauses the sync for the seller, after exactly one try',
+    paused === 'paused' && triesAgain === 1);
+
+  let triesThird = 0;
+  const already = walkWith({
+    needs_signing_in: async () => true,
+    try_signing_in: async () => { triesThird += 1; return true; },
+  }, { triedSigningIn: true });
+  let pausedAgain = '';
+  try { await already.run(); } catch (wrong) { pausedAgain = wrong instanceof NeedsSigningIn ? 'paused' : ''; }
+  check('and a page that loads after the attempt does not try again',
+    pausedAgain === 'paused' && triesThird === 0);
 }
 
 /* ------------------------ a sign-in page is not a report, however big it is */
@@ -1832,6 +2370,7 @@ check('and nothing at all is not a page either, because it is a different failur
   const walking = theWalk({
     door: portal.door, book: BOOK, say: () => {}, putTheFile: portal.putTheFile,
     armTheCatcher: async () => { throw new Error('The browser half is restarting.'); },
+    addToTheList: async () => ({ size: 0 }),
   });
   let stoppedWith = '';
   try {
@@ -1985,7 +2524,186 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
     TOO_BIG_TO_CARRY === TOO_BIG);
 }
 
-const EXPECTED = 252;
+{
+  /* **HIS RULING, 2026-09-14: A DAY THE PORTAL HAS NOT BUILT IS NOT A FAILURE.**
+   * Measured the same day, Flipkart's Reports Centre greyed out every day after
+   * the 11th. The walk refuses at the calendar -- before Submit -- and answers
+   * its own state, so the night can remember the day and give back the request. */
+  const portal = aPortal({ dayNotBuilt: true });
+  const got = await aWalk(portal)('fk_orders', DAY);
+  check('A DAY THE PORTAL HAS NOT BUILT IS ANSWERED AS NOT AVAILABLE YET, NOT AS A FAILURE',
+    got.state === NOT_AVAILABLE_YET);
+  check('and nothing after the calendar is pressed, so nothing was asked for',
+    !portal.clicked.includes('Submit'));
+  check('and it says the day will be tried again', got.say.includes('tried again on a later run'));
+}
+
+{
+  /* ---- WHAT ELSE A WAIT COUNTS, POP-UPS, AND BANNERS (HIS RULING, 2026-09-14)
+   *
+   * **HIS WORDS:** "a banner it missed doesn't turn success into a failure", and
+   * the banners the page showed go with every answer. */
+  const aBook = {
+    ...BOOK,
+    recipes: {
+      ...BOOK.recipes,
+      waits_for_a_banner: {
+        readyInMinutes: 5,
+        toAsk: [
+          step({ do: 'go', address: 'https://seller.example.invalid/asked', why: 'opening the page' }),
+          step({ do: 'wait-for', find: find('successfully', { how: 'text', exact: false, called: 'the confirmation' }),
+            patience: 5, why: 'confirming the request' }),
+        ],
+        toTake: [step({ do: 'go', address: 'https://seller.example.invalid/asked', why: 'coming back' })],
+      },
+      waits_exactly: {
+        readyInMinutes: 5,
+        toAsk: [
+          step({ do: 'go', address: 'https://seller.example.invalid/asked', why: 'opening the page' }),
+          step({ do: 'wait-for', find: find('Generated', { how: 'text' }), patience: 5,
+            why: 'waiting for the row',
+            orFind: find('Orders', { how: 'text', called: 'the request in the list' }) }),
+        ],
+        toTake: [step({ do: 'go', address: 'https://seller.example.invalid/asked', why: 'coming back' })],
+      },
+    },
+  };
+  const heard = aPortal({
+    notOnThePage: ['successfully'], banners: [{ at: 1, words: 'Report is requested successfully.' }],
+  });
+  check('A LOOSE WAIT WHOSE WORDS A BANNER ALREADY SAID IS NOT A FAILURE',
+    (await aWalk(heard, aBook)('waits_for_a_banner', DAY)).state === STILL_WAITING);
+  check('while with no such banner it still fails, as it always did',
+    (await aWalk(aPortal({ notOnThePage: ['successfully'] }), aBook)('waits_for_a_banner', DAY)).state === FAILED);
+  check('A WAIT WHOSE THING IS NOT THERE IS CONFIRMED BY THE ROW IT MAY COUNT INSTEAD',
+    (await aWalk(aPortal({ notOnThePage: ['Generated'] }), aBook)('waits_exactly', DAY)).state === STILL_WAITING);
+  check('but an exact wait is not rescued by a banner, and fails when nothing else counts',
+    (await aWalk(aPortal({ notOnThePage: ['Generated', 'Orders'], banners: [{ at: 1, words: 'Generated' }] }),
+      aBook)('waits_exactly', DAY)).state === FAILED);
+  check('POP-UPS ARE CLOSED ONCE A PAGE, NOT ONCE A STEP', heard.closedPopUps === 1);
+
+  const shown = withWhatThePageShowed({ state: FAILED, say: 'could not find it.' },
+    [{ words: 'Date range invalid' }, { words: 'Date range invalid' }]);
+  check('A FAILURE CARRIES THE BANNERS THE PAGE SHOWED, once each',
+    shown.say === 'could not find it. The page showed: "Date range invalid".' && shown.banners.length === 1);
+  check('and a success carries them too',
+    withWhatThePageShowed({ state: STILL_WAITING, say: 'Asked for it.' },
+      [{ words: 'Report is requested successfully.' }]).say.includes('The page showed'));
+  check('while an answer with no banners is left exactly as it was',
+    withWhatThePageShowed({ state: FAILED, say: 'x' }, []).say === 'x');
+  const stillGoing = { carryingOn: 'carrying-on', at: 2 };
+  check('and a walk still carrying on is left alone', withWhatThePageShowed(stillGoing, [{ words: 'y' }]) === stillGoing);
+}
+
+{
+  /* **WHICH AD CAMPAIGNS RAN, READ OUT OF THE ADS DAILY FILE (2026-09-15).** The
+   * real file for the 13th, line for line and column for column as it landed in his
+   * Drive -- with a stand-in campaign, name and figures, because this repository is
+   * public and a seller's own campaign is not. */
+  const DAILY = 'Start Time, 2026-09-13 00:00:00\nEnd Time, 2026-09-13 23:59:59\n'
+    + 'Campaign ID,Campaign Name,Date,Ad Spend,Views,Clicks,Total converted units,Total Revenue (Rs.),ROI\n'
+    + '0PTESTCAMP001,PLA_Campaign-Test,2026-09-13,100.00,1000,100,0,0.0000,0.0000\n';
+  const COLUMNS = { idColumn: 'Campaign ID', dayColumn: 'Date' };
+  check('THE CAMPAIGNS THAT RAN ARE READ OUT OF THE ADS DAILY FILE',
+    JSON.stringify(theCampaignsIn(DAILY, COLUMNS, '2026-09-13')) === '["0PTESTCAMP001"]');
+  check('and only the rows of that day count',
+    JSON.stringify(theCampaignsIn(DAILY, COLUMNS, '2026-09-12')) === '[]');
+  check('a campaign name holding a comma does not move the day into the wrong column, and each id counts once',
+    JSON.stringify(theCampaignsIn('Campaign ID,Campaign Name,Date\nA1,"Diwali, big",2026-09-13\n'
+      + 'A1,x,2026-09-13\nB2,y,2026-09-13\n', COLUMNS, '2026-09-13')) === '["A1","B2"]');
+  check('a file with no such columns is not known, rather than none ran',
+    theCampaignsIn('Date,Spend\n2026-09-13,1\n', COLUMNS, '2026-09-13') === null);
+  check('and something that is not a campaign id is never kept',
+    JSON.stringify(theCampaignsIn('Campaign ID,Date\n<b>x</b>,2026-09-13\n', COLUMNS, '2026-09-13')) === '[]');
+
+  const RUN = [
+    step({ do: 'go', address: 'https://seller.example.invalid/ads', why: 'opening' }),
+    step({ do: 'type-in', find: find('Campaign ID'), words: '{campaign}', forEachCampaign: true, why: 'typing' }),
+    step({ do: 'take-file', find: find('Download'), forEachCampaign: true, why: 'taking' }),
+  ];
+  const two = withEachCampaign(RUN, ['A1', 'B2']);
+  check('A RUN DONE ONCE PER CAMPAIGN IS REPEATED FOR EACH, IN ORDER, WITH THE CAMPAIGN FILLED IN',
+    JSON.stringify(two.map((one) => [one.do, one.words || (one.find && one.find.what) || '', one.campaign || '']))
+      === JSON.stringify([['go', '', ''], ['type-in', 'A1', 'A1'], ['take-file', 'Download', 'A1'],
+        ['type-in', 'B2', 'B2'], ['take-file', 'Download', 'B2']]));
+  check('and each step knows which campaign of how many it is',
+    two[4].campaignNumber === 2 && two[4].campaignsInAll === 2);
+  check('while the recipe itself is left untouched', RUN[1].words === '{campaign}');
+  check('ONE CAMPAIGN KEEPS THE REPORT\'S OWN FILE NAME',
+    theCampaignsFileName('flipkart_fk_ads_overall_2026-09-13.csv', 'A1', 1)
+      === 'flipkart_fk_ads_overall_2026-09-13.csv');
+  check('while several carry their campaign before the extension',
+    theCampaignsFileName('flipkart_fk_ads_overall_2026-09-13.csv', 'B2', 2)
+      === 'flipkart_fk_ads_overall_2026-09-13_B2.csv');
+  check('TYPING WITHOUT WORDS IS REFUSED, AND SO IS NAMING A CAMPAIGN OUTSIDE ITS RUN',
+    Boolean(whyStepIsRefused(step({ do: 'type-in', find: find('Campaign ID') })))
+    && Boolean(whyStepIsRefused(step({ do: 'type-in', find: find('Campaign ID'), words: '{campaign}' })))
+    && whyStepIsRefused(step({ do: 'type-in', find: find('Campaign ID'), words: '{campaign}',
+      forEachCampaign: true })) === null);
+}
+
+{
+  /* **THE OVERALL REPORT, WALKED ONCE PER CAMPAIGN (2026-09-15).** */
+  const notKnown = aPortal();
+  const waiting = await aWalk(notKnown)('fk_ads_overall', DAY);
+  check('A CAMPAIGN REPORT WHOSE CAMPAIGNS ARE NOT KNOWN YET IS NOT AVAILABLE YET, AND NOTHING IS TYPED',
+    waiting.state === NOT_AVAILABLE_YET && !(notKnown.typed || []).length && notKnown.tookFile === 0);
+  /* A57, Job 2: the night must be able to tell "the list was never fetched" from a
+   * day the platform has not built, or it hands the day to him as "needs you". */
+  check('and it says the campaign list is what is missing', waiting.listMissing === true);
+  const noneRan = aPortal({ campaigns: [] });
+  const nothing = await aWalk(noneRan)('fk_ads_overall', DAY);
+  check('while a day no campaign ran is nothing to fetch',
+    nothing.state === NOTHING_TO_FETCH && noneRan.tookFile === 0);
+
+  const two = aPortal({ campaigns: ['A1', 'B2'] });
+  const both = await aWalk(two)('fk_ads_overall', DAY);
+  check('TWO CAMPAIGNS ARE TYPED, CHOSEN AND TAKEN IN TURN',
+    both.state === LANDED && JSON.stringify(two.typed) === '["A1","B2"]'
+    && JSON.stringify(two.clicked.filter((one) => one !== 'Download')) === '["A1","B2"]'
+    && two.tookFile === 2);
+  check('and each suggestion is pressed like a mouse, which is how that list picks a campaign',
+    JSON.stringify(two.pressedLikeAMouse) === '["A1","B2"]');
+  check('and each is its own file, named by its campaign',
+    JSON.stringify(two.putAway.map((one) => one.fileName)) === JSON.stringify([
+      `flipkart_fk_ads_overall_${DAY}_A1.csv`, `flipkart_fk_ads_overall_${DAY}_B2.csv`]));
+  check('and the answer names both', both.say.includes('_A1.csv') && both.say.includes('_B2.csv'));
+  const justOne = aPortal({ campaigns: ['A1'] });
+  await aWalk(justOne)('fk_ads_overall', DAY);
+  check('while one campaign keeps the report\'s own name',
+    justOne.putAway.length === 1 && justOne.putAway[0].fileName === `flipkart_fk_ads_overall_${DAY}.csv`);
+
+  const daily = aPortal({
+    bytes: new TextEncoder().encode(`Campaign ID,Campaign Name,Date\nA1,x,${DAY}\nB2,y,${DAY}\n`),
+  });
+  const landedDaily = await aWalk(daily)('fk_ads_daily', DAY);
+  check('THE ADS DAILY FILE KEEPS WHICH CAMPAIGNS RAN, AS IT LANDS',
+    landedDaily.state === LANDED && daily.campaignsKept.length === 1
+    && daily.campaignsKept[0].reportId === 'fk_ads_daily' && daily.campaignsKept[0].dataDate === DAY
+    && JSON.stringify(daily.campaignsKept[0].campaigns) === '["A1","B2"]');
+  const other = aPortal();
+  await aWalk(other)('me_orders', DAY);
+  check('while no other report keeps any', other.campaignsKept.length === 0);
+}
+
+{
+  /* **FLIPKART'S TOP SEARCH KEYWORDS, READ OFF THE PAGE (2026-09-15).** */
+  const read = aPortal();
+  const landed = await aWalk(read)('fk_keywords', DAY);
+  check('THE KEYWORDS READ OFF THE PAGE ARE PUT AWAY AS ONE FILE, UNDER THE REPORT\'S OWN NAME',
+    landed.state === LANDED && read.putAway.length === 1
+    && read.putAway[0].fileName === `flipkart_fk_keywords_${DAY}.csv`);
+  const none = aPortal({ keywords: { rows: [], listings: 82, pages: 1, csv: '' } });
+  const nothing = await aWalk(none)('fk_keywords', DAY);
+  check('while not one keyword read is a failure saying how many listings were looked at, and nothing is put away',
+    nothing.state === FAILED && nothing.say.includes('82 listings') && none.putAway.length === 0);
+  const older = aPortal({ keywords: { rows: [], listings: 0, pages: 0, shownDay: '2026-08-25', csv: '' } });
+  const notYet = await aWalk(older)('fk_keywords', DAY);
+  check('A LATEST DAY BEFORE THE ONE ASKED FOR IS NOT AVAILABLE YET, NAMING THE LATEST DAY',
+    notYet.state === NOT_AVAILABLE_YET && notYet.say.includes('2026-08-25') && older.putAway.length === 0);
+}
+
+const EXPECTED = 342;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

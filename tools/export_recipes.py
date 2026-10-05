@@ -37,6 +37,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "autosync"))
 
+import layout  # noqa: E402
 import browser as language  # noqa: E402
 import recipes as book  # noqa: E402
 import reports as list_of_reports  # noqa: E402
@@ -60,15 +61,22 @@ REPORTS_WHERE = ROOT / REPORTS_SHOWN
 # The one place a Python name becomes a JavaScript one. Everything not named here
 # crosses unchanged, and a check asserts that what came out carries exactly these.
 AS_JAVASCRIPT_SPELLS_IT = {
+    "also_saying": "alsoSaying",
     "day_in_words_is": "dayInWordsIs",
     "day_in_words_of": "dayInWordsOf",
     "press_again": "pressAgain",
+    "or_find": "orFind",
     "range_days": "rangeDays",
     "switched_off_days_change_the_cursor": "switchedOffDaysChangeTheCursor",
     "ready_in_minutes": "readyInMinutes",
     "to_ask": "toAsk",
     "to_take": "toTake",
     "look_again": "lookAgain",
+    "for_each_campaign": "forEachCampaign",
+    "campaigns_from": "campaignsFrom",
+    "id_column": "idColumn",
+    "day_column": "dayColumn",
+    "press_like_a_mouse": "pressLikeAMouse",
 }
 
 
@@ -89,6 +97,14 @@ def a_find(find):
         # words on each one are identical. `{day}` and `{day_in_words}` are filled
         # in where the walk runs, with the day being fetched.
         "near": find.near,
+        # **AND WHAT ELSE THAT ROW HAS TO SAY, ANDed with the row above.** All
+        # three of Flipkart's Reports Centre reports are asked for on the same
+        # night over the same range, so all three rows carry the same end date
+        # and only the report's own kind tells them apart. Left on this side,
+        # the walker narrows by the day alone, matches three rows, and takes
+        # whichever is topmost -- the payments file under the orders name.
+        # Carries no day and no placeholder: the day is `near`'s question.
+        AS_JAVASCRIPT_SPELLS_IT["also_saying"]: find.also_saying,
         # **AND WHOSE WORDING OF A DAY `{day_in_words}` MEANS.** Meesho writes
         # `1 Sep 2026` and Flipkart's Reports Centre writes `05 Jun 2026`, so a
         # walker handed the placeholder and not the portal could only guess --
@@ -157,11 +173,35 @@ def a_step(step):
         # **A CONTROL THAT TOGGLES, PRESSED AGAIN WHILE THIS STEP WAITS.** Null on
         # every step but two, both of them on Flipkart's Reports Centre.
         AS_JAVASCRIPT_SPELLS_IT["press_again"]: a_press_again(step.press_again),
+        # **SOMETHING ELSE A WAIT MAY COUNT** (his ruling, 2026-09-14). Null on
+        # every step but the Reports Centre's confirmation.
+        AS_JAVASCRIPT_SPELLS_IT["or_find"]: a_find(step.or_find),
+        # **WHAT A TYPING STEP TYPES, AND WHETHER A STEP IS DONE ONCE PER CAMPAIGN**
+        # (2026-09-15). Empty and false on every step but Flipkart's overall report.
+        "words": step.words,
+        AS_JAVASCRIPT_SPELLS_IT["for_each_campaign"]: step.for_each_campaign,
+        # **PRESSED BUTTON DOWN, BUTTON UP, CLICK.** False on every step but
+        # Flipkart's campaign suggestion.
+        AS_JAVASCRIPT_SPELLS_IT["press_like_a_mouse"]: step.press_like_a_mouse,
+    }
+
+
+def a_campaigns_from(where):
+    """Which report's file names a day's campaigns, and by which two columns.
+
+    Null on every recipe but Flipkart's overall performance report."""
+    if where is None:
+        return None
+    return {
+        "report": where.report,
+        AS_JAVASCRIPT_SPELLS_IT["id_column"]: where.id_column,
+        AS_JAVASCRIPT_SPELLS_IT["day_column"]: where.day_column,
     }
 
 
 def a_recipe(recipe):
     return {
+        AS_JAVASCRIPT_SPELLS_IT["campaigns_from"]: a_campaigns_from(recipe.campaigns_from),
         AS_JAVASCRIPT_SPELLS_IT["ready_in_minutes"]: recipe.ready_in_minutes,
         AS_JAVASCRIPT_SPELLS_IT["to_ask"]: [a_step(s) for s in recipe.to_ask],
         AS_JAVASCRIPT_SPELLS_IT["to_take"]: [a_step(s) for s in recipe.to_take],
@@ -195,6 +235,13 @@ def what_the_extension_reads():
         "daysInWords": {
             whose: {
                 "months": list(book.MONTHS),
+                # **AND THE MONTH NAMES IN FULL, because one portal writes them
+                # out.** Flipkart's listings Downloads History says
+                # `11 September, 11:10 PM`, so a spelling using `{Month}` needs
+                # these on the far side too -- and a half that had never heard of
+                # the piece would leave `{Month}` sitting on the page as those
+                # seven characters and narrow to a row nothing carries.
+                "monthsInFull": list(book.MONTHS_IN_FULL),
                 "spellings": list(shapes),
             }
             for whose, shapes in sorted(book.HOW_A_DAY_IS_WRITTEN.items())
@@ -223,8 +270,20 @@ def what_the_extension_reads():
             one: {
                 "platform": list_of_reports.report(one).platform,
                 "extension": list_of_reports.report(one).extension,
+                # **AND WHETHER IT IS A RUNNING LIST, because that decides
+                # whether the day goes in the name at all.** Left out, the
+                # browser half would name the views file by a day, a new one
+                # would land every night, and the one file the day board is
+                # taught to expect would never exist. One rule, carried across
+                # rather than written twice.
+                "aRunningList": list_of_reports.report(one).a_running_list,
             }
-            for one in sorted(book.RECIPES)
+            # **AND EVERY REPORT ANOTHER REPORT'S RUN PUTS AWAY (2026-09-15).** The ads
+            # sweep lands `me_ads_summary` and `me_ads_catalog` too, and with only the
+            # recipes named here it could not name them: his full run failed saying
+            # "nothing in the recipe file saying what me_ads_summary's file is called"
+            # on the first day a campaign was running.
+            for one in sorted(set(book.RECIPES) | set(book.MADE_BY_ANOTHER))
         },
         # **EVERY REPORT THAT EXISTS, not only the ones this door can fetch.**
         # The panel has to show a seller the whole of their own business, and a
@@ -233,7 +292,19 @@ def what_the_extension_reads():
         # The same list `src/shared/definitions/reports.json` carries for the
         # ERP's screens, written from `the_report_list()` so there is one source
         # and not two.
+        # **AND THE THIRD ANSWER CROSSES TOO.** A report is built, or is fetched
+        # by a different report's run, or is written down as one this door cannot
+        # reach. Left out, the panel would show two reports that really arrive in
+        # a seller's Drive as things that cannot be fetched.
+        "madeByAnother": dict(sorted(book.MADE_BY_ANOTHER.items())),
+        # **AND WHICH REPORT BRINGS EACH ONE (A61, Job 5b)**, so the panel can show it
+        # ticked whenever that report is -- what he sees is what is fetched.
+        "broughtBy": {one: list_of_reports.report(one).depends_on[0]
+                      for one in sorted(book.MADE_BY_ANOTHER)},
         "reports": the_report_list(),
+        # **WHERE EVERY REPORT'S FILES GO IN THE SELLER'S DRIVE (job 34).** His layout is
+        # `autosync/layout.py`'s, and this is how the extension gets the one list.
+        **layout.for_the_extension(),
         # **AND WHY THE FIVE THAT CANNOT BE FETCHED CANNOT BE, IN WORDS.**
         # `NOT_YET_A_RECIPE` names each one with its reason and until now the
         # reason reached nobody: the panel could only have shown a report that

@@ -19,6 +19,7 @@
  * thing is this project's most expensive recurring fault.
  */
 
+import { readFileSync } from 'node:fs';
 import { installFakeChrome } from '../test/fake-chrome.js';
 import {
   A_TOKEN_LASTS_MS,
@@ -32,11 +33,10 @@ import {
   STOP_TRUSTING_IT_MS,
   THE_TOKEN,
   aDriveToken,
-  aFolderFor,
   asAQuotedValue,
   aWayOfAsking,
   forgetTheToken,
-  folderFor,
+  folderAt,
   howToUpload,
   kindOf,
   landTheFile,
@@ -44,6 +44,7 @@ import {
   theMetadata,
   whatIsAlreadyThere,
   theKartaanFolder,
+  thePathFor,
   whatToDoAbout,
   whyItCannotBePut,
 } from './drive.js';
@@ -56,6 +57,21 @@ process.on('unhandledRejection', (err) => {
   console.log(`FAIL  something was waited on and never came back: ${(err && err.message) || String(err)}`);
   process.exit(1);
 });
+
+/* **HIS LAYOUT, FROM THE RECIPE FILE THE EXTENSION REALLY SHIPS** -- `autosync/layout.py`'s list. */
+const THE_BOOK = JSON.parse(readFileSync(new URL('./recipes.json', import.meta.url), 'utf8'));
+const LAYOUT = { kartaan: THE_BOOK.kartaan, folders: THE_BOOK.folders };
+
+/* The three folders a report's file goes in, already in a stand-in Drive, under `parent`. */
+const theFoldersFor = (reportId, parent = 'kartaan') => {
+  const path = thePathFor(LAYOUT, reportId);
+  return path.map((name, at) => ({
+    id: at === path.length - 1 ? 'f1' : `step-${at}`,
+    name,
+    mimeType: FOLDER,
+    parents: [at === 0 ? parent : `step-${at - 1}`],
+  }));
+};
 
 let failures = 0;
 let ran = 0;
@@ -162,7 +178,11 @@ function aDrive({ holds = [], pageAt = 0, refuseWith = 0, noLocation = false } =
 
     return reply(404, { error: { message: 'the stand-in Drive does not know that request' } });
   };
-  const bare = (one) => ({ id: one.id, name: one.name });
+  /* The size comes back too, because `everyFile` asks Drive for it (A53, the bigger
+   * file stays). */
+  const bare = (one) => ({
+    id: one.id, name: one.name, ...(one.size !== undefined ? { size: one.size } : {}),
+  });
   return it;
 }
 
@@ -174,10 +194,15 @@ function aDrive({ holds = [], pageAt = 0, refuseWith = 0, noLocation = false } =
 
 check('the one scope asked for is the narrow one, and nothing wider',
   SCOPE === 'https://www.googleapis.com/auth/drive.file');
-check('a folder is named after the report itself, so nobody keeps a list of ids',
-  aFolderFor('me_orders') === 'me_orders');
-check('and a folder for no report at all is refused rather than named',
-  (await said(async () => aFolderFor(''))).includes('has to be for some report'));
+check('the folder for a report comes from his layout, so nobody keeps a list of ids',
+  thePathFor(LAYOUT, 'me_orders').join('/') === 'Reports/Meesho/Orders'
+  && thePathFor(LAYOUT, 'fk_ads_fsn').join('/') === 'Reports/Flipkart/Ads/products');
+check('the night log the extension writes goes with the logs of the run, so the sixty-day tidy reaches it',
+  thePathFor(LAYOUT, 'run_log').join('/') === 'System/Logs');
+check('a name that is only an object property is refused like any other unknown report',
+  (await said(async () => thePathFor(LAYOUT, 'constructor'))).includes('no folder in his layout'));
+check('and a report with no folder in it is refused rather than named',
+  (await said(async () => thePathFor(LAYOUT, 'fk_keywords'))).includes('no folder in his layout'));
 
 check('a spreadsheet is labelled as a spreadsheet',
   kindOf('me_catalog_2026-09-05.xlsx').includes('spreadsheetml'));
@@ -288,10 +313,10 @@ check('and other files in the folder are none of its business',
 {
   const browser = installFakeChrome();
   const drive = aDrive({
-    holds: [{ id: 'f-me_orders', name: 'me_orders', mimeType: FOLDER, parents: ['kartaan'] }],
+    holds: [{ id: 'f-orders', name: 'Orders', mimeType: FOLDER, parents: ['kartaan'] }],
   });
-  const id = await folderFor(browser.chrome, drive.ask, 'me_orders', 'kartaan');
-  check('a folder already there is found by name rather than made again', id === 'f-me_orders');
+  const id = await folderAt(browser.chrome, drive.ask, LAYOUT, ['Orders'], 'kartaan');
+  check('a folder already there is found by name rather than made again', id === 'f-orders');
   /* **MADE EVERY NIGHT WOULD BE THIRTY FOLDERS OF ONE NAME**, with the files
    * spread across them and nothing that reads them ever saying so. */
   check('and nothing was made', drive.made.length === 0);
@@ -300,12 +325,12 @@ check('and other files in the folder are none of its business',
 {
   const browser = installFakeChrome();
   const drive = aDrive({ holds: [] });
-  const id = await folderFor(browser.chrome, drive.ask, 'me_orders', 'kartaan');
+  const id = await folderAt(browser.chrome, drive.ask, LAYOUT, ['Orders'], 'kartaan');
   check('a folder that is not there yet is made', id === 'made-1');
-  check('and it is made as a folder, inside the Kartaan folder, named after the report',
+  check('and it is made as a folder, inside the Kartaan folder, named as his layout names it',
     drive.made[0].mimeType === FOLDER
     && drive.made[0].parents.join() === 'kartaan'
-    && drive.made[0].name === 'me_orders');
+    && drive.made[0].name === 'Orders');
 }
 
 {
@@ -314,13 +339,13 @@ check('and other files in the folder are none of its business',
   const browser = installFakeChrome();
   const drive = aDrive({
     holds: [
-      { id: 'a', name: 'me_orders', mimeType: FOLDER, parents: ['kartaan'] },
-      { id: 'b', name: 'me_orders', mimeType: FOLDER, parents: ['kartaan'] },
+      { id: 'a', name: 'Orders', mimeType: FOLDER, parents: ['kartaan'] },
+      { id: 'b', name: 'Orders', mimeType: FOLDER, parents: ['kartaan'] },
     ],
   });
-  const wrong = await said(() => folderFor(browser.chrome, drive.ask, 'me_orders', 'kartaan'));
+  const wrong = await said(() => folderAt(browser.chrome, drive.ask, LAYOUT, ['Orders'], 'kartaan'));
   check('two folders of one name is a refusal, not a coin toss',
-    wrong.includes('There are 2 folders called me_orders'));
+    wrong.includes('There are 2 folders called Orders'));
   check('and it says plainly that nothing was put', wrong.includes('nothing has been put'));
 }
 
@@ -332,12 +357,12 @@ check('and other files in the folder are none of its business',
   const drive = aDrive({
     pageAt: 1,
     holds: [
-      { id: 'a', name: 'me_orders', mimeType: FOLDER, parents: ['kartaan'] },
-      { id: 'b', name: 'me_orders', mimeType: FOLDER, parents: ['kartaan'] },
+      { id: 'a', name: 'Orders', mimeType: FOLDER, parents: ['kartaan'] },
+      { id: 'b', name: 'Orders', mimeType: FOLDER, parents: ['kartaan'] },
     ],
   });
   check('a second folder hiding on a later page is still found',
-    (await said(() => folderFor(browser.chrome, drive.ask, 'me_orders', 'kartaan')))
+    (await said(() => folderAt(browser.chrome, drive.ask, LAYOUT, ['Orders'], 'kartaan')))
       .includes('There are 2 folders'));
 }
 
@@ -345,7 +370,7 @@ check('and other files in the folder are none of its business',
   const browser = installFakeChrome();
   const drive = aDrive();
   check('with no Kartaan folder to put it in, it refuses rather than making one loose',
-    (await said(() => folderFor(browser.chrome, drive.ask, 'me_orders', '')))
+    (await said(() => folderAt(browser.chrome, drive.ask, LAYOUT, ['Orders'], '')))
       .includes('no Kartaan folder was given'));
   check('and nothing was asked of Drive at all', drive.asked.length === 0);
 }
@@ -380,7 +405,9 @@ check('and other files in the folder are none of its business',
    * this repository keeps finding. */
   const browser = installFakeChrome();
   const drive = aDrive({ holds: [] });
-  await folderFor(browser.chrome, drive.ask, `me${Q}orders`, `kar${Q}taan`);
+  /* A name with a quote in it is not in his layout, so it is lent to this one check. */
+  const lent = { kartaan: 'Kartaan', folders: { a_check: [`me${Q}orders`] } };
+  await folderAt(browser.chrome, drive.ask, lent, [`me${Q}orders`], `kar${Q}taan`);
   const sent = decodeURIComponent(drive.asked[0].address.split('q=')[1].split('&')[0]);
   check('the search Drive is really sent carries the escaped name',
     sent.includes(`name = 'me${B}${Q}orders'`));
@@ -453,10 +480,12 @@ check('and other files in the folder are none of its business',
     reportId: 'me_catalog',
     fileName: 'meesho_me_catalog_2026-09-05.xlsx',
     inside: 'kartaan',
+    layout: LAYOUT,
     body: new Uint8Array([80, 75, 3, 4]),
   });
   check('a report with no folder yet gets one made and its file put in',
-    landed.id === 'landed-1' && drive.made[0].name === 'me_catalog');
+    landed.id === 'landed-1'
+    && drive.made.map((one) => one.name).join('/') === 'Reports/Meesho/Catalog');
   check('and the file went up as a spreadsheet, not as unknown bytes',
     drive.put[0].kind.includes('multipart/related'));
 }
@@ -467,12 +496,12 @@ check('and other files in the folder are none of its business',
   const browser = installFakeChrome();
   const drive = aDrive({
     holds: [
-      { id: 'f1', name: 'me_catalog', mimeType: FOLDER, parents: ['kartaan'] },
+      ...theFoldersFor('me_catalog'),
       { id: 'old', name: 'a.csv', parents: ['f1'] },
     ],
   });
   await landTheFile(browser.chrome, drive.ask, {
-    reportId: 'me_catalog', fileName: 'a.csv', inside: 'kartaan', body: new Uint8Array([1, 2]),
+    reportId: 'me_catalog', fileName: 'a.csv', inside: 'kartaan', layout: LAYOUT, body: new Uint8Array([1, 2]),
   });
   check('a day already there is replaced in place rather than added beside',
     drive.put.length === 1 && drive.put[0].how === 'PATCH');
@@ -481,18 +510,69 @@ check('and other files in the folder are none of its business',
 }
 
 {
+  /* **A53: THE BIGGER FILE STAYS -- HIS RULING, 2026-09-16.** */
+  const browser = installFakeChrome();
+  const drive = aDrive({
+    holds: [
+      ...theFoldersFor('me_catalog'),
+      { id: 'old', name: 'a.csv', size: '100', parents: ['f1'] },
+    ],
+  });
+  const kept = await landTheFile(browser.chrome, drive.ask, {
+    reportId: 'me_catalog', fileName: 'a.csv', inside: 'kartaan', layout: LAYOUT, body: new Uint8Array([1, 2]),
+  });
+  check('a smaller file does not replace a bigger one already in the Drive',
+    drive.put.length === 0 && kept.keptTheBigger === true && kept.id === 'old');
+}
+
+{
+  /* **A53: A ZIP HOLDING ONE SPREADSHEET LANDS AS THAT SPREADSHEET, OPENED -- HIS
+   * RULING.** A zip with one entry stored uncompressed, built by hand. */
+  const inner = new TextEncoder().encode('the payments sheet');
+  const name = new TextEncoder().encode('payments.xlsx');
+  const zip = new Uint8Array(30 + name.length + inner.length + 46 + name.length + 22);
+  const v = new DataView(zip.buffer);
+  v.setUint32(0, 0x04034b50, true);
+  v.setUint32(18, inner.length, true);
+  v.setUint32(22, inner.length, true);
+  v.setUint16(26, name.length, true);
+  zip.set(name, 30);
+  zip.set(inner, 30 + name.length);
+  const listAt = 30 + name.length + inner.length;
+  v.setUint32(listAt, 0x02014b50, true);
+  v.setUint32(listAt + 20, inner.length, true);
+  v.setUint32(listAt + 24, inner.length, true);
+  v.setUint16(listAt + 28, name.length, true);
+  zip.set(name, listAt + 46);
+  const endAt = listAt + 46 + name.length;
+  v.setUint32(endAt, 0x06054b50, true);
+  v.setUint16(endAt + 8, 1, true);
+  v.setUint16(endAt + 10, 1, true);
+  v.setUint32(endAt + 16, listAt, true);
+  const browser = installFakeChrome();
+  const drive = aDrive({ holds: [...theFoldersFor('me_payments')] });
+  await landTheFile(browser.chrome, drive.ask, {
+    reportId: 'me_payments', fileName: 'meesho_me_payments_2026-09-14.xlsx', inside: 'kartaan', layout: LAYOUT, body: zip,
+  });
+  /* The upload goes as a Blob (`drive.js` `inOneRequest`), so its text is read out. */
+  const sent = drive.put.length ? await drive.put[0].body.text() : '';
+  check('a zip holding one spreadsheet lands as the spreadsheet inside it, not the zip',
+    drive.put.length === 1 && sent.includes('the payments sheet') && !sent.includes('payments.xlsx'));
+}
+
+{
   /* **NOT TIDIED UP SILENTLY.** Replacing one leaves the others, and deleting
    * the rest is a decision nothing here is entitled to make. */
   const browser = installFakeChrome();
   const drive = aDrive({
     holds: [
-      { id: 'f1', name: 'me_catalog', mimeType: FOLDER, parents: ['kartaan'] },
+      ...theFoldersFor('me_catalog'),
       { id: 'one', name: 'a.csv', parents: ['f1'] },
       { id: 'two', name: 'a.csv', parents: ['f1'] },
     ],
   });
   const wrong = await said(() => landTheFile(browser.chrome, drive.ask, {
-    reportId: 'me_catalog', fileName: 'a.csv', inside: 'kartaan', body: new Uint8Array([1]),
+    reportId: 'me_catalog', fileName: 'a.csv', inside: 'kartaan', layout: LAYOUT, body: new Uint8Array([1]),
   }));
   check('two copies of one day already there is somebody having to look',
     wrong.includes('more than one a.csv'));
@@ -552,10 +632,10 @@ check('and other files in the folder are none of its business',
    * created by hand and pasted in; here nobody keeps anything. */
   const browser = installFakeChrome();
   const drive = aDrive({ holds: [] });
-  const id = await theKartaanFolder(browser.chrome, drive.ask);
+  const id = await theKartaanFolder(browser.chrome, drive.ask, LAYOUT);
   check('the Kartaan folder is made in the seller own Drive if it is not there',
     id === 'made-1' && drive.made[0].parents.join() === 'root');
-  const again = await theKartaanFolder(browser.chrome, drive.ask);
+  const again = await theKartaanFolder(browser.chrome, drive.ask, LAYOUT);
   check('and found by name next time rather than made again',
     again === 'made-1' && drive.made.length === 1);
 }
@@ -564,15 +644,29 @@ check('and other files in the folder are none of its business',
   const browser = installFakeChrome();
   const drive = aDrive({
     holds: [
-      { id: 'a', name: 'Kartaan AutoSync', mimeType: FOLDER, parents: ['root'] },
-      { id: 'b', name: 'Kartaan AutoSync', mimeType: FOLDER, parents: ['root'] },
+      { id: 'a', name: 'Kartaan', mimeType: FOLDER, parents: ['root'] },
+      { id: 'b', name: 'Kartaan', mimeType: FOLDER, parents: ['root'] },
     ],
   });
   check('and two of them is the same refusal as two report folders, not a coin toss',
-    (await said(() => theKartaanFolder(browser.chrome, drive.ask))).includes('There are 2 folders'));
+    (await said(() => theKartaanFolder(browser.chrome, drive.ask, LAYOUT))).includes('There are 2 folders'));
 }
 
-const EXPECTED = 72;
+{
+  /* **A FOLDER NOT IN HIS LAYOUT IS NEVER MADE, AND THE EXTENSION MAKES A FOLDER IN ONE PLACE ONLY.**
+   * *"No other separate folders or files should be created."* */
+  const browser = installFakeChrome();
+  const drive = aDrive({ holds: [] });
+  check('a folder his layout does not have is refused',
+    (await said(() => folderAt(browser.chrome, drive.ask, LAYOUT, ['Kartaan data'], 'kartaan')))
+      .includes('not a folder in his layout'));
+  check('and nothing was asked of Drive at all', drive.asked.length === 0 && drive.made.length === 0);
+  const source = readFileSync(new URL('./drive.js', import.meta.url), 'utf8').split(String.fromCharCode(10));
+  const sites = source.filter((line) => /mimeType:\s*FOLDER/.test(line));
+  check('and the extension makes a folder in exactly one place', sites.length === 1);
+}
+
+const EXPECTED = 79;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

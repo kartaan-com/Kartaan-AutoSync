@@ -333,7 +333,11 @@ export function installFakeChrome({ now = () => 0, identityIsOn = true, refuseTh
          * seller, at night, saying nothing. */
         const upToTheHash = (one) => String(one || '').split('#')[0];
         const held = tabs.get(id);
-        if (upToTheHash(held.url) === upToTheHash(url)) {
+        /* **BUT ONLY WHEN THE NEW ADDRESS CARRIES A `#`, OR IS THE SAME ADDRESS.**
+         * Going from `index.html#x` to plain `index.html` is a real load in a
+         * browser, and the Flipkart walk relies on it (A53). */
+        const scrollsOnly = held.url === url || String(url).includes('#');
+        if (scrollsOnly && upToTheHash(held.url) === upToTheHash(url)) {
           tabs.set(id, { ...held, url });
           return { ...tabs.get(id) };
         }

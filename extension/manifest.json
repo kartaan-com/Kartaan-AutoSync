@@ -4,7 +4,19 @@
   "version": "0.1.0",
   "description": "Fetches a seller's own reports from Meesho and Flipkart, in their own browser.",
   "action": {
-    "default_title": "Kartaan Auto-sync"
+    "default_title": "Kartaan Auto-sync",
+    "default_icon": {
+      "16": "icon16.png",
+      "32": "icon32.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icon16.png",
+    "32": "icon32.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
   },
   "background": {
     "service_worker": "worker.js",
@@ -15,7 +27,8 @@
     "storage",
     "downloads",
     "scripting",
-    "identity"
+    "identity",
+    "notifications"
   ],
   "host_permissions": [
     "https://supplier.meesho.com/*",
@@ -32,6 +45,16 @@
   "content_scripts": [
     {
       "matches": [
+        "https://seller.flipkart.com/*"
+      ],
+      "js": [
+        "catch-early.js"
+      ],
+      "world": "MAIN",
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
         "https://supplier.meesho.com/*",
         "https://seller.flipkart.com/*"
       ],
@@ -46,6 +69,8 @@
       "resources": [
         "driver.js",
         "walk.js",
+        "ads.js",
+        "keywords.js",
         "recipes.json"
       ],
       "matches": [

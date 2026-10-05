@@ -49,21 +49,46 @@
   let theCatcherSaid;
   let RELAY_TO_THE_PAGE;
   let theExtensionIsGone;
+  let looksLikeASpreadsheet;
+  let DECLINED_A_LINK;
+  let whatThePageTriedToOpen;
   let theWalk;
   let NeedsSigningIn;
   let capture;
   let hasNotFinished;
   let looksLikeAPage;
+  let withWhatThePageShowed;
+  let aMomentLikeAPerson;
+  let A_PERSON_BETWEEN_TWO_STEPS;
+  let sweepTheAds;
+  let whoIsSignedIn;
+  let theHeadersFor;
+  let readTheKeywords;
   let book;
   try {
     ({
       pageDoor, theCatcherSaid, RELAY_TO_THE_PAGE, theExtensionIsGone,
+      looksLikeASpreadsheet, DECLINED_A_LINK, whatThePageTriedToOpen,
     } = await import(
       chrome.runtime.getURL('driver.js')
     ));
     ({
-      theWalk, NeedsSigningIn, capture, hasNotFinished,
+      /* **`looksLikeAPage` WAS DECLARED HERE AND NEVER GIVEN A VALUE, and it
+       * took a real report failing to find it (2026-09-11).** The guard below
+       * that stops a portal's sign-in page being put in the seller's Drive as a
+       * report called it, so the one moment it mattered would have been a bare
+       * "looksLikeAPage is not a function" rather than the refusal it exists to
+       * be. **This file has no checks by design, which is exactly how it
+       * survived** -- and is the reason nothing but wiring belongs in it. */
+      theWalk, NeedsSigningIn, capture, hasNotFinished, looksLikeAPage, withWhatThePageShowed,
+      aMomentLikeAPerson, A_PERSON_BETWEEN_TWO_STEPS,
     } = await import(chrome.runtime.getURL('walk.js')));
+    ({ sweepTheAds, whoIsSignedIn, theHeadersFor } = await import(
+      chrome.runtime.getURL('ads.js')
+    ));
+    ({ readTheKeywords } = await import(
+      chrome.runtime.getURL('keywords.js')
+    ));
     book = await (await fetch(chrome.runtime.getURL('recipes.json'))).json();
   } catch (wrong) {
     console.error('Kartaan Auto-sync: its own files could not be loaded into this page.', wrong);
@@ -89,10 +114,20 @@
 
   let waitingFor = null;
   let caught = null;
+  /* Links the catcher let go while a file was awaited -- words for a failure. */
+  let notTaken = [];
   window.addEventListener('message', (said) => {
     /* **THE REFUSAL IS `theCatcherSaid`, and it is there rather than here so it
      * can be checked.** This file has no checks by design; a security decision
      * does not belong in a file nothing can prove. */
+    /* **A LINK THE CATCHER LET GO, KEPT AS WORDS FOR A FAILURE (2026-09-14).**
+     * Only while a file is awaited, only from this page, and at most a handful --
+     * it is page-written text and is never fetched or believed as a file. */
+    if (waitingFor && said && said.source === said.currentTarget && said.data
+      && said.data.kartaan === DECLINED_A_LINK && typeof said.data.address === 'string') {
+      if (notTaken.length < 10) notTaken.push(said.data.address.slice(0, 2000));
+      return;
+    }
     const ours = theCatcherSaid(said, waitingFor);
     if (!ours) return;
     /* **THE FIRST ONE AND NO OTHER.** The page can read the secret out of the
@@ -104,6 +139,7 @@
 
   const armTheCatcher = async () => {
     caught = null;
+    notTaken = [];
     waitingFor = null;
     const armed = await chrome.runtime.sendMessage({ do: 'arm-the-catcher' });
     /* **NOTHING IS WAITED FOR IF NOTHING WAS ARMED.** Left set to something
@@ -138,17 +174,35 @@
      * answer to the same question, so whichever comes first is it. */
     takeFile: async (patience) => {
       const fromTheBackground = chrome.runtime.sendMessage({ do: 'take-file', patience });
+      /* **THE PAGE GIVES UP LATER THAN THE BACKGROUND, ON PURPOSE -- HIS OWN ADS
+       * PLACEMENTS REPORT, 2026-09-14.** Both used to give up after the same
+       * patience. When NOTHING began downloading, the background answers with
+       * the honest sentence -- "Nothing began downloading in 90 seconds" -- but
+       * the page's own wait ran out at the same moment and raced it with a bare
+       * `null`, and **the walk reads `null` as "the platform builds this file
+       * inside the page, a door closing, not something to retry"**. So a report
+       * that simply produced no download was written down as a platform change
+       * and retrying it was ruled out, in words, on the wrong evidence.
+       *
+       * **A CAUGHT FILE STILL ANSWERS AT ONCE**, which is the whole of what the
+       * page side exists for (Meesho's stock file). Only the giving-up moves:
+       * long enough after the background's own patience that its answer, file
+       * or refusal, is the one that decides. */
+      const PAGE_WAITS_LONGER_MS = 15000;
       const fromThePage = new Promise((done) => {
         const startedAt = Date.now();
         const look = () => {
           if (caught) return done(caught);
-          if (Date.now() - startedAt > (Number(patience) || 0) * 1000) return done(null);
+          if (Date.now() - startedAt > (Number(patience) || 0) * 1000 + PAGE_WAITS_LONGER_MS) {
+            return done(null);
+          }
           setTimeout(look, 200);
         };
         look();
       });
       const answer = await Promise.race([fromTheBackground, fromThePage]);
-      if (answer && answer.wrong) throw new Error(answer.wrong);
+      /* **AND IT NAMES WHAT THE PLATFORM TRIED TO OPEN, if anything was let go.** */
+      if (answer && answer.wrong) throw new Error(answer.wrong + whatThePageTriedToOpen(notTaken));
       if (answer && answer.file) {
         /* **THE FILE THE CATCHER WAS HANDED, READ HERE (A42).** It used to be a
          * `blob:` handle that was fetched here instead -- and that handle came
@@ -169,6 +223,70 @@
           throw new Error('What the page handed to the browser arrived with no file in it.');
         }
         return new Uint8Array(await answer.file.arrayBuffer());
+      }
+      if (answer && answer.address && !answer.couldNotFetch) {
+        /* **THE LINK THE PORTAL WAS ABOUT TO OPEN, ASKED FOR HERE INSTEAD
+         * (2026-09-11).** Meesho's stock file is not built inside the page at
+         * all: pressing Download builds an `<a>` whose `href` is a signed
+         * `storage.googleapis.com` link and whose `target` is `_blank`, and
+         * **Chrome refuses a new tab that no person asked for**, so nothing ever
+         * downloaded and nothing ever said why. The catcher now suppresses that
+         * click and hands the address over.
+         *
+         * **AND NOTHING GOES NEAR HIS DOWNLOADS FOLDER, which is the point.**
+         * Suppressed, there is no download to race, no Save-as window to get in
+         * front of and nothing to cancel. The bytes are fetched here and go
+         * straight to the seller's Drive. **This is the working reference's own
+         * method** (`content/intercept.js:305-327`).
+         *
+         * **FETCHED IN THIS HALF, like the fallback below and for the same
+         * reason (D198).** The reference left the fetching in the page on
+         * purpose: its background fetch fails CORS on some Flipkart CDN
+         * endpoints, confirmed for its claims report. */
+        /* **THE BACKGROUND ASKS FIRST, AND THAT IS THE 2026-09-11 CORRECTION.**
+         * This was written to fetch here, and on his own panel it came back
+         * "Failed to fetch": a signed Google storage link answers the extension's
+         * own half, which holds the host permissions the manifest names, and
+         * answers a portal page with nothing at all. **The other direction is
+         * real too** (D198), so a refusal there is followed by a try here rather
+         * than being the end of the report. */
+        const guarded = (bytes) => {
+          /* **A NEW LINK ON THE PLATFORM'S OWN SITE IS KEPT ONLY IF IT REALLY IS A
+           * SPREADSHEET** (his ruling, 2026-09-14; `driver.THE_PLATFORMS_OWN_SITES`). */
+          if (answer.mustBeASpreadsheet && !looksLikeASpreadsheet(bytes)) {
+            throw new Error(`${String(answer.address).split('?')[0]} is not a known report address, `
+              + 'and what it gave back was not a spreadsheet, so nothing was kept.');
+          }
+          /* **A 200 IS NOT PROOF IT IS THE REPORT.** A portal that has signed
+           * the seller out answers a file address with its sign-in page,
+           * cheerfully, at 200 -- a file, with a size, which everything
+           * downstream believes. */
+          if (looksLikeAPage(bytes)) {
+            throw new Error(
+              'What came back was a web page, not a report -- the platform has almost '
+              + 'certainly signed this browser out.'
+            );
+          }
+          return bytes;
+        };
+        const fromTheOtherHalf = await chrome.runtime.sendMessage({
+          do: 'fetch-this', address: answer.address,
+        });
+        if (fromTheOtherHalf && fromTheOtherHalf.wrong) {
+          throw new Error(fromTheOtherHalf.wrong);
+        }
+        if (fromTheOtherHalf && fromTheOtherHalf.bytes) {
+          return guarded(new Uint8Array(fromTheOtherHalf.bytes));
+        }
+        const held = await fetch(answer.address, { credentials: 'include' });
+        if (!held.ok) {
+          throw new Error(
+            'The platform would not hand the file over, to either half: '
+            + `${(fromTheOtherHalf && fromTheOtherHalf.couldNotFetch) || 'nothing was said'}, `
+            + `and then ${held.status}.`
+          );
+        }
+        return guarded(new Uint8Array(await held.arrayBuffer()));
       }
       if (answer && answer.bytes) return new Uint8Array(answer.bytes);
       if (answer && answer.couldNotFetch && answer.address) {
@@ -249,6 +367,88 @@
       if (!answer) {
         throw new Error('The browser half said nothing about whether the file was put away.');
       }
+      if (answer.wrong) throw new Error(answer.wrong);
+      return answer;
+    },
+    /* **THE OTHER WAY A DAY REACHES A DRIVE, and it carries a ROW rather than
+     * bytes.** Meesho sells no export of the day's views, so there is nothing to
+     * fetch: the walk reads the figure off the card and this hands the row to the
+     * half that holds the seller's Drive permission. Same shape as above, same
+     * refusals, said in the same order. */
+    /* **THE ADS SWEEP, AND IT RUNS HERE BECAUSE ONLY HERE CAN.** Meesho's ads
+     * addresses answer to the session the page carries; asked from the background
+     * half they answer to nobody. **The seller is never written down** -- who is
+     * signed in comes out of Meesho's own cookies, which is what makes this work
+     * for a second seller with nothing configured. */
+    sweepTheAds: async ({ dataDate }) => {
+      const who = whoIsSignedIn(document.cookie);
+      if (!who) {
+        throw new Error(
+          'Meesho is not saying which seller this browser is signed in as, so its ads '
+          + 'addresses cannot be asked anything. Somebody may have been signed out.'
+        );
+      }
+      const askMeesho = async (address, body) => {
+        const reply = await fetch(address, {
+          method: 'POST',
+          credentials: 'include',
+          headers: theHeadersFor(who),
+          body: JSON.stringify(body),
+        });
+        if (!reply.ok) return null;
+        return reply.json();
+      };
+      /* **PACED LIKE EVERY OTHER STEP, for the reason `walk.js` gives: a portal
+       * that reads the run as a machine can block the seller.** The reference
+       * pauses half a second and a bit between campaigns; this uses the same
+       * between-steps pause the whole walk moves by, so there is one answer to
+       * "how fast does this go" and not two. */
+      const pause = () => new Promise((done) => {
+        setTimeout(done, aMomentLikeAPerson(A_PERSON_BETWEEN_TWO_STEPS));
+      });
+      return sweepTheAds(askMeesho, who, dataDate, { pause });
+    },
+    addToTheList: async ({ reportId, fileName, header, row, forTheDay }) => {
+      const answer = await chrome.runtime.sendMessage({
+        do: 'add-to-the-list', reportId, fileName, header, row, forTheDay,
+      });
+      if (!answer) {
+        throw new Error('The browser half said nothing about whether the row was added.');
+      }
+      if (answer.wrong) throw new Error(answer.wrong);
+      return answer;
+    },
+    /* **WHICH CAMPAIGNS RAN ON A DAY (2026-09-15)**, kept by the half that outlives
+     * this page when the ads daily file lands, and read back by the overall report. */
+    keepTheCampaigns: async ({ reportId, dataDate, campaigns }) => {
+      const answer = await chrome.runtime.sendMessage({
+        do: 'keep-the-campaigns', reportId, dataDate, campaigns,
+      });
+      if (!answer) {
+        throw new Error('The browser half said nothing about whether the campaigns were kept.');
+      }
+      if (answer.wrong) throw new Error(answer.wrong);
+      return answer;
+    },
+    theCampaigns: async ({ reportId, dataDate }) => {
+      const answer = await chrome.runtime.sendMessage({ do: 'the-campaigns', reportId, dataDate });
+      return answer && Array.isArray(answer.campaigns) ? answer.campaigns : null;
+    },
+    /* **FLIPKART'S TOP SEARCH KEYWORDS (2026-09-15)**, read here because only the
+     * page can open each listing's keyword pop-up. `keywords.js` carries the words. */
+    readTheKeywords: async ({ dataDate, patience }) => readTheKeywords(document, {
+      dataDate,
+      patience,
+      rest: (ms) => new Promise((done) => { setTimeout(done, ms); }),
+      say: (line) => chrome.runtime.sendMessage({ do: 'say', line }),
+      whereNow: () => location.href,
+    }),
+    /* **MOVES THIS PAGE TO A FLIPKART ROUTE (A53)**, done by the background in the
+     * page's own world. See `doors.js` `routeInThePage`. */
+    markTriedSigningIn: async () => chrome.runtime.sendMessage({ do: 'tried-signing-in' }),
+    routeTo: async ({ address }) => {
+      const answer = await chrome.runtime.sendMessage({ do: 'route-to', address });
+      if (!answer) throw new Error('The browser half said nothing about moving the page.');
       if (answer.wrong) throw new Error(answer.wrong);
       return answer;
     },
@@ -358,7 +558,10 @@
       /* **THE SAYING-SO MUST NOT BE THE THING THAT FAILS.** This IS the recovery;
        * if it throws, the failure it was reporting is lost with it and the walk
        * ends in silence (A26R). */
-      await said({ do: 'walk-done', answer: ended, from: startedAt });
+      /* **WITH EVERY BANNER THE PAGE SHOWED** (his ruling, 2026-09-14). */
+      await said({
+        do: 'walk-done', answer: withWhatThePageShowed(ended, door.banners_seen()), from: startedAt,
+      });
       return ended;
     }
     /* **THE ONE ANSWER THAT IS NOT AN ANSWER.** It carries no `state`, so
@@ -368,7 +571,9 @@
     stopCatching();
     /* **SENT AS ITS OWN MESSAGE, NOT AS A REPLY.** The reply to the message that
      * started this walk went down with the first page, several pages ago. */
-    await said({ do: 'walk-done', answer: came, from: startedAt });
+    await said({
+      do: 'walk-done', answer: withWhatThePageShowed(came, door.banners_seen()), from: startedAt,
+    });
     return came;
   };
 
@@ -415,7 +620,14 @@
       if (msg.type === 'RUN_NOW') {
         putItBack('__kartaanRun', await said({
           do: 'run-now', reportIds: msg.reportIds || [],
+          ...(msg.day ? { day: String(msg.day) } : {}),
+          ...(msg.from ? { from: String(msg.from) } : {}),
+          ...(msg.to ? { to: String(msg.to) } : {}),
         }));
+        return;
+      }
+      if (msg.type === 'RELOAD_EXTENSION') {
+        putItBack('__kartaanReload', await said({ do: 'reload-the-extension' }));
         return;
       }
       if (msg.type === 'READ_LOG' || msg.type === 'READ_STATUS') {

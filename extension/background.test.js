@@ -52,10 +52,14 @@ import {
   theWalkInFlight,
   theWalkMovedOn,
   theRelayAllows,
+  afterALanding,
   whyTheseAreNotNames,
+  NAMED_PER_CAMPAIGN,
 } from './background.js';
+import { LAST_LANDED } from './nightly.js';
 import { CAUGHT, TOO_BIG, catchTheNextFile } from './catch-blob.js';
-import { TOO_BIG_TO_CARRY } from './walk.js';
+import { DECLINED_A_LINK, WHERE_A_FILE_REALLY_COMES_FROM, aFileReallyComesFrom } from './driver.js';
+import { TOO_BIG_TO_CARRY, theCampaignsFileName } from './walk.js';
 import { OUR_TAB, OUR_WINDOW, WALK_IN_HIS_OWN_WINDOW, aTabToWalkIn, watchForDownloads } from './doors.js';
 import { readFileSync } from 'node:fs';
 
@@ -202,6 +206,86 @@ const LATER = '2026-08-27T16:04:00.000Z';
 
   await browser.chrome.alarms.onAlarm.happened({ name: 'something-else' });
   check('somebody else\'s alarm does not start a run', due === 2);
+}
+
+{
+  /* **A53: THE HOURLY RE-CHECK STARTS ITS OWN SYNC, NEVER THE DAILY ONE.** */
+  const browser = installFakeChrome();
+  let due = 0;
+  let rechecked = 0;
+  await wireUp(browser.chrome, {
+    onDue: async () => { due += 1; }, onRecheck: async () => { rechecked += 1; },
+  });
+  await browser.chrome.alarms.onAlarm.happened({ name: 'kartaan-autosync-recheck' });
+  check('the hourly re-check alarm starts the re-check and not the daily sync',
+    rechecked === 1 && due === 0);
+}
+
+{
+  /* **A53: AFTER A FLIPKART TRAFFIC FILE LANDS, ITS LAST DAY IS REMEMBERED.** A file
+   * that cannot be read falls back to the day in its name. */
+  const browser = installFakeChrome();
+  await afterALanding(browser.chrome, {
+    reportId: 'fk_views', fileName: 'flipkart_fk_views_2026-09-12.xlsx', bytes: new Uint8Array([1, 2]),
+  });
+  check('after a traffic file lands, the last day it holds is remembered',
+    (await browser.chrome.storage.local.get('kartaan-autosync-last-captured'))['kartaan-autosync-last-captured'].fk_views
+      === '2026-09-12');
+  check('and nothing is remembered for a report without that rule',
+    (await afterALanding(browser.chrome, {
+      reportId: 'fk_ads_daily', fileName: 'flipkart_fk_ads_daily_2026-09-12.csv', bytes: new Uint8Array([1]),
+    })) === null);
+}
+
+{
+  /* **JOB 6: EVERY LANDING ADDS TO `daysNobodyTried`'S RECORD OF WHAT HAS
+   * REALLY LANDED, NOT ONLY FLIPKART TRAFFIC.** Without this, a day no sync
+   * ever tried (F14) has nothing to measure a gap against at all. */
+  const browser = installFakeChrome();
+  await afterALanding(browser.chrome, {
+    reportId: 'me_orders', fileName: 'meesho_me_orders_2026-09-16.csv', bytes: new Uint8Array([1]),
+  });
+  check('an ordinary report landing also remembers the day it was for',
+    JSON.stringify((await browser.chrome.storage.local.get(LAST_LANDED))[LAST_LANDED].me_orders)
+      === JSON.stringify(['2026-09-16']));
+  await afterALanding(browser.chrome, {
+    reportId: 'me_views', fileName: 'meesho_me_views.csv', bytes: new Uint8Array([1]),
+  });
+  check('and a running list, whose name carries no day, remembers nothing',
+    (await browser.chrome.storage.local.get(LAST_LANDED))[LAST_LANDED].me_views === undefined);
+  await afterALanding(browser.chrome, {
+    reportId: 'fk_ads_overall',
+    fileName: 'flipkart_fk_ads_overall_2026-09-20_0PTESTCAMP001.csv',
+    bytes: new Uint8Array([1]),
+  });
+  check('the day is read correctly out of a per-campaign file name too',
+    JSON.stringify((await browser.chrome.storage.local.get(LAST_LANDED))[LAST_LANDED].fk_ads_overall)
+      === JSON.stringify(['2026-09-20']));
+}
+
+{
+  /* **JOB 6: THE FOLDER LISTING ALREADY FETCHED FOR THE PUT-OR-REPLACE
+   * DECISION BACKFILLS EVERY DAY IT SEES, NOT ONLY THE ONE JUST LANDED.**
+   * This is the only way the very first landing after this code ever ran can
+   * know about days that landed before it existed -- and it is what lets a
+   * hole BEHIND a later landed day (F14 itself: `me_orders` 09-16, missing
+   * 09-17..09-19, landed again 09-20) be found at all, at no extra Drive
+   * cost: `drive.landTheFile` was already asking for this list anyway. */
+  const browser = installFakeChrome();
+  await afterALanding(browser.chrome, {
+    reportId: 'me_orders',
+    fileName: 'meesho_me_orders_2026-09-20.csv',
+    bytes: new Uint8Array([1]),
+    alreadyThere: [
+      { name: 'meesho_me_orders_2026-09-14.csv' },
+      { name: 'meesho_me_orders_2026-09-15.csv' },
+      { name: 'meesho_me_orders_2026-09-16.csv' },
+      { name: 'meesho_me_orders_2026-09-20.csv' },
+    ],
+  });
+  check('every day already in the folder is backfilled from the one listing',
+    JSON.stringify((await browser.chrome.storage.local.get(LAST_LANDED))[LAST_LANDED].me_orders)
+      === JSON.stringify(['2026-09-14', '2026-09-15', '2026-09-16', '2026-09-20']));
 }
 
 /* ------------------------------------------------------------ the record */
@@ -391,6 +475,7 @@ const LATER = '2026-08-27T16:04:00.000Z';
     onDue: async () => {},
     answer: answerThePage(browser.chrome, {
       goTo: async (_chrome, where) => { went.push(where); },
+      routeInThePage: async (_chrome, where) => { went.push({ ...where, routed: true }); return { arrived: true }; },
       takeTheFile: async () => new Uint8Array([1, 2, 3]),
       landTheFile: async (what) => {
         if (driveRefuses) throw new Error(driveRefuses);
@@ -408,9 +493,112 @@ const LATER = '2026-08-27T16:04:00.000Z';
   check('and it really went there', went.length === 1 && went[0].address === 'https://x/');
   check('and it went in the tab that asked', went[0].tabId === tab.id);
 
+  /* **A53: A PAGE MAY BE MOVED TO A ROUTE ON ITS OWN SITE, NEVER ANOTHER.** */
+  const flipkartPage = {
+    tab: { id: tab.id }, id: 'stand-in-extension-id', url: 'https://seller.flipkart.com/index.html',
+  };
+  const routed = await browser.aPageAsked(
+    { do: 'route-to', address: 'https://seller.flipkart.com/index.html#dashboard/payments/spf' },
+    flipkartPage,
+  );
+  check('a page is moved to a route on its own site, in its own tab',
+    Boolean(routed) && routed.arrived === true
+    && went.some((one) => one.routed && one.tabId === tab.id));
+  const otherSite = await browser.aPageAsked(
+    { do: 'route-to', address: 'https://somewhere-else.example/#dashboard' }, flipkartPage,
+  );
+  /* **A53: THE ONE SIGN-IN ATTEMPT IS MARKED ON THE WALK, FOR ITS OWN TAB.** */
+  await browser.chrome.storage.local.set({
+    [THE_WALK]: { tabId: tab.id, reportId: 'me_orders', at: 1, carryOnUntil: Date.now() + 60000, answer: null },
+  });
+  await browser.aPageAsked({ do: 'tried-signing-in' }, flipkartPage);
+  check('the one sign-in attempt is written on the walk of the tab that made it',
+    (await browser.chrome.storage.local.get(THE_WALK))[THE_WALK].triedSigningIn === true);
+  await browser.chrome.storage.local.remove(THE_WALK);
+  check('but never to another site',
+    String(otherSite && otherSite.wrong).includes('only be moved within its own site')
+    && went.filter((one) => one.routed).length === 1);
+
   const file = await browser.aPageAsked({ do: 'take-file', patience: 5 });
   check('a file comes back as something a message can carry',
     Array.isArray(file.bytes) && file.bytes.length === 3);
+
+  /* ---- THE LINK THE PORTAL WAS ABOUT TO OPEN, FETCHED FROM THIS HALF (2026-09-11)
+   *
+   * **MEASURED ON HIS OWN PANEL.** The page half was written to fetch the caught
+   * link itself and came back "Failed to fetch": a signed Google storage link
+   * answers the extension's own half, which holds the host permissions the
+   * manifest names, and answers a portal page with nothing at all. */
+  const askedFor = [];
+  const itsOwnFetch = globalThis.fetch;
+  globalThis.fetch = async (address) => {
+    askedFor.push(address);
+    if (String(address).includes('refused')) throw new Error('Failed to fetch');
+    if (String(address).includes('said-404')) return { ok: false, status: 404 };
+    if (String(address).includes('a-sheet')) {
+      return { ok: true, status: 200, arrayBuffer: async () => new Uint8Array([0x50, 0x4b, 0x03, 0x04, 1, 2]).buffer };
+    }
+    if (String(address).includes('a-web-page')) {
+      return { ok: true, status: 200, arrayBuffer: async () => new TextEncoder().encode('<!doctype html><html>').buffer };
+    }
+    return { ok: true, status: 200, arrayBuffer: async () => new Uint8Array([7, 8, 9]).buffer };
+  };
+
+  const theLink = 'https://storage.googleapis.com/meesho-prod/stock.xlsx?X-Goog-Signature=ab';
+  const got = await browser.aPageAsked({ do: 'fetch-this', address: theLink });
+  check('THE BACKGROUND FETCHES A CAUGHT LINK AND HANDS BACK THE BYTES',
+    Array.isArray(got.bytes) && got.bytes.length === 3 && got.bytes[0] === 7);
+  check('and it asked the platform for exactly the address it was given',
+    askedFor.length === 1 && askedFor[0] === theLink);
+
+  /* **AND IT DOES NOT TAKE THE OTHER HALF'S WORD FOR WHERE IT IS SENDING THE
+   * SELLER'S COOKIES.** `driver.theCatcherSaid` already refused anything but a
+   * report store -- but this is the half that holds the seller's Drive. */
+  const elsewhere = await browser.aPageAsked({
+    do: 'fetch-this', address: 'https://an-advert.example.com/whatever.xlsx',
+  });
+  check('AN ADDRESS THAT IS NOT A REPORT STORE IS REFUSED, and nothing is fetched',
+    Boolean(elsewhere.wrong) && elsewhere.wrong.includes('not an address a report comes from')
+      && askedFor.length === 1);
+
+  /* **A WALL COMES BACK AS WORDS AND AN ADDRESS, NEVER AS A THROW.** The page
+   * half then gets one more go from an origin the store may answer (D198). */
+  const wouldNotAnswer = await browser.aPageAsked({
+    do: 'fetch-this', address: 'https://storage.googleapis.com/refused.xlsx',
+  });
+  check('and a platform that would not answer comes back as words, not a throw',
+    wouldNotAnswer.couldNotFetch === 'Failed to fetch' && wouldNotAnswer.bytes === undefined);
+  const saidNo = await browser.aPageAsked({
+    do: 'fetch-this', address: 'https://storage.googleapis.com/said-404.xlsx',
+  });
+  check('and so does one that answered with a number', saidNo.couldNotFetch === 'the platform said 404');
+
+  /* **A NEW LINK ON THE ASKING PAGE'S OWN SITE (HIS RULING, 2026-09-14)** --
+   * fetched, and kept only if the bytes really open as a spreadsheet. The page's
+   * site is the one Chrome gives this half. */
+  const fromAFlipkartPage = {
+    tab: { id: 1 }, id: 'stand-in-extension-id',
+    url: 'https://seller.flipkart.com/index.html#dashboard/listings-management',
+  };
+  const aNewSheet = await browser.aPageAsked({
+    do: 'fetch-this', address: 'https://seller.flipkart.com/napi/listing/a-sheet?x=1',
+  }, fromAFlipkartPage);
+  check('A NEW LINK ON THE PLATFORM\'S OWN SITE THAT REALLY IS A SPREADSHEET IS FETCHED AND KEPT',
+    Boolean(aNewSheet) && Array.isArray(aNewSheet.bytes) && aNewSheet.bytes[0] === 0x50);
+  const aNewPage = await browser.aPageAsked({
+    do: 'fetch-this', address: 'https://seller.flipkart.com/napi/listing/a-web-page',
+  }, fromAFlipkartPage);
+  check('but one that gives back a web page is refused, and nothing is kept',
+    Boolean(aNewPage) && Boolean(aNewPage.wrong) && aNewPage.wrong.includes('not a spreadsheet')
+      && aNewPage.bytes === undefined);
+  const askedFromElsewhere = await browser.aPageAsked({
+    do: 'fetch-this', address: 'https://seller.flipkart.com/napi/listing/a-sheet',
+  }, { tab: { id: 1 }, id: 'stand-in-extension-id', url: 'https://supplier.meesho.com/panel/v3/new/' });
+  check('and the same link asked for by a page on another site is refused outright',
+    Boolean(askedFromElsewhere) && Boolean(askedFromElsewhere.wrong)
+      && askedFromElsewhere.wrong.includes('not an address a report comes from'));
+
+  globalThis.fetch = itsOwnFetch;
 
   /* ------------------- AND THE FILE GOES SOMEWHERE (D171)
    *
@@ -451,6 +639,34 @@ const LATER = '2026-08-27T16:04:00.000Z';
     refused && refused.wrong === 'the seller has run out of Drive' && !refused.put);
   driveRefuses = '';
 
+  /* ---------- WHICH AD CAMPAIGNS RAN ON A DAY (2026-09-15)
+   *
+   * Kept when the ads daily file lands, read back by the overall report. Not known
+   * and none ran are two different answers, and only one of them is "nothing to
+   * fetch". */
+  const kept = await browser.aPageAsked({
+    do: 'keep-the-campaigns', reportId: 'fk_ads_daily', dataDate: '2026-09-13', campaigns: ['0PTESTCAMP001'],
+  });
+  check('the campaigns the ads daily file named are kept', Boolean(kept) && kept.kept === 1);
+  const readBack = await browser.aPageAsked({ do: 'the-campaigns', reportId: 'fk_ads_daily', dataDate: '2026-09-13' });
+  check('and read back for the same report and day',
+    Boolean(readBack) && JSON.stringify(readBack.campaigns) === '["0PTESTCAMP001"]');
+  const unknown = await browser.aPageAsked({ do: 'the-campaigns', reportId: 'fk_ads_daily', dataDate: '2026-09-12' });
+  check('a day nothing was kept for is not known, rather than none ran',
+    Boolean(unknown) && unknown.campaigns === null);
+  const noneRan = await browser.aPageAsked({
+    do: 'keep-the-campaigns', reportId: 'fk_ads_daily', dataDate: '2026-09-11', campaigns: [],
+  });
+  const noneRead = await browser.aPageAsked({ do: 'the-campaigns', reportId: 'fk_ads_daily', dataDate: '2026-09-11' });
+  check('while a day no campaign ran is kept as none',
+    Boolean(noneRan) && noneRan.kept === 0 && Array.isArray(noneRead.campaigns) && noneRead.campaigns.length === 0);
+  const notAnId = await browser.aPageAsked({
+    do: 'keep-the-campaigns', reportId: 'fk_ads_daily', dataDate: '2026-09-10', campaigns: ['0P5"><b>'],
+  });
+  const afterNotAnId = await browser.aPageAsked({ do: 'the-campaigns', reportId: 'fk_ads_daily', dataDate: '2026-09-10' });
+  check('something that is not a campaign id is refused, and nothing is kept',
+    Boolean(notAnId) && Boolean(notAnId.wrong) && afterNotAnId.campaigns === null);
+
   /* ---------- WHAT CROSSES THIS BOUNDARY IS ASKED SOMETHING (A33)
    *
    * **THIS IS THE ONE PLACE A NAME CROSSES FROM THE HALF THAT RUNS BESIDE THE
@@ -478,6 +694,59 @@ const LATER = '2026-08-27T16:04:00.000Z';
       Boolean(no) && typeof no.wrong === 'string' && no.wrong.length > 0 && !no.put);
   }
   check('and not one of them reached the Drive at all', putAway.length === asManyAsHadLanded);
+
+  /* **AND THE SECOND NAME THIS PRODUCT WRITES IS LET THROUGH -- FOR ITS OWN
+   * REPORT AND NO OTHER.** A running list is one file added to every day, so its
+   * name carries no day at all (`reports.a_running_list`). **This guard was the
+   * fifth place assuming every name has a day in it**, and it was found on his
+   * own panel with the walk otherwise finished: the figures read, the row built,
+   * refused here.
+   *
+   * **THE UNDATED SHAPE IS NARROWER THAN THE DATED ONE, WHICH IS THE WHOLE
+   * SAFETY OF IT.** The report id in the name has to be the very report the
+   * message is about, so there is exactly one undated name per report and it is
+   * fixed. The dated form has never asked that. */
+  check("a running list's own undated name is allowed",
+    whyTheseAreNotNames('me_views', 'meesho_me_views.csv') === null);
+  check('but the same shape naming a DIFFERENT report is refused',
+    typeof whyTheseAreNotNames('me_views', 'meesho_me_orders.csv') === 'string');
+  check('and an undated name is still refused a path, however it is dressed up',
+    typeof whyTheseAreNotNames('me_views', '../meesho_me_views.csv') === 'string');
+  /* **AND NOTHING ABOUT THE DATED FORM MOVED.** Everything above still refuses,
+   * and a real day is still required in the names that carry one. */
+  check('while the dated name this product writes is still let through',
+    whyTheseAreNotNames('me_orders', 'meesho_me_orders_2026-09-05.csv') === null);
+  check('and a day that is the right shape and not a day is still refused',
+    typeof whyTheseAreNotNames('me_orders', 'meesho_me_orders_2026-02-31.csv') === 'string');
+
+  /* **THE THIRD NAME: ONE FILE PER CAMPAIGN, THE DAY NO LONGER LAST.** When
+   * more than one campaign ran, the walk puts the campaign id after the day
+   * (`walk.theCampaignsFileName`, the reference's own rule). The guard refused
+   * exactly that name on the 2026-09-21 run, so no day with live ads was saved.
+   * The name below is built by the walk's own function, not typed out. */
+  const perCampaign = theCampaignsFileName('flipkart_fk_ads_overall_2026-09-20.csv', '0PTESTCAMP001', 2);
+  check('a per-campaign ads file, named the way the walk names it, is allowed',
+    whyTheseAreNotNames('fk_ads_overall', perCampaign) === null);
+  check('but the same shape for a report not fetched per campaign is refused',
+    typeof whyTheseAreNotNames('me_orders', 'meesho_me_orders_2026-09-20_0PTESTCAMP001.csv') === 'string');
+  check('and the same shape naming a DIFFERENT report is refused',
+    typeof whyTheseAreNotNames('fk_ads_overall', 'flipkart_fk_ads_daily_2026-09-20_0PTESTCAMP001.csv') === 'string');
+  check('and a per-campaign name on a day that is not a day is refused',
+    typeof whyTheseAreNotNames('fk_ads_overall', 'flipkart_fk_ads_overall_2026-02-31_0PTESTCAMP001.csv') === 'string');
+  for (const [what, name] of [
+    ['a path climbing out', 'flipkart_fk_ads_overall_2026-09-20_../x.csv'],
+    ['a slash', 'flipkart_fk_ads_overall_2026-09-20_a/b.csv'],
+    ['a quote', 'flipkart_fk_ads_overall_2026-09-20_a".csv'],
+    ['a dot in the campaign', 'flipkart_fk_ads_overall_2026-09-20_a.b.csv'],
+    ['an empty campaign', 'flipkart_fk_ads_overall_2026-09-20_.csv'],
+  ]) {
+    check(`a per-campaign name with ${what} is refused`,
+      typeof whyTheseAreNotNames('fk_ads_overall', name) === 'string');
+  }
+  const fetchedPerCampaign = Object.entries(JSON.parse(readFileSync(new URL('./recipes.json', import.meta.url), 'utf8')).recipes)
+    .filter(([, recipe]) => recipe && recipe.campaignsFrom).map(([id]) => id).sort();
+  check('and the reports allowed that name are exactly the ones recipes.json fetches per campaign',
+    JSON.stringify([...NAMED_PER_CAMPAIGN].sort()) === JSON.stringify(fetchedPerCampaign));
 
   /* **AND A FILE TOO BIG TO CARRY IS REFUSED HERE TOO.** The bytes cross as one
    * number and one comma each, so a 40 MB catch is about 160 MB of message.
@@ -570,6 +839,18 @@ const LATER = '2026-08-27T16:04:00.000Z';
     postMessage: (data, to) => posted.push({ data, to }),
   };
   globalThis.URL = { createObjectURL: () => 'blob:https://supplier.meesho.com/abc' };
+  /* **THE OTHER TWO WAYS A FILE LEAVES A PORTAL, given to the stand-in so they
+   * can be driven.** Meesho's stock file goes out through neither a blob nor a
+   * download: an `<a target="_blank">` to a signed Google storage link, which
+   * Chrome refuses to open because no person asked for it. */
+  const opened = [];
+  const followed = [];
+  globalThis.window.open = (address) => { opened.push(address); return 'a-real-window'; };
+  globalThis.HTMLAnchorElement = function () {};
+  globalThis.HTMLAnchorElement.prototype = { click() { followed.push(this.href); } };
+  const anAnchorTo = (href) => Object.assign(
+    Object.create(globalThis.HTMLAnchorElement.prototype), { href }
+  );
 
   await armTheCatcher(browser.chrome, { tabId: tab.id, secret: 'the-secret' });
   const put = browser.putIntoPages();
@@ -624,6 +905,64 @@ const LATER = '2026-08-27T16:04:00.000Z';
   check('and it is addressed to this page and nowhere else',
     posted[0].to === 'https://supplier.meesho.com');
   check('and it says what it is', posted[0].data.kartaan === CAUGHT);
+
+  /* ---- AND THE LINK A PORTAL OPENS RATHER THAN BUILDS (2026-09-11)
+   *
+   * **MEASURED ON HIS OWN SIGNED-IN MEESHO PANEL, four walks and two hand
+   * clicks.** Pressing Download on Bulk Stock Update builds an `<a>` whose
+   * `href` is an 884-character signed `storage.googleapis.com` link and whose
+   * `target` is `_blank`. **Chrome refuses a new tab that no person asked for**,
+   * so nothing downloaded, nothing said why, and the walk waited out its whole
+   * patience. Clicked with a real mouse it downloads in seconds -- into the
+   * seller's DOWNLOADS FOLDER, which is where a report must never go.
+   *
+   * **SO THE CLICK IS SUPPRESSED AND THE ADDRESS IS TAKEN.** Nothing downloads,
+   * so there is no Save-as window to race and nothing to cancel. */
+  await armTheCatcher(browser.chrome, { tabId: tab.id, secret: 'for-the-link' });
+  const theRealOne = anAnchorTo(
+    'https://storage.googleapis.com/meesho-prod/Inventory-Update-File.xlsx?X-Goog-Signature=ab'
+  );
+  theRealOne.click();
+  check('A LINK TO WHERE A REPORT REALLY COMES FROM IS TAKEN, not followed',
+    posted.length === 2 && followed.length === 0);
+  check('and what crosses is the address, under this file’s own secret',
+    posted[1].data.address === theRealOne.href && posted[1].data.secret === 'for-the-link'
+      && posted[1].data.kartaan === CAUGHT);
+  check('and the address is addressed to this page and nowhere else',
+    posted[1].to === 'https://supplier.meesho.com');
+
+  /* **AND THE SELLER’S OWN PAGE IS LEFT ALONE.** While this sits in the page
+   * he may still be using it, and an extension that breaks his own links is
+   * worse than one that fetches nothing. */
+  await armTheCatcher(browser.chrome, { tabId: tab.id, secret: 'for-an-ordinary-link' });
+  const anOrdinaryLink = anAnchorTo('https://supplier.meesho.com/panel/v3/new/payouts/x');
+  anOrdinaryLink.click();
+  check('while an ordinary link on the portal is followed exactly as before',
+    followed.length === 1 && followed[0] === anOrdinaryLink.href && posted.length === 2);
+
+  /* **AND A PORTAL THAT OPENS ITS FILE RATHER THAN LINKING IT IS CAUGHT TOO**,
+   * which is the other patch the working reference carries
+   * (`content/intercept.js:262-268`). */
+  const throughAWindow = 'https://storage.googleapis.com/meesho-prod/other.xlsx?X-Goog-Signature=cd';
+  const answered = globalThis.window.open(throughAWindow);
+  check('a file opened in a window is taken, and no window is opened',
+    posted.length === 3 && posted[2].data.address === throughAWindow
+      && opened.length === 0 && answered === null);
+  check('and it went under the secret that was still waiting',
+    posted[2].data.secret === 'for-an-ordinary-link');
+
+  /* **AND NOTHING IS SUPPRESSED WHEN NOTHING IS ARMED.** Spent on that one, the
+   * page is an ordinary page again. */
+  const afterwards = anAnchorTo(
+    'https://storage.googleapis.com/meesho-prod/third.xlsx?X-Goog-Signature=ef'
+  );
+  afterwards.click();
+  globalThis.window.open('https://storage.googleapis.com/meesho-prod/fourth.xlsx?X-Goog-Sig=gh');
+  check('with nothing armed, a link is followed and a window is opened as always',
+    posted.length === 3 && followed.length === 2 && opened.length === 1);
+
+  await armTheCatcher(browser.chrome, { tabId: tab.id, secret: 'the-secret' });
+  posted.length = 0;
 
   /* **ONCE, AND ONCE ONLY.** Armed for one file; a second is not ours. */
   globalThis.URL.createObjectURL({
@@ -806,6 +1145,21 @@ const LATER = '2026-08-27T16:04:00.000Z';
     source.includes(`'${CAUGHT}'`));
   check('and the size it will not carry, inside itself',
     source.includes('40 * 1024 * 1024') && TOO_BIG === 40 * 1024 * 1024);
+  /* **AND WHERE A REPORT REALLY COMES FROM, WHICH IS NOW WRITTEN IN TWO
+   * PLACES.** The copy in the injected function decides what is SUPPRESSED on
+   * the page; `driver.aFileReallyComesFrom` decides what is BELIEVED. **Drifted
+   * apart, the page would suppress a click and the other half would then refuse
+   * the address it handed over** -- a report that simply never arrives, with
+   * both halves behaving exactly as written. */
+  check('and where a report really comes from, inside itself, every one of them',
+    WHERE_A_FILE_REALLY_COMES_FROM.every((one) => source.includes(`'${one}'`)));
+  check('and it carries no address the other half would refuse',
+    (source.match(/'[a-z0-9.\-]+\.(com|in)'|'download[a-z]+'/g) || [])
+      .every((one) => WHERE_A_FILE_REALLY_COMES_FROM.includes(one.slice(1, -1))));
+  /* **AND BOTH HALVES INSIST ON A SECURE CONNECTION.** A report fetched over
+   * `http:` can be replaced in flight by anything between here and there. */
+  check('and both halves refuse a plain connection',
+    source.includes("'https://'") && !aFileReallyComesFrom('http://storage.googleapis.com/x'));
   /* **AND NOTHING IN IT BROADCASTS.** The finding was one character wide. */
   check('and nothing in it posts to anything but this page',
     !/postMessage\([^)]*,\s*['\"]\*['\"]/.test(source));
@@ -824,6 +1178,230 @@ const LATER = '2026-08-27T16:04:00.000Z';
     source.includes('file: thing') && theOtherHalf.includes('answer.file.arrayBuffer()'));
   check('and the other half never goes back to reading the handle it was given back',
     !theOtherHalf.includes('answer.handle'));
+
+  /* ---- EVERYTHING `content.js` BORROWS IS ACTUALLY GIVEN TO IT (2026-09-11)
+   *
+   * **`looksLikeAPage` WAS DECLARED THERE AND NEVER ASSIGNED**, and nothing
+   * anywhere said so. It is the guard that stops a portal's sign-in page being
+   * put in the seller's Drive as that day's report -- so the one moment it
+   * mattered would have been a bare "looksLikeAPage is not a function" instead
+   * of the refusal. **Found by a real report failing on his own panel**, not by
+   * any check, because that file has none by design.
+   *
+   * **SO THE CHECK LIVES HERE AND READS THAT FILE.** Every name it declares to
+   * borrow must be taken out of one of the two modules it imports. */
+  const borrows = [...theOtherHalf.matchAll(/^ {2}let ([A-Za-z_$][\w$]*);$/gm)]
+    .map((one) => one[1]);
+  /* **THE COMMENTS COME OUT BEFORE THE COMMAS ARE COUNTED.** A sentence inside
+   * the list has commas of its own, and split on those it reads as half a dozen
+   * names nobody imports -- which reddens this check for the wrong reason. */
+  const takenOut = [...theOtherHalf.matchAll(/\(\{([^}]*)\} = await import/g)]
+    .flatMap((one) => one[1].replace(/\/\*[\s\S]*?\*\//g, '').split(',')
+      .map((word) => word.trim())
+      .filter(Boolean));
+  check('there are names to check that the other half borrows at all',
+    borrows.length >= 8);
+  check('EVERY NAME content.js BORROWS IS REALLY TAKEN OUT OF A MODULE',
+    borrows.filter((one) => one !== 'book').every((one) => takenOut.includes(one)));
+  /* **AND THE ONE THAT WAS MISSING IS NAMED, so this cannot go green by the
+   * pattern above quietly matching nothing.** */
+  check('and the guard against a sign-in page being saved as a report is one of them',
+    borrows.includes('looksLikeAPage') && takenOut.includes('looksLikeAPage'));
+}
+
+{
+  /* **RUMEE'S WAY, HIS DECISION OF 2026-09-14: ONE CATCHER, IN THE PAGE BEFORE
+   * THE PAGE, SWITCHED ON BY A FRESH SECRET PER FILE.**
+   *
+   * **WHY.** His ads Search Term Report would not land. The catcher used to be
+   * put into the page only at the moment of arming -- after Flipkart's own code
+   * had loaded, and code that took its own copy of `URL.createObjectURL` when it
+   * loaded never calls a catcher installed later. The page then clicked an
+   * anchor whose address was `blob:`, nothing stopped it, and Chrome downloaded
+   * a file nobody could fetch a second time.
+   *
+   * **DRIVEN THE WAY CHROME DRIVES IT:** the generated `catch-early.js` runs
+   * first with no secret, exactly as a `document_start` content script does,
+   * and the background then arms it the way it always has. */
+  const browser = installFakeChrome();
+  const tab = await browser.chrome.tabs.create({ url: 'https://seller.flipkart.com/' });
+  const posted = [];
+  const followed = [];
+  /* Read before `URL` is borrowed below -- the stand-in has no constructor. */
+  const theEarlySource = readFileSync(new URL('./catch-early.js', import.meta.url), 'utf8');
+  const itsOwnURL = globalThis.URL;
+  const itsOwnAnchor = globalThis.HTMLAnchorElement;
+  globalThis.window = {
+    location: { origin: 'https://seller.flipkart.com' },
+    postMessage: (data, to) => posted.push({ data, to }),
+  };
+  let handlesMade = 0;
+  globalThis.URL = {
+    createObjectURL: () => {
+      handlesMade += 1;
+      return `blob:https://seller.flipkart.com/h${handlesMade}`;
+    },
+  };
+  globalThis.HTMLAnchorElement = function () {};
+  globalThis.HTMLAnchorElement.prototype = { click() { followed.push(this.href); } };
+  const anAnchorTo = (href) => Object.assign(
+    Object.create(globalThis.HTMLAnchorElement.prototype), { href }
+  );
+  const theReportBytes = new Blob([new Uint8Array([4, 4, 4, 4, 4, 4, 4, 4])]);
+  globalThis.window.fetch = async (address) => ({
+    blob: async () => (String(address).startsWith('blob:') ? theReportBytes : null),
+  });
+
+  // eslint-disable-next-line no-new-func
+  new Function(theEarlySource)();
+  const theWayIn = Object.getOwnPropertyDescriptor(globalThis.window, '__kartaanArmTheCatcher');
+  check('THE EARLY CATCHER LOCKS ITS ONE WAY IN AS IT LOADS',
+    !!theWayIn && theWayIn.writable === false && theWayIn.configurable === false);
+  const theCatcherFromTheStart = globalThis.URL.createObjectURL;
+
+  globalThis.URL.createObjectURL({
+    size: 2048, type: '', arrayBuffer: async () => new ArrayBuffer(2048),
+  });
+  anAnchorTo('blob:https://seller.flipkart.com/before-anything-is-armed').click();
+  check('and loaded switched off, it catches nothing and stops nothing',
+    posted.length === 0 && followed.length === 1);
+
+  await armTheCatcher(browser.chrome, { tabId: tab.id, secret: 'the-flipkart-secret' });
+  check('arming a page that already has it switches it on, and puts no second catcher in',
+    globalThis.URL.createObjectURL === theCatcherFromTheStart);
+
+  anAnchorTo('blob:https://seller.flipkart.com/the-report').click();
+  await new Promise((done) => setTimeout(done, 10));
+  check('A blob: DOWNLOAD WHILE ARMED IS STOPPED, NOT HANDED TO CHROME',
+    followed.length === 1);
+  check('and the file it points to is handed over, under the secret',
+    posted.length === 1 && posted[0].data.file === theReportBytes
+      && posted[0].data.secret === 'the-flipkart-secret');
+  check('and it is addressed to this page and nowhere else',
+    posted.length === 1 && posted[0].to === 'https://seller.flipkart.com');
+
+  anAnchorTo('blob:https://seller.flipkart.com/afterwards').click();
+  check('and once spent, the next one is left to the browser exactly as before',
+    followed.length === 2 && posted.length === 1);
+
+  /* **HIS CLAIMS REPORT, 2026-09-14: CAUGHT AS IT IS BUILT, THEN CLICKED.** The
+   * page makes the handle and then clicks an in-page link to it. Let through,
+   * Chrome starts a download whose answer beats the caught file to the walk. */
+  await armTheCatcher(browser.chrome, { tabId: tab.id, secret: 'the-claims-secret' });
+  const theClaimsFile = {
+    size: 23462, type: 'application/octet-stream', arrayBuffer: async () => new ArrayBuffer(23462),
+  };
+  const theClaimsHandle = globalThis.URL.createObjectURL(theClaimsFile);
+  anAnchorTo(theClaimsHandle).click();
+  check('A FILE CAUGHT AS IT IS BUILT IS NOT ALSO DOWNLOADED WHEN THE PAGE CLICKS ITS HANDLE',
+    followed.length === 2 && posted.length === 2 && posted[1].data.file === theClaimsFile
+      && posted[1].data.secret === 'the-claims-secret');
+  anAnchorTo(theClaimsHandle).click();
+  anAnchorTo('blob:https://seller.flipkart.com/the-sellers-own').click();
+  check('and only that one handle, once: every click after it is left to the browser',
+    followed.length === 4 && posted.length === 2);
+
+  const whatAPageCanRead = (fn) => Reflect.ownKeys(fn).map((key) => {
+    try {
+      return fn[key];
+    } catch (cannot) {
+      return null;
+    }
+  });
+  check('and nothing a page can read off the way in or the catcher carries the secret',
+    ![...whatAPageCanRead(theWayIn.value), ...whatAPageCanRead(theCatcherFromTheStart)]
+      .includes('the-flipkart-secret'));
+
+  globalThis.window = undefined;
+  globalThis.URL = itsOwnURL;
+  globalThis.HTMLAnchorElement = itsOwnAnchor;
+}
+
+{
+  /* **A WAY IN THE PAGE COULD STILL REPLACE IS NOT OURS, AND IS NEVER HANDED
+   * THE SECRET.** On a tab opened before the extension was reloaded there is no
+   * early catcher, and a hostile script could have put a function of its own at
+   * the same name to be called with the real secret. Unlocked, it is ignored and
+   * a fresh catcher is installed as it always was. */
+  const browser = installFakeChrome();
+  const tab = await browser.chrome.tabs.create({ url: 'https://seller.flipkart.com/' });
+  const itsOwnURL = globalThis.URL;
+  const stolen = [];
+  globalThis.window = {
+    location: { origin: 'https://seller.flipkart.com' },
+    postMessage: () => {},
+  };
+  globalThis.URL = { createObjectURL: () => 'blob:https://seller.flipkart.com/x' };
+  globalThis.window.__kartaanArmTheCatcher = (secret) => stolen.push(secret);
+  await armTheCatcher(browser.chrome, { tabId: tab.id, secret: 'must-not-leak' });
+  check('A WAY IN THE PAGE COULD STILL REPLACE IS NEVER HANDED THE SECRET',
+    stolen.length === 0);
+  globalThis.window = undefined;
+  globalThis.URL = itsOwnURL;
+}
+
+{
+  /* **A LINK THAT IS NOT ON THE LIST, IN THE PAGE (HIS RULING, 2026-09-14).**
+   * Flipkart's listing file came out of `window.open` on an address nobody had
+   * listed, Chrome refused the pop-up, and the failure never named it. Now: a new
+   * window on the page's own site is taken for the other half to prove; an
+   * ordinary in-page link is left alone; a window on another site is let go and
+   * SAID, with no secret, so a failure can name it. */
+  const browser = installFakeChrome();
+  const tab = await browser.chrome.tabs.create({ url: 'https://seller.flipkart.com/' });
+  const posted = [];
+  const followed = [];
+  const opened = [];
+  const itsOwnAnchor = globalThis.HTMLAnchorElement;
+  const itsOwnCreate = URL.createObjectURL;
+  globalThis.window = {
+    location: {
+      origin: 'https://seller.flipkart.com',
+      href: 'https://seller.flipkart.com/index.html#dashboard/listings-management',
+      pathname: '/index.html',
+    },
+    postMessage: (data, to) => posted.push({ data, to }),
+    open: (address) => { opened.push(address); return {}; },
+  };
+  globalThis.HTMLAnchorElement = function () {};
+  globalThis.HTMLAnchorElement.prototype = { click() { followed.push(this.href); } };
+  const anAnchor = (href, target) => Object.assign(
+    Object.create(globalThis.HTMLAnchorElement.prototype), { href, target }
+  );
+
+  await armTheCatcher(browser.chrome, { tabId: tab.id, secret: 'the-listing-secret' });
+  const theListing = 'https://seller.flipkart.com/napi/listing/stockFileDownloadV2?fileName=S_listing.xls';
+  const whatOpenSaid = globalThis.window.open(theListing, '_blank');
+  check('A NEW WINDOW ON THE PLATFORM\'S OWN SITE, NOT ON THE LIST, IS TAKEN RATHER THAN OPENED',
+    whatOpenSaid === null && opened.length === 0 && posted.length === 1
+      && posted[0].data.address === theListing && posted[0].data.secret === 'the-listing-secret');
+
+  await armTheCatcher(browser.chrome, { tabId: tab.id, secret: 'the-next-secret' });
+  anAnchor('https://seller.flipkart.com/index.html#dashboard/orders').click();
+  check('while an ordinary link on the same site, in the same page, is followed and not taken',
+    followed.length === 1 && posted.length === 1);
+
+  const elsewhere = 'https://files.example.com/report.xls?token=abc';
+  globalThis.window.open(elsewhere, '_blank');
+  check('AND A WINDOW ON ANOTHER SITE IS LET GO -- AND SAID, SO A FAILURE CAN NAME IT',
+    opened.length === 1 && posted.length === 2 && posted[1].data.kartaan === DECLINED_A_LINK
+      && posted[1].data.address === elsewhere);
+  check('and what it says carries no secret, so nothing can be forged from it',
+    posted[1].data.secret === undefined);
+
+  globalThis.window = undefined;
+  globalThis.HTMLAnchorElement = itsOwnAnchor;
+  URL.createObjectURL = itsOwnCreate;
+}
+
+{
+  /* **ONE RECORD OF THE CATCHER, NOT TWO.** The early file is written from
+   * `catchTheNextFile`'s own source; edited by hand, or left behind after the
+   * function changed, the page would catch by one rule and the background arm
+   * by another. */
+  const { whatTheEarlyFileHolds } = await import('../tools/write_catch_early.mjs');
+  check('the early catcher on disk is exactly what its own source writes',
+    readFileSync(new URL('./catch-early.js', import.meta.url), 'utf8') === whatTheEarlyFileHolds());
 }
 
 {
@@ -835,13 +1413,34 @@ const LATER = '2026-08-27T16:04:00.000Z';
     !manifest.permissions.includes('tabs'));
   check('and it asks for what putting the catcher into a page needs',
     manifest.permissions.includes('scripting'));
-  /* **AND THE CATCHER IS NO LONGER SITTING ON EVERY PORTAL PAGE.** */
+  /* **THE CATCHER'S OWN MODULE IS STILL NOT A CONTENT SCRIPT -- BUT ITS
+   * GENERATED EARLY COPY IS, ON FLIPKART, AND THAT IS HIS DECISION OF
+   * 2026-09-14.** His ads Search Term Report would not land: a catcher put in
+   * only at the moment of arming comes after Flipkart's own code has loaded, and
+   * code that took its own copy of `URL.createObjectURL` never calls it. He asked
+   * which way has the higher success rate, was told it is the working
+   * reference's -- a content script in the page's own world at `document_start`
+   * -- and what that costs (D135 took exactly that away), and chose it.
+   *
+   * **SO THESE SAY WHAT IS NOW TRUE, NARROWLY.** One early catcher, on Flipkart
+   * only, switched off until armed; nothing on Meesho, whose seven reports all
+   * land without it; and nothing else at all in the page's own world. */
   const inPages = (manifest.content_scripts || []).flatMap((one) => one.js || []);
-  check('the catcher is not loaded on every portal page any more',
+  check('the catcher\u2019s own module is not loaded on any portal page',
     !inPages.includes('catch-blob.js'));
   check('and the page half still is', inPages.includes('content.js'));
+  const theEarlyOnes = (manifest.content_scripts || [])
+    .filter((one) => (one.js || []).includes('catch-early.js'));
+  check('THE EARLY CATCHER RUNS IN THE PAGE\u2019S OWN WORLD BEFORE THE PAGE DOES, ON FLIPKART',
+    theEarlyOnes.length === 1 && theEarlyOnes[0].world === 'MAIN'
+      && theEarlyOnes[0].run_at === 'document_start'
+      && (theEarlyOnes[0].matches || []).length === 1
+      && theEarlyOnes[0].matches[0] === 'https://seller.flipkart.com/*');
+  check('and not on Meesho, whose reports all land without it',
+    !theEarlyOnes.some((one) => (one.matches || []).some((m) => m.includes('meesho'))));
   check('and nothing else runs in the page\u2019s own world by default',
-    !(manifest.content_scripts || []).some((one) => one.world === 'MAIN'));
+    (manifest.content_scripts || []).filter((one) => one.world === 'MAIN')
+      .every((one) => (one.js || []).join() === 'catch-early.js'));
 
   /* **THE REPORT DOES NOT LIVE ON THE PORTAL'S OWN HOST, AND NOTHING ASKED THIS
    * UNTIL A25R.** Meesho hands its stock file over as a plain cross-origin
@@ -1213,8 +1812,8 @@ const LATER = '2026-08-27T16:04:00.000Z';
 
   check('starting a walk opens a window of our own rather than using the seller own',
     browser.windows().length === 1
-    && (!WALK_IN_HIS_OWN_WINDOW || browser.windows()[0].focused === false)
-    && browser.windows()[0].state === 'normal');
+    && (!WALK_IN_HIS_OWN_WINDOW || browser.windows()[0].focused === true)
+    && browser.windows()[0].state === 'maximized');
   check('and the walk was written down before that window went anywhere near the portal',
     browser.stored()[THE_WALK].reportId === 'me_catalog'
     && browser.stored()[THE_WALK].at === 0);
@@ -1254,6 +1853,31 @@ const LATER = '2026-08-27T16:04:00.000Z';
   });
   check('the walk is already written down at the moment the tab is sent at the portal',
     writtenWhenItWentToThePortal === 'me_catalog');
+}
+
+{
+  /* **A53: A SLOW FIRST LOAD IS NOT "COULD NOT BE STARTED" WHEN A PAGE ALREADY HAS
+   * THE WALK.** His `fk_claims` was written off at 60 s while its walk went on and
+   * put the file in Drive. */
+  const browser = installFakeChrome();
+  const slow = () => ({
+    reportId: 'fk_claims',
+    dataDate: '2026-09-14',
+    openAt: 'https://seller.flipkart.com/index.html#dashboard/payments/spf',
+    go: async ({ storage }, { tabId }) => {
+      const held = (await storage.local.get(THE_WALK))[THE_WALK];
+      if (pickedUp) await storage.local.set({ [THE_WALK]: { ...held, tabId, pickedUpFrom: 0 } });
+      throw new Error('The page had not finished drawing after 60 seconds.');
+    },
+  });
+  let pickedUp = true;
+  const kept = await said(() => startAWalk(browser.chrome, slow()));
+  check('a walk a page already picked up is not failed for a slow first load', kept === '');
+  pickedUp = false;
+  await browser.chrome.storage.local.remove(THE_WALK);
+  const lost = await said(() => startAWalk(browser.chrome, slow()));
+  check('while one no page picked up still fails, in the load\'s own words',
+    lost.includes('had not finished drawing'));
 }
 
 {
@@ -1492,11 +2116,12 @@ const LATER = '2026-08-27T16:04:00.000Z';
   check('the relay is answered two questions while it is on, and none while it is off',
     theRelayAllows(true, { do: 'run-now' }) === true
     && theRelayAllows(true, { do: 'how-it-stands' }) === true
+    && theRelayAllows(true, { do: 'reload-the-extension' }) === true
     && theRelayAllows(true, { do: 'connect-the-drive' }) === false
     && theRelayAllows(false, { do: 'run-now' }) === false);
 }
 
-const EXPECTED = 174;
+const EXPECTED = 245;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

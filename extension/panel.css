@@ -312,3 +312,12 @@ body {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+/* One heading per platform in the report list, with its own tick-all (A53). */
+.p-platform-group {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 16px 0 6px;
+}

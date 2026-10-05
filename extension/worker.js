@@ -13,14 +13,21 @@
  */
 
 import {
-  THE_PANEL, THE_WALK, aFreshSecret, answerThePage, answerThePanel, setTheHour, startAWalk,
-  whyThatIsNotATimeOfDay, wireUp,
+  DAILY, THE_PANEL, THE_WALK, aFreshSecret, answerThePage, answerThePanel, setTheHour, startAWalk,
+  theHourItRuns, whyThatIsNotATimeOfDay, wireUp,
 } from './background.js';
-import { carryTheNightOn, howTheNightWent, startTheNight, theNight } from './nightly.js';
-import { goTo, takeTheFile, watchForDownloads } from './doors.js';
-import { aDriveToken, aWayOfAsking, landTheFile, theKartaanFolder } from './drive.js';
 import {
-  THE_PANEL_ASKS, answerThePanelsQuestion, rememberTheNight, theSetup,
+  RECHECK_ALARM, carryTheNightOn, clearNamedNeedsYouEntries, howTheNightWent, setTheRecheckClock,
+  startTheNight, theNight, theRecheckSync, theRunLog, whatIsBeingRechecked, whatIsPaused,
+  whatNeedsYou,
+} from './nightly.js';
+import { goTo, routeInThePage, takeTheFile, watchForDownloads } from './doors.js';
+import {
+  aDriveToken, aWayOfAsking, addARowTo, landTheFile, theKartaanFolder,
+} from './drive.js';
+import {
+  THE_PANEL_ASKS, alreadyCarriedOn, answerThePanelsQuestion, markCarriedOn, rememberTheNight,
+  startASync, startTheNextPlatform, startTheScheduledSync, theSetup, theSignInAlert, theSyncSummary,
 } from './screen.js';
 
 /* **THE CLOCK IS SET ON THE WAY PAST, EVERY TIME THIS WAKES.** Google's own
@@ -67,8 +74,82 @@ const carryOn = async () => {
    * that finished while nobody was looking would leave no trace at all, and the
    * panel could never say which platforms have run and which never have. This is
    * the only thing that runs after every night whether or not anybody is
-   * watching. */
+   * watching. This filing is for the LEDGER (Flipkart's daily count) and is
+   * meant to be called by anybody, any number of times -- `howItStands` also
+   * calls it, on every panel poll. */
   await rememberTheNight(chrome, { book: theBook });
+  /* **AND ITS LOG GOES TO THE SELLER'S DRIVE, ONCE -- ON ITS OWN "ONCE",
+   * NEVER THE LEDGER'S (A53; Job 7, A64, 2026-09-23).** The ledger's "filed"
+   * flag above can be spent by a panel poll that wins the race against this
+   * very call, which used to leave this whole block silently skipped -- no
+   * log, no end-of-sync notice, no next platform. `alreadyCarriedOn` is set by
+   * nothing but this function, so the panel being open can never swallow it. A
+   * Drive that refuses is said in the console and stops nothing. */
+  const doneNight = await theNight(chrome);
+  if (!(await alreadyCarriedOn(chrome, doneNight))) {
+    await markCarriedOn(chrome, doneNight);
+    const log = theRunLog(doneNight);
+    try {
+      if (log) {
+        await putOneFileAway({
+          reportId: log.reportId, fileName: log.fileName, body: new TextEncoder().encode(log.text),
+        });
+      }
+    } catch (wrong) {
+      console.warn('Kartaan Auto-sync: the run log could not be put in Drive.', wrong);
+    }
+    /* **AND ANY REPORT NOT READY YET IS CHECKED AGAIN IN AN HOUR (A53).** */
+    await setTheRecheckClock(chrome);
+    /* **A SYNC PAUSED FOR A SIGN-IN SAYS SO WHERE HE WILL SEE IT (A53, his ruling;
+     * Rumee's "Login Required" notification).** It stays until he acts on it. */
+    const paused = await whatIsPaused(chrome);
+    const ended = await theNight(chrome);
+    if (paused && ended && paused.at === ended.finishedAt) {
+      const alert = theSignInAlert(await theBook(), paused);
+      if (alert && chrome.notifications) {
+        chrome.notifications.create(`kartaan-sign-in-${paused.at}`, {
+          type: 'basic', iconUrl: chrome.runtime.getURL(THE_ICON), title: alert.title,
+          message: alert.message, requireInteraction: true, priority: 2,
+        }, () => {
+          if (chrome.runtime.lastError) {
+            console.warn('Kartaan Auto-sync: Chrome refused the sign-in notification.',
+              chrome.runtime.lastError.message);
+          }
+        });
+      }
+      /* **AND THE PANEL IS PUT IN FRONT OF HIM, WHICH IS THE PART THAT CANNOT BE
+       * SILENCED.** His ruling: the alert must "grab the user's attention". A
+       * notification is at the mercy of Windows -- switched off for Chrome, or
+       * held back by Focus Assist -- and a sync that is waiting for a person is
+       * waiting for ever if that person is never told. The panel says it in full,
+       * with the Resume button, and a window is a thing nobody can miss. */
+      await showThePanel();
+    }
+    /* **AND EVERY FINISHED SYNC SAYS HOW IT WENT -- RUMEE'S "SYNC COMPLETE" (A53).**
+     * A sync stopped for a sign-in already has its own alert above. */
+    const summary = theSyncSummary(ended);
+    if (summary && chrome.notifications && !(paused && ended && paused.at === ended.finishedAt)) {
+      chrome.notifications.create(`kartaan-sync-${ended.startedAt}`, {
+        type: 'basic', iconUrl: chrome.runtime.getURL(THE_ICON), title: summary.title,
+        message: summary.message, priority: 1,
+      }, () => {
+        if (chrome.runtime.lastError) {
+          console.warn('Kartaan Auto-sync: Chrome refused the end-of-sync notification.',
+            chrome.runtime.lastError.message);
+        }
+      });
+    }
+    /* **THE NEXT PLATFORM OF THE SCHEDULED SYNC STARTS WHEN THIS ONE IS FILED.**
+     * When nothing is left to start, the scheduled sync has ended -- here. The
+     * server's "I am done" call belongs at this point and is A51's (Control's
+     * ruling); it is not built in this session. */
+    const next = await startTheNextPlatform(chrome, {
+      book: await theBook(), startTheNight, carryOn,
+    });
+    if (next.refused.length) {
+      console.warn('Kartaan Auto-sync: part of the scheduled sync could not start.', next.refused);
+    }
+  }
   return moved;
 };
 
@@ -113,6 +194,14 @@ self.startTheNight = async (how) => {
 };
 self.howTheNightWent = async () => howTheNightWent(await theNight(chrome));
 
+/* **CLEARING A NAMED "NEEDS YOU" ENTRY BY HAND, THE SAME KIND OF HANDLE AND FOR
+ * THE SAME REASON (Job 7, A64, 2026-09-23).** This is his record; the ordinary
+ * way off it is a later sync landing the day for real. `clearNamedNeedsYouEntries`
+ * refuses to touch anything not named, so this console handle can only ever
+ * clear exactly what he said yes to -- never "everything", never a whole report. */
+self.clearNamedNeedsYouEntries = async (entries) => clearNamedNeedsYouEntries(chrome, entries);
+self.whatNeedsYou = async () => whatNeedsYou(chrome);
+
 /* **AND THE ONE THING A PERSON HAS TO DO ONCE, AWAKE.** Every other ask for a
  * Drive token in this extension asks Chrome for the seller's permission QUIETLY,
  * because a night runs with nobody watching and an account-chooser at two in
@@ -149,13 +238,24 @@ self.connectTheDrive = async () => aDriveToken(chrome, { interactive: true });
  * permission to be had quietly this says the Drive is not connected and the
  * report fails, which is a sentence somebody can act on in the morning.
  *
- * **AND THE `Kartaan AutoSync` FOLDER IS FOUND OR MADE HERE, ONCE PER FILE.**
+ * **AND THE `Kartaan` FOLDER IS FOUND OR MADE HERE, ONCE PER FILE.**
  * Under `drive.file` this extension can only ever see files it made itself, so
  * there is nothing to keep and nothing anybody has to paste in. */
 const putOneFileAway = async ({ reportId, fileName, body }) => {
   const ask = aWayOfAsking(chrome, { fetch: (...args) => fetch(...args) });
-  const inside = await theKartaanFolder(chrome, ask);
-  return landTheFile(chrome, ask, { reportId, fileName, inside, body });
+  const layout = await theLayout();
+  const inside = await theKartaanFolder(chrome, ask, layout);
+  return landTheFile(chrome, ask, { reportId, fileName, inside, body, layout });
+};
+
+/* **AND THE OTHER WAY A DAY REACHES A DRIVE: one row added to a running list.**
+ * Same door, same folder, same quiet permission -- the only difference is that
+ * there is no file to fetch. Meesho sells no export of the day's views. */
+const addOneRow = async ({ reportId, fileName, header, row, forTheDay }) => {
+  const ask = aWayOfAsking(chrome, { fetch: (...args) => fetch(...args) });
+  const layout = await theLayout();
+  const inside = await theKartaanFolder(chrome, ask, layout);
+  return addARowTo(chrome, ask, { reportId, fileName, inside, header, row, forTheDay, layout });
 };
 
 /* **THE RECIPE BOOK, READ OUT OF THE EXTENSION'S OWN FILE.** The page half
@@ -175,6 +275,13 @@ const theBook = async () => {
   return bookInHand;
 };
 
+/* **HIS DRIVE LAYOUT, FROM THE SAME RECIPE FILE.** The folders a report's files go in
+ * are `autosync/layout.py`'s, so the run and this half cannot disagree about where. */
+const theLayout = async () => {
+  const book = await theBook();
+  return { kartaan: book.kartaan, folders: book.folders };
+};
+
 /* **THE TOOLBAR BUTTON, WHICH IS THE WHOLE OF HOW ANYBODY GETS IN.** With no
  * `default_popup` in the manifest, Chrome sends the press here instead of
  * opening one -- which is what makes this a PAGE rather than a popup, his
@@ -188,12 +295,34 @@ const theBook = async () => {
  * that has gone throws, and that is the ordinary case, so it falls back to
  * opening one. */
 const THE_PANEL_TAB = 'kartaan-autosync-panel-tab';
-chrome.action.onClicked.addListener(async () => {
+
+/* **A NOTIFICATION MUST CARRY A PICTURE, AND A REAL FILE IS THE ONLY KIND THAT
+ * WORKS (A53, 2026-09-16).** This was a one-pixel `data:` image, and when he
+ * signed out of Meesho on purpose to test the sign-in alert, NOTHING APPEARED --
+ * the sync paused correctly, wrote it all down correctly, and told him where he
+ * was not looking. Chrome refuses a notification without a word any program can
+ * read, so the picture is a file in the extension and the refusal is now logged.
+ * `tools/write_icon.mjs` writes it. */
+const THE_ICON = 'icon128.png';
+
+/* **PRESSING THE SIGN-IN NOTIFICATION OPENS THE PANEL (A53).** */
+if (chrome.notifications) {
+  chrome.notifications.onClicked.addListener(() => {
+    chrome.tabs.create({ url: chrome.runtime.getURL(THE_PANEL) });
+  });
+}
+/** Bring the panel up: the one it already has, or a new one. **Written once**,
+ *  because the toolbar button and a sync that stopped for a sign-in both need it
+ *  and two copies would drift. */
+async function showThePanel() {
   const held = await chrome.storage.session.get(THE_PANEL_TAB);
   const already = held[THE_PANEL_TAB];
   if (already !== undefined) {
     try {
-      await chrome.tabs.update(already, { active: true });
+      const up = await chrome.tabs.update(already, { active: true });
+      if (up && up.windowId !== undefined && chrome.windows) {
+        await chrome.windows.update(up.windowId, { focused: true });
+      }
       return;
     } catch (gone) {
       /* It was closed, or the browser restarted under it. Open a new one. */
@@ -201,7 +330,9 @@ chrome.action.onClicked.addListener(async () => {
   }
   const tab = await chrome.tabs.create({ url: chrome.runtime.getURL(THE_PANEL) });
   await chrome.storage.session.set({ [THE_PANEL_TAB]: tab.id });
-});
+}
+
+chrome.action.onClicked.addListener(showThePanel);
 
 wireUp(chrome, {
   carryOn,
@@ -225,13 +356,28 @@ wireUp(chrome, {
       watching,
       setTheHour,
       whyThatIsNotATimeOfDay,
+      /* **WHEN IT NEXT WAKES BY ITSELF (A53, 2026-09-16).** The hour as it was
+       * saved, and the moment Chrome's own clock will next fire -- the two
+       * together are what say whether anything will happen at all. */
+      theClock: async () => {
+        const chosen = await theHourItRuns(chrome);
+        const clock = await chrome.alarms.get(DAILY);
+        return {
+          chosen: chosen
+            ? `${String(chosen.hour).padStart(2, '0')}:${String(chosen.minute).padStart(2, '0')}`
+            : '',
+          nextAt: (clock && (clock.scheduledTime || clock.when)) || null,
+        };
+      },
     }, asked),
   }),
   answer: answerThePage(chrome, {
     carryOn,
     goTo,
+    routeInThePage,
     takeTheFile,
     landTheFile: putOneFileAway,
+    addARow: addOneRow,
     watching,
     /* Where a line said in the page ends up. **Written down rather than left as
      * an empty function** -- the run's own record is the next piece, and until
@@ -239,14 +385,29 @@ wireUp(chrome, {
     say: (line) => console.info('Kartaan Auto-sync:', line),
     secret: () => aFreshSecret(crypto),
   }),
+  /* **THE HOURLY RE-CHECK (A53, Rumee's way)**: a sync of the reports still not
+   * ready, for their day. A sync already going puts it off by fifteen minutes. */
+  onRecheck: async () => {
+    const plan = theRecheckSync(await whatIsBeingRechecked(chrome));
+    if (!plan) return;
+    const said = await startASync(chrome, { book: await theBook(), startTheNight, carryOn }, plan);
+    if (said && said.wrong) {
+      console.warn('Kartaan Auto-sync: the hourly re-check could not start yet.', said.wrong);
+      await chrome.alarms.create(RECHECK_ALARM, { delayInMinutes: 15 });
+    }
+  },
   onDue: async () => {
-    /* **THE NIGHT IS NOT STARTED BY THE CLOCK YET, AND THAT IS DELIBERATE.**
-     * Which reports a seller owes on a given night is the Python's decision, and
-     * nothing has brought that list across yet. Starting a night here would mean
-     * this file deciding it, which is exactly the split D107 exists to keep.
-     * **But a night already going is carried on**, so a run that began before
-     * midnight is not abandoned at it. */
-    console.warn('Kartaan Auto-sync: the daily alarm fired. Nothing decides tonight list yet.');
-    await carryOn();
+    /* **THE SCHEDULED SYNC STARTS HERE, AT THE SELLER'S SAVED TIME -- CONTROL'S
+     * RULING FOR A53 (`D:\Control\JOBS.md`, 2026-09-15).** D107 decides where a
+     * report's STEPS are decided (Python, generated into `recipes.json`), not when a
+     * sync runs; starting one is walking, so the extension does it. It runs its own
+     * timed list, never the Run now ticks (A60), one platform after another (`screen.js`
+     * `startTheScheduledSync`). A sync already going keeps the queue. */
+    const said = await startTheScheduledSync(chrome, {
+      book: await theBook(), startTheNight, carryOn,
+    });
+    if (said.refused.length) {
+      console.warn('Kartaan Auto-sync: part of the scheduled sync could not start.', said.refused);
+    }
   },
 });

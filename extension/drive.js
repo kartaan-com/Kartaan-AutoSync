@@ -9,8 +9,8 @@
  * **SO THIS IS A SECOND DESCRIPTION OF ONE SET OF RULES, AND THAT IS THE COST
  * D107 NAMED WHEN IT MOVED THE WALK.** It is paid deliberately here rather than
  * arrived at: every name below is the Python's name, spelt the Python's way, so
- * the two can be read side by side by a person and seen to agree. `a_folder_for`
- * is `aFolderFor`, `what_to_do_about` is `whatToDoAbout`, and nothing is renamed
+ * the two can be read side by side by a person and seen to agree. `folder_at`
+ * is `folderAt`, `what_to_do_about` is `whatToDoAbout`, and nothing is renamed
  * on the way across. **A rule that DIFFERS between the two is a bug in one of
  * them; a rule that is SPELT differently is a bug nobody will ever find.**
  *
@@ -32,6 +32,8 @@
  * all of it can be checked with no browser, no extension, no Google account and
  * no internet.
  */
+
+import { theSpreadsheetInside } from './unzip.js';
 
 /* The one scope this asks for. **`drive.file` and nothing wider**: it reaches
  * only files this extension itself created, so a seller granting it is not
@@ -112,18 +114,6 @@ export function howToUpload(size) {
   return Number(size) <= SMALL_ENOUGH_FOR_ONE_REQUEST ? MULTIPART : RESUMABLE;
 }
 
-/** What the folder for one report is called.
- *
- *  **ONE FOLDER PER REPORT (D100), NAMED AFTER THE REPORT ITSELF.** The
- *  reference keeps twenty-seven folder ids by hand in its own source; a name
- *  worked out from the report is one nobody has to keep a list of. The same rule
- *  and the same words as `autosync/drive.py`.
- */
-export function aFolderFor(reportId) {
-  if (!reportId) throw new Error('A folder has to be for some report.');
-  return reportId;
-}
-
 /** What Drive is told about the file. The parent is given as a list because
  *  Drive takes a list -- a file can sit in more than one place. Ours never does,
  *  and saying so once here is better than every caller remembering. */
@@ -169,6 +159,66 @@ export function whatToDoAbout(fileName, alreadyThere) {
   if (!same.length) return 'put';
   if (same.length > 1) return 'somebody has to look';
   return 'replace';
+}
+
+/**
+ * The running list, with this day's row in it once.
+ *
+ * **PURE, AND THAT IS DELIBERATE.** Everything that can be got wrong about
+ * adding a row -- losing the header, writing the same day twice, silently
+ * changing what the columns mean -- is decided here, where it can be driven with
+ * no Drive, no token and no network.
+ *
+ * **A DAY ALREADY IN THE FILE IS REPLACED WHERE IT STANDS, NOT ADDED BELOW.**
+ * That is the same rule `whatToDoAbout` applies to whole files, and it is his
+ * instruction in his own words: *"if the same report for the same date is
+ * downloaded and placed again, it'll blow up the data."* Replaced in place rather
+ * than moved to the end, so a file a person has scrolled through does not shuffle
+ * itself every night.
+ *
+ * **AND A HEADER THAT NO LONGER MATCHES IS A REFUSAL, NOT A REWRITE.** If the
+ * columns have changed, every row already in the file means something different
+ * from every row about to be added -- and a file whose older half and newer half
+ * mean different things, with nothing saying where the join is, is worse than two
+ * files. Somebody has to look.
+ */
+export function theListWith(existing, header, row, forTheDay) {
+  const clean = String(existing ?? '').split('\r\n').join('\n').replace(/\s+$/, '');
+  if (!clean) return `${header}\n${row}`;
+  const lines = clean.split('\n');
+  if (lines[0].trim() !== String(header).trim()) {
+    throw new Error(
+      `The list already there begins "${lines[0].slice(0, 60)}" and this run writes `
+      + `"${header}". The columns have changed, so nothing has been added: the rows already `
+      + 'in it would mean something different from the rows about to go in.'
+    );
+  }
+  const firstColumn = (one) => String(one).split(',')[0].trim();
+  const at = lines.findIndex((one, i) => i > 0 && firstColumn(one) === String(forTheDay));
+  if (at > 0) {
+    lines[at] = row;
+    return lines.join('\n');
+  }
+  return `${lines.join('\n')}\n${row}`;
+}
+
+/**
+ * Which days a running list already holds, read out of its own first column.
+ *
+ * **THE DAY BOARD'S WHOLE IDEA OF THIS SHAPE RESTS ON THIS.** A running list has
+ * no day in its name, so `landing.Arrived.days_inside` is filled from here -- one
+ * place reads those days, exactly as one place writes them.
+ *
+ * **AND ONLY A REAL DAY COUNTS.** A half-written line, a stray blank, or a note
+ * somebody typed into the file by hand is not a day that arrived, and counting
+ * one would stop that day ever being fetched again.
+ */
+export function theDaysInTheList(existing) {
+  const clean = String(existing ?? '').split('\r\n').join('\n').trim();
+  if (!clean) return [];
+  return clean.split('\n').slice(1)
+    .map((one) => String(one).split(',')[0].trim())
+    .filter((one) => /^\d{4}-\d{2}-\d{2}$/.test(one));
 }
 
 /* ---------------------------------------------------- asking Chrome for a token */
@@ -287,7 +337,7 @@ const TOO_MANY_PAGES = 200;
  *  **THROUGH THE PAGER, NEVER ONE REQUEST.** Asked once, a second folder of the
  *  same name sitting on a later page reads as "there is exactly one" -- which
  *  puts tonight's file somewhere different from last night's, silently. That is
- *  the fault the refusal in `folderFor` exists to prevent, and asking once would
+ *  the fault the refusal in `oneFolder` exists to prevent, and asking once would
  *  walk straight past it.
  */
 async function everyFile(chrome, ask, looking, doing) {
@@ -295,7 +345,7 @@ async function everyFile(chrome, ask, looking, doing) {
   let page = '';
   for (let round = 0; round < TOO_MANY_PAGES; round += 1) {
     const address = `${FILES}?q=${encodeURIComponent(looking)}`
-      + `&fields=${encodeURIComponent('nextPageToken,files(id,name)')}`
+      + `&fields=${encodeURIComponent('nextPageToken,files(id,name,size)')}`
       + `&pageSize=${A_PAGEFUL}${page ? `&pageToken=${encodeURIComponent(page)}` : ''}`;
     // eslint-disable-next-line no-await-in-loop
     const reply = await answered(chrome, await ask({ address, how: 'GET' }), doing);
@@ -334,7 +384,7 @@ export function asAQuotedValue(value) {
 }
 
 /**
- * The id of one report's folder, made only if it is not there yet.
+ * The id of one folder inside another, made only if it is not there yet.
  *
  * **FOUND BY NAME, MADE ONLY IF MISSING.** A folder made every night is a Drive
  * with thirty folders of one name and the files spread across them -- and
@@ -343,19 +393,28 @@ export function asAQuotedValue(value) {
  * **AND TWO OF THE SAME NAME IS NOT SOMETHING TO CHOOSE BETWEEN.** Picking one
  * would put tonight's file in a different folder from last night's, silently.
  * The same refusal, in the same words, as `autosync/drive_door.py`.
+ *
+ * **THE ONLY PLACE IN THIS HALF A FOLDER IS EVER MADE, AND IT REFUSES A NAME HIS
+ * LAYOUT DOES NOT HAVE.** *"No other separate folders or files should be
+ * created."* The layout is `autosync/layout.py`'s, handed across in `recipes.json`.
  */
-export async function folderFor(chrome, ask, reportId, inside) {
+async function oneFolder(chrome, ask, layout, name, inside) {
   if (!inside) {
     throw new DriveSaidNo('There is nowhere to make it: no Kartaan folder was given.');
   }
-  const name = aFolderFor(reportId);
+  if (!theNamesInTheLayout(layout).has(name)) {
+    throw new DriveSaidNo(
+      `${name} is not a folder in his layout, so it has not been made. A new stream's `
+      + 'folder is added to autosync/layout.py first.'
+    );
+  }
   const looking = `name = '${asAQuotedValue(name)}' and mimeType = '${FOLDER}' `
     + `and '${asAQuotedValue(inside)}' in parents and trashed = false`;
   const found = await everyFile(chrome, ask, looking, `looking for the ${name} folder`);
   if (found.length > 1) {
     throw new DriveSaidNo(
-      `There are ${found.length} folders called ${name} in the seller\'s Drive. Which one `
-      + 'tonight\'s file belongs in cannot be known, so nothing has been put.'
+      `There are ${found.length} folders called ${name} in the seller's Drive. Which one `
+      + "tonight's file belongs in cannot be known, so nothing has been put."
     );
   }
   if (found.length) return found[0].id;
@@ -366,6 +425,40 @@ export async function folderFor(chrome, ask, reportId, inside) {
     body: JSON.stringify({ name, mimeType: FOLDER, parents: [inside] }),
   }), `making the ${name} folder`);
   return (await made.json()).id;
+}
+
+/** Every folder name his layout allows, from the list `recipes.json` carries. */
+function theNamesInTheLayout(layout) {
+  const names = new Set(['Reports', 'System', 'Logs']);
+  if (layout && layout.kartaan) names.add(layout.kartaan);
+  for (const path of Object.values((layout && layout.folders) || {})) {
+    for (const one of path) names.add(one);
+  }
+  return names;
+}
+
+/** The folders that hold one report's files, from the top of `Kartaan /` down. */
+export function thePathFor(layout, reportId) {
+  const path = layout && layout.folders && Object.hasOwn(layout.folders, reportId)
+    ? layout.folders[reportId] : null;
+  if (!path || !path.length) {
+    throw new DriveSaidNo(
+      `${reportId} has no folder in his layout, so nothing has been put. A new stream gets its `
+      + 'own folder in autosync/layout.py.'
+    );
+  }
+  return path;
+}
+
+/** The id of the folder at the end of a path, each step found or made. The same
+ *  one folder-finder as `autosync/drive_door.py`'s `folder_at`. */
+export async function folderAt(chrome, ask, layout, path, inside) {
+  let here = inside;
+  for (const name of path) {
+    // eslint-disable-next-line no-await-in-loop
+    here = await oneFolder(chrome, ask, layout, name, here);
+  }
+  return here;
 }
 
 /** What is already in a folder, so that a second copy of one day can be
@@ -458,15 +551,18 @@ async function inTwoRequests(chrome, ask, landing, body) {
  * Drive and a report that reached the browser are the same report, and the
  * runner reads one list.
  */
-export async function landTheFile(chrome, ask, { reportId, fileName, inside, body }) {
-  const folderId = await folderFor(chrome, ask, reportId, inside);
+export async function landTheFile(chrome, ask, { reportId, fileName, inside, body: given, layout }) {
+  /* **A ZIP HOLDING ONE SPREADSHEET IS OPENED FOR REAL BEFORE IT LANDS -- HIS RULING,
+   * 2026-09-16** (see `unzip.js`). Every file that reaches the Drive passes here. */
+  const body = await theSpreadsheetInside(fileName, given);
+  const folderId = await folderAt(chrome, ask, layout, thePathFor(layout, reportId), inside);
   const already = await whatIsAlreadyThere(chrome, ask, folderId);
   const doWhat = whatToDoAbout(fileName, already);
   if (doWhat === 'somebody has to look') {
     /* **NOT TIDIED UP SILENTLY.** Replacing one of them leaves the others, and
      * deleting the rest is a decision nothing here is entitled to make. */
     throw new DriveSaidNo(
-      `There is already more than one ${fileName} in the ${aFolderFor(reportId)} folder. `
+      `There is already more than one ${fileName} in the ${reportId} folder. `
       + 'Which of them tonight\'s file should replace cannot be known, so nothing has been put.'
     );
   }
@@ -477,6 +573,13 @@ export async function landTheFile(chrome, ask, { reportId, fileName, inside, bod
     size: body ? body.length : 0,
     by: howToUpload(body ? body.length : 0),
   };
+  /* **JOB 6: EVERY NAME ALREADY IN THE FOLDER, HANDED BACK WITH THE ANSWER.**
+   * `whatIsAlreadyThere` was already asked, for the put-or-replace decision
+   * above -- so this costs nothing extra. `background.js` reads the days out
+   * of these names to seed `daysNobodyTried`'s record of what has really
+   * landed, which is how a hole BEHIND a later landed day (F14: 09-20 landed
+   * after 09-17..09-19 went missing) is ever found at all. A day this browser
+   * only ever tracked by its own high-water mark could never see that. */
   if (doWhat === 'replace') {
     /* **REPLACED, NOT ADDED BESIDE.** The day is the same day and the newer
      * fetch is the one that was asked for -- and two files for one day is a
@@ -484,15 +587,82 @@ export async function landTheFile(chrome, ask, { reportId, fileName, inside, bod
     const same = already.find((one) => one.name === fileName);
     const wrong = whyItCannotBePut(folderId, fileName, body);
     if (wrong) throw new DriveSaidNo(wrong);
+    /* **THE BIGGER FILE STAYS -- HIS RULING, 2026-09-16.** *"auto sync should keep
+     * the bigger one because that's what going to have more information."* A new
+     * file smaller than the one already there is not put. */
+    if (Number(same.size) > body.length) {
+      return {
+        id: same.id, name: same.name, size: String(same.size), keptTheBigger: true, alreadyThere: already,
+      };
+    }
     const reply = await ask({
       address: `${UPLOAD}/${same.id}?uploadType=media&fields=id,name,size`,
       how: 'PATCH',
       kind: landing.kind,
       body,
     });
-    return (await answered(chrome, reply, `replacing ${fileName}`)).json();
+    const landed = await (await answered(chrome, reply, `replacing ${fileName}`)).json();
+    return { ...landed, alreadyThere: already };
   }
-  return putTheFile(chrome, ask, landing, body);
+  const put = await putTheFile(chrome, ask, landing, body);
+  return { ...put, alreadyThere: already };
+}
+
+/**
+ * Add one day's row to a report's running list, and answer how big it now is.
+ *
+ * **THE OTHER HALF OF `landTheFile`, FOR THE REPORTS THAT ARE NOT A FILE
+ * ANYWHERE.** Meesho sells no export of the day's views, so there is nothing to
+ * fetch: the figure is read off the dashboard and written down here.
+ *
+ * **IT IS READ, MERGED AND WRITTEN BACK -- three round trips where a download is
+ * one -- and that is the cost of the shape he chose.** It is stated rather than
+ * hidden, because it is also why nothing else in this product works this way.
+ */
+export async function addARowTo(chrome, ask, { reportId, fileName, inside, header, row, forTheDay, layout }) {
+  const folderId = await folderAt(chrome, ask, layout, thePathFor(layout, reportId), inside);
+  const already = await whatIsAlreadyThere(chrome, ask, folderId);
+  const doWhat = whatToDoAbout(fileName, already);
+  if (doWhat === 'somebody has to look') {
+    /* **THE SAME REFUSAL A WHOLE FILE GETS, and here it matters more.** Adding a
+     * row to one of two lists leaves the other standing with a gap in it, and
+     * nothing afterwards could say which of them the numbers came from. */
+    throw new DriveSaidNo(
+      `There is already more than one ${fileName} in the ${reportId} folder. `
+      + 'Which of them this day should be added to cannot be known, so nothing has been added.'
+    );
+  }
+
+  let standing = '';
+  let sameId = null;
+  if (doWhat === 'replace') {
+    const same = already.find((one) => one.name === fileName);
+    sameId = same.id;
+    const got = await ask({ address: `${FILES}/${same.id}?alt=media` });
+    standing = await (await answered(chrome, got, `reading ${fileName}`)).text();
+  }
+
+  /* **MERGED BEFORE ANYTHING IS SENT.** A refusal about the columns has to
+   * happen while the file in Drive is still untouched. */
+  const whole = theListWith(standing, header, row, forTheDay);
+  const body = new TextEncoder().encode(whole);
+  const wrong = whyItCannotBePut(folderId, fileName, body);
+  if (wrong) throw new DriveSaidNo(wrong);
+
+  if (sameId) {
+    const reply = await ask({
+      address: `${UPLOAD}/${sameId}?uploadType=media&fields=id,name,size`,
+      how: 'PATCH',
+      kind: kindOf(fileName),
+      body,
+    });
+    await answered(chrome, reply, `adding ${forTheDay} to ${fileName}`);
+    return { fileName, size: body.length, days: theDaysInTheList(whole) };
+  }
+  await putTheFile(chrome, ask, {
+    folderId, fileName, kind: kindOf(fileName), size: body.length, by: howToUpload(body.length),
+  }, body);
+  return { fileName, size: body.length, days: theDaysInTheList(whole) };
 }
 
 /**
@@ -512,41 +682,12 @@ export function aWayOfAsking(chrome, { fetch, interactive = false }) {
   };
 }
 
-/* What the one folder everything else goes inside is called.
+/** The seller's own `Kartaan` folder at the top of their Drive, made if it is not there yet.
  *
- * **ONE NAME, WRITTEN ONCE.** The seller sees this in their own Drive, so it is
- * words rather than an id -- and because the scope is `drive.file`, this
- * extension can only ever see a folder it made itself, which is why it is found
- * by name and not by an id anybody has to keep. */
-export const THE_KARTAAN_FOLDER = 'Kartaan AutoSync';
-
-/** The seller own Kartaan folder, made in their Drive if it is not there yet.
- *
- *  **THIS IS WHAT REPLACES THE REFERENCE'S TWENTY-SEVEN FOLDER IDS (D100).** It
- *  keeps a list of ids in its own source, one per report, and every one of them
- *  is a thing somebody had to create by hand and paste in. Here there is one
- *  folder found by name, and a folder per report inside it named after the
- *  report -- nothing for anybody to keep, and nothing to paste wrong.
+ *  **FOUND BY NAME, NEVER BY AN ID ANYBODY HAS TO KEEP.** Under `drive.file` this
+ *  extension can only ever see what its own project made, so a name is all there
+ *  is to look for -- and the daily run finds the same folder the same way.
  */
-export async function theKartaanFolder(chrome, ask) {
-  const looking = `name = '${THE_KARTAAN_FOLDER}' and mimeType = '${FOLDER}' `
-    + "and 'root' in parents and trashed = false";
-  const found = await everyFile(chrome, ask, looking, 'looking for the Kartaan folder');
-  if (found.length > 1) {
-    /* **THE SAME REFUSAL AS A REPORT'S OWN FOLDER, and for the same reason.**
-     * Picking one would put tonight's files in a different place from last
-     * night's, silently. */
-    throw new DriveSaidNo(
-      `There are ${found.length} folders called ${THE_KARTAAN_FOLDER} in the seller\'s Drive. `
-      + 'Which one tonight\'s files belong in cannot be known, so nothing has been put.'
-    );
-  }
-  if (found.length) return found[0].id;
-  const made = await answered(chrome, await ask({
-    address: `${FILES}?fields=id`,
-    how: 'POST',
-    kind: 'application/json',
-    body: JSON.stringify({ name: THE_KARTAAN_FOLDER, mimeType: FOLDER, parents: ['root'] }),
-  }), 'making the Kartaan folder');
-  return (await made.json()).id;
+export async function theKartaanFolder(chrome, ask, layout) {
+  return oneFolder(chrome, ask, layout, layout.kartaan, 'root');
 }

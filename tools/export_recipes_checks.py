@@ -10,6 +10,7 @@ Run: python tools/export_recipes_checks.py
 """
 
 import datetime
+import re
 import json
 import subprocess
 import sys
@@ -79,8 +80,8 @@ HELD = answered(tool.what_the_extension_reads) or {}
 
 check("every recipe the Python has crosses",
       answered(lambda: set(HELD.get("recipes", {})) == set(book.RECIPES)))
-check("and there are eighteen of them, both platforms",
-      answered(lambda: len(HELD.get("recipes", {})) == 18))
+check("and there are twenty-one of them, both platforms",
+      answered(lambda: len(HELD.get("recipes", {})) == 21))
 check("every meaning of a failure crosses",
       answered(lambda: set(HELD.get("whatItMeans", {})) == set(language.WHAT_IT_MEANS)))
 # **THE WHOLE MAP, not the part the walk happens to use today.** Splitting it is
@@ -161,17 +162,23 @@ check("and the Python spelling is not also in there",
 # KeyError -- the file's own count check never runs, nothing goes red, and the
 # breakage reads as "noticed" while saying nothing about whether these checks
 # are any good. **A traceback is not a refusal.**
-check("and it really crosses as true for the reports centre",
+# **AND FOR THE TRAFFIC REPORT SINCE 2026-09-14**, whose calendar says the same
+# thing the same way: measured on his own panel, the 13th read
+# `cursor: not-allowed` on both panels while the 12th read `pointer`. Without it
+# Flipkart clamps the range to the latest day it has and the wrong day's figures
+# land under the right day's name.
+READ_BY_THE_CURSOR = ("fk_orders", "fk_returns", "fk_payments", "fk_views")
+check("and it really crosses as true for the reports centre and the traffic report",
       answered(lambda: all(any(s["do"] == language.PICK_RANGE
                                and s["switchedOffDaysChangeTheCursor"]
                                for s in HELD["recipes"][r]["toAsk"])
-                           for r in ("fk_orders", "fk_returns", "fk_payments"))))
+                           for r in READ_BY_THE_CURSOR)))
 # **AND FOR NOTHING ELSE.** Crossing as true everywhere would read exactly like
 # crossing correctly, and would refuse days that are perfectly available.
 check("and as false everywhere else, so a value that crossed true for all would fail here",
       answered(lambda: all(not s["switchedOffDaysChangeTheCursor"]
                            for name, one in HELD["recipes"].items()
-                           if name not in ("fk_orders", "fk_returns", "fk_payments")
+                           if name not in READ_BY_THE_CURSOR
                            for s in (one["toAsk"] + one["toTake"]))))
 
 # ---------------------- the two things Meesho's orders export needs, crossing
@@ -237,8 +244,10 @@ check("matching the whole phrase is what most steps do",
 PANEL_STEPS = [s for s in STEPS if "{panel}" in s["address"]]
 # Six, not five: there are five Meesho recipes, and orders loads its page twice
 # because Meesho does not show a finished file until the page is loaded again.
+# Eight, not seven: seven Meesho recipes now, and orders loads its page twice
+# because Meesho does not show a finished file until the page is loaded again.
 check("every Meesho page carries the placeholder for the seller's own slug",
-      answered(lambda: len(PANEL_STEPS) == 6))
+      answered(lambda: len(PANEL_STEPS) == 8))
 check("and orders carries it twice, because it loads its page twice",
       answered(lambda: sum(1 for s in HELD["recipes"]["me_orders"]["toTake"]
                            if "{panel}" in s["address"]) == 2))
@@ -246,8 +255,16 @@ check("and orders carries it twice, because it loads its page twice",
 # seller is exactly what D27, D30 and D92 forbid, and the reference holds one
 # supplier's slug in its own source.
 WHOLE = tool.written_out()
+# **THE CHECK WAS A STRING THAT HAPPENED TO BE ABSENT, AND NOW IT IS THE THING IT
+# MEANT.** `me_views` reads the seller's dashboard, whose address begins with that
+# very prefix -- so the old line went red the day a real report needed it, having
+# never once looked at what it was actually for. **What must not be in the file is
+# a SELLER'S OWN NAME**, which is what D27, D30 and D92 forbid and what the
+# reference carries in its own source. The placeholder is the whole point.
 check("and no real supplier panel name is anywhere in the file",
-      answered(lambda: "supplier.meesho.com/panel/v3/new/growth" not in WHOLE))
+      answered(lambda: "{panel}" in WHOLE
+               and not re.search(r"/new/(growth|fulfillment|payouts|services)/(?!\{panel\})",
+                                 WHOLE)))
 
 # ------------------------------------------------ the same bytes every time
 
@@ -412,19 +429,30 @@ check("the recipes themselves are in a settled order",
 reports_list = tool.list_of_reports
 A_DAY = datetime.date(2026, 9, 5)
 
-check("every recipe the extension can walk has a file name crossing with it",
-      answered(lambda: sorted(HELD["fileNames"]) == sorted(HELD["recipes"])))
+# **AND EVERY REPORT ANOTHER REPORT'S RUN PUTS AWAY (2026-09-15)** -- the ads sweep's
+# own two, which failed his full run for want of a name.
+check("every recipe the extension can walk, and every report another run puts away, has a file name crossing with it",
+      answered(lambda: sorted(HELD["fileNames"])
+               == sorted(set(HELD["recipes"]) | set(HELD.get("madeByAnother", {})))))
 check("and each one carries a platform and a file type, never a blank",
       answered(lambda: all(HELD["fileNames"][one]["platform"]
                            and HELD["fileNames"][one]["extension"]
                            for one in HELD["fileNames"])))
 check("THE NAME THE JAVASCRIPT WOULD BUILD IS THE NAME PYTHON BUILDS, REPORT BY REPORT",
       answered(lambda: all(
-                           "{platform}_{report}_{day}.{extension}".format(
-                               platform=HELD["fileNames"][one]["platform"],
-                               report=one,
-                               day=A_DAY.isoformat(),
-                               extension=HELD["fileNames"][one]["extension"],
+                           (
+                               "{platform}_{report}.{extension}".format(
+                                   platform=HELD["fileNames"][one]["platform"],
+                                   report=one,
+                                   extension=HELD["fileNames"][one]["extension"],
+                               )
+                               if HELD["fileNames"][one]["aRunningList"] else
+                               "{platform}_{report}_{day}.{extension}".format(
+                                   platform=HELD["fileNames"][one]["platform"],
+                                   report=one,
+                                   day=A_DAY.isoformat(),
+                                   extension=HELD["fileNames"][one]["extension"],
+                               )
                            ) == landing.file_name_for(reports_list.report(one), A_DAY)
                            for one in HELD["fileNames"]
                        )))
@@ -475,9 +503,30 @@ check("every reason is about a report the product actually declares",
 # altogether -- neither fetchable nor explained -- which is the silence this
 # whole crossing exists to end.
 THROUGH_THE_BROWSER = {"flipkart", "meesho"}
-check("no browser report is left out of both lists",
-      answered(lambda: all(one["id"] in HELD["recipes"] or one["id"] in HELD["notYetARecipe"]
+# **THREE LISTS NOW.** A report is built, or is fetched by a different report's
+# run, or is written down as one this door cannot reach. **The ads sweep asks
+# Meesho for a campaign's day once and writes all three files from the one
+# answer**, so two real reports have no recipe of their own and are not
+# unreachable either.
+check("no browser report is left out of all three lists",
+      answered(lambda: all(one["id"] in HELD["recipes"]
+                           or one["id"] in HELD["notYetARecipe"]
+                           or one["id"] in HELD["madeByAnother"]
                            for one in HELD["reports"] if one["platform"] in THROUGH_THE_BROWSER)))
+# **AND EACH OF THE THIRD LIST NAMES A REPORT THE PRODUCT DECLARES**, the same
+# question already asked of the second. A reason written against a report nobody
+# declares is a sentence nothing will ever show.
+check("every report fetched by another is one the product actually declares",
+      answered(lambda: set(HELD["madeByAnother"]) <= {one["id"] for one in HELD["reports"]}))
+check("and nothing is in two of the three lists at once",
+      answered(lambda: not (set(HELD["recipes"]) & set(HELD["madeByAnother"]))
+               and not (set(HELD["notYetARecipe"]) & set(HELD["madeByAnother"]))))
+# **A61, JOB 5b: AND WHICH REPORT BRINGS EACH ONE, by its id.** The panel ticks the
+# two Meesho ads files whenever the report that brings them is ticked (his ruling,
+# 2026-09-21: "make it like Rumee"), and a sentence cannot tell it which box that is.
+check("each report fetched by another names the report that brings it, which has a recipe",
+      answered(lambda: set(HELD["broughtBy"]) == set(HELD["madeByAnother"])
+               and all(one in HELD["recipes"] for one in HELD["broughtBy"].values())))
 
 
 # ------------- HOW EACH PORTAL WRITES A DAY, AND THE TWO HALVES ASKED TOGETHER
@@ -522,15 +571,24 @@ BY_HAND = {
         ["2026-02-09", "9 Feb 2026", "09 Feb 2026", "9 Feb", "09/02/2026", "09-02-2026"],
         ["2026-08-25", "25 Aug 2026", "25 Aug 2026", "25 Aug", "25/08/2026", "25-08-2026"],
     ],
+    # **A SEVENTH SPELLING SINCE 2026-09-11, and it is typed out here like the
+    # rest:** the full month name with no year, read off his own listings
+    # Downloads History, whose rows say `11 September, 11:10 PM`.
+    # **AN EIGHTH SINCE 2026-09-14, typed out too:** the month first, a comma and
+    # the nought, read off his returns Previous Downloads (`16:24, Sep 06, 2026`).
     "flipkart": [
-        ["Sep 1 2026", "Sep 01 2026", "Sep 1, 2026", "1 Sep 2026", "2026-09-01", "01 Sep 2026"],
-        ["Jun 5 2026", "Jun 05 2026", "Jun 5, 2026", "5 Jun 2026", "2026-06-05", "05 Jun 2026"],
-        ["Jan 1 2026", "Jan 01 2026", "Jan 1, 2026", "1 Jan 2026", "2026-01-01", "01 Jan 2026"],
-        ["Dec 31 2026", "Dec 31 2026", "Dec 31, 2026", "31 Dec 2026", "2026-12-31",
-         "31 Dec 2026"],
-        ["Feb 9 2026", "Feb 09 2026", "Feb 9, 2026", "9 Feb 2026", "2026-02-09", "09 Feb 2026"],
-        ["Aug 25 2026", "Aug 25 2026", "Aug 25, 2026", "25 Aug 2026", "2026-08-25",
-         "25 Aug 2026"],
+        ["Sep 1 2026", "Sep 01 2026", "Sep 1, 2026", "Sep 01, 2026", "1 Sep 2026", "2026-09-01",
+         "01 Sep 2026", "1 September"],
+        ["Jun 5 2026", "Jun 05 2026", "Jun 5, 2026", "Jun 05, 2026", "5 Jun 2026", "2026-06-05",
+         "05 Jun 2026", "5 June"],
+        ["Jan 1 2026", "Jan 01 2026", "Jan 1, 2026", "Jan 01, 2026", "1 Jan 2026", "2026-01-01",
+         "01 Jan 2026", "1 January"],
+        ["Dec 31 2026", "Dec 31 2026", "Dec 31, 2026", "Dec 31, 2026", "31 Dec 2026", "2026-12-31",
+         "31 Dec 2026", "31 December"],
+        ["Feb 9 2026", "Feb 09 2026", "Feb 9, 2026", "Feb 09, 2026", "9 Feb 2026", "2026-02-09",
+         "09 Feb 2026", "9 February"],
+        ["Aug 25 2026", "Aug 25 2026", "Aug 25, 2026", "Aug 25, 2026", "25 Aug 2026", "2026-08-25",
+         "25 Aug 2026", "25 August"],
     ],
 }
 
@@ -674,10 +732,10 @@ check("and the ones that name a row really did come out full of days",
 # in are deliberately not the same day.
 check("a Meesho row comes out named by the day the run is happening",
       answered(lambda: any("1 Sep 2026" == one for one in
-                           ROWS_IN_JAVASCRIPT["me_returns/toTake/5"])))
+                           ROWS_IN_JAVASCRIPT["me_returns/toTake/6"])))
 check("while a Flipkart row comes out named by the day the data is about",
       answered(lambda: any("To 05 Jun 2026" == one for one in
-                           ROWS_IN_JAVASCRIPT["fk_returns/toTake/4"])))
+                           ROWS_IN_JAVASCRIPT["fk_orders/toTake/4"])))
 
 # **WHOSE WORDING EACH LOOKUP MEANS CROSSES WITH IT.** Handed the placeholder and
 # not the portal, the walker on the other side could only guess.
@@ -695,8 +753,10 @@ def named_in_words():
     ]
 
 
+# **ELEVEN SINCE 2026-09-14**: returns left the Reports Centre, and its new route
+# names a row on the taking only.
 check("there are lookups naming a row by the day in words to judge",
-      answered(lambda: len(named_in_words()) == 8))
+      answered(lambda: len(named_in_words()) == 11))
 check("and every one of them says whose wording it means",
       answered(lambda: all(find["dayInWordsIs"] in book.HOW_A_DAY_IS_WRITTEN
                            for _, find in named_in_words())))
@@ -713,12 +773,39 @@ check("and every one of them says WHICH day it means",
 # **THE TWO PORTALS ANSWER IT DIFFERENTLY, SAID SEPARATELY.** "Every lookup says
 # something" would pass just as well if all eight said the same thing -- which is
 # the bug this closes.
-check("Meesho's lookups cross as the day the export was MADE",
+# **AND ONE MEESHO REPORT MEANS THE OTHER DAY, WHICH IS NAMED RATHER THAN
+# SOFTENED.** Every Meesho lookup above is matching a row in a LIST OF EXPORTS,
+# and Meesho names those rows by the day the export was made. **`me_views` is
+# matching no export at all** -- there is none to make. It is reading a card on
+# the dashboard, and the day in brackets on that card is the day the figures are
+# ABOUT: measured on his own panel on 2026-09-11, it read `(10 Sep)` while the day
+# was the 11th. Filled with the day it was made, it would ask for a card that will
+# not exist until tomorrow.
+check("Meesho's lookups cross as the day the export was MADE, except the views card",
       answered(lambda: all(find["dayInWordsOf"] == "made"
-                           for name, find in named_in_words() if name.startswith("me_"))))
-check("and Flipkart's as the day the data is ABOUT",
+                           for name, find in named_in_words()
+                           if name.startswith("me_") and name != "me_views")))
+check("and the views card as the day the figures are ABOUT, because it names no export",
       answered(lambda: all(find["dayInWordsOf"] == "about"
-                           for name, find in named_in_words() if name.startswith("fk_"))))
+                           for name, find in named_in_words() if name == "me_views")))
+# **AND ONE FLIPKART REPORT MEANS THE OTHER DAY TOO, WHICH IS NAMED RATHER THAN
+# SOFTENED.** The Reports Centre three match a row in a list of REPORTS, and
+# Flipkart names those by the end of the range asked for, which is the data date.
+# **`fk_listings` matches a row in a list of FILES ALREADY MADE** -- its
+# Downloads History, whose rows say `11 September, 11:10 PM`. A listings file is
+# a snapshot of the whole catalogue and carries no data date at all, so the only
+# day on that row is the day it was made, which is today. Filled with the data
+# date it would look for yesterday on a row that says today -- right wording,
+# wrong day, nothing found: the exact fault Meesho's claims rows had.
+# **AND FLIPKART'S RETURNS LIST IS A LIST OF FILES ALREADY MADE TOO, SINCE
+# 2026-09-14** -- its Previous Downloads rows read `16:24, Sep 14, 2026`.
+check("Flipkart's Reports Centre two cross as the day the data is ABOUT",
+      answered(lambda: all(find["dayInWordsOf"] == "about"
+                           for name, find in named_in_words()
+                           if name.startswith("fk_") and name not in ("fk_listings", "fk_returns"))))
+check("and the listings and returns histories as the day the file was MADE, because they name no data date",
+      answered(lambda: all(find["dayInWordsOf"] == "made"
+                           for name, find in named_in_words() if name in ("fk_listings", "fk_returns"))))
 # **AND NOTHING CARRIES A WORDING IT HAS NO DAY IN WORDS TO WRITE.**
 check("nothing carries a wording it has no day in words to write",
       answered(lambda: all(step["find"]["dayInWordsIs"] == ""
@@ -747,7 +834,7 @@ def presses_again():
 
 check("a step that presses a toggling control again crosses to the extension",
       answered(lambda: sorted(set(presses_again()))
-               == ["fk_orders", "fk_payments", "fk_returns"]))
+               == ["fk_orders", "fk_payments"]))
 check("and it crosses spelt for JavaScript, not for Python",
       answered(lambda: all("pressAgain" in s and "press_again" not in s for s in STEPS)))
 check("and each of the three does it twice -- for the chip and for the calendar",
@@ -765,7 +852,7 @@ check("and what to press, how long to wait and how many times all cross with it"
 check("and it is null on every step that has no toggling control",
       answered(lambda: len([1 for recipe in HELD["recipes"].values()
                             for half in ("toAsk", "toTake")
-                            for step in recipe[half] if step["pressAgain"]]) == 6))
+                            for step in recipe[half] if step["pressAgain"]]) == 4))
 # **AND THE WAY THAT REACHES A BOX BY THE LABEL BESIDE IT.** Said in the Python
 # and not crossed, Flipkart's date step would ask the extension for a way of
 # finding something it has never heard of.
@@ -778,7 +865,7 @@ check("and it is the Python's own spelling, so nothing translates on the way",
       answered(lambda: language.BY_THE_CONTROL_BESIDE == "beside"))
 
 
-EXPECTED = 112
+EXPECTED = 117
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

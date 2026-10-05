@@ -47,6 +47,14 @@ export const LANDED = 'landed';
 export const NOTHING_TO_FETCH = 'nothing-to-fetch';
 export const STILL_WAITING = 'still-waiting';
 export const FAILED = 'failed';
+/* **AND ONE THAT IS NEITHER "IT WORKED" NOR "IT BROKE" -- HIS RULING, 2026-09-14.**
+ * *"There will be scenarios when a report will not be available for a date...
+ * Rumee AutoSync used to mark that as not available and moves ahead."* A day the
+ * portal has not built yet is refused at the calendar, before anything is asked
+ * for, and the night remembers the day and tries it again on a later run
+ * (`nightly.js`, `NOT_BUILT_YET`). **Only the extension speaks this word**: the
+ * Python runner never reads a walk's answer, so the four above stay its four. */
+export const NOT_AVAILABLE_YET = 'not-available-yet';
 
 /* **WHAT A WALK SAYS WHEN IT HAS NOT FINISHED, AND IT IS DELIBERATELY NOT ONE OF
  * THE FOUR WORDS ABOVE.** A walk now spans several pages -- going somewhere ends
@@ -69,6 +77,41 @@ export function hasNotFinished(answer) {
   return Boolean(answer && answer.carryingOn === CARRYING_ON);
 }
 
+/* HOW LONG A PERSON TAKES, AND WHY A MACHINE HAS TO TAKE IT TOO.
+ *
+ * **HIS INSTRUCTION, 2026-09-11:** *"portals may block if it is an automated
+ * approach which is downloading theirs"*, and the working reference has paced
+ * itself for exactly that reason since it was written.
+ *
+ * **THE TWO NUMBERS ARE THE REFERENCE'S OWN, ROUNDED TO WHAT IT ACTUALLY DOES.**
+ * `content/meesho.js` sleeps `4000 + random()*1000` on landing at payments,
+ * `3000 + random()*1000` on landing at ads, and `clickAndWait(button, 1200)`
+ * after pressing something. So: a few seconds to take in a page that has just
+ * drawn, and about a second between one action and the next.
+ *
+ * **THE RANDOM PART IS THE POINT, NOT DECORATION.** A fixed pause is itself a
+ * signature -- a thing that pauses 3.000 seconds, 3.000 seconds, 3.000 seconds is
+ * more obviously a machine than one that never pauses at all. The reference adds
+ * a random part to every one of its sleeps and this does the same.
+ *
+ * **AND THIS IS NOT PLATFORM KNOWLEDGE, so it is here and not in a recipe.** How
+ * long a person takes to look at a page is the same on Meesho and on Flipkart.
+ * `autosync/recipes.py` stays untouched by it, which is the rule this whole
+ * product is built to.
+ *
+ * **IT IS COUNTED INTO THE BOUND ON HOW LONG A WALK MAY GO ON.**
+ * `doors.test.js` adds the worst of these onto every step when it works out the
+ * longest walk that can exist, because a pause nobody counted is exactly how
+ * `ARMED_FOR_MS` became shorter than the thing it bounds once before. */
+export const A_PERSON_LOOKS_AT_A_NEW_PAGE = Object.freeze({ least: 3000, upTo: 2000 });
+export const A_PERSON_BETWEEN_TWO_STEPS = Object.freeze({ least: 800, upTo: 700 });
+
+/** One pause, somewhere in the range, in milliseconds. */
+export function aMomentLikeAPerson(how, dice = Math.random) {
+  const spread = Math.floor(Math.max(0, dice()) * (how.upTo + 1));
+  return how.least + Math.min(how.upTo, spread);
+}
+
 /* What a step can be. These cross the wire in every recipe, so they are the
  * Python spellings exactly. */
 export const GO = 'go';
@@ -76,6 +119,23 @@ export const CLICK = 'click';
 export const WAIT_FOR = 'wait-for';
 export const PICK_RANGE = 'pick-range';
 export const TAKE_FILE = 'take-file';
+/* **THE TWO THAT ARE NOT ABOUT GETTING A FILE AT ALL.** Meesho sells no export of
+ * the day's views: the figure is on a card on its dashboard and nowhere else. So
+ * one step reads a number the page names, and another writes what was read as a
+ * row on a file that is added to rather than replaced. `autosync/browser.py`
+ * carries the reasoning; these are its spellings. */
+export const READ_NUMBER = 'read-number';
+export const ADD_TO_THE_LIST = 'add-to-the-list';
+/* **THE ONE THAT PRESSES NOTHING.** Meesho's ads figures are not an export:
+ * they come from two of its own addresses, called from inside the signed-in
+ * page. `extension/ads.js` carries what those are. */
+export const SWEEP_THE_ADS = 'sweep-the-ads';
+/* **THE ONE THAT TYPES** (2026-09-15): a campaign id into Flipkart's campaign
+ * search box, for the overall performance report. */
+export const TYPE_IN = 'type-in';
+/* **THE ONE THAT READS FLIPKART'S TOP SEARCH KEYWORDS OFF THE PAGE** (2026-09-15).
+ * `extension/keywords.js` carries what is read. */
+export const READ_THE_KEYWORDS = 'read-the-keywords';
 /* **THE ONE STEP THAT LOOKS AT NOTHING.** Every other kind of waiting here waits
  * for something to appear. Meesho builds an orders export on its own servers and
  * the page it was asked from does not change at all while it happens, so there
@@ -190,12 +250,29 @@ function anAnswer(state, reportId, dataDate, rest = {}) {
  */
 export function whyStepIsRefused(step) {
   if (!step || typeof step !== 'object') return 'That is not a step.';
-  if (![GO, CLICK, WAIT_FOR, PICK_RANGE, TAKE_FILE, WAIT].includes(step.do)) {
+  if (![GO, CLICK, WAIT_FOR, PICK_RANGE, TAKE_FILE, WAIT,
+    READ_NUMBER, ADD_TO_THE_LIST, SWEEP_THE_ADS, TYPE_IN, READ_THE_KEYWORDS].includes(step.do)) {
     return `"${step.do}" is not something this door knows how to do.`;
   }
   if (step.do === GO && !step.address) return 'A step that goes somewhere has to say where.';
-  if ((step.do === CLICK || step.do === WAIT_FOR) && !step.find) {
+  if ((step.do === CLICK || step.do === WAIT_FOR || step.do === READ_NUMBER || step.do === TYPE_IN)
+    && !step.find) {
     return `A ${step.do} step has to say what to look for.`;
+  }
+  /* **THE SAME SENTENCE THE PYTHON REFUSES WITH.** A step that adds a row looks
+   * for nothing: what it writes down was already read by the steps before it. */
+  if (step.do === ADD_TO_THE_LIST && step.find) {
+    return 'A step that adds a row looks for nothing. It writes down what the '
+      + 'read-number steps before it already read.';
+  }
+  /* **A SWEEP LOOKS AT NO PAGE.** The same sentence the Python refuses with. */
+  if (step.do === SWEEP_THE_ADS && step.find) {
+    return 'A step that sweeps the ads addresses looks for nothing on the page. '
+      + 'It asks the platform directly.';
+  }
+  if (step.do === READ_THE_KEYWORDS && step.find) {
+    return 'A step that reads the keywords looks for nothing of its own. What it reads '
+      + 'is written down in one place.';
   }
   if (step.do === WAIT && step.find) {
     /* **A WAIT AND A WAIT-FOR ARE NOT THE SAME STEP.** One passes time; the other
@@ -203,6 +280,11 @@ export function whyStepIsRefused(step) {
      * time and never look at it, and the recipe would read as though it had
      * waited FOR that thing. */
     return 'A step that only waits has nothing to look for. Waiting for something is a wait-for.';
+  }
+  if (step.orFind && step.do !== WAIT_FOR) {
+    /* **SOMETHING ELSE THAT COUNTS IS ONLY FOR A WAIT.** The same sentence the
+     * Python refuses with. */
+    return 'Only a step that waits for something can accept something else instead.';
   }
   if (step.lookAgain) {
     /* **WHAT TO SHUT AND OPEN AGAIN BETWEEN LOOKS.** Meesho draws its list of
@@ -239,6 +321,21 @@ export function whyStepIsRefused(step) {
       return 'Pressing again has to wait some time first, or the second press shuts it.';
     }
   }
+  /* **TYPING, AND WHAT IS DONE ONCE PER CAMPAIGN** (2026-09-15). The same
+   * sentences the Python refuses with. */
+  if (step.pressLikeAMouse && step.do !== CLICK) {
+    return 'Only a step that presses something can say how to press it.';
+  }
+  if (step.do === TYPE_IN && !step.words) return 'A step that types has to say what to type.';
+  if (step.do !== TYPE_IN && step.words) return 'Only a step that types can say what to type.';
+  if (step.forEachCampaign && ![TYPE_IN, CLICK, WAIT_FOR, TAKE_FILE].includes(step.do)) {
+    return 'Only typing, pressing, waiting for something or taking a file can be done once '
+      + 'per campaign.';
+  }
+  if ((String(step.words || '').includes('{campaign}')
+    || String((step.find && step.find.what) || '').includes('{campaign}')) && !step.forEachCampaign) {
+    return 'Only a step done once per campaign can name the campaign.';
+  }
   if (step.find && !step.find.what) return 'A way of finding something has to say what to look for.';
   if (!(Number(step.patience) > 0)) return 'A step that waits no time at all cannot succeed.';
   if (!step.why) {
@@ -248,6 +345,112 @@ export function whyStepIsRefused(step) {
     return 'A step has to say what it is for, so a failure can say what was being attempted.';
   }
   return null;
+}
+
+/** What a campaign id may look like before it is typed into a portal's page. */
+export const A_CAMPAIGN_ID = /^[A-Za-z0-9_-]{1,64}$/;
+
+/** The cells of one line of a CSV, quotes honoured -- a campaign NAME can hold a
+ *  comma, and splitting on every comma would read its day out of the wrong column. */
+function theCellsOf(line) {
+  const cells = [];
+  let cell = '';
+  let quoted = false;
+  for (let at = 0; at < line.length; at += 1) {
+    const c = line[at];
+    if (quoted) {
+      if (c === '"' && line[at + 1] === '"') {
+        cell += '"';
+        at += 1;
+      } else if (c === '"') {
+        quoted = false;
+      } else {
+        cell += c;
+      }
+    } else if (c === '"') {
+      quoted = true;
+    } else if (c === ',') {
+      cells.push(cell.trim());
+      cell = '';
+    } else {
+      cell += c;
+    }
+  }
+  cells.push(cell.trim());
+  return cells;
+}
+
+/**
+ * The campaigns that ran on a day, read out of the file that names them.
+ *
+ * **THE REFERENCE'S OWN READING** (`background.js` `_setFkAdsDailyCacheFromBuffer`):
+ * the header row carrying both columns, the rows whose day is that day, each id
+ * once. **Null when the file has no such header** -- which is "not known", and is
+ * not the same answer as "none ran".
+ */
+export function theCampaignsIn(text, { idColumn, dayColumn } = {}, dataDate = '') {
+  if (!idColumn || !dayColumn) return null;
+  const lines = String(text || '').split(/\r?\n/);
+  const headerAt = lines.findIndex((line) => {
+    const named = theCellsOf(line);
+    return named.includes(idColumn) && named.includes(dayColumn);
+  });
+  if (headerAt < 0) return null;
+  const header = theCellsOf(lines[headerAt]);
+  const idAt = header.indexOf(idColumn);
+  const dayAt = header.indexOf(dayColumn);
+  const ids = [];
+  for (const line of lines.slice(headerAt + 1)) {
+    if (!line.trim()) continue;
+    const row = theCellsOf(line);
+    const id = row[idAt] || '';
+    if (row[dayAt] === dataDate && A_CAMPAIGN_ID.test(id) && !ids.includes(id)) ids.push(id);
+  }
+  return ids;
+}
+
+/**
+ * A recipe's steps with its once-per-campaign run repeated for each campaign.
+ *
+ * **WORKED OUT ONCE, AT THE START OF EVERY TURN, FROM THE SAME LIST**, so a walk
+ * picking up on a new page counts its steps exactly as the page before did.
+ */
+export function withEachCampaign(steps, campaigns) {
+  const out = [];
+  let at = 0;
+  while (at < steps.length) {
+    if (!steps[at].forEachCampaign) {
+      out.push(steps[at]);
+      at += 1;
+    } else {
+      let end = at;
+      while (end < steps.length && steps[end].forEachCampaign) end += 1;
+      const run = steps.slice(at, end);
+      campaigns.forEach((campaign, which) => {
+        const put = (into) => String(into || '').split('{campaign}').join(campaign);
+        for (const one of run) {
+          out.push({
+            ...one,
+            words: put(one.words),
+            find: one.find ? { ...one.find, what: put(one.find.what) } : one.find,
+            campaign,
+            campaignNumber: which + 1,
+            campaignsInAll: campaigns.length,
+          });
+        }
+      });
+      at = end;
+    }
+  }
+  return out;
+}
+
+/** A campaign's file name: the report's own, with the campaign id before the
+ *  extension -- only when more than one campaign ran, the reference's rule. */
+export function theCampaignsFileName(called, campaign, inAll) {
+  if (!called || !campaign || !(inAll > 1)) return called;
+  const dot = called.lastIndexOf('.');
+  return dot < 0 ? `${called}_${campaign}` : `${called.slice(0, dot)}_${campaign}${called.slice(dot)}`;
 }
 
 /**
@@ -293,10 +496,16 @@ export function theDaysInWords(book, whose, dataDate) {
     mm: String(month).padStart(2, '0'),
     dd: String(day).padStart(2, '0'),
     Mon: rule.months[month - 1],
+    /* **THE SIXTH PIECE, ADDED 2026-09-11.** Flipkart's listings Downloads
+     * History writes the month out in full -- `11 September, 11:10 PM` -- and
+     * none of the six spellings it had could match that, so the row holding the
+     * file the walk had just asked for could not be found. The names cross from
+     * the Python half like the short ones; nothing here has an opinion. */
+    Month: (rule.monthsInFull || [])[month - 1],
     d: String(day),
   };
   return rule.spellings.map(
-    (shape) => String(shape).replace(/\{(yyyy|mm|dd|Mon|d)\}/g, (_, piece) => pieces[piece])
+    (shape) => String(shape).replace(/\{(yyyy|mm|dd|Mon|Month|d)\}/g, (_, piece) => pieces[piece])
   );
 }
 
@@ -384,10 +593,10 @@ export function whyTheDayIsRefused(dataDate) {
   const day = String(dataDate ?? '');
   if (!day) {
     return 'This walk was not told which day it is fetching. A file put away without one '
-      + 'would be under a name the nightly run cannot read a day out of, and never read.';
+      + 'would be under a name the scheduled sync cannot read a day out of, and never read.';
   }
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
-    return `"${day}" is not a day written the way the nightly run reads one back out of a `
+    return `"${day}" is not a day written the way the scheduled sync reads one back out of a `
       + 'file name (YYYY-MM-DD), so a file put away under it would never be read.';
   }
   const [y, m, d] = day.split('-').map(Number);
@@ -441,6 +650,47 @@ export function theWalk({
    * that failure wears the clothes of a portal that renamed a button, which is a
    * month of looking in the wrong place. */
   armTheCatcher,
+  /* **WHERE THE RANDOM PART OF EVERY PAUSE COMES FROM.** Handed in so a check can
+   * drive the pacing to its slowest and its fastest on purpose, rather than
+   * running a hundred times and hoping. The real walk uses the browser's own. */
+  dice = Math.random,
+  /* **THE PAUSE IS HANDED IN, AND IT IS NOT A DOOR CALL. THAT IS THE SAME
+   * REASONING `putTheFile` AND `armTheCatcher` ARE GIVEN ABOVE.** The door is
+   * the ten calls the Python side makes, spelt the way the Python spells them.
+   * **And `wait` is one of them and is NOT this**: `wait` is a step the recipe
+   * asks for, in whole seconds, because Meesho builds a file on its own servers
+   * and shows nothing while it does. This is the walk moving like a person, which
+   * no recipe asks for and no recipe may change. Four checks that count what the
+   * recipe waited proved the difference the moment the two were the same call. */
+  pause = (ms) => new Promise((done) => { setTimeout(done, ms); }),
+  /* **WHERE A ROW GOES WHEN THERE IS NO FILE TO FETCH.** Required for the same
+   * reason `putTheFile` is: a walk built without it would read the seller's
+   * figures off the page, report that it had landed, and put them nowhere. */
+  addToTheList,
+  /* **THE ADS SWEEP, HANDED IN LIKE THE TWO ABOVE AND FOR THE SAME REASON.** It
+   * reaches Meesho's own addresses with the seller's session, which only the half
+   * running inside the page can do. What is checked here is what this file does
+   * with the answer; what it asks for is checked in `ads.test.js`.
+   *
+   * **NOT REQUIRED, and that is the one difference.** Every walk needs somewhere
+   * to put a file; only one recipe in the book sweeps. A walk built without it
+   * refuses that step by name instead of every walk refusing to be built. */
+  sweepTheAds = null,
+  /* **WHICH CAMPAIGNS RAN ON A DAY, KEPT AND READ BACK BY THE BACKGROUND HALF**
+   * (2026-09-15). Not required: only the ads daily file keeps them, and only
+   * Flipkart's overall performance report reads them. */
+  keepTheCampaigns = null,
+  theCampaigns = null,
+  /* **FLIPKART'S TOP SEARCH KEYWORDS, READ OFF THE PAGE** (2026-09-15). Not
+   * required, like the sweep: only one recipe reads them. */
+  readTheKeywords = null,
+  /* **MOVES THE PAGE TO A ROUTE AFTER `#`, FROM INSIDE IT** (A53, 2026-09-15). A `go`
+   * to such an address loads only the page before the `#`; see `doors.js`
+   * `routeInThePage`. Not required: only a walk that meets such an address needs it,
+   * and it refuses in words there. */
+  routeTo = null,
+  /* **MARKS THE ONE SIGN-IN ATTEMPT AS MADE, in the half that outlives the page (A53).** */
+  markTriedSigningIn = null,
 }) {
   if (!door) throw new Error('A walk needs a door to the page.');
   if (!book || !book.recipes) throw new Error('A walk needs the book of recipes.');
@@ -458,6 +708,17 @@ export function theWalk({
       + 'itself. Without one, a file that only ever exists inside the page would never arrive.'
     );
   }
+  /* **AND THIS ONE AFTER THAT, FOR THE SAME REASON, which is not an ordering
+   * anybody should have to guess at.** Every refusal here is asked in the order
+   * it was added, so a walk missing two things still names the one that has been
+   * named since before this was written. */
+  if (typeof addToTheList !== 'function') {
+    throw new Error(
+      'A walk needs somewhere to add a row for the reports that are not a file anywhere. '
+      + "Without one it would read the seller's figures off the page and drop them, and "
+      + 'report that they had landed.'
+    );
+  }
 
   function meaningOf(kind) {
     /* **NOT INVENTED HERE.** If the book has no sentence for a failure, that is a
@@ -468,11 +729,42 @@ export function theWalk({
       : `There is no explanation in the recipe file for "${kind}".`;
   }
 
-  async function gaveUp(reportId, dataDate, { kind, lookingFor, doing, matches = 0 }) {
+  async function gaveUp(reportId, dataDate, {
+    kind, lookingFor, doing, matches = 0, lookup = null, coveringWords = '',
+  }) {
     const pageWas = capture(await door.page_text());
+    /* **AND WHERE EACH MATCH SITS, WHEN THERE ARE SEVERAL.** His own ads FSN
+     * report refused twice on 2026-09-14 saying *"2 things match Consolidated
+     * FSN Report"* -- and by hand, on the same page, opening the same list, there
+     * was ONE. The page kept here was 400 characters and did not hold the words,
+     * so a count alone could only be answered by guessing. **The door can name
+     * the shape of each match -- a tag, a role, an id -- and nothing of the
+     * page's own words**, and the next refusal is then the measurement.
+     *
+     * **ASKED INSIDE A FAILURE, SO IT MUST NOT BECOME ONE.** A door without the
+     * question, or one that throws answering it, leaves the sentence exactly as
+     * it was rather than losing the failure it is attached to. */
+    let where = '';
+    if (kind === FOUND_SEVERAL && lookup && typeof door.where_they_sit === 'function') {
+      try {
+        const sits = await door.where_they_sit(
+          lookup.how, lookup.what, lookup.exact, lookup.near, lookup.alsoSaying,
+        );
+        if (sits && sits.length) where = ` They sit: ${sits.join('; ')}.`;
+      } catch (couldNotSay) {
+        where = '';
+      }
+    }
+    /* **THE COVERING'S OWN WORDS, SO THE NEXT ONE OF THESE NAMES ITSELF.**
+     * `whatIsCovering` already reads them off whatever is blocking (or, for a
+     * backdrop with none of its own, off whatever sits on top of it) -- they
+     * were worked out and then thrown away. Job 3b, 2026-09-22, spent a live
+     * session finding what covered `fk_views` because the run log that failed
+     * never said. */
+    const coveringNote = kind === COVERED_UP && coveringWords ? ` It reads: "${coveringWords}".` : '';
     const said = kind === FOUND_SEVERAL
-      ? `${doing}: ${matches} things match "${lookingFor}". ${meaningOf(kind)}`
-      : `${doing}: could not find "${lookingFor}". ${meaningOf(kind)}`;
+      ? `${doing}: ${matches} things match "${lookingFor}".${where} ${meaningOf(kind)}`
+      : `${doing}: could not find "${lookingFor}". ${meaningOf(kind)}${coveringNote}`;
     return anAnswer(FAILED, reportId, dataDate, { say: said, pageWas });
   }
 
@@ -535,6 +827,11 @@ export function theWalk({
       find: step.find
         ? { ...step.find, near: theRowsItCouldBe(book, step.find, dataDate, runDay) }
         : step.find,
+      /* **AND WHAT ELSE A WAIT MAY COUNT INSTEAD, FILLED THE SAME WAY** -- the row
+       * Flipkart lists a request under (his ruling, 2026-09-14). */
+      orFind: step.orFind
+        ? { ...step.orFind, near: theRowsItCouldBe(book, step.orFind, dataDate, runDay) }
+        : step.orFind,
     };
   }
 
@@ -554,7 +851,8 @@ export function theWalk({
    */
   async function howManyMatch(step, reportId) {
     const look = (patience) => door.find(
-      step.find.how, step.find.what, step.find.exact, patience, step.find.near);
+      step.find.how, step.find.what, step.find.exact, patience, step.find.near,
+      step.find.alsoSaying);
     const press = step.pressAgain;
     if (!press) return look(step.patience);
     let spent = 0;
@@ -582,7 +880,7 @@ export function theWalk({
     if (!press) { await putIn(step.patience); return; }
     let spent = 0;
     for (let turn = 0; turn < press.times; turn += 1) {
-      if (await answered(() => putIn(press.after))) return;
+      if (await answeredUnlessNotBuilt(() => putIn(press.after))) return;
       spent += press.after;
       await pressItAgain(press, reportId);
     }
@@ -596,6 +894,53 @@ export function theWalk({
     } catch (wrong) {
       return null;
     }
+  }
+
+  /** The same, except that a day the portal has not built is said at once.
+   *
+   *  **PRESSING THE CHIP AGAIN CANNOT BUILD A DAY**, and a press that shut the
+   *  calendar would turn the true answer into "no calendar was showing" by the
+   *  last look -- the misreading this whole ruling exists to end. */
+  async function answeredUnlessNotBuilt(work) {
+    try {
+      return await work();
+    } catch (wrong) {
+      if (wrong && wrong.dayNotAvailable) throw wrong;
+      return null;
+    }
+  }
+
+  /** What else a wait counts when its words are not on the page right now.
+   *
+   *  **HIS RULING, 2026-09-14: "a banner it missed doesn't turn success into a
+   *  failure."** Two things, in the reference's own order (`content/flipkart.js`
+   *  `decideReportSubmissionOutcome`): a banner that already said the words
+   *  (for a loose wait only -- an exact wait is waiting for a thing, not a
+   *  message), then the durable place the platform lists what was asked for. */
+  async function whatElseCounts(step, reportId) {
+    if (step.find && step.find.exact === false && typeof door.banners_seen === 'function') {
+      try {
+        const heard = (await door.banners_seen()) || [];
+        const wanted = String(step.find.what || '').toLowerCase();
+        const one = heard.find((banner) => String((banner && banner.words) || '').toLowerCase().includes(wanted));
+        if (one) {
+          say(`${reportId}: "${step.find.what}" was not on the page any more, but a banner had said it: `
+            + `"${one.words}".`);
+          return 1;
+        }
+      } catch (couldNotAsk) {
+        /* A door that cannot say what it saw leaves the wait as it was. */
+      }
+    }
+    if (step.orFind) {
+      const other = await door.find(step.orFind.how, step.orFind.what, step.orFind.exact, 1,
+        step.orFind.near, step.orFind.alsoSaying);
+      if (other === 1) {
+        say(`${reportId}: ${step.orFind.called || step.orFind.what} was found instead, which confirms it.`);
+        return 1;
+      }
+    }
+    return 0;
   }
 
   /** Press the toggling control once more. **Said, never swallowed.** */
@@ -695,12 +1040,14 @@ export function theWalk({
       kind: covering !== null ? COVERED_UP : FOUND_NOTHING,
       lookingFor: name,
       doing: step.why,
+      coveringWords: covering || '',
     });
   }
 
   async function takeTheFile(step, reportId, dataDate) {
     if (step.find) {
-      let many = await door.find(step.find.how, step.find.what, step.find.exact, step.patience, step.find.near);
+      let many = await door.find(step.find.how, step.find.what, step.find.exact, step.patience,
+        step.find.near, step.find.alsoSaying);
       /* **NOT THERE YET IS NOT THE SAME AS NOT THERE, WHEN IT LIVES IN A MENU.**
        *
        * This step used to wait 300 seconds on an open menu and call that
@@ -739,7 +1086,8 @@ export function theWalk({
         );
         if (stillThere === 0) break;
         await door.click(again.by.how, again.by.what, again.by.exact, again.by.near);
-        many = await door.find(step.find.how, step.find.what, step.find.exact, step.patience, step.find.near);
+        many = await door.find(step.find.how, step.find.what, step.find.exact, step.patience,
+          step.find.near, step.find.alsoSaying);
       }
       if (many === 0) {
         return { failed: await whyNothingWasFound(step, reportId, dataDate) };
@@ -758,7 +1106,7 @@ export function theWalk({
       if (many > 1 && !newestOfSeveral) {
         return { failed: await gaveUp(reportId, dataDate, {
           kind: FOUND_SEVERAL, lookingFor: step.find.called || step.find.what,
-          doing: step.why, matches: many,
+          doing: step.why, matches: many, lookup: step.find,
         }) };
       }
       /* **THE CATCHER IS ARMED HERE, AND NOWHERE EARLIER (A44).**
@@ -815,7 +1163,7 @@ export function theWalk({
        * the older secret would be the one thing this change exists to stop. */
       await armTheCatcher();
       await door.click(step.find.how, step.find.what, step.find.exact, step.find.near,
-        newestOfSeveral);
+        newestOfSeveral, step.find.alsoSaying);
     }
 
     const body = await door.take_file(step.patience);
@@ -889,6 +1237,11 @@ export function theWalk({
      * an independent reviewer found on 2026-09-08: a value reaching a step's
      * address and its `find.near` with nothing asking anything of it. */
     panel = '', askedAlready = null, fileName = '',
+    /* **THE FIRST DAY OF THE RANGE, WHEN IT IS EARLIER THAN THE DAY (A53).** Flipkart
+     * traffic is asked from the day after the last one captured -- Rumee's way. */
+    fromDay = '',
+    /* **WHETHER THE ONE SIGN-IN ATTEMPT HAS ALREADY BEEN MADE FOR THIS REPORT (A53).** */
+    triedSigningIn: triedAlready = false,
     /* **WHERE TO PICK THE WALK UP, because the page that started it is gone.**
      * Nought on the first turn. After a `go`, the background holds the next
      * number and hands it to whichever page Chrome draws next. */
@@ -901,6 +1254,7 @@ export function theWalk({
      * shape as a bad recipe two lines below. */
     const notADay = whyTheDayIsRefused(dataDate);
     if (notADay) return anAnswer(FAILED, reportId, dataDate, { say: notADay });
+    let triedSigningIn = Boolean(triedAlready);
 
     let plan;
     try {
@@ -919,6 +1273,54 @@ export function theWalk({
       return anAnswer(FAILED, reportId, dataDate, { say: wrong.message });
     }
 
+    /* **A REPORT DONE ONCE PER CAMPAIGN ASKS WHICH CAMPAIGNS RAN, FIRST** (2026-09-15).
+     * Not known yet is "not available yet": the file that names them has not landed
+     * for that day, and a later run tries again. None is nothing to fetch. */
+    const campaignsFrom = plan.recipe && plan.recipe.campaignsFrom;
+    if (campaignsFrom) {
+      const campaigns = typeof theCampaigns === 'function'
+        ? await theCampaigns({ reportId: campaignsFrom.report, dataDate })
+        : null;
+      if (!Array.isArray(campaigns)) {
+        return anAnswer(NOT_AVAILABLE_YET, reportId, dataDate, {
+          say: `Which ad campaigns ran on ${dataDate} is not known yet: ${campaignsFrom.report} has `
+            + 'not landed for that day in this browser. Nothing was asked for; this day will be '
+            + 'tried again on a later run.',
+          /* A57, Job 2: the list was never fetched, which is not the platform holding
+           * the day back -- so the night keeps the day owed without counting it. */
+          listMissing: true,
+        });
+      }
+      if (!campaigns.length) {
+        return anAnswer(NOTHING_TO_FETCH, reportId, dataDate, {
+          say: `No ad campaign ran on ${dataDate}, according to ${campaignsFrom.report}, so there `
+            + 'is nothing to record.',
+        });
+      }
+      plan = { ...plan, steps: withEachCampaign(plan.steps, campaigns) };
+    }
+    const campaignFilesLanded = [];
+
+    /* **WHETHER THIS PAGE HAS DONE ANYTHING YET**, which is what tells the
+     * landing pause apart from the between-steps one. A walk resuming after a
+     * `go` starts false again, because it really is a new page. */
+    let walkedHereAlready = false;
+
+    /* **WHAT THE PAGE HAS BEEN READ FOR SO FAR, IN THE ORDER IT WAS READ.** A
+     * `Map` and not an object: the column order of the row is the order of the
+     * steps in the recipe, and that has to be the recipe's business rather than
+     * whatever order a browser happens to hand back keys in. **A file whose
+     * columns can change order between two nights is a file nothing can read.**
+     *
+     * **AND IT LIVES FOR ONE PAGE, WHICH IS A LIMIT AND IS SAID OUT LOUD.** A
+     * walk that read a number and then went somewhere else would lose it -- so
+     * every read-number step and the add-to-the-list step after them have to sit
+     * on the same page. The one recipe that uses them does. */
+    const readSoFar = new Map();
+    /* **POP-UPS ARE SHUT ONCE A PAGE, BEFORE ITS FIRST STEP** -- his ruling,
+     * 2026-09-14, the reference's own `dismissFkPopups`. */
+    let closedPopUpsHere = false;
+
     for (let at = 0; at < plan.steps.length; at += 1) {
       const step = plan.steps[at];
       const wrong = whyStepIsRefused(step);
@@ -934,6 +1336,21 @@ export function theWalk({
        * already been done in a page that no longer exists. */
       if (at < startAt) continue;
 
+      /* **A PAUSE BEFORE EVERY STEP THIS PAGE WALKS, BECAUSE A PORTAL THAT READS
+       * THE WALK AS A MACHINE CAN BLOCK THE SELLER'S ACCOUNT.** His instruction,
+       * 2026-09-11. The first step a page walks gets the longer one -- that is the
+       * moment a person is looking at a page that has just drawn, and it is where
+       * the reference puts its own four-to-five seconds.
+       *
+       * **IT SITS ABOVE THE SIGN-IN CHECK ON PURPOSE.** The reference sleeps
+       * before it so much as looks at a page, and a page part-way through drawing
+       * is exactly the page that answers "signed out" when nobody is. */
+      await pause(aMomentLikeAPerson(
+        walkedHereAlready ? A_PERSON_BETWEEN_TWO_STEPS : A_PERSON_LOOKS_AT_A_NEW_PAGE,
+        dice,
+      ));
+      walkedHereAlready = true;
+
       /* **ASKED FIRST, EVERY STEP, AND IT IS NOT THIS REPORT'S FAULT.**
        *
        * **THIS IS ALSO WHAT CATCHES A SESSION THAT EXPIRED HALF WAY THROUGH A
@@ -942,10 +1359,51 @@ export function theWalk({
        * asks again, before anything is clicked, and the answer is the same
        * "somebody has to sign in" it would have been at the start. */
       if (await door.needs_signing_in()) {
-        throw new NeedsSigningIn(
-          'The panel is asking to be signed in to. Nothing can be fetched from it until somebody '
-          + 'does, and every report after this one would fail the same way.'
-        );
+        /* **ONE ATTEMPT TO SIGN IN FIRST -- HIS RULING, 2026-09-16.** Marked before it
+         * is made, because signing in reloads the page and the next page must not try
+         * again. Still signed out, the sync pauses and asks the seller (Resume). */
+        let signedIn = false;
+        if (!triedSigningIn && typeof door.try_signing_in === 'function') {
+          triedSigningIn = true;
+          if (typeof markTriedSigningIn === 'function') await markTriedSigningIn();
+          say(`${reportId}: the platform asked to be signed in to, so signing in is tried once.`);
+          signedIn = await door.try_signing_in();
+        }
+        if (!signedIn) {
+          throw new NeedsSigningIn(
+            'The panel is asking to be signed in to. Nothing can be fetched from it until somebody '
+            + 'does, and every report after this one would fail the same way.'
+          );
+        }
+      }
+
+      /* **A PAGE PICKED UP AFTER A `go` TO AN ADDRESS WITH `#` IS MOVED TO THAT ROUTE
+       * FIRST** (A53). The `go` loaded only the page before the `#`. */
+      const cameFrom = at === startAt && at > 0 ? plan.steps[at - 1] : null;
+      if (cameFrom && cameFrom.do === GO && String(cameFrom.address || '').includes('#')) {
+        if (typeof routeTo !== 'function') {
+          return anAnswer(FAILED, reportId, dataDate, {
+            say: `${cameFrom.why}: this walk has no way to move the page to its route after the #.`,
+          });
+        }
+        try {
+          await routeTo({ address: cameFrom.address });
+        } catch (couldNotMove) {
+          return anAnswer(FAILED, reportId, dataDate, {
+            say: `${cameFrom.why}: ${(couldNotMove && couldNotMove.message) || couldNotMove}`,
+          });
+        }
+      }
+
+      if (!closedPopUpsHere && step.do !== GO && typeof door.close_pop_ups === 'function') {
+        closedPopUpsHere = true;
+        try {
+          const closed = (await door.close_pop_ups()) || [];
+          if (closed.length) say(`${reportId}: closed what was in the way first -- ${closed.join('; ')}.`);
+        } catch (couldNotClose) {
+          say(`${reportId}: could not close what was in the way -- `
+            + `${(couldNotClose && couldNotClose.message) || couldNotClose}`);
+        }
       }
 
       /* **EVERY STEP THIS PAGE ACTUALLY WALKS SAYS WHAT IT IS ABOUT TO DO,
@@ -1023,9 +1481,200 @@ export function theWalk({
          * way through its own wait for the month heading, "in case it toggled
          * off" -- and without that the only symptom is a quiet wait followed by
          * "no calendar was showing", which reads as the portal having changed. */
-        await theRangeGoesIn(step, reportId,
-          daysBefore(dataDate, (step.rangeDays || 1) - 1), dataDate);
+        try {
+          await theRangeGoesIn(step, reportId,
+            fromDay && fromDay < dataDate ? fromDay : daysBefore(dataDate, (step.rangeDays || 1) - 1),
+            dataDate);
+        } catch (wrong) {
+          if (!(wrong && wrong.dayNotAvailable)) throw wrong;
+          /* **NOT A FAILURE, AND NOTHING HAS BEEN ASKED FOR.** The calendar comes
+           * before every Submit in every recipe that has one, so a refusal here
+           * has spent nothing on the platform -- which is what lets the night give
+           * the seller's request back. Rumee's own words for it: "not yet
+           * available on Flipkart -- will retry automatically". */
+          return anAnswer(NOT_AVAILABLE_YET, reportId, dataDate, {
+            say: `${wrong.message} Nothing was asked for; this day will be tried again on a later run.`,
+          });
+        }
         continue;
+      }
+
+      if (step.do === SWEEP_THE_ADS) {
+        if (typeof sweepTheAds !== 'function') {
+          return anAnswer(FAILED, reportId, dataDate, {
+            say: "This recipe sweeps a platform's own addresses and this walk was built with "
+              + 'no way of reaching them, so nothing was asked for.',
+          });
+        }
+        let swept;
+        try {
+          swept = await sweepTheAds({ dataDate, patience: step.patience });
+        } catch (wrong) {
+          return anAnswer(FAILED, reportId, dataDate, {
+            say: `${step.why}: ${(wrong && wrong.message) || wrong}`,
+            pageWas: capture(await door.page_text()),
+          });
+        }
+        /* **NOTHING RUNNING IS NOT A FAILURE AND NOT A SUCCESS, AND SAYING SO IS
+         * THE WHOLE POINT.** His ruling of 2026-09-11 was to collect only the
+         * campaigns that are running, told plainly that he has none. **The
+         * reference reports the job done and writes nothing** -- so a seller sees
+         * an empty folder and a clean night, which is the exact shape of fault
+         * this product exists against. This is the fourth word: there was nothing
+         * to fetch, and here is why. */
+        if (!swept.files.length) {
+          return anAnswer(NOTHING_TO_FETCH, reportId, dataDate, {
+            say: `${swept.running} of ${swept.lookedAt} campaigns were running on `
+              + `${dataDate}, so there is nothing to record. Only campaigns that are `
+              + 'running are collected.',
+          });
+        }
+        /* **ONE SWEEP, THREE REPORTS' FILES, because it is one pair of calls.**
+         * Asking Meesho for the same campaign three times to write three files
+         * would be three times the load for the same answer -- `recipes.py`
+         * `MADE_BY_ANOTHER` is where the other two say who fetches them. */
+        const landed = [];
+        for (const one of swept.files) {
+          const called = theFileName(book, one.reportId, dataDate);
+          if (!called) {
+            return anAnswer(FAILED, reportId, dataDate, {
+              say: `There is nothing in the recipe file saying what ${one.reportId}'s file `
+                + 'is called, so nothing has been put anywhere.',
+            });
+          }
+          const body = new TextEncoder().encode(one.text);
+          try {
+            // eslint-disable-next-line no-await-in-loop
+            await putTheFile({ reportId: one.reportId, fileName: called, body });
+          } catch (wrong) {
+            return anAnswer(FAILED, reportId, dataDate, {
+              fileName: called,
+              say: `${called} could not be put in the seller's Drive: `
+                + `${(wrong && wrong.message) || wrong}`,
+            });
+          }
+          landed.push({ called, size: body.length });
+        }
+        return anAnswer(LANDED, reportId, dataDate, {
+          fileName: landed[0].called,
+          size: landed.reduce((all, one) => all + one.size, 0),
+          say: `${swept.running} of ${swept.lookedAt} campaigns were running. Landed `
+            + `${landed.map((one) => `${one.called} (${one.size} bytes)`).join(', ')} in the `
+            + "seller's Drive.",
+        });
+      }
+
+      if (step.do === READ_THE_KEYWORDS) {
+        if (typeof readTheKeywords !== 'function') {
+          return anAnswer(FAILED, reportId, dataDate, {
+            say: 'This recipe reads the keywords off the page and this walk was built with no way '
+              + 'of reading them, so nothing was read.',
+          });
+        }
+        let read;
+        try {
+          read = await readTheKeywords({ dataDate, patience: step.patience });
+        } catch (wrong) {
+          return anAnswer(FAILED, reportId, dataDate, {
+            say: `${step.why}: ${(wrong && wrong.message) || wrong}`,
+            pageWas: capture(await door.page_text()),
+          });
+        }
+        /* **ONLY FLIPKART'S LATEST DAY HAS KEYWORDS** (the reference's rule), so a
+         * latest day before the one asked for is "not available yet", and one after
+         * it means the day asked for can no longer be read. Nothing was pressed. */
+        if (read && read.shownDay && read.shownDay !== dataDate) {
+          if (read.shownDay < dataDate) {
+            return anAnswer(NOT_AVAILABLE_YET, reportId, dataDate, {
+              say: `Flipkart's latest day on the traffic report is ${read.shownDay}, so the keywords `
+                + `for ${dataDate} are not built yet. Nothing was read; this day will be tried again `
+                + 'on a later run.',
+            });
+          }
+          return anAnswer(FAILED, reportId, dataDate, {
+            say: `Flipkart offers the top search keywords for its latest day only, which is `
+              + `${read.shownDay}, so ${dataDate} can no longer be read. Nothing was read.`,
+          });
+        }
+        /* **NO KEYWORDS IS A FAILURE, THE REFERENCE'S OWN WORD FOR IT** -- "no keyword
+         * data found". A day with listings and not one keyword read is a page that was
+         * not what it looked like, not a quiet day. */
+        if (!read || !Array.isArray(read.rows) || !read.rows.length) {
+          return anAnswer(FAILED, reportId, dataDate, {
+            say: `${(read && read.listings) || 0} listings were looked at and no search keywords `
+              + 'were read, so nothing was put away.',
+            pageWas: capture(await door.page_text()),
+          });
+        }
+        const called = fileName || theFileName(book, reportId, dataDate);
+        if (!called) {
+          return anAnswer(FAILED, reportId, dataDate, {
+            say: `There is nothing in the recipe file saying what ${reportId}'s file is `
+              + 'called, so the keywords have not been put anywhere.',
+          });
+        }
+        const body = new TextEncoder().encode(read.csv);
+        try {
+          await putTheFile({ reportId, fileName: called, body });
+        } catch (wrong) {
+          return anAnswer(FAILED, reportId, dataDate, {
+            fileName: called,
+            size: body.length,
+            say: `${body.length} bytes of keywords could not be put in the seller's Drive: `
+              + `${(wrong && wrong.message) || wrong}`,
+          });
+        }
+        return anAnswer(LANDED, reportId, dataDate, {
+          fileName: called,
+          size: body.length,
+          say: `Read the top search keywords of ${read.listings} listings over ${read.pages} `
+            + `page(s): ${read.rows.length} rows. Landed ${body.length} bytes in the seller's Drive `
+            + `as ${called}.`,
+        });
+      }
+
+      if (step.do === ADD_TO_THE_LIST) {
+        /* **NOTHING READ IS A FAILURE, NOT AN EMPTY ROW.** A row of blanks
+         * written every night is the quietest way to lose a figure: the day
+         * board would say the day arrived, the file would grow, and the numbers
+         * would all be missing. */
+        if (!readSoFar.size) {
+          return anAnswer(FAILED, reportId, dataDate, {
+            say: 'Nothing was read off the page, so there is no row to add. A row of blanks '
+              + 'would read as a day that arrived.',
+          });
+        }
+        const called = fileName || theFileName(book, reportId, dataDate);
+        if (!called) {
+          return anAnswer(FAILED, reportId, dataDate, {
+            say: `There is nothing in the recipe file saying what ${reportId}'s file is `
+              + 'called, so the row has not been added anywhere.',
+          });
+        }
+        const columns = [...readSoFar.keys()];
+        /* **THE DAY IS WRITTEN THE WAY EVERYTHING ELSE HERE WRITES ONE.** ISO,
+         * the same spelling the file names carry and the same one that reaches
+         * the ERP (`reading.a_reading` hands it `data_date=when.isoformat()`). A
+         * second spelling of a day is a second record of one fact. */
+        const header = ['Date', ...columns].join(',');
+        const row = [dataDate, ...columns.map((one) => readSoFar.get(one))].join(',');
+        try {
+          const added = await addToTheList({
+            reportId, fileName: called, header, row, forTheDay: dataDate,
+          });
+          const size = Number(added && added.size) || 0;
+          return anAnswer(LANDED, reportId, dataDate, {
+            fileName: called,
+            size,
+            say: `Added ${dataDate} to ${called} in the seller's Drive: ${row}.`,
+          });
+        } catch (wrong) {
+          return anAnswer(FAILED, reportId, dataDate, {
+            fileName: called,
+            say: `The row for ${dataDate} could not be added to ${called}: `
+              + `${(wrong && wrong.message) || wrong}`,
+          });
+        }
       }
 
       if (step.do === TAKE_FILE) {
@@ -1037,12 +1686,13 @@ export function theWalk({
          * never be read out of it -- the folder simply fills up, silently.
          * `fileName` given by the caller still wins, because a caller that knows
          * better than the book is a caller that has been told. */
-        const called = fileName || theFileName(book, reportId, dataDate);
+        const called = theCampaignsFileName(fileName || theFileName(book, reportId, dataDate),
+          step.campaign, step.campaignsInAll);
         if (!called) {
           return anAnswer(FAILED, reportId, dataDate, {
             say: `There is nothing in the recipe file saying what ${reportId}'s file is `
               + 'called, so it has not been put anywhere. A file put away under a name the '
-              + 'nightly run cannot read the day out of would never be read at all.',
+              + 'scheduled sync cannot read the day out of would never be read at all.',
           });
         }
         /* **HOW BIG IS WORTH CARRYING, AND NOTHING ASKED UNTIL NOW.** The bytes
@@ -1074,8 +1724,9 @@ export function theWalk({
          * **AND A DRIVE THAT REFUSED IS THIS REPORT'S FAILURE, NOT A CRASH.**
          * Answered as a failure, the night writes it down, moves on, and the day
          * is fetched again -- nothing is marked, nothing is lost. */
+        let put;
         try {
-          await putTheFile({ reportId, fileName: called, body: got.body });
+          put = await putTheFile({ reportId, fileName: called, body: got.body });
         } catch (wrong) {
           return anAnswer(FAILED, reportId, dataDate, {
             fileName: called,
@@ -1084,14 +1735,55 @@ export function theWalk({
               + `Drive: ${(wrong && wrong.message) || wrong}`,
           });
         }
+        /* **THE SIZE THAT LANDED, NOT THE SIZE THAT CAME DOWN (F15, Job 8, A65,
+         * 2026-09-23).** A zip holding one spreadsheet is opened for real before
+         * it reaches Drive (`drive.js` `landTheFile`, `unzip.js`
+         * `theSpreadsheetInside`), so Drive ends up holding more bytes than the
+         * download `got.body` -- measured on `me_payments` 09-20: the log said
+         * 8,155 (the zip), Drive held 9,033 (the spreadsheet inside it). `put`
+         * carries back what Drive actually has now; a caller with no size to
+         * give (a test stub, or an older wiring) still gets the old number. */
+        const landedSize = put && put.size !== undefined ? (Number(put.size) || 0) : got.body.length;
+        /* **THE FILE THAT NAMES A DAY'S CAMPAIGNS IS READ FOR THEM AS IT LANDS**
+         * (2026-09-15), the reference's own moment for it. A failure here is said and
+         * never undoes the landing: this report's own file is safely in Drive. */
+        const readsTheCampaigns = Object.values(book.recipes)
+          .map((one) => one && one.campaignsFrom)
+          .find((one) => one && one.report === reportId);
+        if (readsTheCampaigns && typeof keepTheCampaigns === 'function') {
+          const campaigns = theCampaignsIn(new TextDecoder().decode(got.body), readsTheCampaigns, dataDate);
+          if (!campaigns) {
+            say(`${reportId}: no "${readsTheCampaigns.idColumn}" and "${readsTheCampaigns.dayColumn}" `
+              + 'columns were found in the file, so which campaigns ran is not known.');
+          } else {
+            try {
+              await keepTheCampaigns({ reportId, dataDate, campaigns });
+              say(`${reportId}: ${campaigns.length} campaign(s) ran on ${dataDate}.`);
+            } catch (wrong) {
+              say(`${reportId}: which campaigns ran could not be kept -- `
+                + `${(wrong && wrong.message) || wrong}`);
+            }
+          }
+        }
+        if (step.campaign) {
+          campaignFilesLanded.push({ called, size: landedSize });
+          if (step.campaignNumber < step.campaignsInAll) continue;
+          return anAnswer(LANDED, reportId, dataDate, {
+            fileName: campaignFilesLanded[0].called,
+            size: campaignFilesLanded.reduce((all, one) => all + one.size, 0),
+            say: `Landed ${campaignFilesLanded.map((one) => `${one.called} (${one.size} bytes)`)
+              .join(', ')} in the seller's Drive, one per campaign.`,
+          });
+        }
         return anAnswer(LANDED, reportId, dataDate, {
           fileName: called,
-          size: got.body.length,
-          say: `Landed ${got.body.length} bytes in the seller's Drive as ${called}.`,
+          size: landedSize,
+          say: `Landed ${landedSize} bytes in the seller's Drive as ${called}.`,
         });
       }
 
-      const many = await howManyMatch(step, reportId);
+      let many = await howManyMatch(step, reportId);
+      if (many === 0 && step.do === WAIT_FOR) many = await whatElseCounts(step, reportId);
       if (many === 0) {
         /* **ITS OWN NAMED FAILURE, decided after the lookup rather than before
          * it.** "Button not found" sent a month of diagnosis at a button that was
@@ -1105,12 +1797,35 @@ export function theWalk({
          * lost to a chart legend that read like a menu item. */
         return gaveUp(reportId, dataDate, {
           kind: FOUND_SEVERAL, lookingFor: step.find.called || step.find.what,
-          doing: step.why, matches: many,
+          doing: step.why, matches: many, lookup: step.find,
         });
       }
 
+      if (step.do === READ_NUMBER) {
+        /* **THE COLUMN IS NAMED BY THE LOOKUP, not by the order it ran in.** A
+         * `called` wins where a recipe gives one, exactly as every failure
+         * message in this file uses `called` for what a person would say. */
+        const column = step.find.called || step.find.what;
+        try {
+          readSoFar.set(column, await door.read_number(
+            step.find.how, step.find.what, step.find.exact, step.patience,
+            step.find.near, step.find.alsoSaying,
+          ));
+        } catch (wrong) {
+          /* **ITS OWN FAILURE, WITH THE DOOR'S OWN WORDS.** The door says which
+           * of the three things went wrong -- nothing matched, several matched,
+           * or the label is there with no number beside it -- and all three send
+           * somebody to a different place. */
+          return anAnswer(FAILED, reportId, dataDate, {
+            say: `${step.why}: ${(wrong && wrong.message) || wrong}`,
+            pageWas: capture(await door.page_text()),
+          });
+        }
+      }
+
       if (step.do === CLICK) {
-        await door.click(step.find.how, step.find.what, step.find.exact, step.find.near);
+        await door.click(step.find.how, step.find.what, step.find.exact, step.find.near,
+          false, step.find.alsoSaying, Boolean(step.pressLikeAMouse));
         /* **NOT SAID TWICE.** Every step announces itself above, before it is
          * attempted, and a second line here would double every click.
          *
@@ -1120,6 +1835,10 @@ export function theWalk({
          * in this product, because none of them ends on a click; each `toTake`
          * ends in `take-file`. **The day one ends on a click, a click that hangs
          * looks exactly like a click that worked.** */
+      }
+      if (step.do === TYPE_IN) {
+        await door.type_in(step.find.how, step.find.what, step.find.exact, step.find.near,
+          step.find.alsoSaying, step.words);
       }
       /* A WAIT_FOR looks and does not click. Without that difference the door
        * would press the thing it was only waiting to appear -- on the orders page
@@ -1135,7 +1854,7 @@ export function theWalk({
       return anAnswer(STILL_WAITING, reportId, dataDate, {
         theirId: dataDate,
         say: `Asked for it. About ${plan.recipe.readyInMinutes} minutes before it is ready; `
-          + 'a later run will collect it rather than asking again.',
+          + 'it is collected at the end of this sync rather than asked for again.',
       });
     }
 
@@ -1199,8 +1918,37 @@ export function theFileName(book, reportId, dataDate) {
    * comment above exists to prevent. The walk refuses a bad day before it gets
    * here; this is the second lock on the same door, and it is the same rule
    * rather than a second copy of it. */
+  /* **A RUNNING LIST HAS ONE NAME FOR EVERY DAY, AND THE DAY IS STILL REFUSED
+   * FIRST.** The name does not carry it, but the ROW inside does -- so a bad day
+   * has to stop here either way, or it reaches the file instead of the name and
+   * the day board reads it back as a row nothing can place.
+   * `landing.the_running_list_is_called` is the same sentence on the Python
+   * side, and `export_recipes.py` carries the flag across so there is one rule
+   * and not two. */
   if (whyTheDayIsRefused(dataDate)) return '';
+  if (how.aRunningList) return `${how.platform}_${reportId}.${how.extension}`;
   return `${how.platform}_${reportId}_${dataDate}.${how.extension}`;
+}
+
+/** An answer with the banners the page showed added to what it says.
+ *
+ *  **ON SUCCESS AND ON FAILURE ALIKE** (his ruling, 2026-09-14), words only, the
+ *  last five. A walk still carrying on is left alone. */
+export function withWhatThePageShowed(answer, banners) {
+  if (!answer || typeof answer !== 'object' || hasNotFinished(answer)) return answer;
+  const said = [];
+  for (const one of banners || []) {
+    const shown = String((one && one.words) || '').trim();
+    if (shown && !said.includes(shown)) said.push(shown);
+  }
+  if (!said.length) return answer;
+  const lastFive = said.slice(-5);
+  return {
+    ...answer,
+    say: `${answer.say ? `${answer.say} ` : ''}The page showed: `
+      + `${lastFive.map((one) => `"${one.slice(0, 160)}"`).join(', ')}.`,
+    banners: lastFive,
+  };
 }
 
 export function looksLikeAPage(bytes) {

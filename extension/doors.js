@@ -36,13 +36,13 @@
  * checked with no browser and no extension installed.
  */
 
-/* **TEMPORARY, ASKED FOR ON 11 SEPTEMBER 2026, AND MEANT TO BE PUT BACK.**
+/* **PUT BACK TO `true` ON 15 SEPTEMBER 2026, HIS RULING** -- the tab in his own
+ * window (`false`, asked for on 11 September) was for building only.
  *
  * `true` is the arrangement everything else here was built for: the walk opens a
  * WINDOW OF ITS OWN, so its tab is always the selected one and Chrome never
- * throttles it. `false` -- what runs today -- opens a TAB IN THE WINDOW THE
- * SELLER IS ALREADY IN, so he can watch the fetching happen over its shoulder
- * while it is being debugged.
+ * throttles it. `false` opens a TAB IN THE WINDOW THE SELLER IS ALREADY IN, so he
+ * can watch the fetching happen over its shoulder while it is being debugged.
  *
  * **WHAT THAT COSTS IS THE THROTTLING PROTECTION, AND IT IS NOT SMALL.** Chrome
  * slows a tab that is not the selected one in its window. The moment he looks at
@@ -52,7 +52,7 @@
  * to a real failure.
  *
  * **PUT IT BACK BY SETTING THIS LINE TO `true`.** Nothing else has to change. */
-export const WALK_IN_HIS_OWN_WINDOW = false;
+export const WALK_IN_HIS_OWN_WINDOW = true;
 
 /* How often to look again while waiting for a page or a download, in
  * milliseconds. */
@@ -139,7 +139,6 @@ export const OUR_TAB = 'kartaan-autosync-tab';
  * narrow window makes Meesho draw its phone layout, which has no "Bulk Stock
  * Update" button at all, and the walk then truthfully reports a button that
  * genuinely is not there. */
-const WINDOW_SIZE = { width: 1000, height: 700 };
 
 /**
  * A tab to walk in: the only tab of our own window, never the seller's.
@@ -187,7 +186,7 @@ const WINDOW_SIZE = { width: 1000, height: 700 };
  * window filling up with dead tabs, and the moment there are two of them one of
  * them is not selected -- which is the throttled case, arrived at by tidiness.
  */
-export async function aTabToWalkIn(chrome, { address = 'about:blank' } = {}) {
+export async function aTabToWalkIn(chrome, { address = 'about:blank', fresh = false } = {}) {
   const held = await chrome.storage.session.get([OUR_WINDOW, OUR_TAB]);
   const ourWindow = held[OUR_WINDOW];
   const ourTab = held[OUR_TAB];
@@ -198,11 +197,33 @@ export async function aTabToWalkIn(chrome, { address = 'about:blank' } = {}) {
       /* **PUT BACK IF SOMEBODY MINIMISED IT, because minimised is throttled.**
        * Still not focused: putting a window back on screen is not the same as
        * taking somebody's screen, and only one of those is needed. */
-      if (window.state === 'minimized') {
-        await chrome.windows.update(ourWindow, { state: 'normal', focused: false });
-      }
+      /* **AND BROUGHT TO THE FRONT AT THE START OF EVERY REPORT -- HIS RULING,
+       * 2026-09-15.** A window of our own sitting behind his was slowed by Chrome
+       * all the same: two Meesho reports failed their first page load that way
+       * until he brought it forward by hand. Asked once per report (`startAWalk`),
+       * never per page. */
+      /* **AND MAXIMISED -- HIS RULING, 2026-09-15**, so the size of the window can
+       * never be why a page draws nothing. */
+      await chrome.windows.update(ourWindow, { state: 'maximized', focused: true });
       if (ourTab !== undefined && ourTab !== null) {
         const tab = await chrome.tabs.get(ourTab);
+        if (tab.windowId === ourWindow && fresh) {
+          /* **A FRESH TAB FOR EVERY REPORT -- RUMEE'S WAY (A53, 2026-09-16).** Rumee
+           * closes its tab after each job and opens a new one for the next
+           * (`D:\rumee-auto-sync\background.js:299-310, 1579-1593`). Chrome counts
+           * downloads per tab and blocks a page "trying to download multiple
+           * files" -- which he saw on a Meesho page -- so reusing one tab for every
+           * report can have a later report's file refused. Made before the old one
+           * is closed, so the window never empties and never fills with dead tabs. */
+          const made = await chrome.tabs.create({ url: address, windowId: ourWindow, active: true });
+          await chrome.storage.session.set({ [OUR_TAB]: made.id });
+          try {
+            await chrome.tabs.remove(ourTab);
+          } catch (gone) {
+            /* Already closed by somebody; nothing to tidy. */
+          }
+          return made;
+        }
         if (tab.windowId === ourWindow) {
           /* **MADE THE SELECTED TAB -- IN A WINDOW OF OUR OWN ONLY, AND THIS
            * IS THE ONE THING HE ASKED FOR ON 11 SEPTEMBER 2026.**
@@ -230,7 +251,10 @@ export async function aTabToWalkIn(chrome, { address = 'about:blank' } = {}) {
         }
       }
       const made = await chrome.tabs.create({ url: address, windowId: ourWindow, active: true });
-      await chrome.storage.local.set({ [OUR_TAB]: made.id });
+      /* **SESSION, WHERE IT IS READ BACK -- NOT `local`.** Written to `local`, the
+       * new tab was never found again, so every later turn of the walk made
+       * another. Found 2026-09-14. */
+      await chrome.storage.session.set({ [OUR_TAB]: made.id });
       return made;
     } catch (wrong) {
       /* The window or the tab has been closed. Said plainly rather than
@@ -251,10 +275,14 @@ export async function aTabToWalkIn(chrome, { address = 'about:blank' } = {}) {
     url: address,
     /* **NEVER TAKES THE SCREEN.** See above: focus is not what throttling
      * watches, so there is nothing to be gained by stealing it. */
-    focused: false,
-    /* **AND NEVER MINIMISED, which IS what throttling watches.** */
-    state: 'normal',
-    ...WINDOW_SIZE,
+    /* **IN FRONT WHEN IT OPENS -- HIS RULING, 2026-09-15.** It used to open
+     * unfocused on the belief that only minimising is slowed; a window hidden
+     * behind his was slowed too. */
+    focused: true,
+    /* **MAXIMISED, NEVER MINIMISED -- HIS RULING, 2026-09-15.** Pages that drew in
+     * his own window stayed undrawn in a small 1000x700 one; a maximised window
+     * takes that question away. Chrome refuses a width and height with it. */
+    state: 'maximized',
   });
   const tab = (made.tabs && made.tabs[0]) || null;
   await chrome.storage.session.set({ [OUR_WINDOW]: made.id, [OUR_TAB]: tab && tab.id });
@@ -277,7 +305,14 @@ export async function goTo(chrome, { tabId, address, patienceSeconds, now = () =
   /* **READ BEFORE, because where the tab already is decides whether telling it
    * where to go is a real page load at all.** See `sameDocumentAs` below. */
   const before = await chrome.tabs.get(tabId);
-  await chrome.tabs.update(tabId, { url: address });
+  /* **A FLIPKART ADDRESS LOADS ONLY THE PAGE BEFORE ITS `#` (A53, 2026-09-15).**
+   * Reloading a deep `#` address in a reused tab landed on
+   * `#dashboard/page-not-found` for claims, listings, returns, the Reports Centre
+   * and traffic on 2026-09-14. The reference full-loads the base page and then
+   * moves inside it (`content/flipkart.js:492-493, 583-591`); the walk does that
+   * move with `routeInThePage` below once the page half is running. */
+  const loadAt = thePageToLoad(address);
+  await chrome.tabs.update(tabId, { url: loadAt });
   /* **AND IF THAT WAS NOT A REAL PAGE LOAD, MAKE ONE.** This is the whole of
    * Flipkart. Every Flipkart address in the recipe file is
    * `https://seller.flipkart.com/index.html#...` -- the page is always
@@ -294,7 +329,7 @@ export async function goTo(chrome, { tabId, address, patienceSeconds, now = () =
    * same-document hashchange -- page does NOT reload, manifest content scripts
    * are NOT re-injected, CONTENT_READY never fires -> silent stall." It forces a
    * reload for exactly this reason and has done for months. */
-  if (sameDocumentAs(before && before.url, address)) await chrome.tabs.reload(tabId);
+  if (sameDocumentAs(before && before.url, loadAt)) await chrome.tabs.reload(tabId);
   const giveUpAt = now() + Math.max(0, Number(patienceSeconds) || 0) * 1000;
   for (;;) {
     const tab = await chrome.tabs.get(tabId);
@@ -460,6 +495,23 @@ export async function takeTheFile(chrome, watching, {
 }
 
 /**
+ * The page a walk loads for an address: the part before the `#`, and for Flipkart's
+ * own seller site the plain site address rather than `/index.html`.
+ *
+ * **JOB 9 (A66, 2026-09-23).** Loading `https://seller.flipkart.com/index.html`
+ * with no route made Flipkart's own page bounce to `#dashboard/page-not-found`
+ * for a moment before the walk moved inside -- he watched it 20-30 times on
+ * 2026-09-19, once before every report. The reference loads plain
+ * `https://seller.flipkart.com/` (Rumee `background.js:343-361`) and never sees it.
+ * **ONLY THE LOAD CHANGES.** The recipe file keeps its `index.html#...` addresses,
+ * and `routeInThePage` still sets the route from the address after the `#`.
+ */
+export function thePageToLoad(address) {
+  const upToTheHash = String(address).split('#')[0];
+  return upToTheHash.replace(/^(https:\/\/seller\.flipkart\.com)\/index\.html(?=\?|$)/, '$1/');
+}
+
+/**
  * Would going from one address to the other leave the same page in place?
  *
  * **IT ASKS ABOUT THE PART BEFORE THE `#`, AND NOTHING ELSE.** Two addresses
@@ -478,8 +530,70 @@ export async function takeTheFile(chrome, watching, {
  */
 export function sameDocumentAs(wasAt, goingTo) {
   if (!wasAt || !goingTo) return false;
+  if (String(wasAt) === String(goingTo)) return true;
+  /* **AN ADDRESS WITH NO `#` IS A REAL LOAD** even from the same page with one:
+   * a browser only moves without loading when the new address carries a `#`. */
+  if (!String(goingTo).includes('#')) return false;
   const upToTheHash = (one) => String(one).split('#')[0];
   return upToTheHash(wasAt) === upToTheHash(goingTo);
+}
+
+/**
+ * Move a loaded page to the route after an address's `#`, from inside the page.
+ *
+ * **A53, 2026-09-15, THE REFERENCE'S WAY.** Wait up to 15 s for the app to have
+ * started (a link into the route's first part, `waitForSpaBootstrap`,
+ * `content/flipkart.js:583-591`), rest 2 s, set the hash from the page's own
+ * world so the app's router hears it (`content/intercept.js:409`), then wait up
+ * to 15 s for the route, setting it once more if it did not take. Arrived means
+ * the route before `?` matches and every `key=value` asked is still there;
+ * Flipkart may ADD to the address (claims adds `query=`), which is fine.
+ *
+ * Answers `{ arrived: true, showing }`, or throws naming where the page stayed.
+ */
+export async function routeInThePage(chrome, { tabId, address, timings = {} }) {
+  const done = await chrome.scripting.executeScript({
+    target: { tabId },
+    world: 'MAIN',
+    func: moveInsideThePage,
+    args: [String(address), {
+      bootMs: 15000, settleMs: 2000, lookMs: 500, arriveMs: 15000, ...timings,
+    }],
+  });
+  const said = await (done && done[0] && done[0].result);
+  if (!said || !said.arrived) {
+    throw new Error(`the page did not move to ${String(address).slice(String(address).indexOf('#'))}; `
+      + `it stayed on ${(said && said.showing) || 'a page that said nothing'}.`);
+  }
+  return said;
+}
+
+/* **RUN FROM ITS OWN SOURCE IN THE PAGE**, so it reaches for nothing outside itself. */
+async function moveInsideThePage(address, { bootMs, settleMs, lookMs, arriveMs }) {
+  const rest = (ms) => new Promise((done) => { setTimeout(done, ms); });
+  const route = address.slice(address.indexOf('#'));
+  const [path, query = ''] = route.split('?');
+  const asked = query.split('&').filter(Boolean);
+  const there = () => {
+    const [nowPath, nowQuery = ''] = String(window.location.hash).split('?');
+    const has = nowQuery.split('&');
+    return nowPath === path && asked.every((one) => has.includes(one));
+  };
+  if (there()) return { arrived: true, showing: String(window.location.hash) };
+  const firstPart = path.split('/')[0];
+  for (let waited = 0; waited < bootMs && !document.querySelector(`a[href*="${firstPart}"]`);
+    waited += lookMs) {
+    await rest(lookMs);
+  }
+  await rest(settleMs);
+  for (let tries = 0; tries < 2; tries += 1) {
+    window.location.hash = route;
+    for (let waited = 0; waited < arriveMs; waited += lookMs) {
+      if (there()) return { arrived: true, showing: String(window.location.hash) };
+      await rest(lookMs);
+    }
+  }
+  return { arrived: false, showing: String(window.location.hash) };
 }
 
 function pause(ms) {

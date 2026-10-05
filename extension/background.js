@@ -36,10 +36,67 @@
  */
 
 import { catchTheNextFile } from './catch-blob.js';
-import { RELAY_TO_THE_PAGE } from './driver.js';
+import {
+  RELAY_TO_THE_PAGE, aFileReallyComesFrom, looksLikeASpreadsheet, onThePlatformsOwnSite,
+} from './driver.js';
 import { ARMED_FOR_MS, aTabToWalkIn, goTo } from './doors.js';
-import { FAILED, TOO_BIG_TO_CARRY, whyTheDayIsRefused } from './walk.js';
-import { carryTheNightOn } from './nightly.js';
+import { A_CAMPAIGN_ID, FAILED, TOO_BIG_TO_CARRY, whyTheDayIsRefused } from './walk.js';
+import {
+  RANGE_FROM_LAST, RECHECK_ALARM, carryTheNightOn, rememberLastCaptured, rememberLastLanded,
+} from './nightly.js';
+import { theLatestDateInside } from './unzip.js';
+
+/** The day landed in this file's own name, whichever of the two dated shapes
+ *  it is written in (see `whyTheseAreNotNames`): the ordinary
+ *  `platform_report_YYYY-MM-DD.ext`, or one file per campaign,
+ *  `platform_report_YYYY-MM-DD_campaign.ext`. A running list's name carries no
+ *  day at all, and this answers nothing for it. */
+function theDayInAFileName(fileName) {
+  return (String(fileName || '').match(/_(\d{4}-\d{2}-\d{2})(?:_[A-Za-z0-9_-]+)?\.[a-z0-9]+$/i) || [])[1] || '';
+}
+
+/**
+ * After a file lands: for Flipkart traffic, remember the last day it really held --
+ * the latest date inside it, never later than the day in its name. Rumee's watermark
+ * (`D:\rumee-auto-sync\content\flipkart.js:2560-2575`), A53.
+ *
+ * **JOB 6: AND FOR EVERY DATED REPORT, EVERY DAY THIS LANDING ALSO SAW ALREADY
+ * IN THE FOLDER GOES INTO WHAT `daysNobodyTried` READS.** `alreadyThere` is
+ * `drive.landTheFile`'s own Drive-folder listing, asked anyway for the
+ * put-or-replace decision, so this costs nothing extra. **This is what lets a
+ * hole BEHIND a later landed day be found at all** (F14: `me_orders` landed
+ * 09-16, then 09-20, with 09-17..09-19 missing between them) -- the day just
+ * landed alone would only ever move a high-water mark forward, past the hole,
+ * the same fault a single "last landed" scalar could never see round.
+ */
+export async function afterALanding(chrome, { reportId, fileName, bytes, alreadyThere = [] }) {
+  const named = theDayInAFileName(fileName);
+  if (named) await rememberLastLanded(chrome, reportId, named);
+  /* **ONE AT A TIME, NOT `Promise.all`.** `rememberLastLanded` reads, adds and
+   * writes back the whole record in one storage read/write; several run
+   * together would each read the same starting record and the last write
+   * would win, losing every day but its own. */
+  for (const one of (alreadyThere || [])) {
+    const day = theDayInAFileName(one && one.name);
+    if (day) {
+      // eslint-disable-next-line no-await-in-loop
+      await rememberLastLanded(chrome, reportId, day);
+    }
+  }
+  if (!RANGE_FROM_LAST.includes(reportId)) return null;
+  let latest = '';
+  try {
+    latest = await theLatestDateInside(bytes);
+  } catch (couldNotRead) {
+    latest = '';
+  }
+  const upTo = latest && (!named || latest <= named) ? latest : named;
+  return upTo ? rememberLastCaptured(chrome, reportId, upTo) : null;
+}
+
+/* The reports fetched one file per campaign -- those whose recipe has
+ * `campaignsFrom`. A check holds this list to recipes.json. */
+export const NAMED_PER_CAMPAIGN = ['fk_ads_overall'];
 
 /** Why these are not a report and a file name this half will act on, or null.
  *
@@ -65,16 +122,43 @@ export function whyTheseAreNotNames(reportId, fileName) {
     return `"${report}" is not the name of a report this can put a file away for, so `
       + 'nothing has been put in the seller\'s Drive.';
   }
+  /* **THERE ARE TWO NAMES THIS PRODUCT WRITES, AND THE SECOND HAS NO DAY IN IT.
+   * THIS GUARD WAS THE FIFTH PLACE THAT ASSUMED THERE WAS ONLY ONE**, found on
+   * his own panel on 2026-09-11 with the walk otherwise finished: both figures
+   * read off the dashboard, the row built, and refused here.
+   *
+   * **A RUNNING LIST IS ONE FILE ADDED TO EVERY DAY** (`reports.a_running_list`),
+   * so its days are the first column inside it and its name carries none. Meesho
+   * sells no export of the day's views, which is why one exists at all.
+   *
+   * **AND THE UNDATED SHAPE IS NARROWER THAN THE DATED ONE, NOT LOOSER.** The
+   * report id in the name has to be the very report this message is about --
+   * `meesho_me_views.csv` for `me_views` and nothing else. The dated form does
+   * not ask that and never has. So this widens what may be written by exactly one
+   * name per report, and that name is fixed. */
   const shaped = /^[a-z0-9]{1,32}_[a-z0-9_]{1,64}_(\d{4}-\d{2}-\d{2})\.[a-z0-9]{1,8}$/.exec(called);
-  if (!shaped) {
+  const aList = new RegExp('^[a-z0-9]{1,32}_' + report + '\\.[a-z0-9]{1,8}$').test(called);
+  /* **THE THIRD NAME: ONE FILE PER CAMPAIGN.** When more than one campaign ran,
+   * the walk puts the campaign id after the day (`walk.theCampaignsFileName`,
+   * the reference's own rule), so the day is no longer last. Refused here on the
+   * 2026-09-21 run, which lost every day with live ads. Allowed only for a
+   * report fetched per campaign, only under its own report id, and the campaign
+   * part is `A_CAMPAIGN_ID`'s own letters -- no dot, slash or quote. */
+  const perCampaign = NAMED_PER_CAMPAIGN.includes(report)
+    ? new RegExp('^[a-z0-9]{1,32}_' + report + '_(\\d{4}-\\d{2}-\\d{2})_[A-Za-z0-9_-]{1,64}\\.[a-z0-9]{1,8}$').exec(called)
+    : null;
+  if (!shaped && !aList && !perCampaign) {
     return `"${called}" is not a name this product writes, so nothing has been put in the `
-      + 'seller\'s Drive. A file is put away as platform_report_YYYY-MM-DD.extension, and '
-      + 'the nightly run reads the day back out of that name.';
+      + 'seller\'s Drive. A file is put away as platform_report_YYYY-MM-DD.extension, or as '
+      + 'platform_report.extension when it is one list added to every day.';
   }
+  /* **A LIST'S NAME HAS NO DAY TO CHECK, so the check below is the dated form's
+   * alone.** Asked of a name with no day in it, it would refuse every one. */
+  if (!shaped && !perCampaign) return null;
   /* **AND THE DAY IN IT HAS TO BE A REAL DAY.** `2026-02-31` is the right shape
    * and is not a day, and a file under it is one `landing.data_date_in` answers
    * None for -- a file in the folder that no reader can ever reach. */
-  const notADay = whyTheDayIsRefused(shaped[1]);
+  const notADay = whyTheDayIsRefused((shaped || perCampaign)[1]);
   if (notADay) return `${called}: ${notADay}`;
   return null;
 }
@@ -428,7 +512,9 @@ export const A_WALK_LASTS_MS = ARMED_FOR_MS;
  * has already gone.
  */
 export async function beginTheWalk(chrome, { tabId, at = 0, startedAt = Date.now(), ...rest }) {
-  const walk = { tabId, at, carryOnUntil: startedAt + A_WALK_LASTS_MS, answer: null, ...rest };
+  const walk = {
+    tabId, at, startedAt, carryOnUntil: startedAt + A_WALK_LASTS_MS, answer: null, ...rest,
+  };
   await chrome.storage.local.set({ [THE_WALK]: walk });
   return walk;
 }
@@ -511,7 +597,12 @@ export async function endTheWalk(chrome, { tabId, answer, at = Date.now() }) {
  * is read back out of the record, which is why the record exists.
  */
 export async function startAWalk(chrome, {
-  reportId, dataDate, openAt, patience = 30,
+  /* **SIXTY, NOT THIRTY -- HIS FLIPKART VIEWS REPORT, 2026-09-14.** This waits
+   * for the browser to call the whole page finished, and Flipkart's Seller
+   * Insights was measured at 38 seconds for that (its own content was ready at
+   * 3; the rest is pictures and other people's scripts), so the report failed
+   * before its first step. A page that finishes sooner is not held any longer. */
+  reportId, dataDate, openAt, patience = 60,
   /* Handed in only so a check can stand at the moment the page is sent
    * anywhere and read what was already written down. Everything else in this
    * file takes `chrome` the same way and for the same reason. */
@@ -534,7 +625,7 @@ export async function startAWalk(chrome, {
    * stretched: the reference measured a fifteen-second wait taking nine minutes.
    * `aTabToWalkIn` answers with the only tab of a window of our own, unfocused
    * and not minimised. */
-  const tab = await aTabToWalkIn(chrome, { address: 'about:blank' });
+  const tab = await aTabToWalkIn(chrome, { address: 'about:blank', fresh: true });
   if (!tab || tab.id === undefined) {
     throw new Error('There is nowhere to walk: no tab could be opened.');
   }
@@ -556,7 +647,20 @@ export async function startAWalk(chrome, {
    * every page load and asks the background which job it is on. **One way in,
    * used by the first page and by every page after it**, rather than a special
    * path for the first that only the first can get wrong. */
-  await go(chrome, { tabId: tab.id, address: openAt, patienceSeconds: patience });
+  try {
+    await go(chrome, { tabId: tab.id, address: openAt, patienceSeconds: patience });
+  } catch (wrong) {
+    /* **A PAGE THAT HAS ALREADY TAKEN THE WALK UP MEANS IT STARTED (A53,
+     * 2026-09-15).** Chrome's "finished" counts every late script; the page half
+     * runs long before that. His `fk_claims` was written off as "could not be
+     * started at all ... after 60 seconds" while its walk went on and put the file
+     * in Drive -- the same case `carryOut`'s `go` already refuses to kill. */
+    const since = (await chrome.storage.local.get(THE_WALK))[THE_WALK];
+    if (since && since.tabId === tab.id && since.pickedUpFrom !== undefined && !since.answer) {
+      return walk;
+    }
+    throw wrong;
+  }
   return walk;
 }
 
@@ -662,14 +766,55 @@ export function answerThePage(chrome, parts) {
     if (!asked || !asked.do || !tabId) return null;
     if (from.id && from.id !== chrome.runtime.id) return null;
     if (!KNOWN.includes(asked.do)) return null;
-    return carryOut(chrome, parts, asked, tabId);
+    /* **AND THE PAGE'S OWN ADDRESS, AS CHROME GIVES IT**, which is what a new link
+     * is asked to share its site with -- never what the page says about itself. */
+    return carryOut(chrome, parts, asked, tabId, String(from.url || ''));
   };
 }
 
 /** What the page half may ask for. Written once, so refusing an unknown message
  *  and carrying out a known one cannot disagree about which is which. */
-export const KNOWN = ['go', 'arm-the-catcher', 'take-file', 'land-the-file', 'say',
-  'resume?', 'walk-done'];
+export const KNOWN = ['go', 'arm-the-catcher', 'take-file', 'fetch-this', 'land-the-file', 'say',
+  'resume?', 'walk-done', 'add-to-the-list', 'keep-the-campaigns', 'the-campaigns', 'route-to',
+  'tried-signing-in'];
+
+/** Where the campaigns that ran on a day are kept, by report and day (2026-09-15). */
+export const THE_CAMPAIGNS = 'kartaan-autosync-campaigns';
+/** How many report-days of campaigns are kept. Enough for a month of catching up. */
+export const CAMPAIGN_DAYS_KEPT = 60;
+
+/**
+ * Keep the campaigns that ran on a day, as the ads daily file said.
+ *
+ * **ASKED SOMETHING, because a page sends it.** Each id goes on to be typed into a
+ * portal's search box, so only an id that looks like one is kept, and a list that
+ * is not all ids keeps nothing.
+ */
+export async function keepTheCampaigns(chrome, { reportId, dataDate, campaigns } = {}) {
+  if (!/^[a-z]{2}_[a-z0-9_]{1,40}$/.test(String(reportId || ''))) {
+    return { wrong: 'That is not a report, so no campaigns were kept.' };
+  }
+  if (whyTheDayIsRefused(dataDate)) return { wrong: 'That is not a day, so no campaigns were kept.' };
+  if (!Array.isArray(campaigns) || campaigns.length > 100
+    || !campaigns.every((one) => typeof one === 'string' && A_CAMPAIGN_ID.test(one))) {
+    return { wrong: 'Those are not campaign ids, so nothing was kept.' };
+  }
+  const held = (await chrome.storage.local.get(THE_CAMPAIGNS))[THE_CAMPAIGNS] || {};
+  const kept = { ...held, [`${reportId}|${dataDate}`]: [...new Set(campaigns)] };
+  const oldestFirst = Object.keys(kept)
+    .sort((a, b) => String(a.split('|')[1]).localeCompare(String(b.split('|')[1])));
+  while (oldestFirst.length > CAMPAIGN_DAYS_KEPT) delete kept[oldestFirst.shift()];
+  await chrome.storage.local.set({ [THE_CAMPAIGNS]: kept });
+  return { kept: kept[`${reportId}|${dataDate}`].length };
+}
+
+/** The campaigns kept for a report and day, or null when none were ever kept --
+ *  which is "not known", not "none ran". */
+export async function theCampaignsKept(chrome, { reportId, dataDate } = {}) {
+  const held = (await chrome.storage.local.get(THE_CAMPAIGNS))[THE_CAMPAIGNS] || {};
+  const found = held[`${String(reportId)}|${String(dataDate)}`];
+  return Array.isArray(found) ? found : null;
+}
 
 /** Where the panel lives, as one name. Asked of a message's sender below, and
  *  opened by the toolbar button in `worker.js` -- so the page that is opened and
@@ -679,7 +824,7 @@ export const THE_PANEL = 'panel.html';
 /** What the debug relay may ask for, and it is not `THE_PANEL_ASKS`. Connecting
  *  a Drive, saving the panel name and moving the daily clock stay panel-only,
  *  because a page we do not control should never be able to do those. */
-export const THE_RELAY_ASKS = Object.freeze(['run-now', 'how-it-stands']);
+export const THE_RELAY_ASKS = Object.freeze(['run-now', 'how-it-stands', 'reload-the-extension']);
 
 /** May the relay be answered this? Separate and pure so both answers can be
  *  checked, which a constant read straight out of the module cannot be. */
@@ -741,8 +886,8 @@ export function answerThePanel(chrome, parts) {
   };
 }
 
-async function carryOut(chrome, parts, asked, tabId) {
-  const { goTo, takeTheFile, landTheFile, watching, say, secret } = parts;
+async function carryOut(chrome, parts, asked, tabId, pageAddress = '') {
+  const { goTo, takeTheFile, landTheFile, addARow, watching, say, secret } = parts;
   if (asked.do === 'resume?') {
     /* **EVERY PORTAL PAGE THE SELLER OPENS ASKS THIS**, because the page half is
      * a manifest content script and runs on all of them. Almost every answer is
@@ -891,14 +1036,128 @@ async function carryOut(chrome, parts, asked, tabId) {
       };
     }
     try {
-      const put = await landTheFile({
-        reportId: asked.reportId,
-        fileName: asked.fileName,
-        body: new Uint8Array(asked.bytes || []),
+      const body = new Uint8Array(asked.bytes || []);
+      const put = await landTheFile({ reportId: asked.reportId, fileName: asked.fileName, body });
+      await afterALanding(chrome, {
+        reportId: asked.reportId, fileName: asked.fileName, bytes: body, alreadyThere: put && put.alreadyThere,
       });
-      return { put: (put && put.id) || true };
+      /* **THE SIZE THAT REALLY LANDED, NOT THE SIZE THAT WAS SENT (F15, Job 8,
+       * A65, 2026-09-23).** `landTheFile` unzips a zip holding one spreadsheet
+       * before it uploads (`unzip.js` `theSpreadsheetInside`), so what Drive
+       * ends up holding is bigger than what came down. Handed back here, or
+       * the only number the walk can report is the zip's own -- which is what
+       * the run log said for `me_payments` while Drive held the unzipped size. */
+      return { put: (put && put.id) || true, size: Number(put && put.size) || 0 };
     } catch (wrong) {
       return { wrong: (wrong && wrong.message) || String(wrong) };
+    }
+  }
+  if (asked.do === 'add-to-the-list') {
+    /* **THE OTHER WAY A REPORT REACHES A DRIVE, and it exists because some
+     * numbers are not a download at all.** Meesho shows the day's views on a card
+     * and sells no export of them, so the page reads the figure and hands over a
+     * ROW rather than a file.
+     *
+     * **IT IS ASKED THE SAME QUESTIONS `land-the-file` IS ASKED, and for the same
+     * reason.** This is the boundary between the half that runs beside the
+     * portal's own code and the half that holds the seller's Drive permission; a
+     * boundary that asks nothing of what crosses it is not a boundary. The row
+     * itself is built from numbers this extension read, not from anything the
+     * page said. */
+    if (typeof addARow !== 'function') {
+      return { wrong: 'This browser half has no way of adding a row to a list in the Drive.' };
+    }
+    const wrongName = whyTheseAreNotNames(asked.reportId, asked.fileName);
+    if (wrongName) return { wrong: wrongName };
+    try {
+      const added = await addARow({
+        reportId: asked.reportId,
+        fileName: asked.fileName,
+        header: String(asked.header || ''),
+        row: String(asked.row || ''),
+        forTheDay: String(asked.forTheDay || ''),
+      });
+      return { added: true, size: (added && added.size) || 0, days: (added && added.days) || [] };
+    } catch (wrong) {
+      return { wrong: (wrong && wrong.message) || String(wrong) };
+    }
+  }
+  if (asked.do === 'tried-signing-in') {
+    /* **THE ONE SIGN-IN ATTEMPT IS WRITTEN ON THE WALK, for its own tab only (A53)**, so
+     * the page that loads after signing in does not try again. */
+    const held = (await chrome.storage.local.get(THE_WALK))[THE_WALK];
+    if (!held || held.tabId !== tabId) return { marked: false };
+    await chrome.storage.local.set({ [THE_WALK]: { ...held, triedSigningIn: true } });
+    return { marked: true };
+  }
+  if (asked.do === 'route-to') {
+    /* **MOVE THE ASKING PAGE TO A ROUTE, ONLY ON ITS OWN SITE (A53).** The site is
+     * Chrome's `sender.url`, never what the page says about itself. */
+    let asking;
+    let going;
+    try {
+      asking = new URL(pageAddress).origin;
+      going = new URL(String(asked.address || '')).origin;
+    } catch (notAnAddress) {
+      return { wrong: 'That is not an address on this page, so the page was not moved.' };
+    }
+    if (asking !== going) {
+      return { wrong: `A page on ${asking} may only be moved within its own site, not to ${going}.` };
+    }
+    if (typeof parts.routeInThePage !== 'function') {
+      return { wrong: 'This background has no way to move a page inside itself.' };
+    }
+    try {
+      return await parts.routeInThePage(chrome, { tabId, address: String(asked.address) });
+    } catch (couldNotMove) {
+      return { wrong: (couldNotMove && couldNotMove.message) || String(couldNotMove) };
+    }
+  }
+  if (asked.do === 'keep-the-campaigns') return keepTheCampaigns(chrome, asked);
+  if (asked.do === 'the-campaigns') return { campaigns: await theCampaignsKept(chrome, asked) };
+  if (asked.do === 'fetch-this') {
+    /* **THE LINK THE PORTAL WAS ABOUT TO OPEN, ASKED FOR FROM THIS HALF
+     * (2026-09-11).** Meesho's stock file leaves through an `<a target="_blank">`
+     * to a signed `storage.googleapis.com` link, which Chrome refuses to open
+     * because no person asked for it. The catcher suppresses that click and
+     * hands the address over -- so **nothing downloads, there is no Save-as
+     * window to race and nothing to cancel**, and the bytes go straight to the
+     * seller's Drive.
+     *
+     * **ASKED FOR HERE FIRST, AND BY THE PAGE ONLY IF THIS IS REFUSED.** This
+     * half holds the host permissions the manifest names, so a cross-origin
+     * report store answers it where it answered the page with nothing at all --
+     * measured on his own panel on 2026-09-11, where the page's own fetch of a
+     * Google storage link came back "Failed to fetch". The other direction is
+     * real too (D198: the reference's background fetch fails CORS on some
+     * Flipkart CDN endpoints), which is why a refusal here hands back an address
+     * rather than a failure.
+     *
+     * **AND THE ADDRESS IS ASKED THE SAME QUESTION A THIRD TIME.** It reached
+     * the page half through `driver.theCatcherSaid`, which already refused
+     * anything but a report store -- but this is the half that holds the
+     * seller's Drive, and it does not take another half's word for where it is
+     * about to send the seller's own cookies. */
+    const listed = aFileReallyComesFrom(asked.address);
+    /* **OR A NEW LINK ON THE VERY SITE THE ASKING PAGE IS ON -- HIS RULING,
+     * 2026-09-14** -- fetched, and kept only if it really is a spreadsheet. See
+     * `driver.THE_PLATFORMS_OWN_SITES` for the reason and the limit. */
+    const toBeProved = !listed && onThePlatformsOwnSite(asked.address, pageAddress);
+    if (!listed && !toBeProved) {
+      return { wrong: `"${asked.address}" is not an address a report comes from, so nothing `
+        + 'was fetched.' };
+    }
+    try {
+      const held = await fetch(asked.address, { credentials: 'include' });
+      if (!held.ok) return { couldNotFetch: `the platform said ${held.status}` };
+      const bytes = new Uint8Array(await held.arrayBuffer());
+      if (toBeProved && !looksLikeASpreadsheet(bytes)) {
+        return { wrong: `"${String(asked.address).split('?')[0]}" is not a known report address, `
+          + 'and what it gave back was not a spreadsheet, so nothing was kept.' };
+      }
+      return { bytes: [...bytes] };
+    } catch (wrong) {
+      return { couldNotFetch: (wrong && wrong.message) || String(wrong) };
     }
   }
   if (asked.do === 'take-file') {
@@ -927,7 +1186,7 @@ async function carryOut(chrome, parts, asked, tabId) {
  * between.
  */
 export function wireUp(chrome, {
-  onDue, answer = null, whenATabGoes = null, carryOn = null, answerPanel = null,
+  onDue, onRecheck = null, answer = null, whenATabGoes = null, carryOn = null, answerPanel = null,
 }) {
   /* **THE PANEL'S OWN WAY BACK, and a second listener rather than a wider first
    * one.** Chrome hands a message to every listener until one says it will
@@ -997,6 +1256,11 @@ export function wireUp(chrome, {
      * awake to notice. This is the only thing that reliably happens when nothing
      * else is happening. */
     if (carryOn) await carryOn();
+    /* **THE HOURLY RE-CHECK STARTS ITS OWN SYNC (A53)**, never the daily one. */
+    if (alarm && alarm.name === RECHECK_ALARM) {
+      if (onRecheck) await onRecheck();
+      return;
+    }
     if (alarm && alarm.name !== DAILY) return;
     await onDue();
   });
