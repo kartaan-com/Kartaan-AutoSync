@@ -175,13 +175,20 @@ export async function everyCampaign(askMeesho, who, { pause = async () => {} } =
       page_number: page,
       page_size: A_PAGE_OF_CAMPAIGNS,
     });
-    const got = (answer && answer.data && answer.data.campaigns) || [];
+    /* **A LIST THAT DID NOT ANSWER IS NOT THE END OF THE LIST (review finding, 2026-10-05).** A refused or
+     * signed-out page used to read as "no more campaigns": a failed first page became "no campaigns running"
+     * and a day booked as having nothing to fetch, a failed later page quietly cut the list short. */
+    if (!answer || !answer.data || !Array.isArray(answer.data.campaigns)) {
+      throw new Error(`Meesho did not give page ${page} of the campaign list, so no part of this day was written.`);
+    }
+    const got = answer.data.campaigns;
     all.push(...got);
-    if (got.length < A_PAGE_OF_CAMPAIGNS) break;
+    if (got.length < A_PAGE_OF_CAMPAIGNS) return all;
     // eslint-disable-next-line no-await-in-loop
     await pause();
   }
-  return all;
+  throw new Error(`The seller has more than ${AT_MOST_PAGES * A_PAGE_OF_CAMPAIGNS} campaigns, which is more than this `
+    + 'reads, so no part of this day was written rather than a part of the list.');
 }
 
 /**
@@ -214,12 +221,16 @@ export async function sweepTheAds(askMeesho, who, day, { pause = async () => {} 
       is_graph_required: false,
     });
     const details = (answer && answer.data) || null;
-    /* **A CAMPAIGN THAT ANSWERED NOTHING IS SKIPPED, NOT FILLED WITH BLANKS.** A
-     * row of empty columns reads downstream as a campaign that spent nothing,
-     * which is a different and entirely believable fact. */
+    /* **A CAMPAIGN THAT ANSWERED NOTHING FAILS THE DAY, IT IS NOT LEFT OUT (review finding, 2026-10-05).** It
+     * used to be skipped so a blank row would not read as a campaign that spent nothing -- but the other
+     * campaigns' rows were then written as the whole day and the day was marked landed, never fetched again.
+     * Nothing is written, the day stays owed, and the words name the campaign. */
     // eslint-disable-next-line no-await-in-loop
     await pause();
-    if (!details) continue;
+    if (!details) {
+      throw new Error(`Meesho gave nothing for campaign ${campaign.campaign_id} (${campaign.campaign_name}), so no `
+        + 'part of this day was written.');
+    }
     master.push(theMasterRow(day, campaign, details));
     summary.push(theSummaryRow(day, campaign, details));
     catalogue.push(...theCatalogueRows(day, campaign, details));

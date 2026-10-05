@@ -259,9 +259,10 @@ const someCampaigns = (howMany, everyNthLive = 1) => Array.from({ length: howMan
    * somebody else's server.** A stand-in that always answers a full page is
    * exactly the shape of a platform paging wrongly. */
   const meesho = aMeesho({ campaigns: someCampaigns(500) });
-  const all = await everyCampaign(meesho.ask, { supplierId: '1234567' });
-  check('a list that never says it has ended is given up on',
-    meesho.pages === AT_MOST_PAGES && all.length === AT_MOST_PAGES * A_PAGE_OF_CAMPAIGNS);
+  let gaveUp = '';
+  try { await everyCampaign(meesho.ask, { supplierId: '1234567' }); } catch (wrong) { gaveUp = wrong.message; }
+  check('a list that never says it has ended is given up on, and says so rather than writing a part of it',
+    meesho.pages === AT_MOST_PAGES && gaveUp.includes('more than'));
 }
 
 {
@@ -312,11 +313,24 @@ const someCampaigns = (howMany, everyNthLive = 1) => Array.from({ length: howMan
      * every campaign, which is how this check first passed while proving nothing. */
     detailsFor: (id) => (String(id) === '1' ? null : ITS_DETAILS),
   });
-  const swept = await sweepTheAds(meesho.ask, { supplierId: '1234567' }, DAY);
-  check('a campaign that answered nothing is left out rather than written blank',
-    swept.files[0].text.split('\n').length === 3);
-  check('and the ones that answered are all still there',
-    swept.running === 3 && meesho.details === 3);
+  let failedWhy = '';
+  try { await sweepTheAds(meesho.ask, { supplierId: '1234567' }, DAY); } catch (wrong) { failedWhy = wrong.message; }
+  check('a campaign that answered nothing fails the whole day rather than being left out of a part-written one',
+    failedWhy.includes('campaign 1') && failedWhy.includes('no part of this day was written'));
+
+  /* A campaign LIST page that did not answer is not the end of the list either. */
+  let listFailedWhy = '';
+  try {
+    await sweepTheAds(async () => null, { supplierId: '1234567' }, DAY);
+  } catch (wrong) { listFailedWhy = wrong.message; }
+  check('a campaign list that would not answer fails the day, instead of reading as no campaigns running',
+    listFailedWhy.includes('page 1'));
+  let laterPageWhy = '';
+  const dropsPageTwo = async (address, body) => (body.page_number === 2 ? null
+    : { data: { campaigns: someCampaigns(10) } });
+  try { await everyCampaign(dropsPageTwo, { supplierId: '1234567' }); } catch (wrong) { laterPageWhy = wrong.message; }
+  check('and a later page that would not answer does not quietly cut the list short',
+    laterPageWhy.includes('page 2'));
 }
 
 {
@@ -330,7 +344,7 @@ const someCampaigns = (howMany, everyNthLive = 1) => Array.from({ length: howMan
   check('it pauses between one call and the next', paused >= 12);
 }
 
-const EXPECTED = 44;
+const EXPECTED = 45;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

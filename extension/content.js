@@ -395,7 +395,9 @@
           headers: theHeadersFor(who),
           body: JSON.stringify(body),
         });
-        if (!reply.ok) return null;
+        /* **A REFUSAL IS SAID, NOT RETURNED AS NOTHING (review finding, 2026-10-05):** nothing is a thing a sweep
+         * used to read as "no more campaigns" and write a part of the day. */
+        if (!reply.ok) throw new Error(`Meesho answered ${reply.status} to ${String(address).split('?')[0]}.`);
         return reply.json();
       };
       /* **PACED LIKE EVERY OTHER STEP, for the reason `walk.js` gives: a portal
