@@ -18,12 +18,12 @@ one.
 import json
 from typing import Callable, Dict, List, Optional, Sequence
 
+import layout
 from landing import the_file_that_matters
 from drive import (
     FOLDER,
     MULTIPART,
     Landing,
-    a_folder_for,
     kind_of,
     the_metadata,
     what_to_do_about,
@@ -80,17 +80,12 @@ def as_a_quoted_value(value: str) -> str:
     return str(value if value is not None else "").replace("\\", "\\\\").replace("'", "\\'")
 
 
-def folder_for(transport, report_id: str, inside: str) -> str:
-    """The id of one report's folder, made if it is not there yet.
+def _the_folder_named(transport, name: str, inside: str) -> Optional[str]:
+    """The id of the one folder of this name inside another, or None if there is none.
 
-    **FOUND BY NAME, MADE ONLY IF MISSING.** A folder made every night is a Drive
-    with thirty folders of one name and the files spread across them -- and
-    nothing that reads them would ever say so.
-
-    **AND TWO OF THE SAME NAME IS NOT SOMETHING TO CHOOSE BETWEEN.** Picking one
-    would put tonight's file in a different folder from last night's, silently.
+    **TWO OF THE SAME NAME IS NOT SOMETHING TO CHOOSE BETWEEN.** Picking one would put
+    tonight's file in a different folder from last night's, silently.
     """
-    name = a_folder_for(report_id)
     looking = (
         f"name = '{as_a_quoted_value(name)}' and mimeType = '{FOLDER}' "
         f"and '{as_a_quoted_value(inside)}' in parents and trashed = false"
@@ -105,9 +100,28 @@ def folder_for(transport, report_id: str, inside: str) -> str:
             f"There are {len(found)} folders called {name} in the seller's Drive. "
             "Which one tonight's file belongs in cannot be known, so nothing has been put."
         )
-    if found:
-        return found[0]["id"]
+    return found[0]["id"] if found else None
 
+
+def _one_folder(transport, name: str, inside: str) -> str:
+    """The id of one folder inside another, made only if it is not there yet.
+
+    **FOUND BY NAME, MADE ONLY IF MISSING.** A folder made every night is a Drive
+    with thirty folders of one name and the files spread across them -- and
+    nothing that reads them would ever say so.
+
+    **THE ONLY PLACE IN THIS HALF A FOLDER IS EVER MADE, AND IT REFUSES A NAME HIS
+    LAYOUT DOES NOT HAVE.** *"No other separate folders or files should be
+    created."* `layout_checks.py` holds the extension's copy to the same rule.
+    """
+    if name not in layout.every_name():
+        raise DriveSaidNo(
+            f"{name!r} is not a folder in his layout, so it has not been made. A new stream's "
+            "folder is added to layout.py first."
+        )
+    found = _the_folder_named(transport, name, inside)
+    if found:
+        return found
     made = _answered(
         transport.post(
             FILES,
@@ -117,6 +131,43 @@ def folder_for(transport, report_id: str, inside: str) -> str:
         f"making the {name} folder",
     )
     return (made.json() or {})["id"]
+
+
+def the_kartaan_folder(transport) -> str:
+    """The one `Kartaan` folder at the top of the seller's Drive, made if missing.
+
+    **FOUND BY NAME, NEVER BY AN ID SOMEBODY PASTED IN.** Under `drive.file` the
+    run can only see what its own project made, so a name is all there is to look
+    for -- and the extension finds the same folder the same way.
+    """
+    return _one_folder(transport, layout.KARTAAN, "root")
+
+
+def look_for_the_folder_at(transport, path: Sequence[str], inside: str) -> Optional[str]:
+    """The id of the folder at the end of a path, or None if any step is missing. **MAKES NOTHING.**
+
+    For the reading pass of the merge, which must write nothing at all.
+    """
+    here: Optional[str] = inside
+    for name in path:
+        here = _the_folder_named(transport, name, here)
+        if here is None:
+            return None
+    return here
+
+
+def folder_at(transport, path: Sequence[str], inside: str) -> str:
+    """The id of the folder at the end of a path, each step found or made.
+
+    **ONE FOLDER-FINDER, USED BY EVERYTHING THE RUN PUTS AWAY OR READS.** What a
+    path is, for a report or for the run's own files, is `layout.py`'s to say.
+    """
+    if not path:
+        raise DriveSaidNo("There is nowhere to look: no folder path was given.")
+    here = inside
+    for name in path:
+        here = _one_folder(transport, name, here)
+    return here
 
 
 # How many files Drive is asked for at a time. **1000 IS ITS DOCUMENTED MAXIMUM**
@@ -348,10 +399,38 @@ def _in_two_requests(transport, landing: Landing, body: bytes) -> Dict:
     return reply.json() or {}
 
 
+def move_the_file(transport, file_id: str, to_folder_id: str) -> bool:
+    """Move one file into a folder, keeping its id. True if it moved, False if it was already only there.
+
+    **A MOVE, NEVER A COPY AND A DELETE.** Read from Google's own pages (2026-10-05,
+    developers.google.com/workspace/drive/api/guides/folder and
+    .../reference/rest/v3/files/update): `files.update` is a PATCH, `addParents` and
+    `removeParents` are query parameters, and the current parents are read first with
+    `fields=parents` so that they can be named to be removed. The file is the same file
+    afterwards -- so a ledger he has bookmarked, or anything that points at it by id,
+    still works, and there is never a moment with two copies.
+    """
+    where = _answered(
+        transport.get(f"{FILES}/{file_id}", params={"fields": "parents"}),
+        "asking where the file is now",
+    )
+    here = list((where.json() or {}).get("parents") or [])
+    if here == [to_folder_id]:
+        return False
+    params = {"addParents": to_folder_id, "fields": "id"}
+    gone = [one for one in here if one != to_folder_id]
+    if gone:
+        params["removeParents"] = ",".join(gone)
+    # **A BODY, EVEN AN EMPTY ONE.** A PATCH with no body at all goes out with no length, and
+    # Google's front ends can answer such a request "length required".
+    _answered(transport.patch(f"{FILES}/{file_id}", params=params, json={}), "moving the file")
+    return True
+
+
 def a_door(transport, inside: str, say: Callable[[str], None]) -> Callable[..., Dict]:
     """Putting a file away, in the shape the runner expects.
 
-    `inside` is the one folder in the seller's own Drive that Kartaan was given.
+    `inside` is the seller's `Kartaan` folder.
     Everything it writes goes under that and nowhere else -- which is what the
     narrow `drive.file` scope is for, and what makes it honest to say the product
     cannot see the rest of their Drive.
@@ -370,7 +449,7 @@ def a_door(transport, inside: str, say: Callable[[str], None]) -> Callable[..., 
         file_name, body, note = the_file_that_matters(file_name, body)
         if note:
             say(note)
-        folder_id = folder_for(transport, report_id, inside)
+        folder_id = folder_at(transport, layout.where_it_goes(report_id), inside)
         already = what_is_already_there(transport, folder_id)
         landing = Landing(
             folder_id=folder_id,

@@ -132,14 +132,6 @@ check("a landing cannot be edited once it is decided",
       answered(lambda: setattr(LANDING, "folder_id", "somewhere else")) is None and bool(THREW))
 THREW.clear()
 
-# ------------------------------------------- one folder per report
-
-check("a report's folder is named after the report",
-      answered(lambda: tool.a_folder_for("me_orders")) == "me_orders")
-check("and a folder for no report at all is refused",
-      answered(lambda: tool.a_folder_for("")) is None and bool(THREW))
-THREW.clear()
-
 # ------------------------------------------- what it asks the seller for
 
 # **THE NARROWEST SCOPE THAT CAN CREATE A FILE.** A product that asks a seller for
@@ -151,7 +143,7 @@ check("and not for the seller's whole Drive",
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 38
+EXPECTED = 36
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

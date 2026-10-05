@@ -521,6 +521,7 @@ check("and it is still what is sent when a record is handed over as well",
       CALLS[-1]["body"] == b"RAW")
 
 for method, use in (("PUT", lambda: drive.put("https://up/1", data=b"x")),
+                    ("PATCH", lambda: drive.patch("https://drive/files/1", params={"addParents": "k"})),
                     ("DELETE", lambda: drive.delete("https://drive/files/1"))):
     afresh((200, [], b'{"access_token": "AAA", "expires_in": 3600}'), (200, [], b"{}"))
     answered(use)
@@ -528,7 +529,7 @@ for method, use in (("PUT", lambda: drive.put("https://up/1", data=b"x")),
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 106
+EXPECTED = 107
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

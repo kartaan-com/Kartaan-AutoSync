@@ -52,18 +52,10 @@ import clock
 import manifest
 import reading
 import runlog
+import layout
 import runner
 from landing import Arrived
 from reports import API, Report, on_the_api_door
-
-# The folder in the seller's Drive that holds what belongs to the job itself
-# rather than to any one report -- the run's memory and the copy of the log.
-#
-# **A NAME NO REPORT CAN HAVE.** Every report id is `<platform>_<something>`, so
-# a plain word cannot collide with one, and the whole of `drive_door` can be used
-# for these two files exactly as it is used for a report's.
-OURS = "autosync"
-
 
 @dataclass(frozen=True)
 class Tick:
@@ -612,10 +604,16 @@ def _try(faults: List[str], doing, called: str, *what) -> None:
 # ------------------------------------------------------- the doing half
 
 
-def _drive_folder(transport, inside: str, which: str) -> str:
-    from drive_door import folder_for  # noqa: PLC0415 - kept beside its uses
+def _drive_folder(transport, inside: str, where) -> str:
+    """The folder one thing goes in: a report's, or one of the run's own.
 
-    return folder_for(transport, which, inside)
+    `where` is a report id, or a path from `layout.py` (`layout.SYSTEM` for the run's
+    working files, `layout.LOGS` for its log). **ONE FOLDER-FINDER FOR BOTH.**
+    """
+    from drive_door import folder_at  # noqa: PLC0415 - kept beside its uses
+
+    path = layout.where_it_goes(where) if isinstance(where, str) else where
+    return folder_at(transport, path, inside)
 
 
 def _arrivals_from_drive(transport, inside: str) -> Callable[[str], Sequence[Arrived]]:
@@ -725,7 +723,7 @@ def _state_in_drive(transport, inside: str) -> Tuple[Callable[[], Optional[bytes
     )
 
     def read_it() -> Optional[bytes]:
-        folder_id = _drive_folder(transport, inside, OURS)
+        folder_id = _drive_folder(transport, inside, layout.SYSTEM)
         there = [
             one for one in what_is_already_there(transport, folder_id)
             if one.get("name") == between_runs.FILE_NAME
@@ -740,7 +738,7 @@ def _state_in_drive(transport, inside: str) -> Tuple[Callable[[], Optional[bytes
         return bring_the_file_back(transport, there[0]["id"])
 
     def save_it(body: bytes) -> None:
-        folder_id = _drive_folder(transport, inside, OURS)
+        folder_id = _drive_folder(transport, inside, layout.SYSTEM)
         older = [
             one["id"] for one in what_is_already_there(transport, folder_id)
             if one.get("name") == between_runs.FILE_NAME
@@ -782,7 +780,7 @@ def _manifest_in_drive(transport, inside: str) -> Tuple[Callable[[], Optional[by
     """Reading and writing the download manifest, in the seller's Drive.
 
     **BESIDE THE RUN'S OWN MEMORY AND THE COPY OF THE LOG**, in the same
-    `autosync` folder, through the same door -- so it needs no permission this
+    `System` folder, through the same door -- so it needs no permission this
     job does not already hold, and a seller can open it themselves.
 
     **WRITTEN IN THE SAME ORDER AS THE OTHER TWO, FOR THE SAME REASON (cycle 46,
@@ -809,7 +807,7 @@ def _manifest_in_drive(transport, inside: str) -> Tuple[Callable[[], Optional[by
     )
 
     def read_it() -> Optional[bytes]:
-        folder_id = _drive_folder(transport, inside, OURS)
+        folder_id = _drive_folder(transport, inside, layout.SYSTEM)
         there = [
             one for one in what_is_already_there(transport, folder_id)
             if one.get("name") == manifest.FILE_NAME
@@ -857,7 +855,7 @@ def _manifest_in_drive(transport, inside: str) -> Tuple[Callable[[], Optional[by
         return bring_the_file_back(transport, there[0]["id"])
 
     def save_it(body: bytes) -> None:
-        folder_id = _drive_folder(transport, inside, OURS)
+        folder_id = _drive_folder(transport, inside, layout.SYSTEM)
         older = [
             one["id"] for one in what_is_already_there(transport, folder_id)
             if one.get("name") == manifest.FILE_NAME
@@ -907,7 +905,7 @@ def _log_to_drive(transport, inside: str, today: date) -> Callable[[Sequence[run
     called = f"autosync-log-{today.isoformat()}.txt"
 
     def sink(lines: Sequence[runlog.Line]) -> None:
-        folder_id = _drive_folder(transport, inside, OURS)
+        folder_id = _drive_folder(transport, inside, layout.LOGS)
         there = [one for one in what_is_already_there(transport, folder_id) if one.get("name") == called]
         already = b""
         if len(there) == 1:

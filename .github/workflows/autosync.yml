@@ -154,6 +154,20 @@ on:
         type: boolean
         required: false
         default: false
+      # **THE ONE-TIME MERGE OF HIS OLD DRIVE FOLDERS INTO `Kartaan /` (job 34), by hand
+      # only.** `plan` writes nothing and prints what would move where; `apply` moves, and
+      # only when `merge_figures` is the three figures `plan` printed. A schedule sends
+      # neither, so a night never merges.
+      merge:
+        description: 'Merge the old Drive folders into Kartaan: plan or apply (leave empty for a normal run)'
+        type: string
+        required: false
+        default: ''
+      merge_figures:
+        description: 'For apply: the figures the plan printed, the whole line, e.g. moves=40 collisions=0 left=2 stamp=1a2b3c4d'
+        type: string
+        required: false
+        default: ''
     secrets:
       AMAZON_CLIENT_ID:
         required: true
@@ -427,6 +441,9 @@ jobs:
           # scheduled tick sends nothing and a caller that passes nothing sends
           # `false`; neither is the word "true", so the clock decides.
           EVEN_IF_NOT_DUE: ${{ inputs.even_if_not_due }}
+          # Set only by the button, only for the one-time merge (job 34); empty on every night.
+          MERGE: ${{ inputs.merge }}
+          MERGE_FIGURES: ${{ inputs.merge_figures }}
           #
           # **THE HOUR THE SELLER CHOSE IS NOT HERE, and that is D114.** It used
           # to be a secret nobody set. It is now READ, every run, off the business

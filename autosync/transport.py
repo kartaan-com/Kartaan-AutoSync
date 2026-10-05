@@ -357,6 +357,17 @@ class Google:
     ) -> Reply:
         return self._talk("PUT", url, params=params, headers=headers, json=json, data=data)
 
+    def patch(
+        self,
+        url: str,
+        params: Optional[Dict] = None,
+        headers: Optional[Dict] = None,
+        json: Optional[Dict] = None,
+        data: Optional[bytes] = None,
+    ) -> Reply:
+        """Drive's `files.update` is a PATCH: moving a file and replacing its contents (job 34, 40)."""
+        return self._talk("PATCH", url, params=params, headers=headers, json=json, data=data)
+
     def delete(self, url: str, params: Optional[Dict] = None, headers: Optional[Dict] = None) -> Reply:
         return self._talk("DELETE", url, params=params, headers=headers)
 

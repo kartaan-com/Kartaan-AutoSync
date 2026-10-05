@@ -72,7 +72,7 @@ import sales
 # listing here would be a second set of those guards to keep right, and the fault
 # it would hide is the worst one available -- a short listing reads as "there is
 # no ledger", and "there is no ledger" is what makes a new one.
-from drive_door import DriveSaidNo, _every_file
+from drive_door import DriveSaidNo, _every_file, move_the_file
 from ledger_door import API as SHEETS
 from ledger_door import LedgerDoor
 
@@ -155,7 +155,7 @@ def find_the_ledger(transport, name: str = THE_SHEET_IS_CALLED) -> Optional[str]
 
     **TWO OF THE SAME NAME IS NOT SOMETHING TO CHOOSE BETWEEN.** Picking one would
     write tonight's sales into a different history from last night's, silently.
-    Same shape, same refusal, as `drive_door.folder_for` (D119, one shape not two).
+    Same shape, same refusal, as `drive_door.folder_at` (D119, one shape not two).
     """
     found = _every_file(
         transport,
@@ -225,10 +225,11 @@ def make_the_ledger(ask: Callable) -> str:
 
     **IN THE SELLER'S OWN DRIVE, WITH THE SELLER'S OWN PERMISSION.** A spreadsheet
     made through the Sheets API lands in the Drive of whoever the token belongs
-    to, which is the seller. It is deliberately NOT moved into Kartaan's own
-    folder: that folder holds the machine's files -- raw platform reports, the
-    log, the record between runs -- and this is a document a person opens. Moving
-    it would also be a second call that can half-succeed, for no gain.
+    to, which is the seller -- at the top of My Drive. **`the_ledger` then moves it
+    into `Kartaan /` (job 34, his layout: *"Kartaan sales ledger (the sheet he
+    opens)"* sits inside the one Kartaan folder).** That is a second call that can
+    half-succeed, and it is covered: a ledger left at the top is found by name the
+    next night and the one-time merge moves it, by id, without making another.
 
     **THE HEADER IS A SECOND CALL, AND THAT IS SAID RATHER THAN HIDDEN.** Seeding
     cells inside the creating call is allowed by the resource and is shown nowhere
@@ -352,6 +353,7 @@ def the_ledger(
     remembered: Optional[str] = None,
     say: Optional[Callable[[str], None]] = None,
     ask: Optional[Callable] = None,
+    inside: Optional[str] = None,
 ) -> Tuple[LedgerDoor, str]:
     """The seller's ledger, made if it has never existed, and its id.
 
@@ -367,7 +369,9 @@ def the_ledger(
        that was lost. Adopting what is already there is what stops a forgotten id
        from costing the seller their history.
     3. **NOTHING FOUND, SO MAKE IT** -- and the rubbish bin has already been asked
-       by then, so "nothing found" really does mean never made.
+       by then, so "nothing found" really does mean never made. **Made, it is moved
+       into `inside`, the seller's `Kartaan` folder** (his layout, job 34); one found
+       or remembered is never moved here -- that is the one-time merge, on his word.
 
     **AND THE HEADER IS CHECKED WHICHEVER WAY IT ARRIVED.** A sheet adopted at
     step 2 may have been made by a run that died before writing row 1.
@@ -399,6 +403,14 @@ def the_ledger(
         else:
             which = make_the_ledger(asking)
             speak("The seller's sales ledger did not exist and has been made in their own Drive.")
+            if inside:
+                try:
+                    move_the_file(transport, which, inside)
+                    speak("It was put inside the Kartaan folder.")
+                except DriveSaidNo as wrong:
+                    # **MADE AND NOT MOVED IS A LEDGER THAT WORKS.** It is found by name
+                    # tomorrow, and the one-time merge puts it where his layout says.
+                    speak(f"The sales ledger could not be put inside the Kartaan folder yet: {wrong}")
         door = LedgerDoor(asking, which)
 
     speak(f"The sales ledger: {make_sure_the_header_is_there(door)}.")
@@ -651,6 +663,7 @@ def the_writing_half(
     save_state: Callable[[bytes], None],
     say: Optional[Callable[[str], None]] = None,
     ask: Optional[Callable] = None,
+    inside: Optional[str] = None,
 ) -> Tuple[Optional[Callable], str]:
     """The one place a sale lands, and why there is none when there is none.
 
@@ -694,7 +707,7 @@ def the_writing_half(
 
     try:
         so_far = between_runs.read(read_state())
-        door, which = the_ledger(transport, remembered=so_far.ledger_sheet, say=speak, ask=ask)
+        door, which = the_ledger(transport, remembered=so_far.ledger_sheet, say=speak, ask=ask, inside=inside)
         if which != so_far.ledger_sheet:
             save_state(between_runs.write(between_runs.with_the_ledger(so_far, which)))
         return recording_into(door, speak), ""

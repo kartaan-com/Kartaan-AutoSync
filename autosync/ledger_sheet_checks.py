@@ -98,6 +98,11 @@ class PretendDrive:
             body["incompleteSearch"] = True
         return ADriveReply(body, status=self.status)
 
+    def patch(self, url, params=None, headers=None, json=None, data=None):
+        self.moved = getattr(self, "moved", [])
+        self.moved.append({"url": url, "params": dict(params or {})})
+        return ADriveReply({"id": "moved"}, status=self.moved_status if hasattr(self, "moved_status") else 200)
+
 
 class PretendSheets:
     """A stand-in Google Sheets that remembers exactly what it was asked.
@@ -392,6 +397,24 @@ spoken = []
 answered(lambda: tool.the_ledger(PretendDrive(), say=spoken.append, ask=PretendSheets(rows=[])))
 check("making a seller's ledger is said in the run's own words",
       any("has been made" in one for one in spoken))
+
+# **A LEDGER MADE IS PUT INSIDE `Kartaan /` (job 34) -- AND ONLY A LEDGER MADE.** One found by
+# name or remembered is the one-time merge's to move, on his word.
+into = PretendDrive()
+answered(lambda: tool.the_ledger(into, ask=PretendSheets(rows=[]), inside="kartaan-folder"))
+check("a ledger made is moved into the Kartaan folder, by its own id",
+      getattr(into, "moved", [{}])[0].get("url", "").endswith("/new-sheet-id")
+      and getattr(into, "moved", [{}])[0].get("params", {}).get("addParents") == "kartaan-folder")
+adopted_in_place = PretendDrive(live=[{"id": "sheet-3", "name": tool.THE_SHEET_IS_CALLED}])
+answered(lambda: tool.the_ledger(adopted_in_place, ask=PretendSheets(rows=list(THE_HEADER)), inside="kartaan-folder"))
+check("a ledger found by name is NOT moved here", not getattr(adopted_in_place, "moved", []))
+cannot_move = PretendDrive()
+cannot_move.moved_status = 500
+said_move = []
+_, still_made = answered(lambda: tool.the_ledger(cannot_move, say=said_move.append, ask=PretendSheets(rows=[]),
+                                                inside="kartaan-folder")) or (None, None)
+check("a move that fails does not lose the ledger, and says so",
+      still_made == "new-sheet-id" and any("could not be put inside the Kartaan folder" in one for one in said_move))
 
 
 # ----------------------------------------------------------- writing into it
@@ -962,7 +985,7 @@ check("and taking any ONE of the four away still stops the writing, by name",
 print()
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 126
+EXPECTED = 129
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

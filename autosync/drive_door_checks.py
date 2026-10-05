@@ -14,6 +14,7 @@ Run: python autosync/drive_door_checks.py
 """
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -91,6 +92,19 @@ class FakeDrive:
             return Reply(raw=self.how.get("contents", b""))
         looking = (params or {}).get("q", "")
         whose = self.folders if FOLDER in looking else self.files
+        if FOLDER in looking:
+            # **A REAL DRIVE ANSWERS ONLY FOR THE NAME AND THE PARENT ASKED.** A folder
+            # given with no parents matches any parent, as every older check here assumes.
+            def unquoted(text):
+                return re.sub(r"\\(.)", r"\1", text)
+
+            named = re.search(r"name = '((?:[^'\\]|\\.)*)'", looking)
+            parent = re.search(r"'((?:[^'\\]|\\.)*)' in parents", looking)
+            whose = [
+                one for one in whose
+                if (not named or one.get("name") == unquoted(named.group(1)))
+                and (not parent or "parents" not in one or unquoted(parent.group(1)) in one["parents"])
+            ]
 
         # **IT ANSWERS IN PAGES, because the real one does and that was the whole
         # fault.** A stand-in that always hands back everything in one go is a
@@ -121,7 +135,8 @@ class FakeDrive:
             return Reply(ok=False, status=403, text="not allowed")
         kind = (params or {}).get("uploadType")
         if kind is None:
-            made = {"id": f"folder-{len(self.folders) + 1}", "name": (json or {}).get("name")}
+            made = {"id": f"folder-{len(self.folders) + 1}", "name": (json or {}).get("name"),
+                    "parents": (json or {}).get("parents")}
             self.folders.append(made)
             return Reply(made)
         if kind == "resumable":
@@ -153,33 +168,33 @@ def say(line):
 # ------------------------------------------------ the folder
 
 check("a folder that is already there is used, not made again",
-      answered(lambda: tool.folder_for(
-          FakeDrive(folders=[{"id": "f9", "name": "me_orders"}]), "me_orders", "root")) == "f9")
+      answered(lambda: tool._one_folder(
+          FakeDrive(folders=[{"id": "f9", "name": "Orders"}]), "Orders", "root")) == "f9")
 
 made = FakeDrive()
 check("and one that is missing is made",
-      answered(lambda: tool.folder_for(made, "me_orders", "root")) == "folder-1")
-check("named after the report", answered(lambda: made.folders[0]["name"]) == "me_orders")
+      answered(lambda: tool._one_folder(made, "Orders", "root")) == "folder-1")
+check("named as his layout names it", answered(lambda: made.folders[0]["name"]) == "Orders")
 # **MADE ONLY ONCE.** A folder made every night is a Drive with thirty folders of
 # one name and the files spread across them, and nothing that reads them says so.
 check("and asking again finds the one that was made, rather than making another",
-      answered(lambda: tool.folder_for(made, "me_orders", "root")) == "folder-1"
+      answered(lambda: tool._one_folder(made, "Orders", "root")) == "folder-1"
       and len(made.folders) == 1)
 
 # **TWO OF ONE NAME IS NOT SOMETHING TO CHOOSE BETWEEN.** Picking one would put
 # tonight's file in a different folder from last night's, silently.
-two = FakeDrive(folders=[{"id": "a", "name": "me_orders"}, {"id": "b", "name": "me_orders"}])
+two = FakeDrive(folders=[{"id": "a", "name": "Orders"}, {"id": "b", "name": "Orders"}])
 check("two folders of one name is refused rather than guessed between",
-      "2 folders called me_orders" in refused(lambda: tool.folder_for(two, "me_orders", "root")))
+      "2 folders called Orders" in refused(lambda: tool._one_folder(two, "Orders", "root")))
 check("and it says nothing has been put",
-      "nothing has been put" in refused(lambda: tool.folder_for(two, "me_orders", "root")))
+      "nothing has been put" in refused(lambda: tool._one_folder(two, "Orders", "root")))
 
 check("a Drive that will not answer is said, not swallowed",
       "Drive refused" in refused(
-          lambda: tool.folder_for(FakeDrive(refuse_reads=True), "me_orders", "root")))
+          lambda: tool._one_folder(FakeDrive(refuse_reads=True), "Orders", "root")))
 check("and the refusal says what was being done",
-      "looking for the me_orders folder" in refused(
-          lambda: tool.folder_for(FakeDrive(refuse_reads=True), "me_orders", "root")))
+      "looking for the Orders folder" in refused(
+          lambda: tool._one_folder(FakeDrive(refuse_reads=True), "Orders", "root")))
 
 # ------------------------------------------------ which way it goes up
 
@@ -213,8 +228,8 @@ check("Drive agreeing and not saying where is its own refusal",
 
 # **EVERY ONE OF THESE IS GOOGLE'S, NOT OURS (Golden Rule 1), and a wrong one
 # fails in a way that reads like the seller's Drive being broken.**
-asking = FakeDrive(folders=[{"id": "f9", "name": "me_orders"}])
-answered(lambda: tool.folder_for(asking, "me_orders", "root-folder"))
+asking = FakeDrive(folders=[{"id": "f9", "name": "Orders"}])
+answered(lambda: tool._one_folder(asking, "Orders", "root-folder"))
 FOLDER_Q = (asking.asked[0][2] or {}).get("q", "")
 check("a folder is looked for inside the one folder Kartaan was given",
       "'root-folder' in parents" in FOLDER_Q)
@@ -226,7 +241,7 @@ check("and it is looked for as a folder, not as any file with that name",
 check("and only the id and name are asked for, not the whole of it",
       (asking.asked[0][2] or {}).get("fields") == "nextPageToken,incompleteSearch,files(id,name)")
 
-reading = FakeDrive(folders=[{"id": "f9", "name": "me_orders"}])
+reading = FakeDrive(folders=[{"id": "f9", "name": "Orders"}])
 answered(lambda: tool.what_is_already_there(reading, "f9"))
 FILES_Q = (reading.asked[0][2] or {}).get("q", "")
 check("what is already there is read from that folder",
@@ -235,7 +250,7 @@ check("and only the id and name of each",
       (reading.asked[0][2] or {}).get("fields") == "nextPageToken,incompleteSearch,files(id,name)")
 
 making = FakeDrive()
-answered(lambda: tool.folder_for(making, "me_returns", "root-folder"))
+answered(lambda: tool._one_folder(making, "Returns", "root-folder"))
 check("a folder that is made asks only for its id back",
       (making.asked[1][2] or {}).get("fields") == "id")
 
@@ -302,7 +317,7 @@ class SaysNeither(FakeDrive):
         return NoOkAtAll()
 
 check("an answer that does not say whether it worked is treated as a refusal",
-      "Drive refused" in refused(lambda: tool.folder_for(SaysNeither(), "me_orders", "root")))
+      "Drive refused" in refused(lambda: tool._one_folder(SaysNeither(), "Orders", "root")))
 
 # **A REFUSAL WITH NO WORDS STILL REFUSES**, and still says what was being done.
 class RefusesSilently(FakeDrive):
@@ -310,9 +325,9 @@ class RefusesSilently(FakeDrive):
         super().get(where, params, headers)
         return Reply(ok=False, status=500, text=None)
 
-silent = refused(lambda: tool.folder_for(RefusesSilently(), "me_orders", "root"))
+silent = refused(lambda: tool._one_folder(RefusesSilently(), "Orders", "root"))
 check("a refusal with no words of its own still refuses", "Drive refused" in silent)
-check("and still says what was being done", "looking for the me_orders folder" in silent)
+check("and still says what was being done", "looking for the Orders folder" in silent)
 check("without the word None where the reason should be", "None" not in silent)
 
 # ------------------------------------------------ what is refused before sending
@@ -330,12 +345,12 @@ SAID.clear()
 plain = FakeDrive()
 put = tool.a_door(plain, "root", say)
 check("a file lands", answered(lambda: put("me_orders", "meesho_me_orders_2026-08-26.csv", b"row")) is not None)
-check("under the one folder Kartaan was given",
-      answered(lambda: plain.folders[0]["name"]) == "me_orders")
+check("under his layout, one folder at a time: Reports, then Meesho, then Orders",
+      answered(lambda: [one["name"] for one in plain.folders]) == ["Reports", "Meesho", "Orders"])
 
 # **THE SAME DAY AGAIN REPLACES, NEVER SITS BESIDE.**
 again = FakeDrive(
-    folders=[{"id": "f1", "name": "me_orders"}],
+    folders=[{"id": "f1", "name": "Orders"}],
     files=[{"id": "old", "name": "meesho_me_orders_2026-08-26.csv"}],
 )
 SAID.clear()
@@ -350,7 +365,7 @@ check("and it says so, so nobody wonders where the older one went",
 # **MORE THAN ONE ALREADY THERE NEEDS A PERSON.** Replacing one leaves the
 # others, and deleting the rest is a decision nothing here is entitled to make.
 muddle = FakeDrive(
-    folders=[{"id": "f1", "name": "me_orders"}],
+    folders=[{"id": "f1", "name": "Orders"}],
     files=[{"id": "a", "name": "x.csv"}, {"id": "b", "name": "x.csv"}],
 )
 check("more than one of the same name is refused",
@@ -367,13 +382,13 @@ check("and it says which file, in which folder",
 # handed nothing must not put a nought-byte file in the seller's Drive.
 check("a door handed nothing at all refuses",
       "no file came back" in refused(
-          lambda: tool.a_door(FakeDrive(folders=[{"id": "f1", "name": "me_orders"}]), "root", say)(
+          lambda: tool.a_door(FakeDrive(folders=[{"id": "f1", "name": "Orders"}]), "root", say)(
               "me_orders", "a.csv", None)))
 check("and nothing is taken away", answered(lambda: muddle.deleted) == [])
 
 # **ANOTHER DAY'S FILE IS NOT IN THE WAY.**
 beside = FakeDrive(
-    folders=[{"id": "f1", "name": "me_orders"}],
+    folders=[{"id": "f1", "name": "Orders"}],
     files=[{"id": "old", "name": "meesho_me_orders_2026-08-25.csv"}],
 )
 check("yesterday's file is left exactly where it is",
@@ -496,12 +511,12 @@ check("a page marker that comes back a second time refuses rather than looping",
 # of one name on page two reads as "there is exactly one" -- and tonight's file
 # goes somewhere else from last night's, silently.
 TWO_PAGES_OF_FOLDERS = [
-    {"id": "wrong-1", "name": "amazon"},
-    {"id": "wrong-2", "name": "amazon"},
+    {"id": "wrong-1", "name": "Orders"},
+    {"id": "wrong-2", "name": "Orders"},
 ]
 doubled = FakeDrive(folders=TWO_PAGES_OF_FOLDERS, a_page=1)
 check("A SECOND FOLDER OF THE SAME NAME ON A LATER PAGE IS STILL SEEN",
-      "2 folders called" in refused(lambda: tool.folder_for(doubled, "az_orders", "root")))
+      "2 folders called" in refused(lambda: tool._one_folder(doubled, "Orders", "root")))
 check("and finding it took more than one request -- it was not on the first page",
       len(doubled.asked) > 1)
 
@@ -533,7 +548,10 @@ check("and nothing at all comes back as nothing, never as the word None",
 # helper that escapes perfectly and is not called is the shape of fault this
 # repository keeps finding.
 quoted = FakeDrive(folders=[])
-answered(lambda: tool.folder_for(quoted, "me'orders", "kar'taan"))
+# A name with a quote in it is not in his layout, so it is lent to the layout for this one check.
+tool.layout.BELOW_REPORTS["a_check"] = ("me'orders",)
+answered(lambda: tool._one_folder(quoted, "me'orders", "kar'taan"))
+del tool.layout.BELOW_REPORTS["a_check"]
 _sent = (quoted.asked[0][2] or {}).get("q", "")
 check("the search Drive is really sent carries the escaped name",
       "name = 'me\\'orders'" in _sent)
@@ -608,9 +626,35 @@ plain_up = b"".join(bytes(one[1] or b"") for one in plain.sent if one[0] == "one
 check("an ordinary file is put away exactly as it came", A_SPREADSHEET in plain_up)
 check("and nothing is said about it", not any("zip" in one for one in quiet))
 
+# ------------------------------------------- his layout, one folder at a time (job 34)
+
+# **THE FINDER WALKS A PATH, EACH STEP FOUND OR MADE, AND MAKES NOTHING IT DOES NOT HAVE TO.**
+walk = FakeDrive()
+first = answered(lambda: tool.folder_at(walk, ("Reports", "Amazon", "Orders"), "kartaan-id"))
+check("a path is made one step at a time, each inside the last",
+      [(one["name"], one["parents"]) for one in walk.folders] ==
+      [("Reports", ["kartaan-id"]), ("Amazon", ["folder-1"]), ("Orders", ["folder-2"])])
+check("and walking it again finds the same folder and makes nothing",
+      answered(lambda: tool.folder_at(walk, ("Reports", "Amazon", "Orders"), "kartaan-id")) == first
+      and len(walk.folders) == 3)
+check("a path of nothing is refused", "no folder path" in refused(lambda: tool.folder_at(walk, (), "kartaan-id")))
+
+# **NO FOLDER IS EVER MADE WHOSE NAME IS NOT HIS** -- the rule, not a habit.
+loose = FakeDrive()
+check("a folder his layout does not have is refused",
+      "not a folder in his layout" in refused(lambda: tool.folder_at(loose, ("Kartaan data",), "kartaan-id")))
+check("and nothing was made", loose.folders == [])
+
+top = FakeDrive()
+check("the Kartaan folder is found or made at the top of My Drive",
+      answered(lambda: tool.the_kartaan_folder(top)) == "folder-1"
+      and top.folders[0]["name"] == "Kartaan" and top.folders[0]["parents"] == ["root"])
+check("and asking again does not make a second",
+      answered(lambda: tool.the_kartaan_folder(top)) == "folder-1" and len(top.folders) == 1)
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 97
+EXPECTED = 104
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

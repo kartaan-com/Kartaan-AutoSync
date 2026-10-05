@@ -9,7 +9,7 @@ real network.
 **THE TEN VALUES IT READS ARE GITHUB ACTIONS SECRETS on the seller's own
 repository** (job 25, route (e)): the device client's id, secret and refresh
 token for Drive and Sheets, the seller's own Firebase API key and refresh token
-for their database, the folder, the project, and Amazon's three. They are read once, handed straight to the door each belongs to,
+for their database, the project, and Amazon's three. They are read once, handed straight to the door each belongs to,
 and never written to the log, the run's record or an error message. Golden Rule
 8: nothing here stores one, prints one, or puts one in an address.
 
@@ -34,6 +34,23 @@ import ledger_sheet  # noqa: E402
 import nightly  # noqa: E402
 
 
+def the_old_data_folder() -> str:  # pragma: no cover - one secret, read in one place
+    """The id of the old "Kartaan data" folder the Server made: only the merge reads inside it."""
+    return nightly._needed("DRIVE_FOLDER_ID")
+
+
+def the_google_connection(now):  # pragma: no cover - the device client, read once for the night and the merge
+    """Drive and Sheets, through the device client's refresh token (job 25, route (e))."""
+    from transport import Google  # noqa: PLC0415
+
+    return Google(
+        client_id=nightly._needed("GOOGLE_DEVICE_CLIENT_ID"),
+        client_secret=nightly._needed("GOOGLE_DEVICE_CLIENT_SECRET"),
+        refresh_token=nightly._needed("GOOGLE_DEVICE_REFRESH_TOKEN"),
+        now=now,
+    )
+
+
 def main() -> int:  # pragma: no cover - the only part that opens a connection
     """Read the secrets, build the doors, do one tick, say what happened.
 
@@ -42,7 +59,8 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
     checked without one.
     """
     from amazon_door import AmazonDoor, fetch_one
-    from drive_door import a_door
+    import merge
+    from drive_door import a_door, the_kartaan_folder
     from firestore_door import a_board_sink, a_log_sink, a_run_sink, both_places, what_they_chose
     from transport import FirebaseSeller, Google, for_amazon
 
@@ -55,7 +73,6 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
         # only."*
         return clock.his_clock(datetime.now(timezone.utc).replace(tzinfo=None))
 
-    inside = nightly._needed("DRIVE_FOLDER_ID")
     # **WHICH DATABASE THE RUN LOG, THE DAY BOARD AND THE RUNS GO INTO (D114).**
     # The seller's own Firebase project. Not a credential -- it names a project
     # and grants nothing; what grants anything is the seller's own sign-in below
@@ -79,12 +96,17 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
     # `drive.file` reaches only the files this app created -- so the ledger has to
     # be MADE by this connection, and it is: the same object below both makes it
     # and writes to it, which is what makes the everyday permission carry.
-    google = Google(
-        client_id=nightly._needed("GOOGLE_DEVICE_CLIENT_ID"),
-        client_secret=nightly._needed("GOOGLE_DEVICE_CLIENT_SECRET"),
-        refresh_token=nightly._needed("GOOGLE_DEVICE_REFRESH_TOKEN"),
-        now=now,
-    )
+    google = the_google_connection(now)
+    # **THE ONE `Kartaan` FOLDER AT THE TOP OF HIS DRIVE, FOUND BY NAME (job 34).** Everything
+    # the run puts away is inside it, in his layout, and the extension finds the same folder
+    # the same way. No folder id is kept anywhere.
+    inside = the_kartaan_folder(google)
+    # **NOT BEFORE THE ONE-TIME MERGE (job 34).** The run's memory moves to `Kartaan / System` in
+    # the merge; a night before it would start from nothing and fetch everything again.
+    first = merge.why_the_merge_comes_first(google, the_old_data_folder())
+    if first:
+        print(first)
+        return 1
     amazon = AmazonDoor(
         transport=for_amazon(),
         credentials={
@@ -129,7 +151,7 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
     # is a rule nobody ever watches fail -- which is exactly how the ledger came
     # to be finished at both ends and called by nothing.
     record_the_sales, could_not_write_sales = ledger_sheet.the_writing_half(
-        google, read_state, save_state, say,
+        google, read_state, save_state, say, inside=inside,
     )
 
     def send(lines: Sequence[str]) -> None:
@@ -205,6 +227,24 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
     return code
 
 
+def the_merge(mode: str) -> int:  # pragma: no cover - opens a connection, like `main`
+    """The one-time merge of his old folders into `Kartaan /`. `plan` writes nothing; `apply` is his yes.
+
+    Everything it decides is in `merge.py`, where it is checked against a stand-in Drive. Only
+    the Google connection is read here: the same three device values, and the one folder id the
+    repository already holds for the old "Kartaan data".
+    """
+    import merge  # noqa: PLC0415
+
+    def now() -> datetime:
+        return clock.his_clock(datetime.now(timezone.utc).replace(tzinfo=None))
+
+    return merge.run_the_merge(
+        the_google_connection(now), the_old_data_folder(), mode,
+        os.environ.get("MERGE_FIGURES", ""), print,
+    )
+
+
 def not_ready() -> int:  # pragma: no cover - opens a connection, like `main`
     """The job could not fetch because secrets are not set: say that it ran.
 
@@ -219,7 +259,7 @@ def not_ready() -> int:  # pragma: no cover - opens a connection, like `main`
         from transport import FirebaseSeller, Google  # noqa: PLC0415
 
         not_set = [n for n in os.environ.get("NOT_SET", "").split() if n]
-        needed = ("GOOGLE_DEVICE_CLIENT_ID", "GOOGLE_DEVICE_CLIENT_SECRET", "GOOGLE_DEVICE_REFRESH_TOKEN", "DRIVE_FOLDER_ID")
+        needed = ("GOOGLE_DEVICE_CLIENT_ID", "GOOGLE_DEVICE_CLIENT_SECRET", "GOOGLE_DEVICE_REFRESH_TOKEN")
         absent = [n for n in needed if not os.environ.get(n, "").strip()]
         if absent:
             print("The run could not write down that it ran, because these are not set: "
@@ -235,7 +275,9 @@ def not_ready() -> int:  # pragma: no cover - opens a connection, like `main`
             refresh_token=os.environ["GOOGLE_DEVICE_REFRESH_TOKEN"],
             now=now,
         )
-        read_state, save_state = nightly._state_in_drive(google, os.environ["DRIVE_FOLDER_ID"])
+        from drive_door import the_kartaan_folder  # noqa: PLC0415
+
+        read_state, save_state = nightly._state_in_drive(google, the_kartaan_folder(google))
         project = os.environ.get("FIREBASE_PROJECT_ID", "").strip()
         api_key = os.environ.get("FIREBASE_API_KEY", "").strip()
         sign_in = os.environ.get("FIREBASE_REFRESH_TOKEN", "").strip()
@@ -258,4 +300,15 @@ def not_ready() -> int:  # pragma: no cover - opens a connection, like `main`
 
 
 if __name__ == "__main__":  # pragma: no cover
-    sys.exit(not_ready() if sys.argv[1:] == ["not-ready"] else main())
+    # **THE MERGE IS ASKED FOR BY HAND, NEVER BY A SCHEDULE.** The workflow passes `MERGE` only
+    # from the button; anything but `plan` or `apply` is refused rather than read as "no".
+    _merge = os.environ.get("MERGE", "").strip().lower()
+    if sys.argv[1:] == ["not-ready"]:
+        sys.exit(not_ready())
+    elif _merge in ("plan", "apply"):
+        sys.exit(the_merge(_merge))
+    elif _merge:
+        print(f"MERGE is {_merge!r}; it can only be plan or apply, so nothing was done.")
+        sys.exit(1)
+    else:
+        sys.exit(main())

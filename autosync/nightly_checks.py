@@ -392,8 +392,8 @@ check("and anything of ours that went wrong is said in the same sentence",
 check("what a tick came to cannot be edited afterwards",
       answered(lambda: setattr(first_tick, "ran", False)) is None and bool(THREW))
 THREW.clear()
-check("what belongs to the job itself is kept somewhere no report can be called",
-      answered(lambda: tool.OURS) == "autosync")
+check("what belongs to the job itself is kept in System, and its log in System / Logs",
+      (tool.layout.SYSTEM, tool.layout.LOGS) == (("System",), ("System", "Logs")))
 
 
 # ------------------------------------------- a Drive that is not kind
@@ -498,12 +498,12 @@ INSIDE = "the-one-folder"
 # with thirty folders of one name and the files spread across them, and nothing
 # reading them would ever say so.
 drive = FakeDrive()
-made = answered(lambda: tool._drive_folder(drive, INSIDE, tool.OURS))
+made = answered(lambda: tool._drive_folder(drive, INSIDE, tool.layout.SYSTEM))
 check("a folder for the job's own files is made when it is not there",
-      len(drive.named(tool.OURS)) == 1)
+      len(drive.named("System")) == 1)
 check("and the same one is used the next night, not a second one",
-      answered(lambda: tool._drive_folder(drive, INSIDE, tool.OURS)) == made
-      and len(drive.named(tool.OURS)) == 1)
+      answered(lambda: tool._drive_folder(drive, INSIDE, tool.layout.SYSTEM)) == made
+      and len(drive.named("System")) == 1)
 
 # ------------------------------------------- the run's memory, in Drive
 
@@ -514,7 +514,7 @@ check("with nothing there yet, the record reads as a first night", answered(read
 # **THE RECORD SHARES ITS FOLDER WITH THE LOGS**, so it has to be picked out by
 # name. Everything in the folder taken as the record would read a log file as
 # what the last run left -- and, worse, saving would take the logs away with it.
-BESIDE = tool._drive_folder(drive, INSIDE, tool.OURS)
+BESIDE = tool._drive_folder(drive, INSIDE, tool.layout.SYSTEM)
 drive.file("autosync-log-2026-08-29.txt", BESIDE, b"an old log")
 
 answered(lambda: save_it(b"FIRST"))
@@ -534,7 +534,7 @@ check("and reading the record does not hand back the log",
 
 # **TWO OF ONE NAME IS NOT SOMETHING TO CHOOSE BETWEEN.** Reading one of them
 # would carry on with what might be the older run's record.
-drive.file(between_runs.FILE_NAME, tool._drive_folder(drive, INSIDE, tool.OURS), b"A SECOND ONE")
+drive.file(between_runs.FILE_NAME, tool._drive_folder(drive, INSIDE, tool.layout.SYSTEM), b"A SECOND ONE")
 two_of_them = None
 try:
     read_it()
@@ -573,7 +573,7 @@ class DriveThatWillNotTake(FakeDrive):
 
 stubborn = DriveThatWillNotTake()
 keep_it, put_it = tool._state_in_drive(stubborn, INSIDE)
-FOLDER = tool._drive_folder(stubborn, INSIDE, tool.OURS)
+FOLDER = tool._drive_folder(stubborn, INSIDE, tool.layout.SYSTEM)
 stubborn.file(between_runs.FILE_NAME, FOLDER, b"WHAT THE LAST RUN LEFT")
 refused = None
 try:
@@ -593,7 +593,7 @@ check("and nothing was taken away at all", stubborn.deleted == [])
 # deleting first and then failing loses every line already written, which is the
 # exact failure this package exists against.
 stubborn_log = DriveThatWillNotTake()
-LOG_FOLDER = tool._drive_folder(stubborn_log, INSIDE, tool.OURS)
+LOG_FOLDER = tool._drive_folder(stubborn_log, INSIDE, tool.layout.LOGS)
 LOG_CALLED = f"autosync-log-{date(2026, 8, 29).isoformat()}.txt"
 stubborn_log.file(LOG_CALLED, LOG_FOLDER, b"everything that happened this morning\n")
 log_sink = tool._log_to_drive(stubborn_log, INSIDE, date(2026, 8, 29))
@@ -632,7 +632,7 @@ check("and there is still only one log for the day", len(drive.named(CALLED)) ==
 
 # **TWO LOGS OF ONE NAME REFUSES.** Adding to one of them loses whatever is in
 # the other, and the log is the only evidence a failed night leaves behind.
-drive.file(CALLED, tool._drive_folder(drive, INSIDE, tool.OURS), b"another one")
+drive.file(CALLED, tool._drive_folder(drive, INSIDE, tool.layout.LOGS), b"another one")
 two_logs = None
 try:
     sink([runlog.Line(AT, "run-1", "az_orders", "done", "More.")])
@@ -1992,7 +1992,7 @@ check("and what comes back is the newer one", answered(read_m) == b"SECOND")
 # **TWO OF ONE NAME IS NOT SOMETHING TO CHOOSE BETWEEN**, and what it says is
 # about reading rather than about starting -- the state file's refusal says the
 # other thing, and one message for both is what this project keeps paying for.
-drive.file(manifest.FILE_NAME, tool._drive_folder(drive, INSIDE, tool.OURS), b"A SECOND ONE")
+drive.file(manifest.FILE_NAME, tool._drive_folder(drive, INSIDE, tool.layout.SYSTEM), b"A SECOND ONE")
 two_manifests = None
 try:
     read_m()
@@ -2074,7 +2074,7 @@ check("and nothing cleared it by itself -- both copies are still there",
 # reads as "nobody has ever checked anything", so losing it is the loudest wrong
 # answer this record can give.
 stubborn_m = DriveThatWillNotTake()
-M_FOLDER = tool._drive_folder(stubborn_m, INSIDE, tool.OURS)
+M_FOLDER = tool._drive_folder(stubborn_m, INSIDE, tool.layout.SYSTEM)
 stubborn_m.file(manifest.FILE_NAME, M_FOLDER, b"LAST NIGHT'S ANSWERS")
 keep_m, put_m = tool._manifest_in_drive(stubborn_m, INSIDE)
 m_refused = None
@@ -2322,9 +2322,32 @@ check("and that sign-in is the Firebase one, built from the two Firebase values"
       any(isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "FirebaseSeller"
           for n in ast.walk(START)))
 
+# **JOB 34: THE RUN'S FOLDER IS HIS ONE `Kartaan` FOLDER, FOUND BY NAME, AND THE LEDGER IS MADE INSIDE IT.**
+# Asked of the parsed file, like the tick above: a line nothing watches fail has not been proved.
+_INSIDE_IS = [
+    node.value.func.id for node in ast.walk(START)
+    if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "inside" for t in node.targets)
+    and isinstance(node.value, ast.Call) and isinstance(node.value.func, ast.Name)
+]
+check("the folder the run works in is the Kartaan folder found by name, never an id pasted in",
+      _INSIDE_IS == ["the_kartaan_folder"])
+_WRITING_HALF = [
+    node for node in ast.walk(START)
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "the_writing_half"
+]
+check("and the ledger's writing half is handed that folder, so a ledger it makes goes inside it",
+      len(_WRITING_HALF) == 1 and any(w.arg == "inside" and isinstance(w.value, ast.Name) and w.value.id == "inside"
+                                      for w in _WRITING_HALF[0].keywords))
+check("a night is refused while the run's memory is still in the old folder, so it cannot start from nothing",
+      any(isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and n.func.attr == "why_the_merge_comes_first"
+          for n in ast.walk(START)))
+check("the one-time merge is started only by the button, and only as plan or apply",
+      'os.environ.get("MERGE"' in _START_RAW and '_merge in ("plan", "apply")' in _START_RAW
+      and "nothing was done" in _START_RAW)
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 334
+EXPECTED = 338
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

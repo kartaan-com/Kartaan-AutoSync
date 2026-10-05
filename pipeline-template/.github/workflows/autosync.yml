@@ -70,6 +70,16 @@ on:
         description: 'Run even if one already ran in the last 24 hours'
         type: boolean
         default: false
+      # The one-time merge of the old Drive folders into Kartaan (job 34): plan, then apply
+      # with the figures the plan printed. Leave both empty for a normal run.
+      merge:
+        description: 'Merge the old Drive folders into Kartaan: plan or apply (leave empty for a normal run)'
+        type: string
+        default: ''
+      merge_figures:
+        description: 'For apply: the figures the plan printed, the whole line, e.g. moves=40 collisions=0 left=2 stamp=1a2b3c4d'
+        type: string
+        default: ''
 
 # **NO `concurrency:` HERE, DELIBERATELY.** The called workflow already carries
 # `group: autosync`, and a group evaluated in this repository is this
@@ -98,6 +108,8 @@ jobs:
       # the first value that is not falsy, and an empty one is falsy -- so a tick
       # passes `false` and the button passes what was ticked.
       even_if_not_due: ${{ inputs.even_if_not_due || false }}
+      merge: ${{ inputs.merge || '' }}
+      merge_figures: ${{ inputs.merge_figures || '' }}
     # **EACH ONE BY NAME, AND `inherit` IS NOT AVAILABLE.** From GitHub's own
     # documentation, `secrets: inherit` works only for a called workflow in the
     # same organisation or enterprise. A seller's GitHub is a personal account,

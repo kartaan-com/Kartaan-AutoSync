@@ -138,15 +138,3 @@ def the_metadata(landing: Landing) -> Dict:
     better than every caller remembering.
     """
     return {"name": landing.file_name, "parents": [landing.folder_id]}
-
-
-def a_folder_for(report_id: str) -> str:
-    """What the folder for one report is called.
-
-    **ONE FOLDER PER REPORT (D100), named after the report itself.** The reference
-    kept folder ids in its own source; a name worked out from the report is one
-    nobody has to keep a list of.
-    """
-    if not report_id:
-        raise ValueError("A folder has to be for some report.")
-    return report_id
