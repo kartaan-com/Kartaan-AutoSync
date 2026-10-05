@@ -35,7 +35,7 @@
 import { MANUAL, TOOLTIPS } from './manual.js';
 import {
   theNight, endTheNight, howTheNightWent, theDay, thatOneIsDone,
-  A_DAYS_ALLOWANCE, KEPT_FOR_HIS_OWN_RUNS, spendsTheAllowance, whatNeedsYou,
+  A_DAYS_ALLOWANCE, KEPT_FOR_HIS_OWN_RUNS, inTheNightsOwnLine, spendsTheAllowance, whatNeedsYou,
 } from './nightly.js';
 import { THE_WALK } from './background.js';
 import { aDriveToken } from './drive.js';
@@ -876,7 +876,7 @@ export async function answerThePanelsQuestion(chrome, parts, asked) {
     return { at: set };
   }
 
-  if (asked.do === 'stop') {
+  if (asked.do === 'stop') return inTheNightsOwnLine(async () => {
     /* **WHETHER ANYTHING WAS ACTUALLY GOING IS ASKED FIRST.** `endTheNight`
      * writes over whatever night is there, so asked afterwards it says "yes,
      * stopped" for a night that finished by itself yesterday -- and a seller
@@ -926,7 +926,7 @@ export async function answerThePanelsQuestion(chrome, parts, asked) {
       }
     }
     return { stopped: wasGoing, was: (walk && walk.reportId) || '' };
-  }
+  });
 
   if (asked.do === 'reload-the-extension') {
     /* **THE EXTENSION RELOADS ITSELF, SO A FIX CAN BE PROVED WITH NOBODY AT THE
@@ -1044,6 +1044,20 @@ export async function startTheNextPlatform(chrome, parts) {
  * the three can never start a sync three different ways.
  */
 export async function startASync(chrome, parts, asked) {
+  /* **IN THE NIGHT'S OWN LINE, SO TWO STARTERS CANNOT BOTH SEE "NO NIGHT GOING" (review finding, 2026-10-05).**
+   * The first starter's night is written before the second looks. The follow-up `carryOn` is outside the line,
+   * because it takes its own turn in it. */
+  let carryOnAfter = false;
+  const said = await inTheNightsOwnLine(async () => {
+    const outcome = await startASyncInTurn(chrome, parts, asked);
+    carryOnAfter = Boolean(outcome && outcome.started);
+    return outcome;
+  });
+  if (carryOnAfter) await parts.carryOn();
+  return said;
+}
+
+async function startASyncInTurn(chrome, parts, asked) {
   const { book, now = () => Date.now() } = parts;
   {
     const reportIds = withTheListsTheyRead(book, [...new Set(asked.reportIds || [])]);
@@ -1072,6 +1086,9 @@ export async function startASync(chrome, parts, asked) {
           + 'to go. Connect it first.',
       };
     }
+    /* **A FINISHED NIGHT IS FILED BEFORE A NEW ONE WRITES OVER IT**, or Stop and then Run now inside the panel's
+     * poll would lose that night's Flipkart spend from the day's count. */
+    if (night && night.finishedAt) await rememberTheNight(chrome, { book });
     const kept = await theNights(chrome);
     const started = await parts.startTheNight(chrome, {
       doing: askingFirst(book, reportIds),
@@ -1099,7 +1116,6 @@ export async function startASync(chrome, parts, asked) {
       canGoBack: reportIds.filter((id) => ((book.reports || []).find((one) => one.id === id) || {})
         .cannotBeAskedForAgain === null),
     });
-    await parts.carryOn();
     return { started: (started && started.left) || [] };
   }
 }

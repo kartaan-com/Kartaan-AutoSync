@@ -1003,7 +1003,21 @@ export function theRunLog(night) {
  */
 let carryingOn = Promise.resolve();
 export function carryTheNightOn(chrome, parts) {
-  const mine = carryingOn.then(() => carryItOn(chrome, parts));
+  return inTheNightsOwnLine(() => carryItOn(chrome, parts));
+}
+
+/**
+ * Run something that reads and writes the night in the night's own line, after everything already in it.
+ *
+ * **STOP AND STARTING A SYNC USE THIS TOO (review finding, 2026-10-05).** `carryTheNightOn` read the night, made
+ * several storage calls, and wrote it back from what it had read -- so a Stop landing inside that window had
+ * its `finishedAt` written over and the night was revived, and two starters could both see "no night going"
+ * and each write a night over the other's. All three now take their turn in one line.
+ *
+ * **NEVER CALL `carryTheNightOn` FROM INSIDE A JOB HANDED TO THIS**: it would wait for the line it is standing in.
+ */
+export function inTheNightsOwnLine(job) {
+  const mine = carryingOn.then(job);
   carryingOn = mine.catch(() => {});
   return mine;
 }

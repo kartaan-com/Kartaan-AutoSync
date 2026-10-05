@@ -59,6 +59,7 @@ import {
   askingFirst,
   markCarriedOn,
   releaseCarriedOn,
+  startASync,
   startTheNextPlatform,
   startTheScheduledSync,
   theSignInAlert,
@@ -324,6 +325,53 @@ check('a report that reads another report\'s file is fetched after it',
   const second = await startTheNextPlatform(chrome, parts);
   check('then every Meesho report, though none was ticked',
     Boolean(second.started) && [...second.started].sort().join() === [...every('meesho')].sort().join());
+}
+
+{
+  /* **TWO STARTERS AT ONCE CANNOT BOTH START A NIGHT (review finding, 2026-10-05).** The timed alarm and Run now
+   * used to read "no night going" together and each write a night over the other's. */
+  const { chrome } = installFakeChrome();
+  const parts = {
+    book: BOOK,
+    now: () => Date.UTC(2026, 8, 16, 3, 0),
+    /* Slow on purpose: the night is written a moment AFTER the check, which is the window two starters fell into. */
+    startTheNight: async (c, how) => { await new Promise((done) => { setTimeout(done, 15); }); return startTheNight(c, how); },
+    carryOn: async () => {},
+  };
+  await answerThePanelsQuestion(chrome, parts, { do: 'save-the-panel-name', panel: 'xuptj' });
+  await answerThePanelsQuestion(chrome, parts, { do: 'check-the-drive' });
+  const both = await Promise.all([
+    startASync(chrome, parts, { reportIds: ['fk_claims'] }),
+    startASync(chrome, parts, { reportIds: ['fk_claims'] }),
+  ]);
+  check('two starters at the same moment start ONE night, and the other is refused because one is going',
+    both.filter((one) => one.started).length === 1 && both.filter((one) => one.wrong).length === 1);
+}
+
+{
+  /* **STOP TAKES ITS TURN AFTER A NIGHT BEING CARRIED ON, NOT INSIDE IT (review finding, 2026-10-05).** Stop
+   * landing inside `carryItOn`'s read-then-write window had its `finishedAt` written over and revived the night. */
+  const { chrome } = installFakeChrome();
+  const log = [];
+  let letItGo;
+  const held = new Promise((done) => { letItGo = done; });
+  await startTheNight(chrome, { doing: ['fk_claims'], at: 1, openAt: 'https://x/', dataDate: '2026-09-15' });
+  const carrying = carryTheNightOn(chrome, {
+    theWalkNow: async () => { log.push('carrying starts'); await held; log.push('carrying ends'); return null; },
+    startAWalk: async () => {},
+    endTheWalkNow: async () => {},
+    at: 2,
+  });
+  const parts = { book: BOOK, now: () => 5, startTheNight, carryOn: async () => {} };
+  const stopping = answerThePanelsQuestion(chrome, parts, { do: 'stop' }).then((got) => { log.push('stop runs'); return got; });
+  await new Promise((done) => { setTimeout(done, 20); });
+  check('a Stop asked while a night is being carried on waits its turn, it does not run inside it',
+    log.join() === 'carrying starts');
+  letItGo();
+  await carrying;
+  const stopped = await stopping;
+  check('and then runs after it, and the night stays finished', log.join() === 'carrying starts,carrying ends,stop runs'
+    && stopped.stopped === true && Boolean((await theNight(chrome)).finishedAt));
 }
 
 {
