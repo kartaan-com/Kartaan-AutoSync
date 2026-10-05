@@ -392,9 +392,14 @@ def one_tick(
     # for the other, and the swap is worth somebody's judgement rather than a
     # session's: it would need its own save and would open exactly the
     # two-runs-at-once window the clock exists to shut.**
+    # **A ONE-TIME RE-READ WHEN THE READING RULES HAVE CHANGED (job 37).** Files read under older rules are
+    # read once more, so a column the reader has only just learned to write reaches the rows already in the
+    # ledger. Only when there is somewhere to put the sales: with nowhere, nothing is read and nothing may be
+    # forgotten, which an emptied list would break.
+    migrating = record_the_sales is not None and state.read_under != reading.READING_RULES
     try:
         what_was_read = reading.read_what_is_new(
-            already_read=state.files_read,
+            already_read=() if migrating else state.files_read,
             what_is_in_the_folder=what_is_in_the_folder,
             bring_it_back=bring_the_file_back,
             record_the_sales=record_the_sales,
@@ -407,6 +412,8 @@ def one_tick(
         faults.append(f"What is new in the folder could not be worked out: {wrong}")
     else:
         state = between_runs.with_files_read(state, what_was_read.files_read)
+        if migrating and not what_was_read.nowhere_to_put_it:
+            state = between_runs.with_read_under(state, reading.READING_RULES)
         # **A FOLDER NOBODY COULD LIST IS OUR OWN DEFECT (D108).** What is new
         # cannot be decided without it. A single file that would not read is the
         # platform's: named, counted, and left green.

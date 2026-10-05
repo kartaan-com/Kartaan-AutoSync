@@ -980,6 +980,33 @@ check("and all five are now in the record the run leaves behind",
       between_runs.read(night_two.saved[-1]).files_read
       == ("d-1", "d-2", "d-3", "d-4", "d-5"))
 
+# ------------------------------------------- job 37: FILES READ UNDER OLDER RULES ARE READ ONCE MORE
+
+# **THE FIVE CANCELLED ORDERS ALREADY IN HIS LEDGER ARE CORRECTED BY THE SAME RUN, NOT BY HAND.** A file
+# read before the reader learned to write the platform's word is never opened again unless something says
+# the rules changed -- `read_under` is that something.
+OLD_RULES = between_runs.write(between_runs.with_files_read(between_runs.empty(), ("d-1", "d-2", "d-3", "d-5")))
+migrate_drive = TheSellersDrive(FIRST_THREE_AND_FIFTH)
+migrate = Harness(OLD_RULES)
+migrate.go(**migrate_drive.wiring())
+check("files read under older rules are read once more -- all four, though all four were remembered",
+      len(migrate_drive.recorded) == 4)
+check("and the record now says they were read under the current rules",
+      between_runs.read(migrate.saved[-1]).read_under == tool.reading.READING_RULES)
+after_drive = TheSellersDrive(FIRST_THREE_AND_FIFTH)
+ANightLater(migrate.saved[-1], nights=2).go(**after_drive.wiring())
+check("and the night after reads nothing again: the re-read happens once", after_drive.recorded == [])
+nowhere = TheSellersDrive(FIRST_THREE_AND_FIFTH)
+nowhere_wiring = nowhere.wiring()
+nowhere_wiring["record_the_sales"] = None
+nowhere_night = Harness(OLD_RULES)
+nowhere_night.go(**nowhere_wiring)
+check("with nowhere to put a sale nothing is read and NOTHING IS FORGOTTEN: the remembered files are kept",
+      between_runs.read(nowhere_night.saved[-1]).files_read == ("d-1", "d-2", "d-3", "d-5")
+      and nowhere.recorded == [])
+check("and the rules are not marked as met, so the re-read still happens once there is a ledger",
+      between_runs.read(nowhere_night.saved[-1]).read_under is None)
+
 # **AND THE LATE FOURTH'S OLDER FIGURES DO NOT WIN -- DRIVEN AS THE JOB RUNS.**
 #
 # **THIS USED TO POOL BOTH NIGHTS' READINGS INTO ONE `ledger.plan` CALL AGAINST
@@ -2441,7 +2468,7 @@ check("the one-time merge is started only by the button, and only as plan or app
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 352
+EXPECTED = 357
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

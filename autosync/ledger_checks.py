@@ -30,6 +30,9 @@ THREW = []
 
 HIS_FILES = Path(os.environ.get("RAW_DATA") or r"H:\My Drive\Rumee Raw Data")
 
+# **WHAT AN ORDERS REPORT SAYS TODAY, STATUS INCLUDED (job 37).** Used only by the checks that drive the status word.
+ORDERS_KNOWS_WITH_STATUS = ("platform", "orderId", "on", "sku", "qty", "gmv", "status")
+
 # What an ORDERS report is entitled to say. It knows nothing about settlements,
 # returns or charges, and rule 1 makes that impossible to forget.
 ORDERS_KNOWS = ("platform", "orderId", "on", "sku", "qty", "gmv")
@@ -95,6 +98,29 @@ check("A READING WITH NO FILE DATE IS REFUSED -- the newest is supposed to win",
 check("and the refusal says why the date matters",
       (lambda e: e is not None and "newer" in str(e))(
           _catch(lambda: a_reading("orders", "", []))))
+# ------------------------------------------- job 37: A CANCELLED ORDER ALREADY IN THE LEDGER IS CORRECTED, AND NOTHING ELSE ON IT CHANGES
+
+HE_SAW_A_SALE = sales.the_row_for(a_sale("O1", qty=0, notes="the seller wrote this", cogs=40))
+corrected = answered(lambda: tool.plan(
+    as_sheet([HE_SAW_A_SALE]),
+    [a_reading("meesho orders", "2026-09-08", [a_sale("O1", qty=0, status="CANCELLED")],
+               knows=ORDERS_KNOWS_WITH_STATUS)]))
+check("a row that looked like a sale reads CANCELLED once the file is read with the status word",
+      corrected is not None and len(corrected.update) == 1
+      and corrected.update[0][1][AT["status"]] == "CANCELLED")
+check("and the seller's own notes and the cost already on that row are exactly as they were",
+      corrected is not None and corrected.update[0][1][AT["notes"]] == "the seller wrote this"
+      and corrected.update[0][1][AT["cogs"]] == "40")
+again = answered(lambda: tool.plan(
+    as_sheet([corrected.update[0][1]]),
+    [a_reading("meesho orders", "2026-09-08", [a_sale("O1", qty=0, status="CANCELLED")],
+               knows=ORDERS_KNOWS_WITH_STATUS)])) if corrected is not None else None
+check("and a second reading of the same file changes nothing, so the re-read is safe to run twice",
+      again is not None and again.update == () and again.append == ())
+check("an orders report that does NOT know the status column cannot touch it (rule 1 still holds)",
+      answered(lambda: tool.plan(as_sheet([HE_SAW_A_SALE]),
+                                 [a_reading("meesho orders", "2026-09-08", [a_sale("O1", qty=0, status="CANCELLED")])])).update == ())
+
 check("a reading claiming a column the ledger does not have is refused",
       refused_by(lambda: a_reading("orders", "2026-08-01", [], knows=("nonsense",))))
 
@@ -633,7 +659,7 @@ check("A REPORT IS HELD TO ITS OWN MARKER ONLY -- a payments file is not stopped
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-WITH_HIS_FILES = 96
+WITH_HIS_FILES = 100
 EXPECTED = WITH_HIS_FILES - (9 if not_run else 0)
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")

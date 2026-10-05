@@ -258,6 +258,13 @@ check("it is said out loud in what the read reports",
       r is not None and "CANCELLED x2" in r.says())
 check("BUT IT IS NOT WRITTEN TO A COLUMN -- notes is the seller's own typing",
       r is not None and all(s.notes is None for s in r.sales))
+check("AND IT IS CARRIED ON THE SALE EXACTLY AS THE PLATFORM SENT IT, so a cancelled order reads cancelled (job 37)",
+      r is not None and [s.status for s in r.sales] == ["SHIPPED", "CANCELLED", "CANCELLED"])
+check("a word is never tidied: its case and its underscores are kept as sent",
+      [s.status for s in tool.read_orders(a_file(GOOD, ("S9", "A", "1", "2026-08-30", "Delivered_OK", "1")), "meesho").sales]
+      == ["Delivered_OK"])
+check("and a file with no word on a row leaves the status blank, never a guess",
+      [s.status for s in tool.read_orders(a_file(GOOD, ("S9", "A", "1", "2026-08-30", "", "1")), "meesho").sales] == [None])
 check("and no sale is given a state -- a sale read from a file has not been applied",
       r is not None and all(s.state is None for s in r.sales))
 
@@ -340,7 +347,7 @@ if not_run:
 print()
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-WITH_HIS_FILES = 85
+WITH_HIS_FILES = 88
 WITHOUT = WITH_HIS_FILES - 7 * len(REAL) - 3
 EXPECTED = WITH_HIS_FILES if not not_run else WITHOUT
 if ran != EXPECTED:

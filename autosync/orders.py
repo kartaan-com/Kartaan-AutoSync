@@ -85,11 +85,13 @@ So there are three ways to go and **all three are his to choose**, not mine:
 - add a column for it, which changes the contract the ERP and this file are
   pinned to, on both sides.
 
-**Until he says: every row is read faithfully, cancelled ones included, and the
-platform's own word is carried on the sale but NOT WRITTEN TO A COLUMN.**
-`their_word` exists on the record, goes nowhere near the sheet, and is counted in
-what a read says out loud -- so 42 cancelled orders are visible as a number
-rather than silently becoming 42 ordinary sales.
+**HE HAS SAID (job 37, 2026-10-03 15:3x): TWO COLUMNS -- Kartaan's own plain word to
+read, and the platform's own word kept exactly as sent.** The platform's word is
+written now, to the ledger's existing `status` column, exactly as it came. Kartaan's
+own plain word needs a column the ERP's list does not have yet, so it waits for the
+ERP to add it -- the two lists are pinned to each other and cannot move one at a time.
+Every row is still read faithfully, cancelled ones included, and the platform's word is
+also counted in what a read says out loud.
 """
 
 import re
@@ -409,6 +411,11 @@ def read_orders(rows: Table, platform: str,
                 on=when,
                 qty=how_many,
                 gmv=money,
+                # **THE PLATFORM'S OWN WORD FOR WHAT HAPPENED, EXACTLY AS IT SENT IT, NEVER TIDIED (job 37, his
+                # ruling of 2026-10-03 15:3x).** It used to be counted and thrown away, so a cancelled order read
+                # as a sale with a quantity of nought and no price -- identical to a sale nobody had worked out.
+                # Blank when the file carries none, which is the truthful answer.
+                status=their_word or None,
                 # **WHICH DAY'S ORDERS FILE THIS ROW CAME OUT OF (D157).** The
                 # same value on every sale of one file, because it is a fact
                 # about the FILE and not about the row.

@@ -176,6 +176,11 @@ class Between:
     # does not widen the one lock `firestore_door` has.
     ledger_sheet: Optional[str] = None
 
+    # **WHICH READING RULES `files_read` WAS MADE UNDER (job 37).** When the orders reader learns to write a
+    # column it did not, the files already read have to be read once more; this is how the run knows they were
+    # read under older rules. Absent in a record written before it existed, which reads as "under older rules".
+    read_under: Optional[str] = None
+
     def started(self, at: datetime) -> "Between":
         """The record as it stands the moment a run begins.
 
@@ -292,6 +297,13 @@ def _read(raw: bytes) -> Between:
             "second, empty ledger could be made beside the one holding their history."
         )
 
+    said_read_under = said.get("read_under")
+    if said_read_under is not None and (not isinstance(said_read_under, str) or not said_read_under.strip()):
+        raise Damaged(
+            f"{said_read_under!r} is written down as the rules the read files were read under and is not a "
+            "name. Nothing has been started -- read past it, every file could be read again, or none."
+        )
+
     return Between(
         in_flight=in_flight,
         last_started=_a_moment(said.get("last_started"), "When the last run started"),
@@ -300,6 +312,7 @@ def _read(raw: bytes) -> Between:
         standing=tuple(str(s) for s in said.get("standing") or ()),
         files_read=tuple(sorted(set(files_read))),
         ledger_sheet=which_sheet.strip() if isinstance(which_sheet, str) else None,
+        read_under=said_read_under.strip() if isinstance(said_read_under, str) else None,
     )
 
 
@@ -341,6 +354,7 @@ def write(state: Between) -> bytes:
             "standing": sorted(state.standing),
             "files_read": sorted(set(state.files_read)),
             "ledger_sheet": state.ledger_sheet,
+            "read_under": state.read_under,
         },
         # **READABLE BY A PERSON, because it sits in the seller's own Drive.**
         # The one time anybody opens this file is the night something has gone
@@ -411,6 +425,11 @@ def with_files_read(state: Between, files_read: Sequence[str]) -> Between:
     return replace(state, files_read=tuple(sorted({
         str(one).strip() for one in (files_read or ()) if str(one).strip()
     })))
+
+
+def with_read_under(state: Between, rules: Optional[str]) -> Between:
+    """The record with the name of the rules its list of read files was made under."""
+    return replace(state, read_under=rules)
 
 
 def with_the_ledger(state: Between, which: Optional[str]) -> Between:

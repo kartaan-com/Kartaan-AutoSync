@@ -108,7 +108,15 @@ from sales import FROM_FIELD
 #
 # **AND ONLY THIS ONE OF THE FOUR.** Returns, payments and claims have no reader,
 # so a date in one of their columns would be a date nobody measured.
-WHAT_ORDERS_KNOWS = ("platform", "orderId", "on", "sku", "qty", "gmv", "ordersOn")
+WHAT_ORDERS_KNOWS = ("platform", "orderId", "on", "sku", "qty", "gmv", "status", "ordersOn")
+
+# **WHICH RULES THE LIST OF READ FILES WAS MADE UNDER (job 37).** A file already read before the orders
+# reader began to write the platform's status word would never be opened again, so the five cancelled orders
+# already in his ledger would go on looking like sales for ever. Change this name whenever the orders reader
+# learns to write a column it did not, and every file is read once more -- which is safe, because reading a
+# file again writes the same figures and an older file never undoes a newer one (D150 rule 2).
+READING_RULES = "orders-with-the-platforms-status-word"
+
 
 
 @dataclass(frozen=True)

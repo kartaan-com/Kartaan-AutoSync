@@ -973,6 +973,16 @@ check("and the night says out loud that it was Kartaan's ledger that refused",
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
+# ------------------------------------------- job 37: THE ORDERS READER WRITES THE PLATFORM'S STATUS WORD
+
+check("the orders reader is allowed to write the status column, and it is in the ledger's own column list",
+      "status" in tool.WHAT_ORDERS_KNOWS and "status" in sales.COLUMNS)
+check("a cancelled order's row carries the platform's word in the status column",
+      dict(zip(sales.COLUMNS, sales.the_row_for(
+          sales.Sale(platform="amazon", order_id="404-1", sku="S", qty=0, status="Cancelled"))))["status"] == "Cancelled")
+check("the rules the read-files list was made under are named, so a change to them reads everything once more",
+      isinstance(tool.READING_RULES, str) and len(tool.READING_RULES) > 10)
+
 # ------------------------------------------- job 35: EVERY REPORT IS READ OR SAYS WHY NOT
 
 check("every report in REPORTS has a reader or a written reason it is not yet read",
@@ -1004,7 +1014,7 @@ del tool.WHAT_IS_FETCHED_AND_NOT_READ_YET["zz_gone"]
 check("and the two lists are whole again after those three", tool.why_a_report_has_no_decision() == ""
       and tool.WHAT_IS_FETCHED_AND_NOT_READ_YET == _with_a_reason_too)
 
-EXPECTED = 114
+EXPECTED = 117
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

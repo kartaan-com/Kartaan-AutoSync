@@ -452,9 +452,25 @@ check("and the refusal says what reading past it would have cost",
 check("a record written before the ledger had an address refuses rather than reading as a first night",
       isinstance(refused(lambda: tool.read(b'{"shape": 2, "files_read": []}')), tool.Damaged))
 
+# ------------------------------------------- job 37: WHICH RULES THE READ FILES WERE READ UNDER
+
+check("a first night has read nothing under any rules", tool.empty().read_under is None)
+under = answered(lambda: tool.with_read_under(tool.empty(), "some-rules"))
+check("the rules the files were read under are written down and read back",
+      answered(lambda: tool.read(tool.write(under)).read_under) == "some-rules")
+check("a record written before the field existed reads as read under no known rules, never as damaged",
+      answered(lambda: tool.read(SHAPE_IS + b', "files_read": ["a"], "ledger_sheet": "s"}').read_under) is None)
+for written, what in (
+    (SHAPE_IS + b', "read_under": ""}', "an empty name"),
+    (SHAPE_IS + b', "read_under": ["x"]}', "a list"),
+    (SHAPE_IS + b', "read_under": 5}', "a number"),
+):
+    check(f"rules written down as {what} refuse the whole record",
+          isinstance(refused(lambda w=written: tool.read(w)), tool.Damaged))
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 99
+EXPECTED = 105
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
