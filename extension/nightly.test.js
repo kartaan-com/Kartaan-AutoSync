@@ -1218,6 +1218,39 @@ check('and three days of trying is the reference\'s own number', GIVE_UP_AFTER_D
 }
 
 {
+  /* **A SIGN-IN WALL IS NOT "THE PLATFORM NEVER BUILT THAT DAY" (review finding, 2026-10-05).** Three
+   * syncs on three different days with the seller signed out used to put a day nobody ever reached into
+   * "needs you ... will not be tried again" and drop it for good. */
+  const browser = installFakeChrome();
+  const c = browser.chrome;
+  const day = '2026-09-20';
+  const oneDay = 24 * 60 * 60 * 1000;
+  const start = Date.UTC(2026, 8, 21, 3);
+  await startTheNight(c, {
+    doing: ['me_orders'], at: start, openAt: 'https://x/', dataDate: day, canGoBack: ['me_orders'],
+  });
+  for (const n of [0, 1, 2, 3]) {
+    // eslint-disable-next-line no-await-in-loop
+    await thatOneIsDone(c, {
+      reportId: 'me_orders', state: 'failed', say: 'sign in', dataDate: day, at: start + n * oneDay,
+      needsSigningIn: true,
+    });
+  }
+  check('four signed-out syncs on four days never put the day in needs-you',
+    (await whatNeedsYou(c)).length === 0);
+  check('and nothing is remembered as tried, so it is still fetched when they are signed in again',
+    Object.keys(await whatIsNotBuiltYet(c)).length === 0);
+  check('and the failure is still written in the night itself, so it is not hidden',
+    (await theNight(c)).done.filter((one) => one.state === 'failed').length === 4);
+  const hourly = await whatIsBeingRechecked(c);
+  check('and the hourly recheck is not used up by it', Object.keys(hourly).length === 0);
+  /* The control: the very same failures WITHOUT a sign-in wall still count, as they always did. */
+  await thatOneIsDone(c, { reportId: 'me_orders', state: 'failed', say: 'x', dataDate: day, at: start });
+  check('a failure that is not a sign-in wall is still remembered as tried',
+    Object.keys(await whatIsNotBuiltYet(c)).length === 1);
+}
+
+{
   /* **A53: FLIPKART TRAFFIC IS ASKED FROM THE DAY AFTER THE LAST ONE CAPTURED --
    * RUMEE'S WAY.** */
   const browser = installFakeChrome();
@@ -1528,7 +1561,7 @@ async function seedLandedRangeForTest(c, reportId, from, to) {
       && one.say.includes('has not been asked for')).length === 3);
 }
 
-const EXPECTED = 166;
+const EXPECTED = 171;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

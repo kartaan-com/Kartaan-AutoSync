@@ -691,7 +691,7 @@ export async function thatOneIsBeingTried(chrome, reportId, day = null) {
  */
 export async function thatOneIsDone(chrome, {
   reportId, state, say = '', size = 0, at, pageWas = '', theirId = null, dataDate = '',
-  listMissing = false,
+  listMissing = false, needsSigningIn = false,
 }) {
   const night = await theNight(chrome);
   if (!night) throw new Error('Nothing can be recorded against a sync that is not going.');
@@ -706,7 +706,12 @@ export async function thatOneIsDone(chrome, {
   /* **WHAT IS WRITTEN DOWN IS NOT ALWAYS WHAT THE WALK SAID.** A day still not
    * built on its third day becomes one that needs the seller. */
   let written = { state, say };
-  if (day) {
+  /* **A SIGN-IN WALL IS NOT A FACT ABOUT THE PLATFORM, SO IT IS BOOKED AS NOTHING.** It used to be
+   * counted as one more "tried" day for a report that can go back, so three syncs on three days with
+   * the seller signed out (Flipkart's sign-in takes a code they must type) turned a day nobody ever
+   * reached into "the platform never built it, it will not be tried again" and dropped it for good.
+   * The failure is still written in the night's own list; nothing else remembers it. */
+  if (day && !needsSigningIn) {
     const being = await whatIsBeingBuilt(chrome);
     const key = thatOneAndThatDay(reportId, day);
     if (state === 'still-waiting' && theirId) {
@@ -1020,6 +1025,7 @@ async function carryItOn(chrome, {
       theirId: walk.answer.theirId || null,
       dataDate: walk.answer.dataDate || walk.dataDate || '',
       listMissing: Boolean(walk.answer.listMissing),
+      needsSigningIn: Boolean(walk.answer.needsSigningIn),
       at,
     });
     /* **AND THE WALK IS CLEARED, or the next call reads this same finished walk
