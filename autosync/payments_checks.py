@@ -740,6 +740,23 @@ if _real_az is not None:
     check("HIS REAL AMAZON FILE: the payouts and service fees are set aside, and every sale names an order",
           rd is not None and any("Transfer" in x for x in rd.set_aside) and all(s.order_id for s in rd.sales))
     real_ran += 2
+_real_v2 = his("amazon_az_settlements_2026-09-08.csv")
+if _real_v2 is not None:
+    got = answered(lambda: read_as("az_settlements", "amazon_az_settlements_2026-09-08.csv", _real_v2))
+    rd = got[0] if got else None
+    # An independent sum, written differently: the csv module, tab-separated, no helper from this package.
+    vrows = list(csv.reader(io.StringIO(_real_v2.decode("utf-8-sig").replace("\r\n", "\n")), delimiter="\t", quoting=csv.QUOTE_NONE))
+    vhead = vrows[0]
+    vall = sum(Decimal(r[vhead.index("amount")] or 0) for r in vrows[1:] if len(r) == len(vhead))
+    vsales = sum(Decimal(s.settlement) for s in rd.sales if s.settlement is not None) if rd else None
+    vaside = sum(Decimal(r[vhead.index("amount")] or 0) for r in vrows[1:]
+                 if len(r) == len(vhead) and not r[vhead.index("order-id")].strip())
+    check("HIS REAL SETTLEMENT FILE: the money on the sales plus the lines with no order is the file's own total-amount, to the paisa",
+          rd is not None and bool(rd.sales) and got[1] == 0
+          and vsales + vaside == Decimal(vrows[1][vhead.index("total-amount")]) == vall)
+    check("HIS REAL SETTLEMENT FILE: the advertising line is said, and every sale names an order",
+          rd is not None and all(s.order_id for s in rd.sales) and any("Cost of Advertising" in x for x in rd.set_aside))
+    real_ran += 2
 if _real_fk is not None:
     got = answered(lambda: read_as("fk_payments", "flipkart_fk_payments_2026-08-28.xlsx", _real_fk))
     rd = got[0] if got else None
@@ -869,15 +886,112 @@ check("the compensation and recovery sheet is said too", _me_more_reading is not
 check("and a sheet that says no data is available is not said at all",
       _me_more_reading is not None and not any("Referral" in x for x in _me_more_reading.set_aside))
 
+# ================================================================ AMAZON'S SETTLEMENT FILE (job 18)
+
+# **THE FILE THE RUN ACTUALLY FETCHES** (`GET_V2_SETTLEMENT_REPORT_DATA_FLAT_FILE_V2`): tab-separated, the header on line 1, one
+# line per money line (order, SKU, amount-type, amount-description, amount). The 24 column names are the ones his real file of
+# 2026-09-08 carries. Every figure below is made up.
+V2_COLUMNS = ["settlement-id", "settlement-start-date", "settlement-end-date", "deposit-date", "total-amount", "currency",
+              "transaction-type", "order-id", "merchant-order-id", "adjustment-id", "shipment-id", "marketplace-name",
+              "amount-type", "amount-description", "amount", "fulfillment-id", "posted-date", "posted-date-time",
+              "order-item-code", "merchant-order-item-id", "merchant-adjustment-item-id", "sku", "quantity-purchased",
+              "promotion-id"]
+
+
+def a_v2_line(kind, order, sku, amount_type, description, amount):
+    cells = {"settlement-id": "1", "transaction-type": kind, "order-id": order, "amount-type": amount_type,
+             "amount-description": description, "amount": amount, "sku": sku}
+    return "\t".join(cells.get(c, "") for c in V2_COLUMNS)
+
+
+def a_v2_file(*lines, total="0", columns=V2_COLUMNS):
+    head = "\t".join(columns)
+    summary = "\t".join({"settlement-id": "1", "total-amount": total, "currency": "INR"}.get(c, "") for c in columns)
+    return ("\r\n".join([head, summary, *lines]) + "\r\n").encode("utf-8")
+
+
+V2_NAME = "amazon_az_settlements_2026-09-08.csv"
+_v2 = answered(lambda: read_as("az_settlements", V2_NAME, a_v2_file(
+    a_v2_line("Order", "406-1", "SKU-A", "ItemPrice", "Principal", "100.00"),
+    a_v2_line("Order", "406-1", "SKU-A", "ItemPrice", "Product Tax", "3.00"),
+    a_v2_line("Order", "406-1", "SKU-A", "ItemTCS", "TCS-IGST", "-1.00"),
+    a_v2_line("Order", "406-1", "SKU-A", "ItemTCS", "TCS-CGST", "-0.50"),
+    a_v2_line("Order", "406-1", "SKU-A", "ItemTDS", "TDS", "-0.25"),
+    a_v2_line("Order", "406-1", "SKU-A", "ItemFees", "Fixed closing fee", "-22.00"),
+    a_v2_line("Order", "406-1", "SKU-A", "ItemFees", "Fixed closing fee IGST", "-3.96"),
+    a_v2_line("Order", "406-1", "SKU-A", "ItemFees", "Commission", "-8.00"),
+    a_v2_line("Order", "406-1", "SKU-A", "ItemFees", "FBA Pick and Pack Fee", "-2.00"),
+    a_v2_line("other-transaction", "406-1", "", "other-transaction", "Amazon Easy Ship Charges", "-5.00"),
+    a_v2_line("other-transaction", "406-1", "", "other-transaction", "MFNPostagePurchaseCompleteIGST", "-0.90"),
+    a_v2_line("Order", "406-2", "SKU-B", "ItemPrice", "Principal", "50.00"),
+    a_v2_line("Order", "406-2", "SKU-B", "ItemPrice", "Shipping", "10.00"),
+    a_v2_line("Order", "406-2", "SKU-B", "Promotion", "Principal", "-5.00"),
+    a_v2_line("Refund", "406-3", "SKU-C", "ItemPrice", "Principal", "-40.00"),
+    a_v2_line("Refund", "406-3", "SKU-C", "ItemFees", "Refund commission", "4.00"),
+    a_v2_line("Order", "406-4", "SKU-D", "ItemPrice", "Principal", "30.00"),
+    a_v2_line("Order", "406-4", "SKU-E", "ItemPrice", "Principal", "20.00"),
+    a_v2_line("other-transaction", "406-4", "", "other-transaction", "Amazon Easy Ship Charges", "-6.00"),
+    a_v2_line("ServiceFee", "", "", "Cost of Advertising", "TransactionTotalAmount", "-5.90"),
+    a_v2_line("Order", "406-5", "SKU-F", "SomethingNew", "A New Charge", "-1.00"),
+    total="1",
+)))
+_v2_reading, _v2_refused = _v2 if _v2 else (None, None)
+_v2_sales = {(s.order_id, s.sku): s for s in (_v2_reading.sales if _v2_reading else ())}
+_v1 = _v2_sales.get(("406-1", "SKU-A"))
+
+
+def _v2s(order, sku):
+    return _v2_sales.get((order, sku))
+
+
+check("AMAZON SETTLEMENT FILE: the file the run really fetches is read, and none of its lines is refused",
+      _v2_reading is not None and len(_v2_sales) > 0 and _v2_refused == 0)
+check("and what was paid for an order line is every amount on it added, its own order-level shipping lines included",
+      _v1 is not None and _v1.settlement == "59.39")
+check("and the fixed closing fee is a positive charge where money was taken",
+      _v1 is not None and _v1.charges.get("fixedFee") == "22")
+check("and the commission", _v1 is not None and _v1.charges.get("commission") == "8")
+check("and the GST on a fee and on the postage is the GST on the platform's fees, added",
+      _v1 is not None and _v1.charges.get("otherServicesTax") == "4.86")
+check("and the postage line is shipping", _v1 is not None and _v1.charges.get("shipping") == "5")
+check("and the TCS lines are one tax, added; the TDS line is TDS",
+      _v1 is not None and _v1.charges.get("tcs") == "1.5" and _v1.charges.get("tds") == "0.25")
+check("and a fulfilment fee is other services", _v1 is not None and _v1.charges.get("otherServices") == "2")
+check("and the price, its shipping and a promotion are the sale, not a charge",
+      _v2s("406-2", "SKU-B") is not None and _v2s("406-2", "SKU-B").settlement == "55"
+      and _v2s("406-2", "SKU-B").charges == {})
+check("and a refunded commission is a charge below nought",
+      _v2s("406-3", "SKU-C") is not None and _v2s("406-3", "SKU-C").charges.get("commission") == "-4"
+      and _v2s("406-3", "SKU-C").settlement == "-36")
+check("and an order's postage with two SKUs in the file is left without a SKU, not guessed onto one",
+      _v2s("406-4", "") is not None and _v2s("406-4", "").settlement == "-6")
+check("and a kind of line the reader has no name for is a charge under other services, and is said",
+      _v2s("406-5", "SKU-F") is not None and _v2s("406-5", "SKU-F").charges.get("otherServices") == "1"
+      and any("SomethingNew" in x for x in _v2_reading.set_aside))
+check("and the advertising line with no order is set aside, said, and on no sale",
+      _v2_reading is not None and any("Cost of Advertising" in x for x in _v2_reading.set_aside)
+      and all(s.order_id for s in _v2_reading.sales))
+check("and its day is the file's own, out of its name", _v2_reading is not None and _v2_reading.on == "2026-09-08"
+      and all(s.payments_on == "2026-09-08" for s in _v2_reading.sales))
+_v2_bad = answered(lambda: read_as("az_settlements", V2_NAME, a_v2_file(
+    a_v2_line("Order", "406-9", "SKU-Z", "ItemPrice", "Principal", "12abc"))))
+check("and an amount that is not a figure is said, not dropped as a blank",
+      _v2_bad is not None and any("not a figure" in x for x in _v2_bad[0].set_aside) and not _v2_bad[0].sales)
+check("and a settlement file that has lost a column is refused, naming it",
+      refused_by(lambda: read_as("az_settlements", V2_NAME, a_v2_file(
+          a_v2_line("Order", "406-1", "SKU-A", "ItemPrice", "Principal", "1"),
+          columns=[c for c in V2_COLUMNS if c != "amount-description"]))))
+check("and the Date Range Transaction file is still read as before", _az_reading is not None and len(_az_sales) > 0)
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-HIS_FILES_GROUP = 4
+HIS_FILES_GROUP = 6
 print()
 if failures:
     print(f"{len(failures)} FAILED: {failures}")
     sys.exit(1)
 WITHOUT = ran - real_ran
-if WITHOUT != 95 + 22:
-    print(f"FAIL  checks went missing -- {WITHOUT} ran without his files, 117 expected")
+if WITHOUT != 95 + 22 + 17:
+    print(f"FAIL  checks went missing -- {WITHOUT} ran without his files, 134 expected")
     sys.exit(1)
 print(f"all {ran} checks passed" + ("" if real_ran == HIS_FILES_GROUP else f" ({HIS_FILES_GROUP - real_ran} of his real-file checks not run -- the files are elsewhere)"))

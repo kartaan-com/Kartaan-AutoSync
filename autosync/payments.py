@@ -51,6 +51,8 @@ MEESHO_HEADER_ROW = 2
 # What Amazon's header line starts with. **Found, not counted down to**: the block of definitions above it is the platform's
 # to lengthen, and a header assumed on line 14 is a header missed the day it is on line 15.
 AMAZON_HEADER_STARTS = "date/time"
+# **THE SETTLEMENT FILE THE RUN REALLY FETCHES (job 18)** -- `GET_V2_SETTLEMENT_REPORT_DATA_FLAT_FILE_V2`, tab-separated, header on line 1.
+AMAZON_SETTLEMENT_HEADER_STARTS = "settlement-id"
 
 # **WHAT EACH PLATFORM'S FILE KNOWS, IN THE LEDGER'S OWN WORDS.** The columns a payments file may write, and no others (D150
 # rule 1). `paymentsOn` is the file's own data day: it is what lets an older payments file be told from a newer one.
@@ -511,10 +513,105 @@ def read_amazon(rows: Table, data_date: str, extras: Optional[Dict[str, object]]
     return WhatWasPaid(AMAZON, lines.sales(AMAZON, data_date), tuple(_the_refused(rows)), tuple(aside))
 
 
+# ---------------------------------------------------------------- Amazon's settlement file (job 18)
+
+# **THE FILE AMAZON ITSELF SCHEDULES AND THE RUN FETCHES.** One line per money line: an order, a SKU, what kind of money
+# (`amount-type`), which one (`amount-description`) and how much (`amount`). Amazon's own page lists its 24 columns; his real file of
+# 2026-09-08 carries exactly those. Every amount in it is money that was settled, so there is no "released" test as the Date Range
+# Transaction report needs. The sale's settlement is every amount on it added; the charges are picked out by what Amazon calls them.
+V2_ORDER_ID = "order-id"
+V2_SKU = "sku"
+V2_KIND = "transaction-type"
+V2_AMOUNT_TYPE = "amount-type"
+V2_DESCRIPTION = "amount-description"
+V2_AMOUNT = "amount"
+
+# What is the sale itself, never a charge: the price and its tax, and a promotion's rebate.
+V2_NOT_CHARGES = ("itemprice", "promotion")
+
+
+def _v2_charge(amount_type: str, description: str) -> Optional[str]:
+    """Which charge a settlement line is, or nothing when it is the sale itself.
+
+    **A KIND NOBODY HERE HAS A NAME FOR IS A CHARGE UNDER OTHER SERVICES, never dropped**: the money is in the settlement either
+    way, and the line is said in the summary so it can be given a name later.
+    """
+    kind, said = amount_type.strip().lower(), description.strip().lower()
+    if kind in V2_NOT_CHARGES:
+        return None
+    if kind == "itemtcs" or said.startswith("tcs"):
+        return "tcs"
+    # GST on a fee or on the postage is Amazon's tax on its own fees, whichever fee it is on.
+    # (`MFNPostagePurchaseCompleteIGST` has no space before its tax, so it is the ending that is looked at.)
+    if said.endswith(("igst", "cgst", "sgst", "utgst")) or said.endswith(" gst"):
+        return "otherServicesTax"
+    if kind == "itemtds" or said.startswith("tds") or "194-o" in said:
+        return "tds"
+    if "fixed closing" in said:
+        return "fixedFee"
+    if "commission" in said or "referral" in said or "variable closing" in said:
+        return "commission"
+    if kind == "other-transaction" and ("easy ship" in said or "postage" in said or "shipping" in said):
+        return "shipping"
+    return "otherServices"
+
+
+def read_amazon_settlement(rows: Table, data_date: str, extras: Optional[Dict[str, object]] = None) -> WhatWasPaid:
+    columns = rows.columns
+    order_at = _where(columns, V2_ORDER_ID)
+    sku_at = _where(columns, V2_SKU)
+    kind_at = _where(columns, V2_KIND)
+    type_at = _where(columns, V2_AMOUNT_TYPE)
+    desc_at = _where(columns, V2_DESCRIPTION)
+    amount_at = _where(columns, V2_AMOUNT)
+
+    lines = _Lines()
+    no_order: Dict[str, int] = {}
+    unnamed: Dict[str, int] = {}
+    for row in rows:
+        amount = a_decimal(_cell(row, amount_at))
+        order_id = _cell(row, order_at).strip()
+        amount_type = _cell(row, type_at).strip()
+        description = _cell(row, desc_at).strip()
+        if order_id == "":
+            # The settlement's own first line (its total, no amount) states nothing; any other line with no order is money that
+            # belongs to no sale, said by what Amazon calls it.
+            if amount is not None:
+                named = amount_type or _cell(row, kind_at).strip() or "unnamed"
+                no_order[named] = no_order.get(named, 0) + 1
+            continue
+        if amount is None and _cell(row, amount_at).strip():
+            # **A MONEY CELL THAT IS NOT A FIGURE IS SAID, never dropped as if it were blank.**
+            unnamed[f"{amount_type} / {description} (amount not a figure)"] = (
+                unnamed.get(f"{amount_type} / {description} (amount not a figure)", 0) + 1)
+            continue
+        charge = _v2_charge(amount_type, description)
+        charges: Dict[str, Decimal] = {}
+        if charge is not None and amount is not None:
+            charges[charge] = -amount
+            if charge == "otherServices" and amount_type.lower() not in ("itemfees",) and not description.lower().startswith("fba"):
+                unnamed[f"{amount_type} / {description}"] = unnamed.get(f"{amount_type} / {description}", 0) + 1
+        lines.put((order_id, _cell(row, sku_at).strip()), amount, charges)
+
+    aside: List[str] = []
+    for named, count in sorted(no_order.items()):
+        aside.append(f"{count} {named!r} lines with no order id, which belong to no sale")
+    for named, count in sorted(unnamed.items()):
+        aside.append(f"{count} {named!r} lines Amazon names in a way nobody here has a name for, taken as other services")
+    return WhatWasPaid(AMAZON, lines.sales(AMAZON, data_date), tuple(_the_refused(rows)), tuple(aside))
+
+
+def read_amazon_either(rows: Table, data_date: str, extras: Optional[Dict[str, object]] = None) -> WhatWasPaid:
+    """Amazon's payments: the settlement file by its own columns, else the Date Range Transaction report as before."""
+    if V2_AMOUNT_TYPE in rows.columns and V2_ORDER_ID in rows.columns:
+        return read_amazon_settlement(rows, data_date, extras)
+    return read_amazon(rows, data_date, extras)
+
+
 # ---------------------------------------------------------------- the one door
 
 READERS: Dict[str, Callable[..., WhatWasPaid]] = {
-    AMAZON: read_amazon,
+    AMAZON: read_amazon_either,
     FLIPKART: read_flipkart,
     MEESHO: read_meesho,
 }

@@ -177,7 +177,7 @@ WHAT_CAN_BE_READ: Tuple[HowToRead, ...] = (
     HowToRead(
         "az_settlements",
         WHAT_PAYMENTS_KNOW,
-        header_starts=payments.AMAZON_HEADER_STARTS,
+        header_starts=payments.AMAZON_HEADER_STARTS + "|" + payments.AMAZON_SETTLEMENT_HEADER_STARTS,
         kind="payments",
     ),
 )
@@ -409,13 +409,15 @@ def _where_the_header_is(how: HowToRead, body: bytes, called: str) -> int:
     if not how.header_starts:
         return how.header_row
     text = table.one_line_endings(table.as_text(body))
-    wanted = how.header_starts.strip().lower()
+    # **MORE THAN ONE FILE SHAPE MAY SHARE A REPORT (job 18):** the words are alternatives, split on `|`.
+    wanted = {one.strip().lower() for one in how.header_starts.split("|")}
     # **COUNTED IN PARSED ROWS, AS `table.read` COUNTS THEM**, so a definition with a line break inside its quotes cannot make the
     # two disagree about which row is the header.
     for number, cells in enumerate(csv.reader(io.StringIO(text)), start=1):
         # **THE FIRST CELL IS THE WORDS, WHOLE.** A definition above the header can START with the same words
         # (`Date/Time: Posted date/time of the transaction`), and matching the start of the line takes that for the header.
-        if cells and cells[0].strip().lower() == wanted:
+        # A tab-separated file is one cell to this comma reader, so the first cell is cut at the first tab.
+        if cells and cells[0].split("\t")[0].strip().lower() in wanted:
             return number
     raise table.CannotRead(
         f"{called} has no line starting with {how.header_starts!r}, so there is no line to take the column names from."
