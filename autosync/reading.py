@@ -490,6 +490,66 @@ def a_reading(how: HowToRead, one: whats_new.InTheFolder, body: bytes) -> Tuple[
     return _a_reading_of_the_rows(how, one, rows, which.platform, when.isoformat(), extras)
 
 
+def a_settlements_reading(
+    how: HowToRead,
+    one: whats_new.InTheFolder,
+    body: bytes,
+    in_the_folder: Sequence[whats_new.InTheFolder],
+    bring_it_back: Callable[[str], bytes],
+) -> Tuple[Reading, int]:
+    """Amazon's settlement file, read together with every other settlement file in its folder (job 18, Control's ruling).
+
+    **SETTLEMENTS ARE SEPARATE PERIODS, NOT RE-DOWNLOADS.** The ledger row holds one figure, so an order that is in two settlements (the
+    sale in one, its refund in a later one) can only be right if the figure written is the SUM over all of them. So when a settlement
+    file is read, every settlement file the run has kept in that folder is read with it (`payments.add_settlements`): one per
+    settlement-id, the newest copy standing, each order's figures added. Nothing new is stored; the files are the memory.
+
+    **A FILE THAT CANNOT BE READ STOPS THE FIGURE, and this file is not marked read.** Leaving an older settlement out would write a
+    wrong net on every order in it. A file of the older Date Range Transaction shape is not a settlement and is left to its own reading.
+    """
+    mine = _paid_by_a_file(how, one, body)
+    if not mine[1].settlement_id:
+        return _a_reading_of_the_rows(how, one, *mine[2])
+    parts = [(mine[0], one.name or one.which, mine[1])]
+    for other in in_the_folder:
+        if other.which == one.which or other.is_empty:
+            continue
+        found = _paid_by_a_file(how, other, bring_it_back(other.which))
+        if not found[1].settlement_id and _is_an_older_shape(how, other, found):
+            continue
+        parts.append((found[0], other.name or other.which, found[1]))
+    paid = payments.add_settlements(parts)
+    return (
+        Reading(
+            report=how.report_id, on=max(day for day, _, _ in parts), knows=how.knows, sales=paid.sales,
+            which=one.which, only_existing=True, set_aside=paid.set_aside,
+        ),
+        len(mine[1].not_read),
+    )
+
+
+def _is_an_older_shape(how: HowToRead, one: whats_new.InTheFolder, found) -> bool:
+    """Is this file the Date Range Transaction report rather than a settlement file? Told by its own header, never its name."""
+    return payments.V2_AMOUNT_TYPE not in found[2][0].columns
+
+
+def _paid_by_a_file(how: HowToRead, one: whats_new.InTheFolder, body: bytes):
+    """One payments file's day, what it paid, and the pieces to read it again: `(day, paid, (rows, platform, day))`.
+
+    **THE DAY IS REFUSED WHEN THE NAME HAS NONE**, exactly as `a_reading` refuses it.
+    """
+    when = landing.data_date_in(one.name)
+    if when is None:
+        raise table.CannotRead(
+            f"{one.name or one.which} has no day in its name, so there is no way to say whether what it holds is newer or older "
+            "than what is already written. Nothing in it was read."
+        )
+    platform = the_report(how.report_id).platform
+    rows = _rows_in(how, body, one.name or one.which)
+    day = when.isoformat()
+    return day, payments.read_payments(rows, platform, day, None), (rows, platform, day)
+
+
 def _the_other_sheets(how: HowToRead, body: bytes, platform: str) -> Dict[str, object]:
     """The sheets of a payments workbook besides its orders sheet (job 15 c), each as a table, or as the words saying why it would not read.
 
@@ -829,7 +889,10 @@ def read_what_is_new(
             continue
         try:
             body = bring_it_back(one.which)
-            reading, refused_rows = a_reading(how, one, body)
+            if how.report_id == "az_settlements":
+                reading, refused_rows = a_settlements_reading(how, one, body, listed.get(how.report_id, ()), bring_it_back)
+            else:
+                reading, refused_rows = a_reading(how, one, body)
             # **THE ONE PLACE A SALE LANDS.** Everything above this line can be
             # done again tomorrow at no cost; everything below depends on this
             # having happened.

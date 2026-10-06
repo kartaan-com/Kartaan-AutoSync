@@ -68,6 +68,9 @@ class WhatWasPaid:
     not_read: Tuple[NotRead, ...] = ()
     # Lines the file carries that are not about an order -- or not about money paid yet. Said, one sentence per kind.
     set_aside: Tuple[str, ...] = ()
+    # **WHICH SETTLEMENT THE FILE IS (Amazon's settlement file only, job 18).** Settlements are separate periods, so one order can be in
+    # several; this is what tells two copies of one settlement from two settlements. Empty for every other kind of payments file.
+    settlement_id: str = ""
 
     def says(self) -> str:
         return (
@@ -525,6 +528,7 @@ V2_KIND = "transaction-type"
 V2_AMOUNT_TYPE = "amount-type"
 V2_DESCRIPTION = "amount-description"
 V2_AMOUNT = "amount"
+V2_SETTLEMENT_ID = "settlement-id"
 
 # What is the sale itself, never a charge: the price and its tax, and a promotion's rebate.
 V2_NOT_CHARGES = ("itemprice", "promotion")
@@ -564,11 +568,15 @@ def read_amazon_settlement(rows: Table, data_date: str, extras: Optional[Dict[st
     type_at = _where(columns, V2_AMOUNT_TYPE)
     desc_at = _where(columns, V2_DESCRIPTION)
     amount_at = _where(columns, V2_AMOUNT)
+    id_at = _where(columns, V2_SETTLEMENT_ID)
 
     lines = _Lines()
+    ids: set = set()
     no_order: Dict[str, int] = {}
     unnamed: Dict[str, int] = {}
     for row in rows:
+        if _cell(row, id_at).strip():
+            ids.add(_cell(row, id_at).strip())
         amount = a_decimal(_cell(row, amount_at))
         order_id = _cell(row, order_at).strip()
         amount_type = _cell(row, type_at).strip()
@@ -598,7 +606,42 @@ def read_amazon_settlement(rows: Table, data_date: str, extras: Optional[Dict[st
         aside.append(f"{count} {named!r} lines with no order id, which belong to no sale")
     for named, count in sorted(unnamed.items()):
         aside.append(f"{count} {named!r} lines Amazon names in a way nobody here has a name for, taken as other services")
-    return WhatWasPaid(AMAZON, lines.sales(AMAZON, data_date), tuple(_the_refused(rows)), tuple(aside))
+    # A file that names no settlement, or says it holds several, cannot be told from another settlement, so it carries no id and is
+    # read on its own (`add_settlements` refuses to sum it with others).
+    only = next(iter(ids)) if len(ids) == 1 else ""
+    return WhatWasPaid(AMAZON, lines.sales(AMAZON, data_date), tuple(_the_refused(rows)), tuple(aside), only)
+
+
+def add_settlements(parts: Sequence[Tuple[str, str, WhatWasPaid]]) -> WhatWasPaid:
+    """Several of Amazon's settlement files, one per settlement, made into what the seller was paid for each order in all of them.
+
+    **SETTLEMENTS ARE SEPARATE PERIODS, NOT RE-DOWNLOADS (Control's ruling).** A sale in one and its refund in a later one are both the
+    order's money, so the order's net is the sum. **Two files of ONE settlement-id are one statement**, and the newest (by its day,
+    then its name) is the one that stands. Each part is `(day, name, what it paid)`. The result is dated by the newest day it holds.
+    """
+    newest: Dict[str, Tuple[str, str, WhatWasPaid]] = {}
+    for day, name, paid in parts:
+        if not paid.settlement_id:
+            raise CannotRead(
+                f"{name} does not name exactly one settlement, so it cannot be told from the other settlement files and summed with "
+                "them. Nothing was read, because leaving it out would put a wrong figure on every order it holds."
+            )
+        held = newest.get(paid.settlement_id)
+        if held is None or (day, name) > (held[0], held[1]):
+            newest[paid.settlement_id] = (day, name, paid)
+    ordered = sorted(newest.values(), key=lambda one: (one[0], one[1]))
+    day = ordered[-1][0]
+    by_row: Dict[Tuple[str, str], Sale] = {}
+    aside: List[str] = []
+    for _, _, paid in ordered:
+        for sale in paid.sales:
+            key = (sale.order_id, sale.sku)
+            by_row[key] = sale if key not in by_row else two_sales_of_one_row(by_row[key], sale)
+        aside.extend(one for one in paid.set_aside if one not in aside)
+    from dataclasses import replace  # noqa: PLC0415 - kept beside its one use
+
+    sales = tuple(replace(by_row[key], payments_on=day) for key in sorted(by_row))
+    return WhatWasPaid(AMAZON, sales, (), tuple(aside), "")
 
 
 def read_amazon_either(rows: Table, data_date: str, extras: Optional[Dict[str, object]] = None) -> WhatWasPaid:

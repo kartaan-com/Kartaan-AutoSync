@@ -898,15 +898,15 @@ V2_COLUMNS = ["settlement-id", "settlement-start-date", "settlement-end-date", "
               "promotion-id"]
 
 
-def a_v2_line(kind, order, sku, amount_type, description, amount):
-    cells = {"settlement-id": "1", "transaction-type": kind, "order-id": order, "amount-type": amount_type,
+def a_v2_line(kind, order, sku, amount_type, description, amount, sid="1"):
+    cells = {"settlement-id": sid, "transaction-type": kind, "order-id": order, "amount-type": amount_type,
              "amount-description": description, "amount": amount, "sku": sku}
     return "\t".join(cells.get(c, "") for c in V2_COLUMNS)
 
 
-def a_v2_file(*lines, total="0", columns=V2_COLUMNS):
+def a_v2_file(*lines, total="0", columns=V2_COLUMNS, sid="1"):
     head = "\t".join(columns)
-    summary = "\t".join({"settlement-id": "1", "total-amount": total, "currency": "INR"}.get(c, "") for c in columns)
+    summary = "\t".join({"settlement-id": sid, "total-amount": total, "currency": "INR"}.get(c, "") for c in columns)
     return ("\r\n".join([head, summary, *lines]) + "\r\n").encode("utf-8")
 
 
@@ -983,6 +983,64 @@ check("and a settlement file that has lost a column is refused, naming it",
           columns=[c for c in V2_COLUMNS if c != "amount-description"]))))
 check("and the Date Range Transaction file is still read as before", _az_reading is not None and len(_az_sales) > 0)
 
+# ---------------------------------------------------------------- SEVERAL SETTLEMENTS, ONE ORDER (job 18, Control's ruling)
+
+# **SETTLEMENT FILES ARE SEPARATE PERIODS, NOT RE-DOWNLOADS.** A sale in one settlement and its refund in a later one are BOTH the
+# order's money, so the order's net is their sum. The same settlement (one settlement-id) read twice is one statement, never two.
+def a_folder_of(files):
+    """(listing, bring_it_back) for a made folder of settlement files: {name: bytes}."""
+    listing = [whats_new.InTheFolder(which="id-" + name, name=name, size=len(body)) for name, body in files.items()]
+    return listing, (lambda which: files[which[3:]])
+
+
+_sale_file = a_v2_file(a_v2_line("Order", "407-1", "SKU-A", "ItemPrice", "Principal", "100.00", sid="S1"),
+                       a_v2_line("Order", "407-1", "SKU-A", "ItemFees", "Commission", "-10.00", sid="S1"),
+                       a_v2_line("Order", "407-2", "SKU-B", "ItemPrice", "Principal", "40.00", sid="S1"), sid="S1")
+_refund_file = a_v2_file(a_v2_line("Refund", "407-1", "SKU-A", "ItemPrice", "Principal", "-60.00", sid="S2"),
+                         a_v2_line("Refund", "407-1", "SKU-A", "ItemFees", "Refund commission", "6.00", sid="S2"), sid="S2")
+_folder = {"amazon_az_settlements_2026-09-08.csv": _sale_file, "amazon_az_settlements_2026-09-22.csv": _refund_file}
+
+
+def the_settlements(files, which_is_new):
+    listing, back = a_folder_of(files)
+    how = next(o for o in reading.WHAT_CAN_BE_READ if o.report_id == "az_settlements")
+    one = next(f for f in listing if f.name == which_is_new)
+    return reading.a_settlements_reading(how, one, back(one.which), listing, back)
+
+
+_sum = answered(lambda: the_settlements(_folder, "amazon_az_settlements_2026-09-22.csv"))
+_sum_by = {(s.order_id, s.sku): s for s in (_sum[0].sales if _sum else ())}
+check("SEVERAL SETTLEMENTS: a sale in one file and its refund in a later one are the order's net, added",
+      _sum is not None and _sum_by[("407-1", "SKU-A")].settlement == "36"
+      and _sum_by[("407-1", "SKU-A")].charges.get("commission") == "4")
+check("and an order only the older settlement has is still stated, from that file",
+      _sum is not None and _sum_by[("407-2", "SKU-B")].settlement == "40")
+check("and the reading is dated by the newest settlement it holds",
+      _sum is not None and _sum[0].on == "2026-09-22" and all(s.payments_on == "2026-09-22" for s in _sum[0].sales))
+_late = answered(lambda: the_settlements(_folder, "amazon_az_settlements_2026-09-08.csv"))
+check("and the sum is the same whichever file is the new one",
+      _late is not None and {(s.order_id, s.sku): s.settlement for s in _late[0].sales}
+      == {k: v.settlement for k, v in _sum_by.items()})
+_twice = answered(lambda: the_settlements(
+    {**_folder, "amazon_az_settlements_2026-09-23.csv": _refund_file}, "amazon_az_settlements_2026-09-23.csv"))
+check("and two copies of ONE settlement count once, not twice",
+      _twice is not None and {(s.order_id, s.sku): s.settlement for s in _twice[0].sales}[("407-1", "SKU-A")] == "36")
+_edited = a_v2_file(a_v2_line("Refund", "407-1", "SKU-A", "ItemPrice", "Principal", "-50.00", sid="S2"), sid="S2")
+_newest = answered(lambda: the_settlements(
+    {**_folder, "amazon_az_settlements_2026-09-23.csv": _edited}, "amazon_az_settlements_2026-09-23.csv"))
+check("and of two copies of one settlement the NEWEST is the one that stands",
+      _newest is not None and {(s.order_id, s.sku): s.settlement for s in _newest[0].sales}[("407-1", "SKU-A")] == "40"
+      and _newest[0].on == "2026-09-23")
+check("and an older settlement file that cannot be read stops the night's figure, rather than leaving it out",
+      refused_by(lambda: the_settlements({**_folder, "amazon_az_settlements_2026-09-01.csv": b'"a","b"' + bytes([13, 10]) + b'"1","2"'},
+                                         "amazon_az_settlements_2026-09-22.csv")))
+_old_shape = answered(lambda: the_settlements(
+    {**_folder, "amazon_az_settlements_2026-09-30.csv": AMAZON_BODY}, "amazon_az_settlements_2026-09-30.csv"))
+check("and a Date Range Transaction file in the same folder is read on its own, as before",
+      _old_shape is not None and _old_shape[0].on == "2026-09-30"
+      and ("404-1", "SKU-A") in {(s.order_id, s.sku) for s in _old_shape[0].sales}
+      and ("407-1", "SKU-A") not in {(s.order_id, s.sku) for s in _old_shape[0].sales})
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 HIS_FILES_GROUP = 6
@@ -991,7 +1049,7 @@ if failures:
     print(f"{len(failures)} FAILED: {failures}")
     sys.exit(1)
 WITHOUT = ran - real_ran
-if WITHOUT != 95 + 22 + 17:
-    print(f"FAIL  checks went missing -- {WITHOUT} ran without his files, 134 expected")
+if WITHOUT != 95 + 22 + 17 + 8:
+    print(f"FAIL  checks went missing -- {WITHOUT} ran without his files, 142 expected")
     sys.exit(1)
 print(f"all {ran} checks passed" + ("" if real_ran == HIS_FILES_GROUP else f" ({HIS_FILES_GROUP - real_ran} of his real-file checks not run -- the files are elsewhere)"))
