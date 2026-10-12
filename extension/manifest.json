@@ -34,9 +34,15 @@
   "host_permissions": [
     "https://supplier.meesho.com/*",
     "https://seller.flipkart.com/*",
+    "https://sellercentral.amazon.in/*",
     "https://storage.googleapis.com/*",
     "https://www.googleapis.com/*"
   ],
+  "externally_connectable": {
+    "matches": [
+      "https://erp.kartaan.com/*"
+    ]
+  },
   "oauth2": {
     "client_id": "668375542231-8pr119f04gfe545h7jf2knuf8fl17spt.apps.googleusercontent.com",
     "scopes": [

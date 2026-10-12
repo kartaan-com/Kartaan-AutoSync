@@ -137,6 +137,7 @@ export function installFakeChrome({ now = () => 0, identityIsOn = true, refuseTh
   const onInstalled = new Listeners(owner);
   const onAlarm = new Listeners(owner);
   const onMessage = new Listeners(owner);
+  const onMessageExternal = new Listeners(owner);
   const onDownloadCreated = new Listeners(owner);
   const onTabRemoved = new Listeners(owner);
 
@@ -156,6 +157,8 @@ export function installFakeChrome({ now = () => 0, identityIsOn = true, refuseTh
       onStartup,
       onInstalled,
       onMessage,
+      onMessageExternal,
+      getManifest: () => ({ version: '9.9.9-stand-in' }),
       /* Every extension has one, and it is what tells a message from our own
        * half apart from one another extension sent. */
       id: 'stand-in-extension-id',
@@ -496,6 +499,14 @@ export function installFakeChrome({ now = () => 0, identityIsOn = true, refuseTh
       return reply;
     },
 
+    /** A WEB PAGE asks the extension something, the way Chrome delivers it from a page the
+     *  manifest's `externally_connectable` names. Answers on the spot or not at all. */
+    aWebPageAsked(asked, from) {
+      let reply;
+      for (const heard of onMessageExternal._heard) heard(asked, from, (answer) => { reply = answer; });
+      return reply;
+    },
+
     /** Which downloads have been cancelled, in the order they were cancelled.
      *  **READ WITHOUT AWAITING ANYTHING** by the check that proves the cancel
      *  happens inside the event rather than a moment later. */
@@ -568,6 +579,7 @@ export function installFakeChrome({ now = () => 0, identityIsOn = true, refuseTh
       onInstalled._heard = [];
       onAlarm._heard = [];
       onMessage._heard = [];
+      onMessageExternal._heard = [];
       onDownloadCreated._heard = [];
       onTabRemoved._heard = [];
     },

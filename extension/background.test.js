@@ -39,6 +39,7 @@ import {
   recordOneReport,
   startTheRun,
   aFreshSecret,
+  answerAnExternalAsk,
   answerThePage,
   armTheCatcher,
   stillOwedFrom,
@@ -819,6 +820,43 @@ const LATER = '2026-08-27T16:04:00.000Z';
     String(noDrive && noDrive.wrong).includes('no way of putting a file in the Drive'));
 }
 
+/* ------------- the ERP's page asks whether the extension is installed (A79, E82's job 16) */
+
+{
+  const browser = installFakeChrome();
+  wireUp(browser.chrome, {
+    onDue: async () => {},
+    answerOutside: (asked, from) => answerAnExternalAsk(browser.chrome, asked, from),
+  });
+  const ask = { kartaan: 'are-you-installed' };
+  const said = browser.aWebPageAsked(ask, { url: 'https://erp.kartaan.com/items?x=1' });
+  check('the ERP page is told the extension is installed, with its version and nothing else',
+    JSON.stringify(said) === JSON.stringify({ kartaan: 'installed', version: '9.9.9-stand-in' }));
+  check('a page on another origin gets nothing',
+    browser.aWebPageAsked(ask, { url: 'https://evil.example/' }) === undefined);
+  check('nor does a lookalike address that only contains the ERP address',
+    browser.aWebPageAsked(ask, { url: 'https://erp.kartaan.com.evil.example/' }) === undefined
+    && browser.aWebPageAsked(ask, { url: 'https://evil.example/https://erp.kartaan.com/' }) === undefined);
+  check('nor a blob, a userinfo trick, or the same host on another port',
+    browser.aWebPageAsked(ask, { url: 'blob:https://erp.kartaan.com/0a1b' }) === undefined
+    && browser.aWebPageAsked(ask, { url: 'https://erp.kartaan.com@evil.example/' }) === undefined
+    && browser.aWebPageAsked(ask, { url: 'https://erp.kartaan.com:8443/' }) === undefined);
+  check('nor the ERP page over plain http, nor one with no address',
+    browser.aWebPageAsked(ask, { url: 'http://erp.kartaan.com/' }) === undefined
+    && browser.aWebPageAsked(ask, {}) === undefined && browser.aWebPageAsked(ask, undefined) === undefined);
+  check('nor another extension, nor a sender whose address is not text',
+    browser.aWebPageAsked(ask, { id: 'somebody-else' }) === undefined
+    && browser.aWebPageAsked(ask, { url: 42 }) === undefined);
+  check('and the ERP page asking anything else gets nothing',
+    browser.aWebPageAsked({ kartaan: 'who-is-the-seller' }, { url: 'https://erp.kartaan.com/' }) === undefined
+    && browser.aWebPageAsked({ do: 'go' }, { url: 'https://erp.kartaan.com/' }) === undefined
+    && browser.aWebPageAsked(null, { url: 'https://erp.kartaan.com/' }) === undefined);
+  const real = JSON.parse(readFileSync(new URL('./manifest.json', import.meta.url), 'utf8'));
+  const withTheRealOne = { runtime: { getManifest: () => real } };
+  check('the version it gives is the manifest own',
+    answerAnExternalAsk(withTheRealOne, ask, { url: 'https://erp.kartaan.com/' }).version === real.version);
+}
+
 /* ----------------------- the secret that stops a page forging a file (D135) */
 
 {
@@ -1466,7 +1504,21 @@ const LATER = '2026-08-27T16:04:00.000Z';
   /* **AND STILL NOT EVERYTHING.** The reference asks for `<all_urls>`; a product
    * copied into every seller's own account asks for the hosts it can name. */
   check('and it still does not ask for every address there is',
-    !hosts.includes('<all_urls>') && hosts.length <= 4);
+    !hosts.includes('<all_urls>') && hosts.length <= 5);
+  /* **AMAZON IS ALLOWED ON ITS ONE HOST AND NO WIDER (A79, D317).** Chrome's own match-pattern
+   * page: a host pattern needs a path that is ignored, `/*` by convention; no `*.` in front means
+   * no other Amazon address, and no scheme wildcard means https only. */
+  check('Amazon Seller Central India is allowed on exactly its own address',
+    hosts.filter((one) => one.includes('amazon')).join() === 'https://sellercentral.amazon.in/*');
+  /* **NO KEY, EVER (Control's order): the extension's id is derived from the folder path and the
+   * Google sign-in is bound to it.** A `key` would change the id and break the sign-in. */
+  check('the manifest carries no key, so the extension id stays what the folder makes it',
+    !('key' in manifest));
+  check('only the ERP page may message the extension',
+    JSON.stringify(manifest.externally_connectable) === JSON.stringify({ matches: ['https://erp.kartaan.com/*'] }));
+  check('and Amazon got no page script and no readable files (no walker is built yet)',
+    !JSON.stringify(manifest.content_scripts).includes('amazon')
+    && !JSON.stringify(manifest.web_accessible_resources).includes('amazon'));
 }
 
 /* --------------- arming the download cancel, which is one line and load-bearing */
@@ -2135,7 +2187,7 @@ check('the page relay is OFF in what ships, so no script on a portal page can dr
     && theRelayAllows(false, { do: 'run-now' }) === false);
 }
 
-const EXPECTED = 247;
+const EXPECTED = 259;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

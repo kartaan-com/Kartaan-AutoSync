@@ -896,8 +896,11 @@ check('the allowance is twenty, and it is a number a program can read',
   check('and every platform that goes through the browser says it has never run',
     stands.platforms.filter((one) => one.throughTheBrowser)
       .every((one) => one.lastRun === null));
-  check('Amazon is on the page, and says it is not fetched here',
-    stands.platforms.some((one) => one.id === 'amazon' && one.throughTheBrowser === false));
+  check('Amazon is on the page, allowed in the browser, with no report walked for it yet',
+    stands.platforms.some((one) => one.id === 'amazon' && one.throughTheBrowser === false
+      && one.ready === false && one.lastRun === null));
+  check('and no Amazon report is in the list of reports walked in the browser',
+    !stands.reports.some((one) => one.platform === 'amazon'));
   check('nothing is set up yet, and both halves are named',
     stands.setUp.done === false && stands.setUp.panel === '' && stands.setUp.driveConnectedAt === 0);
   check('the whole twenty is left', stands.flipkart.leftToday === 20);
@@ -1602,6 +1605,25 @@ function panelParts(chrome, held = {}) {
   panel.platformTicks.get('meesho').click();
   check('5b: and "Tick all Meesho" ticks them again with the sweep',
     panel.boxes.get('me_ads').checked && tied.every((id) => panel.boxes.get(id).checked));
+}
+
+{
+  /* **AMAZON'S CARD (A79, D317): allowed in this browser, nothing walked yet, ready when the
+   * Drive is connected -- and it says plainly that no Amazon report is fetched here.** */
+  installFakeBrowser();
+  const { chrome } = installFakeChrome();
+  const panel = buildThePanel(document.body, {
+    connectTheDrive() {}, saveThePanelName() {}, runNow() {}, stop() {}, setTheHour() {},
+  });
+  showHowItStands(panel, await howItStands(chrome, { book: BOOK, now: Date.now() }));
+  const before = panel.platforms.textContent;
+  check('the Amazon card says not ready until the Drive is connected',
+    before.includes('Amazon') && before.includes('not ready') && !before.includes('allowed'));
+  await answerThePanelsQuestion(chrome, { book: BOOK, now: () => Date.now() }, { do: 'check-the-drive' });
+  showHowItStands(panel, await howItStands(chrome, { book: BOOK, now: Date.now() }));
+  const after = panel.platforms.textContent;
+  check('and allowed once it is, saying no Amazon report is fetched in the browser yet',
+    after.includes('allowed') && after.includes('no Amazon report is fetched here yet'));
 }
 
 {
