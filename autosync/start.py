@@ -63,7 +63,7 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
     import merge
     from drive_door import a_door, the_kartaan_folder
     from firestore_door import (
-        a_board_sink, a_listings_sink, a_log_sink, a_run_sink, a_views_sink, both_places, what_they_chose,
+        a_board_sink, a_check_sink, a_listings_sink, a_log_sink, a_run_sink, a_views_sink, both_places, what_they_chose,
     )
     from transport import FirebaseSeller, Google, for_amazon
 
@@ -193,6 +193,9 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
         # extension's twenty-three exactly as they were.
         read_manifest=read_manifest,
         save_manifest=save_manifest,
+        # **AND THE SAME ANSWER COPIED INTO THE SELLER'S DATABASE FOR THE ERP's DATA TAB (job 19)**, because the ERP cannot read Drive.
+        read_extensions=nightly._extension_records_in_drive(google, inside),
+        save_check=a_check_sink(their_login, their_project),
         # **AND THE HOUR THE SELLER CHOSE, READ AND NEVER WRITTEN (D113, D114).**
         # It is written on the business record from the This business tab. Until
         # this line it reached nothing, and a seller who chose eight in the

@@ -209,6 +209,10 @@ def one_tick(
     record_views: Optional[Callable[[str, dict], int]] = None,
     # **WHERE THE LISTINGS A LISTING FILE NAMES GO (job 41):** report, day and listings in, records written out.
     record_listings: Optional[Callable[[str, str, dict], int]] = None,
+    # **THE CROSS-CHECK FOR THE ERP's DATA TAB (job 19):** every install's own record read back out of Drive, and where the answer goes.
+    # Both or neither -- one without the other has nothing to put together or nowhere to put it.
+    read_extensions: Optional[Callable[[], Sequence[bytes]]] = None,
+    save_check: Optional[Callable[[Sequence, date], int]] = None,
 ) -> Tick:
     """Wake up, decide whether a run is due, and if it is, do one.
 
@@ -520,6 +524,7 @@ def one_tick(
     # **AND IT CANNOT STOP THE RUN.** Like the board and the run record, a
     # manifest that would not write costs a reader one answer and is said out
     # loud; refusing to fetch over it would turn a Drive blip into a lost day.
+    kept_standing: Optional[manifest.Standing] = None
     if read_manifest is not None and save_manifest is not None:
         try:
             standing = manifest.read_record(read_manifest())
@@ -536,12 +541,25 @@ def one_tick(
             if strayed:
                 faults.append(f"The download manifest was not written: {strayed}")
             else:
-                save_manifest(manifest.write(
-                    manifest.merge(standing.lines, fresh), manifest.merge_reads(standing.reads, read_now)))
+                merged = manifest.Standing(
+                    manifest.merge(standing.lines, fresh), manifest.merge_reads(standing.reads, read_now))
+                # Kept before the save, so the cross-check below is still worked out on a night the save itself failed.
+                kept_standing = merged
+                save_manifest(manifest.write(merged.lines, merged.reads))
         except Exception as wrong:  # noqa: BLE001 - recorded, never swallowed
             faults.append(
                 f"Whether the files are really in Drive could not be written down: {wrong}"
             )
+
+    # **WHAT LANDED AGAINST WHAT WAS READ GOES INTO THE SELLER'S OWN DATABASE (job 19)**, because the ERP cannot read the run's record
+    # from Drive. Its own step with its own refusal: a Drive blip on the manifest costs this nothing, and this failing costs the
+    # fetching nothing -- it is said, and the next run writes the same rows again.
+    if read_extensions is not None and save_check is not None and kept_standing is not None:
+        try:
+            installs = [manifest.read_record(one) for one in read_extensions()]
+            save_check(manifest.cross_check(kept_standing, installs), today)
+        except Exception as wrong:  # noqa: BLE001 - recorded, never swallowed
+            faults.append(f"What landed against what was read could not be written down for the ERP: {wrong}")
 
     # **AND THE RUN IS WRITTEN DOWN AGAIN, FINISHED.** The same name, so this
     # replaces the record written before the fetching rather than leaving two
@@ -879,6 +897,26 @@ def _manifest_in_drive(transport, inside: str) -> Tuple[Callable[[], Optional[by
         _put_in_place(transport, _drive_folder(transport, inside, layout.SYSTEM), manifest.FILE_NAME, body)
 
     return read_it, save_it
+
+
+def _extension_records_in_drive(transport, inside: str) -> Callable[[], Sequence[bytes]]:
+    """Every install's own record of what the extension landed, read back out of the seller's Drive (job 19).
+
+    **READ ONLY -- THE RUN NEVER WRITES AN EXTENSION'S FILE** (see `manifest.EXTENSION_FILE_SHAPE`): each file has exactly one writer.
+    Found by the shape of the name, so a seller with the extension on two machines gets both. None there is an ordinary night
+    (no extension installed) and answers an empty list.
+    """
+    from drive_door import bring_the_file_back, what_is_already_there  # noqa: PLC0415
+
+    def read_them() -> Sequence[bytes]:
+        folder_id = _drive_folder(transport, inside, layout.SYSTEM)
+        there = [
+            one for one in what_is_already_there(transport, folder_id)
+            if manifest.is_an_extension_record(one.get("name"))
+        ]
+        return [bring_the_file_back(transport, one["id"]) for one in there]
+
+    return read_them
 
 
 def _log_to_drive(transport, inside: str, today: date) -> Callable[[Sequence[runlog.Line]], None]:

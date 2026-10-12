@@ -23,6 +23,7 @@ that database" and "there is no such record" send a person to completely
 different places, and one message for both is a wasted evening.
 """
 
+from datetime import date, timedelta
 from typing import Callable, Dict, Optional, Sequence
 
 import firestore
@@ -30,10 +31,13 @@ from firestore import (
     API,
     ROOM,
     BOARD,
+    CHECK,
+    CHECK_KEPT_DAYS,
     DATABASE,
     LOG,
     RUNS,
     a_board_row,
+    a_check_row,
     a_log_line,
     a_run,
     in_calls,
@@ -140,6 +144,47 @@ def a_board_sink(transport, project: str) -> Callable[[Sequence], None]:
     def sink(rows: Sequence) -> None:
         writes = [one_write(project, BOARD, *a_board_row(row)) for row in rows or ()]
         write_them(transport, project, writes, "writing the day board down")
+
+    return sink
+
+
+RUN_QUERY = "{api}/projects/{project}/databases/{database}/documents:runQuery"
+
+
+def _check_rows_older_than(transport, project: str, first_kept: str):
+    """The names of the `sync_check` records whose day is before `first_kept`, asked of the database (reads only those)."""
+    where = RUN_QUERY.format(api=API, project=project, database=DATABASE)
+    query = {"structuredQuery": {
+        "from": [{"collectionId": CHECK}],
+        "where": {"fieldFilter": {
+            "field": {"fieldPath": "dataDate"}, "op": "LESS_THAN", "value": {"stringValue": first_kept}}},
+        "select": {"fields": [{"fieldPath": "dataDate"}]},
+    }}
+    got = _answered(transport.post(where, json=query), "asking which old cross-check rows are still held").json()
+    if not isinstance(got, list):
+        # **A REPLY THAT IS NOT A LIST IS NOT "NOTHING OLD".** Taken so, old rows would never be cleared and the page would read them all.
+        raise TheirDatabaseSaidNo("asking which old cross-check rows are still held: the answer was not a list.")
+    return [one["document"]["name"].rsplit("/", 1)[-1] for one in got if one.get("document")]
+
+
+def a_check_sink(transport, project: str) -> Callable[[Sequence, date], int]:
+    """What landed against what was read, into the seller's own database, for the ERP's Data tab (job 19).
+
+    **ONLY THE LAST `CHECK_KEPT_DAYS` DAYS ARE WRITTEN, AND EVERY OLDER ROW IS DELETED** (the page reads the whole collection on opening it).
+    The rows are written first and the old ones come away after, so a failure part way leaves too many rows, never too few.
+    Answers how many writes and deletes were sent, which is what counts against the seller's daily allowance.
+    """
+
+    def sink(crossings: Sequence, today: date) -> int:
+        first_kept = (today - timedelta(days=CHECK_KEPT_DAYS)).isoformat()
+        rows = [a_check_row(one) for one in crossings or () if firestore.as_text(one.data_date) >= first_kept]
+        sent = write_them(
+            transport, project, [one_write(project, CHECK, *row) for row in rows], "writing what landed against what was read")
+        old = _check_rows_older_than(transport, project, first_kept)
+        sent += write_them(
+            transport, project, [firestore.one_delete(project, CHECK, name) for name in old],
+            "clearing the cross-check rows older than sixty days")
+        return sent
 
     return sink
 

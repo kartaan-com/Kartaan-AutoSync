@@ -119,9 +119,9 @@ check("and it is written in the same base", "held.toString(36)" in THE_PAGES_OWN
 
 # ------------------------------------- what it may write, and what it may not
 
-check("there are exactly five things it may write", len(tool.WHAT_IT_MAY_WRITE) == 5)
-check("and they are the three D114 named, how each listing is doing (job 86 part A) and the listings a listing file names (job 41)",
-      set(tool.WHAT_IT_MAY_WRITE) == {tool.LOG, tool.BOARD, tool.RUNS, tool.LISTING_VIEWS, tool.LISTINGS_SEEN})
+check("there are exactly six things it may write", len(tool.WHAT_IT_MAY_WRITE) == 6)
+check("and they are the three D114 named, how each listing is doing (job 86 part A), the listings a listing file names (job 41) and the cross-check (job 19)",
+      set(tool.WHAT_IT_MAY_WRITE) == {tool.LOG, tool.BOARD, tool.RUNS, tool.LISTING_VIEWS, tool.LISTINGS_SEEN, tool.CHECK})
 
 check("the run log can be written",
       answered(lambda: tool.where_a_document_lives(PROJECT, tool.LOG, "r1"))
@@ -455,7 +455,43 @@ check("and it is read off the business record the rules name",
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 121
+# ------------------------------------- the cross-check for the ERP's Data tab (job 19)
+# **THE CONTRACT IS E77's, PINNED HERE BECAUSE THE ERP'S `sync.js` DOES NOT NAME THE COLLECTION ON ITS MAIN BRANCH YET** (it is on `e77-data-tab`).
+# The day it lands there, a spelling check against that file belongs beside the three above.
+check("the collection is spelt sync_check and is kept sixty days", tool.CHECK == "sync_check" and tool.CHECK_KEPT_DAYS == 60)
+check("and it can be written", answered(lambda: tool.where_a_document_lives(PROJECT, tool.CHECK, "x")) is not None)
+import manifest as _manifest  # noqa: E402
+SEEN = _manifest.Crossing(report_id="az_orders", data_date=date(2026, 8, 28), verdict=_manifest.LANDED_AND_READ,
+                          landed_by="the run", rows_in_file=40, rows_read=38)
+NAMED, SAID = answered(lambda: tool.a_check_row(SEEN)) or (None, None)
+check("a row is named for its report and its day, like the board", NAMED == "az_orders::2026-08-28")
+check("and says exactly the four fields the page reads, and no row counts",
+      SAID == {"dataDate": "2026-08-28", "reportId": "az_orders", "state": "landed_and_read", "landedBy": "the run"})
+for spaced, underscored in (("landed and read", "landed_and_read"), ("landed, not read", "landed_not_read"),
+                            ("read, never seen landing", "read_never_seen_landing"), ("missing", "missing")):
+    got = answered(lambda v=spaced: tool.a_check_row(_manifest.Crossing("r", date(2026, 8, 28), v)))
+    check(f"the manifest's '{spaced}' is written as {underscored}", got is not None and got[1]["state"] == underscored)
+check("and every verdict the manifest can give is one the map knows",
+      {_manifest.LANDED_AND_READ, _manifest.LANDED_NOT_READ, _manifest.READ_NEVER_SEEN_LANDING, _manifest.NOT_THERE}
+      == set(tool.CHECK_STATES))
+check("nobody landing it is written as empty, not as a made-up word",
+      answered(lambda: tool.a_check_row(_manifest.Crossing("r", date(2026, 8, 28), "missing")))[1]["landedBy"] == "")
+check("and the extension is written as 'the extension'",
+      answered(lambda: tool.a_check_row(_manifest.Crossing("r", date(2026, 8, 28), "landed, not read", landed_by="the extension")))[1]["landedBy"]
+      == "the extension")
+check("a verdict nobody knows is refused rather than passed on",
+      answered(lambda: tool.a_check_row(_manifest.Crossing("r", date(2026, 8, 28), "fine"))) is None and bool(THREW))
+THREW.clear()
+check("and so is someone who is not the run or the extension",
+      answered(lambda: tool.a_check_row(_manifest.Crossing("r", date(2026, 8, 28), "missing", landed_by="a friend"))) is None and bool(THREW))
+THREW.clear()
+check("a delete is built by the same lock, and refuses what a write would",
+      answered(lambda: tool.one_delete(PROJECT, tool.CHECK, "a::2026-01-01")) == {
+          "delete": f"projects/{PROJECT}/databases/(default)/documents/sync_check/a::2026-01-01"}
+      and answered(lambda: tool.one_delete(PROJECT, "orders", "x")) is None and bool(THREW))
+THREW.clear()
+
+EXPECTED = 135
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

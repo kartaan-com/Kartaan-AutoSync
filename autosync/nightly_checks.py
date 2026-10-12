@@ -2549,9 +2549,99 @@ check("THE FIVE CANCELLED ROWS ALREADY IN HIS LEDGER ARE CORRECTED: the old row 
 check("and the seller's own note on that row is exactly as they left it",
       before_sheet.cell_for(CANCELLED, "notes") == "the seller wrote this" and len(before_sheet.rows) == 2)
 
+# ------------------------------------------- what landed against what was read, for the ERP's Data tab (job 19)
+
+EXT_LINE = manifest.Line(data_date=YESTERDAY, report_id="me_orders", state=manifest.VERIFIED,
+                         file_name="meesho_me_orders_2026-08-28.csv", file_size=4021)
+EXT_BODY = manifest.write([EXT_LINE])
+crossed = {"rows": [], "today": []}
+
+
+def _save_check(rows, today_):
+    crossed["rows"] = list(rows)
+    crossed["today"].append(today_)
+    return len(rows)
+
+
+checking = Harness()
+check_tick = checking.go(read_manifest=lambda: None, save_manifest=lambda body: None,
+                         read_extensions=lambda: [EXT_BODY], save_check=_save_check)
+by_report = {(one.report_id, one.data_date): one for one in crossed["rows"]}
+check("the run hands the cross-check on once, with today's day",
+      crossed["today"] == [AT.date()])
+check("a file the extension landed reads as landed, by the extension",
+      by_report.get(("me_orders", YESTERDAY)) is not None
+      and by_report[("me_orders", YESTERDAY)].landed_by == "the extension"
+      and by_report[("me_orders", YESTERDAY)].verdict == manifest.LANDED_NOT_READ)
+check("and a file the run's own folder holds reads as landed, by the run",
+      by_report.get(("az_orders", YESTERDAY - timedelta(days=1))) is not None
+      and by_report[("az_orders", YESTERDAY - timedelta(days=1))].landed_by == "the run")
+check("and the extension's record is read as well as the run's, not instead of it",
+      any(k[0] == "az_orders" for k in by_report) and any(k[0] == "me_orders" for k in by_report))
+
+# **A CROSS-CHECK THAT WILL NOT BE WRITTEN IS SAID, AND COSTS THE FETCHING AND THE MANIFEST NOTHING.**
+def _will_not_check(_rows, _today):
+    raise RuntimeError("the database said no")
+
+
+held_after = {"body": None}
+refused_check = Harness()
+refused_tick = refused_check.go(
+    read_manifest=lambda: None, save_manifest=lambda body: held_after.__setitem__("body", body),
+    read_extensions=lambda: [], save_check=_will_not_check)
+check("a cross-check that will not write is said out loud, in words",
+      any("What landed against what was read" in one and "the database said no" in one for one in refused_tick.our_faults))
+check("and it does not stop the night fetching", refused_check.fetched == [("az_orders", YESTERDAY, None)])
+check("and the manifest was still written", held_after["body"] is not None)
+
+# **AN EXTENSION'S FILE THAT CANNOT BE READ IS NOT READ AS "NOTHING LANDED".**
+bad_check = {"called": False}
+broken_ext = Harness().go(
+    read_manifest=lambda: None, save_manifest=lambda body: None,
+    read_extensions=lambda: [b"{not json"], save_check=lambda rows, d: bad_check.__setitem__("called", True))
+check("a damaged extension record writes no cross-check at all and says so",
+      bad_check["called"] is False and any("could not be written down for the ERP" in one for one in broken_ext.our_faults))
+
+# **WITHOUT THE MANIFEST THERE IS NOTHING TO CROSS**, so nothing is handed on rather than a cross-check of one half only.
+no_manifest = {"called": False}
+no_manifest_tick = Harness().go(read_extensions=lambda: [], save_check=lambda rows, d: no_manifest.__setitem__("called", True))
+check("a night with no manifest handed in writes no cross-check", no_manifest["called"] is False)
+check("and says nothing about it, because there was nothing to cross",
+      not any("for the ERP" in one for one in no_manifest_tick.our_faults))
+
+# **A NIGHT THE MANIFEST WOULD NOT SAVE STILL CROSSES WHAT IT WORKED OUT.**
+crossed["rows"] = []
+Harness().go(read_manifest=lambda: None, save_manifest=_will_not_save,
+             read_extensions=lambda: [], save_check=_save_check)
+check("a manifest that will not save does not cost the cross-check", len(crossed["rows"]) > 0)
+
+# ----- the extension's files, read out of the seller's Drive
+ext_drive = FakeDrive()
+ext_folder = tool._drive_folder(ext_drive, INSIDE, tool.layout.SYSTEM)
+ext_drive.file("extension-manifest-0a1b2c3d.json", ext_folder, b"ONE")
+ext_drive.file("extension-manifest-ffffffff.json", ext_folder, b"TWO")
+ext_drive.file(manifest.FILE_NAME, ext_folder, b"THE RUN'S OWN")
+ext_drive.file("extension-manifest-notahex.json", ext_folder, b"NOT AN INSTALL")
+ext_drive.file("autosync-log-2026-08-29.txt", ext_folder, b"a log")
+check("every install's own record is read, and nothing else in the folder",
+      sorted(answered(lambda: tool._extension_records_in_drive(ext_drive, INSIDE)()) or []) == [b"ONE", b"TWO"])
+check("and with no extension installed the answer is none, not a refusal",
+      answered(lambda: tool._extension_records_in_drive(FakeDrive(), INSIDE)()) == [])
+
+# ----- and start.py really hands them to the tick
+check("start.py hands the tick both halves of the cross-check, built by the real builders",
+      isinstance(HANDED_TO_THE_TICK.get("save_check"), ast.Call)
+      and getattr(HANDED_TO_THE_TICK["save_check"].func, "id", "") == "a_check_sink"
+      and isinstance(HANDED_TO_THE_TICK.get("read_extensions"), ast.Call)
+      and getattr(HANDED_TO_THE_TICK["read_extensions"].func, "attr", "") == "_extension_records_in_drive")
+check("and the tick asks for them under exactly those names",
+      {"read_extensions", "save_check"} <= set(
+          tool.one_tick.__code__.co_varnames[:tool.one_tick.__code__.co_argcount
+                                             + tool.one_tick.__code__.co_kwonlyargcount]))
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 369
+EXPECTED = 369+15
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

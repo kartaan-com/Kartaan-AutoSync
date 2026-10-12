@@ -292,7 +292,60 @@ check("the door no longer accepts the old folder name",
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 46
+# ------------------------------------------- the cross-check for the ERP's Data tab (job 19)
+
+import manifest as _manifest  # noqa: E402
+
+TODAY = date(2026, 10, 12)
+
+
+def _crossing(day, report="az_orders", verdict="landed and read", by="the run"):
+    return _manifest.Crossing(report_id=report, data_date=day, verdict=verdict, landed_by=by)
+
+
+OLD_ONE = f"projects/{PROJECT}/databases/(default)/documents/sync_check/az_orders::2026-08-01"
+OLD_TWO = f"projects/{PROJECT}/databases/(default)/documents/sync_check/me_orders::2026-08-02"
+checking = Transport([Reply(200, {}), Reply(200, [{"document": {"name": OLD_ONE}, "readTime": "x"},
+                                                    {"document": {"name": OLD_TWO}, "readTime": "x"},
+                                                    {"readTime": "x"}]), Reply(200, {})])
+SIXTY = TODAY - __import__("datetime").timedelta(days=60)
+SIXTY_ONE = TODAY - __import__("datetime").timedelta(days=61)
+sent_n = answered(lambda: tool.a_check_sink(checking, PROJECT)(
+    [_crossing(date(2026, 10, 11)), _crossing(SIXTY, report="me_orders"), _crossing(SIXTY_ONE, report="fk_orders")], TODAY))
+commits = [c for c in checking.posts if c["url"].endswith("documents:commit")]
+writes = commits[0]["json"]["writes"] if commits else []
+check("rows are written first, as whole records named for report and day",
+      [w["update"]["name"].rsplit("/", 1)[-1] for w in writes] == ["az_orders::2026-10-11", "me_orders::2026-08-13"]
+      and all("updateMask" not in w for w in writes))
+check("a row exactly sixty days old stays and one sixty-one days old is not written at all",
+      not any("fk_orders" in w["update"]["name"] for w in writes))
+asked = [c for c in checking.posts if c["url"].endswith(":runQuery")]
+check("the old rows are asked for with one query on the day, before the first kept day",
+      len(asked) == 1
+      and asked[0]["json"]["structuredQuery"]["from"] == [{"collectionId": "sync_check"}]
+      and asked[0]["json"]["structuredQuery"]["where"]["fieldFilter"]["op"] == "LESS_THAN"
+      and asked[0]["json"]["structuredQuery"]["where"]["fieldFilter"]["value"] == {"stringValue": SIXTY.isoformat()})
+check("and the query asks for the day only, so reading the old rows reads nothing more than it needs",
+      asked[0]["json"]["structuredQuery"].get("select") == {"fields": [{"fieldPath": "dataDate"}]})
+check("and only the old rows the database answered with are deleted, in a second commit",
+      len(commits) == 2 and commits[1]["json"]["writes"] == [{"delete": OLD_ONE}, {"delete": OLD_TWO}])
+check("it answers how many writes and deletes it sent, which is what counts against the daily allowance", sent_n == 4)
+check("an answer with no old rows deletes nothing and makes no second commit",
+      (lambda t: (answered(lambda: tool.a_check_sink(t, PROJECT)([_crossing(date(2026, 10, 11))], TODAY)),
+                  len([c for c in t.posts if c["url"].endswith("documents:commit")]) == 1)[1])(
+          Transport([Reply(200, {}), Reply(200, [{"readTime": "x"}])])))
+check("an answer to the question that is not a list is thrown rather than read as nothing old",
+      answered(lambda: tool.a_check_sink(Transport([Reply(200, {}), Reply(200, {})]), PROJECT)([_crossing(date(2026, 10, 11))], TODAY)) is None
+      and bool(THREW))
+THREW.clear()
+check("a refused write is thrown and the old rows are never touched",
+      (lambda t: (answered(lambda: tool.a_check_sink(t, PROJECT)([_crossing(date(2026, 10, 11))], TODAY)), len(t.posts))[1] == 1)(
+          Transport([Reply(403, "no")])))
+THREW.clear()
+check("a refused write names the seller's Security Rules and what was being done",
+      "writing what landed against what was read" in _why(lambda: tool.a_check_sink(Transport([Reply(403, "no")]), PROJECT)([_crossing(date(2026, 10, 11))], TODAY)))
+
+EXPECTED = 56
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

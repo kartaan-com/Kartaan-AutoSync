@@ -99,7 +99,12 @@ LISTING_VIEWS = "listing_views"
 # `needs_review` or `products`**: the seller lets a listing in, and which listings are new is for the ERP to say, against what it already holds.
 # Written only by `a_listing_write`. The ERP's rules must let the run write it as the owner -- see the job 41 report for the exact rule.
 LISTINGS_SEEN = "listings_seen"
-WHAT_IT_MAY_WRITE = (LOG, BOARD, RUNS, LISTING_VIEWS, LISTINGS_SEEN)
+# **AND SIXTH, FROM JOB 19: WHAT LANDED AGAINST WHAT WAS READ, FOR THE ERP's DATA TAB.** The ERP cannot read the run's record from Drive
+# (`drive.file` reaches only files its own Google app made), so the run copies the cross-check here and the ERP reads it here. One row per
+# report per day, named `<reportId>::<day>` like the board, written whole by the owner; only the last `CHECK_KEPT_DAYS` days are kept.
+CHECK = "sync_check"
+CHECK_KEPT_DAYS = 60
+WHAT_IT_MAY_WRITE = (LOG, BOARD, RUNS, LISTING_VIEWS, LISTINGS_SEEN, CHECK)
 
 # Where the seller's own business record lives, and the one field this job reads
 # out of it. **READ, NEVER WRITTEN (D114):** the hour is the seller's setting,
@@ -396,6 +401,33 @@ def a_board_row(row) -> Tuple[str, Dict]:
     }
 
 
+# **THE FOUR WORDS THE ERP'S DATA TAB READS, UNDERSCORED.** `manifest.py` says them with spaces (it is a sentence to a person); the ERP's
+# page reads them as words. Spelt here once, keyed by the manifest's own constants so a verdict added there is refused here, not guessed.
+CHECK_STATES = {
+    "landed and read": "landed_and_read",
+    "landed, not read": "landed_not_read",
+    "read, never seen landing": "read_never_seen_landing",
+    "missing": "missing",
+}
+
+
+def a_check_row(crossing) -> Tuple[str, Dict]:
+    """One report on one day, as the two records read together: `{dataDate, reportId, state, landedBy}` and nothing else.
+
+    **NO ROW COUNTS (his ruling: the old Data tab has none).** `landedBy` is `'the run'`, `'the extension'` or empty when nothing landed.
+    A verdict this does not know is refused rather than passed on, so the page never gets a word it cannot read.
+    """
+    day = as_text(crossing.data_date)
+    report = str(crossing.report_id or "")
+    state = CHECK_STATES.get(str(crossing.verdict or ""))
+    if not day or not report or state is None:
+        raise Refused("That cross-check row is missing something the screen needs, or says something it cannot read, so it has not been written.")
+    landed_by = str(crossing.landed_by or "")
+    if landed_by not in ("", "the run", "the extension"):
+        raise Refused(f"{landed_by!r} is not someone who lands files, so that cross-check row has not been written.")
+    return f"{report}::{day}", {"dataDate": day, "reportId": report, "state": state, "landedBy": landed_by}
+
+
 def a_run(name: str, started_at, finished_at=None, why: str = "") -> Tuple[str, Dict]:
     """One run: when it started, and when it finished if it did.
 
@@ -435,6 +467,14 @@ def one_write(project: str, collection: str, doc_id: str, record: Dict) -> Dict:
             "fields": fields_of(record),
         }
     }
+
+
+def one_delete(project: str, collection: str, doc_id: str) -> Dict:
+    """One delete, in the shape a commit takes: the document's full name, built by the same lock as a write.
+
+    **ONLY EVER USED FOR A NAME THAT A QUERY JUST ANSWERED WITH**, so it never deletes a record nobody saw there.
+    """
+    return {"delete": where_a_document_lives(project, collection, doc_id)}
 
 
 A_DAY = re.compile(r"^\d{4}-\d{2}-\d{2}$")
