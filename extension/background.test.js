@@ -1466,7 +1466,11 @@ const LATER = '2026-08-27T16:04:00.000Z';
   /* **AND STILL NOT EVERYTHING.** The reference asks for `<all_urls>`; a product
    * copied into every seller's own account asks for the hosts it can name. */
   check('and it still does not ask for every address there is',
-    !hosts.includes('<all_urls>') && hosts.length <= 4);
+    !hosts.includes('<all_urls>') && hosts.length <= 5);
+  /* **THE FIFTH HOST IS KARTAAN'S OWN SERVER, ADDED ON PURPOSE (plan jobs 30 and 48)**: the run pass is posted to
+   * `/may-fetch` and `/finished` there. Exactly that one address, and not the whole of kartaan.com. */
+  check('the only host added for the Kartaan server is api.kartaan.com, by name',
+    hosts.includes('https://api.kartaan.com/*') && !hosts.some((one) => one.includes('*.kartaan.com')));
 }
 
 /* --------------- arming the download cancel, which is one line and load-bearing */
@@ -2135,7 +2139,7 @@ check('the page relay is OFF in what ships, so no script on a portal page can dr
     && theRelayAllows(false, { do: 'run-now' }) === false);
 }
 
-const EXPECTED = 247;
+const EXPECTED = 248;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

@@ -290,9 +290,28 @@ _DOOR = Path(__file__).with_name("the_other_half.py").read_text(encoding="utf-8"
 check("the door no longer accepts the old folder name",
       "'Kartaan-ERP', 'Kartaan'" not in _DOOR and '"Kartaan-ERP", "Kartaan"' not in _DOOR)
 
+
+# ------------------------------------------- plan job 78: where the sales ledger is
+
+ledger_there = Transport()
+answered(lambda: tool.a_ledger_sink(ledger_there, PROJECT)("sheet-9", AT, 12))
+check("the ledger record is one write, to the commit address", len(ledger_there.posts) == 1
+      and ledger_there.posts[0]["url"].endswith("documents:commit"))
+_one = ledger_there.posts[0]["json"]["writes"][0]["update"]
+check("it goes to sync_ledger/ledger in the seller's own project",
+      _one["name"] == f"projects/{PROJECT}/databases/(default)/documents/sync_ledger/ledger")
+check("and holds the sheet, the moment as text, and the rows -- and nothing else",
+      _one["fields"] == {"sheetId": {"stringValue": "sheet-9"},
+                         "lastWroteAt": {"stringValue": "2026-08-29T02:15:30"},
+                         "rows": {"integerValue": "12"}})
+check("and it is replaced whole: the write carries no field mask",
+      "updateMask" not in ledger_there.posts[0]["json"]["writes"][0])
+check("a 403 from the seller's database is thrown in words that name the likeliest cause",
+      "Security Rules" in _why(lambda: tool.a_ledger_sink(Transport([Reply(403, {})]), PROJECT)("s", AT, 1)))
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 46
+EXPECTED = 46 + 5
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

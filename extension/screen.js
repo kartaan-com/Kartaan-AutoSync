@@ -40,6 +40,9 @@ import {
 import { THE_WALK } from './background.js';
 import { aDriveToken } from './drive.js';
 import { PAUSED, whatIsPaused } from './nightly.js';
+import {
+  askMayFetch, saveTheRunPass, whatKartaanLastSaid,
+} from './kartaan.js';
 
 /* ------------------------------------------------------------ what is stored
  *
@@ -724,6 +727,8 @@ export async function howItStands(chrome, { book, now = Date.now(), theClock = n
      * so the banner can name it however many runs have happened since. */
     needsYou: await whatNeedsYou(chrome),
     paused: await whatIsPaused(chrome),
+    /* **WHETHER A RUN PASS IS SAVED AND WHAT KARTAAN LAST SAID -- NEVER THE PASS (plan job 30).** */
+    kartaan: await whatKartaanLastSaid(chrome),
     platforms: [
       ...THROUGH_THE_BROWSER.map((platform) => ({
         id: platform,
@@ -805,6 +810,7 @@ function whatTheTimedSyncFetches(book, timed) {
 export const THE_PANEL_ASKS = Object.freeze([
   'how-it-stands', 'connect-the-drive', 'check-the-drive', 'save-the-panel-name',
   'run-now', 'stop', 'set-the-hour', 'reload-the-extension', 'save-the-ticks', 'resume',
+  'save-the-run-pass',
 ]);
 
 /**
@@ -858,6 +864,12 @@ export async function answerThePanelsQuestion(chrome, parts, asked) {
     if (wrong) return { wrong };
     await keepTheSetup(chrome, { panel: String(asked.panel) });
     return { saved: true };
+  }
+
+  if (asked.do === 'save-the-run-pass') {
+    /* **THE PASS GOES IN AND NOTHING OF IT COMES BACK (plan job 30).** The answer is "saved" or the reason it was
+     * refused, in words; never the pass, which the page also empties from its box. */
+    return saveTheRunPass(chrome, asked.pass);
   }
 
   if (asked.do === 'save-the-ticks') {
@@ -1033,6 +1045,12 @@ export async function startTheNextPlatform(chrome, parts) {
     const said = await startASync(chrome, parts, { reportIds, ...how, timed });
     if (said && said.started) return { started: reportIds, refused };
     refused.push({ reportIds, wrong: (said && said.wrong) || '' });
+    /* **KARTAAN'S NO (OR NO ANSWER) STOPS THE WHOLE QUEUE.** The next platform would only ask the same question and
+     * get the same answer -- and the server counts every ask against a thirty-a-day allowance. */
+    if (said && said.kartaanSaid) {
+      await chrome.storage.local.set({ [THE_QUEUE]: [] });
+      break;
+    }
   }
   return { started: null, refused };
 }
@@ -1086,6 +1104,13 @@ async function startASyncInTurn(chrome, parts, asked) {
           + 'to go. Connect it first.',
       };
     }
+    /* **KARTAAN IS ASKED LAST OF THE REFUSALS AND FIRST OF THE WRITES (plan jobs 30 and 48).** After every refusal
+     * this file can make by itself, so a sync that could never have started does not spend one of the seller's
+     * thirty asks a day; before the night is written, so a "no" leaves the walk and night records exactly as they
+     * were. **ONLY A CLEAR YES, OR NO PASS SAVED, GOES ON** (`askMayFetch`). The same door serves Run now, resume,
+     * the hourly re-check and the timed sync, so none of them can start a sync another could not. */
+    const mayFetch = await askMayFetch(chrome, parts.fetch);
+    if (!mayFetch.go) return { wrong: mayFetch.said, kartaanSaid: mayFetch.kind };
     /* **A FINISHED NIGHT IS FILED BEFORE A NEW ONE WRITES OVER IT**, or Stop and then Run now inside the panel's
      * poll would lose that night's Flipkart spend from the day's count. */
     if (night && night.finishedAt) await rememberTheNight(chrome, { book });
@@ -1116,7 +1141,11 @@ async function startASyncInTurn(chrome, parts, asked) {
       canGoBack: reportIds.filter((id) => ((book.reports || []).find((one) => one.id === id) || {})
         .cannotBeAskedForAgain === null),
     });
-    return { started: (started && started.left) || [] };
+    return {
+      started: (started && started.left) || [],
+      /* Said when the check could not be made, so the seller reads that it was skipped and why. */
+      ...(mayFetch.asked ? {} : { note: mayFetch.said }),
+    };
   }
 }
 
@@ -1218,7 +1247,8 @@ export function theSyncSummary(night) {
   return {
     title: failed.length || needsYou.length
       ? 'Kartaan AutoSync: sync finished with problems' : 'Kartaan AutoSync: sync finished',
-    message: `${landed} landed, ${failed.length} failed${failures}.${byHand}`,
+    message: `${landed} landed, ${failed.length} failed${failures}.${byHand}`
+      + `${night.toldKartaan && night.toldKartaan.said ? ` ${night.toldKartaan.said}` : ''}`,
   };
 }
 
@@ -1320,6 +1350,30 @@ export function buildThePanel(into, doing) {
     'It is the part of the address of your own Meesho supplier panel between "fulfillment/" '
     + 'and "/orders". It is yours, so it is not in the extension.'));
   put(body, parts.setup);
+
+  /* ------------------------------------------------------ the run pass, optional
+   * **NOT PART OF "SET UP, ONCE", AND NOT HIDDEN WHEN THAT IS DONE.** Nothing is refused for lacking it -- a sync
+   * without one goes ahead, saying the check was not made -- so it must stay where it can be added later. A
+   * password box, so a pasted pass is not read over his shoulder, and emptied after Save so it is not left in the
+   * page. */
+  parts.kartaan = make('section', `${OURS}card`);
+  put(parts.kartaan, make('h2', `${OURS}title`, 'Kartaan run pass'));
+  const passRow = make('div', `${OURS}row`);
+  parts.runPass = make('input', 'k-control');
+  parts.runPass.type = 'password';
+  parts.runPass.autocomplete = 'off';
+  parts.runPass.placeholder = 'paste the run pass';
+  parts.saveRunPass = make('button', 'k-button k-button--ordinary', 'Save');
+  parts.saveRunPass.type = 'button';
+  parts.runPassState = make('span', `${OURS}state`, '');
+  put(passRow, make('span', `${OURS}label`, 'Run pass'), parts.runPass, parts.saveRunPass, parts.runPassState);
+  put(parts.kartaan, passRow);
+  parts.kartaanSaid = make('p', `${OURS}note`, '');
+  put(parts.kartaan, make('p', `${OURS}note`,
+    'Copy it from Kartaan\'s page. With it saved, each sync first asks Kartaan whether it may run, and Kartaan is '
+    + 'told when a sync ends. Without it, syncs run as before and say the check was not made.'));
+  put(parts.kartaan, parts.kartaanSaid);
+  put(body, parts.kartaan);
 
   /* ----------------------------------------------------------- what is happening */
   parts.banner = make('div', `${OURS}banner`);
@@ -1445,6 +1499,7 @@ export function buildThePanel(into, doing) {
 
   parts.connectDrive.addEventListener('click', () => doing.connectTheDrive());
   parts.savePanel.addEventListener('click', () => doing.saveThePanelName(parts.panelName.value));
+  parts.saveRunPass.addEventListener('click', () => doing.saveTheRunPass && doing.saveTheRunPass(parts.runPass.value));
   parts.runNow.addEventListener('click', () => doing.runNow(
     whatIsTicked(parts), parts.from.value, parts.to.value,
   ));
@@ -1544,6 +1599,12 @@ export function showHowItStands(parts, stands) {
     parts.panelName.value = stands.setUp.panel;
   }
   parts.panelState.textContent = stands.setUp.panel ? 'saved' : 'not set yet';
+  if (parts.runPassState) {
+    const kartaan = stands.kartaan || { saved: false, last: null };
+    parts.runPassState.textContent = kartaan.saved ? 'saved' : 'not saved';
+    parts.kartaanSaid.textContent = kartaan.last && kartaan.last.said
+      ? `Kartaan, ${inWordsWhen(kartaan.last.at)}: ${kartaan.last.said}` : '';
+  }
 
   const going = Boolean(stands.night && !stands.night.finishedAt);
   parts.runNow.disabled = going || !stands.setUp.done;

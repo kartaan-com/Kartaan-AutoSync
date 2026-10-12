@@ -1067,9 +1067,110 @@ check("THROUGH THE REAL START OF A NIGHT: an older ledger is moved, the night sa
       and any("added at the end" in line for line in _spoken)
       and any("already right" in line for line in _spoken))
 
+
+# ---- PLAN JOB 78: THE ONE RECORD THAT SAYS WHERE THE LEDGER IS AND WHEN IT WAS LAST WRITTEN
+#
+# **WRITTEN ONLY WHEN A WRITE REALLY HAPPENED, AND A FAILURE IS SAID BUT NEVER STOPS THE RUN.** The stand-in sink below
+# remembers every record it was handed; the clock is a fixed stand-in, so "the same clock the run uses" is asked of the
+# value that arrived rather than assumed.
+THE_MOMENT = "2026-10-12T04:30:00"
+
+
+class AStandInRecord:
+    def __init__(self, blows_up=False):
+        self.got = []
+        self.blows_up = blows_up
+
+    def __call__(self, sheet_id, wrote_at, rows):
+        if self.blows_up:
+            raise RuntimeError("the seller's database said no")
+        self.got.append((sheet_id, wrote_at, rows))
+
+
+A_SECOND_SALE = sales.Sale(platform="meesho", order_id="M-2", sku="RING-2", qty=1, gmv=299)
+A_SECOND_READING = ledger.Reading(report="ms_orders", on="2026-09-01",
+                                  knows=("platform", "orderId", "on", "sku", "qty", "gmv"),
+                                  sales=(A_SECOND_SALE,), which="file-2")
+
+kept_record = AStandInRecord()
+told_2 = []
+the_tally = tool.WhatWasWritten(lambda: THE_MOMENT, kept_record, told_2.append)
+the_tally.sheet_id = "sheet-1"
+the_sheet_2 = PretendSheets(rows=list(THE_HEADER))
+write_2 = tool.recording_into(LedgerDoor(the_sheet_2, "sheet-1"), tally=the_tally)
+answered(lambda: write_2([A_READING]))
+check("A WRITE THAT ADDED A ROW LEAVES ONE RECORD: the sheet, the moment on the run's own clock, and how many rows",
+      kept_record.got == [("sheet-1", THE_MOMENT, 1)])
+answered(lambda: write_2([A_READING]))
+check("the same file again changes nothing, so no second record is written and the moment is not moved",
+      len(kept_record.got) == 1)
+answered(lambda: write_2([A_SECOND_READING]))
+check("a second file adds to the run's total, and the whole record is written again",
+      kept_record.got[-1] == ("sheet-1", THE_MOMENT, 2) and len(kept_record.got) == 2)
+check("nothing was said about the record when it was written well", told_2 == [])
+
+refused_record = AStandInRecord()
+refused_tally = tool.WhatWasWritten(lambda: THE_MOMENT, refused_record)
+refused_tally.sheet_id = "sheet-1"
+answered(lambda: refused(lambda: tool.recording_into(LedgerDoor(angry, "s"), tally=refused_tally)([A_READING])))
+check("A WRITE THE SHEET REFUSED LEAVES NO RECORD, because the ledger was not written", refused_record.got == [])
+
+fails_record = AStandInRecord(blows_up=True)
+told_3 = []
+fails_tally = tool.WhatWasWritten(lambda: THE_MOMENT, fails_record, told_3.append)
+fails_tally.sheet_id = "sheet-1"
+the_sheet_3 = PretendSheets(rows=list(THE_HEADER))
+survived = answered(lambda: tool.recording_into(LedgerDoor(the_sheet_3, "sheet-1"), tally=fails_tally)([A_READING]))
+check("A RECORD THAT COULD NOT BE WRITTEN DOES NOT STOP THE FILE: the sale is in the sheet and nothing was raised",
+      any(A_SALE.id in str(r) for r in the_sheet_3.rows) and not THREW)
+check("and the failure is said in the run log, with what failed",
+      any("SALES LEDGER RECORD NOT WRITTEN" in one and "said no" in one for one in told_3))
+
+# The sheet's id arrives through `the_writing_half`, from the same place the run remembers it.
+by_half = AStandInRecord()
+half_tally = tool.WhatWasWritten(lambda: THE_MOMENT, by_half)
+half_night = ADriveFile(first_night.holding)
+half_plug, _ = answered(lambda: tool.the_writing_half(
+    PretendDrive(), half_night.read, half_night.save, ask=PretendSheets(rows=list(THE_HEADER)), tally=half_tally)) or (None, "")
+check("the record is told which sheet the run is writing to, from the ledger the run found", half_tally.sheet_id == "new-sheet-id")
+answered(lambda: half_plug([A_READING]))
+check("and a write through the half the run really uses records that sheet", by_half.got == [("new-sheet-id", THE_MOMENT, 1)])
+gone_tally = tool.WhatWasWritten(lambda: THE_MOMENT, AStandInRecord())
+answered(lambda: tool.the_writing_half(PretendDrive(), ADriveFile(first_night.holding).read, lambda b: None,
+                                       ask=PretendSheets(missing=True), tally=gone_tally))
+check("a ledger that could not be reached leaves nothing to record: no sheet id, no rows", gone_tally.sheet_id == "" and gone_tally.rows == 0)
+
+# **EACH RULE IS PROVED BY BREAKING IT.** A tally that counts a write of nothing, and one that lets the record's failure out,
+# are the two likeliest mistakes; the checks above must go red for each.
+class CountsAWriteOfNothing(tool.WhatWasWritten):
+    def wrote(self, added, changed):
+        self.rows += int(added) + int(changed)
+        self._write_record(self.sheet_id, self._now(), self.rows)
+
+
+class LetsTheFailureOut(tool.WhatWasWritten):
+    def wrote(self, added, changed):
+        self.rows += int(added) + int(changed)
+        self._write_record(self.sheet_id, self._now(), self.rows)
+
+
+broken_zero = AStandInRecord()
+_zero_tally = CountsAWriteOfNothing(lambda: THE_MOMENT, broken_zero)
+_zero_tally.sheet_id = "sheet-1"
+_zero_write = tool.recording_into(LedgerDoor(PretendSheets(rows=list(THE_HEADER)), "sheet-1"), tally=_zero_tally)
+answered(lambda: _zero_write([A_READING]))
+answered(lambda: _zero_write([A_READING]))
+check("PROOF: a tally that counted a write of nothing WOULD have written a second record (so the check above bites)",
+      len(broken_zero.got) == 2)
+_leaky = LetsTheFailureOut(lambda: THE_MOMENT, AStandInRecord(blows_up=True))
+_leaky.sheet_id = "sheet-1"
+_leaky_result = refused(lambda: tool.recording_into(LedgerDoor(PretendSheets(rows=list(THE_HEADER)), "sheet-1"), tally=_leaky)([A_READING]))
+check("PROOF: a tally that let the record's failure out WOULD have refused the file (so the check above bites)",
+      _leaky_result is not None)
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 144
+EXPECTED = 144 + 12
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

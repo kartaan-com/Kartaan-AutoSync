@@ -63,6 +63,13 @@ const parts = buildThePanel(document.body, {
     saySomething(parts, (said && said.wrong) || 'Panel name saved.');
     await refresh();
   },
+  saveTheRunPass: async (pass) => {
+    const said = await ask({ do: 'save-the-run-pass', pass });
+    /* **EMPTIED ONLY WHEN IT WAS KEPT**, so a refused paste can be corrected, and a kept one is not left on the page. */
+    if (said && said.saved) parts.runPass.value = '';
+    saySomething(parts, (said && said.wrong) || 'Run pass saved.');
+    await refresh();
+  },
   resume: async () => {
     const said = await ask({ do: 'resume' });
     saySomething(parts, (said && said.wrong) || 'Resumed.');
@@ -74,7 +81,7 @@ const parts = buildThePanel(document.body, {
   },
   runNow: async (reportIds, from, to) => {
     const said = await ask({ do: 'run-now', reportIds, from, to });
-    saySomething(parts, (said && said.wrong) || 'Started.');
+    saySomething(parts, (said && said.wrong) || `Started.${said && said.note ? ` ${said.note}` : ''}`);
     await refresh();
   },
   stop: async () => {

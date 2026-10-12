@@ -1808,6 +1808,53 @@
         "autosync/nightly.py",
         "autosync/start.py"
       ]
+    },
+    {
+      "id": "may-fetch",
+      "name": "The run and the extension ask Kartaan whether the seller may fetch, and the extension tells Kartaan it has finished (plan jobs 30 and 48, AutoSync halves)",
+      "what": "Before fetching, the run (autosync/may_fetch.py) and the extension (extension/kartaan.js) POST the run pass to the Server's /may-fetch and stop, saying so, on a no or when Kartaan cannot be reached; a repository with no run pass yet carries on and says the check was not made. When a sync reaches its natural end the extension POSTs /finished with the failed reports. KARTAAN_RUN_PASS is an optional secret.",
+      "rests_on": [
+        "report-list"
+      ],
+      "files": [
+        "autosync/may_fetch.py",
+        "autosync/may_fetch_checks.py",
+        "extension/kartaan.js",
+        "extension/kartaan.test.js"
+      ],
+      "also_touches": [
+        "autosync/start.py",
+        "autosync/nightly_checks.py",
+        ".github/workflows/autosync.yml",
+        "pipeline-template/.github/workflows/autosync.yml",
+        "extension/screen.js",
+        "extension/nightly.js",
+        "extension/worker.js",
+        "extension/panel.js",
+        "extension/manifest.json",
+        "extension/background.test.js"
+      ]
+    },
+    {
+      "id": "returns-sheet",
+      "name": "The run makes the Kartaan returns sheet once and records it for the ERP (ERP job 77); every ledger write records sync_ledger (ERP job 76)",
+      "what": "autosync/returns_sheet.py finds or makes one Kartaan returns sheet (tabs Receipts and Log, headers from the ERP's return-scan.js) in the Kartaan folder and writes returns_sheet/sheet {sheetId, createdAt}; a second run makes nothing. Each ledger write that added or changed rows writes sync_ledger/ledger {sheetId, lastWroteAt, rows}.",
+      "rests_on": [
+        "report-list"
+      ],
+      "files": [
+        "autosync/returns_sheet.py",
+        "autosync/returns_sheet_checks.py"
+      ],
+      "also_touches": [
+        "autosync/firestore.py",
+        "autosync/firestore_checks.py",
+        "autosync/firestore_door.py",
+        "autosync/firestore_door_checks.py",
+        "autosync/ledger_sheet.py",
+        "autosync/ledger_sheet_checks.py",
+        "autosync/start.py"
+      ]
     }
   ]
 }

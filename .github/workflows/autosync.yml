@@ -189,6 +189,13 @@ on:
         required: true
       FIREBASE_PROJECT_ID:
         required: true
+      # **THE ELEVENTH, AND THE ONLY ONE THAT IS OPTIONAL (plan job 30).** The run pass the run shows Kartaan's
+      # Server before it fetches (`may_fetch.py`). Optional because a repository set up before it existed has none,
+      # and a caller that cannot name it must still be able to call. **IT IS NOT IN THE "IS THIS REPOSITORY SET UP
+      # TO FETCH?" LIST BELOW, AND MUST NEVER BE:** that list makes every name in it mandatory, and a missing pass
+      # is said by the run itself, not by turning the job red. `nightly_checks.py` holds this in both directions.
+      KARTAAN_RUN_PASS:
+        required: false
 
 # **TWO RUNS AT ONCE FETCH EVERY FILE TWICE**, into two differently-named copies --
 # the fault that put three wrongly-dated files into the reference's Drive. The
@@ -436,6 +443,10 @@ jobs:
           # Firebase project. Not a credential either -- it names a project and
           # grants nothing; what grants anything is the seller's own sign-in above.
           FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          # **THE RUN PASS (plan job 30), HANDED TO THIS STEP AND NO OTHER.** Shown once to Kartaan's Server, in
+          # the body of one call, before anything is fetched. Empty for a repository set up before it existed;
+          # the run then says so and carries on (`may_fetch.py`). Never in the gate step above.
+          KARTAAN_RUN_PASS: ${{ secrets.KARTAAN_RUN_PASS }}
           # Only ever true because somebody pressed the button -- the one here,
           # or the one on the seller's own caller, which passes it through. A
           # scheduled tick sends nothing and a caller that passes nothing sends
