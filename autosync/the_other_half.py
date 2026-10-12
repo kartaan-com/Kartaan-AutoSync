@@ -99,10 +99,15 @@ def _asItWasCommitted(root, parts, why):
     import subprocess
 
     where = '/'.join(parts)
+    # **GIT'S OWN VARIABLES ARE LEFT OUT OF WHAT THIS RUNS WITH.** Run from a hook (the commit gate), git hands the process the
+    # repository being committed to -- `GIT_DIR` -- and `git -C <other>` then reads THAT repository's HEAD and says the other
+    # repository's file "exists on disk, but not in 'HEAD'". Every commit from a linked worktree was refused for it.
+    clean = {name: value for name, value in os.environ.items() if not name.startswith('GIT_')}
     try:
         done = subprocess.run(
             ['git', '-C', str(root), 'show', 'HEAD:' + where],
             capture_output=True,
+            env=clean,
         )
     except OSError as wrong:
         raise SystemExit(
