@@ -343,6 +343,34 @@ textarea.k-control {
   background: var(--surface-raised);
 }
 
+/* **THE SEARCH BOX AT THE TOP OF A PLAIN DROPDOWN'S LIST** (his ruling,
+ * 2026-10-05). Stays put while the lines scroll under it, and is 16px so a phone
+ * does not zoom the page when it is touched. */
+.k-pick__search {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  width: 100%;
+  font-size: 16px;
+}
+
+.k-pick__lines {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.k-pick__none {
+  margin: 0;
+  padding: 8px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.k-pick__choice[aria-current='true'] {
+  font-weight: 600;
+}
+
 /* ------------------------------------------------------------ the icons
 
  * **A CONTROL THAT IS A MARK RATHER THAN A WORD** -- the funnel on a column
@@ -504,4 +532,34 @@ textarea.k-control {
   .k-button__short {
     display: inline;
   }
+}
+
+/* ------------------------------------------------------- a button that is working
+
+ * **HIS RULING, 2026-09-30:** every button that starts something shows it is
+ * happening -- a small turning circle beside the words the moment it is pressed.
+ * `busy.js` puts this class on while the work runs and takes it off after, and
+ * is the only thing that does. A person who has asked for less movement gets the
+ * same circle turning slowly rather than none, because the circle is the only
+ * thing saying the button has not simply broken.
+ */
+.k-button--busy::before {
+  content: '';
+  display: inline-block;
+  width: 0.9em;
+  height: 0.9em;
+  margin-right: 0.5em;
+  vertical-align: -0.1em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: k-button-turn 0.8s linear infinite;
+}
+
+@keyframes k-button-turn {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .k-button--busy::before { animation-duration: 3s; }
 }
