@@ -99,7 +99,14 @@ LISTING_VIEWS = "listing_views"
 # `needs_review` or `products`**: the seller lets a listing in, and which listings are new is for the ERP to say, against what it already holds.
 # Written only by `a_listing_write`. The ERP's rules must let the run write it as the owner -- see the job 41 report for the exact rule.
 LISTINGS_SEEN = "listings_seen"
-WHAT_IT_MAY_WRITE = (LOG, BOARD, RUNS, LISTING_VIEWS, LISTINGS_SEEN)
+# **AND SIXTH, SEVENTH AND EIGHTH, FROM A78: WHAT THE RETURN AND AD REPORTS SAY.** One record per returned line (`platform_returns`), one per
+# platform per day of ad figures (`platform_ads_days`), one per platform per day per kind of ad breakdown (`platform_ads_detail`). Their shapes
+# are in `docs/A78-RETURNS-ADS-SHAPES.md`; written only by `a_return_write`, `a_ads_days_write` and `a_ads_detail_write`. The ERP's rules must
+# let the run write them as the owner, as for `listing_views`.
+RETURNS = "platform_returns"
+ADS_DAYS = "platform_ads_days"
+ADS_DETAIL = "platform_ads_detail"
+WHAT_IT_MAY_WRITE = (LOG, BOARD, RUNS, LISTING_VIEWS, LISTINGS_SEEN, RETURNS, ADS_DAYS, ADS_DETAIL)
 
 # Where the seller's own business record lives, and the one field this job reads
 # out of it. **READ, NEVER WRITTEN (D114):** the hour is the seller's setting,
@@ -544,6 +551,69 @@ def days_held(document: Optional[Dict]) -> Tuple[str, ...]:
     fields = (document or {}).get("fields") or {}
     inside = ((fields.get("days") or {}).get("mapValue") or {}).get("fields") or {}
     return tuple(sorted(inside))
+
+
+# ------------------------------------------------- returns and ads (A78)
+
+
+def a_deep(held) -> Dict:
+    """A value that may be a map or a list, in Firestore's shape. Text, whole numbers and money go as `a_value` sends them."""
+    if isinstance(held, dict):
+        return {"mapValue": {"fields": {str(k): a_deep(v) for k, v in held.items()}}}
+    if isinstance(held, (list, tuple)):
+        return {"arrayValue": {"values": [a_deep(v) for v in held]}}
+    return a_value(held)
+
+
+def a_return_write(project: str, record: Dict) -> Dict:
+    """One returned line, written whole (nothing else writes this record).
+
+    **THE FIELDS ARE `returns.RETURN_FIELDS` AND NO OTHERS**: a column a platform adds can never reach a seller's database by way of a reader
+    that was not told about it. Absent fields are absent from the record, never blank.
+    """
+    import returns  # noqa: PLC0415 - kept beside its one use
+
+    stray = sorted(set(record) - set(returns.RETURN_FIELDS))
+    if stray:
+        raise Refused(f"{stray} are not fields of a returned line.")
+    for day in ("startedOn", "closedOn", "fileDay"):
+        if day in record and not A_DAY.match(str(record[day])):
+            raise Refused(f"{record[day]!r} is not a day written year-month-day, so no return was written for it.")
+    doc_id = f"{record['platform']}__{record['returnKey']}"
+    return {"update": {"name": where_a_document_lives(project, RETURNS, doc_id), "fields": {k: a_deep(v) for k, v in record.items()}}}
+
+
+def a_ads_days_write(project: str, platform: str, day: str, campaigns: Dict, digest: str, file_day: str, updated_on: str) -> Dict:
+    """One platform's ad figures for one day, written WITH A MASK so only the campaigns change (what the charge file says is another's)."""
+    for one in (day, file_day, updated_on):
+        if not A_DAY.match(str(one)):
+            raise Refused(f"{one!r} is not a day written year-month-day, so no ad figures were written.")
+    fields = {
+        "platform": a_value(str(platform)), "day": a_value(str(day)), "updatedOn": a_value(str(updated_on)),
+        "campaigns": a_deep(campaigns), "campaignsDigest": a_value(str(digest)), "campaignsFileDay": a_value(str(file_day)),
+    }
+    return {
+        "update": {"name": where_a_document_lives(project, ADS_DAYS, f"{platform}__{day}"), "fields": fields},
+        "updateMask": {"fieldPaths": sorted(fields)},
+    }
+
+
+def a_ads_detail_write(project: str, doc_id: str, platform: str, content: Dict, file_day: str, updated_on: str) -> Dict:
+    """One breakdown of a day's ads, written whole."""
+    for one in (content.get("day"), file_day, updated_on):
+        if not A_DAY.match(str(one)):
+            raise Refused(f"{one!r} is not a day written year-month-day, so no ad breakdown was written.")
+    fields = {k: a_deep(v) for k, v in content.items()}
+    fields.update({"platform": a_value(str(platform)), "fileDay": a_value(str(file_day)), "updatedOn": a_value(str(updated_on))})
+    return {"update": {"name": where_a_document_lives(project, ADS_DETAIL, doc_id), "fields": fields}}
+
+
+def what_a_record_says(document: Optional[Dict], digest_field: str, day_field: str) -> Optional[Tuple[str, str]]:
+    """The fingerprint and file day a held record carries, or None when there is no record."""
+    if not document:
+        return None
+    fields = plain(document.get("fields") or {})
+    return (str(fields.get(digest_field) or ""), str(fields.get(day_field) or ""))
 
 
 def how_big(writes: Sequence[Dict]) -> int:

@@ -63,7 +63,8 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
     import merge
     from drive_door import a_door, the_kartaan_folder
     from firestore_door import (
-        a_board_sink, a_listings_sink, a_log_sink, a_run_sink, a_views_sink, both_places, what_they_chose,
+        a_board_sink, a_listings_sink, a_log_sink, a_returns_sink, a_run_sink, a_views_sink, an_ads_sink, both_places,
+        what_they_chose,
     )
     from transport import FirebaseSeller, Google, for_amazon
 
@@ -216,6 +217,9 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
         record_views=a_views_sink(their_login, their_project, today.isoformat(), views.DAYS_KEPT),
         # **AND THE LISTINGS A LISTING FILE NAMES (job 41):** one record each, for the ERP to put in front of the seller to let in.
         record_listings=a_listings_sink(their_login, their_project),
+        # **AND THE RETURNED LINES AND THE ADS (A78):** one record per returned line, and per platform per day of ads.
+        record_returns=a_returns_sink(their_login, their_project, today.isoformat()),
+        record_ads=an_ads_sink(their_login, their_project, today.isoformat()),
         # Set only by somebody pressing the button in GitHub. The workflow passes
         # it through; nothing on a schedule ever sets it.
         even_if_not_due=os.environ.get("EVEN_IF_NOT_DUE", "").strip().lower() == "true",

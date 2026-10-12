@@ -344,8 +344,8 @@ check(
     answered(lambda: tool.report("fk_keywords").needs_a_person is True),
 )
 check(
-    "and no other report is",
-    answered(lambda: [r.id for r in tool.REPORTS if r.needs_a_person] == ["fk_keywords"]),
+    "and the only other is Flipkart's keyword ads, which Flipkart has discontinued (his ruling, 12 Oct, A78)",
+    answered(lambda: [r.id for r in tool.REPORTS if r.needs_a_person] == ["fk_keywords", "fk_ads_kw"]),
 )
 
 

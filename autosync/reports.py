@@ -247,8 +247,10 @@ REPORTS: Tuple[Report, ...] = (
            depends_on=("fk_ads_daily",)),
     Report("fk_ads_orders", "flipkart", "Flipkart ads, orders won", BROWSER, DAILY, "csv",
            depends_on=("fk_ads_daily",)),
+    # **OFF BY HIS RULING (2026-10-12): FLIPKART HAS DISCONTINUED KEYWORD ADS.** Same treatment as `fk_keywords`: the extension's timed list
+    # leaves it out (`screen.js` OFF_THE_TIMED_LIST) so nothing fetches it, and the board reads "needs somebody" rather than "missing".
     Report("fk_ads_kw", "flipkart", "Flipkart ads, keywords", BROWSER, DAILY, "csv",
-           depends_on=("fk_ads_daily",)),
+           depends_on=("fk_ads_daily",), needs_a_person=True),
     # ---- Meesho. No public API and Akamai in front of the portal, so the browser
     # ---- door is not a staging post here -- it is where these live until Meesho
     # ---- says otherwise.
