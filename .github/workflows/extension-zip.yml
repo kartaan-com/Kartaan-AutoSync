@@ -1,0 +1,38 @@
+name: Extension download
+
+# **THE SELLER'S DOWNLOAD (his ruling D319, 12 Oct 2026: no Chrome Web Store, a ZIP link).**
+# When a release is published here, the extension folder is zipped and attached to it as
+# `kartaan-autosync-extension.zip`. The name never changes, so this address always gives the
+# newest one:
+#   https://github.com/kartaan-com/Kartaan-AutoSync/releases/latest/download/kartaan-autosync-extension.zip
+#
+# Checks are left out of the ZIP (they are for developers and import files a seller does not
+# have), and `manifest.json` sits at the top of the ZIP, which is what Chrome's "Load unpacked"
+# needs after the seller unzips it. The manifest's public key is what makes the extension's id
+# the same on every seller's machine; the matching private key is never in this repository.
+#
+# Runs in Kartaan's own organisation only: this repository is copied into every seller's own
+# account, and a seller publishing a release there should not build or upload anything.
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  zip:
+    if: github.repository_owner == 'kartaan-com'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Zip the extension
+        run: |
+          cd extension
+          zip -r ../kartaan-autosync-extension.zip . -x '*.test.js'
+      - name: Attach it to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$TAG" kartaan-autosync-extension.zip --clobber

@@ -65,6 +65,7 @@ import {
 import { TOO_BIG_TO_CARRY, theCampaignsFileName } from './walk.js';
 import { OUR_TAB, OUR_WINDOW, WALK_IN_HIS_OWN_WINDOW, aTabToWalkIn, watchForDownloads } from './doors.js';
 import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 
 process.on('uncaughtException', (err) => {
   console.log(`FAIL  the checks stopped part way through: ${(err && err.message) || String(err)}`);
@@ -1510,10 +1511,17 @@ const LATER = '2026-08-27T16:04:00.000Z';
    * no other Amazon address, and no scheme wildcard means https only. */
   check('Amazon Seller Central India is allowed on exactly its own address',
     hosts.filter((one) => one.includes('amazon')).join() === 'https://sellercentral.amazon.in/*');
-  /* **NO KEY, EVER (Control's order): the extension's id is derived from the folder path and the
-   * Google sign-in is bound to it.** A `key` would change the id and break the sign-in. */
-  check('the manifest carries no key, so the extension id stays what the folder makes it',
-    !('key' in manifest));
+  /* **THE ID IS PINNED BY A KEY (his ruling D319, 12 Oct 2026: no Chrome Web Store, sellers install
+   * from a ZIP).** Without a `key` the id comes from the folder the seller unzips into, so no two
+   * sellers would share one and the ERP could not name the extension. Chrome's rule: the id is the
+   * first 128 bits of the SHA-256 of the public key, each hex digit written as a letter a to p.
+   * The Google sign-in client is bound to THIS id; changing the key breaks every sign-in. */
+  const theKeysId = [...createHash('sha256').update(Buffer.from(String(manifest.key), 'base64'))
+    .digest('hex').slice(0, 32)].map((one) => String.fromCharCode(97 + parseInt(one, 16))).join('');
+  check('the manifest key gives the one fixed extension id the ERP and the Google sign-in are told',
+    theKeysId === 'hkmghdnmbnfhaeblmfhpjlkcifpodbdo');
+  check('and what is in the manifest is the public half only',
+    /^[A-Za-z0-9+/=]+$/.test(manifest.key) && !JSON.stringify(manifest).includes('PRIVATE'));
   check('only the ERP page may message the extension',
     JSON.stringify(manifest.externally_connectable) === JSON.stringify({ matches: ['https://erp.kartaan.com/*'] }));
   check('and Amazon got no page script and no readable files (no walker is built yet)',
@@ -2187,7 +2195,7 @@ check('the page relay is OFF in what ships, so no script on a portal page can dr
     && theRelayAllows(false, { do: 'run-now' }) === false);
 }
 
-const EXPECTED = 259;
+const EXPECTED = 260;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;
