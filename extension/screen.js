@@ -39,7 +39,9 @@ import {
 } from './nightly.js';
 import { THE_WALK } from './background.js';
 import { aDriveToken } from './drive.js';
-import { PAUSED, whatIsPaused } from './nightly.js';
+import {
+  PAUSED, THE_NIGHT, THE_SCHEDULED_QUEUE, THE_SYNC_FAILED, whatIsPaused,
+} from './nightly.js';
 import {
   askMayFetch, saveTheRunPass, whatKartaanLastSaid,
 } from './kartaan.js';
@@ -922,6 +924,8 @@ export async function answerThePanelsQuestion(chrome, parts, asked) {
       at: now(),
       why: 'Stopped from the panel.',
     });
+    /* Stop never tells Kartaan: nothing remembered from earlier platforms may linger or be sent later. */
+    await chrome.storage.local.remove(THE_SYNC_FAILED);
     const held = await chrome.storage.local.get(THE_WALK);
     const walk = held[THE_WALK] || null;
     await chrome.storage.local.remove(THE_WALK);
@@ -1000,7 +1004,7 @@ export async function answerThePanelsQuestion(chrome, parts, asked) {
 }
 
 /** The platforms still to run in the scheduled sync, each as its ticked reports. */
-export const THE_QUEUE = 'kartaan-autosync-scheduled-queue';
+export const THE_QUEUE = THE_SCHEDULED_QUEUE;
 /* **FLIPKART FIRST**, so its requests are made at the start of the scheduled sync --
  * Rumee's order (`D:\rumee-auto-sync\config.js:62-64`). */
 export const PLATFORM_ORDER = Object.freeze(['flipkart', 'meesho']);
@@ -1042,17 +1046,53 @@ export async function startTheNextPlatform(chrome, parts) {
     // eslint-disable-next-line no-await-in-loop
     await chrome.storage.local.set({ [THE_QUEUE]: left });
     // eslint-disable-next-line no-await-in-loop
-    const said = await startASync(chrome, parts, { reportIds, ...how, timed });
+    const said = await startASync(chrome, parts, {
+      reportIds, ...how, timed, continuing: Boolean(parts.continuing),
+    });
     if (said && said.started) return { started: reportIds, refused };
     refused.push({ reportIds, wrong: (said && said.wrong) || '' });
     /* **KARTAAN'S NO (OR NO ANSWER) STOPS THE WHOLE QUEUE.** The next platform would only ask the same question and
      * get the same answer -- and the server counts every ask against a thirty-a-day allowance. */
     if (said && said.kartaanSaid) {
       await chrome.storage.local.set({ [THE_QUEUE]: [] });
+      /* Nothing more will run, so no whole sync is left to tell about: the earlier platforms' ids are dropped. */
+      await chrome.storage.local.remove(THE_SYNC_FAILED);
       break;
     }
   }
   return { started: null, refused };
+}
+
+/**
+ * **A WHOLE SYNC THAT CANNOT CONTINUE STILL TELLS ONCE (Control's follow-up, 2026-10-12).** Called after the next
+ * platform was tried: when none started, none is waiting for a running night, and failed ids are still remembered
+ * (the later platforms were refused for a reason other than Kartaan's no, or a pause/Stop, which both clear the
+ * list), Kartaan is told with them, then the list is forgotten. Never throws, never changes any night's outcome;
+ * the answer is written onto the earlier night if it is still the stored one.
+ */
+export async function tellForASyncThatCannotContinue(chrome, next, doneNight, tell) {
+  try {
+    if (!next || next.started || next.waiting || typeof tell !== 'function') return null;
+    const held = (await chrome.storage.local.get(THE_SYNC_FAILED))[THE_SYNC_FAILED];
+    if (held === undefined) return null;
+    await chrome.storage.local.remove(THE_SYNC_FAILED);
+    const said = await tell({ failed: [...held] });
+    const toldKartaan = {
+      startedAt: doneNight && doneNight.startedAt,
+      finishedAt: doneNight && doneNight.finishedAt,
+      told: Boolean(said && said.told),
+      kind: String((said && said.kind) || 'unreachable'),
+      said: String((said && said.said)
+        || 'Kartaan could not be told this sync finished. The run still runs on its own schedule.'),
+    };
+    const now = await theNight(chrome);
+    if (now && doneNight && now.startedAt === doneNight.startedAt && now.finishedAt === doneNight.finishedAt) {
+      await chrome.storage.local.set({ [THE_NIGHT]: { ...now, toldKartaan } });
+    }
+    return toldKartaan;
+  } catch (wrong) {
+    return null;
+  }
 }
 
 /**
@@ -1111,6 +1151,9 @@ async function startASyncInTurn(chrome, parts, asked) {
      * the hourly re-check and the timed sync, so none of them can start a sync another could not. */
     const mayFetch = await askMayFetch(chrome, parts.fetch);
     if (!mayFetch.go) return { wrong: mayFetch.said, kartaanSaid: mayFetch.kind };
+    /* **A NEW WHOLE SYNC STARTS WITH NO FAILED IDS REMEMBERED** (a list left by an abandoned sync is never sent).
+     * The next platform of a sync already going (`asked.continuing`) keeps what the earlier ones left. */
+    if (!asked.continuing) await chrome.storage.local.remove(THE_SYNC_FAILED);
     /* **A FINISHED NIGHT IS FILED BEFORE A NEW ONE WRITES OVER IT**, or Stop and then Run now inside the panel's
      * poll would lose that night's Flipkart spend from the day's count. */
     if (night && night.finishedAt) await rememberTheNight(chrome, { book });

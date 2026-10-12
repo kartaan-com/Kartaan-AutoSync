@@ -1,55 +1,31 @@
 {
-  "written_by": "A76 (Sonnet 5.5 session with three builder agents)",
-  "reviewer": "Independent reviewer agent, fresh context, read-only, did not write the code",
+  "written_by": "A76 (Sonnet 5.5 session with a builder agent)",
+  "reviewer": "Second independent reviewer agent (fresh context, read-only) for the tell-once-per-sync change",
   "independent": true,
   "if_not_independent_why": "",
   "read": [
-    ".github/workflows/autosync.yml",
     "SOLVED_PROBLEMS.md",
-    "autosync/firestore.py",
-    "autosync/firestore_checks.py",
-    "autosync/firestore_door.py",
-    "autosync/firestore_door_checks.py",
-    "autosync/ledger_sheet.py",
-    "autosync/ledger_sheet_checks.py",
-    "autosync/may_fetch.py",
-    "autosync/the_other_half.py",
-    "autosync/the_other_half_checks.py",
-    "autosync/may_fetch_checks.py",
-    "autosync/nightly_checks.py",
-    "autosync/returns_sheet.py",
-    "autosync/returns_sheet_checks.py",
-    "autosync/start.py",
-    "extension/background.test.js",
-    "extension/kartaan.js",
     "extension/kartaan.test.js",
-    "extension/manifest.json",
     "extension/nightly.js",
-    "extension/panel.js",
     "extension/screen.js",
-    "extension/worker.js",
-    "pipeline-template/.github/workflows/autosync.yml",
-    "tools/work.json"
+    "extension/worker.js"
   ],
   "checked_against_decision_log": true,
-  "decisions_followed": ["D232 (extension tells the Server it is done, names failed reports, a retry is its own session and tells again)", "D235 (the pass is the Server proof; the run never trusts a repository from the address)", "D122 (no tag moved, caller tag line untouched)", "D184 (nothing is deleted; a missing sheet is refused, not rebuilt over data)"],
+  "decisions_followed": [
+    "D232 (a session ends once; the tell names failed reports)",
+    "D122 (no tag moved)"
+  ],
   "deviation": null,
   "found": [
-    "Wire format checked against the Server's tag v0.1.9 source: form field pass, failed as a comma list capped at 40, a go needs 200 and a real boolean true; 403/429/503 carrying fetch true is a refusal.",
-    "No path fetches after a no: start.main returns before any connection is opened, and the extension asks before the night is written; Stop and the sign-in pause never tell Kartaan.",
-    "The run pass appears in no log, stored record, error text or address; Server sentences are stripped of it.",
-    "Found and FIXED: the 15-minute re-check re-armed while Kartaan said no, which would spend the Server's 30 asks a day per installation and lock the seller's own run out (worker.js).",
-    "Found and FIXED: returns_sheet made a second sheet when the record could not be read and the name search found nothing; it now refuses (returns_sheet.py).",
-    "Found and FIXED: fetch could follow a redirect carrying the pass; redirect error added (kartaan.js).",
-    "Found at commit time: the check that reads the ERP repository HEAD inherited git hook pointers; taken as Control's 47de224 (drops every GIT_ variable, check pins it) rather than a second copy.",
-    "Open notes for Control, not blocking: each platform's natural end tells /finished so the first platform can start the run before the second's files land; the tell is awaited inside the night's line (up to 15 seconds); sync_ledger rows is a per-run count."
+    "Control ruling: /finished is told once per whole sync; the deferral, the union of failed ids across platforms, and the clear at a new whole sync were read against the queue shifting in startTheNextPlatform and found correct (no double tell, no tell while another platform runs).",
+    "Found and FIXED: a last queued platform refused for another reason (e.g. missing Meesho panel name) left the sync never told; a fallback tell now fires from followTheNightThrough, once, best effort.",
+    "Found and FIXED: sign-in pause and Stop left a stale failed-id list; both now clear it so they never tell (the earlier ruling).",
+    "Found and FIXED: the worker.js check for the continuing flag was too weak; it now asserts only the followTheNightThrough call carries it and a behaviour check drives the real flow.",
+    "Open notes, accepted: Kartaan no or unreachable on the last platform drops earlier ids (the daily GitHub run is the backup); the hourly re-check racing between a platform end and the next start can lose the earlier ids but still tells."
   ],
-  "security": "The run pass is a new optional repository secret passed only to the fetch step, not into the set-up gate loop. It travels only in a POST body to api.kartaan.com and is never printed or stored. The extension gets one host permission (api.kartaan.com) and stores the pass in its own local storage key, shown back only as saved or not saved. Existing repositories without a pass carry on unchecked (flagged for Control).",
+  "security": "No new data held or sent: the stored list holds report ids only, never the run pass; the send path is unchanged.",
   "could_not_be_checked": [
-    "Real Chrome behaviour (CORS, host permission, service worker lifetime during the tell) and a real answer from api.kartaan.com: only stand-ins were used, no live call was made.",
-    "The workflow YAML on GitHub itself; only nightly_checks holds it.",
-    "The returns-sheet headers were read from the ERP return-scan.js by this session at 11 columns plus 3 log columns, but that file no longer carries the lists on any ERP checkout here, so the check against it SKIPS and says so; re-run with KARTAAN_ERP_RETURN_SCAN when E87 is committed.",
-    "Real Sheets/Drive request shapes for returns_sheet and whether a trashed sheet still answers by id."
+    "worker.js wiring is pinned by text checks only; a live two-platform run is needed to see exactly one tell."
   ],
   "verify_instruction": "Reload the extension, paste the run pass from Kartaan's page in the new Kartaan run pass box, press Run now and see the sync start; with the trial ended it should say no and not start."
 }

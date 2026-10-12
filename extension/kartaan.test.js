@@ -31,11 +31,11 @@ import {
   whyThatIsNotARunPass,
 } from './kartaan.js';
 import {
-  THE_NIGHT, carryTheNightOn, endTheNight, startTheNight, theNight, theRunLog,
+  THE_SYNC_FAILED, THE_SCHEDULED_QUEUE, THE_NIGHT, carryTheNightOn, endTheNight, startTheNight, theNight, theRunLog,
 } from './nightly.js';
 import {
   THE_PANEL_ASKS, THE_QUEUE, answerThePanelsQuestion, buildThePanel, howItStands, showHowItStands,
-  startTheScheduledSync, theSyncSummary,
+  startTheNextPlatform, startTheScheduledSync, tellForASyncThatCannotContinue, theSyncSummary,
 } from './screen.js';
 
 process.on('uncaughtException', (err) => {
@@ -537,6 +537,224 @@ async function aNightThatRanToItsEnd({ makeTell }) {
     && night.toldKartaan === undefined);
 }
 
+/* ------------------ told once per WHOLE sync, not per platform (Control's ruling, 2026-10-12) */
+
+async function oneNightThatEnds({ chrome, tell, doing, failedId, at }) {
+  const walk = aWalkThat();
+  await startTheNight(chrome, { doing, mayAskFor: 0, at, openAt: OPEN_AT, dataDate: '2026-10-11' });
+  await carryTheNightOn(chrome, { ...walk, tellKartaan: tell, at });
+  walk.itFinished({ state: 'failed', reportId: failedId, say: 'the page broke', dataDate: '2026-10-11' });
+  await carryTheNightOn(chrome, { ...walk, tellKartaan: tell, at });
+  return theNight(chrome);
+}
+
+{
+  const server = aServerThat({ body: { started: true, said: 'Kartaan has started your run.' } });
+  const { chrome } = installFakeChrome();
+  await withAPass(chrome);
+  const tell = ({ failed }) => tellFinished(chrome, server.fetch, { failed });
+  /* Platform one ends while platform two is still queued. */
+  await chrome.storage.local.set({ [THE_SCHEDULED_QUEUE]: [['fk_returns']] });
+  const first = await oneNightThatEnds({ chrome, tell, doing: ['fk_claims'], failedId: 'fk_claims', at: NOW });
+  check('tell deferred while another platform is queued: the server is not called at that night\'s end',
+    first.finishedAt !== null && server.calls.length === 0);
+  check('and that night says in plain words that Kartaan is told when the whole sync is done',
+    first.toldKartaan.told === false && first.toldKartaan.kind === 'waiting'
+    && first.toldKartaan.said === 'Kartaan is told when the whole sync is done.'
+    && first.toldKartaan.finishedAt === first.finishedAt && first.why.includes('fk_claims'));
+  check('its failed ids are remembered as a list under their own key, never the pass',
+    JSON.stringify((await chrome.storage.local.get(THE_SYNC_FAILED))[THE_SYNC_FAILED]) === '["fk_claims"]');
+  check('the run log and the finished notice print the waiting words readably',
+    theRunLog(first).text.includes('Told Kartaan: Kartaan is told when the whole sync is done.')
+    && theSyncSummary(first).message.includes('Kartaan is told when the whole sync is done.'));
+  /* The queue is emptied as the last platform starts; its night ends. */
+  await chrome.storage.local.set({ [THE_SCHEDULED_QUEUE]: [] });
+  const last = await oneNightThatEnds({ chrome, tell, doing: ['fk_returns'], failedId: 'fk_returns', at: NOW + 5000 });
+  const sent = server.calls.length === 1 ? formOf(server.calls[0]) : {};
+  check('one tell at the end of the whole sync, carrying the union of every platform\'s failed ids',
+    server.calls.length === 1 && server.calls[0].address === FINISHED_ADDRESS
+    && (sent.failed || '').split(',').sort().join() === 'fk_claims,fk_returns' && last.toldKartaan.told === true);
+  check('and the remembered list is cleared after the tell',
+    (await chrome.storage.local.get(THE_SYNC_FAILED))[THE_SYNC_FAILED] === undefined);
+}
+
+{
+  const server = aServerThat({ body: { started: true, said: 'ok' } });
+  const { chrome } = installFakeChrome();
+  await withAPass(chrome);
+  const tell = ({ failed }) => tellFinished(chrome, server.fetch, { failed });
+  const night = await oneNightThatEnds({ chrome, tell, doing: ['fk_claims'], failedId: 'fk_claims', at: NOW });
+  check('a single-platform sync (nothing queued) still tells at its natural end, as before',
+    server.calls.length === 1 && night.toldKartaan.told === true);
+}
+
+{
+  const { chrome } = installFakeChrome();
+  await withAPass(chrome);
+  await chrome.storage.local.set({ [THE_SCHEDULED_QUEUE]: [['fk_returns']] });
+  let called = 0;
+  const tell = () => { called++; throw new Error('boom'); };
+  const night = await oneNightThatEnds({ chrome, tell, doing: ['fk_claims'], failedId: 'fk_claims', at: NOW });
+  check('a deferred night never calls the tell at all, so nothing it does can change how the night went',
+    called === 0 && night.finishedAt !== null && night.toldKartaan.kind === 'waiting');
+  await chrome.storage.local.set({ [THE_SCHEDULED_QUEUE]: [] });
+  const ending = await oneNightThatEnds({ chrome, tell, doing: ['fk_returns'], failedId: 'fk_returns', at: NOW + 9 });
+  check('a throwing tell at the whole sync\'s end still leaves the night finished, with words, and the list cleared',
+    ending.finishedAt !== null && ending.toldKartaan.told === false && ending.toldKartaan.said.includes('could not be told')
+    && (await chrome.storage.local.get(THE_SYNC_FAILED))[THE_SYNC_FAILED] === undefined);
+}
+
+{
+  /* A sync already going (the next platform) keeps what the earlier ones left. */
+  const server = aServerThat({ body: { fetch: true, said: 'yes' } });
+  const { chrome, parts } = await aSetUpPanel({ fetch: server.fetch });
+  await withAPass(chrome);
+  await chrome.storage.local.set({ [THE_SYNC_FAILED]: ['left_by_platform_one'] });
+  const kept = await startTheScheduledSync(chrome, { ...parts, continuing: true });
+  check('the next platform of a sync already going keeps what the earlier ones left',
+    Boolean(kept.started) && (await chrome.storage.local.get(THE_SYNC_FAILED))[THE_SYNC_FAILED].join() === 'left_by_platform_one');
+}
+
+{
+  const server = aServerThat({ body: { fetch: true, said: 'yes' } });
+  const { chrome, parts } = await aSetUpPanel({ fetch: server.fetch });
+  await withAPass(chrome);
+  await chrome.storage.local.set({ [THE_SYNC_FAILED]: ['stale_one'] });
+  const refused = await answerThePanelsQuestion(chrome, parts, { do: 'resume' });
+  check('a start that is refused (nothing paused) leaves the remembered list alone',
+    Boolean(refused.wrong) && (await chrome.storage.local.get(THE_SYNC_FAILED))[THE_SYNC_FAILED].join() === 'stale_one');
+  const said = await answerThePanelsQuestion(chrome, parts, { do: 'run-now', reportIds: ['fk_claims'] });
+  check('accumulator cleared at a new whole sync: Run now starts with nothing remembered',
+    Boolean(said.started) && (await chrome.storage.local.get(THE_SYNC_FAILED))[THE_SYNC_FAILED] === undefined);
+}
+
+{
+  const server = aServerThat({ status: 403, body: { fetch: false, said: 'Not on your plan.' } });
+  const { chrome, parts } = await aSetUpPanel({ fetch: server.fetch });
+  await withAPass(chrome);
+  await chrome.storage.local.set({ [THE_SYNC_FAILED]: ['left_by_platform_one'] });
+  await startTheScheduledSync(chrome, { ...parts, continuing: true });
+  check('Kartaan\'s no empties the queue and drops the remembered list: no half-done whole sync is ever told',
+    ((await chrome.storage.local.get(THE_QUEUE))[THE_QUEUE] || []).length === 0
+    && (await chrome.storage.local.get(THE_SYNC_FAILED))[THE_SYNC_FAILED] === undefined);
+}
+
+{
+  /* The real flow: platform one ends deferred, the next start is refused, the stalled whole sync tells ONCE. */
+  const server = aServerThat({ body: { started: true, said: 'Kartaan has started your run.' } });
+  const { chrome } = installFakeChrome();
+  await withAPass(chrome);
+  const tell = ({ failed }) => tellFinished(chrome, server.fetch, { failed });
+  await chrome.storage.local.set({ [THE_SCHEDULED_QUEUE]: [{ reportIds: ['me_orders'] }] });
+  const first = await oneNightThatEnds({ chrome, tell, doing: ['fk_claims'], failedId: 'fk_claims', at: NOW });
+  const told = () => server.calls.filter((one) => one.address === FINISHED_ADDRESS);
+  const next = await startTheNextPlatform(chrome, {
+    book: BOOK, startTheNight, carryOn: async () => {}, fetch: server.fetch, continuing: true,
+  });
+  check('the second platform start is refused (nothing started, not waiting) and nothing is told yet',
+    next.started === null && !next.waiting && next.refused.length === 1 && told().length === 0);
+  const answer = await tellForASyncThatCannotContinue(chrome, next, first, tell);
+  check('then exactly ONE tell goes out, with the first platform\'s ids, and the list is forgotten',
+    told().length === 1 && formOf(told()[0]).failed === 'fk_claims' && answer.told === true
+    && (await chrome.storage.local.get(THE_SYNC_FAILED))[THE_SYNC_FAILED] === undefined);
+  check('and the answer replaces "waiting" on the earlier night',
+    (await theNight(chrome)).toldKartaan.told === true);
+  await tellForASyncThatCannotContinue(chrome, next, first, tell);
+  check('asked again, it does not tell a second time', told().length === 1);
+  const empty = await tellForASyncThatCannotContinue(chrome, { started: null, waiting: true, refused: [] }, first, tell);
+  check('a next platform that started, or is waiting for a running night, tells nothing', empty === null && told().length === 1);
+}
+
+{
+  const { chrome } = installFakeChrome();
+  await chrome.storage.local.set({ [THE_SYNC_FAILED]: [] });
+  let called = 0;
+  const night = await startTheNight(chrome, { doing: ['fk_claims'], mayAskFor: 0, at: NOW, openAt: OPEN_AT, dataDate: '2026-10-11' });
+  const answered = await tellForASyncThatCannotContinue(chrome, { started: null, refused: [] }, night,
+    () => { called++; throw new Error('boom'); });
+  check('an empty remembered list still counts as a sync to tell about; a throwing tell is swallowed and the list forgotten',
+    called === 1 && answered === null && (await chrome.storage.local.get(THE_SYNC_FAILED))[THE_SYNC_FAILED] === undefined);
+  const none = await tellForASyncThatCannotContinue(chrome, { started: null, refused: [] }, night, () => { called++; });
+  check('with no list at all (Kartaan\'s no, a pause, Stop, or a natural end) nothing is told', none === null && called === 1);
+}
+
+{
+  /* Sign-in pause and Stop forget the list, so the fallback cannot send after them. */
+  const server = aServerThat({ body: { started: true, said: 'x' } });
+  const installed = installFakeChrome();
+  await withAPass(installed.chrome);
+  const walk = aWalkThat();
+  const tell = ({ failed }) => tellFinished(installed.chrome, server.fetch, { failed });
+  await installed.chrome.storage.local.set({ [THE_SYNC_FAILED]: ['fk_returns'] });
+  await startTheNight(installed.chrome, {
+    doing: ['fk_claims', 'fk_returns'], mayAskFor: 0, at: NOW, openAt: OPEN_AT, dataDate: '2026-10-11',
+  });
+  await carryTheNightOn(installed.chrome, { ...walk, tellKartaan: tell, at: NOW });
+  walk.itFinished({ state: 'failed', reportId: 'fk_claims', say: 'sign in', needsSigningIn: true, dataDate: '2026-10-11' });
+  await carryTheNightOn(installed.chrome, { ...walk, tellKartaan: tell, at: NOW + 1 });
+  const paused = await theNight(installed.chrome);
+  const after = await tellForASyncThatCannotContinue(installed.chrome, { started: null, refused: [] }, paused, tell);
+  check('after a sign-in pause the remembered list is gone and nothing is told, even by the fallback',
+    (await installed.chrome.storage.local.get(THE_SYNC_FAILED))[THE_SYNC_FAILED] === undefined
+    && after === null && server.calls.length === 0);
+}
+
+{
+  const server = aServerThat({ body: { started: true, said: 'x' } });
+  const { chrome, parts } = await aSetUpPanel({ fetch: server.fetch });
+  await withAPass(chrome);
+  await startTheNight(chrome, {
+    doing: ['fk_claims'], mayAskFor: 0, at: NOW, openAt: OPEN_AT, dataDate: '2026-10-11',
+  });
+  server.calls.length = 0;
+  await chrome.storage.local.set({ [THE_SYNC_FAILED]: ['fk_returns'] });
+  await answerThePanelsQuestion(chrome, parts, { do: 'stop' });
+  const stopped = await theNight(chrome);
+  const after = await tellForASyncThatCannotContinue(chrome, { started: null, refused: [] }, stopped,
+    ({ failed }) => tellFinished(chrome, server.fetch, { failed }));
+  check('after Stop the remembered list is gone and nothing is told, even by the fallback',
+    (await chrome.storage.local.get(THE_SYNC_FAILED))[THE_SYNC_FAILED] === undefined
+    && after === null && server.calls.length === 0);
+}
+
+{
+  const NIGHTLY = readFileSync(new URL('nightly.js', HERE), 'utf8');
+  const SCREEN = readFileSync(new URL('screen.js', HERE), 'utf8').replace(/\r\n/g, '\n');
+  check('the two keys are spelt once (nightly.js) and screen.js\'s queue is the very same key',
+    THE_QUEUE === THE_SCHEDULED_QUEUE && THE_SYNC_FAILED === 'kartaan-autosync-sync-failed');
+  const defers = (t) => /if \(queued\) \{[\s\S]*?kind: 'waiting'[\s\S]*?return written;/.test(t);
+  check('nightly.js defers the tell while a platform is queued', defers(NIGHTLY));
+  check('PROOF: with the deferral removed from nightly.js that check goes red',
+    !defers(NIGHTLY.replace('if (queued) {', 'if (false) {')));
+  const unions = (t) => t.includes('const ids = [...new Set([...before, ...thisNights])]');
+  check('nightly.js tells with the earlier platforms\' ids joined to this night\'s', unions(NIGHTLY));
+  check('PROOF: with the union removed from nightly.js that check goes red',
+    !unions(NIGHTLY.replace('const ids = [...new Set([...before, ...thisNights])]', 'const ids = [...new Set([...thisNights])]')));
+  const clearsAtStart = (t) => t.includes('if (!asked.continuing) await chrome.storage.local.remove(THE_SYNC_FAILED)')
+    && t.includes('timed, continuing: Boolean(parts.continuing)');
+  check('screen.js clears the list when a whole sync starts, but not for the next platform of one', clearsAtStart(SCREEN));
+  check('PROOF: with the clearing removed from screen.js that check goes red',
+    !clearsAtStart(SCREEN.replace('if (!asked.continuing) await', 'if (false) await')));
+  const block = (t) => t.slice(t.indexOf('const followTheNightThrough'), t.indexOf('const theNightsParts'));
+  const outside = (t) => t.slice(0, t.indexOf('const followTheNightThrough')) + t.slice(t.indexOf('const theNightsParts'));
+  const marks = (t) => block(t).includes('fetch: kartaanFetch, continuing: true,') && !outside(t).includes('continuing');
+  check('worker.js: exactly the followTheNightThrough call is marked continuing; onDue, onRecheck, run-now and resume are not',
+    marks(WORKER));
+  check('PROOF: with the mark removed, or put on another starter, that check goes red',
+    !marks(WORKER.replace('continuing: true', ''))
+    && !marks(WORKER.replace('fetch: kartaanFetch }, plan)', 'fetch: kartaanFetch, continuing: true }, plan)')));
+  const falls = (t) => block(t).includes('tellForASyncThatCannotContinue(chrome, next, doneNight');
+  check('worker.js tells for a whole sync that cannot continue, right after trying the next platform', falls(WORKER));
+  check('PROOF: with that call removed from worker.js that check goes red',
+    !falls(WORKER.replace('tellForASyncThatCannotContinue(chrome, next, doneNight', 'noop(chrome, next, doneNight')));
+  const pauseClears = (t) => /A sign-in pause never tells[\s\S]{0,200}remove\(THE_SYNC_FAILED\)/.test(t);
+  const stopClears = (t) => /Stop never tells[\s\S]{0,200}remove\(THE_SYNC_FAILED\)/.test(t);
+  check('the sign-in pause and Stop both forget the remembered list', pauseClears(NIGHTLY) && stopClears(SCREEN));
+  check('PROOF: with either clearing removed that check goes red',
+    !pauseClears(NIGHTLY.replace('remove(THE_SYNC_FAILED)', 'remove(NOTHING)'))
+    && !stopClears(SCREEN.replace('remove(THE_SYNC_FAILED)', 'remove(NOTHING)')));
+}
+
 /* ---------------------------------------- the pass is never shown (the page) */
 
 {
@@ -610,7 +828,7 @@ check('kartaan.js opens no connection of its own: it is handed one',
     !recheck(WORKER.replace('if (!said.kartaanSaid) await', 'await')));
 }
 
-const EXPECTED = 86;
+const EXPECTED = 121;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

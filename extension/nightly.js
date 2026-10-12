@@ -1082,6 +1082,8 @@ async function carryItOn(chrome, {
        * 1015-1034`). Rumee drops the report that met the sign-in; it never ran, so
        * here it is kept first. */
       const stopped = walk.answer.reportId || walk.reportId;
+      /* A sign-in pause never tells Kartaan: nothing remembered from earlier platforms may linger or be sent. */
+      await chrome.storage.local.remove(THE_SYNC_FAILED);
       const after = await theNight(chrome);
       await chrome.storage.local.set({
         [PAUSED]: {
@@ -1100,6 +1102,11 @@ async function carryItOn(chrome, {
 
   return startTheNextOne(chrome, { startAWalk, at, tellKartaan });
 }
+
+/** The platforms still queued for the scheduled sync (also exported by screen.js as THE_QUEUE). */
+export const THE_SCHEDULED_QUEUE = 'kartaan-autosync-scheduled-queue';
+/** Failed and needs-you report ids of the finished platforms of a whole sync still going: a list, never the pass. */
+export const THE_SYNC_FAILED = 'kartaan-autosync-sync-failed';
 
 /**
  * Tell Kartaan this night has reached its end -- once, and without ever changing how the night went.
@@ -1120,13 +1127,42 @@ async function tellThatItEnded(chrome, ended, tell) {
   const mine = (one) => one && one.startedAt === ended.startedAt && one.finishedAt === ended.finishedAt;
   if (ended.toldKartaan && ended.toldKartaan.finishedAt === ended.finishedAt) return ended;
   const { needsHim, failed } = theNightsCounts(ended);
-  const ids = [...new Set([...failed, ...needsHim].map((one) => one.reportId))];
+  const thisNights = [...failed, ...needsHim].map((one) => one.reportId);
+  /* **TOLD ONCE PER WHOLE SYNC, NOT PER PLATFORM (Control's ruling, 2026-10-12).** While another platform of the
+   * same sync is still queued, this night only remembers its failed and needs-you ids and says it is waiting. The
+   * end with nothing queued tells once, with every platform's ids, then forgets them. Never the run pass. */
+  const queued = ((await chrome.storage.local.get(THE_SCHEDULED_QUEUE))[THE_SCHEDULED_QUEUE] || []).length > 0;
+  const before = (await chrome.storage.local.get(THE_SYNC_FAILED))[THE_SYNC_FAILED] || [];
+  if (queued) {
+    await chrome.storage.local.set({ [THE_SYNC_FAILED]: [...new Set([...before, ...thisNights])] });
+    const waiting = {
+      startedAt: ended.startedAt,
+      finishedAt: ended.finishedAt,
+      told: false,
+      kind: 'waiting',
+      said: 'Kartaan is told when the whole sync is done.',
+    };
+    try {
+      const now = await theNight(chrome);
+      if (!mine(now)) return ended;
+      const written = { ...now, toldKartaan: waiting };
+      await chrome.storage.local.set({ [THE_NIGHT]: written });
+      return written;
+    } catch (wrong) {
+      return ended;
+    }
+  }
+  const ids = [...new Set([...before, ...thisNights])];
   let said;
   try {
     said = await tell({ failed: ids });
   } catch (wrong) {
     said = null;
   }
+  /* The list has been used (or the tell has failed): either way the next whole sync starts from nothing. */
+  try {
+    await chrome.storage.local.remove(THE_SYNC_FAILED);
+  } catch (wrong) { /* words on the night only */ }
   const toldKartaan = {
     startedAt: ended.startedAt,
     finishedAt: ended.finishedAt,

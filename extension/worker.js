@@ -29,7 +29,8 @@ import { tellFinished } from './kartaan.js';
 import { aFreshInstallId, theLinesFor, theRecordNameFor } from './record.js';
 import {
   THE_PANEL_ASKS, alreadyCarriedOn, answerThePanelsQuestion, markCarriedOn, releaseCarriedOn, rememberTheNight,
-  startASync, startTheNextPlatform, startTheScheduledSync, theSetup, theSignInAlert, theSyncSummary,
+  startASync, startTheNextPlatform, startTheScheduledSync, tellForASyncThatCannotContinue, theSetup,
+  theSignInAlert, theSyncSummary,
 } from './screen.js';
 
 /* **THE ONE WAY THIS EXTENSION REACHES KARTAAN'S SERVER**, handed to everything that asks it something. `kartaan.js`
@@ -164,11 +165,14 @@ const followTheNightThrough = async (doneNight) => {
      * server's "I am done" call belongs at this point and is A51's (Control's
      * ruling); it is not built in this session. */
     const next = await startTheNextPlatform(chrome, {
-      book: await theBook(), startTheNight, carryOn, fetch: kartaanFetch,
+      book: await theBook(), startTheNight, carryOn, fetch: kartaanFetch, continuing: true,
     });
     if (next.refused.length) {
       console.warn('Kartaan Auto-sync: part of the scheduled sync could not start.', next.refused);
     }
+    /* **THE WHOLE SYNC STOPPED SHORT: THE LAST NIGHT THAT RAN WAS NOT THE LAST ONE PLANNED.** Told once, here. */
+    await tellForASyncThatCannotContinue(chrome, next, doneNight,
+      ({ failed }) => tellFinished(chrome, kartaanFetch, { failed }));
   }
 };
 
