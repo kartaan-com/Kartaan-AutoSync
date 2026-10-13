@@ -180,16 +180,30 @@ check("the same listings read from an .xlsx come out the same", as_xlsx is not N
 # ---------------------------------------------------------------- Amazon: tab-separated text, from his real file's columns
 
 az = answered(lambda: tool.read_listings(tool.AMAZON, table.read(AZ, header_row=1), "the Amazon file"))
-check("an Amazon file is read, with the ASIN as the key", az is not None and list(az.records) == ["amazon::B0G5QH9F2V", "amazon::B0AAAAAAAA"])
-one = az.records["amazon::B0G5QH9F2V"] if az else {}
+check("an Amazon file is read, with the ASIN and the seller SKU as the key (D326)",
+      az is not None and list(az.records) == ["amazon::B0G5QH9F2V::SKU-1", "amazon::B0AAAAAAAA::SKU-2"])
+one = az.records["amazon::B0G5QH9F2V::SKU-1"] if az else {}
 check("price is the selling price, the maximum retail price is the MRP, quantity is the stock, and Amazon's own listing id is carried",
       (one.get("sellingPrice"), one.get("mrp"), one.get("stock"), one.get("listingId"), one.get("settlement"))
       == (399, 1199, 200, "0902HY3BXDT", None) and one.get("sku") == "SKU-1")
 check("it is live because the report lists active listings only, and the buyer's page is the ASIN's",
       one.get("state") == "live" and one.get("buyerLink") == "https://www.amazon.in/dp/B0G5QH9F2V")
-check("an ASIN listed twice says so on the second row and is not dropped silently",
+check("an ASIN with the same SKU listed twice says so on the second row and is not dropped silently",
       "already uses the same id" in (answered(lambda: tool.read_listings(
-          tool.AMAZON, table.read(tsv(AZ_HEAD, az_row("S1", "B0DUP00000"), az_row("S2", "B0DUP00000")), header_row=1), "x").not_read[0]) or ""))
+          tool.AMAZON, table.read(tsv(AZ_HEAD, az_row("S1", "B0DUP00000"), az_row("S1", "B0DUP00000")), header_row=1), "x").not_read[0]) or ""))
+two_offers = answered(lambda: tool.read_listings(
+    tool.AMAZON, table.read(tsv(AZ_HEAD, az_row("S1", "B0DUP00000", price="399", quantity="5"), az_row("S2", "B0DUP00000", price="299", quantity="9")),
+                            header_row=1), "x"))
+check("two offers of one ASIN are two listings, each with its own price and stock, and neither is dropped",
+      two_offers is not None and not two_offers.not_read
+      and [(r["sku"], r["sellingPrice"], r["stock"]) for r in two_offers.records.values()] == [("S1", 399, 5), ("S2", 299, 9)]
+      and list(two_offers.records) == ["amazon::B0DUP00000::S1", "amazon::B0DUP00000::S2"])
+check("and both offers' buyer's page is the ASIN's alone",
+      two_offers is not None and {r["buyerLink"] for r in two_offers.records.values()} == {"https://www.amazon.in/dp/B0DUP00000"})
+check("an Amazon row with no seller SKU is not read, because it would have no key (D326)",
+      "not carry" in (answered(lambda: tool.read_listings(
+          tool.AMAZON, table.read(tsv(AZ_HEAD, az_row("", "B0NOSKU000")), header_row=1), "x").not_read[0]) or ""))
+
 
 # ---------------------------------------------------------------- a row that cannot be read says which line and why, and the rest are read
 
@@ -456,7 +470,7 @@ check("every report is still read or says why it is not", reading.why_a_report_h
       and not ({"fk_listings", "me_catalog"} & set(reading.WHAT_IS_FETCHED_AND_NOT_READ_YET)))
 
 check("nothing above ended by throwing rather than by answering -- " + str(THREW), not THREW)
-EXPECTED = 70
+EXPECTED = 73
 check(f"checks went missing -- {ran + 1} ran, {EXPECTED} expected", ran + 1 == EXPECTED)
 
 if failures:

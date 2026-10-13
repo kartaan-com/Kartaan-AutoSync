@@ -124,3 +124,4 @@ the file where it happened. A reviewer finding something already on this list is
 - Compare a sender's scheme and host, never `URL.origin`: a `blob:` address's origin is the page that made it, so an origin test lets it through. -- `extension/background.js` `answerAnExternalAsk`
 - A field added to a screen record must be read by the screen; one only a check reads is dead. -- `extension/screen.js` Amazon platform entry
 - Edit CRLF files through `newline=''`; a default Python text write flipped a whole check file's line endings and buried a 24-line change in a 3,300-line diff. -- `extension/screen.test.js`
+- Two offers of one Amazon ASIN are two listings, keyed `ASIN::seller-sku`; keyed by the ASIN alone the second offer was refused as a repeat and its price and stock lost (D326). -- `autosync/listings.py` `AMAZON` (PROOF in `autosync/listings_checks.py`)

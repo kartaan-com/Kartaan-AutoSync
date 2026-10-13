@@ -96,8 +96,10 @@ MEESHO = Shape(
 # **AMAZON'S, FROM HIS REAL FILE -- `Active Listings Report`, read 2026-10-05, 88 listings.** Tab-separated text with 48 columns and no help
 # row. In it `listing-id`, `seller-sku` and `asin1` are each filled and distinct on all 88 rows; `asin2`, `asin3` and `add-delete` are empty,
 # `fulfillment-channel` is `DEFAULT` on all of them. **THE KEY IS THE ASIN** (`asin1`): it is what Amazon's orders carry and what the buyer's
-# page is built from (`amazon.in/dp/<ASIN>`); Amazon's own `listing-id` is carried beside it, as Flipkart's is. A report that lists one ASIN twice
-# (two offers of it) says so on the second row instead of dropping it silently. The report lists active listings only, so a row being in it
+# page is built from (`amazon.in/dp/<ASIN>`); Amazon's own `listing-id` is carried beside it, as Flipkart's is. **D326 (his ruling, 13 Oct): THE
+# RECORD'S KEY IS `ASIN::seller-sku`** (`seller-sku` is the `keyAlso` column, as Meesho's variation id is), so two offers of one ASIN each keep their
+# own price and stock; only the buyer's page is built from the ASIN alone. A report that lists one ASIN with one SKU twice says so on the second
+# row instead of dropping it silently. The report lists active listings only, so a row being in it
 # is what says the listing is live -- as for Meesho. **`maximum-retail-price` and `price` are the MRP and the selling price; Amazon's file has
 # no settlement figure.** Not in the ERP's `LISTING_FILES` yet -- that entry is the ERP's to add; this one is the run's until then.
 AMAZON = Shape(
@@ -109,6 +111,7 @@ AMAZON = Shape(
         "sku": "seller-sku",
         "productName": "item-name",
         "key": "asin1",
+        "keyAlso": "seller-sku",
         "listingId": "listing-id",
         "stock": "quantity",
         "mrp": "maximum-retail-price",
