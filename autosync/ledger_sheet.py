@@ -440,9 +440,48 @@ def the_ledger(
     return door, which
 
 
+class WhatWasWritten:
+    """What this run has written into the seller's ledger, and the one record that says so (plan job 78).
+
+    **THE ERP'S READER (JOB 76) NEEDS TO KNOW WHERE THE LEDGER IS AND HOW FRESH IT IS**, and the run is the only thing that
+    knows. So every time the ledger is really written -- `door.carry_out` came back, with at least one row added or
+    changed -- the running total is handed to `write_record(sheet_id, wrote_at, rows)` and ONE record is replaced whole.
+    Written after each write rather than once at the end, so a run that dies half way still leaves the record true of
+    what it did.
+
+    **A REFUSED OR EMPTY WRITE IS NOT COUNTED.** A file that changed nothing, and one that threw before `carry_out`
+    returned, leave the record exactly as it was: it says when the ledger was last WRITTEN, not when it was last looked at.
+
+    **AND A RECORD THAT CANNOT BE WRITTEN IS SAID AND NEVER RAISED.** The sales are already in the sheet; losing the
+    pointer to them must not make the file unread or stop the night.
+    """
+
+    def __init__(self, now: Callable, write_record: Callable[..., None], say: Optional[Callable[[str], None]] = None):
+        self._now = now
+        self._write_record = write_record
+        self._say = say if callable(say) else (lambda line: None)
+        self.sheet_id = ""
+        self.rows = 0
+
+    def wrote(self, added: int, changed: int) -> None:
+        """The ledger was written: `added` rows new and `changed` rows altered. Nothing is counted for a write of nothing."""
+        wrote = int(added) + int(changed)
+        if wrote <= 0:
+            return
+        self.rows += wrote
+        try:
+            self._write_record(self.sheet_id, self._now(), self.rows)
+        except Exception as wrong:  # noqa: BLE001 - said in words, never raised: the sales are already written
+            self._say(
+                f"SALES LEDGER RECORD NOT WRITTEN  the sales are in the sheet, but the record of where it is and when it "
+                f"was last written could not be saved ({type(wrong).__name__}: {wrong})"[:600]
+            )
+
+
 def recording_into(
     door: LedgerDoor,
     say: Optional[Callable[[str], None]] = None,
+    tally: Optional[WhatWasWritten] = None,
 ) -> Callable[[Sequence[ledger.Reading]], None]:
     """What `reading.read_what_is_new` has always taken and has never been given.
 
@@ -485,6 +524,9 @@ def recording_into(
         what = ledger.plan(rows, list(readings or ()), so_far)
         did = door.carry_out(what)
         speak(f"Sales ledger: {did['added']} added, {did['changed']} changed.")
+        # **COUNTED ONLY NOW, BECAUSE `carry_out` RETURNED:** a write that threw above never reaches this line.
+        if tally is not None:
+            tally.wrote(did["added"], did["changed"])
         # **REPORTED, NEVER SWALLOWED.** A disagreement is two equally current
         # files claiming one column, and D150 says keep what is already there and
         # SAY SO. A row the sheet holds twice is reported the same way and left
@@ -696,6 +738,7 @@ def the_writing_half(
     say: Optional[Callable[[str], None]] = None,
     ask: Optional[Callable] = None,
     inside: Optional[str] = None,
+    tally: Optional[WhatWasWritten] = None,
 ) -> Tuple[Optional[Callable], str]:
     """The one place a sale lands, and why there is none when there is none.
 
@@ -742,7 +785,9 @@ def the_writing_half(
         door, which = the_ledger(transport, remembered=so_far.ledger_sheet, say=speak, ask=ask, inside=inside)
         if which != so_far.ledger_sheet:
             save_state(between_runs.write(between_runs.with_the_ledger(so_far, which)))
-        return recording_into(door, speak), ""
+        if tally is not None:
+            tally.sheet_id = which
+        return recording_into(door, speak, tally), ""
     except Exception as wrong:  # noqa: BLE001 - handed back in words, never swallowed
         return None, str(wrong)
 

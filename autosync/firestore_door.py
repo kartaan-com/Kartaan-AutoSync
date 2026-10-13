@@ -35,9 +35,13 @@ from firestore import (
     CHECK_KEPT_DAYS,
     DATABASE,
     LOG,
+    RETURNS_SHEET,
     RUNS,
+    SYNC_LEDGER,
     a_board_row,
     a_check_row,
+    a_ledger_record,
+    a_returns_sheet_record,
     a_log_line,
     a_run,
     in_calls,
@@ -203,6 +207,54 @@ def a_run_sink(transport, project: str) -> Callable[..., None]:
         write_them(transport, project, [one_write(project, RUNS, named, record)], "writing the run down")
 
     return sink
+
+
+def a_ledger_sink(transport, project: str) -> Callable[..., None]:
+    """Where the sales ledger is and when it was last written, into the one record the ERP reads (plan jobs 78 and 76).
+
+    **REPLACED WHOLE, EVERY TIME IT IS WRITTEN** -- `one_write` sends no mask, so a field dropped here cannot linger.
+    A refusal is thrown like every other write; it is `ledger_sheet.WhatWasWritten` that says a failure here and never
+    lets it stop the run.
+    """
+
+    def sink(sheet_id: str, wrote_at, rows: int) -> None:
+        named, record = a_ledger_record(sheet_id, wrote_at, rows)
+        write_them(transport, project, [one_write(project, SYNC_LEDGER, named, record)], "writing where the sales ledger is")
+
+    return sink
+
+
+def a_returns_sheet_sink(transport, project: str) -> Callable[..., None]:
+    """Where the returns sheet is, into the one record the ERP reads (job 77 / piece 34): `returns_sheet/sheet`, replaced whole.
+
+    **WRITTEN ONLY WHEN `returns_sheet.py` DECIDES IT MUST BE** (the sheet was just made, or the record is missing or names a
+    different sheet). A refusal is thrown like every other write; `returns_sheet` says it and never lets it stop the run.
+    """
+
+    def sink(sheet_id: str, created_at) -> None:
+        named, record = a_returns_sheet_record(sheet_id, created_at)
+        write_them(transport, project, [one_write(project, RETURNS_SHEET, named, record)], "writing where the returns sheet is")
+
+    return sink
+
+
+def a_returns_sheet_held(transport, project: str) -> Callable[[], Optional[str]]:
+    """The sheet id the returns record already holds, or None when there is no record (a 404 is an answer, as for the hour).
+
+    **EVERYTHING ELSE IS THROWN**, so a database that would not answer is never read as "no record" -- that reading would
+    make the run write a fresh `createdAt` over a true one.
+    """
+
+    def held() -> Optional[str]:
+        where = ONE_DOCUMENT.format(api=API, name=firestore.where_a_document_lives(project, RETURNS_SHEET, firestore.THE_RETURNS_RECORD))
+        reply = transport.get(where)
+        if getattr(reply, "status", 0) == 404:
+            return None
+        got = _answered(reply, "asking where the returns sheet is")
+        found = firestore.plain((got.json() or {}).get("fields")).get("sheetId")
+        return str(found).strip() if isinstance(found, str) and found.strip() else None
+
+    return held
 
 
 # ------------------------------------------------------------------- reading

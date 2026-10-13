@@ -288,7 +288,7 @@ check("a breakdown is written whole, rows as a list of maps",
       det_write is not None and det_write["update"]["name"].endswith("/platform_ads_detail/flipkart__2026-10-11__placements")
       and len(det_write["update"]["fields"]["rows"]["arrayValue"]["values"]) == 2)
 check("the three new collections are the only ones added to what the run may write",
-      set(firestore.WHAT_IT_MAY_WRITE) - {"sync_log", "sync_board", "sync_runs", "listing_views", "listings_seen", "sync_check"} ==
+      set(firestore.WHAT_IT_MAY_WRITE) - {"sync_log", "sync_board", "sync_runs", "listing_views", "listings_seen", "sync_check", "sync_ledger", "returns_sheet"} ==
       {"platform_returns", "platform_ads_days", "platform_ads_detail"})
 check("a collection the run may not write is still refused", refused(lambda: firestore.where_a_document_lives("p", "orders", "x"), firestore.Refused))
 

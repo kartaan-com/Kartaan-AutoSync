@@ -46,6 +46,17 @@ def answered(work):
         return None
 
 
+def _refused(work):
+    """True when the work was refused by this job's own `Refused`, and by nothing else."""
+    try:
+        work()
+    except tool.Refused:
+        return True
+    except Exception:  # noqa: BLE001
+        return False
+    return False
+
+
 def _why(work, *args):
     """The words a refusal came with, so a check can ask what it SAID.
 
@@ -119,10 +130,10 @@ check("and it is written in the same base", "held.toString(36)" in THE_PAGES_OWN
 
 # ------------------------------------- what it may write, and what it may not
 
-check("there are exactly nine things it may write", len(tool.WHAT_IT_MAY_WRITE) == 9)
-check("and they are the three D114 named, how each listing is doing (job 86 part A), the listings a listing file names (job 41), the cross-check (job 19), and the returns and ads (A78)",
+check("there are exactly eleven things it may write", len(tool.WHAT_IT_MAY_WRITE) == 11)
+check("and they are the three D114 named, how each listing is doing (job 86 part A), the listings a listing file names (job 41), the cross-check (job 19), the returns and ads (A78), and where the sales ledger and the returns sheet are (plan jobs 78, 77)",
       set(tool.WHAT_IT_MAY_WRITE) == {tool.LOG, tool.BOARD, tool.RUNS, tool.LISTING_VIEWS, tool.LISTINGS_SEEN, tool.CHECK,
-                                      tool.RETURNS, tool.ADS_DAYS, tool.ADS_DETAIL})
+                                      tool.RETURNS, tool.ADS_DAYS, tool.ADS_DETAIL, tool.SYNC_LEDGER, tool.RETURNS_SHEET})
 
 check("the run log can be written",
       answered(lambda: tool.where_a_document_lives(PROJECT, tool.LOG, "r1"))
@@ -454,6 +465,26 @@ check("the field it reads is the one the page writes", tool.THE_HOUR_FIELD == "f
 check("and it is read off the business record the rules name",
       (tool.BUSINESSES, tool.THE_BUSINESS) == ("businesses", "business"))
 
+
+# ------------------------------------- plan job 78: the one record that says where the sales ledger is
+
+named_ledger, held_ledger = tool.a_ledger_record("sheet-9", datetime(2026, 10, 12, 4, 30, 0), 7)
+check("the ledger record is one fixed name in a collection called sync_ledger",
+      tool.SYNC_LEDGER == "sync_ledger"
+      and tool.where_a_document_lives(PROJECT, tool.SYNC_LEDGER, named_ledger)
+      == f"projects/{PROJECT}/databases/(default)/documents/sync_ledger/ledger")
+check("and it holds exactly the sheet, the moment as text on the run's own clock, and the rows",
+      held_ledger == {"sheetId": "sheet-9", "lastWroteAt": "2026-10-12T04:30:00", "rows": 7})
+check("written whole: as Firestore fields with no mask, so nothing left over can linger",
+      "updateMask" not in tool.one_write(PROJECT, tool.SYNC_LEDGER, named_ledger, held_ledger)
+      and tool.one_write(PROJECT, tool.SYNC_LEDGER, named_ledger, held_ledger)["update"]["fields"]["rows"] == {"integerValue": "7"})
+check("a record with no sheet is refused", _refused(lambda: tool.a_ledger_record("", datetime(2026, 10, 12), 1)))
+check("and so is one with no moment", _refused(lambda: tool.a_ledger_record("s", None, 1)))
+check("and a count that is not a whole number of rows (a bool, a fraction, a negative)",
+      all(_refused(lambda bad=bad: tool.a_ledger_record("s", datetime(2026, 10, 12), bad)) for bad in (True, 1.5, -1, "3")))
+check("and the job still may not write a collection it was not given",
+      _refused(lambda: tool.where_a_document_lives(PROJECT, "businesses", "business")))
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 # ------------------------------------- the cross-check for the ERP's Data tab (job 19)
@@ -492,7 +523,7 @@ check("a delete is built by the same lock, and refuses what a write would",
       and answered(lambda: tool.one_delete(PROJECT, "orders", "x")) is None and bool(THREW))
 THREW.clear()
 
-EXPECTED = 135
+EXPECTED = 142
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

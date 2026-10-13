@@ -31,6 +31,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import clock  # noqa: E402
 import ledger_sheet  # noqa: E402
+import returns_sheet  # noqa: E402
+import may_fetch  # noqa: E402
 import nightly  # noqa: E402
 import views  # noqa: E402
 
@@ -63,10 +65,17 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
     import merge
     from drive_door import a_door, the_kartaan_folder
     from firestore_door import (
-        a_board_sink, a_check_sink, a_listings_sink, a_log_sink, a_returns_sink, a_run_sink, a_views_sink, an_ads_sink,
-        both_places, what_they_chose,
+        a_board_sink, a_check_sink, a_ledger_sink, a_listings_sink, a_log_sink, a_returns_sheet_held, a_returns_sheet_sink, a_returns_sink,
+        a_run_sink, a_views_sink, an_ads_sink, both_places, what_they_chose,
     )
     from transport import FirebaseSeller, Google, for_amazon
+
+    # **ASKED BEFORE ANY CONNECTION IS OPENED (plan job 30).** Whether this run may fetch at all is Kartaan's Server's
+    # to say, and the Server notes a "no" in the seller's record itself. **EVERY RULE AND SENTENCE IS IN `may_fetch.py`,
+    # WHERE IT IS DRIVEN;** this is the one line that calls it. A stop is exit 0, a question nobody answered is 1.
+    stopped = may_fetch.the_check(os.environ.get(may_fetch.THE_SECRET), may_fetch.the_real_post, print)
+    if stopped is not None:
+        return stopped
 
     def now() -> datetime:
         # **HIS TIME, AND THIS IS THE ONLY PLACE IT IS WORKED OUT.** The machine
@@ -154,8 +163,20 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
     # BE DRIVEN.** This file needs a real Google account, so a rule written here
     # is a rule nobody ever watches fail -- which is exactly how the ledger came
     # to be finished at both ends and called by nothing.
+    #
+    # **AND THE ONE RECORD THAT SAYS WHERE IT IS AND WHEN IT WAS LAST WRITTEN (plan job 78):** written by
+    # `ledger_sheet.WhatWasWritten` only when sales rows really were written, and a failure there is said, never raised.
     record_the_sales, could_not_write_sales = ledger_sheet.the_writing_half(
         google, read_state, save_state, say, inside=inside,
+        tally=ledger_sheet.WhatWasWritten(now, a_ledger_sink(their_login, their_project), say),
+    )
+
+    # **THE RETURNS SHEET, MADE ONCE AND FOUND EVERY RUN AFTER (ERP job 77 / piece 34).** All of it -- the order it looks in, the refusals, the
+    # one record `returns_sheet/sheet` -- is in `returns_sheet.make_sure_it_exists`, where it is checked. It never raises: a fault is said in the
+    # run log and the fetching goes on.
+    returns_sheet.make_sure_it_exists(
+        google, inside, now,
+        a_returns_sheet_held(their_login, their_project), a_returns_sheet_sink(their_login, their_project), say,
     )
 
     def send(lines: Sequence[str]) -> None:

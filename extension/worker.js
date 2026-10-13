@@ -25,11 +25,17 @@ import { goTo, routeInThePage, takeTheFile, watchForDownloads } from './doors.js
 import {
   aDriveToken, aWayOfAsking, addARowTo, landTheFile, recordWhatLanded, theKartaanFolder,
 } from './drive.js';
+import { tellFinished } from './kartaan.js';
 import { aFreshInstallId, theLinesFor, theRecordNameFor } from './record.js';
 import {
   THE_PANEL_ASKS, alreadyCarriedOn, answerThePanelsQuestion, markCarriedOn, releaseCarriedOn, rememberTheNight,
-  startASync, startTheNextPlatform, startTheScheduledSync, theSetup, theSignInAlert, theSyncSummary,
+  startASync, startTheNextPlatform, startTheScheduledSync, tellForASyncThatCannotContinue, theSetup,
+  theSignInAlert, theSyncSummary,
 } from './screen.js';
+
+/* **THE ONE WAY THIS EXTENSION REACHES KARTAAN'S SERVER**, handed to everything that asks it something. `kartaan.js`
+ * opens no connection of its own. */
+const kartaanFetch = (...args) => fetch(...args);
 
 /* **THE CLOCK IS SET ON THE WAY PAST, EVERY TIME THIS WAKES.** Google's own
  * words: "it is best to make sure important alarms exists each time your service
@@ -159,11 +165,14 @@ const followTheNightThrough = async (doneNight) => {
      * server's "I am done" call belongs at this point and is A51's (Control's
      * ruling); it is not built in this session. */
     const next = await startTheNextPlatform(chrome, {
-      book: await theBook(), startTheNight, carryOn,
+      book: await theBook(), startTheNight, carryOn, fetch: kartaanFetch, continuing: true,
     });
     if (next.refused.length) {
       console.warn('Kartaan Auto-sync: part of the scheduled sync could not start.', next.refused);
     }
+    /* **THE WHOLE SYNC STOPPED SHORT: THE LAST NIGHT THAT RAN WAS NOT THE LAST ONE PLANNED.** Told once, here. */
+    await tellForASyncThatCannotContinue(chrome, next, doneNight,
+      ({ failed }) => tellFinished(chrome, kartaanFetch, { failed }));
   }
 };
 
@@ -187,6 +196,9 @@ const theNightsParts = {
    * `content.js` keeps its refusals in `walk.js`: a decision does not belong in
    * a file nothing can prove. What is left here is wiring. */
   startAWalk: async (how) => startAWalk(chrome, how),
+  /* **A NIGHT THAT REACHES ITS NATURAL END TELLS KARTAAN (plan jobs 30 and 48).** `nightly.js` decides when, once,
+   * and keeps the answer on the night; it never throws and never changes how the night went. */
+  tellKartaan: async ({ failed }) => tellFinished(chrome, kartaanFetch, { failed }),
 };
 
 /* **THE TWO HANDLES A NIGHT IS RUN AND READ BY, until there is a screen for
@@ -417,6 +429,7 @@ wireUp(chrome, {
       book: await theBook(),
       startTheNight,
       carryOn,
+      fetch: kartaanFetch,
       watching,
       setTheHour,
       whyThatIsNotATimeOfDay,
@@ -454,10 +467,11 @@ wireUp(chrome, {
   onRecheck: async () => {
     const plan = theRecheckSync(await whatIsBeingRechecked(chrome));
     if (!plan) return;
-    const said = await startASync(chrome, { book: await theBook(), startTheNight, carryOn }, plan);
+    const said = await startASync(chrome, { book: await theBook(), startTheNight, carryOn, fetch: kartaanFetch }, plan);
     if (said && said.wrong) {
       console.warn('Kartaan Auto-sync: the hourly re-check could not start yet.', said.wrong);
-      await chrome.alarms.create(RECHECK_ALARM, { delayInMinutes: 15 });
+      /* Kartaan's no (or no answer) is NOT tried again in fifteen minutes: every ask counts against the thirty a day. */
+      if (!said.kartaanSaid) await chrome.alarms.create(RECHECK_ALARM, { delayInMinutes: 15 });
     }
   },
   onDue: async () => {
@@ -468,7 +482,7 @@ wireUp(chrome, {
      * timed list, never the Run now ticks (A60), one platform after another (`screen.js`
      * `startTheScheduledSync`). A sync already going keeps the queue. */
     const said = await startTheScheduledSync(chrome, {
-      book: await theBook(), startTheNight, carryOn,
+      book: await theBook(), startTheNight, carryOn, fetch: kartaanFetch,
     });
     if (said.refused.length) {
       console.warn('Kartaan Auto-sync: part of the scheduled sync could not start.', said.refused);

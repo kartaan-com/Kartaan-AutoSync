@@ -971,6 +971,7 @@ export function theRunLog(night) {
     `Started: ${started}`,
     `Finished: ${night.finishedAt ? new Date(night.finishedAt).toISOString() : 'not yet'}`,
     `Why it ended: ${night.why || ''}`,
+    ...(night.toldKartaan && night.toldKartaan.said ? [`Told Kartaan: ${night.toldKartaan.said}`] : []),
     '',
     howTheNightWent(night),
   ];
@@ -1027,7 +1028,7 @@ export function inTheNightsOwnLine(job) {
 }
 
 async function carryItOn(chrome, {
-  theWalkNow, startAWalk, endTheWalkNow, at = Date.now(),
+  theWalkNow, startAWalk, endTheWalkNow, tellKartaan = null, at = Date.now(),
 }) {
   const night = await theNight(chrome);
   if (!night || night.finishedAt) return null;
@@ -1039,7 +1040,7 @@ async function carryItOn(chrome, {
    * without walking anything. Cleared, not booked. */
   if (walk && walk.answer && Number(walk.startedAt) < Number(night.startedAt)) {
     await endTheWalkNow();
-    return startTheNextOne(chrome, { startAWalk, at });
+    return startTheNextOne(chrome, { startAWalk, at, tellKartaan });
   }
   /* **A WALK STILL GOING IS LEFT ALONE.** One at a time: two walks share one tab
    * and one armed download-cancel, and the file that came down could belong to
@@ -1081,6 +1082,8 @@ async function carryItOn(chrome, {
        * 1015-1034`). Rumee drops the report that met the sign-in; it never ran, so
        * here it is kept first. */
       const stopped = walk.answer.reportId || walk.reportId;
+      /* A sign-in pause never tells Kartaan: nothing remembered from earlier platforms may linger or be sent. */
+      await chrome.storage.local.remove(THE_SYNC_FAILED);
       const after = await theNight(chrome);
       await chrome.storage.local.set({
         [PAUSED]: {
@@ -1097,11 +1100,90 @@ async function carryItOn(chrome, {
     }
   }
 
-  return startTheNextOne(chrome, { startAWalk, at });
+  return startTheNextOne(chrome, { startAWalk, at, tellKartaan });
+}
+
+/** The platforms still queued for the scheduled sync (also exported by screen.js as THE_QUEUE). */
+export const THE_SCHEDULED_QUEUE = 'kartaan-autosync-scheduled-queue';
+/** Failed and needs-you report ids of the finished platforms of a whole sync still going: a list, never the pass. */
+export const THE_SYNC_FAILED = 'kartaan-autosync-sync-failed';
+
+/**
+ * Tell Kartaan this night has reached its end -- once, and without ever changing how the night went.
+ *
+ * **(PLAN JOBS 30 AND 48.)** `tell` is handed in (`{ failed }` in, `{ told, kind, said }` out), so this is checked with
+ * nothing connected. It is told which reports failed or need the seller, from the same counts the run log uses.
+ *
+ * **ONCE PER END, KEYED ON THE NIGHT.** The answer is written onto the night as `toldKartaan`, with the
+ * `startedAt` and `finishedAt` it was told for. A night that already carries one for this very end is not told
+ * again, however many times it is woken; a retried or resumed sync is a NEW night with its own end, so it tells again.
+ *
+ * **A FAILURE HERE IS WORDS ON THE NIGHT AND NOTHING ELSE.** It never throws, never touches `why`, `done`, `left`
+ * or `finishedAt`, and never makes the night look unfinished. The answer is written onto whatever night is stored
+ * NOW if (and only if) it is still this one, so a sync started during the wait is not overwritten.
+ */
+async function tellThatItEnded(chrome, ended, tell) {
+  if (!ended || typeof tell !== 'function') return ended;
+  const mine = (one) => one && one.startedAt === ended.startedAt && one.finishedAt === ended.finishedAt;
+  if (ended.toldKartaan && ended.toldKartaan.finishedAt === ended.finishedAt) return ended;
+  const { needsHim, failed } = theNightsCounts(ended);
+  const thisNights = [...failed, ...needsHim].map((one) => one.reportId);
+  /* **TOLD ONCE PER WHOLE SYNC, NOT PER PLATFORM (Control's ruling, 2026-10-12).** While another platform of the
+   * same sync is still queued, this night only remembers its failed and needs-you ids and says it is waiting. The
+   * end with nothing queued tells once, with every platform's ids, then forgets them. Never the run pass. */
+  const queued = ((await chrome.storage.local.get(THE_SCHEDULED_QUEUE))[THE_SCHEDULED_QUEUE] || []).length > 0;
+  const before = (await chrome.storage.local.get(THE_SYNC_FAILED))[THE_SYNC_FAILED] || [];
+  if (queued) {
+    await chrome.storage.local.set({ [THE_SYNC_FAILED]: [...new Set([...before, ...thisNights])] });
+    const waiting = {
+      startedAt: ended.startedAt,
+      finishedAt: ended.finishedAt,
+      told: false,
+      kind: 'waiting',
+      said: 'Kartaan is told when the whole sync is done.',
+    };
+    try {
+      const now = await theNight(chrome);
+      if (!mine(now)) return ended;
+      const written = { ...now, toldKartaan: waiting };
+      await chrome.storage.local.set({ [THE_NIGHT]: written });
+      return written;
+    } catch (wrong) {
+      return ended;
+    }
+  }
+  const ids = [...new Set([...before, ...thisNights])];
+  let said;
+  try {
+    said = await tell({ failed: ids });
+  } catch (wrong) {
+    said = null;
+  }
+  /* The list has been used (or the tell has failed): either way the next whole sync starts from nothing. */
+  try {
+    await chrome.storage.local.remove(THE_SYNC_FAILED);
+  } catch (wrong) { /* words on the night only */ }
+  const toldKartaan = {
+    startedAt: ended.startedAt,
+    finishedAt: ended.finishedAt,
+    told: Boolean(said && said.told),
+    kind: String((said && said.kind) || 'unreachable'),
+    said: String((said && said.said)
+      || 'Kartaan could not be told this sync finished. The run still runs on its own schedule.'),
+  };
+  try {
+    const now = await theNight(chrome);
+    if (!mine(now)) return ended;
+    const written = { ...now, toldKartaan };
+    await chrome.storage.local.set({ [THE_NIGHT]: written });
+    return written;
+  } catch (wrong) {
+    return ended;
+  }
 }
 
 /** Start the next report the night owes, skipping any it may not ask for. */
-async function startTheNextOne(chrome, { startAWalk, at }) {
+async function startTheNextOne(chrome, { startAWalk, at, tellKartaan = null }) {
   for (;;) {
     // eslint-disable-next-line no-await-in-loop
     const night = await theNight(chrome);
@@ -1121,7 +1203,11 @@ async function startTheNextOne(chrome, { startAWalk, at }) {
             + `${one.state === NEEDS_YOU_STATE ? 'needs you' : 'failed'}`).join(', ')}.`
         : 'Every report was reached.';
       // eslint-disable-next-line no-await-in-loop
-      return endTheNight(chrome, { at, why });
+      const ended = await endTheNight(chrome, { at, why });
+      /* **THIS IS THE ONE PLACE A NIGHT REACHES ITS NATURAL END, so it is the one place Kartaan is told.** Stop
+       * and the sign-in pause end the night by their own doors and never come here, so neither tells. */
+      // eslint-disable-next-line no-await-in-loop
+      return tellThatItEnded(chrome, ended, tellKartaan);
     }
     /* **ASKED FIRST: IS THE PLATFORM ALREADY BUILDING THIS?** Given, the walk
      * collects rather than asking again -- it already accepts this and already

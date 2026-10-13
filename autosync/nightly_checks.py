@@ -1455,7 +1455,11 @@ check("no name is written twice in any one of the three lists",
 check("every value handed to the run is set from the secret of the same name",
       all(under == secret for under, secret in HANDED_OVER))
 
-FROM_SECRETS = {secret for _, secret in HANDED_OVER}
+# **THE ELEVENTH NAME IS OPTIONAL AND IS HELD SEPARATELY (plan job 30).** The ten above are the mandatory ones and are
+# compared exactly as before; the run pass is handed over, declared and passed on like them but is in NONE of the
+# mandatory comparisons -- and is held to its own, below, in every direction.
+THE_OPTIONAL = {"KARTAAN_RUN_PASS"}
+FROM_SECRETS = {secret for _, secret in HANDED_OVER if secret not in THE_OPTIONAL}
 check("EVERY SECRET THE WORKFLOW REFUSES TO RUN WITHOUT IS HANDED TO THE RUN, "
       "AND EVERY ONE HANDED OVER IS ONE IT REFUSES TO RUN WITHOUT",
       set(GATED_ON) == FROM_SECRETS)
@@ -1592,11 +1596,11 @@ DECLARED = tuple(re.findall(
     _the_block_under(CALLABLE, "secrets", 4), re.M))
 check("the workflow declares some secrets a caller must hand it", len(DECLARED) > 4)
 check("no name is declared twice", len({name for name, _ in DECLARED}) == len(DECLARED))
-check("and every one of them is one the caller MUST name",
-      all(must == "true" for _, must in DECLARED))
+check("and every one of them but the optional pass is one the caller MUST name",
+      all(must == "true" for name, must in DECLARED if name not in THE_OPTIONAL))
 check("EVERY SECRET A CALLER MUST DECLARE IS ONE THE WORKFLOW REFUSES TO RUN "
       "WITHOUT, AND EVERY ONE IT REFUSES TO RUN WITHOUT IS DECLARED",
-      {name for name, _ in DECLARED} == FROM_SECRETS)
+      {name for name, _ in DECLARED if name not in THE_OPTIONAL} == FROM_SECRETS)
 
 # **THE BUTTON HAS TO REACH THE RUN FROM A CALLER TOO.** This repository has no
 # secrets and takes the no-platform branch, so the seller's own caller is the
@@ -2386,9 +2390,63 @@ THE_TEN = {
     "AMAZON_CLIENT_ID", "AMAZON_CLIENT_SECRET", "AMAZON_REFRESH_TOKEN",
 }
 check("the gate reads exactly the ten values the run needs, and no others", set(GATED_ON) == THE_TEN)
-check("the workflow declares exactly those ten for a caller", {n for n, _ in DECLARED} == THE_TEN)
+check("the workflow declares exactly those ten as mandatory for a caller",
+      {n for n, must in DECLARED if must == "true"} == THE_TEN)
 check("start.py asks for exactly those ten", set(ASKED_FOR) == THE_TEN)
-check("and the seller's own file hands over exactly those ten", {s for _, s in PASSED_ON} == THE_TEN)
+check("and the seller's own file hands over those ten and nothing else but the optional pass",
+      {s for _, s in PASSED_ON} == THE_TEN | THE_OPTIONAL)
+
+# ------------------------ plan job 30: THE ELEVENTH NAME, THE RUN PASS, OPTIONAL, HELD IN EVERY DIRECTION
+# **THE PASS IS DECLARED, PASSED ON AND HANDED TO THE RUN -- AND IS NOT IN THE GATE.** The gate's loop makes every name in it
+# mandatory: a pass in it would turn every repository set up before the pass existed red, which is the opposite of what
+# Control decided (carry on, loudly). Each direction is its own check, and the last two prove the check bites.
+THE_PASS = "KARTAAN_RUN_PASS"
+import may_fetch  # noqa: E402
+check("the pass is spelt the same in the module that sends it and in the workflow files",
+      may_fetch.THE_SECRET == THE_PASS)
+check("the workflow declares the pass for a caller, and as OPTIONAL",
+      dict(DECLARED).get(THE_PASS) == "false")
+check("and no other declared name is optional", [n for n, must in DECLARED if must != "true"] == [THE_PASS])
+check("the seller's own file passes the pass on, under its own name",
+      (THE_PASS, THE_PASS) in PASSED_ON)
+check("and the fetching step is handed it, under its own name, exactly once",
+      HANDED_OVER.count((THE_PASS, THE_PASS)) == 1)
+check("and the not-ready record step is NOT handed it (nothing there asks Kartaan anything)",
+      all(secret != THE_PASS for _, secret in _RECORDING_HANDED))
+check("THE PASS IS NOT IN THE LIST THE GATE MAKES MANDATORY", THE_PASS not in GATED_ON)
+check("and no HAS_ name for it exists anywhere in the workflow",
+      "HAS_" + THE_PASS not in SAID_IN_THE_WORKFLOW)
+check("and the run reads it through the module's own name for it, never as a mandatory value",
+      any(isinstance(node, ast.Attribute) and node.attr == "THE_SECRET"
+          and isinstance(node.value, ast.Name) and node.value.id == "may_fetch"
+          for node in ast.walk(START))
+      and THE_PASS not in ASKED_FOR)
+
+
+def _gated_in(text):
+    return tuple(re.findall(r"secrets\.([A-Z0-9_]+)\s*!=\s*''", text))
+
+
+# **THE CHECKS ABOVE ARE PROVED BY BEING BROKEN:** the pass slipped into the gate list is seen, and the declaration
+# turned mandatory is seen.
+_BROKEN_GATE = SAID_IN_THE_WORKFLOW.replace(
+    "          HAS_FIREBASE_PROJECT_ID:",
+    "          HAS_KARTAAN_RUN_PASS: ${{ secrets.KARTAAN_RUN_PASS != '' }}\n          HAS_FIREBASE_PROJECT_ID:", 1)
+check("PROOF: with the pass added to the gate's list, the check that forbids it would go red",
+      _BROKEN_GATE != SAID_IN_THE_WORKFLOW and THE_PASS in _gated_in(_BROKEN_GATE)
+      and "HAS_" + THE_PASS in _BROKEN_GATE)
+_BROKEN_TEXT = SAID_IN_THE_WORKFLOW.replace(
+    "KARTAAN_RUN_PASS:\r\n        required: false", "KARTAAN_RUN_PASS:\r\n        required: true")
+_BROKEN_TEXT = _BROKEN_TEXT.replace(
+    "KARTAAN_RUN_PASS:\n        required: false", "KARTAAN_RUN_PASS:\n        required: true")
+_BROKEN_DECLARED = tuple(re.findall(
+    r"^      ([A-Z0-9_]+):\n        required: (\w+)\s*$",
+    _the_block_under(_the_block_under(_BROKEN_TEXT, "on", 0), "workflow_call", 2) and
+    _the_block_under(_the_block_under(_the_block_under(_BROKEN_TEXT, "on", 0), "workflow_call", 2), "secrets", 4),
+    re.M))
+check("PROOF: with the pass declared mandatory, the check that wants it optional would go red",
+      _BROKEN_TEXT != SAID_IN_THE_WORKFLOW and dict(_BROKEN_DECLARED).get(THE_PASS) == "true"
+      and dict(DECLARED).get(THE_PASS) == "false")
 
 # **A RUN MUST NOT HOLD KARTAAN'S WEB CLIENT SECRET, so the three old names are in none of the files that decide
 # what a run is handed.** Built from pieces so this file does not itself spell a name it forbids elsewhere.
@@ -2641,7 +2699,7 @@ check("and the tick asks for them under exactly those names",
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 369+15
+EXPECTED = 369 + 15 + 11
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

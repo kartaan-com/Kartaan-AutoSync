@@ -111,7 +111,18 @@ CHECK_KEPT_DAYS = 60
 RETURNS = "platform_returns"
 ADS_DAYS = "platform_ads_days"
 ADS_DETAIL = "platform_ads_detail"
-WHAT_IT_MAY_WRITE = (LOG, BOARD, RUNS, LISTING_VIEWS, LISTINGS_SEEN, CHECK, RETURNS, ADS_DAYS, ADS_DETAIL)
+# **AND TENTH, FROM PLAN JOB 78: WHERE THE SALES LEDGER IS AND WHEN THE RUN LAST WROTE IT.** ONE record, `sync_ledger/ledger`
+# -- a collection of one, addressed the way `businesses/business` is, because the ERP reads it by a fixed name and a run has
+# no id of its own to name it by. Written whole, as the owner, only by `a_ledger_record`, and only on a run that really wrote
+# sales rows. The ERP's rules must let the run write it as the owner (job 76 reads it).
+SYNC_LEDGER = "sync_ledger"
+THE_LEDGER_RECORD = "ledger"
+# **AND ELEVENTH, FROM ERP JOB 77 / PIECE 34 / D316: WHERE THE RETURNS SHEET IS.** ONE record, `returns_sheet/sheet`, written whole as the owner
+# the same way (`a_returns_sheet_record`), and ONLY when the run has just made the sheet or when the record is missing or names another sheet.
+# It is never rewritten on a later run, so `createdAt` stays the day the sheet was made. The ERP's rules must let the run write it as the owner.
+RETURNS_SHEET = "returns_sheet"
+THE_RETURNS_RECORD = "sheet"
+WHAT_IT_MAY_WRITE = (LOG, BOARD, RUNS, LISTING_VIEWS, LISTINGS_SEEN, CHECK, RETURNS, ADS_DAYS, ADS_DETAIL, SYNC_LEDGER, RETURNS_SHEET)
 
 # Where the seller's own business record lives, and the one field this job reads
 # out of it. **READ, NEVER WRITTEN (D114):** the hour is the seller's setting,
@@ -449,6 +460,35 @@ def a_run(name: str, started_at, finished_at=None, why: str = "") -> Tuple[str, 
     if not named or not started:
         raise Refused("A run is written down by name and by when it started, and one was missing.")
     return named, {"startedAt": started, "finishedAt": as_text(finished_at), "why": str(why or "")}
+
+
+def a_ledger_record(sheet_id: str, wrote_at, rows: int) -> Tuple[str, Dict]:
+    """Where the sales ledger is, when this run last wrote it, and how many rows it wrote.
+
+    **A RECORD WITH NO SHEET OR NO MOMENT, OR A COUNT THAT IS NOT A WHOLE NUMBER, IS REFUSED RATHER THAN WRITTEN.** The ERP
+    reads these three to say where the seller's sales are and how fresh they are; a blank id or a count of `True` would
+    read as an answer. `wrote_at` is written as the text every other record uses (`as_text`), on the run's own clock.
+    """
+    sheet = str(sheet_id or "").strip()
+    moment = as_text(wrote_at)
+    if not sheet or not moment:
+        raise Refused("The ledger record is written by the sheet's id and the moment it was written, and one was missing.")
+    if isinstance(rows, bool) or not isinstance(rows, int) or rows < 0:
+        raise Refused(f"{rows!r} is not a number of rows written.")
+    return THE_LEDGER_RECORD, {"sheetId": sheet, "lastWroteAt": moment, "rows": rows}
+
+
+def a_returns_sheet_record(sheet_id: str, created_at) -> Tuple[str, Dict]:
+    """Where the returns sheet is and when it was made: `{sheetId, createdAt}`, and nothing else.
+
+    **A RECORD WITH NO SHEET OR NO MOMENT IS REFUSED RATHER THAN WRITTEN**, for the same reason the ledger's is: the ERP reads
+    the id as an answer. `created_at` is the text every other record uses (`as_text`), on the run's own clock.
+    """
+    sheet = str(sheet_id or "").strip()
+    moment = as_text(created_at)
+    if not sheet or not moment:
+        raise Refused("The returns sheet record is written by the sheet's id and the moment it was made, and one was missing.")
+    return THE_RETURNS_RECORD, {"sheetId": sheet, "createdAt": moment}
 
 
 # ------------------------------------------------------------------- the writes

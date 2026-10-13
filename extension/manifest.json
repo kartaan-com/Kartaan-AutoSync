@@ -35,7 +35,8 @@
     "https://supplier.meesho.com/*",
     "https://seller.flipkart.com/*",
     "https://storage.googleapis.com/*",
-    "https://www.googleapis.com/*"
+    "https://www.googleapis.com/*",
+    "https://api.kartaan.com/*"
   ],
   "oauth2": {
     "client_id": "668375542231-8pr119f04gfe545h7jf2knuf8fl17spt.apps.googleusercontent.com",
