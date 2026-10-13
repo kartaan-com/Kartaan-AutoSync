@@ -84,10 +84,12 @@ from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 import landing
+import ads
 import listings
 import manifest
 import orders
 import payments
+import returns
 import sheet
 import table
 import views
@@ -197,6 +199,22 @@ WHAT_LISTINGS_CAN_BE_READ: Tuple[HowToRead, ...] = tuple(
     HowToRead(report_id, (), kind="listings") for report_id in listings.THE_SHAPE_OF
 )
 
+# **THE RETURN FILES (A78):** each returned line is recorded in the seller's own database for the ERP's returns screen and top-reasons
+# (`firestore_door.a_returns_sink`). The platform's own reason words are kept. Their shapes are `returns.py`'s.
+WHAT_RETURNS_CAN_BE_READ: Tuple[HowToRead, ...] = tuple(
+    HowToRead(
+        report_id, (), header_row=returns.way_for(report_id).header_row,
+        header_starts=returns.way_for(report_id).header_starts, kind="returns",
+    )
+    for report_id in returns.WAYS
+)
+
+# **THE AD FILES (A78):** an ads record per platform per day, and the detail behind it, in the seller's own database
+# (`firestore_door.an_ads_sink`). Their shapes are `ads.py`'s.
+WHAT_ADS_CAN_BE_READ: Tuple[HowToRead, ...] = tuple(
+    HowToRead(report_id, (), header_row=ads.way_for(report_id).header_row, kind="ads") for report_id in ads.WAYS
+)
+
 # **EVERY REPORT THE RUN FETCHES IS READ, OR SAYS IN WORDS WHY IT IS NOT YET (job 35).**
 #
 # **THE FAULT THIS CLOSES (Finding 51):** `reports.REPORTS` declares twenty-six reports and
@@ -213,9 +231,6 @@ WHAT_IS_FETCHED_AND_NOT_READ_YET: Dict[str, str] = {
     "fk_keywords": (
         "switched off by his ruling (piece 49), so it is not fetched at all and has no folder"
     ),
-    "az_returns": "decided: into the returned columns and the returns screen's lookup -- pieces 78 and 77",
-    "fk_returns": "decided: into the returned columns and the returns screen's lookup -- pieces 78 and 77",
-    "me_returns": "decided: into the returned columns and the returns screen's lookup -- pieces 78 and 77",
     "fk_claims": "decided: into the claims columns of the ledger and the ERP's Claims section -- piece 78",
     "me_claims": "decided: into the claims columns of the ledger and the ERP's Claims section -- piece 78",
     "me_product_performance": (
@@ -235,15 +250,14 @@ WHAT_IS_FETCHED_AND_NOT_READ_YET: Dict[str, str] = {
         "are piece 44 (Product Performance), which will write them into the same listing record"
     ),
 }
-for _ads in (
-    "fk_ads_daily", "fk_ads_placements", "fk_ads_overall", "fk_ads_search", "fk_ads_orders",
-    "fk_ads_kw", "me_ads", "me_ads_summary",
-):
-    WHAT_IS_FETCHED_AND_NOT_READ_YET[_ads] = (
-        "decided: an ads record per day, shown beside sales, and the ad spend becomes a charge on the ledger. "
-        "Its reader is the next piece built; the place its record will go (a listing's ad figures) exists since job 86 part A"
-    )
-del _ads
+WHAT_IS_FETCHED_AND_NOT_READ_YET["fk_ads_kw"] = (
+    "Flipkart has discontinued keyword ads (his word, 12 Oct), so nothing is read and it is no longer fetched: it is off the extension's "
+    "timed list (screen.js OFF_THE_TIMED_LIST) and marked as needing a person (reports.py), like fk_keywords (piece 35)"
+)
+WHAT_IS_FETCHED_AND_NOT_READ_YET["me_ads"] = (
+    "a campaign's takings since it began, stamped with the day it was read; no real file of it has been seen yet, so its columns are not "
+    "guessed (piece 78). Its day-by-day figures are already read from me_ads_summary"
+)
 
 
 def why_a_report_has_no_decision() -> str:
@@ -254,7 +268,7 @@ def why_a_report_has_no_decision() -> str:
     """
     from reports import REPORTS  # noqa: PLC0415 - kept beside its one use
 
-    read = {one.report_id for one in WHAT_CAN_BE_READ + WHAT_VIEWS_CAN_BE_READ + WHAT_LISTINGS_CAN_BE_READ}
+    read = {one.report_id for one in WHAT_CAN_BE_READ + WHAT_VIEWS_CAN_BE_READ + WHAT_LISTINGS_CAN_BE_READ + WHAT_RETURNS_CAN_BE_READ + WHAT_ADS_CAN_BE_READ}
     said = set(WHAT_IS_FETCHED_AND_NOT_READ_YET)
     known = {one.id for one in REPORTS}
     wrong = []
@@ -317,6 +331,11 @@ class WhatTheNightRead:
     # (commit 94de631) not yet published to that seller, and a night that says green while every night refuses is the fault kept
     # apart above.
     the_database_refused: Tuple[str, ...] = ()
+    # **THE RETURN AND AD FILES (A78):** records written tonight (new or changed), and files left unread because there was nowhere to write them.
+    returns_written: int = 0
+    returns_waiting: int = 0
+    ads_written: int = 0
+    ads_waiting: int = 0
 
     @property
     def is_a_defect(self) -> bool:
@@ -373,6 +392,15 @@ class WhatTheNightRead:
         if self.listings_waiting:
             said += (
                 f"  {self.listings_waiting} listing file(s) were left unread because the seller's database "
+                "could not be reached for them; they will be read when it can."
+            )
+        if self.returns_written:
+            said += f"  {self.returns_written} returned line(s) were new or changed in the returns files and were recorded."
+        if self.ads_written:
+            said += f"  {self.ads_written} ad record(s) were new or changed in the ads files and were recorded."
+        if self.returns_waiting or self.ads_waiting:
+            said += (
+                f"  {self.returns_waiting + self.ads_waiting} returns/ads file(s) were left unread because the seller's database "
                 "could not be reached for them; they will be read when it can."
             )
         if self.refused_to_forget:
@@ -639,6 +667,39 @@ def a_listings_reading(how: HowToRead, one: whats_new.InTheFolder, body: bytes) 
     return said, when.isoformat()
 
 
+def _the_day_of(one: whats_new.InTheFolder):
+    when = landing.data_date_in(one.name)
+    if when is None:
+        raise table.CannotRead(
+            f"{one.name or one.which} has no day in its name, so there is no way to say whether what it holds is newer or older "
+            "than what is already written. Nothing in it was read."
+        )
+    return when
+
+
+def a_returns_reading(how: HowToRead, one: whats_new.InTheFolder, body: bytes) -> Tuple[returns.WhatReturnsSaid, str]:
+    """One returns file turned into the returned lines it names, and the day of the file.
+
+    **A FILE WITH ROWS OF WHICH NOT ONE COULD BE READ IS A FILE NOT READ**, not one read for good -- marked, it would never be opened again.
+    """
+    when = _the_day_of(one)
+    said = returns.read_returns(how.report_id, _rows_in(how, body, one.name or one.which), when.isoformat())
+    if not said.records and said.not_read:
+        raise table.CannotRead(f"no row of {one.name or one.which} could be read; the first was {said.not_read[0]}")
+    return said, when.isoformat()
+
+
+def an_ads_reading(how: HowToRead, one: whats_new.InTheFolder, body: bytes) -> Tuple[ads.WhatAdsSaid, str]:
+    """One ads file turned into ad records, and the day of the file (same refusals as `a_returns_reading`)."""
+    when = _the_day_of(one)
+    if ads.way_for(how.report_id).day_column is None:
+        ads.refuse_a_range(body)
+    said = ads.read_ads(how.report_id, _rows_in(how, body, one.name or one.which), when.isoformat(), views.day_in_ads_header(body))
+    if not said.records and said.not_read:
+        raise table.CannotRead(f"no row of {one.name or one.which} could be read; the first was {said.not_read[0]}")
+    return said, when.isoformat()
+
+
 # A day no real file could ever be about, used only to drive the question below.
 # **It is a real day** -- everything on the way through refuses one that is not --
 # and it is nothing any fixture in this package also carries.
@@ -747,6 +808,8 @@ def read_what_is_new(
     can_be_read: Optional[Sequence[HowToRead]] = None,
     record_views: Optional[Callable[[str, Dict], int]] = None,
     record_listings: Optional[Callable[[str, str, Dict], int]] = None,
+    record_returns: Optional[Callable[[str, str, Dict], int]] = None,
+    record_ads: Optional[Callable[[str, str, str, str, Dict], int]] = None,
 ) -> WhatTheNightRead:
     """Read every file in the seller's folders that has not been read before.
 
@@ -767,7 +830,9 @@ def read_what_is_new(
     words rather than as a night of noughts.
     """
     if can_be_read is None:
-        can_be_read = WHAT_CAN_BE_READ + WHAT_VIEWS_CAN_BE_READ + WHAT_LISTINGS_CAN_BE_READ
+        can_be_read = (
+            WHAT_CAN_BE_READ + WHAT_VIEWS_CAN_BE_READ + WHAT_LISTINGS_CAN_BE_READ + WHAT_RETURNS_CAN_BE_READ + WHAT_ADS_CAN_BE_READ
+        )
     remembered = tuple(sorted({
         str(one).strip() for one in (already_read or ()) if str(one).strip()
     }))
@@ -828,6 +893,10 @@ def read_what_is_new(
     views_waiting = 0
     listings_written = 0
     listings_waiting = 0
+    returns_written = 0
+    returns_waiting = 0
+    ads_written = 0
+    ads_waiting = 0
 
     # **OLDEST FIRST, AND EVERY FOLDER'S FILES TOGETHER.** Handed over in the
     # order Drive answered a listing in, the last file to be recorded is the last
@@ -856,6 +925,39 @@ def read_what_is_new(
             reads.append(manifest.Read(
                 data_date=landing.data_date_in(one.name), report_id=how.report_id, file_name=one.name or one.which,
                 into="listings waiting to be let in", rows_in_file=said.rows_in_file,
+                rows_read=said.rows_in_file - len(said.not_read),
+            ))
+            continue
+        if how.kind in ("returns", "ads"):
+            record = record_returns if how.kind == "returns" else record_ads
+            if record is None:
+                if how.kind == "returns":
+                    returns_waiting += 1
+                else:
+                    ads_waiting += 1
+                continue
+            try:
+                if how.kind == "returns":
+                    said, the_day = a_returns_reading(how, one, bring_it_back(one.which))
+                    returns_written += record(how.report_id, the_day, said.records)
+                else:
+                    said, the_day = an_ads_reading(how, one, bring_it_back(one.which))
+                    ads_written += record(how.report_id, said.platform, said.kind, the_day, said.records)
+            except TheirDatabaseSaidNo as wrong:
+                the_database_refused.append(f"{one.name or one.which}: {wrong}")
+                continue
+            except Exception as wrong:  # noqa: BLE001 - named, never swallowed
+                could_not_read.append(f"{one.name or one.which}: {wrong}")
+                continue
+            read_tonight.append(one)
+            rows_refused += len(said.not_read)
+            if said.not_read:
+                could_not_read.append(
+                    f"{one.name or one.which}: {len(said.not_read)} row(s) not read, the first being {said.not_read[0]}"
+                )
+            reads.append(manifest.Read(
+                data_date=landing.data_date_in(one.name), report_id=how.report_id, file_name=one.name or one.which,
+                into="returned lines" if how.kind == "returns" else "ad records", rows_in_file=said.rows_in_file,
                 rows_read=said.rows_in_file - len(said.not_read),
             ))
             continue
@@ -944,6 +1046,10 @@ def read_what_is_new(
         views_waiting=views_waiting,
         listings_written=listings_written,
         listings_waiting=listings_waiting,
+        returns_written=returns_written,
+        returns_waiting=returns_waiting,
+        ads_written=ads_written,
+        ads_waiting=ads_waiting,
     )
 
 

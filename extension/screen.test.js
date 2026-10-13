@@ -289,10 +289,10 @@ check('a report that reads another report\'s file is fetched after it',
    * reports became the whole daily sync, and no Meesho ran at all. */
   const every = (platform) => (BOOK.reports || [])
     .filter((one) => one.platform === platform && (BOOK.recipes || {})[one.id]
-      && one.id !== 'fk_keywords')
+      && one.id !== 'fk_keywords' && one.id !== 'fk_ads_kw')
     .map((one) => one.id);
   check('the default timed list leaves out fk_keywords (his decision E)',
-    !theTimedList(BOOK, { timed: null }).includes('fk_keywords')
+    !theTimedList(BOOK, { timed: null }).includes('fk_keywords') && !theTimedList(BOOK, { timed: null }).includes('fk_ads_kw')
     && theTimedList(BOOK, { timed: null }).length > 0);
   const { chrome } = installFakeChrome();
   const started = [];

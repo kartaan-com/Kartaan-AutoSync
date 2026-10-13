@@ -180,6 +180,21 @@ check("with nothing set, one folder is tried and only one",
 for _name, _value in WAS.items():
     say_where(_name, _value)
 
+# ----------- a file is read from the other repository's HEAD even when git has handed THIS process another repository (a hook's GIT_DIR)
+OURS = Path(__file__).resolve().parent.parent
+_had = {name: os.environ.get(name) for name in ("GIT_DIR", "GIT_INDEX_FILE")}
+os.environ["GIT_DIR"] = str(OURS / "no-such-repository")
+os.environ["GIT_INDEX_FILE"] = str(OURS / "no-such-index")
+there = answered(lambda: tool._asItWasCommitted(OURS, ("README.md",), "a check of the door itself"))
+for _name, _value in _had.items():
+    if _value is None:
+        os.environ.pop(_name, None)
+    else:
+        os.environ[_name] = _value
+check("with GIT_DIR pointing somewhere else, as a commit hook leaves it, the other repository's committed file is still read",
+      isinstance(there, str) and there.startswith("# Kartaan Auto-sync"))
+check("and the environment that was set is put back exactly", all(os.environ.get(n) == v for n, v in _had.items()))
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 # ----------- the seller's run never runs a file that reaches the other half
@@ -240,7 +255,7 @@ check(f"THE SELLER'S WORKFLOW RUNS NO FILE THAT REACHES THE OTHER REPOSITORY -- 
 check(f"the workflow names no checks file and no script this cannot read -- {A_SCRIPT_WE_CANNOT_READ}",
       not A_SCRIPT_WE_CANNOT_READ)
 
-EXPECTED = 20
+EXPECTED = 22
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

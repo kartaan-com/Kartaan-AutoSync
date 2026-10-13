@@ -195,7 +195,7 @@ export async function theSetup(chrome) {
  * two ticked ad reports became the whole daily sync, and no Meesho ran.
  */
 /* Put off by him (decision E): Flipkart offers keywords only for its latest day. */
-const OFF_THE_TIMED_LIST = Object.freeze(['fk_keywords']);
+const OFF_THE_TIMED_LIST = Object.freeze(['fk_keywords', 'fk_ads_kw']);
 
 export function theTimedList(book, setUp) {
   const every = (book.reports || [])

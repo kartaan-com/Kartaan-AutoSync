@@ -213,6 +213,9 @@ def one_tick(
     # Both or neither -- one without the other has nothing to put together or nowhere to put it.
     read_extensions: Optional[Callable[[], Sequence[bytes]]] = None,
     save_check: Optional[Callable[[Sequence, date], int]] = None,
+    # **WHERE THE RETURNED LINES AND THE AD RECORDS GO (A78).**
+    record_returns: Optional[Callable[[str, str, dict], int]] = None,
+    record_ads: Optional[Callable[[str, str, str, str, dict], int]] = None,
 ) -> Tick:
     """Wake up, decide whether a run is due, and if it is, do one.
 
@@ -413,6 +416,8 @@ def one_tick(
             record_the_sales=record_the_sales,
             record_views=record_views,
             record_listings=record_listings,
+            record_returns=record_returns,
+            record_ads=record_ads,
         )
     except Exception as wrong:  # noqa: BLE001 - reported, never swallowed
         # **THE RECORD IS LEFT EXACTLY AS IT WAS.** Anything else here either

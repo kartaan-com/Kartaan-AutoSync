@@ -345,6 +345,77 @@ def a_listings_sink(transport, project: str) -> Callable[..., int]:
     return sink
 
 
+def _what_is_held_of(transport, project: str, collection: str, doc_ids: Sequence[str], digest_field: str, day_field: str) -> Dict[str, tuple]:
+    """For each record asked for, its fingerprint and file day (nothing for a record that is not there yet)."""
+    held: Dict[str, tuple] = {}
+    for at in range(0, len(doc_ids), ASKED_AT_A_TIME):
+        chunk = list(doc_ids[at:at + ASKED_AT_A_TIME])
+        names = [firestore.where_a_document_lives(project, collection, one) for one in chunk]
+        where = BATCH_GET.format(api=API, project=project, database=DATABASE)
+        got = _answered(transport.post(where, json={"documents": names}), f"asking which {collection} records are already held").json()
+        if not isinstance(got, list):
+            # **A REPLY THAT IS NOT A LIST IS NOT "NOTHING HELD".** Taken so, every record would be written again, as new, every night.
+            raise TheirDatabaseSaidNo(f"asking which {collection} records are already held: the answer was not a list of records.")
+        for answer in got:
+            found = answer.get("found")
+            if found:
+                held[found["name"].rsplit("/", 1)[-1]] = firestore.what_a_record_says(found, digest_field, day_field)
+    return held
+
+
+def _is_news(held: Dict[str, tuple], doc_id: str, digest: str, day: str) -> bool:
+    """New, or different -- and never over a newer file's figures (a file uploaded late must not undo a later one)."""
+    if doc_id not in held:
+        return True
+    held_digest, held_day = held[doc_id]
+    return held_digest != digest and held_day <= day
+
+
+def a_returns_sink(transport, project: str, today: str) -> Callable[..., int]:
+    """The returned lines a returns file names, into their records -- ONLY the ones that are new or that differ from what is held (A78).
+
+    **THE RECORDS ARE ASKED FOR FIRST**, so a second run on the same file writes nothing. Answers how many records were written.
+    """
+
+    def sink(report_id: str, day: str, records: Dict[str, Dict]) -> int:
+        held = _what_is_held_of(transport, project, firestore.RETURNS, sorted(records), "digest", "fileDay")
+        writes = [
+            firestore.a_return_write(project, record)
+            for doc_id, record in sorted(records.items())
+            if _is_news(held, doc_id, record["digest"], day)
+        ]
+        return write_them(transport, project, writes, "writing the returns the platforms' files name")
+
+    return sink
+
+
+def an_ads_sink(transport, project: str, today: str) -> Callable[..., int]:
+    """The ad figures an ads file names, into their records -- ONLY the ones that are new or that differ from what is held (A78).
+
+    `kind` is `days` (one record per platform per day, the campaigns) or a breakdown's name (one record per day per kind).
+    Answers how many records were written.
+    """
+
+    def sink(report_id: str, platform: str, kind: str, day: str, records: Dict[str, Dict]) -> int:
+        if kind == "days":
+            held = _what_is_held_of(transport, project, firestore.ADS_DAYS, sorted(records), "campaignsDigest", "campaignsFileDay")
+            writes = [
+                firestore.a_ads_days_write(project, platform, one["day"], one["campaigns"], one["digest"], day, today)
+                for doc_id, one in sorted(records.items())
+                if _is_news(held, doc_id, one["digest"], day)
+            ]
+        else:
+            held = _what_is_held_of(transport, project, firestore.ADS_DETAIL, sorted(records), "digest", "fileDay")
+            writes = [
+                firestore.a_ads_detail_write(project, doc_id, platform, one, day, today)
+                for doc_id, one in sorted(records.items())
+                if _is_news(held, doc_id, one["digest"], day)
+            ]
+        return write_them(transport, project, writes, "writing the ad figures the platforms' files name")
+
+    return sink
+
+
 def firestore_name(platform: str, listing: str) -> str:
     """`<platform>__<listingId>`, the name the ERP's rules and screens look a listing up by."""
     return f"{platform}__{listing}"

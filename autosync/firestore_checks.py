@@ -119,9 +119,10 @@ check("and it is written in the same base", "held.toString(36)" in THE_PAGES_OWN
 
 # ------------------------------------- what it may write, and what it may not
 
-check("there are exactly six things it may write", len(tool.WHAT_IT_MAY_WRITE) == 6)
-check("and they are the three D114 named, how each listing is doing (job 86 part A), the listings a listing file names (job 41) and the cross-check (job 19)",
-      set(tool.WHAT_IT_MAY_WRITE) == {tool.LOG, tool.BOARD, tool.RUNS, tool.LISTING_VIEWS, tool.LISTINGS_SEEN, tool.CHECK})
+check("there are exactly nine things it may write", len(tool.WHAT_IT_MAY_WRITE) == 9)
+check("and they are the three D114 named, how each listing is doing (job 86 part A), the listings a listing file names (job 41), the cross-check (job 19), and the returns and ads (A78)",
+      set(tool.WHAT_IT_MAY_WRITE) == {tool.LOG, tool.BOARD, tool.RUNS, tool.LISTING_VIEWS, tool.LISTINGS_SEEN, tool.CHECK,
+                                      tool.RETURNS, tool.ADS_DAYS, tool.ADS_DETAIL})
 
 check("the run log can be written",
       answered(lambda: tool.where_a_document_lives(PROJECT, tool.LOG, "r1"))
