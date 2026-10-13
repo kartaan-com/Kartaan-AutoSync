@@ -200,6 +200,12 @@ check("two offers of one ASIN are two listings, each with its own price and stoc
       and list(two_offers.records) == ["amazon::B0DUP00000::S1", "amazon::B0DUP00000::S2"])
 check("and both offers' buyer's page is the ASIN's alone",
       two_offers is not None and {r["buyerLink"] for r in two_offers.records.values()} == {"https://www.amazon.in/dp/B0DUP00000"})
+spaced = answered(lambda: tool.read_listings(
+    tool.AMAZON, table.read(tsv(AZ_HEAD, az_row("BANGLE-5 FIVE", "B0SPACED00"), az_row("DJ 1/2", "B0SLASH000"), az_row("S3", "B0 SPACE00")), header_row=1), "x"))
+check("a seller SKU with a space in it is read, as it is in 26 of his 88 real rows, and keeps the space in the key (D326)",
+      spaced is not None and "amazon::B0SPACED00::BANGLE-5 FIVE" in spaced.records)
+check("but a SKU with a slash is still refused, and so is an ASIN with a space in it",
+      spaced is not None and list(spaced.records) == ["amazon::B0SPACED00::BANGLE-5 FIVE"] and len(spaced.not_read) == 2)
 check("an Amazon row with no seller SKU is not read, because it would have no key (D326)",
       "not carry" in (answered(lambda: tool.read_listings(
           tool.AMAZON, table.read(tsv(AZ_HEAD, az_row("", "B0NOSKU000")), header_row=1), "x").not_read[0]) or ""))
@@ -470,7 +476,7 @@ check("every report is still read or says why it is not", reading.why_a_report_h
       and not ({"fk_listings", "me_catalog"} & set(reading.WHAT_IS_FETCHED_AND_NOT_READ_YET)))
 
 check("nothing above ended by throwing rather than by answering -- " + str(THREW), not THREW)
-EXPECTED = 73
+EXPECTED = 75
 check(f"checks went missing -- {ran + 1} ran, {EXPECTED} expected", ran + 1 == EXPECTED)
 
 if failures:

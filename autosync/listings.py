@@ -201,11 +201,17 @@ def _state_of(shape: Shape, row: table.Row) -> Optional[str]:
 
 
 def _the_key(shape: Shape, row: table.Row) -> str:
-    """The platform's own key for a listing, two parts joined with `::` on Meesho. '' when a part is missing or has a space in it."""
-    parts = [row[shape.columns[one]].strip() for one in ("key", "keyAlso") if one in shape.columns]
-    if any(not part or _A_SPACE.search(part) or "/" in part or len(part.encode("utf-8")) > _LONGEST_ID for part in parts):
-        return ""
-    return "::".join(parts)
+    """The platform's own key for a listing, two parts joined with `::`. '' when a part is missing or has a space in it.
+
+    **EXCEPT AMAZON'S SELLER SKU (D326):** it is a name the seller typed, and 26 of the 88 SKUs in his real Active Listings Report have a space
+    in them ("BANGLE-5 FIVE"). The ASIN half still may not.
+    """
+    parts = [(one, row[shape.columns[one]].strip()) for one in ("key", "keyAlso") if one in shape.columns]
+    for role, part in parts:
+        a_typed_name = shape.id == "amazon" and role == "keyAlso"
+        if not part or (_A_SPACE.search(part) and not a_typed_name) or "/" in part or len(part.encode("utf-8")) > _LONGEST_ID:
+            return ""
+    return "::".join(part for _, part in parts)
 
 
 def the_review_id(listing: Dict) -> str:
