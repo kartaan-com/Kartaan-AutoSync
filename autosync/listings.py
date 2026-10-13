@@ -95,7 +95,7 @@ MEESHO = Shape(
 
 # **AMAZON'S, FROM HIS REAL FILE -- `Active Listings Report`, read 2026-10-05, 88 listings.** Tab-separated text with 48 columns and no help
 # row. In it `listing-id`, `seller-sku` and `asin1` are each filled and distinct on all 88 rows; `asin2`, `asin3` and `add-delete` are empty,
-# `fulfillment-channel` is `DEFAULT` on all of them. **THE KEY IS THE ASIN** (`asin1`): it is what Amazon's orders carry and what the buyer's
+# `fulfillment-channel` is `DEFAULT` on all of them. **THE ASIN (`asin1`) IS PART OF THE KEY** (see D326 below): it is what Amazon's orders carry and what the buyer's
 # page is built from (`amazon.in/dp/<ASIN>`); Amazon's own `listing-id` is carried beside it, as Flipkart's is. **D326 (his ruling, 13 Oct): THE
 # RECORD'S KEY IS `ASIN::seller-sku`** (`seller-sku` is the `keyAlso` column, as Meesho's variation id is), so two offers of one ASIN each keep their
 # own price and stock; only the buyer's page is built from the ASIN alone. A report that lists one ASIN with one SKU twice says so on the second
