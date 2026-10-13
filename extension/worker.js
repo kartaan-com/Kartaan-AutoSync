@@ -13,7 +13,7 @@
  */
 
 import {
-  DAILY, THE_PANEL, THE_WALK, aFreshSecret, answerThePage, answerThePanel, setTheHour, startAWalk,
+  DAILY, THE_PANEL, THE_WALK, aFreshSecret, answerAnExternalAsk, answerThePage, answerThePanel, setTheHour, startAWalk,
   theHourItRuns, whyThatIsNotATimeOfDay, wireUp,
 } from './background.js';
 import {
@@ -412,6 +412,7 @@ chrome.action.onClicked.addListener(showThePanel);
 
 wireUp(chrome, {
   carryOn,
+  answerOutside: (asked, from) => answerAnExternalAsk(chrome, asked, from),
   /* **A SELLER CLOSING THE WALK'S TAB PUTS THE DOWNLOAD-CANCEL AWAY, and until
    * now nothing did.** `wireUp` has always taken this and nothing has ever
    * passed it, so the cancel stayed armed for the rest of its quarter of an hour

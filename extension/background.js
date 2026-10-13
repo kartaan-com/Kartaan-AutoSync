@@ -1172,6 +1172,32 @@ async function carryOut(chrome, parts, asked, tabId, pageAddress = '') {
   return { said: true };
 }
 
+/** The one page that may ask this extension whether it is installed. */
+export const THE_ERPS_ORIGIN = 'https://erp.kartaan.com';
+
+/**
+ * What the ERP's own page is told when it asks whether this extension is installed
+ * (E82's job 16, A79). Chrome lets a page message an extension only if the manifest's
+ * `externally_connectable` names the page; the sender's address is checked here as well,
+ * because the manifest is the outer gate and this is the one that cannot be misread.
+ *
+ * **EXACTLY TWO FIELDS, AND NOTHING ABOUT THE SELLER.** Anything else, or anyone else,
+ * gets no answer at all -- not a refusal, which would itself tell a page something.
+ */
+export function answerAnExternalAsk(chrome, asked, sender) {
+  if (!asked || asked.kartaan !== 'are-you-installed') return undefined;
+  let there;
+  try {
+    there = new URL(String((sender && sender.url) || ''));
+  } catch (notAnAddress) {
+    return undefined;
+  }
+  /* The scheme and host are compared on their own: `.origin` of a `blob:` address names the page that
+   * made it, so it would pass here, and a userinfo address is only safe because `.host` is the real one. */
+  if (there.protocol !== 'https:' || there.host !== new URL(THE_ERPS_ORIGIN).host) return undefined;
+  return { kartaan: 'installed', version: chrome.runtime.getManifest().version };
+}
+
 /**
  * Wire the worker up.
  *
@@ -1187,6 +1213,7 @@ async function carryOut(chrome, parts, asked, tabId, pageAddress = '') {
  */
 export function wireUp(chrome, {
   onDue, onRecheck = null, answer = null, whenATabGoes = null, carryOn = null, answerPanel = null,
+  answerOutside = null,
 }) {
   /* **THE PANEL'S OWN WAY BACK, and a second listener rather than a wider first
    * one.** Chrome hands a message to every listener until one says it will
@@ -1199,6 +1226,15 @@ export function wireUp(chrome, {
       if (!coming) return false;
       coming.then(reply).catch((wrong) => reply({ wrong: String((wrong && wrong.message) || wrong) }));
       return true;
+    });
+  }
+  /* **A WEB PAGE'S WAY IN, top level like the rest, and answered on the spot.** Only pages the
+   * manifest's `externally_connectable` names ever reach this; `answerOutside` checks again. */
+  if (answerOutside && chrome.runtime.onMessageExternal) {
+    chrome.runtime.onMessageExternal.addListener((asked, from, reply) => {
+      const said = answerOutside(asked, from);
+      if (said !== undefined) reply(said);
+      return false;
     });
   }
   /* **THE PAGE HALF'S ONE WAY BACK.** Registered at the top level like every

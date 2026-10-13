@@ -70,12 +70,14 @@ const THE_SETUP = 'kartaan-autosync-setup';
  *  later reads this number as authoritative. */
 export const THE_NIGHTS = 'kartaan-autosync-nights';
 
-/* Which platforms this extension fetches for at all. **Amazon is not one of
- * them, and saying so is the point rather than an omission.** Amazon comes in
- * through its own door in the nightly Python, with the seller's own SP-API
- * credentials; no recipe here mentions it and no walk could fetch it. A panel
- * that showed Amazon as "not connected" would send a seller looking for a
- * setting that does not exist. */
+/* Which platforms this extension WALKS reports for. **Amazon is not one of them YET,
+ * and the list stays as it is on purpose (A79, his D317 of 12 Oct 2026).** The
+ * extension is now allowed on Amazon Seller Central (manifest host permission) and the
+ * platform card below shows it, but no recipe mentions Amazon and no walk can fetch it:
+ * Amazon's reports still come in through its own door in the scheduled sync, with the
+ * seller's own SP-API credentials. A77 adds the walkers, and Amazon joins this list
+ * with the first one. Put in earlier, every Amazon report would show in the report
+ * list as one that cannot be fetched. */
 export const THROUGH_THE_BROWSER = Object.freeze(['flipkart', 'meesho']);
 
 /** What each platform is called on screen. Written here because the recipe file
@@ -747,7 +749,11 @@ export async function howItStands(chrome, { book, now = Date.now(), theClock = n
         id: 'amazon',
         name: CALLED.amazon,
         throughTheBrowser: false,
-        ready: null,
+        /* **ALLOWED IN THIS BROWSER, NOTHING WALKED YET (A79).** Ready means what it means
+         * for Flipkart: the Drive is connected. Whether the seller is signed in to Seller
+         * Central is found out by a walk, as it is for the other two -- there is no
+         * walk to ask yet. */
+        ready: Boolean(setUp.driveConnectedAt),
         lastRun: null,
       },
     ],
@@ -1660,10 +1666,12 @@ export function showHowItStands(parts, stands) {
     const card = make('div', `${OURS}platform`);
     put(card, make('span', `${OURS}platform-name`, one.name));
     if (!one.throughTheBrowser) {
-      put(card, make('span', `${OURS}state`, 'not fetched here'));
+      put(card, make('span', `${OURS}state ${OURS}state--${one.ready ? 'yes' : 'no'}`,
+        one.ready ? 'allowed' : 'not ready'));
       put(card, make('span', `${OURS}note`,
-        'Amazon comes in through its own door in the scheduled sync, with your own Amazon '
-        + 'credentials. There is nothing to connect here.'));
+        'This browser may open Amazon Seller Central, but no Amazon report is fetched here yet. '
+        + 'Amazon still comes in through its own door in the scheduled sync, with your own '
+        + 'Amazon credentials.'));
     } else {
       put(card, make('span', `${OURS}state ${OURS}state--${one.ready ? 'yes' : 'no'}`,
         one.ready ? 'ready' : 'not ready'));
