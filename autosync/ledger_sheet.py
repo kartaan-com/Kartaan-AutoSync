@@ -90,7 +90,7 @@ SPREADSHEET = "application/vnd.google-apps.spreadsheet"
 
 # **HOW WIDE THE GRID IS MADE, AND IT IS NOT DECORATION.** A new Google
 # spreadsheet is twenty-six columns wide and this ledger has more than that. Every
-# write in `ledger_door` addresses `orders!A:AW`, and a range wider than the grid
+# write in `ledger_door` addresses `orders!A:BA`, and a range wider than the grid
 # is refused by Sheets with *"exceeds grid limits"* -- so a sheet created without
 # this line would be made successfully, would look perfectly right, and would
 # refuse the first sale ever written into it.
@@ -289,21 +289,29 @@ def make_sure_the_header_is_there(door: LedgerDoor) -> str:
 
 
 def move_an_older_ledger(door: LedgerDoor) -> str:
-    """A ledger written before the trailing `whatHappened` column is moved to the present columns. Anything else is left for the next step.
+    """A ledger written before the trailing columns is moved to the present columns. Anything else is left for the next step.
 
-    **ONLY A HEADER THAT IS EXACTLY THE PRESENT ONE MINUS ITS LAST COLUMN IS MOVED** -- all forty-nine names, in order, nothing renamed
-    and nothing missing. A header that is anything else (a column renamed, a different width, a sheet that is not this ledger) is
-    not touched here and meets the refusal in `make_sure_the_header_is_there`, which is what it always met. Moving is adding one empty
-    trailing column and naming it: no row, no figure, no other cell is written.
+    **ONLY A HEADER THAT IS EXACTLY AN OLDER LEDGER IS MOVED** -- the present columns minus the trailing group or groups added since:
+    the forty-nine names before `whatHappened`, or the fifty before the three an order owes (E88), all in order, nothing renamed and
+    nothing missing. A header that is anything else (a column renamed, a different width, a sheet that is not this ledger) is not
+    touched here and meets the refusal in `make_sure_the_header_is_there`, which is what it always met. Moving is adding the empty
+    trailing columns and naming them: no row, no figure, no other cell is written.
 
     **IT SAYS WHEN IT HAS MOVED ONE**, in words, because a ledger that changed width under the seller is not a thing to do in silence.
     """
-    if list(door.the_header_row()) != [str(c) for c in sales.COLUMNS_BEFORE_WHAT_HAPPENED]:
+    header = list(door.the_header_row())
+    if header == [str(c) for c in sales.COLUMNS_BEFORE_WHAT_HAPPENED]:
+        before, added = sales.COLUMNS_BEFORE_WHAT_HAPPENED, sales.WHAT_HAPPENED_COLUMNS + sales.PACKAGING_OWED_COLUMNS
+    elif header == [str(c) for c in sales.COLUMNS_BEFORE_PACKAGING_OWED]:
+        before, added = sales.COLUMNS_BEFORE_PACKAGING_OWED, sales.PACKAGING_OWED_COLUMNS
+    else:
         return ""
     door.move_to_the_present_columns()
     return (
-        f"The sales ledger was written before the {', '.join(sales.WHAT_HAPPENED_COLUMNS)} column existed, so that column was added "
-        f"at the end ({len(sales.COLUMNS_BEFORE_WHAT_HAPPENED)} columns to {len(sales.COLUMNS)}). No row was changed."
+        f"The sales ledger was written before the {', '.join(added)} "
+        f"{'column' if len(added) == 1 else 'columns'} existed, so "
+        f"{'that column was' if len(added) == 1 else 'those columns were'} added "
+        f"at the end ({len(before)} columns to {len(sales.COLUMNS)}). No row was changed."
     )
 
 
@@ -877,6 +885,12 @@ WHERE_A_COLUMN_COMES_BACK_FROM: Dict[str, Tuple[str, str]] = {
 WHERE_A_COLUMN_COMES_BACK_FROM["whatHappened"] = (
     FROM_THE_FILES, "worked out again from the platform's own status word, which the orders report carries",
 )
+
+# **WHAT AN ORDER OWES IN PACKAGING AND THE PLAN THAT PAYS IT (the ERP's E88).** Kept on the order's own record in Kartaan, which is
+# where the ledger's copy came from, so a rebuild reads them back from there and nothing is lost with the sheet.
+WHERE_A_COLUMN_COMES_BACK_FROM["packagingOwed"] = (FROM_KARTAAN, "the packaging the sale went without, kept on the order's own record")
+WHERE_A_COLUMN_COMES_BACK_FROM["fillTaking"] = (FROM_KARTAAN, "the written plan that gives the sale that packaging, kept on the order's own record")
+WHERE_A_COLUMN_COMES_BACK_FROM["fillStays"] = (FROM_KARTAAN, "what the sale will still owe once that plan is done, kept on the order's own record")
 
 for _one in sales.CHARGE_COLUMNS:
     WHERE_A_COLUMN_COMES_BACK_FROM[_one] = (

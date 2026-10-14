@@ -188,7 +188,16 @@ WHAT_HAPPENED_COLUMNS = ("whatHappened",)
 # The ledger as it was before that column, which is the only older ledger that can be moved to the present one.
 COLUMNS_BEFORE_WHAT_HAPPENED = PLAIN_FIELDS + CHARGE_COLUMNS
 
-COLUMNS = PLAIN_FIELDS + CHARGE_COLUMNS + WHAT_HAPPENED_COLUMNS
+# **WHAT AN ORDER OWES, AND THE PLAN THAT PAYS IT OFF (the ERP's E88, D311, D381).** Three trailing columns, never inserted among the others,
+# for the same reason: a sheet is read by position. `packagingOwed` is the packaging a sale went without and is to be given when it is
+# bought; `fillTaking` is the written plan that gives it, and `fillStays` what the sale will still owe after that plan. **THE ERP WRITES
+# THEM AND NOTHING HERE DOES**: this declares the columns so the two lists stay the same, and so a ledger written before them can be moved.
+PACKAGING_OWED_COLUMNS = ("packagingOwed", "fillTaking", "fillStays")
+
+# The ledger as it was before those three columns (so, with `whatHappened` last), the other older ledger that can be moved to the present one.
+COLUMNS_BEFORE_PACKAGING_OWED = PLAIN_FIELDS + CHARGE_COLUMNS + WHAT_HAPPENED_COLUMNS
+
+COLUMNS = PLAIN_FIELDS + CHARGE_COLUMNS + WHAT_HAPPENED_COLUMNS + PACKAGING_OWED_COLUMNS
 
 # The fields that are figures. **A sheet hands back TEXT for everything**, so
 # whatever reads a row back has to know which ones to turn into numbers -- and
@@ -332,6 +341,10 @@ class Sale:
     claims_on: Optional[str] = None
     # Kartaan's own plain word for what became of the order (job 37). Worked out from the platform's word in `orders.what_happened`.
     what_happened: Optional[str] = None
+    # What the ERP says the sale still owes in packaging, and the plan that pays it (E88). Nothing here works them out: blank.
+    packaging_owed: Optional[str] = None
+    fill_taking: Optional[str] = None
+    fill_stays: Optional[str] = None
     charges: Dict[str, object] = field(default_factory=dict)
 
     def __post_init__(self):
@@ -409,6 +422,9 @@ FROM_FIELD = {
     "paymentsOn": "payments_on",
     "claimsOn": "claims_on",
     "whatHappened": "what_happened",
+    "packagingOwed": "packaging_owed",
+    "fillTaking": "fill_taking",
+    "fillStays": "fill_stays",
 }
 
 

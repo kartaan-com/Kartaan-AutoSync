@@ -1021,31 +1021,58 @@ _OLD = list(sales.COLUMNS_BEFORE_WHAT_HAPPENED)
 _a_row_of_his = ["x"] * 49
 _old_ledger = ASheetThatCanBeWidened(_OLD, rows=[_a_row_of_his, _a_row_of_his])
 _said = answered(lambda: tool.move_an_older_ledger(LedgerDoor(_old_ledger, "s")))
-check("A LEDGER WRITTEN BEFORE THE NEW COLUMN IS MOVED: the tab is widened by one, then the header is written",
-      _said and _old_ledger.columns == 50 and _old_ledger.rows[0] == list(sales.COLUMNS)
+check("A LEDGER WRITTEN BEFORE THE NEW COLUMNS IS MOVED: the tab is widened to the present width, then the header is written",
+      _said and _old_ledger.columns == 53 and _old_ledger.rows[0] == list(sales.COLUMNS)
       and any("appendDimension" in str(c["body"]) for c in _old_ledger.calls))
 check("and it says so, in words, and that no row was changed",
-      _said and "added at the end" in _said and "No row was changed" in _said)
+      _said and "added at the end" in _said and "No row was changed" in _said
+      and "whatHappened, packagingOwed, fillTaking, fillStays columns existed" in _said and "(49 columns to 53)" in _said)
 check("AND NOT ONE ROW OF HIS WAS TOUCHED: the sales are as they were",
       _old_ledger.rows[1:] == [_a_row_of_his, _a_row_of_his])
 check("the only cell written is row 1, and it is written RAW",
-      [c["body"]["data"][0]["range"] for c in _old_ledger.calls if c["path"].endswith("values:batchUpdate")] == ["orders!A1:AX1"]
+      [c["body"]["data"][0]["range"] for c in _old_ledger.calls if c["path"].endswith("values:batchUpdate")] == ["orders!A1:BA1"]
       and all(c["body"]["valueInputOption"] == "RAW" for c in _old_ledger.calls if c["path"].endswith("values:batchUpdate")))
-check("and the widening asks Google for exactly one more COLUMN on the ledger's own tab, by its numeric id",
+check("and the widening asks Google for exactly the four missing COLUMNS on the ledger's own tab, by its numeric id",
       [c["body"]["requests"] for c in _old_ledger.calls if c["path"].endswith(":batchUpdate") and "requests" in (c["body"] or {})]
-      == [[{"appendDimension": {"sheetId": 7, "dimension": "COLUMNS", "length": 1}}]])
+      == [[{"appendDimension": {"sheetId": 7, "dimension": "COLUMNS", "length": 4}}]])
 check("and the header row is asked for on its own, never as part of the whole tab",
       any("1%3A1" in c["path"] for c in _old_ledger.calls if c["method"] == "GET"))
 _calls_before = len(_old_ledger.calls)
 _again = answered(lambda: tool.move_an_older_ledger(LedgerDoor(_old_ledger, "s")))
 check("A SECOND RUN MOVES NOTHING AND WRITES NOTHING", _again == "" and not any(
     c["method"] == "POST" for c in _old_ledger.calls[_calls_before:]))
-_halfway = ASheetThatCanBeWidened(_OLD, rows=[_a_row_of_his], columns=50)
+_halfway = ASheetThatCanBeWidened(_OLD, rows=[_a_row_of_his], columns=53)
 check("a run that died after widening finds the sheet wide and the header short, and only writes the header",
       answered(lambda: tool.move_an_older_ledger(LedgerDoor(_halfway, "s"))) and _halfway.rows[0] == list(sales.COLUMNS)
       and not any("appendDimension" in str(c["body"]) for c in _halfway.calls))
+# ---- the ledger of fifty columns, written after whatHappened and before the three an order owes (the ERP's E88)
+_OLD50 = list(sales.COLUMNS_BEFORE_PACKAGING_OWED)
+_a_row_of_fifty = ["x"] * 50
+_fifty = ASheetThatCanBeWidened(_OLD50, rows=[_a_row_of_fifty, _a_row_of_fifty], columns=50)
+_said50 = answered(lambda: tool.move_an_older_ledger(LedgerDoor(_fifty, "s")))
+check("A LEDGER OF FIFTY COLUMNS IS MOVED TOO: the tab is widened by the three it lacks, then the header is written",
+      _said50 and _fifty.columns == 53 and _fifty.rows[0] == list(sales.COLUMNS)
+      and [c["body"]["requests"] for c in _fifty.calls if c["path"].endswith(":batchUpdate") and "requests" in (c["body"] or {})]
+      == [[{"appendDimension": {"sheetId": 7, "dimension": "COLUMNS", "length": 3}}]])
+check("and it names the three columns, says it went from 50 to 53, and that no row was changed",
+      _said50 and "packagingOwed, fillTaking, fillStays columns existed" in _said50 and "(50 columns to 53)" in _said50 and "No row was changed" in _said50)
+check("and not one row of his was touched, and the only cell written is row 1 up to BA",
+      _fifty.rows[1:] == [_a_row_of_fifty, _a_row_of_fifty]
+      and [c["body"]["data"][0]["range"] for c in _fifty.calls if c["path"].endswith("values:batchUpdate")] == ["orders!A1:BA1"])
+_half50 = ASheetThatCanBeWidened(_OLD50, rows=[_a_row_of_fifty], columns=53)
+check("a run on a fifty-column ledger that died after widening finds the sheet wide and the header short, and only writes the header",
+      answered(lambda: tool.move_an_older_ledger(LedgerDoor(_half50, "s"))) and _half50.rows[0] == list(sales.COLUMNS)
+      and not any("appendDimension" in str(c["body"]) for c in _half50.calls))
+check("and the three columns that cannot come back from his platform files are said to come back from Kartaan's own record, never from the files",
+      all(tool.WHERE_A_COLUMN_COMES_BACK_FROM[one][0] == tool.FROM_KARTAAN for one in sales.PACKAGING_OWED_COLUMNS))
+_calls50 = len(_fifty.calls)
+check("and a second run moves nothing and writes nothing",
+      answered(lambda: tool.move_an_older_ledger(LedgerDoor(_fifty, "s"))) == "" and not any(c["method"] == "POST" for c in _fifty.calls[_calls50:]))
 for _why, _header in (
     ("a header that is a column short of the OLD one", _OLD[:-1]),
+    ("a header of fifty with one name changed", ["id", "platform", "WRONG"] + _OLD50[3:]),
+    ("a header of fifty with a fifty-first column that is not one of the three", _OLD50 + ["packagingOwed"]),
+    ("a header of fifty with its columns in another order", _OLD50[1:] + _OLD50[:1]),
     ("a header with one name changed", ["id", "platform", "WRONG"] + _OLD[3:]),
     ("a header already the present one", list(sales.COLUMNS)),
     ("a header with the columns in another order", _OLD[1:] + _OLD[:1]),
@@ -1170,7 +1197,7 @@ check("PROOF: a tally that let the record's failure out WOULD have refused the f
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 144 + 12
+EXPECTED = 144 + 12 + 9
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

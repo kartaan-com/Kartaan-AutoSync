@@ -1114,7 +1114,7 @@ def _oldest_first(
     **WHAT THIS DOES NOT FIX, AND WHAT NOW DOES: a file arriving on a LATER NIGHT
     than one it is older than.** Tonight's files can be sorted because tonight
     holds them all; last night's figures are already in the sheet, and this sort
-    never sees them. **The ledger is 50 columns wide and four of them say which
+    never sees them. **The ledger is 53 columns wide and four of them say which
     day's file last wrote each figure**, and reading one of those four back is
     what settles the case this sort cannot. **That is not this function's job and never was** -- it is
     `ledger.older_than_the_row`, which reads the row's own date marker back
