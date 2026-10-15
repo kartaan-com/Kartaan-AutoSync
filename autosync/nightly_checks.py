@@ -51,15 +51,15 @@ def answered(work):
 
 
 # **EVERY MOMENT HERE IS ALREADY HIS.** `clock.his_clock` is applied once, at the
-# edge, before anything in this file is reached -- so four in the afternoon means
-# four in the afternoon where he is, and the day it is about is the one that just
+# edge, before anything in this file is reached -- so six in the evening means
+# six in the evening where he is, and the day it is about is the one that just
 # ended.
 #
 # **AND IT IS THE ONE TICK OF THE DAY**, hand-typed rather than read off `clock`.
 # It was two in the morning until 2026-09-10, when the tick moved to four in the
 # afternoon on his decision -- a night driven at an hour no tick ever arrives at
 # proves the night and not the schedule.
-AT = datetime(2026, 8, 29, 16, 0)
+AT = datetime(2026, 8, 29, 18, 0)
 HIS_DAY = date(2026, 8, 29)
 YESTERDAY = date(2026, 8, 28)
 
@@ -1811,9 +1811,9 @@ check("AND AT LEAST ONE STEP WORKS IN A FOLDER ON EVERY RUN, CONNECTED OR NOT --
       any(not re.search(r"^\s*if:", s, re.M) for s in _WORKING_STEPS))
 
 
-# ------------- the one tick a day, and the seven hours above it (A33, A54)
+# ------------- the one tick a day, and the five hours above it (A33, A54)
 
-# **THERE IS ONE TICK A DAY AND IT IS AT FOUR IN THE AFTERNOON, HIS TIME.**
+# **THERE IS ONE TICK A DAY AND IT IS AT SIX IN THE EVENING, HIS TIME.**
 #
 # The cron line is the only thing that wakes this job -- `clock.why_not_now` can
 # refuse a tick, it has nothing to start one with -- and the hour a seller
@@ -1850,10 +1850,10 @@ check("the schedule can be read out of the workflow at all", len(_CRON_LINES) > 
 check("THERE IS EXACTLY ONE SCHEDULE LINE -- a second line is a second tick and "
       "changes what every seller gets, whatever hour it lands in",
       len(_CRON_LINES) == 1)
-check("and the whole line is 10:30 UTC, EVERY day of every month, hand-typed "
+check("and the whole line is 12:30 UTC, EVERY day of every month, hand-typed "
       "rather than read off anything -- a schedule narrowed to Mondays or to the "
       "first of the month reads exactly like this one in its first two fields",
-      _CRON_LINES == ["30 10 * * *"])
+      _CRON_LINES == ["30 12 * * *"])
 _FIELDS = [line.split() for line in _CRON_LINES]
 check("and every line has all five fields, so nothing below is reading a "
       "half-written one", all(len(one) == 5 for one in _FIELDS))
@@ -1904,9 +1904,9 @@ _WOKEN = _hours_his_day_is_woken_at(_CRONS)
 # floor is asked of the hour. So the UTC minute is chosen to land on the top of
 # his hour, and that is asserted rather than assumed.
 _MINUTE = (int(_CRONS[0][0]) + clock.MINUTES_AHEAD_OF_UTC) % 60 if _CRONS else None
-check("IT WAKES AT EXACTLY ONE HOUR OF HIS DAY, AND IT IS FOUR IN THE AFTERNOON "
+check("IT WAKES AT EXACTLY ONE HOUR OF HIS DAY, AND IT IS SIX IN THE EVENING "
       "-- a second line is a second tick and changes what every seller gets",
-      _WOKEN == {16})
+      _WOKEN == {18})
 check("and it lands on the top of that hour, so a seller who chose it is not "
       "refused by a tick a few minutes early", _MINUTE == 0)
 
@@ -1922,9 +1922,9 @@ check("AND IT IS THE SAME SCHEDULE AS THIS WORKFLOW'S, ALL FIVE FIELDS OF EVERY 
       "LINE -- one of them moving alone is a seller woken at an hour nothing "
       "else expects, and until 2026-09-10 nothing anywhere asked",
       _CALLER_LINES == _CRON_LINES)
-check("and it too wakes at four in the afternoon his time, and only then",
+check("and it too wakes at six in the evening his time, and only then",
       _hours_his_day_is_woken_at([(one.split()[0], one.split()[1])
-                                  for one in _CALLER_LINES]) == {16})
+                                  for one in _CALLER_LINES]) == {18})
 
 # **AND THE HOUR IN THE YAML IS THE HOUR THE PYTHON BELIEVES.** Nothing in Python
 # can read a cron line, so `clock.THE_ONE_TICK_HOUR` is a second copy of one
@@ -1941,30 +1941,30 @@ _REACHED = tuple(
     if any(clock.why_not_now(None, datetime(2026, 9, 8, at, _MINUTE), hour) is None
            for at in sorted(_WOKEN))
 )
-check("SEVENTEEN OF THE TWENTY-FOUR HOURS A SELLER CAN CHOOSE NOW FETCH, and "
-      "they are midnight through four in the afternoon",
-      _REACHED == (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16))
+check("NINETEEN OF THE TWENTY-FOUR HOURS A SELLER CAN CHOOSE NOW FETCH, and "
+      "they are midnight through six in the evening",
+      _REACHED == (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18))
 
-# **THE SEVEN THAT STILL CANNOT, AND THEY ARE NOT LEFT SILENT.** This is the part
+# **THE FIVE THAT STILL CANNOT, AND THEY ARE NOT LEFT SILENT.** This is the part
 # that would otherwise be the old fault in a smaller box: an hour that can never
 # work, refused every night by a sentence that reads like a wait.
-_SEVEN = tuple(range(17, 24))
-check("and the other seven are five in the evening to eleven at night",
+_SEVEN = tuple(range(19, 24))
+check("and the other five are seven in the evening to eleven at night",
       tuple(hour for hour in range(clock.FIRST_HOUR, clock.LAST_HOUR + 1)
             if hour not in _REACHED) == _SEVEN)
-check("EACH OF THOSE SEVEN IS REFUSED WHERE THE SETTING IS READ, not merely "
+check("EACH OF THOSE FIVE IS REFUSED WHERE THE SETTING IS READ, not merely "
       "left to fail quietly at the tick",
       all(clock.why_the_hour_is_no_good(hour) is not None for hour in _SEVEN))
 check("and the refusal says nothing would be fetched on ANY day, which is what "
       "tells it apart from a tick that will succeed later today",
       all("on any day" in (clock.why_the_hour_is_no_good(hour) or "")
           for hour in _SEVEN))
-# **THE WHOLE INSTRUCTION, NOT THE HOUR IN IT.** "16:00" already appears earlier
+# **THE WHOLE INSTRUCTION, NOT THE HOUR IN IT.** "18:00" already appears earlier
 # in that same sentence, so a check asking only for the hour would stay green
 # with the instruction deleted -- which is what it is named for. Found by an
 # independent reviewer, 2026-09-10, by deleting exactly that.
 check("and it says in words what to set instead",
-      all("Set it to 16:00 or earlier." in (clock.why_the_hour_is_no_good(hour) or "")
+      all("Set it to 18:00 or earlier." in (clock.why_the_hour_is_no_good(hour) or "")
           for hour in _SEVEN))
 
 # **AND THE REFUSAL A SELLER BELOW THE TICK GETS NAMES THE ONE FETCH TOO.** The
@@ -1975,7 +1975,7 @@ check("a tick genuinely before a seller's hour still says what time it is and "
       "what they set", "09:00" in _TOO_EARLY and "12:00" in _TOO_EARLY)
 check("AND IT SAYS THERE IS ONE FETCH A DAY AND WHEN, so a reader can tell a "
       "wait from a dead end",
-      "one fetch a day" in _TOO_EARLY and "16:00" in _TOO_EARLY)
+      "one fetch a day" in _TOO_EARLY and "18:00" in _TOO_EARLY)
 
 # **AND THE SENTENCES THAT HID IT ARE GONE FROM THE WORKFLOW.** Each absence is
 # asserted beside something POSITIVE, because a phrase that no longer exists

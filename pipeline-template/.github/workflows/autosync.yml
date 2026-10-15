@@ -44,23 +44,23 @@ on:
   # AND `autosync/nightly_checks.py` REFUSES IF THE TWO EVER DISAGREE**, because
   # one of them moving alone is a seller woken at an hour nothing else expects.
   #
-  # **UTC. 10:30 UTC is 16:00 the same day in his time** -- four in the afternoon,
+  # **UTC. 12:30 UTC is 18:00 the same day in his time** (D390, 2026-10-15) -- six in the evening,
   # which is `clock.THE_ONE_TICK_HOUR` and also `clock.NOT_BEFORE_HOUR`, the
   # default for a seller who has not chosen. :30 rather than :00 because GitHub's
   # own documentation names the start of the hour as when a scheduled run is most
   # likely to be delayed; it lands on the top of HIS hour so that a seller who
-  # chose four is not refused by a tick a few minutes before it.
+  # chose six is not refused by a tick a few minutes before it.
   #
   # **HIS DECISION, 2026-09-10.** This was 02:23 in his morning, and the hour a
   # seller chooses is a FLOOR rather than an appointment -- so twenty-one of the
   # twenty-four hours a seller could choose fetched nothing, on any day.
   #
   # **STILL TRUE, AND NOW SAID OUT LOUD RATHER THAN LEFT SILENT: one tick a day
-  # and the chosen hour is a FLOOR.** A seller who chooses 17:00 to 23:00 is above
+  # and the chosen hour is a FLOOR.** A seller who chooses 19:00 to 23:00 is above
   # the only tick there is, and `clock.why_the_hour_is_no_good` now refuses that
   # setting in words instead of failing quietly every night.
   schedule:
-    - cron: '30 10 * * *'
+    - cron: '30 12 * * *'
 
   # **STARTABLE BY HAND**, which is what makes a first run, and any morning
   # something looks wrong, possible without waiting for a tick.

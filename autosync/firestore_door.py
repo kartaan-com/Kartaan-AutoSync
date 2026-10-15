@@ -164,7 +164,7 @@ def _check_rows_older_than(transport, project: str, first_kept: str):
             "field": {"fieldPath": "dataDate"}, "op": "LESS_THAN", "value": {"stringValue": first_kept}}},
         "select": {"fields": [{"fieldPath": "dataDate"}]},
     }}
-    got = _answered(transport.post(where, json=query), "asking which old cross-check rows are still held").json()
+    got = _answered(transport.post(where, json=query), "asking which old cross-check rows are still held").records()
     if not isinstance(got, list):
         # **A REPLY THAT IS NOT A LIST IS NOT "NOTHING OLD".** Taken so, old rows would never be cleared and the page would read them all.
         raise TheirDatabaseSaidNo("asking which old cross-check rows are still held: the answer was not a list.")
@@ -319,7 +319,7 @@ def _what_is_held(transport, project: str, doc_ids: Sequence[str]) -> Dict[str, 
         chunk = list(doc_ids[at:at + ASKED_AT_A_TIME])
         names = [firestore.where_a_document_lives(project, firestore.LISTING_VIEWS, one) for one in chunk]
         where = BATCH_GET.format(api=API, project=project, database=DATABASE)
-        got = _answered(transport.post(where, json={"documents": names}), "asking which days each listing already holds").json()
+        got = _answered(transport.post(where, json={"documents": names}), "asking which days each listing already holds").records()
         if not isinstance(got, list):
             # **A REPLY THAT IS NOT A LIST IS NOT "NOTHING HELD".** Taken so, no old day would ever be dropped and a record would
             # grow past its sixty days with no error.
@@ -364,7 +364,7 @@ def _what_listings_are_held(transport, project: str, doc_ids: Sequence[str]) -> 
         chunk = list(doc_ids[at:at + ASKED_AT_A_TIME])
         names = [firestore.where_a_document_lives(project, firestore.LISTINGS_SEEN, one) for one in chunk]
         where = BATCH_GET.format(api=API, project=project, database=DATABASE)
-        got = _answered(transport.post(where, json={"documents": names}), "asking which listings are already held").json()
+        got = _answered(transport.post(where, json={"documents": names}), "asking which listings are already held").records()
         if not isinstance(got, list):
             # **A REPLY THAT IS NOT A LIST IS NOT "NOTHING HELD".** Taken so, every listing would be written again, as new, every night.
             raise TheirDatabaseSaidNo("asking which listings are already held: the answer was not a list of records.")
@@ -404,7 +404,7 @@ def _what_is_held_of(transport, project: str, collection: str, doc_ids: Sequence
         chunk = list(doc_ids[at:at + ASKED_AT_A_TIME])
         names = [firestore.where_a_document_lives(project, collection, one) for one in chunk]
         where = BATCH_GET.format(api=API, project=project, database=DATABASE)
-        got = _answered(transport.post(where, json={"documents": names}), f"asking which {collection} records are already held").json()
+        got = _answered(transport.post(where, json={"documents": names}), f"asking which {collection} records are already held").records()
         if not isinstance(got, list):
             # **A REPLY THAT IS NOT A LIST IS NOT "NOTHING HELD".** Taken so, every record would be written again, as new, every night.
             raise TheirDatabaseSaidNo(f"asking which {collection} records are already held: the answer was not a list of records.")

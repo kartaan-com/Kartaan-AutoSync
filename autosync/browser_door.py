@@ -555,7 +555,7 @@ def a_door(browser, panel: str, say: Callable[[str], None],
     THAN ON `fetch`.** `fetch` answers the same three arguments the Amazon door
     does and that is what lets the runner tell them apart from nothing, so
     nothing new goes on it. **The door is built once per run**, and a run starts
-    at four in the afternoon (`clock.NOT_BEFORE_HOUR`), so every export it makes
+    at six in the evening (`clock.NOT_BEFORE_HOUR`), so every export it makes
     is made on the same day.
     """
 

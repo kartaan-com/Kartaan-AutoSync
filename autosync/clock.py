@@ -63,8 +63,8 @@ GONE_AFTER = timedelta(hours=4)
 # **AND IT IS AFTER FLIPKART HAS FINISHED YESTERDAY.** The reference records that
 # Flipkart only finalises settlement data in the afternoon, roughly after
 # 13:00-14:00, and worked around a morning request by rescheduling itself an
-# hour later, up to three times. A run at 16:00 is past that boundary.
-THE_ONE_TICK_HOUR = 16
+# hour later, up to three times. A run at 18:00 is past that boundary (D390 moved it from 16:00, 2026-10-15).
+THE_ONE_TICK_HOUR = 18
 
 # The hour of HIS day a run is not started before, when the seller has not said.
 #
@@ -130,10 +130,10 @@ def why_the_hour_is_no_good(hour) -> Optional[str]:
 
     **AN HOUR NOBODY CAN CHOOSE IS A SETTING THAT SILENTLY DOES NOTHING.** Read
     as a default when it is out of range, a seller who typed 25 would be fetched
-    at four in the afternoon and never told why.
+    at six in the evening and never told why.
 
     **AND AN HOUR ABOVE THE ONE TICK IS REFUSED HERE TOO, WHICH IS THE WHOLE
-    POINT OF REFUSING IT AT ALL.** 17 to 23 are real hours of a real day, and
+    POINT OF REFUSING IT AT ALL.** 19 to 23 are real hours of a real day, and
     there is no tick left in the day to reach them -- so a seller who chose one
     would be refused every night, for ever, and told only that it was too early.
     A setting that can never work is refused where it is read, in words that say

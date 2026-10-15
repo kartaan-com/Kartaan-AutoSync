@@ -74,6 +74,9 @@ class Reply:
     def json(self):
         return self._body
 
+    def records(self):
+        return self._body if isinstance(self._body, list) else None
+
 
 class Transport:
     """A stand-in Google. Remembers every call; answers what it was told to."""
@@ -364,7 +367,22 @@ THREW.clear()
 check("a refused write names the seller's Security Rules and what was being done",
       "writing what landed against what was read" in _why(lambda: tool.a_check_sink(Transport([Reply(403, "no")]), PROJECT)([_crossing(date(2026, 10, 11))], TODAY)))
 
-EXPECTED = 56 + 5
+# A80/AD1: every fake above hands the door a Python list, which is how run #18's
+# "not a list of records" got through green. This one hands it REAL bytes through
+# the REAL transport reply, as Firestore's batchGet sends them.
+import transport as _transport  # noqa: E402
+
+
+class _RealBytes:
+    def post(self, url, json=None, **_):
+        return _transport.Reply(200, {}, b'[{"found": {"name": "projects/p/databases/(default)/documents/listings_seen/L1", "fields": {}}}, {"missing": "projects/p/databases/(default)/documents/listings_seen/L2"}]')
+
+
+_held = answered(lambda: tool._what_is_held_of(_RealBytes(), "p", "listings_seen", ["L1", "L2"], "digest", "day"))
+check("a batchGet list reply, as the real transport reads it, is read as records and not refused", _held is not None)
+check("and only the record that was found is held", _held is not None and list(_held) == ["L1"])
+
+EXPECTED = 56 + 5 + 2
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

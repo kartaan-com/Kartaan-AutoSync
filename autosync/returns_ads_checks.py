@@ -304,6 +304,9 @@ class Reply:
     def json(self):
         return self._body
 
+    def records(self):
+        return self._body if isinstance(self._body, list) else None
+
 
 class Transport:
     """A stand-in database: `held` is {document name: (digest field, digest, day field, day)}."""

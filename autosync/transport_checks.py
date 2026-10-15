@@ -335,6 +335,13 @@ check("a refusal can be read as words", tool.Reply(400, {}, b"no room").text == 
 check("and bytes that are not words do not stop it being read",
       isinstance(tool.Reply(400, {}, b"\xff\xfe").text, str))
 check("a reply can be read as a record", tool.Reply(200, {}, b'{"id": "1"}').json() == {"id": "1"})
+# A80/AD1: Firestore's batchGet answers a LIST; run #18 lost every write because it read as nothing.
+check("a batchGet list reply is read as records",
+      tool.Reply(200, {}, b'[{"found": {"name": "a"}}, {"missing": "b"}]').records() == [{"found": {"name": "a"}}, {"missing": "b"}])
+check("an empty list is still a list of no records, not nothing", tool.Reply(200, {}, b"[]").records() == [])
+check("a record reply is not a list of records", tool.Reply(200, {}, b'{"id": "1"}').records() is None)
+check("and a list still answers nothing as a record, which Amazon relies on",
+      tool.Reply(200, {}, b"[1]").json() is None)
 check("and the bytes themselves are there, which is how a file is read back",
       tool.Reply(200, {}, b"abc").raw == b"abc")
 
@@ -529,7 +536,7 @@ for method, use in (("PUT", lambda: drive.put("https://up/1", data=b"x")),
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 107
+EXPECTED = 111
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

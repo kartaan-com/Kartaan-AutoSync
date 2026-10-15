@@ -67,14 +67,14 @@ on:
   # twenty to nine in the evening UTC -- 02:23 in his morning. Driven against
   # `clock.why_not_now` hour by hour: **hours 0, 1 and 2 fetched, and the other
   # twenty-one never did, on any day.** He was given the three ways out and
-  # answered with an hour: **four in the afternoon.** So the one tick moved, and
+  # answered with an hour: **four in the afternoon**, and on 2026-10-15 (D390) he moved it to **six in the evening.** So the one tick moved, and
   # nothing else about the mechanism did. It costs nothing to run and asks for no
   # new permission on anybody's repository.
   #
-  # **SEVENTEEN OF THE TWENTY-FOUR HOURS NOW FETCH. THE OTHER SEVEN ARE REFUSED
-  # WHERE THEY ARE READ, RATHER THAN LEFT SILENT.** A seller who chooses 17:00 to
+  # **NINETEEN OF THE TWENTY-FOUR HOURS NOW FETCH. THE OTHER FIVE ARE REFUSED
+  # WHERE THEY ARE READ, RATHER THAN LEFT SILENT.** A seller who chooses 19:00 to
   # 23:00 is still above the only tick there is, so `clock.why_the_hour_is_no_good`
-  # refuses that setting in words and says to set it to 16:00 or earlier --
+  # refuses that setting in words and says to set it to 18:00 or earlier --
   # instead of the old sentence, which read like a tick that would succeed later
   # today when there was none. `autosync/nightly_checks.py` drives all twenty-four
   # hours against this line and holds it to `clock.THE_ONE_TICK_HOUR`, so moving
@@ -84,17 +84,17 @@ on:
   # field is in public preview, and a seller's data arriving depends on it.
   # India's clock lives in `clock.py`, said out loud, where it is checked --
   # `HOURS_AHEAD_OF_UTC = 5`, `MINUTES_AHEAD_OF_UTC = 30`. One clock, in the file
-  # that can prove it. **10:30 UTC is 16:00 the same day in his time**, which is
+  # that can prove it. **12:30 UTC is 18:00 the same day in his time**, which is
   # `clock.THE_ONE_TICK_HOUR`, and also `clock.NOT_BEFORE_HOUR` -- the default for
   # a seller who has not chosen.
   #
   # **:30 RATHER THAN :00, AND IT IS THE SAME REASON AS BEFORE.** GitHub's own
   # documentation names the start of the hour as when a scheduled run is most
   # likely to be delayed, and this is the middle of the UTC hour. **It lands on
-  # the top of HIS hour on purpose:** a tick a few minutes before four would
-  # refuse a seller who chose four, because the floor is asked of the hour.
+  # the top of HIS hour on purpose:** a tick a few minutes before six would
+  # refuse a seller who chose six, because the floor is asked of the hour.
   schedule:
-    - cron: '30 10 * * *'
+    - cron: '30 12 * * *'
 
   # **STARTABLE BY HAND**, which is what makes a first run, and any morning
   # something looks wrong, possible without waiting for a tick.

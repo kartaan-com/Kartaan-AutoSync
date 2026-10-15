@@ -35,7 +35,7 @@ import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Callable, Dict, Optional
+from typing import Callable, Dict, List, Optional, Union
 
 from amazon_door import Answer
 
@@ -152,7 +152,7 @@ def _call(
         return refused.code, _headers_of(refused), refused.read()
 
 
-def _decoded(raw: Optional[bytes]) -> Optional[Dict]:
+def _decoded(raw: Optional[bytes], lists_too: bool = False) -> Optional[Union[Dict, List]]:
     """The answer read as Google or Amazon meant it, or None.
 
     **None MEANS THERE WAS NOTHING TO READ, and both doors are built to tell that
@@ -168,6 +168,10 @@ def _decoded(raw: Optional[bytes]) -> Optional[Dict]:
         got = _json.loads(raw.decode("utf-8"))
     except (ValueError, UnicodeDecodeError):
         return None
+    if lists_too and isinstance(got, list):
+        # **FIRESTORE ANSWERS `batchGet` AND `runQuery` WITH A LIST.** Dropping it here
+        # (A80/AD1) made every read look "not a list" and nothing reached his database.
+        return got
     return got if isinstance(got, dict) else None
 
 
@@ -239,6 +243,11 @@ class Reply:
 
     def json(self) -> Optional[Dict]:
         return _decoded(self.raw)
+
+    def records(self) -> Optional[List]:
+        """The answer as a list of records (Firestore's `batchGet`, `runQuery`), or None."""
+        got = _decoded(self.raw, lists_too=True)
+        return got if isinstance(got, list) else None
 
 
 class Google:
