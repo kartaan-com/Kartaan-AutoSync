@@ -1053,6 +1053,11 @@ check("and the record now says they were read under the current rules",
 after_drive = TheSellersDrive(FIRST_THREE_AND_FIFTH)
 ANightLater(migrate.saved[-1], nights=2).go(**after_drive.wiring())
 check("and the night after reads nothing again: the re-read happens once", after_drive.recorded == [])
+check("THE RE-READ NIGHT READS EVERY ORDERS FILE AS A CORRECTION (A81), so a day or word the same day's file got wrong is put right",
+      len(migrate_drive.recorded) == 4 and all(one.corrects for one in migrate_drive.recorded))
+ordinary_drive = TheSellersDrive(FIRST_THREE_AND_FIFTH)
+Harness(between_runs.write(between_runs.with_read_under(between_runs.empty(), tool.reading.READING_RULES))).go(**ordinary_drive.wiring())
+check("and an ordinary night corrects nothing", ordinary_drive.recorded and not any(one.corrects for one in ordinary_drive.recorded))
 nowhere = TheSellersDrive(FIRST_THREE_AND_FIFTH)
 nowhere_wiring = nowhere.wiring()
 nowhere_wiring["record_the_sales"] = None
@@ -2699,7 +2704,7 @@ check("and the tick asks for them under exactly those names",
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 369 + 15 + 11
+EXPECTED = 369 + 15 + 11 + 2
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

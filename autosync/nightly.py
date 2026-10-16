@@ -418,6 +418,7 @@ def one_tick(
             record_listings=record_listings,
             record_returns=record_returns,
             record_ads=record_ads,
+            correcting=migrating,
         )
     except Exception as wrong:  # noqa: BLE001 - reported, never swallowed
         # **THE RECORD IS LEFT EXACTLY AS IT WAS.** Anything else here either

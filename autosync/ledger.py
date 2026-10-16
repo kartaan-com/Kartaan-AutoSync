@@ -267,6 +267,12 @@ class Reading:
     # sheet with a figure and no quantity, no price and no date -- which then looks like an order. Such a line is kept out of the
     # sheet and SAID (`Plan.unmatched`), never dropped and never turned into a row.
     only_existing: bool = False
+    # **A READING THAT CORRECTS WHAT AN EARLIER READING OF THE SAME DAY GOT WRONG (A81).** Set only on the one night every file is read
+    # again because the reading rules changed. Rule 3 keeps what is there when two statements of ONE day disagree -- right for two
+    # files fetched by hand (D110), wrong for the same file read by a better reader, which would leave the three Amazon rows dated a
+    # day early exactly as they were. On such a night a tie with what the SHEET holds is resolved by this reading; a tie with a file
+    # read EARLIER THE SAME NIGHT is still a disagreement, and a NEWER file's figure is still never undone (`older_than_the_row`).
+    corrects: bool = False
     # **WHAT THE FILE CARRIED THAT IS NOT ABOUT AN ORDER**, one sentence per kind, for the run to say (a payout, a service fee, a
     # line the platform has not released). Carried here because only the reader knows what it set aside.
     set_aside: Tuple[str, ...] = ()
@@ -900,6 +906,7 @@ def plan(
                 if str(value) == "" and str(was) != "":
                     continue
                 before = decided_on.what_decided(name, column)
+                from_the_sheet = before is None
                 if before is None and str(was) != "":
                     # **AND WHEN THIS RUN REMEMBERS NOTHING, THE SHEET STILL
                     # MIGHT (A32).** Every night after the first starts with an
@@ -915,7 +922,8 @@ def plan(
                     # blank column of the row as well.
                     before = _what_the_sheet_remembers(held.get(name), reading)
                 if (before is not None and before[0] == reading.on
-                        and before[1] != reading.one_statement):
+                        and before[1] != reading.one_statement
+                        and not (reading.corrects and from_the_sheet)):
                     if str(was) != str(value):
                         # **RULE 3. Nothing is overwritten on a tie.**
                         disagreements.append(Disagreement(

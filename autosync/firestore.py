@@ -645,11 +645,14 @@ def a_deep(held) -> Dict:
     return a_value(held)
 
 
-def a_return_write(project: str, record: Dict) -> Dict:
+def a_return_write(project: str, record: Dict, named_by: Optional[str] = None) -> Dict:
     """One returned line, written whole (nothing else writes this record).
 
     **THE FIELDS ARE `returns.RETURN_FIELDS` AND NO OTHERS**: a column a platform adds can never reach a seller's database by way of a reader
     that was not told about it. Absent fields are absent from the record, never blank.
+
+    `named_by` is the key the record is stored under when that is not its own `returnKey`: an Amazon return that first arrived with no
+    RMA ID and now has one stays ONE record (A81), carrying the RMA ID in `returnKey`.
     """
     import returns  # noqa: PLC0415 - kept beside its one use
 
@@ -659,7 +662,7 @@ def a_return_write(project: str, record: Dict) -> Dict:
     for day in ("startedOn", "closedOn", "fileDay"):
         if day in record and not A_DAY.match(str(record[day])):
             raise Refused(f"{record[day]!r} is not a day written year-month-day, so no return was written for it.")
-    doc_id = f"{record['platform']}__{record['returnKey']}"
+    doc_id = f"{record['platform']}__{named_by or record['returnKey']}"
     return {"update": {"name": where_a_document_lives(project, RETURNS, doc_id), "fields": {k: a_deep(v) for k, v in record.items()}}}
 
 

@@ -527,7 +527,7 @@ def recording_into(
     # one each time -- which is exactly the fault this closes.
     so_far = ledger.WhatTheNightHasDecided()
 
-    def record_the_sales(readings: Sequence[ledger.Reading]) -> None:
+    def record_the_sales(readings: Sequence[ledger.Reading]) -> int:
         rows = door.everything()
         what = ledger.plan(rows, list(readings or ()), so_far)
         did = door.carry_out(what)
@@ -551,7 +551,8 @@ def recording_into(
         for one in what.unreadable:
             speak(f"SALES LEDGER UNREADABLE ROW  {one}")
         # **MONEY THAT HAS NO ORDER TO GO ON IS SAID, ONE LINE EACH (job 36).** A payment for an order the ledger does not hold
-        # is never written as a row and never dropped: it is named here, and the file it came from stays in his folder.
+        # is never written as a row and never dropped: it is named here, and the count is handed back so that the file it came from
+        # is NOT written down as read while any of its lines is waiting (A81) -- it is opened again on later runs until its orders arrive.
         for one in what.unmatched:
             speak(f"SALES LEDGER PAYMENT WITH NO ORDER  {one}")
         for one in what.restated:
@@ -588,6 +589,7 @@ def recording_into(
                 "date and it is read again the next night. The rows are named "
                 "above, each on its own SALES LEDGER OLDER THAN THE ROW line."
             )
+        return len(what.unmatched)
 
     return record_the_sales
 

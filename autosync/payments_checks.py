@@ -642,27 +642,36 @@ _n1 = answered(lambda: a_night(_the, _files, _bodies))
 _mine = {n: a_row(_the.values, sales.name_for(*n)) or {} for n in [
     ("amazon", "404-1", "SKU-A"), ("flipkart", "OD1", "DJ 14"), ("flipkart", "OD2", "DJ 14"), ("meesho", "M1_1", "SKU-M")]}
 check("THREE PLATFORMS' PAYMENT FILES, THROUGH THE REAL READER AND THE REAL LEDGER, FILL THE MATCHING ROWS",
-      _n1 is not None and _n1.read_tonight and len(_n1.read_tonight) == 3
+      _n1 is not None and _n1.read_tonight and len(_n1.read_tonight) == 1
       and _mine[("amazon", "404-1", "SKU-A")].get("settlement") == "80.5"
       and _mine[("flipkart", "OD1", "DJ 14")].get("settlement") == "-300.5"
       and _mine[("flipkart", "OD2", "DJ 14")].get("charge_penalty") == "7"
       and _mine[("meesho", "M1_1", "SKU-M")].get("charge_fixedFee") == "4")
-check("and each file is written down as read, so it is not read again", _n1 is not None
-      and set(_n1.files_read) == {"as-1", "fp-1", "mp-1"})
+# **A81: A FLIPKART OR MEESHO PAYMENTS FILE WITH A LINE WHOSE ORDER IS NOT THERE YET IS NOT WRITTEN DOWN AS READ** (here OD1/DJ 15 and
+# M2_1 have no row), so it is opened again until its orders arrive. Amazon's settlements are not held back.
+check("the Amazon file is written down as read, so it is not read again; the two with lines still waiting are not", _n1 is not None
+      and set(_n1.files_read) == {"as-1"} and _n1.payments_waiting == 2 and len(_n1.payment_files_waiting) == 2)
 check("AND NO ROW WAS ADDED: the ledger has the same number of rows it began with", len(_the.values) == 7)
 check("the payment with no order is said in the night's own words, and so are the lines set aside",
       any("PAYMENT WITH NO ORDER" in x and "404-2" in x for x in _the.said)
       and any("SET ASIDE" in x and "Transfer" in x for x in _the.said)
       and any("SET ASIDE" in x and "Deferred" in x for x in _the.said))
-check("and the manifest's line for each says it was read into the sales ledger",
-      _n1 is not None and len(_n1.reads) == 3)
+check("and the manifest has a line only for the file that was read, none saying 'read N of N' for the waiting ones",
+      _n1 is not None and len(_n1.reads) == 1)
 _before = [list(r) for r in _the.values]
 _n2 = answered(lambda: a_night(_the, _files, _bodies, already=_n1.files_read if _n1 else ()))
-check("A SECOND NIGHT OVER THE SAME FILES OPENS NOTHING AND WRITES NOTHING",
-      _n2 is not None and _n2.read_tonight == () and _the.values == _before)
+check("A SECOND NIGHT OVER THE SAME FILES WRITES NOTHING, and the two waiting files are tried again",
+      _n2 is not None and _n2.read_tonight == () and _the.values == _before and _n2.payments_waiting == 2)
 _n3 = answered(lambda: a_night(_the, _files, _bodies))
 check("AND READ AGAIN FROM SCRATCH, THE SAME FILES CHANGE NOTHING IN THE SHEET (the re-read is idempotent)",
       _n3 is not None and _the.values == _before)
+
+# **AND THE NIGHT THEIR ORDERS ARRIVE, THE WAITING FILES ARE READ FOR GOOD (A81).**
+_the.values = [list(r) for r in _the.values] + [
+    list(r) for r in sheet_with(an_order("flipkart", "OD1", "DJ 15"), an_order("meesho", "M2_1", "SKU-N"))[1:]]
+_n4 = answered(lambda: a_night(_the, _files, _bodies, already=_n1.files_read))
+check("once the orders are in the sheet the waiting files are read and written down as read",
+      _n4 is not None and set(_n4.read_tonight) == {"fp-1", "mp-1"} and _n4.payments_waiting == 0)
 
 # **THE CATCH-UP NIGHT, WHOLE:** the payments file is about an EARLIER day than the orders file that makes its row, and both are new.
 _empty_sheet = TheSheet([list(sales.COLUMNS)])
@@ -674,9 +683,9 @@ _catch_up = answered(lambda: a_night(
      "me_payments": [a_folder_file("mp-1", "meesho_me_payments_2026-10-03.xlsx")]},
     {"o-1": _orders_text, "mp-1": MEESHO_BODY}))
 _caught = a_row(_empty_sheet.values, sales.name_for("meesho", "M1_1", "SKU-M")) or {}
-check("A PAYMENTS FILE OLDER THAN THE ORDERS IT SETTLES STILL FILLS THEIR ROW WHEN BOTH ARE NEW TOGETHER, and is then read for good",
+check("A PAYMENTS FILE OLDER THAN THE ORDERS IT SETTLES STILL FILLS THEIR ROW WHEN BOTH ARE NEW TOGETHER, and waits only for its other line (M2_1)",
       _catch_up is not None and _caught.get("settlement") == "150" and _caught.get("charge_commission") == "20"
-      and set(_catch_up.files_read) == {"o-1", "mp-1"})
+      and set(_catch_up.files_read) == {"o-1"} and _catch_up.payments_waiting == 1)
 
 # ================================================================ the guard that refuses to write
 
@@ -1049,7 +1058,7 @@ if failures:
     print(f"{len(failures)} FAILED: {failures}")
     sys.exit(1)
 WITHOUT = ran - real_ran
-if WITHOUT != 95 + 22 + 17 + 8:
-    print(f"FAIL  checks went missing -- {WITHOUT} ran without his files, 142 expected")
+if WITHOUT != 95 + 22 + 17 + 8 + 1:
+    print(f"FAIL  checks went missing -- {WITHOUT} ran without his files, 143 expected")
     sys.exit(1)
 print(f"all {ran} checks passed" + ("" if real_ran == HIS_FILES_GROUP else f" ({HIS_FILES_GROUP - real_ran} of his real-file checks not run -- the files are elsewhere)"))

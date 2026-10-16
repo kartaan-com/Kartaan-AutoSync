@@ -430,6 +430,18 @@ answered(lambda: record([A_READING]))
 check("A SALE THAT IS READ ACTUALLY REACHES THE SELLER'S SHEET",
       any(A_SALE.id in str(r) for r in sheet.rows))
 
+# **A PAYMENT LINE WHOSE ORDER IS NOT IN THE SHEET IS COUNTED AND HANDED BACK (A81)**, so `read_what_is_new` can keep the file unread.
+_PAID = sales.Sale(platform="meesho", order_id="M-1", sku="RING-1", settlement="62.32")
+_PAID_TO_NOTHING = sales.Sale(platform="meesho", order_id="NO-SUCH-ORDER", sku="RING-1", settlement="10.00")
+_PAYMENTS = ledger.Reading(report="me_payments", on="2026-09-02", knows=("settlement",), sales=(_PAID, _PAID_TO_NOTHING),
+                           which="pay-1", only_existing=True)
+_sheet_for_payments = PretendSheets(rows=list(sheet.rows))
+_how_many_wait = answered(lambda: tool.recording_into(LedgerDoor(_sheet_for_payments, "sheet-1"))([_PAYMENTS]))
+check("A PAYMENTS FILE WITH ONE LINE WHOSE ORDER IS NOT THERE HANDS BACK ONE WAITING", _how_many_wait == 1)
+_all_matched = ledger.Reading(report="me_payments", on="2026-09-02", knows=("settlement",), sales=(_PAID,), which="pay-2", only_existing=True)
+check("and a file whose every line found its order hands back nought",
+      answered(lambda: tool.recording_into(LedgerDoor(PretendSheets(rows=list(sheet.rows)), "sheet-1"))([_all_matched])) == 0)
+
 # **THE SHEET IS READ AGAIN FOR EVERY FILE**, or the second file's changes land on
 # the first file's row numbers.
 before = len([c for c in sheet.calls if c["method"] == "GET" and "/values/" in c["path"]])
@@ -1197,7 +1209,7 @@ check("PROOF: a tally that let the record's failure out WOULD have refused the f
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 144 + 12 + 9
+EXPECTED = 144 + 12 + 9 + 2
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

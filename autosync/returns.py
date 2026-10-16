@@ -119,6 +119,19 @@ WAYS: Dict[str, Way] = {
 }
 
 
+# **A RETURN WITHOUT AN AMAZON RMA ID IS STILL A RETURN (A81).** Amazon leaves the RMA ID blank on some rows (its `Merchant RMA ID` is
+# blank on them too); on run #19's files one real return (24 Sep) and one rejected return (11 Oct) were dropped for it. Such a row is
+# named by what is certain about it instead: its order, its SKU and the day the return was requested. The same file read again
+# gives the same name (so nothing new is written), and a row that later gets an RMA ID is folded onto this record by the writer
+# (`firestore_door.a_returns_sink`), not made a second return.
+NO_RMA = "NORMA"
+
+
+def a_return_without_an_rma(order: str, sku: str, requested_on: str) -> str:
+    """The record name of an Amazon return that has no RMA ID. **Characters a record name should not hold become `_`.**"""
+    return "-".join(re.sub(r"[^A-Za-z0-9._-]", "_", part) for part in (NO_RMA, order, sku, requested_on))
+
+
 def way_for(report_id: str) -> Way:
     found = WAYS.get(report_id)
     if found is None:
@@ -194,6 +207,8 @@ def read_returns(report_id: str, rows: table.Table, file_day: str) -> WhatReturn
         if way.platform == "flipkart":
             sku = orders._unwrap_flipkart_sku(sku)
         key = said("returnKey")
+        if way.platform == "amazon" and order and not key and sku and a_day(said("startedOn")):
+            key = a_return_without_an_rma(order, sku, a_day(said("startedOn")))
         if not order or not key:
             not_read.append(f"line {row.line}: no order or return named, so the return belongs to nothing")
             continue

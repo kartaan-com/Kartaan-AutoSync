@@ -80,7 +80,7 @@ Google account and no internet.
 
 import csv
 import io
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 import landing
@@ -123,7 +123,9 @@ WHAT_ORDERS_KNOWS = ("platform", "orderId", "on", "sku", "qty", "gmv", "status",
 # already in his ledger would go on looking like sales for ever. Change this name whenever the orders reader
 # learns to write a column it did not, and every file is read once more -- which is safe, because reading a
 # file again writes the same figures and an older file never undoes a newer one (D150 rule 2).
-READING_RULES = "orders-with-the-platforms-status-word-and-what-happened"
+READING_RULES = "orders-with-the-platforms-status-word-and-what-happened-india-day-a81"
+# Payments reports whose lines wait for their order (A81).
+PAYMENTS_THAT_WAIT_FOR_THEIR_ORDERS = ("fk_payments", "me_payments")
 
 
 
@@ -336,6 +338,13 @@ class WhatTheNightRead:
     returns_waiting: int = 0
     ads_written: int = 0
     ads_waiting: int = 0
+    # **PAYMENT LINES WAITING FOR THEIR ORDER (A81):** how many lines, and which files are being held for them (not written down as
+    # read). Said on every run they are not nought.
+    payments_waiting: int = 0
+    payment_files_waiting: Tuple[str, ...] = ()
+    # **AN ORDER STATUS NOBODY HAS TRANSLATED (A81):** each platform word with the number of rows that carried it. These rows read
+    # "not understood yet" on the sheet; naming the word here is how somebody finds out which one to teach.
+    words_not_understood: Tuple[Tuple[str, int], ...] = ()
 
     @property
     def is_a_defect(self) -> bool:
@@ -403,6 +412,14 @@ class WhatTheNightRead:
                 f"  {self.returns_waiting + self.ads_waiting} returns/ads file(s) were left unread because the seller's database "
                 "could not be reached for them; they will be read when it can."
             )
+        if self.payments_waiting:
+            said += (
+                f"  {self.payments_waiting} payment line(s) are WAITING for an order that is not in the sales ledger yet, in "
+                f"{len(self.payment_files_waiting)} file(s) ({', '.join(self.payment_files_waiting)}); those files are not counted as read "
+                "and are tried again on every run until the orders arrive."
+            )
+        if self.words_not_understood:
+            said += "  Order status word(s) not understood yet: " + ", ".join(f"{w!r} x{n}" for w, n in self.words_not_understood) + "."
         if self.refused_to_forget:
             said += f"  Nothing was let go of: {self.refused_to_forget}"
         for why in self.could_not_list:
@@ -774,7 +791,8 @@ def would_a_file_say_which_day_it_is(how: HowToRead) -> bool:
         way.order_id: "asking-whether-a-file-says-which-day-it-is",
         way.sku: "asking",
         way.qty: "1",
-        way.on: A_DAY_TO_ASK_WITH,
+        # A column that carries an offset (Amazon's) is asked with a time in the shape the platform writes; midday keeps the India day the same.
+        way.on: A_DAY_TO_ASK_WITH + ("T06:30:00+00:00" if way.time_has_an_offset else ""),
     }
     body = '\n'.join(
         [",".join(columns), ",".join(said[one] for one in columns), ""]
@@ -804,12 +822,13 @@ def read_what_is_new(
     already_read: Sequence[str],
     what_is_in_the_folder: Optional[Callable[[str], Sequence[whats_new.InTheFolder]]] = None,
     bring_it_back: Optional[Callable[[str], bytes]] = None,
-    record_the_sales: Optional[Callable[[Sequence[Reading]], None]] = None,
+    record_the_sales: Optional[Callable[[Sequence[Reading]], Optional[int]]] = None,
     can_be_read: Optional[Sequence[HowToRead]] = None,
     record_views: Optional[Callable[[str, Dict], int]] = None,
     record_listings: Optional[Callable[[str, str, Dict], int]] = None,
     record_returns: Optional[Callable[[str, str, Dict], int]] = None,
     record_ads: Optional[Callable[[str, str, str, str, Dict], int]] = None,
+    correcting: bool = False,
 ) -> WhatTheNightRead:
     """Read every file in the seller's folders that has not been read before.
 
@@ -818,6 +837,9 @@ def read_what_is_new(
     traffic and ads files are not opened and not marked, and the night says how many are waiting.
     `record_listings(report_id, day, listings)` is where a listing file's listings go and answers how many records it wrote; left out, the
     listing files are not opened and not marked, and the night says how many are waiting.
+
+    `correcting` is True only on the night every file is read again because the reading rules changed (A81): the orders it reads
+    then put right what the same day's file said before, instead of leaving it as a tie (`ledger.Reading.corrects`).
 
     **THE ONLY TWO THINGS THAT DECIDE WHAT IS NEW ARE THE FOLDER AND THE LIST OF
     WHAT HAS BEEN READ.** Nothing about tonight's fetching reaches this -- not a
@@ -897,6 +919,9 @@ def read_what_is_new(
     returns_waiting = 0
     ads_written = 0
     ads_waiting = 0
+    payments_waiting = 0
+    payment_files_waiting: List[str] = []
+    unknown_words: Dict[str, int] = {}
 
     # **OLDEST FIRST, AND EVERY FOLDER'S FILES TOGETHER.** Handed over in the
     # order Drive answered a listing in, the last file to be recorded is the last
@@ -995,10 +1020,12 @@ def read_what_is_new(
                 reading, refused_rows = a_settlements_reading(how, one, body, listed.get(how.report_id, ()), bring_it_back)
             else:
                 reading, refused_rows = a_reading(how, one, body)
+            if correcting and how.kind == "orders":
+                reading = replace(reading, corrects=True)
             # **THE ONE PLACE A SALE LANDS.** Everything above this line can be
             # done again tomorrow at no cost; everything below depends on this
             # having happened.
-            record_the_sales([reading])
+            lines_waiting = record_the_sales([reading]) or 0
         except LedgerRefused as wrong:
             # **OUR OWN FAULT, KEPT APART FROM THE PLATFORM'S.** See
             # `is_a_defect`: a night where our own rule refused every file must
@@ -1008,6 +1035,14 @@ def read_what_is_new(
         except Exception as wrong:  # noqa: BLE001 - named, never swallowed
             could_not_read.append(f"{one.name or one.which}: {wrong}")
             continue
+        # **A PAYMENTS FILE WITH A LINE WHOSE ORDER IS NOT IN THE SHEET YET IS NOT READ, AND IS NOT SAID TO BE (A81).** The lines that
+        # have their order are already on their rows (writing them again later changes nothing); the others wait, and the file is
+        # opened again on every later run until its orders arrive. Only Flipkart and Meesho payments wait: Amazon's settlements
+        # are not held back (their lines are not tied to the orders files in the same way, and the brief for A81 names these two).
+        if lines_waiting and how.report_id in PAYMENTS_THAT_WAIT_FOR_THEIR_ORDERS:
+            payments_waiting += lines_waiting
+            payment_files_waiting.append(one.name or one.which)
+            continue
         # **MARKED ONLY NOW, AND ONE FILE AT A TIME.** Marked before the
         # recording, a run that died between the two would lose the file for
         # ever; marked in a batch at the end, a run that died halfway would lose
@@ -1015,6 +1050,10 @@ def read_what_is_new(
         read_tonight.append(one)
         how_many_sales += len(reading.sales)
         rows_refused += refused_rows
+        if how.kind == "orders":
+            for sale in reading.sales:
+                if sale.what_happened == orders.NOT_UNDERSTOOD_YET:
+                    unknown_words[sale.status or ""] = unknown_words.get(sale.status or "", 0) + 1
         the_day = landing.data_date_in(one.name)
         if the_day is not None:
             reads.append(manifest.Read(
@@ -1050,6 +1089,9 @@ def read_what_is_new(
         returns_waiting=returns_waiting,
         ads_written=ads_written,
         ads_waiting=ads_waiting,
+        payments_waiting=payments_waiting,
+        payment_files_waiting=tuple(payment_files_waiting),
+        words_not_understood=tuple(sorted(unknown_words.items())),
     )
 
 

@@ -1071,7 +1071,8 @@
       ],
       "files": [
         "autosync/orders.py",
-        "autosync/orders_checks.py"
+        "autosync/orders_checks.py",
+        "autosync/a81_checks.py"
       ],
       "reviews": [],
       "findings": [

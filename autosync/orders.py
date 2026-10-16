@@ -96,7 +96,7 @@ also counted in what a read says out loud.
 
 import re
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from sales import Sale
@@ -173,6 +173,38 @@ def the_day_in(said: str) -> Optional[str]:
         return None
 
 
+# **AMAZON WRITES THE PURCHASE TIME WITH ITS OWN OFFSET** (`2026-10-12T21:17:27+00:00`, every one of his 19 real rows of run #19).
+# Amazon's docs state no time zone for this column, so the offset written in the cell is the only authority and is the one used.
+# The seller's day is the India day; India has no summer time, so a fixed +05:30 is exact (nothing to look up, nothing to go stale).
+INDIA = timezone(timedelta(hours=5, minutes=30))
+A_TIME_WITH_ITS_OFFSET = re.compile(
+    r"^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?(Z|[+-]\d{2}:?\d{2})$"
+)
+
+
+def the_day_in_india(said: str) -> Optional[str]:
+    """The India day of a time written with its offset, or nothing at all.
+
+    **A TIME WITH NO OFFSET IS REFUSED, NOT TAKEN AS INDIA'S OR AS UTC.** Either would be a guess, and a guess here is a sale
+    dated a day wrong while looking perfectly fine. A bare day (no time) is refused for the same reason: it cannot be moved.
+    """
+    found = A_TIME_WITH_ITS_OFFSET.match((said or "").strip())
+    if not found:
+        return None
+    year, month, day, hour, minute, second, offset = found.groups()
+    try:
+        if offset == "Z":
+            zone = timezone.utc
+        else:
+            sign = -1 if offset[0] == "-" else 1
+            digits = offset[1:].replace(":", "")
+            zone = timezone(sign * timedelta(hours=int(digits[:2]), minutes=int(digits[2:])))
+        moment = datetime(int(year), int(month), int(day), int(hour), int(minute), int(second or 0), tzinfo=zone)
+    except ValueError:
+        return None
+    return moment.astimezone(INDIA).date().isoformat()
+
+
 def a_figure(said: str) -> Optional[str]:
     """A figure as the platform wrote it, or nothing when it is not one.
 
@@ -234,10 +266,19 @@ THE_OUTCOME_OF = {
     "canceled": CANCELLED,
     "returned": CAME_BACK,
     "rto_complete": CAME_BACK,
+    # Amazon's all-orders report writes the delivery as one phrase (seen on his real run #19 file, 8 of 19 rows).
+    "shipped - delivered to buyer": DELIVERED,
 }
 STILL_ON_ITS_WAY = frozenset({
     "shipped", "ready_to_ship", "approved", "hold", "pending", "unshipped",
     "return_requested", "rto_initiated", "rto_locked", "rto_ofd",
+    # **AMAZON'S OWN LIST (Orders API v0 `Order.OrderStatus`, selling-partner-api-models/ordersV0.json):** Pending, Unshipped,
+    # PartiallyShipped, Shipped, Canceled, Unfulfillable, InvoiceUnconfirmed, PendingAvailability. The first, second, fourth and
+    # fifth were already known; the three below are added -- each says only that the order is not yet finished. `Unfulfillable`
+    # is deliberately NOT here: Amazon does not say whether it ends the order, so it stays "not understood yet" and is named.
+    # The report spells the shipped stage out ("Shipped - Picked Up", seen on his real file) and publishes no list of those
+    # phrases, so only the ones seen in his files are known; any other stays "not understood yet" and is named in the run's report.
+    "partiallyshipped", "invoiceunconfirmed", "pendingavailability", "shipped - picked up",
 })
 
 
@@ -265,6 +306,8 @@ class Mapping:
     their_word: str
     gmv: Optional[str] = None
     unwrap_sku: bool = False
+    # The time column carries an offset (Amazon's does) and the day is the India day of that moment.
+    time_has_an_offset: bool = False
 
     @property
     def needs(self) -> Tuple[str, ...]:
@@ -312,6 +355,7 @@ FROM_AMAZON = Mapping(
     on="purchase-date",
     their_word="order-status",
     gmv="item-price",
+    time_has_an_offset=True,
 )
 
 EVERY_MAPPING = {m.platform: m for m in (FROM_MEESHO, FROM_FLIPKART, FROM_AMAZON)}
@@ -417,7 +461,7 @@ def read_orders(rows: Table, platform: str,
             ))
             continue
 
-        when = the_day_in(said_when)
+        when = the_day_in_india(said_when) if how.time_has_an_offset else the_day_in(said_when)
         if when is None:
             not_read.append(NotRead(
                 line=row.line,

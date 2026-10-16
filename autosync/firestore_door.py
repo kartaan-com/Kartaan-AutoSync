@@ -27,6 +27,7 @@ from datetime import date, timedelta
 from typing import Callable, Dict, Optional, Sequence
 
 import firestore
+import returns
 from firestore import (
     API,
     ROOM,
@@ -430,12 +431,26 @@ def a_returns_sink(transport, project: str, today: str) -> Callable[..., int]:
     """
 
     def sink(report_id: str, day: str, records: Dict[str, Dict]) -> int:
-        held = _what_is_held_of(transport, project, firestore.RETURNS, sorted(records), "digest", "fileDay")
-        writes = [
-            firestore.a_return_write(project, record)
-            for doc_id, record in sorted(records.items())
-            if _is_news(held, doc_id, record["digest"], day)
-        ]
+        # **AN AMAZON RETURN THAT HAS GOT ITS RMA ID SINCE IT WAS FIRST SEEN WITHOUT ONE STAYS ONE RECORD (A81).** The name it was
+        # first stored under is asked for beside its own; if that one is held, the record is written there (still carrying the RMA
+        # ID in `returnKey`), and no second record is made.
+        earlier_name: Dict[str, str] = {}
+        for doc_id, record in records.items():
+            if (
+                record.get("platform") == "amazon" and not str(record["returnKey"]).startswith(returns.NO_RMA + "-")
+                and record.get("sku") and record.get("startedOn")
+            ):
+                earlier_name[doc_id] = "amazon__" + returns.a_return_without_an_rma(record["orderId"], record["sku"], record["startedOn"])
+        # **TWO RETURNS OF ONE ORDER, SKU AND DAY IN ONE FILE ARE TWO RETURNS:** where more than one record would fold onto the same
+        # earlier name, none is folded and each keeps its own RMA name, rather than one overwriting the other.
+        shared = {alias for alias in earlier_name.values() if list(earlier_name.values()).count(alias) > 1}
+        earlier_name = {doc_id: alias for doc_id, alias in earlier_name.items() if alias not in shared}
+        held = _what_is_held_of(transport, project, firestore.RETURNS, sorted(set(records) | set(earlier_name.values())), "digest", "fileDay")
+        writes = []
+        for doc_id, record in sorted(records.items()):
+            stored_as = earlier_name[doc_id] if earlier_name.get(doc_id) in held else doc_id
+            if _is_news(held, stored_as, record["digest"], day):
+                writes.append(firestore.a_return_write(project, record, named_by=stored_as.split("__", 1)[1]))
         return write_them(transport, project, writes, "writing the returns the platforms' files name")
 
     return sink
