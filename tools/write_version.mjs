@@ -45,6 +45,14 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     console.error(`NOT ANNOUNCING -- ${refused}`);
     process.exit(1);
   }
+  /* **THE RELEASE MUST EXIST BEFORE IT IS ANNOUNCED (cso pass, A82).** Written down only, "last" is a hope: announced
+   * early, every seller is sent to a ZIP that is not there, or to whatever the moving `latest` link gives. */
+  try {
+    execFileSync('gh', ['release', 'view', `v${manifest.version}`, '--repo', 'kartaan-com/Kartaan-AutoSync'], { stdio: 'ignore' });
+  } catch (wrong) {
+    console.error(`NOT ANNOUNCING -- the GitHub release v${manifest.version} cannot be seen (or gh could not be run). Make the release first.`);
+    process.exit(1);
+  }
   const note = process.argv[2] || '';
   writeFileSync(file, `${JSON.stringify(theVersionFile(manifest, note), null, 2)}\n`);
   console.log(`version.json written (${manifest.version}).${note ? '' : ' NO NOTE given: the notice will show the version alone.'}`);

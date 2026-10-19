@@ -41,6 +41,8 @@ check('an ordinary GitHub address is kept', safeLink(ZIP) === ZIP);
 check('a javascript: address is dropped', safeLink('javascript:alert(1)') === '');
 check('an insecure address is dropped', safeLink('http://github.com/x') === '');
 check('and so is a secure address somewhere other than GitHub', safeLink('https://evil.example/x.zip') === '');
+check('and so is another account releases on GitHub, which the banner would lend our name to',
+  safeLink('https://github.com/attacker/x/releases/download/v1/kartaan-autosync-extension.zip') === '');
 
 {
   const { chrome } = installFakeChrome();
@@ -69,7 +71,13 @@ check('and so is a secure address somewhere other than GitHub', safeLink('https:
     (await chrome.storage.local.get(THE_UPDATE))[THE_UPDATE].error === 'offline');
   await checkForUpdate(chrome, { fetch: answering({ url: ZIP }), now: 4000 });
   check('a file with no version in it is a failure, not an announcement',
-    (await chrome.storage.local.get(THE_UPDATE))[THE_UPDATE].error.includes('no version'));
+    (await chrome.storage.local.get(THE_UPDATE))[THE_UPDATE].error.includes('no usable version'));
+  await checkForUpdate(chrome, { fetch: answering({ version: '999.0.0-evil', url: ZIP }), now: 5000 });
+  check('and so is a version that is not three plain numbers',
+    (await chrome.storage.local.get(THE_UPDATE))[THE_UPDATE].latest === '0.1.18');
+  await checkForUpdate(chrome, { fetch: answering({ version: '0.1.19', notes: 'x'.repeat(900) }), now: 6000 });
+  check('and a note is cut to one short line',
+    (await chrome.storage.local.get(THE_UPDATE))[THE_UPDATE].notes.length === 200);
 }
 
 {
@@ -108,7 +116,7 @@ check('and so is a secure address somewhere other than GitHub', safeLink('https:
     && whyNotToAnnounce('', '0.1.16', '0.1.17') === null);
 }
 
-const EXPECTED = 21;
+const EXPECTED = 24;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

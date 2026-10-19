@@ -14,12 +14,16 @@ export const THE_UPDATE = 'kartaan-autosync-update';
 /** Once a day is plenty. */
 export const CHECK_EVERY_MS = 24 * 60 * 60 * 1000;
 
+/** Where this extension's own releases live; a link anywhere else on GitHub is not ours (cso pass, A82). */
+const THE_RELEASES = '/kartaan-com/Kartaan-AutoSync/releases/';
+
 /** A link is kept only if it is an ordinary secure address on GitHub; anything else is dropped and the notice shows
  *  no link, because a notice with no link is a nuisance and a bad one is a hazard. */
 export function safeLink(raw) {
   try {
     const link = new URL(String(raw || ''));
-    return link.protocol === 'https:' && link.hostname === 'github.com' ? link.href : '';
+    return link.protocol === 'https:' && link.hostname === 'github.com'
+      && link.pathname.startsWith(THE_RELEASES) ? link.href : '';
   } catch (wrong) {
     return '';
   }
@@ -52,9 +56,11 @@ export async function checkForUpdate(chrome, { fetch, now = Date.now() }) {
       if (!reply.ok) throw new Error(`the server answered ${reply.status}`);
       const data = await reply.json();
       const latest = String(data.version || '');
-      if (!latest) throw new Error('no version in the file');
+      /* A version is three plain numbers, and a note is one short line: the file is read from a public branch, so
+       * neither may be anything else (cso pass, A82). */
+      if (!/^\d+\.\d+\.\d+$/.test(latest)) throw new Error('no usable version in the file');
       kept = {
-        checkedAt: now, latest, url: safeLink(data.url), notes: String(data.notes || ''), error: '',
+        checkedAt: now, latest, url: safeLink(data.url), notes: String(data.notes || '').slice(0, 200), error: '',
       };
     } catch (wrong) {
       kept = { ...before, checkedAt: now, error: (wrong && wrong.message) || String(wrong) };
