@@ -37,6 +37,7 @@ import {
   theNight, endTheNight, howTheNightWent, theDay, thatOneIsDone,
   A_DAYS_ALLOWANCE, KEPT_FOR_HIS_OWN_RUNS, inTheNightsOwnLine, spendsTheAllowance, whatNeedsYou,
 } from './nightly.js';
+import { theUpdateNotice } from './update.js';
 import { THE_WALK } from './background.js';
 import { aDriveToken } from './drive.js';
 import {
@@ -832,7 +833,14 @@ export async function answerThePanelsQuestion(chrome, parts, asked) {
   const { book, now = () => Date.now() } = parts;
 
   if (asked.do === 'how-it-stands') {
-    return { stands: await howItStands(chrome, { book, now: now(), theClock: parts.theClock }) };
+    return {
+      stands: {
+        ...await howItStands(chrome, { book, now: now(), theClock: parts.theClock }),
+        update: await theUpdateNotice(chrome, {
+          installed: parts.installed, fetch: parts.fetchTheVersion, now: now(),
+        }),
+      },
+    };
   }
 
   if (asked.do === 'check-the-drive') {
@@ -1441,6 +1449,10 @@ export function buildThePanel(into, doing) {
   /* ----------------------------------------------------------- what is happening */
   parts.banner = make('div', `${OURS}banner`);
   put(body, parts.banner);
+  /* **"A NEWER VERSION IS OUT" (his ask, 2026-10-20; Kartaan Click's way).** Hidden until the repository says so. */
+  parts.update = make('div', `${OURS}banner ${OURS}banner--setup`);
+  parts.update.hidden = true;
+  put(body, parts.update);
 
   /* **THE TWO DATE BOXES -- HIS ASK, 2026-09-16.** Empty is yesterday, which is what
    * every run did before they existed. Filled, Run now fetches every day between them,
@@ -1648,10 +1660,28 @@ function tickAll(parts) {
  * once, the first time a list arrives, and only their state changes after that
  * -- so a tick a seller made two seconds ago is still there.
  */
+function showTheUpdate(parts, update) {
+  if (!parts.update) return;
+  const out = Boolean(update && update.updateAvailable);
+  parts.update.hidden = !out;
+  parts.update.textContent = '';
+  if (!out) return;
+  put(parts.update, make('span', '',
+    `A newer version is out: ${update.latest} (this one is ${update.installed}).${update.notes ? ` ${update.notes}` : ''} `));
+  if (update.url) {
+    const link = make('a', '', 'Download it');
+    link.href = update.url;
+    link.target = '_blank';
+    link.rel = 'noopener';
+    put(parts.update, link);
+  }
+}
+
 export function showHowItStands(parts, stands) {
   const banner = whatTheBannerSays(stands);
   parts.banner.className = `${OURS}banner ${OURS}banner--${banner.how}`;
   parts.banner.textContent = banner.said;
+  showTheUpdate(parts, stands.update);
   if (parts.resume) parts.resume.hidden = !stands.paused;
 
   parts.setup.hidden = stands.setUp.done;

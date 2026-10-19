@@ -1593,6 +1593,35 @@ function panelParts(chrome, held = {}) {
 }
 
 {
+  /* **A82: "A NEWER VERSION IS OUT" (his ask, 2026-10-20), Kartaan Click's way.** */
+  installFakeBrowser();
+  const { chrome } = installFakeChrome();
+  await chrome.storage.local.set({ 'kartaan-autosync-update': {
+    checkedAt: Date.now(), latest: '0.1.18', notes: 'Fixed.',
+    url: 'https://github.com/kartaan-com/Kartaan-AutoSync/releases/latest/download/kartaan-autosync-extension.zip',
+  } });
+  const asked = await answerThePanelsQuestion(chrome, {
+    book: BOOK, now: () => Date.now(), installed: '0.1.17',
+  }, { do: 'how-it-stands' });
+  check('A82: the panel is told a later version exists, and which one it has',
+    asked.stands.update.updateAvailable && asked.stands.update.installed === '0.1.17'
+    && asked.stands.update.latest === '0.1.18');
+  const panel = buildThePanel(document.body, {
+    connectTheDrive() {}, saveThePanelName() {}, runNow() {}, stop() {}, setTheHour() {},
+  });
+  check('A82: and says nothing before it is told', panel.update.hidden === true);
+  showHowItStands(panel, asked.stands);
+  check('A82: it then shows the version, the note and the download link',
+    panel.update.hidden === false && panel.update.textContent.includes('0.1.18')
+    && panel.update.textContent.includes('Fixed.') && panel.update.textContent.includes('Download it'));
+  const same = await answerThePanelsQuestion(chrome, {
+    book: BOOK, now: () => Date.now(), installed: '0.1.18',
+  }, { do: 'how-it-stands' });
+  showHowItStands(panel, same.stands);
+  check('A82: and goes again once the seller is on that version', panel.update.hidden === true);
+}
+
+{
   /* **2. THE TWO MEESHO ADS FILES SHOW TICKED WHENEVER THE ADS SWEEP IS**, and
    * are never sent on their own: no request of theirs exists. */
   installFakeBrowser();

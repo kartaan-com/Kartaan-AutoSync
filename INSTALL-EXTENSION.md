@@ -44,3 +44,5 @@ Publish a GitHub release on `kartaan-com/Kartaan-AutoSync`. The workflow `extens
 the `extension` folder and attaches it as `kartaan-autosync-extension.zip`, so the link above works
 from then on and always gives the newest release. Until the first release is published the link
 returns "not found".
+
+**Then tell installed copies a newer one is out -- LAST (A82).** `extension/manifest.json`'s `version` must be the release's version (0.1.17 for v0.1.17) before the release is made. Once the release and its ZIP exist, run `node tools/write_version.mjs "One line about what is new"`, then `git add version.json && git commit -m "Announce 0.1.17" && git push`. The panel reads `version.json` once a day and shows "A newer version is out" with the download link. Pushed before the release exists, it points sellers at a ZIP that is not there.

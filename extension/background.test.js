@@ -1505,7 +1505,12 @@ const LATER = '2026-08-27T16:04:00.000Z';
   /* **AND STILL NOT EVERYTHING.** The reference asks for `<all_urls>`; a product
    * copied into every seller's own account asks for the hosts it can name. */
   check('and it still does not ask for every address there is',
-    !hosts.includes('<all_urls>') && hosts.length <= 6);
+    !hosts.includes('<all_urls>') && hosts.length <= 7);
+  /* **THE SEVENTH IS THE ONE REPOSITORY FOLDER THE "NEWER VERSION" NOTICE READS (A82)**, read only, and not
+   * raw.githubusercontent.com as a whole. */
+  check('the version notice may read the files of this repository and no other GitHub address',
+    hosts.includes('https://raw.githubusercontent.com/kartaan-com/Kartaan-AutoSync/*')
+    && !hosts.includes('https://raw.githubusercontent.com/*'));
   /* **THE FIFTH OF SIX HOSTS IS KARTAAN'S OWN SERVER, ADDED ON PURPOSE (plan jobs 30 and 48)**: the run pass is posted to
    * `/may-fetch` and `/finished` there. Exactly that one address, and not the whole of kartaan.com. */
   check('the only host added for the Kartaan server is api.kartaan.com, by name',
@@ -2199,7 +2204,7 @@ check('the page relay is OFF in what ships, so no script on a portal page can dr
     && theRelayAllows(false, { do: 'run-now' }) === false);
 }
 
-const EXPECTED = 261;
+const EXPECTED = 262;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

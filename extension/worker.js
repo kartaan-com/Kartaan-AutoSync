@@ -26,6 +26,7 @@ import {
   aDriveToken, aWayOfAsking, addARowTo, landTheFile, recordWhatLanded, theKartaanFolder,
 } from './drive.js';
 import { tellFinished } from './kartaan.js';
+import { VERSION_URL } from './update.js';
 import { aFreshInstallId, theLinesFor, theRecordNameFor } from './record.js';
 import {
   THE_PANEL_ASKS, alreadyCarriedOn, answerThePanelsQuestion, markCarriedOn, releaseCarriedOn, rememberTheNight,
@@ -431,6 +432,12 @@ wireUp(chrome, {
       startTheNight,
       carryOn,
       fetch: kartaanFetch,
+      /* **THE ONE ADDRESS THIS EXTENSION READS FOR "A NEWER VERSION IS OUT"**, and it can read nothing else. */
+      installed: chrome.runtime.getManifest().version,
+      fetchTheVersion: (address, how) => {
+        if (address !== VERSION_URL) throw new Error('Only the version file may be read here.');
+        return fetch(address, how);
+      },
       watching,
       setTheHour,
       whyThatIsNotATimeOfDay,
