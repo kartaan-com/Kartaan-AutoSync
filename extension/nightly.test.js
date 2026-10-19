@@ -20,6 +20,7 @@ import {
   ONLY_ITS_NEWEST_DAY,
   THE_NIGHT,
   endTheNight,
+  NOT_ASKED,
   howTheNightWent,
   oneWasAskedFor,
   spendsTheAllowance,
@@ -571,9 +572,20 @@ function aWalkThat() {
     walk.started.length === 1 && walk.started[0].reportId === 'fk_ads_daily');
   check('and it is written down as skipped, saying why',
     night.done[0].reportId === 'fk_orders'
-    && night.done[0].state === 'nothing-to-fetch'
+    && night.done[0].state === NOT_ASKED
     && night.done[0].say.includes('has not been asked for'));
   check('and nothing was spent', night.spent === 0);
+  const words = howTheNightWent(night);
+  check('and the summary says NOT ASKED FOR, never "correctly had nothing to fetch" (A82)',
+    words.includes('1 NOT ASKED FOR') && !words.includes('correctly had nothing to fetch'));
+  check('and the refused day still counts in the total, once', words.includes('-- 2 in all'));
+  await carryTheNightOn(browser.chrome, { ...walk, at: 3 });
+  walk.itFinished({ state: 'landed', reportId: 'fk_ads_daily', size: 5 });
+  await carryTheNightOn(browser.chrome, { ...walk, at: 4 });
+  const ended = await theNight(browser.chrome);
+  check('and the night never ends "Every report was reached" while a day was not asked for (A82)',
+    Boolean(ended.finishedAt) && ended.why.includes('not asked, allowance used up')
+    && !ended.why.includes('Every report was reached'));
 }
 
 {
@@ -1449,7 +1461,7 @@ async function seedLandedRangeForTest(c, reportId, from, to) {
   check('a day with nothing to fetch is not walked again on the next sync',
     before.includes('2026-09-15') && !after.includes('2026-09-15') && after.length === before.length - 1);
   await thatOneIsDone(c, {
-    reportId: 'fk_ads_daily', state: 'nothing-to-fetch', say: 'only asked for what is left of the twenty',
+    reportId: 'fk_ads_daily', state: NOT_ASKED, say: 'only asked for what is left of the twenty',
     dataDate: '2026-09-16', at: Date.UTC(2026, 8, 21, 3),
   });
   check('but one skipped for any other reason (the allowance, the newest-day rule) is still owed',
@@ -1609,11 +1621,11 @@ async function seedLandedRangeForTest(c, reportId, from, to) {
   check('and the allowance spent stays exactly one, never past what the sync was allowed',
     night.spent === 1);
   check('the days that did not fit are named, not silently dropped',
-    night.done.filter((one) => one.state === 'nothing-to-fetch'
+    night.done.filter((one) => one.state === NOT_ASKED
       && one.say.includes('has not been asked for')).length === 3);
 }
 
-const EXPECTED = 177;
+const EXPECTED = 180;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

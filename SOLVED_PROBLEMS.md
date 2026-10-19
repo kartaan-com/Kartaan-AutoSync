@@ -21,12 +21,14 @@ the file where it happened. A reviewer finding something already on this list is
 - A full-window backdrop that is `visibility: hidden`, `opacity: 0` or `pointer-events: none` covers nothing (Seller Insights keeps a hidden drawer backdrop at full window; every miss there read "covered"). -- `extension/driver.js` `sitsOverTheWholePage`
 - A covering is judged by width and height alone, never by where the box sits: a picker kept mounted off-screen after its own "Done" click would still count as covering the whole page. -- `extension/driver.js` `sitsOverTheWholePage`
 - A failure that says something is covering the page threw its own words away: it named that a covering happened, never what it was, so naming it again cost a live session every time. -- `extension/walk.js` `gaveUp`
+- A fixed full-window box that holds the page's table (or a page's worth of elements) is the page's own content panel, not a covering: Flipkart's Reports Centre `section#content-container` (479 elements, a table) made every miss there read "something is covering the page" while quoting the table's own heading. -- `extension/driver.js` `holdsThePagesOwnWork` (A82, 2026-10-20)
 
 ## Dates and calendars
 
 - A calendar day refused by `cursor: not-allowed` must be read as switched off, or Flipkart silently clamps to another day. -- `autosync/recipes.py` `switched_off_days_change_the_cursor`
 - A day the portal has not built is "not available yet", remembered and retried oldest first, never "failed"; after three different days it needs the seller. -- `extension/walk.js`, `extension/nightly.js` `NOT_BUILT_YET`
 - A Flipkart request counted before a Submit that never happened is given back. -- `extension/nightly.js` `theCountGivenBack`
+- A day refused for want of the seller's twenty was never asked for, so it is `not-asked` and counted as its own number, never "nothing to fetch" and never a clean "every report was reached"; the day stays owed. -- `extension/nightly.js` `NOT_ASKED`, `howTheNightWent` (A82, 2026-10-20)
 - A Reports Centre day switched off in the morning can be open by the afternoon: Flipkart's last open day moves (the weekend 09-19/20 was off at 14:19 IST and open by 17:30). Measure the calendar before blaming the range; the start day is named only because it is checked first. -- `docs/FLIPKART.md` (Job 4), `extension/driver.js` `clickTheDay`
 - A month's grid also draws the next month's first days, greyed: on a calendar that marks days off in the cursor, only pressable cells count as the day (09-01 found two "1"s). -- `extension/driver.js` `clickTheDay`
 

@@ -1241,6 +1241,7 @@ export function whatThatStateIsCalled(state) {
     fetching: 'fetching now',
     waiting: 'waiting',
     'nothing-to-fetch': 'skipped',
+    'not-asked': 'not asked (allowance used up)',
     /* **HIS RULING, 2026-09-14.** A day the platform has not built is not a
      * failure; one still not built on the third day is the seller's to fetch. */
     'not-available-yet': 'not available yet',
@@ -1286,6 +1287,7 @@ export function theSyncSummary(night) {
   const landed = done.filter((one) => one.state === 'landed').length;
   const failed = done.filter((one) => one.state === 'failed');
   const needsYou = done.filter((one) => one.state === 'needs-you');
+  const notAsked = done.filter((one) => one.state === 'not-asked');
   const failures = failed.length
     ? `: ${failed.map((one) => `${one.reportId} (${String(one.say || '').slice(0, 60)})`).join(', ')}`
     : '';
@@ -1293,10 +1295,14 @@ export function theSyncSummary(night) {
     ? ` ${needsYou.map((one) => `${one.reportId} for ${one.dataDate}`).join(', ')} `
       + `${needsYou.length === 1 ? 'needs' : 'need'} you: fetch by hand.`
     : '';
+  const unasked = notAsked.length
+    ? ` ${notAsked.length} day${notAsked.length === 1 ? ' was' : 's were'} not asked for (the day's allowance was used up) and `
+      + `${notAsked.length === 1 ? 'is' : 'are'} still owed.`
+    : '';
   return {
-    title: failed.length || needsYou.length
+    title: failed.length || needsYou.length || notAsked.length
       ? 'Kartaan AutoSync: sync finished with problems' : 'Kartaan AutoSync: sync finished',
-    message: `${landed} landed, ${failed.length} failed${failures}.${byHand}`
+    message: `${landed} landed, ${failed.length} failed${failures}.${byHand}${unasked}`
       + `${night.toldKartaan && night.toldKartaan.said ? ` ${night.toldKartaan.said}` : ''}`,
   };
 }
@@ -1344,6 +1350,14 @@ export function whatTheBannerSays(stands) {
     return {
       how: 'wrong',
       said: `The last run finished with ${failed} report${failed === 1 ? '' : 's'} that failed.`,
+    };
+  }
+  const notAsked = stands.night.done.filter((one) => one.state === 'not-asked').length;
+  if (notAsked) {
+    return {
+      how: 'setup',
+      said: `The last run finished, but ${notAsked} day${notAsked === 1 ? ' was' : 's were'} not asked for `
+        + 'because the Flipkart allowance for the day was used up. They are still owed.',
     };
   }
   return {

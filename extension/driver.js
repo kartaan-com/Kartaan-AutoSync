@@ -2060,6 +2060,13 @@ function sitsOverTheWholePage(node) {
   const tall = Number(globalThis.window.innerHeight) || 0;
   if (!wide || !tall) return false;
   if (box.width < wide * MOST_OF_THE_PAGE || box.height < tall * MOST_OF_THE_PAGE) return false;
+  /* **THE PAGE'S OWN CONTENT PANEL IS NOT A COVERING (A82).** Flipkart's Reports Centre draws its whole working
+   * area as one `section#content-container`: `position: fixed`, 2236 x 987 in a 2304 x 1042 window, 479
+   * elements, a table in it, and the topmost thing under the window's centre is inside it. Measured by Control
+   * on his own Chrome, 2026-10-20. Every miss on that page read "something is covering the page" and quoted the
+   * table's own heading, for weeks. A sheet laid over the page has nothing of its own to work with; a box that
+   * holds a table, or this many elements, IS the page. A dialog still counts, whatever it holds. */
+  if (!saysItIsADialog(node) && holdsThePagesOwnWork(node)) return false;
   /* **SIZE IS NOT COVERAGE -- A BOX MUST BE ON THE PAGE (EX1, 2026-10-03).** A
    * picker kept mounted and moved away (`transform: translate(-9999px, 0)`, or a
    * large negative `left`) still reports a full-size box, yet no click can land
@@ -2076,6 +2083,19 @@ function sitsOverTheWholePage(node) {
   const right = Number.isFinite(Number(box.right)) ? Number(box.right) : left + box.width;
   const bottom = Number.isFinite(Number(box.bottom)) ? Number(box.bottom) : top + box.height;
   return right > 0 && left < wide && bottom > 0 && top < tall;
+}
+
+/** More elements than any backdrop or promotion wrapper measured (a Meesho promotion is a few dozen), well under
+ *  the 479 of Flipkart's content panel. */
+const THE_PAGES_OWN_WEIGHT = 150;
+
+function holdsThePagesOwnWork(node) {
+  const inside = everything(node);
+  /* A box with a dialog in it is a sheet carrying one, whatever else it holds (review finding, A82). */
+  if (inside.some((one) => one !== node && saysItIsADialog(one))) return false;
+  if (inside.length >= THE_PAGES_OWN_WEIGHT) return true;
+  return inside.some((one) => String(one.tagName || '').toLowerCase() === 'table'
+    || String((one.getAttribute && one.getAttribute('role')) ?? '').toLowerCase() === 'table');
 }
 
 function saysItIsADialog(node) {

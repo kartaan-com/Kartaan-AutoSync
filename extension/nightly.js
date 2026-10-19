@@ -253,6 +253,9 @@ export const GIVE_UP_AFTER_DAYS = 3;
  * to) and the word the night turns it into on the last day. */
 export const NOT_AVAILABLE_YET = 'not-available-yet';
 export const NEEDS_YOU_STATE = 'needs-you';
+/* **A DAY REFUSED FOR WANT OF THE SELLER'S TWENTY WAS NEVER ASKED FOR, AND IS NOT "NOTHING TO FETCH" (A82).**
+ * Called that, the run log told him four days "correctly had nothing to fetch" when Flipkart was never asked. */
+export const NOT_ASKED = 'not-asked';
 
 /** Every report-day still owed because the platform had not built it. */
 export async function whatIsNotBuiltYet(chrome) {
@@ -620,7 +623,7 @@ export function whyItCannotBeAskedFor(night, reportId, collecting = false) {
   if (night.spent >= night.mayAskFor) {
     return `Asking for ${reportId} spends one of the seller's twenty Flipkart requests for the `
       + `day, and this run was allowed ${night.mayAskFor} and has used ${night.spent}. `
-      + 'It has not been asked for.';
+      + 'It has not been asked for, and the day is still owed to a later run.';
   }
   return null;
 }
@@ -895,6 +898,7 @@ export function theNightsCounts(night) {
   const needsHim = resolved.filter((one) => one.state === NEEDS_YOU_STATE);
   const failed = resolved.filter((one) => one.state === 'failed');
   const nothingToFetch = resolved.filter((one) => one.state === 'nothing-to-fetch');
+  const notAsked = resolved.filter((one) => one.state === NOT_ASKED);
   /* **A REPORT ALREADY TOUCHED TONIGHT IS NOT "NOT STARTED", EVEN IF IT IS
    * STILL ON `left` FOR ANOTHER DAY.** Only a report with no entry at all this
    * night has genuinely not begun. */
@@ -902,9 +906,9 @@ export function theNightsCounts(night) {
     .filter((one) => one !== (night && night.doing) && !resolved.some((r) => r.reportId === one));
   const bytes = landed.reduce((all, one) => all + (Number(one.size) || 0), 0);
   const total = landed.length + waiting.length + needsHim.length + failed.length
-    + nothingToFetch.length + notStarted.length + ((night && night.doing) ? 1 : 0);
+    + nothingToFetch.length + notAsked.length + notStarted.length + ((night && night.doing) ? 1 : 0);
   return {
-    landed, waiting, needsHim, failed, nothingToFetch, notStarted, bytes, total,
+    landed, waiting, needsHim, failed, nothingToFetch, notAsked, notStarted, bytes, total,
   };
 }
 
@@ -919,7 +923,7 @@ export function theNightsCounts(night) {
 export function howTheNightWent(night) {
   if (!night) return 'No sync has been run.';
   const {
-    landed, waiting, needsHim, failed, nothingToFetch, notStarted, bytes, total,
+    landed, waiting, needsHim, failed, nothingToFetch, notAsked, notStarted, bytes, total,
   } = theNightsCounts(night);
   const lines = [
     /* **FIVE COUNTS, NOT ONE WORD.** Every different thing that can be true of
@@ -927,7 +931,8 @@ export function howTheNightWent(night) {
      * behind one that went right. */
     `${landed.length} landed, ${waiting.length} waiting on the platform (the day is not built `
       + `yet), ${notStarted.length} not started, ${needsHim.length} need him, ${failed.length} `
-      + `failed${nothingToFetch.length ? `, ${nothingToFetch.length} correctly had nothing to fetch` : ''} `
+      + `failed${notAsked.length ? `, ${notAsked.length} NOT ASKED FOR (the day's twenty were used up; still owed)` : ''}`
+      + `${nothingToFetch.length ? `, ${nothingToFetch.length} correctly had nothing to fetch` : ''} `
       + `-- ${total} in all.`,
     `${landed.length} produced a real file, ${bytes} bytes in all.`,
     /* **NAMED, NOT "FLIPKART REQUESTS" IN GENERAL (Job 8, part 3).** Only
@@ -1195,12 +1200,13 @@ async function startTheNextOne(chrome, { startAWalk, at, tellKartaan = null }) {
        * the whole night -- so it is true only when nothing behind it needed
        * him or failed. */
       // eslint-disable-next-line no-await-in-loop
-      const { needsHim, failed } = theNightsCounts(night);
-      const wrong = [...needsHim, ...failed];
+      const { needsHim, failed, notAsked } = theNightsCounts(night);
+      const wrong = [...needsHim, ...failed, ...notAsked];
       const why = wrong.length
         ? `${wrong.length} report${wrong.length === 1 ? '' : 's'} did not land: `
           + `${wrong.map((one) => `${one.reportId}${one.dataDate ? ` (${one.dataDate})` : ''} `
-            + `${one.state === NEEDS_YOU_STATE ? 'needs you' : 'failed'}`).join(', ')}.`
+            + `${{ [NEEDS_YOU_STATE]: 'needs you', [NOT_ASKED]: 'not asked, allowance used up' }[one.state] || 'failed'}`)
+          .join(', ')}.`
         : 'Every report was reached.';
       // eslint-disable-next-line no-await-in-loop
       const ended = await endTheNight(chrome, { at, why });
@@ -1279,7 +1285,7 @@ async function startTheNextOne(chrome, { startAWalk, at, tellKartaan = null }) {
        * fault this whole product is built against. */
       // eslint-disable-next-line no-await-in-loop
       await thatOneIsDone(chrome, {
-        reportId: next, state: 'nothing-to-fetch', say: cannot, at, dataDate: day,
+        reportId: next, state: NOT_ASKED, say: cannot, at, dataDate: day,
       });
       // eslint-disable-next-line no-await-in-loop
       continue;

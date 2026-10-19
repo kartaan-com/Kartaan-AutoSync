@@ -934,6 +934,17 @@ check('the allowance is twenty, and it is a number a program can read',
       === 'fk_orders,fk_payments');
 }
 
+{
+  /* **A82 REVIEW: A RUN WITH DAYS NOT ASKED FOR NEVER READS AS A CLEAN FINISH**, in the banner or the notification. */
+  const night = { finishedAt: 5, done: [{ reportId: 'fk_orders', state: 'not-asked', dataDate: '2026-10-01' }] };
+  const banner = whatTheBannerSays({ night, setUp: { done: true, driveConnectedAt: 1 }, paused: null, needsYou: [] });
+  check('A82: the banner says days were not asked for, not that the run finished clean',
+    banner.said.includes('not asked for') && banner.how !== 'done');
+  const told = theSyncSummary(night);
+  check('A82: and so does the notification',
+    told.title.includes('with problems') && told.message.includes('not asked for'));
+}
+
 /* ------------------------------------------------------- what the banner says */
 
 check('a run going says which report and how many are left',

@@ -1965,6 +1965,37 @@ function labelled(node, label) {
   check('nor one that lets every click through (pointer-events: none)',
     hiddenOne((s) => { s.pointerEvents = 'none'; }));
 
+  /* **A82, MEASURED BY CONTROL ON HIS REPORTS CENTRE 2026-10-20.** The only full-window thing was Flipkart's own
+   * content panel: fixed, 479 elements, holding the table. It is the page, not a sheet over it. */
+  const contentPanel = (inside) => {
+    page.body.replaceChildren();
+    const panel = thing('section', 'ReportsRequest New Report', {
+      box: { top: 0, bottom: 800, left: 0, right: 1280, width: 1280, height: 800 },
+    });
+    panel.style.position = 'fixed';
+    for (const one of inside) panel.append(one);
+    page.body.append(panel);
+    return door.overlays().every((one) => one.blocks === false);
+  };
+  check('a fixed full-window panel that holds the table of the page is the page, not a covering',
+    contentPanel([thing('table', 'rows')]));
+  check('and so is one that holds a role=table grid',
+    contentPanel([thing('div', 'rows', { attrs: { role: 'table' } })]));
+  check('and so is one that simply holds a whole page of elements',
+    contentPanel(Array.from({ length: 160 }, () => thing('div', 'x'))));
+  page.body.replaceChildren();
+  const wrap = thing('div', '', { box: { top: 0, bottom: 800, left: 0, right: 1280, width: 1280, height: 800 } });
+  wrap.style.position = 'fixed';
+  wrap.append(thing('div', 'Big sale', {
+    attrs: { role: 'dialog' }, box: { top: 100, bottom: 430, left: 100, right: 514, width: 414, height: 330 },
+  }));
+  page.body.append(wrap);
+  wrap.append(thing('table', 'a table inside the promotion'));
+  check('and still blocks when the promotion carries a table, because a box holding a dialog is a sheet',
+    door.overlays().some((one) => one.blocks === true));
+  check('but a backdrop with a small promotion in it still blocks',
+    door.overlays().some((one) => one.blocks === true));
+
   /* **UNDER INVESTIGATION, JOB 3B, 2026-09-22 -- NOT YET NAMED AS THE CAUSE.**
    * `fk_views` read "something is covering the page" again in the 03:30 timed
    * sync, after Job 3's hidden-backdrop fix. Looking at what "sits over the
@@ -2554,7 +2585,7 @@ function labelled(node, label) {
     (await shutDoor.try_signing_in()) === false);
 }
 
-const EXPECTED = 312;
+const EXPECTED = 317;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;
