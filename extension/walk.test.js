@@ -31,6 +31,10 @@ import {
   looksLikeAPage,
   daysBefore,
   theFileName,
+  whyTheRangeIsRefused,
+  theDaysOfARangeName,
+  howManyDaysBetween,
+  MOST_DAYS_IN_A_RANGE_FILE,
   theWalk,
   TOO_BIG_TO_CARRY,
   theDaysInWords,
@@ -2211,6 +2215,45 @@ check('a walk still going is told apart from one that landed',
 }
 
 {
+  /* **P16 (D424): ONE REQUEST FOR SEVERAL DAYS LEAVES A FILE NAMED FOR BOTH ENDS**, and only when the
+   * first day is before the last. `landing.file_name_for_range` is the same sentence in Python and
+   * `export_recipes_checks.py` holds the two equal. */
+  check('a range is named for both its ends',
+    theFileName(BOOK, 'fk_orders', '2026-10-03', '2026-09-29') === 'flipkart_fk_orders_2026-09-29_to_2026-10-03.xlsx');
+  check('a range of one day is a day file, named as ever',
+    theFileName(BOOK, 'fk_orders', '2026-10-03', '2026-10-03') === 'flipkart_fk_orders_2026-10-03.xlsx'
+    && theFileName(BOOK, 'fk_orders', '2026-10-03', '') === 'flipkart_fk_orders_2026-10-03.xlsx');
+  check('a range the wrong way round, or not made of real days, answers no name at all',
+    theFileName(BOOK, 'fk_orders', '2026-09-29', '2026-10-03') === ''
+    && theFileName(BOOK, 'fk_orders', '2026-10-03', '2026-02-30') === ''
+    && theFileName(BOOK, 'fk_orders', '2026-10-03', '29/09/2026') === '');
+  check('31 days are named and 32 are not',
+    theFileName(BOOK, 'fk_orders', '2026-10-01', '2026-09-01') !== ''
+    && theFileName(BOOK, 'fk_orders', '2026-10-02', '2026-09-01') === '');
+  check('a running list is named without a day however a range is asked',
+    theFileName(BOOK, 'me_views', '2026-10-03', '2026-09-29') === 'meesho_me_views.csv');
+  check('days between are counted with both ends', howManyDaysBetween('2026-09-29', '2026-10-03') === 5
+    && howManyDaysBetween('2026-09-30', '2026-10-01') === 2 && MOST_DAYS_IN_A_RANGE_FILE === 31);
+  check('why a range is refused names the cause in words',
+    String(whyTheRangeIsRefused('2026-10-03', '2026-09-29')).includes('before the last')
+    && String(whyTheRangeIsRefused('2026-09-01', '2026-10-02')).includes('32 days')
+    && whyTheRangeIsRefused('2026-09-29', '2026-10-03') === null);
+  check('the days in a range name are every day, and a name that only looks like a range gives none and one that is not a range gives nothing to read',
+    theDaysOfARangeName('a_fk_orders_2026-09-29_to_2026-10-03.xlsx').join() === '2026-09-29,2026-09-30,2026-10-01,2026-10-02,2026-10-03'
+    && theDaysOfARangeName('a_fk_orders_2026-09-01_to_2026-10-02.xlsx').length === 0
+    && theDaysOfARangeName('a_fk_orders_2026-10-03_to_2026-09-29.xlsx').length === 0
+    && theDaysOfARangeName('a_fk_orders_2026-10-03.xlsx') === undefined);
+  const portal = aPortal();
+  await aWalk(portal)('me_orders', DAY, { fromDay: '2026-08-20', namedAsARange: true });
+  check('A WALK TOLD THE RANGE NAMES THE FILE IT PUTS AWAY FOR BOTH ENDS',
+    portal.putAway.length === 1 && portal.putAway[0].fileName === `meesho_me_orders_2026-08-20_to_${DAY}.csv`);
+  const traffic = aPortal();
+  await aWalk(traffic)('me_orders', DAY, { fromDay: '2026-08-20' });
+  check('while a walk given a range to start from but not told to name it by one keeps the end day (traffic)',
+    traffic.putAway.length === 1 && traffic.putAway[0].fileName === `meesho_me_orders_${DAY}.csv`);
+}
+
+{
   /* **A53: AT THE SIGN-IN WALL, ONE ATTEMPT -- HIS RULING.** */
   const walkWith = (door, options = {}) => {
     const portal = aPortal();
@@ -2757,7 +2800,7 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
     && whyStepIsRefused({ do: 'go', address: 'https://x.invalid', table: 'meesho-pricing', patience: 30, why: 'x' }) !== null);
 }
 
-const EXPECTED = 349;
+const EXPECTED = 349 + 10;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

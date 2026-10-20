@@ -242,6 +242,65 @@ const LATER = '2026-08-27T16:04:00.000Z';
 }
 
 {
+  /* **P16 (D424): A RANGE FILE CROSSES THE DRIVE BOUNDARY, AND ONLY IN ITS REAL SHAPE.** `reportId`
+   * and `fileName` are what become a Drive folder and a Drive file name, so the range name is asked
+   * for exactly: this report's own id, two real days, the first before the last, no more than one
+   * press takes -- and never the per-campaign shape, which would read `_to_TO` as a campaign. */
+  const orders = 'flipkart_fk_orders_2026-09-29_to_2026-10-03.xlsx';
+  check('a range file for its own report is let through', whyTheseAreNotNames('fk_orders', orders) === null);
+  check('but the same name for a DIFFERENT report is refused', typeof whyTheseAreNotNames('fk_payments', orders) === 'string');
+  check('a range is let through for the two reports asked for in one request and for no other',
+    whyTheseAreNotNames('fk_payments', 'flipkart_fk_payments_2026-09-29_to_2026-10-03.xlsx') === null
+    && ['me_orders', 'fk_views', 'fk_ads_daily', 'az_orders'].every((one) => typeof whyTheseAreNotNames(
+      one, `x_${one}_2026-09-29_to_2026-10-03.csv`) === 'string'));
+  check('a range the wrong way round is refused', typeof whyTheseAreNotNames('fk_orders', 'flipkart_fk_orders_2026-10-03_to_2026-09-29.xlsx') === 'string');
+  check('a range of one day is not a range and is refused',
+    typeof whyTheseAreNotNames('fk_orders', 'flipkart_fk_orders_2026-10-03_to_2026-10-03.xlsx') === 'string');
+  check('a range longer than one press takes is refused',
+    typeof whyTheseAreNotNames('fk_orders', 'flipkart_fk_orders_2026-09-01_to_2026-10-02.xlsx') === 'string'
+    && whyTheseAreNotNames('fk_orders', 'flipkart_fk_orders_2026-09-01_to_2026-10-01.xlsx') === null);
+  check('a day that is the right shape and not a day is refused in a range too',
+    typeof whyTheseAreNotNames('fk_orders', 'flipkart_fk_orders_2026-02-30_to_2026-03-03.xlsx') === 'string'
+    && typeof whyTheseAreNotNames('fk_orders', 'flipkart_fk_orders_2026-03-01_to_2026-02-30.xlsx') === 'string');
+  check('a range name for a report fetched per campaign is refused, not read as a campaign',
+    typeof whyTheseAreNotNames('fk_ads_overall', 'flipkart_fk_ads_overall_2026-09-29_to_2026-10-03.csv') === 'string'
+    && whyTheseAreNotNames('fk_ads_overall', 'flipkart_fk_ads_overall_2026-09-29_0PTESTCAMP001.csv') === null);
+  check('a range name dressed in a path is refused',
+    ['../flipkart_fk_orders_2026-09-29_to_2026-10-03.xlsx', 'a/flipkart_fk_orders_2026-09-29_to_2026-10-03.xlsx',
+      'flipkart_fk_orders_2026-09-29_to_2026-10-03.xlsx/..', 'flipkart_fk_orders_2026-09-29_to_2026-10-03.x"lsx',
+      'flipkart_fk_orders_2026-09-29_to_2026-10-03_extra.xlsx']
+      .every((one) => typeof whyTheseAreNotNames('fk_orders', one) === 'string'));
+  check('and the words for a refused name now say a range is one of the shapes',
+    whyTheseAreNotNames('fk_orders', 'nonsense.xlsx').includes('_to_'));
+}
+
+{
+  /* **P16: A RANGE FILE LANDING REMEMBERS EVERY DAY IN IT**, or `daysNobodyTried` finds the inside of
+   * the range a hole and fetches it again -- spending Flipkart's twenty a second time. */
+  const browser = installFakeChrome();
+  await afterALanding(browser.chrome, {
+    reportId: 'fk_orders', fileName: 'flipkart_fk_orders_2026-09-29_to_2026-10-03.xlsx', bytes: new Uint8Array([1]),
+  });
+  check('a range file remembers every day it holds, not its first',
+    JSON.stringify((await browser.chrome.storage.local.get(LAST_LANDED))[LAST_LANDED].fk_orders)
+      === JSON.stringify(['2026-09-29', '2026-09-30', '2026-10-01', '2026-10-02', '2026-10-03']));
+  const other = installFakeChrome();
+  await afterALanding(other.chrome, {
+    reportId: 'fk_orders', fileName: 'flipkart_fk_orders_2026-10-05.xlsx', bytes: new Uint8Array([1]),
+    alreadyThere: [{ name: 'flipkart_fk_orders_2026-09-29_to_2026-10-01.xlsx' }, { name: 'notes.txt' }],
+  });
+  check('and so does a range file that was already in the folder when something else landed',
+    JSON.stringify((await other.chrome.storage.local.get(LAST_LANDED))[LAST_LANDED].fk_orders.slice().sort())
+      === JSON.stringify(['2026-09-29', '2026-09-30', '2026-10-01', '2026-10-05']));
+  const odd = installFakeChrome();
+  await afterALanding(odd.chrome, {
+    reportId: 'fk_orders', fileName: 'flipkart_fk_orders_2026-10-03_to_2026-09-29.xlsx', bytes: new Uint8Array([1]),
+  });
+  check('a name that only looks like a range remembers nothing',
+    (await odd.chrome.storage.local.get(LAST_LANDED))[LAST_LANDED] === undefined);
+}
+
+{
   /* **JOB 6: EVERY LANDING ADDS TO `daysNobodyTried`'S RECORD OF WHAT HAS
    * REALLY LANDED, NOT ONLY FLIPKART TRAFFIC.** Without this, a day no sync
    * ever tried (F14) has nothing to measure a gap against at all. */
@@ -2204,7 +2263,7 @@ check('the page relay is OFF in what ships, so no script on a portal page can dr
     && theRelayAllows(false, { do: 'run-now' }) === false);
 }
 
-const EXPECTED = 262;
+const EXPECTED = 262 + 13;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

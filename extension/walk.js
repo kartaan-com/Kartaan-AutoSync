@@ -621,6 +621,51 @@ export function whyTheDayIsRefused(dataDate) {
   return null;
 }
 
+/** **THE MOST DAYS ONE RANGE FILE MAY NAME, counting both ends** -- what one press takes
+ *  (`screen.js` `AS_MANY_DAYS_AS_ONE_PRESS_TAKES`; a check holds the two equal), and
+ *  `landing.MOST_DAYS_IN_A_RANGE_FILE` on the Python side. */
+export const MOST_DAYS_IN_A_RANGE_FILE = 31;
+
+/** How many days there are from the first to the last, counting both. Both must be real days. */
+export function howManyDaysBetween(firstDay, lastDay) {
+  const at = (day) => Date.UTC(...String(day).split('-').map((n, i) => (i === 1 ? Number(n) - 1 : Number(n))));
+  return Math.round((at(lastDay) - at(firstDay)) / 86400000) + 1;
+}
+
+/** Why these two days are not a range a file may be named for, or null.
+ *
+ *  **ASKED OF BOTH ENDS BY THE SAME QUESTION A DAY IS ASKED, then of their order and their length.**
+ *  Equal days are not a range (that is a day file), the wrong way round is not one, and more days
+ *  than one press takes is not a name this product writes. It is the one rule the name builder
+ *  (`theFileName`) and the Drive guard (`background.js` `whyTheseAreNotNames`) share. */
+export function whyTheRangeIsRefused(firstDay, lastDay) {
+  const wrong = whyTheDayIsRefused(firstDay) || whyTheDayIsRefused(lastDay);
+  if (wrong) return wrong;
+  if (!(String(firstDay) < String(lastDay))) {
+    return `${firstDay} to ${lastDay} is not a range: the first day has to be before the last.`;
+  }
+  const days = howManyDaysBetween(firstDay, lastDay);
+  if (days > MOST_DAYS_IN_A_RANGE_FILE) {
+    return `${firstDay} to ${lastDay} is ${days} days; a file is named for at most `
+      + `${MOST_DAYS_IN_A_RANGE_FILE}.`;
+  }
+  return null;
+}
+
+/** Every day a range file's NAME holds, from the first to the last; nothing at all (`[]`) for a name that looks like a range and is
+ *  not one; and `undefined` for a name that is not range-shaped, so the caller reads it as a day name.
+ *
+ *  **THE ONE PLACE A RANGE NAME IS TAKEN APART ON THIS SIDE** -- the landing record (`background.js`) and the install's own record
+ *  (`record.js`) both ask it, because a plain "first date in the name" reads a range as its FROM day alone. Same rule as
+ *  `landing.days_in_name`. */
+export function theDaysOfARangeName(fileName) {
+  const range = /_(\d{4}-\d{2}-\d{2})_to_(\d{4}-\d{2}-\d{2})\.[a-z0-9]+$/i.exec(String(fileName || ''));
+  if (!range) return undefined;
+  if (whyTheRangeIsRefused(range[1], range[2])) return [];
+  const howMany = howManyDaysBetween(range[1], range[2]);
+  return Array.from({ length: howMany }, (_, n) => daysBefore(range[2], howMany - 1 - n));
+}
+
 /**
  * The walk.
  *
@@ -1256,6 +1301,11 @@ export function theWalk({
     /* **THE FIRST DAY OF THE RANGE, WHEN IT IS EARLIER THAN THE DAY (A53).** Flipkart
      * traffic is asked from the day after the last one captured -- Rumee's way. */
     fromDay = '',
+    /* **WHETHER THAT RANGE ALSO NAMES THE FILE (P16).** Only a range asked for in ONE request by the
+     * hand-run night (`fk_orders`, `fk_payments`) is named `FROM_to_TO`. Flipkart traffic is also given
+     * a `fromDay` and its file is named by the END day, as it always was, so the name cannot be told
+     * from `fromDay` alone -- the caller says. */
+    namedAsARange = false,
     /* **WHETHER THE ONE SIGN-IN ATTEMPT HAS ALREADY BEEN MADE FOR THIS REPORT (A53).** */
     triedSigningIn: triedAlready = false,
     /* **WHERE TO PICK THE WALK UP, because the page that started it is gone.**
@@ -1757,7 +1807,8 @@ export function theWalk({
          * never be read out of it -- the folder simply fills up, silently.
          * `fileName` given by the caller still wins, because a caller that knows
          * better than the book is a caller that has been told. */
-        const called = theCampaignsFileName(fileName || theFileName(book, reportId, dataDate),
+        const called = theCampaignsFileName(
+          fileName || theFileName(book, reportId, dataDate, namedAsARange ? fromDay : ''),
           step.campaign, step.campaignsInAll);
         if (!called) {
           return anAnswer(FAILED, reportId, dataDate, {
@@ -1980,7 +2031,7 @@ export function theWalk({
  * and the walk turns that into a named failure rather than putting a file away
  * under a name it made up.
  */
-export function theFileName(book, reportId, dataDate) {
+export function theFileName(book, reportId, dataDate, fromDay = '') {
   const how = book && book.fileNames && book.fileNames[reportId];
   if (!how || !how.platform || !how.extension) return '';
   /* **THE SAME QUESTION THE WALK ASKS, ASKED ONCE.** This used to check only
@@ -1998,6 +2049,16 @@ export function theFileName(book, reportId, dataDate) {
    * and not two. */
   if (whyTheDayIsRefused(dataDate)) return '';
   if (how.aRunningList) return `${how.platform}_${reportId}.${how.extension}`;
+  /* **A RANGE ASKED FOR IN ONE REQUEST IS NAMED FOR BOTH ENDS, AND ONLY WHEN THE FIRST DAY IS BEFORE
+   * THE LAST** (P16): `platform_report_FROM_to_TO.ext`. A range of one day is a day file, exactly as
+   * ever. **A range the wrong way round, or longer than one press takes, answers nothing**, and the
+   * walk turns that into a named failure -- the name is what `landing.days_in_name` and the Drive
+   * guard both trust about which days the file holds. `landing.file_name_for_range` is the same
+   * sentence on the Python side, and `tools/export_recipes_checks.py` holds the two equal. */
+  if (fromDay && fromDay !== dataDate) {
+    if (whyTheRangeIsRefused(fromDay, dataDate)) return '';
+    return `${how.platform}_${reportId}_${fromDay}_to_${dataDate}.${how.extension}`;
+  }
   return `${how.platform}_${reportId}_${dataDate}.${how.extension}`;
 }
 

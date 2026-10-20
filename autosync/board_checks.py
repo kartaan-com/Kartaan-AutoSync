@@ -326,7 +326,24 @@ check("while an ordinary report forgives nothing",
           [PAY], lambda _r: [Arrived("meesho_me_payments.csv", 40)])
           == {"me_payments": ("meesho_me_payments.csv",)}))
 
-EXPECTED = 62
+# ------------------------------------------- a range file fills every day it covers (P16)
+#
+# **ONE REQUEST FOR SEVERAL DAYS LEAVES ONE FILE, named for both ends.** Read by its last day alone,
+# the board would call every earlier day missing and owed while the file sat in the folder -- and
+# each day owed on Flipkart's orders is a request out of the twenty.
+FK_ORDERS = Report("fk_orders", "flipkart", "Flipkart orders", BROWSER, DAILY, "xlsx")
+_range_rows = {r.data_date: r for r in tool.rows_for(
+    [FK_ORDERS], folder(fk_orders=[Arrived("flipkart_fk_orders_2026-08-24_to_2026-08-26.xlsx", 5000)]), TODAY, look_back_days=4)}
+check("every day inside a range file says arrived",
+      answered(lambda: all(_range_rows[DAY(f"2026-08-{d}")].state == tool.ARRIVED for d in ("24", "25", "26"))))
+check("and the day before the range is still missing",
+      answered(lambda: _range_rows[DAY("2026-08-23")].state == tool.MISSING))
+_empty_range = {r.data_date: r for r in tool.rows_for(
+    [FK_ORDERS], folder(fk_orders=[Arrived("flipkart_fk_orders_2026-08-23_to_2026-08-26.xlsx", 0)]), TODAY, look_back_days=4)}
+check("an empty range file makes no day arrived",
+      answered(lambda: all(_empty_range[DAY(f"2026-08-{d}")].state == tool.EMPTY for d in ("23", "24", "25", "26"))))
+
+EXPECTED = 62 + 3
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

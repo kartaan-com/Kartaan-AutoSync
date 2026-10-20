@@ -75,6 +75,12 @@ check('and a file named by its day is recorded for that day',
   theLinesFor({ reportId: 'me_orders', fileName: 'meesho_me_orders_2026-09-20.csv', size: 5 })
     .map((one) => one.dataDate).join() === '2026-09-20');
 
+check('A RANGE FILE IS RECORDED FOR EVERY DAY IT NAMES, not for its first day alone (P16)',
+  theLinesFor({ reportId: 'fk_orders', fileName: 'flipkart_fk_orders_2026-09-29_to_2026-10-03.xlsx', size: 5 })
+    .map((one) => one.dataDate).join() === '2026-09-29,2026-09-30,2026-10-01,2026-10-02,2026-10-03');
+check('and a name that only looks like a range is recorded for no day at all',
+  theLinesFor({ reportId: 'fk_orders', fileName: 'flipkart_fk_orders_2026-10-03_to_2026-09-29.xlsx', size: 5 }).length === 0);
+
 /* ----------------------------------------------------------- the whole record */
 
 const FIRST = theRecordWith('', [LINE]);
@@ -116,7 +122,7 @@ check('a shape-1 record (before reads existed) is read and kept',
   theLinesIn('{"shape": 1, "lines": []}').length === 0);
 check('no text at all is a first landing, which is not damage', theLinesIn(null).length === 0 && theLinesIn('').length === 0);
 
-const EXPECTED = 23;
+const EXPECTED = 25;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

@@ -563,10 +563,58 @@ check("a running list, whose name has no day, is never removed",
 check("and neither is a file with a name nothing can read a day from",
       tool.why_a_report_file_may_go("notes.txt", date(2099, 1, 1)) is None)
 
+# ------------------------------------------------- a range asked for in one request (P16, D424)
+#
+# **A RANGE FILE'S DAY IS ITS LAST DAY, AND IT HOLDS EVERY DAY BETWEEN.** The first date in the
+# name would give it the age of its first day, so the ledger would leave its rows alone as older
+# than the day files it overlaps; answering with the last day alone would leave the days before
+# it looking like holes, each fetched again -- and on Flipkart's orders that spends the twenty.
+FK_ORDERS = Report("fk_orders", "flipkart", "Flipkart orders", BROWSER, DAILY, "xlsx")
+RANGE = "flipkart_fk_orders_2026-09-29_to_2026-10-03.xlsx"
+check("a range is named for both its ends",
+      answered(lambda: tool.file_name_for_range(FK_ORDERS, DAY("2026-09-29"), DAY("2026-10-03")) == RANGE))
+check("a range of one day is a day file, named as ever",
+      answered(lambda: tool.file_name_for_range(FK_ORDERS, DAY("2026-10-03"), DAY("2026-10-03")) == tool.file_name_for(FK_ORDERS, DAY("2026-10-03"))))
+check("a range the wrong way round is refused", isinstance(refused(lambda: tool.file_name_for_range(FK_ORDERS, DAY("2026-10-03"), DAY("2026-09-29"))), ValueError))
+check("a range of 31 days is named and one of 32 is refused",
+      answered(lambda: tool.file_name_for_range(FK_ORDERS, DAY("2026-09-01"), DAY("2026-10-01")).endswith("_to_2026-10-01.xlsx"))
+      and isinstance(refused(lambda: tool.file_name_for_range(FK_ORDERS, DAY("2026-09-01"), DAY("2026-10-02"))), ValueError))
+check("a range file's data date is its LAST day, not the first",
+      answered(lambda: tool.data_date_in(RANGE) == DAY("2026-10-03")))
+check("the days in a range name are every day from the first to the last",
+      answered(lambda: tool.days_in_name(RANGE) == tuple(DAY("2026-09-29") + timedelta(days=n) for n in range(5))))
+check("the days in a day name are that one day, and in a name with none, nothing",
+      answered(lambda: tool.days_in_name("flipkart_fk_orders_2026-10-03.xlsx") == (DAY("2026-10-03"),)
+               and tool.days_in_name("notes.txt") == ()))
+check("a range file covers each day inside it and none outside",
+      answered(lambda: all(tool.Arrived(RANGE, 9).covers(DAY(d)) for d in ("2026-09-29", "2026-10-01", "2026-10-03"))
+               and not tool.Arrived(RANGE, 9).covers(DAY("2026-09-28")) and not tool.Arrived(RANGE, 9).covers(DAY("2026-10-04"))))
+check("the days that arrived include every day inside a range file",
+      answered(lambda: tool.days_that_arrived([tool.Arrived(RANGE, 9)]) == tuple(DAY("2026-09-29") + timedelta(days=n) for n in range(5))))
+check("an empty range file brings no day at all",
+      answered(lambda: tool.days_that_arrived([tool.Arrived(RANGE, 0)]) == ()))
+check("a range file and a day file in one folder give the union of their days",
+      answered(lambda: tool.days_that_arrived([tool.Arrived(RANGE, 9), tool.Arrived("flipkart_fk_orders_2026-10-04.xlsx", 9)])[-1] == DAY("2026-10-04")))
+# **A NAME THAT LOOKS LIKE A RANGE AND IS NOT ONE IS NOT READ AS ITS FIRST DAY.** It is undated,
+# which is reported, instead of a stretch of days nobody fetched believed done.
+for _bad in ("flipkart_fk_orders_2026-10-03_to_2026-09-29.xlsx", "flipkart_fk_orders_2026-10-03_to_2026-10-03.xlsx",
+             "flipkart_fk_orders_2026-09-01_to_2026-10-02.xlsx", "flipkart_fk_orders_2026-02-30_to_2026-03-03.xlsx"):
+    check(f"{_bad} is not a range and has no day",
+          answered(lambda: tool.range_in_name(_bad) is None and tool.data_date_in(_bad) is None and tool.days_in_name(_bad) == ()))
+check("and it is listed as a file nothing can find",
+      answered(lambda: tool.undated(["flipkart_fk_orders_2026-10-03_to_2026-09-29.xlsx"]) == ("flipkart_fk_orders_2026-10-03_to_2026-09-29.xlsx",)))
+check("a range file is removed by its LAST day: kept while that day is within the law, gone after",
+      tool.why_a_report_file_may_go("amazon_az_orders_2017-07-30_to_2017-08-01.csv", UNTIL + tool.WAIT_FOR_EXTENDED_DUE_DATES) is None
+      and tool.why_a_report_file_may_go("amazon_az_orders_2017-07-30_to_2017-08-01.csv", UNTIL + tool.WAIT_FOR_EXTENDED_DUE_DATES + timedelta(days=1)) is not None)
+check("a range file for a recent week is kept",
+      tool.why_a_report_file_may_go(RANGE, date(2026, 10, 5)) is None)
+check("a range-looking name that is not a real range is kept, not removed",
+      tool.why_a_report_file_may_go("amazon_az_orders_2017-08-05_to_2017-08-01.csv", date(2099, 1, 1)) is None)
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 114
+EXPECTED = 114 + 19
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

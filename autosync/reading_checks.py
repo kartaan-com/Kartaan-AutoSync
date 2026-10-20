@@ -1063,7 +1063,42 @@ del tool.WHAT_IS_FETCHED_AND_NOT_READ_YET["zz_gone"]
 check("and the two lists are whole again after those three", tool.why_a_report_has_no_decision() == ""
       and tool.WHAT_IS_FETCHED_AND_NOT_READ_YET == _with_a_reason_too)
 
-EXPECTED = 122
+# ---- A RANGE FILE OVER DAYS A DAY FILE ALREADY HOLDS (P16, D424, plan section 4) ----
+#
+# **ONE REQUEST FOR SEVERAL DAYS MUST NOT ADD A SECOND ROW FOR A SALE THE LEDGER HAS, and its
+# figure is the newer one.** Its day is its LAST day, so it is as new as the newest day file
+# inside it. Driven the whole way: the day file is read into the ledger, then the range file
+# over it, in two different runs.
+_FK_SALE = "flipkart::OD-1::DJ 14"
+_ranged, _ranged_ledger, _ = a_sales_ledger()
+_first_run = Folder(
+    files={"fk_orders": [a_file("fk-day", "flipkart_fk_orders_2026-10-01.xlsx")]},
+    bodies={"fk-day": a_flipkart_file(['OD-1', '"""SKU:DJ 14"""', "1", "2026-09-30", "APPROVED"])},
+    into=_ranged_ledger,
+)
+_first_run.go()
+_second_ranged, _second_ledger, _ = a_sales_ledger(_ranged)
+_range_run = Folder(
+    files={"fk_orders": [a_file("fk-range", "flipkart_fk_orders_2026-09-29_to_2026-10-03.xlsx")]},
+    bodies={"fk-range": a_flipkart_file(
+        ['OD-1', '"""SKU:DJ 14"""', "3", "2026-09-30", "APPROVED"],
+        ['OD-2', '"""SKU:DJ 15"""', "1", "2026-10-02", "APPROVED"],
+    )},
+    into=_second_ledger,
+)
+_was_range = _range_run.go(already=("fk-day",))
+check("a range file is read, and carries its LAST day as the day of what it says",
+      _was_range is not None and _was_range.sales == 2 and _range_run.recorded and _range_run.recorded[0].on == "2026-10-03")
+check("a sale a day file already put in the ledger is NOT added a second time",
+      [r[sales.COLUMNS.index("id")] for r in _ranged.rows[1:]].count(_FK_SALE) == 1)
+check("and the figure standing is the range file's, the newer one",
+      _ranged.qty_for(_FK_SALE) == "3")
+check("and the sale only the range knew is added, once",
+      [r[sales.COLUMNS.index("id")] for r in _ranged.rows[1:]].count("flipkart::OD-2::DJ 15") == 1)
+check("and the row says it was the day 2026-10-03 file that wrote it",
+      _ranged.cell_for(_FK_SALE, "ordersOn") == "2026-10-03")
+
+EXPECTED = 122 + 5
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

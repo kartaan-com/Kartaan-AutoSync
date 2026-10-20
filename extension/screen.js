@@ -131,8 +131,10 @@ export function whyThatDayCannotBeFetched(day, now = Date.now()) {
 }
 
 /* **HOW MANY DAYS ONE PRESS MAY FETCH (A53, 2026-09-16).** A range is walked a day at
- * a time, so a year in one press would be hundreds of visits to a seller's portal in
- * one go. A month is what Meesho's own orders export allows in one range
+ * a time -- except Flipkart's orders and payments, which take the whole stretch in ONE
+ * request (P16, D424) -- so a year in one press would be hundreds of visits to a seller's
+ * portal in one go. A file named for a range names at most this many days too
+ * (`walk.js` `MOST_DAYS_IN_A_RANGE_FILE`; a check holds the two equal). A month is what Meesho's own orders export allows in one range
  * (`D:\rumee-auto-sync\DOCS.md:451, 1474`), so a month is what this takes at a time. */
 export const AS_MANY_DAYS_AS_ONE_PRESS_TAKES = 31;
 
@@ -1588,6 +1590,12 @@ export function buildThePanel(into, doing) {
   parts.help = help;
   put(body, help);
 
+  /* **WHICH VERSION THIS IS, ALWAYS (his ask, 2026-10-20, D425).** Until this line the number showed only
+   * inside "A newer version is out" and only when an update existed; otherwise it took a visit to
+   * chrome://extensions. Filled in by `showHowItStands` from the version the extension itself reports. */
+  parts.version = make('p', `${OURS}note`, '');
+  put(body, parts.version);
+
   /* **AND THE SHORT ANSWER SITS ON THE CONTROL ITSELF.** Written from the same
    * file, so a tooltip and a manual entry cannot drift apart -- and a control
    * that grows without one goes red in `manual.test.js` rather than shipping
@@ -1708,6 +1716,10 @@ export function showHowItStands(parts, stands) {
   parts.banner.className = `${OURS}banner ${OURS}banner--${banner.how}`;
   parts.banner.textContent = banner.said;
   showTheUpdate(parts, stands.update);
+  if (parts.version) {
+    const installed = stands.update && stands.update.installed;
+    parts.version.textContent = installed ? `AutoSync ${installed}` : '';
+  }
   if (parts.resume) parts.resume.hidden = !stands.paused;
 
   parts.setup.hidden = stands.setUp.done;

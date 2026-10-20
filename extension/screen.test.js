@@ -48,8 +48,10 @@ import {
   A_DAYS_ALLOWANCE, KEPT_FOR_HIS_OWN_RUNS, PAUSED, RECHECKS, THE_NIGHT, carryTheNightOn, endTheNight, howTheNightWent, oneWasAskedFor,
   startTheNight, thatOneIsBeingTried, theNight,
 } from './nightly.js';
-import { hasNotFinished, theWalk } from './walk.js';
+import { MOST_DAYS_IN_A_RANGE_FILE, hasNotFinished, theWalk } from './walk.js';
+import { MANUAL, TOOLTIPS } from './manual.js';
 import {
+  AS_MANY_DAYS_AS_ONE_PRESS_TAKES,
   CALLED,
   THE_NIGHTS,
   THE_PANEL_ASKS,
@@ -1616,6 +1618,53 @@ function panelParts(chrome, held = {}) {
   }, { do: 'how-it-stands' });
   showHowItStands(panel, same.stands);
   check('A82: and goes again once the seller is on that version', panel.update.hidden === true);
+}
+
+{
+  /* **P16 / D425: THE PANEL SAYS WHICH VERSION IT IS, ALWAYS** -- not only inside "A newer version is
+   * out". The number is the extension's own (`getManifest().version`), carried as `update.installed`. */
+  installFakeBrowser();
+  const { chrome } = installFakeChrome();
+  const panel = buildThePanel(document.body, {
+    connectTheDrive() {}, saveThePanelName() {}, runNow() {}, stop() {}, setTheHour() {},
+  });
+  check('P16: before the panel has heard anything the version line is there and says nothing wrong',
+    panel.version && panel.version.textContent === '');
+  check('P16: the version line is part of the page', Boolean(panel.version.parentNode));
+  const none = await answerThePanelsQuestion(chrome, {
+    book: BOOK, now: () => Date.now(), installed: '0.1.20',
+  }, { do: 'how-it-stands' });
+  showHowItStands(panel, none.stands);
+  check('P16: with no newer version out, the panel still shows the version it is',
+    none.stands.update.updateAvailable === false && panel.update.hidden === true
+    && panel.version.textContent === 'AutoSync 0.1.20');
+  await chrome.storage.local.set({ 'kartaan-autosync-update': {
+    checkedAt: Date.now(), latest: '0.1.21', notes: '', url: 'https://example.invalid/x.zip',
+  } });
+  const newer = await answerThePanelsQuestion(chrome, {
+    book: BOOK, now: () => Date.now(), installed: '0.1.20',
+  }, { do: 'how-it-stands' });
+  showHowItStands(panel, newer.stands);
+  check('P16: with a newer one out, the notice shows and the version line is still there',
+    panel.update.hidden === false && panel.update.textContent.includes('0.1.21')
+    && panel.version.textContent === 'AutoSync 0.1.20');
+  const manifest = JSON.parse(readFileSync(new URL('./manifest.json', import.meta.url), 'utf8'));
+  check('P16: the number it shows can be the one in the manifest, which is what the extension reports',
+    /^\d+\.\d+\.\d+$/.test(manifest.version));
+  check('P16: the version line has a tooltip and a manual entry, and the entry is drawn on the page',
+    Boolean(TOOLTIPS.version) && panel.version.title === TOOLTIPS.version
+    && MANUAL.some((one) => one.id === 'version') && panel.help.textContent.includes('Which version this is'));
+}
+
+{
+  /* **P16: THE WORDS SAY WHICH REPORTS GO IN ONE REQUEST, and the day limit the panel holds is the
+   * one a range file's name holds.** */
+  check('P16: the To box says Flipkart orders and payments go in one request',
+    TOOLTIPS.to.includes('Flipkart orders and payments go in one request'));
+  check('P16: and the allowance entry says a typed stretch costs one, not one for every day',
+    MANUAL.find((one) => one.id === 'allowance').steps.some((said) => said.includes('costs one')));
+  check('P16: a press takes as many days as a range file may name',
+    AS_MANY_DAYS_AS_ONE_PRESS_TAKES === MOST_DAYS_IN_A_RANGE_FILE);
 }
 
 {

@@ -40,9 +40,11 @@ import {
   RELAY_TO_THE_PAGE, aFileReallyComesFrom, looksLikeASpreadsheet, onThePlatformsOwnSite,
 } from './driver.js';
 import { ARMED_FOR_MS, aTabToWalkIn, goTo } from './doors.js';
-import { A_CAMPAIGN_ID, FAILED, TOO_BIG_TO_CARRY, whyTheDayIsRefused } from './walk.js';
 import {
-  RANGE_FROM_LAST, RECHECK_ALARM, carryTheNightOn, rememberLastCaptured, rememberLastLanded,
+  A_CAMPAIGN_ID, FAILED, TOO_BIG_TO_CARRY, theDaysOfARangeName, whyTheDayIsRefused, whyTheRangeIsRefused,
+} from './walk.js';
+import {
+  RANGE_FROM_LAST, RECHECK_ALARM, SPENDS_THE_ALLOWANCE, carryTheNightOn, rememberLastCaptured, rememberLastLanded,
 } from './nightly.js';
 import { theLatestDateInside } from './unzip.js';
 
@@ -53,6 +55,18 @@ import { theLatestDateInside } from './unzip.js';
  *  day at all, and this answers nothing for it. */
 function theDayInAFileName(fileName) {
   return (String(fileName || '').match(/_(\d{4}-\d{2}-\d{2})(?:_[A-Za-z0-9_-]+)?\.[a-z0-9]+$/i) || [])[1] || '';
+}
+
+/** Every day landed in this file's own name: each day from the first to the last of a range file
+ *  (`platform_report_FROM_to_TO.ext`, one request for several days), the one day of any other dated
+ *  name, and nothing at all for a name that only looks like a range. **A RANGE IS ASKED FIRST,
+ *  because `theDayInAFileName` above would read its `_to_TO` as a campaign and answer the FROM day
+ *  alone** -- and the days inside would then look like holes. Same rule as `landing.days_in_name`. */
+function theDaysInAFileName(fileName) {
+  const ofARange = theDaysOfARangeName(fileName);
+  if (ofARange) return ofARange;
+  const one = theDayInAFileName(fileName);
+  return one ? [one] : [];
 }
 
 /**
@@ -70,18 +84,20 @@ function theDayInAFileName(fileName) {
  * the same fault a single "last landed" scalar could never see round.
  */
 export async function afterALanding(chrome, { reportId, fileName, bytes, alreadyThere = [] }) {
-  const named = theDayInAFileName(fileName);
-  if (named) await rememberLastLanded(chrome, reportId, named);
+  const days = theDaysInAFileName(fileName);
+  /* **THE LAST DAY OF THE NAME** -- the day a range file is "for", as on the Python side. */
+  const named = days.length ? days[days.length - 1] : '';
   /* **ONE AT A TIME, NOT `Promise.all`.** `rememberLastLanded` reads, adds and
    * writes back the whole record in one storage read/write; several run
    * together would each read the same starting record and the last write
-   * would win, losing every day but its own. */
-  for (const one of (alreadyThere || [])) {
-    const day = theDayInAFileName(one && one.name);
-    if (day) {
-      // eslint-disable-next-line no-await-in-loop
-      await rememberLastLanded(chrome, reportId, day);
-    }
+   * would win, losing every day but its own.
+   *
+   * **EVERY DAY OF A RANGE FILE, THIS LANDING'S AND THOSE ALREADY IN THE FOLDER (P16).** Remembering
+   * only its last day, `daysNobodyTried` would see the days inside a range as holes and fetch them
+   * again -- on Flipkart's orders and payments that spends the twenty a second time. */
+  for (const day of [...days, ...(alreadyThere || []).flatMap((one) => theDaysInAFileName(one && one.name))]) {
+    // eslint-disable-next-line no-await-in-loop
+    await rememberLastLanded(chrome, reportId, day);
   }
   if (!RANGE_FROM_LAST.includes(reportId)) return null;
   let latest = '';
@@ -144,17 +160,31 @@ export function whyTheseAreNotNames(reportId, fileName) {
    * 2026-09-21 run, which lost every day with live ads. Allowed only for a
    * report fetched per campaign, only under its own report id, and the campaign
    * part is `A_CAMPAIGN_ID`'s own letters -- no dot, slash or quote. */
-  const perCampaign = NAMED_PER_CAMPAIGN.includes(report)
+  /* **THE FOURTH NAME: ONE REQUEST FOR SEVERAL DAYS (P16).** `platform_report_FROM_to_TO.ext`, and
+   * narrower than the dated form just as the list's name is: the report id in the name has to be the
+   * very report this message is about. Both ends real days, FROM before TO, no more days than one
+   * press takes (`whyTheRangeIsRefused`). **AND ONLY FOR THE REPORTS ASKED FOR IN ONE REQUEST** (`SPENDS_THE_ALLOWANCE`; Meesho's
+   * join here when they are built), so a stray range name for any other report never reaches the Drive. **AND IT IS NEVER A PER-CAMPAIGN NAME** -- that shape would
+   * read `_to_TO` as a campaign id, so a range-looking name for a report fetched per campaign is
+   * refused outright rather than let through under the other shape. */
+  const ranged = !SPENDS_THE_ALLOWANCE.includes(report) ? null : new RegExp('^[a-z0-9]{1,32}_' + report
+    + '_(\\d{4}-\\d{2}-\\d{2})_to_(\\d{4}-\\d{2}-\\d{2})\\.[a-z0-9]{1,8}$').exec(called);
+  const perCampaign = NAMED_PER_CAMPAIGN.includes(report) && !/_\d{4}-\d{2}-\d{2}_to_\d{4}-\d{2}-\d{2}\./.test(called)
     ? new RegExp('^[a-z0-9]{1,32}_' + report + '_(\\d{4}-\\d{2}-\\d{2})_[A-Za-z0-9_-]{1,64}\\.[a-z0-9]{1,8}$').exec(called)
     : null;
-  if (!shaped && !aList && !perCampaign) {
+  if (!shaped && !aList && !perCampaign && !ranged) {
     return `"${called}" is not a name this product writes, so nothing has been put in the `
       + 'seller\'s Drive. A file is put away as platform_report_YYYY-MM-DD.extension, or as '
-      + 'platform_report.extension when it is one list added to every day.';
+      + 'platform_report.extension when it is one list added to every day, or as '
+      + 'platform_report_YYYY-MM-DD_to_YYYY-MM-DD.extension when it is several days in one request.';
   }
   /* **A LIST'S NAME HAS NO DAY TO CHECK, so the check below is the dated form's
    * alone.** Asked of a name with no day in it, it would refuse every one. */
-  if (!shaped && !perCampaign) return null;
+  if (!shaped && !perCampaign && !ranged) return null;
+  if (ranged) {
+    const notARange = whyTheRangeIsRefused(ranged[1], ranged[2]);
+    return notARange ? `${called}: ${notARange}` : null;
+  }
   /* **AND THE DAY IN IT HAS TO BE A REAL DAY.** `2026-02-31` is the right shape
    * and is not a day, and a file under it is one `landing.data_date_in` answers
    * None for -- a file in the folder that no reader can ever reach. */

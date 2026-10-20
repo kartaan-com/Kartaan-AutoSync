@@ -38,8 +38,10 @@ export const TOOLTIPS = {
   runNow: 'Fetches the ticked reports now, for yesterday. Leave the window alone while it works.',
   from: 'The first day to fetch. Leave both date boxes empty and Run now fetches yesterday, '
     + 'which is the usual thing.',
-  to: 'The last day to fetch. With a day in the first box too, every day between the two is '
-    + 'fetched, oldest first, up to a month at a time.',
+  to: 'The last day to fetch. With a first day too, every day between is fetched, up to a month. '
+    + 'Flipkart orders and payments go in one request; the rest one day at a time.',
+  version: 'The version of AutoSync you are running now. If a newer one is out, a line near the '
+    + 'top of this page says so.',
   stop: 'Stops the run after the report it is on. What has already landed stays.',
   resume: 'Shown when a platform asked you to sign in. Sign in first, then this carries on from '
     + 'the report where the sync stopped.',
@@ -128,6 +130,8 @@ export const MANUAL = [
     steps: [
       'Watch the number before running Flipkart twice in a morning.',
       'A report is counted the moment it is asked for, not when it comes back.',
+      'If you type a first and a last day, Flipkart orders and payments are asked for once for '
+        + 'the whole stretch, so that costs one, not one for every day.',
     ],
     more: [
       'Counted before rather than after on purpose. A computer that shuts down mid-request must '
@@ -149,6 +153,18 @@ export const MANUAL = [
       'It moves like a person on purpose -- a few seconds looking at a page that has just drawn, '
         + 'about a second between one action and the next. A platform that reads the run as a '
         + 'machine can block your account, and the pause is never the same length twice.',
+    ],
+  },
+  {
+    id: 'version',
+    label: 'Which version this is',
+    crux: 'The version of AutoSync you are running is written at the bottom of this page.',
+    steps: [
+      'Read the number at the bottom of the page, for example AutoSync 0.1.20, when you need to say which one you have.',
+    ],
+    more: [
+      'When a newer version is out, a line near the top says so and gives a link to download it. The '
+        + 'number at the bottom is there whether or not there is a newer one.',
     ],
   },
   {

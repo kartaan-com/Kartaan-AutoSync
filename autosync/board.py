@@ -29,7 +29,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Callable, Dict, Iterable, List, Optional, Sequence, Set
 
-from landing import Arrived, the_running_list_is_called, undated
+from landing import Arrived, days_in_name, the_running_list_is_called, undated
 from reports import ONLY_WHEN_ASKED, WHEN_THEY_PUBLISH_IT, Report, blocked_by
 from schedule import data_date_for, days_late, should_ask_a_person, window_start
 
@@ -107,16 +107,18 @@ def rows_for(
                     if standing is None or (standing.is_empty and not got.is_empty):
                         by_date[when] = got
                 continue
-            when = got.data_date
-            if when is None:
-                # Counted separately by `files_nothing_can_find`. It is neither
-                # arrived nor missing, and pretending otherwise is what hid seven
-                # real files for six weeks.
-                continue
-            # A later file for the same day wins only if the earlier one was empty.
-            standing = by_date.get(when)
-            if standing is None or (standing.is_empty and not got.is_empty):
-                by_date[when] = got
+            # **A RANGE FILE FILLS EVERY DAY ITS NAME COVERS**, the same shape as the running
+            # list above: answering for its last day alone would leave the days before it
+            # looking missing and owed while the file sat in the folder holding them.
+            #
+            # An empty answer is a name with no day. Counted separately by
+            # `files_nothing_can_find`. It is neither arrived nor missing, and pretending
+            # otherwise is what hid seven real files for six weeks.
+            for when in days_in_name(got.name):
+                # A later file for the same day wins only if the earlier one was empty.
+                standing = by_date.get(when)
+                if standing is None or (standing.is_empty and not got.is_empty):
+                    by_date[when] = got
 
         newest_owed = data_date_for(a_report, today)
         # **THE SAME WINDOW THE RUN ASKS FOR, from one place (`window_start`).**

@@ -713,7 +713,16 @@ check("a views day absent from inside the rolling file is missing, and only that
       views_lines.get(date(2026, 9, 20)) == tool.MISSING and views_lines.get(date(2026, 9, 19)) == tool.VERIFIED
       and views_lines.get(date(2026, 9, 21)) == tool.VERIFIED)
 
-EXPECTED = 66 + 20
+# **A RANGE FILE IS RECORDED PER DAY TOO (P16): one request for several days leaves one file, and each day inside it is verified.**
+the_fk_orders = next(one for one in REPORTS if one.id == "fk_orders")
+_ranged = [Arrived(name="flipkart_fk_orders_2026-09-19_to_2026-09-21.xlsx", size=500)]
+ranged_lines = {one.data_date: one.state for one in tool.lines_for(
+    [the_fk_orders], lambda rid: _ranged, date(2026, 9, 22), checked_on=date(2026, 9, 22), look_back_days=4)}
+check("every day inside a range file is verified, and the day before it is missing",
+      all(ranged_lines.get(date(2026, 9, d)) == tool.VERIFIED for d in (19, 20, 21))
+      and ranged_lines.get(date(2026, 9, 18)) == tool.MISSING)
+
+EXPECTED = 66 + 20 + 1
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

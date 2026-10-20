@@ -23,6 +23,8 @@
  *  profiles or on two machines under one Google account; two installs writing one file would lose each other's
  *  lines and, creating it at the same moment, leave two copies that refuse every write for ever. Each install
  *  names its file with its own short id, so every file still has exactly one writer and the reader joins them all. */
+import { theDaysOfARangeName } from './walk.js';
+
 export const THE_EXTENSIONS_RECORD_STARTS = 'extension-manifest-';
 
 /** An install's id: eight lowercase hex digits, made once and kept. */
@@ -51,7 +53,8 @@ function aRealDay(text) {
   return !Number.isNaN(made.getTime()) && made.toISOString().slice(0, 10) === text;
 }
 
-/** The data day inside a file's name, or '' when it has none. */
+/** The data day inside a file's name, or '' when it has none. **A range file's name gives its FIRST day here; the lines for a landing
+ *  ask `theDaysOfARangeName` first (`theLinesFor`), so use this only for a name known to be a day's.** */
 export function theDayInAName(fileName) {
   const found = A_DAY_IN_A_NAME.exec(String(fileName || ''));
   return found && aRealDay(found[1]) ? found[1] : '';
@@ -73,7 +76,9 @@ export function aLineFor({ reportId, fileName, size, day, on }) {
 
 /** The lines for one landing: a file named by its day, or a running list holding many days. */
 export function theLinesFor({ reportId, fileName, size, days, on }) {
-  const inside = (days && days.length) ? days : [theDayInAName(fileName)];
+  /* **A RANGE FILE IS A VERIFIED LINE FOR EVERY DAY IT NAMES (P16, review finding).** Read as the first date in the name it was one
+   * line for its FROM day, and the day it is dated by, and every day between, were never recorded as landed. */
+  const inside = (days && days.length) ? days : (theDaysOfARangeName(fileName) || [theDayInAName(fileName)]);
   return inside
     .map((day) => aLineFor({ reportId, fileName, size, day, on }))
     .filter(Boolean);
