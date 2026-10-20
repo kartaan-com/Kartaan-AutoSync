@@ -1964,6 +1964,50 @@
         "autosync/nightly_checks.py",
         "autosync/start.py"
       ]
+    },
+    {
+      "id": "quality-reader",
+      "name": "Flipkart quality insights are read into a record per listing (A87, plan part F1)",
+      "what": "autosync/quality.py reads the quality insights file into platform_quality records, one per listing named by its SKU: star level and returns share as levels, rupees from K/L/Cr suffixes, badge, suppression risk and issue as the platform wrote them, with a short history.",
+      "rests_on": [
+        "report-list"
+      ],
+      "files": [
+        "autosync/quality.py",
+        "autosync/quality_checks.py"
+      ],
+      "also_touches": [
+        "autosync/reading.py",
+        "autosync/reading_checks.py",
+        "autosync/firestore.py",
+        "autosync/firestore_checks.py",
+        "autosync/firestore_door.py",
+        "autosync/returns_ads_checks.py",
+        "autosync/start.py",
+        "autosync/nightly.py"
+      ]
+    },
+    {
+      "id": "shop-days-reader",
+      "name": "Meesho's whole-shop dashboard figures are read into a record per day (A87, D473)",
+      "what": "autosync/shopdays.py reads the dashboard views and orders file into platform_shop_days records, one per day, tied to no listing and never derived from.",
+      "rests_on": [
+        "report-list"
+      ],
+      "files": [
+        "autosync/shopdays.py",
+        "autosync/shopdays_checks.py"
+      ],
+      "also_touches": [
+        "autosync/reading.py",
+        "autosync/reading_checks.py",
+        "autosync/firestore.py",
+        "autosync/firestore_checks.py",
+        "autosync/firestore_door.py",
+        "autosync/returns_ads_checks.py",
+        "autosync/start.py",
+        "autosync/nightly.py"
+      ]
     }
   ]
 }

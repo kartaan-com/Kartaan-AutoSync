@@ -537,6 +537,56 @@ def _the_days_between(first: str, last: str) -> Dict:
     ]}}
 
 
+def a_shop_days_sink(transport, project: str) -> Callable[..., int]:
+    """The whole-shop days a shop figures file names, into their records -- ONLY the new or changed ones, never over a newer file's (A87, D473)."""
+
+    def sink(report_id: str, day: str, records: Dict[str, Dict]) -> int:
+        held = _what_is_held_of(transport, project, firestore.SHOP_DAYS, sorted(records), "digest", "fileDay")
+        writes = [
+            firestore.a_shop_day_write(project, doc_id, record)
+            for doc_id, record in sorted(records.items()) if _is_news(held, doc_id, record["digest"], day)
+        ]
+        return write_them(transport, project, writes, "writing the shop's figures for each day")
+
+    return sink
+
+
+def a_quality_sink(transport, project: str) -> Callable[..., int]:
+    """The listings' quality a quality file names, into their records -- ONLY the new or changed ones, never over a newer file's, each with its history (A87).
+
+    The history is the held record's own readings with this day's put on the end (`quality.with_history`); a record only changes when what the platform
+    says changed, so the history gains a point when the figures move.
+    """
+
+    def sink(report_id: str, day: str, records: Dict[str, Dict]) -> int:
+        import quality  # noqa: PLC0415 - kept beside its one use
+
+        held: Dict[str, tuple] = {}
+        names = sorted(records)
+        for at in range(0, len(names), ASKED_AT_A_TIME):
+            chunk = [firestore.where_a_document_lives(project, firestore.QUALITY, one) for one in names[at:at + ASKED_AT_A_TIME]]
+            got = _answered(
+                transport.post(BATCH_GET.format(api=API, project=project, database=DATABASE), json={"documents": chunk}),
+                "asking which listing quality records are already held",
+            ).records()
+            if not isinstance(got, list):
+                raise TheirDatabaseSaidNo("asking which listing quality records are already held: the answer was not a list of records.")
+            for answer in got:
+                found = answer.get("found")
+                if found:
+                    fields = firestore.plain_deep({"mapValue": {"fields": found.get("fields") or {}}})
+                    held[found["name"].rsplit("/", 1)[-1]] = (str(fields.get("digest") or ""), str(fields.get("fileDay") or ""), tuple(fields.get("history") or ()))
+        writes = []
+        for doc_id, record in sorted(records.items()):
+            before = held.get(doc_id)
+            if before is not None and not (before[0] != record["digest"] and before[1] <= day):
+                continue
+            writes.append(firestore.a_quality_write(project, doc_id, quality.with_history(record, before[2] if before else ())))
+        return write_them(transport, project, writes, "writing how each listing's quality stands")
+
+    return sink
+
+
 def an_ads_month_sink(transport, project: str, today: str) -> Callable[..., int]:
     """Rebuild each platform's month of ads whole, from that month's per-day records (D463). Answers how many month records were written.
 

@@ -219,6 +219,8 @@ def one_tick(
     # **WHERE THE CLAIMS GO (A87, D459).**
     record_claims: Optional[Callable[[str, str, dict], int]] = None,
     record_performance: Optional[Callable[[str, str, dict], int]] = None,
+    record_quality: Optional[Callable[[str, str, dict], int]] = None,
+    record_shop_days: Optional[Callable[[str, str, dict], int]] = None,
     # **WHERE A MONTH OF ADS IS SUMMED INTO ONE RECORD (D463):** the months tonight touched in, records written out.
     rebuild_ads_months: Optional[Callable[[Sequence], int]] = None,
 ) -> Tick:
@@ -425,6 +427,8 @@ def one_tick(
             record_ads=record_ads,
             record_claims=record_claims,
             record_performance=record_performance,
+            record_quality=record_quality,
+            record_shop_days=record_shop_days,
             correcting=migrating,
         )
     except Exception as wrong:  # noqa: BLE001 - reported, never swallowed

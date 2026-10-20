@@ -65,7 +65,7 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
     import merge
     from drive_door import a_door, the_kartaan_folder
     from firestore_door import (
-        a_board_sink, a_check_sink, a_ledger_sink, a_listings_sink, a_log_sink, a_returns_sheet_held, a_returns_sheet_sink, a_returns_sink, a_claims_sink, a_performance_sink, an_ads_month_sink,
+        a_board_sink, a_check_sink, a_ledger_sink, a_listings_sink, a_log_sink, a_returns_sheet_held, a_returns_sheet_sink, a_returns_sink, a_claims_sink, a_performance_sink, a_quality_sink, a_shop_days_sink, an_ads_month_sink,
         a_run_sink, a_views_sink, an_ads_sink, both_places, what_they_chose,
     )
     from transport import FirebaseSeller, Google, for_amazon
@@ -248,6 +248,10 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
         record_claims=a_claims_sink(their_login, their_project),
         # **AND HOW EACH MEESHO PRODUCT DID IN ITS WEEK (A87, D459).**
         record_performance=a_performance_sink(their_login, their_project),
+        # **AND HOW EACH FLIPKART LISTING'S QUALITY STANDS (A87, plan part F).**
+        record_quality=a_quality_sink(their_login, their_project),
+        # **AND THE SHOP'S OWN FIGURES FOR A DAY (A87, D473).**
+        record_shop_days=a_shop_days_sink(their_login, their_project),
         # **AND EACH MONTH OF ADS AS ONE RECORD (D463).**
         rebuild_ads_months=an_ads_month_sink(their_login, their_project, today.isoformat()),
         # Set only by somebody pressing the button in GitHub. The workflow passes

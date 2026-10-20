@@ -90,6 +90,8 @@ import listings
 import manifest
 import orders
 import performance
+import quality
+import shopdays
 import payments
 import returns
 import sheet
@@ -222,6 +224,12 @@ WHAT_RETURNS_CAN_BE_READ: Tuple[HowToRead, ...] = tuple(
 # **MEESHO'S PRODUCT PERFORMANCE (A87, D459):** a record per product per week, in the seller's database, matched to a catalog by title.
 WHAT_PERFORMANCE_CAN_BE_READ: Tuple[HowToRead, ...] = (HowToRead("me_product_performance", (), kind="performance"),)
 
+# **FLIPKART'S QUALITY INSIGHTS (A87, plan part F1):** a record per listing in the seller's database, star level and returns share as levels (never summed).
+WHAT_QUALITY_CAN_BE_READ: Tuple[HowToRead, ...] = (HowToRead("fk_quality_insights", (), kind="quality"),)
+
+# **MEESHO'S WHOLE-SHOP DASHBOARD FIGURES (A87, D473):** views and orders for the shop on a day, a record per day, tied to no listing.
+WHAT_SHOP_DAYS_CAN_BE_READ: Tuple[HowToRead, ...] = (HowToRead("me_views", (), kind="shop"),)
+
 WHAT_ADS_CAN_BE_READ: Tuple[HowToRead, ...] = tuple(
     HowToRead(report_id, (), header_row=ads.way_for(report_id).header_row, kind="ads") for report_id in ads.WAYS
 )
@@ -247,14 +255,6 @@ WHAT_IS_FETCHED_AND_NOT_READ_YET: Dict[str, str] = {
         "decided: current price, recommended price and Meesho's own label put on each Meesho listing in Products, as piece 43 says; "
         "that screen is the ERP's"
     ),
-    "fk_quality_insights": (
-        "decided: each listing's yearly sales, rating, returns, assured badge and suppression risk shown beside it in listing "
-        "health; the reading waits for the first real file (piece 86, stream B9)"
-    ),
-    "me_views": (
-        "a whole-shop figure with no listing in it, so it has no per-listing record; Meesho's views per product "
-        "are piece 44 (Product Performance), which will write them into the same listing record"
-    ),
 }
 WHAT_IS_FETCHED_AND_NOT_READ_YET["fk_ads_kw"] = (
     "Flipkart has discontinued keyword ads (his word, 12 Oct), so nothing is read and it is no longer fetched: it is off the extension's "
@@ -270,7 +270,7 @@ def why_a_report_has_no_decision() -> str:
     """
     from reports import REPORTS  # noqa: PLC0415 - kept beside its one use
 
-    read = {one.report_id for one in WHAT_CAN_BE_READ + WHAT_VIEWS_CAN_BE_READ + WHAT_LISTINGS_CAN_BE_READ + WHAT_RETURNS_CAN_BE_READ + WHAT_ADS_CAN_BE_READ + WHAT_PERFORMANCE_CAN_BE_READ}
+    read = {one.report_id for one in WHAT_CAN_BE_READ + WHAT_VIEWS_CAN_BE_READ + WHAT_LISTINGS_CAN_BE_READ + WHAT_RETURNS_CAN_BE_READ + WHAT_ADS_CAN_BE_READ + WHAT_PERFORMANCE_CAN_BE_READ + WHAT_QUALITY_CAN_BE_READ + WHAT_SHOP_DAYS_CAN_BE_READ}
     said = set(WHAT_IS_FETCHED_AND_NOT_READ_YET)
     known = {one.id for one in REPORTS}
     wrong = []
@@ -340,6 +340,10 @@ class WhatTheNightRead:
     claims_waiting: int = 0
     performance_written: int = 0
     performance_waiting: int = 0
+    quality_written: int = 0
+    quality_waiting: int = 0
+    shop_days_written: int = 0
+    shop_days_waiting: int = 0
     # **THE MONTHS OF ADS TONIGHT'S ADS FILES TOUCHED (D463):** `(platform, yyyy-mm)`, so the run can rebuild each month's one summary record.
     ads_months: Tuple[Tuple[str, str], ...] = ()
     ads_written: int = 0
@@ -416,6 +420,20 @@ class WhatTheNightRead:
         if self.claims_waiting:
             said += (
                 f"  {self.claims_waiting} claims file(s) were left unread because the seller's database could not be reached for them; "
+                "they will be read when it can."
+            )
+        if self.shop_days_written:
+            said += f"  {self.shop_days_written} shop day(s) were new or changed in the shop figures files and were recorded."
+        if self.shop_days_waiting:
+            said += (
+                f"  {self.shop_days_waiting} shop figures file(s) were left unread because the seller's database could not be reached for them; "
+                "they will be read when it can."
+            )
+        if self.quality_written:
+            said += f"  {self.quality_written} listing quality record(s) were new or changed in the quality files and were recorded."
+        if self.quality_waiting:
+            said += (
+                f"  {self.quality_waiting} quality file(s) were left unread because the seller's database could not be reached for them; "
                 "they will be read when it can."
             )
         if self.performance_written:
@@ -913,6 +931,8 @@ def read_what_is_new(
     record_ads: Optional[Callable[[str, str, str, str, Dict], int]] = None,
     record_claims: Optional[Callable[[str, str, Dict], int]] = None,
     record_performance: Optional[Callable[[str, str, Dict], int]] = None,
+    record_quality: Optional[Callable[[str, str, Dict], int]] = None,
+    record_shop_days: Optional[Callable[[str, str, Dict], int]] = None,
     correcting: bool = False,
 ) -> WhatTheNightRead:
     """Read every file in the seller's folders that has not been read before.
@@ -939,7 +959,7 @@ def read_what_is_new(
     if can_be_read is None:
         can_be_read = (
             WHAT_CAN_BE_READ + WHAT_VIEWS_CAN_BE_READ + WHAT_LISTINGS_CAN_BE_READ + WHAT_RETURNS_CAN_BE_READ + WHAT_ADS_CAN_BE_READ
-            + WHAT_PERFORMANCE_CAN_BE_READ
+            + WHAT_PERFORMANCE_CAN_BE_READ + WHAT_QUALITY_CAN_BE_READ + WHAT_SHOP_DAYS_CAN_BE_READ
         )
     remembered = tuple(sorted({
         str(one).strip() for one in (already_read or ()) if str(one).strip()
@@ -1007,6 +1027,10 @@ def read_what_is_new(
     claims_waiting = 0
     performance_written = 0
     performance_waiting = 0
+    quality_written = 0
+    quality_waiting = 0
+    shop_days_written = 0
+    shop_days_waiting = 0
     ads_months = set()
     ads_written = 0
     ads_waiting = 0
@@ -1082,6 +1106,60 @@ def read_what_is_new(
                 data_date=landing.data_date_in(one.name), report_id=how.report_id, file_name=one.name or one.which,
                 into="returned lines" if how.kind == "returns" else "ad records", rows_in_file=said.rows_in_file,
                 rows_read=said.rows_in_file - len(said.not_read),
+            ))
+            continue
+        if how.kind == "shop":
+            if record_shop_days is None:
+                shop_days_waiting += 1
+                continue
+            try:
+                when = _the_day_of(one)
+                made, said_not_read = shopdays.read_shop_days(
+                    how.report_id, the_report(how.report_id).platform, _rows_in(how, bring_it_back(one.which), one.name or one.which), when.isoformat(),
+                )
+                if not made and said_not_read:
+                    raise table.CannotRead(f"no row of {one.name or one.which} could be read; the first was {said_not_read[0]}")
+                shop_days_written += record_shop_days(how.report_id, when.isoformat(), made)
+            except TheirDatabaseSaidNo as wrong:
+                the_database_refused.append(f"{one.name or one.which}: {wrong}")
+                continue
+            except Exception as wrong:  # noqa: BLE001 - named, never swallowed
+                could_not_read.append(f"{one.name or one.which}: {wrong}")
+                continue
+            read_tonight.append(one)
+            rows_refused += len(said_not_read)
+            if said_not_read:
+                could_not_read.append(f"{one.name or one.which}: {len(said_not_read)} row(s) not read, the first being {said_not_read[0]}")
+            reads.append(manifest.Read(
+                data_date=when, report_id=how.report_id, file_name=one.name or one.which, into="shop days",
+                rows_in_file=len(made) + len(said_not_read), rows_read=len(made),
+            ))
+            continue
+        if how.kind == "quality":
+            if record_quality is None:
+                quality_waiting += 1
+                continue
+            try:
+                when = _the_day_of(one)
+                made, said_not_read = quality.read_quality(
+                    how.report_id, the_report(how.report_id).platform, _rows_in(how, bring_it_back(one.which), one.name or one.which), when.isoformat(),
+                )
+                if not made and said_not_read:
+                    raise table.CannotRead(f"no row of {one.name or one.which} could be read; the first was {said_not_read[0]}")
+                quality_written += record_quality(how.report_id, when.isoformat(), made)
+            except TheirDatabaseSaidNo as wrong:
+                the_database_refused.append(f"{one.name or one.which}: {wrong}")
+                continue
+            except Exception as wrong:  # noqa: BLE001 - named, never swallowed
+                could_not_read.append(f"{one.name or one.which}: {wrong}")
+                continue
+            read_tonight.append(one)
+            rows_refused += len(said_not_read)
+            if said_not_read:
+                could_not_read.append(f"{one.name or one.which}: {len(said_not_read)} row(s) not read, the first being {said_not_read[0]}")
+            reads.append(manifest.Read(
+                data_date=when, report_id=how.report_id, file_name=one.name or one.which, into="listing quality records",
+                rows_in_file=len(made) + len(said_not_read), rows_read=len(made),
             ))
             continue
         if how.kind == "performance":
@@ -1228,6 +1306,10 @@ def read_what_is_new(
         claims_waiting=claims_waiting,
         performance_written=performance_written,
         performance_waiting=performance_waiting,
+        quality_written=quality_written,
+        quality_waiting=quality_waiting,
+        shop_days_written=shop_days_written,
+        shop_days_waiting=shop_days_waiting,
         ads_months=tuple(sorted(ads_months)),
         ads_written=ads_written,
         ads_waiting=ads_waiting,
