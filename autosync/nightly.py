@@ -46,7 +46,7 @@ import os
 import re
 from dataclasses import dataclass, replace
 from datetime import date, datetime
-from typing import Callable, List, Optional, Sequence, Tuple
+from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 import between_runs
 import clock
@@ -217,10 +217,8 @@ def one_tick(
     record_returns: Optional[Callable[[str, str, dict], int]] = None,
     record_ads: Optional[Callable[[str, str, str, str, dict], int]] = None,
     # **WHERE THE CLAIMS GO (A87, D459).**
-    record_claims: Optional[Callable[[str, str, dict], int]] = None,
-    record_performance: Optional[Callable[[str, str, dict], int]] = None,
-    record_quality: Optional[Callable[[str, str, dict], int]] = None,
-    record_shop_days: Optional[Callable[[str, str, dict], int]] = None,
+    # **WHERE THE REPORTS THAT ARE WRITTEN AS RECORDS GO (A87):** a sink for each, by report id (`record_reports.RECORD_REPORTS`).
+    record_records: Optional[Dict[str, Callable[[str, str, dict], int]]] = None,
     # **WHERE A MONTH OF ADS IS SUMMED INTO ONE RECORD (D463):** the months tonight touched in, records written out.
     rebuild_ads_months: Optional[Callable[[Sequence], int]] = None,
 ) -> Tick:
@@ -425,10 +423,7 @@ def one_tick(
             record_listings=record_listings,
             record_returns=record_returns,
             record_ads=record_ads,
-            record_claims=record_claims,
-            record_performance=record_performance,
-            record_quality=record_quality,
-            record_shop_days=record_shop_days,
+            record_records=record_records,
             correcting=migrating,
         )
     except Exception as wrong:  # noqa: BLE001 - reported, never swallowed

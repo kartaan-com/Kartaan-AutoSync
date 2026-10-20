@@ -28,7 +28,9 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Callable, Dict, List, Optional, Tuple
 
+import firestore
 import orders
+import records as shared
 import returns
 import table
 import views
@@ -128,6 +130,7 @@ WAYS: Dict[str, Way] = {
 # answered. `days` is each day's campaigns as `platform_ads_days` holds them; the other five are each day's rows as `platform_ads_detail` holds them.
 MONTH_FIELDS = ("platform", "month", "updatedOn", "days", "search", "placements", "overall", "orders", "lifetime", "trimmed")
 MONTH_KINDS = ("search", "placements", "overall", "orders", "lifetime")
+MONTH = shared.RecordKind(firestore.ADS_MONTH, MONTH_FIELDS, "month of ads", required_days=("updatedOn",), months=("month",))
 # Firestore's record limit is 1 MiB, counted the way Firestore counts (see `firestore_size`); a month that would not fit is refused in words, never shortened.
 MOST_MONTH_BYTES = 1000 * 1000
 
@@ -250,10 +253,6 @@ def held_to_size(rows: List[Dict], most: int = MOST_BYTES) -> List[Dict]:
     return kept
 
 
-def the_digest(content: Dict) -> str:
-    return hashlib.sha1(json.dumps(content, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()[:16]
-
-
 def read_ads(report_id: str, rows: table.Table, file_day: str, header_day: Optional[str]) -> WhatAdsSaid:
     """One file's rows turned into ad records.
 
@@ -333,7 +332,7 @@ def read_ads(report_id: str, rows: table.Table, file_day: str, header_day: Optio
                 **({"campaignId": part} if part else {}),
             }
     for record in records.values():
-        record["digest"] = the_digest({k: v for k, v in record.items() if k != "digest"})
+        record["digest"] = shared.the_digest(record)
     return WhatAdsSaid(report_id, way.platform, way.kind, records, tuple(not_read), count)
 
 

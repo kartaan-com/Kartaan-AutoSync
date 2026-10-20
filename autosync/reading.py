@@ -90,8 +90,7 @@ import listings
 import manifest
 import orders
 import performance
-import quality
-import shopdays
+import record_reports
 import payments
 import returns
 import sheet
@@ -221,14 +220,11 @@ WHAT_RETURNS_CAN_BE_READ: Tuple[HowToRead, ...] = tuple(
 
 # **THE AD FILES (A78):** an ads record per platform per day, and the detail behind it, in the seller's own database
 # (`firestore_door.an_ads_sink`). Their shapes are `ads.py`'s.
-# **MEESHO'S PRODUCT PERFORMANCE (A87, D459):** a record per product per week, in the seller's database, matched to a catalog by title.
-WHAT_PERFORMANCE_CAN_BE_READ: Tuple[HowToRead, ...] = (HowToRead("me_product_performance", (), kind="performance"),)
-
-# **FLIPKART'S QUALITY INSIGHTS (A87, plan part F1):** a record per listing in the seller's database, star level and returns share as levels (never summed).
-WHAT_QUALITY_CAN_BE_READ: Tuple[HowToRead, ...] = (HowToRead("fk_quality_insights", (), kind="quality"),)
-
-# **MEESHO'S WHOLE-SHOP DASHBOARD FIGURES (A87, D473):** views and orders for the shop on a day, a record per day, tied to no listing.
-WHAT_SHOP_DAYS_CAN_BE_READ: Tuple[HowToRead, ...] = (HowToRead("me_views", (), kind="shop"),)
+# **THE REPORTS WRITTEN AS RECORDS OF THEIR OWN (A87, D459, D473, D482):** product performance, listing quality and the shop's own figures are read by the one
+# branch below from the one table in `record_reports.py`. (Claims are read into the ledger too, so they are in `WHAT_CAN_BE_READ`.)
+WHAT_RECORDS_CAN_BE_READ: Tuple[HowToRead, ...] = tuple(
+    HowToRead(report_id, (), kind="records") for report_id in record_reports.RECORD_REPORTS if report_id != "me_claims"
+)
 
 WHAT_ADS_CAN_BE_READ: Tuple[HowToRead, ...] = tuple(
     HowToRead(report_id, (), header_row=ads.way_for(report_id).header_row, kind="ads") for report_id in ads.WAYS
@@ -270,7 +266,7 @@ def why_a_report_has_no_decision() -> str:
     """
     from reports import REPORTS  # noqa: PLC0415 - kept beside its one use
 
-    read = {one.report_id for one in WHAT_CAN_BE_READ + WHAT_VIEWS_CAN_BE_READ + WHAT_LISTINGS_CAN_BE_READ + WHAT_RETURNS_CAN_BE_READ + WHAT_ADS_CAN_BE_READ + WHAT_PERFORMANCE_CAN_BE_READ + WHAT_QUALITY_CAN_BE_READ + WHAT_SHOP_DAYS_CAN_BE_READ}
+    read = {one.report_id for one in WHAT_CAN_BE_READ + WHAT_VIEWS_CAN_BE_READ + WHAT_LISTINGS_CAN_BE_READ + WHAT_RETURNS_CAN_BE_READ + WHAT_ADS_CAN_BE_READ + WHAT_RECORDS_CAN_BE_READ}
     said = set(WHAT_IS_FETCHED_AND_NOT_READ_YET)
     known = {one.id for one in REPORTS}
     wrong = []
@@ -336,14 +332,10 @@ class WhatTheNightRead:
     # **THE RETURN AND AD FILES (A78):** records written tonight (new or changed), and files left unread because there was nowhere to write them.
     returns_written: int = 0
     returns_waiting: int = 0
-    claims_written: int = 0
-    claims_waiting: int = 0
-    performance_written: int = 0
-    performance_waiting: int = 0
-    quality_written: int = 0
-    quality_waiting: int = 0
-    shop_days_written: int = 0
-    shop_days_waiting: int = 0
+    # **THE REPORTS THAT ARE WRITTEN AS RECORDS (A87, D482 -- ONE pair for all of them):** `(report id, records written tonight)` and the ids whose files were
+    # left unread for want of anywhere to write them. Asked with `wrote(report_id)` and `waiting(report_id)`.
+    records_written: Tuple[Tuple[str, int], ...] = ()
+    records_waiting: Tuple[str, ...] = ()
     # **THE MONTHS OF ADS TONIGHT'S ADS FILES TOUCHED (D463):** `(platform, yyyy-mm)`, so the run can rebuild each month's one summary record.
     ads_months: Tuple[Tuple[str, str], ...] = ()
     ads_written: int = 0
@@ -371,6 +363,14 @@ class WhatTheNightRead:
         seller's files piled up unread for ever -- **found by an independent
         reviewer, and it is Golden Rule 29 exactly.**"""
         return bool(self.could_not_list or self.the_ledger_refused or self.the_database_refused)
+
+    def wrote(self, report_id: str) -> int:
+        """How many records of this report were written tonight."""
+        return dict(self.records_written).get(report_id, 0)
+
+    def waiting(self, report_id: str) -> int:
+        """How many files of this report were left unread tonight for want of anywhere to write their records."""
+        return self.records_waiting.count(report_id)
 
     def says(self) -> str:
         """One line for the night's summary. **EVERY COUNT, EVEN THE NOUGHTS.**
@@ -415,34 +415,14 @@ class WhatTheNightRead:
             )
         if self.returns_written:
             said += f"  {self.returns_written} returned line(s) were new or changed in the returns files and were recorded."
-        if self.claims_written:
-            said += f"  {self.claims_written} claim(s) were new or changed in the claims files and were recorded."
-        if self.claims_waiting:
-            said += (
-                f"  {self.claims_waiting} claims file(s) were left unread because the seller's database could not be reached for them; "
-                "they will be read when it can."
-            )
-        if self.shop_days_written:
-            said += f"  {self.shop_days_written} shop day(s) were new or changed in the shop figures files and were recorded."
-        if self.shop_days_waiting:
-            said += (
-                f"  {self.shop_days_waiting} shop figures file(s) were left unread because the seller's database could not be reached for them; "
-                "they will be read when it can."
-            )
-        if self.quality_written:
-            said += f"  {self.quality_written} listing quality record(s) were new or changed in the quality files and were recorded."
-        if self.quality_waiting:
-            said += (
-                f"  {self.quality_waiting} quality file(s) were left unread because the seller's database could not be reached for them; "
-                "they will be read when it can."
-            )
-        if self.performance_written:
-            said += f"  {self.performance_written} product week(s) were new or changed in the product performance files and were recorded."
-        if self.performance_waiting:
-            said += (
-                f"  {self.performance_waiting} product performance file(s) were left unread because the seller's database could not be "
-                "reached for them; they will be read when it can."
-            )
+        for report_id, one in record_reports.RECORD_REPORTS.items():
+            if self.wrote(report_id):
+                said += f"  {self.wrote(report_id)} {one.label} were new or changed in the {one.files} files and were recorded."
+            if self.waiting(report_id):
+                said += (
+                    f"  {self.waiting(report_id)} {one.files} file(s) were left unread because the seller's database could not be reached for them; "
+                    "they will be read when it can."
+                )
         if self.ads_written:
             said += f"  {self.ads_written} ad record(s) were new or changed in the ads files and were recorded."
         if self.returns_waiting or self.ads_waiting:
@@ -782,6 +762,23 @@ def a_returns_in_the_ledger(said: returns.WhatReturnsSaid, day: str, which: str,
     return Reading(report=report_id, on=day, knows=WHAT_RETURNS_KNOW, sales=lines, which=which) if lines else None
 
 
+def write_the_records(
+    how: HowToRead, one: whats_new.InTheFolder, body: bytes, day: str, sink: Callable[[str, str, Dict], int],
+    listed: Dict[str, List[whats_new.InTheFolder]], bring_it_back: Callable[[str], bytes], strict: bool = True,
+):
+    """A file's rows turned into records by the table (`record_reports.RECORD_REPORTS`) and handed to the report's sink: `(records, rows refused, written)`.
+
+    **NOTHING READ FROM A FILE THAT HAD ROWS IS A FILE NOT READ**, not one read for good: marked, it would never be opened again. (`strict=False` is for a
+    file that is also read for another purpose, whose other reading must go ahead: the claims, whose ledger note does not wait on their records.)
+    """
+    report = record_reports.RECORD_REPORTS[how.report_id]
+    titles = _the_titles_of_the_catalog(listed, bring_it_back) if report.wants_the_catalog_titles else None
+    made, not_read = report.read(how.report_id, the_report(how.report_id).platform, _rows_in(how, body, one.name or one.which), day, titles)
+    if strict and not made and not_read:
+        raise table.CannotRead(f"no row of {one.name or one.which} could be read; the first was {not_read[0]}")
+    return made, not_read, sink(how.report_id, day, made)
+
+
 def _the_titles_of_the_catalog(listed: Dict[str, List[whats_new.InTheFolder]], bring_it_back: Callable[[str], bytes]) -> Dict:
     """The seller's own Meesho listing titles, from the newest `me_catalog` file in the folder (none when there is no such file; a file that will not read stops the caller)."""
     how = next((one for one in WHAT_LISTINGS_CAN_BE_READ if one.report_id == "me_catalog"), None)
@@ -929,10 +926,7 @@ def read_what_is_new(
     record_listings: Optional[Callable[[str, str, Dict], int]] = None,
     record_returns: Optional[Callable[[str, str, Dict], int]] = None,
     record_ads: Optional[Callable[[str, str, str, str, Dict], int]] = None,
-    record_claims: Optional[Callable[[str, str, Dict], int]] = None,
-    record_performance: Optional[Callable[[str, str, Dict], int]] = None,
-    record_quality: Optional[Callable[[str, str, Dict], int]] = None,
-    record_shop_days: Optional[Callable[[str, str, Dict], int]] = None,
+    record_records: Optional[Dict[str, Callable[[str, str, Dict], int]]] = None,
     correcting: bool = False,
 ) -> WhatTheNightRead:
     """Read every file in the seller's folders that has not been read before.
@@ -959,7 +953,7 @@ def read_what_is_new(
     if can_be_read is None:
         can_be_read = (
             WHAT_CAN_BE_READ + WHAT_VIEWS_CAN_BE_READ + WHAT_LISTINGS_CAN_BE_READ + WHAT_RETURNS_CAN_BE_READ + WHAT_ADS_CAN_BE_READ
-            + WHAT_PERFORMANCE_CAN_BE_READ + WHAT_QUALITY_CAN_BE_READ + WHAT_SHOP_DAYS_CAN_BE_READ
+            + WHAT_RECORDS_CAN_BE_READ
         )
     remembered = tuple(sorted({
         str(one).strip() for one in (already_read or ()) if str(one).strip()
@@ -1023,14 +1017,8 @@ def read_what_is_new(
     listings_waiting = 0
     returns_written = 0
     returns_waiting = 0
-    claims_written = 0
-    claims_waiting = 0
-    performance_written = 0
-    performance_waiting = 0
-    quality_written = 0
-    quality_waiting = 0
-    shop_days_written = 0
-    shop_days_waiting = 0
+    records_written: Dict[str, int] = {}
+    records_waiting: List[str] = []
     ads_months = set()
     ads_written = 0
     ads_waiting = 0
@@ -1108,45 +1096,16 @@ def read_what_is_new(
                 rows_read=said.rows_in_file - len(said.not_read),
             ))
             continue
-        if how.kind == "shop":
-            if record_shop_days is None:
-                shop_days_waiting += 1
-                continue
-            try:
-                when = _the_day_of(one)
-                made, said_not_read = shopdays.read_shop_days(
-                    how.report_id, the_report(how.report_id).platform, _rows_in(how, bring_it_back(one.which), one.name or one.which), when.isoformat(),
-                )
-                if not made and said_not_read:
-                    raise table.CannotRead(f"no row of {one.name or one.which} could be read; the first was {said_not_read[0]}")
-                shop_days_written += record_shop_days(how.report_id, when.isoformat(), made)
-            except TheirDatabaseSaidNo as wrong:
-                the_database_refused.append(f"{one.name or one.which}: {wrong}")
-                continue
-            except Exception as wrong:  # noqa: BLE001 - named, never swallowed
-                could_not_read.append(f"{one.name or one.which}: {wrong}")
-                continue
-            read_tonight.append(one)
-            rows_refused += len(said_not_read)
-            if said_not_read:
-                could_not_read.append(f"{one.name or one.which}: {len(said_not_read)} row(s) not read, the first being {said_not_read[0]}")
-            reads.append(manifest.Read(
-                data_date=when, report_id=how.report_id, file_name=one.name or one.which, into="shop days",
-                rows_in_file=len(made) + len(said_not_read), rows_read=len(made),
-            ))
+        # **A REPORT WRITTEN AS RECORDS WAITS UNREAD WHERE THERE IS NOWHERE TO WRITE THEM (D459)** -- the claims too, whose ledger note waits with them.
+        if how.report_id in record_reports.RECORD_REPORTS and (record_records or {}).get(how.report_id) is None:
+            records_waiting.append(how.report_id)
             continue
-        if how.kind == "quality":
-            if record_quality is None:
-                quality_waiting += 1
-                continue
+        if how.kind == "records":
+            sink = record_records[how.report_id]
             try:
                 when = _the_day_of(one)
-                made, said_not_read = quality.read_quality(
-                    how.report_id, the_report(how.report_id).platform, _rows_in(how, bring_it_back(one.which), one.name or one.which), when.isoformat(),
-                )
-                if not made and said_not_read:
-                    raise table.CannotRead(f"no row of {one.name or one.which} could be read; the first was {said_not_read[0]}")
-                quality_written += record_quality(how.report_id, when.isoformat(), made)
+                made, said_not_read, wrote = write_the_records(how, one, bring_it_back(one.which), when.isoformat(), sink, listed, bring_it_back)
+                records_written[how.report_id] = records_written.get(how.report_id, 0) + wrote
             except TheirDatabaseSaidNo as wrong:
                 the_database_refused.append(f"{one.name or one.which}: {wrong}")
                 continue
@@ -1158,36 +1117,8 @@ def read_what_is_new(
             if said_not_read:
                 could_not_read.append(f"{one.name or one.which}: {len(said_not_read)} row(s) not read, the first being {said_not_read[0]}")
             reads.append(manifest.Read(
-                data_date=when, report_id=how.report_id, file_name=one.name or one.which, into="listing quality records",
-                rows_in_file=len(made) + len(said_not_read), rows_read=len(made),
-            ))
-            continue
-        if how.kind == "performance":
-            if record_performance is None:
-                performance_waiting += 1
-                continue
-            try:
-                when = _the_day_of(one)
-                made, said_not_read = performance.read_performance(
-                    how.report_id, the_report(how.report_id).platform, _rows_in(how, bring_it_back(one.which), one.name or one.which),
-                    when.isoformat(), _the_titles_of_the_catalog(listed, bring_it_back),
-                )
-                if not made and said_not_read:
-                    raise table.CannotRead(f"no row of {one.name or one.which} could be read; the first was {said_not_read[0]}")
-                performance_written += record_performance(how.report_id, when.isoformat(), made)
-            except TheirDatabaseSaidNo as wrong:
-                the_database_refused.append(f"{one.name or one.which}: {wrong}")
-                continue
-            except Exception as wrong:  # noqa: BLE001 - named, never swallowed
-                could_not_read.append(f"{one.name or one.which}: {wrong}")
-                continue
-            read_tonight.append(one)
-            rows_refused += len(said_not_read)
-            if said_not_read:
-                could_not_read.append(f"{one.name or one.which}: {len(said_not_read)} row(s) not read, the first being {said_not_read[0]}")
-            reads.append(manifest.Read(
-                data_date=when, report_id=how.report_id, file_name=one.name or one.which, into="product weeks",
-                rows_in_file=len(made) + len(said_not_read), rows_read=len(made),
+                data_date=when, report_id=how.report_id, file_name=one.name or one.which,
+                into=f"{record_reports.RECORD_REPORTS[how.report_id].kind.what}s", rows_in_file=len(made) + len(said_not_read), rows_read=len(made),
             ))
             continue
         if how.kind == "views":
@@ -1218,10 +1149,6 @@ def read_what_is_new(
                     rows_read=said.rows_in_file - len(said.not_read),
                 ))
             continue
-        # **A CLAIM IS KEPT IN ITS OWN RECORDS (D459), SO A CLAIMS FILE WAITS UNREAD WHERE THERE IS NOWHERE TO WRITE THEM.**
-        if how.kind == "claims" and record_claims is None:
-            claims_waiting += 1
-            continue
         try:
             body = bring_it_back(one.which)
             if how.report_id == "az_settlements":
@@ -1232,8 +1159,9 @@ def read_what_is_new(
                 reading = replace(reading, corrects=True)
             if how.kind == "claims":
                 # Every claim in its own record first (the day is proved by `a_reading` above); the ledger's note on an order's row follows.
-                claims_written += record_claims(how.report_id, reading.on, claims.read_claim_records(
-                    how.report_id, the_report(how.report_id).platform, _rows_in(how, body, one.name or one.which), reading.on))
+                _, claims_refused, wrote = write_the_records(how, one, body, reading.on, record_records[how.report_id], listed, bring_it_back, strict=False)
+                refused_rows += len(claims_refused)
+                records_written[how.report_id] = records_written.get(how.report_id, 0) + wrote
             # **THE ONE PLACE A SALE LANDS.** Everything above this line can be
             # done again tomorrow at no cost; everything below depends on this
             # having happened.
@@ -1302,14 +1230,8 @@ def read_what_is_new(
         listings_waiting=listings_waiting,
         returns_written=returns_written,
         returns_waiting=returns_waiting,
-        claims_written=claims_written,
-        claims_waiting=claims_waiting,
-        performance_written=performance_written,
-        performance_waiting=performance_waiting,
-        quality_written=quality_written,
-        quality_waiting=quality_waiting,
-        shop_days_written=shop_days_written,
-        shop_days_waiting=shop_days_waiting,
+        records_written=tuple(sorted(records_written.items())),
+        records_waiting=tuple(records_waiting),
         ads_months=tuple(sorted(ads_months)),
         ads_written=ads_written,
         ads_waiting=ads_waiting,

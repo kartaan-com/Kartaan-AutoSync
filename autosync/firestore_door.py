@@ -398,22 +398,31 @@ def a_listings_sink(transport, project: str) -> Callable[..., int]:
     return sink
 
 
-def _what_is_held_of(transport, project: str, collection: str, doc_ids: Sequence[str], digest_field: str, day_field: str) -> Dict[str, tuple]:
-    """For each record asked for, its fingerprint and file day (nothing for a record that is not there yet)."""
-    held: Dict[str, tuple] = {}
+def _the_held_records(transport, project: str, collection: str, doc_ids: Sequence[str]) -> Dict[str, Dict]:
+    """The records already held under these names, each as plain data (nothing for a name that is not there). A reply that is not a list stops it."""
+    held: Dict[str, Dict] = {}
     for at in range(0, len(doc_ids), ASKED_AT_A_TIME):
-        chunk = list(doc_ids[at:at + ASKED_AT_A_TIME])
-        names = [firestore.where_a_document_lives(project, collection, one) for one in chunk]
-        where = BATCH_GET.format(api=API, project=project, database=DATABASE)
-        got = _answered(transport.post(where, json={"documents": names}), f"asking which {collection} records are already held").records()
+        names = [firestore.where_a_document_lives(project, collection, one) for one in doc_ids[at:at + ASKED_AT_A_TIME]]
+        got = _answered(
+            transport.post(BATCH_GET.format(api=API, project=project, database=DATABASE), json={"documents": names}),
+            f"asking which {collection} records are already held",
+        ).records()
         if not isinstance(got, list):
-            # **A REPLY THAT IS NOT A LIST IS NOT "NOTHING HELD".** Taken so, every record would be written again, as new, every night.
+            # A reply that is not a list is not "nothing held": taken so, every record would be written again as new, every night.
             raise TheirDatabaseSaidNo(f"asking which {collection} records are already held: the answer was not a list of records.")
         for answer in got:
             found = answer.get("found")
             if found:
-                held[found["name"].rsplit("/", 1)[-1]] = firestore.what_a_record_says(found, digest_field, day_field)
+                held[found["name"].rsplit("/", 1)[-1]] = firestore.plain_deep({"mapValue": {"fields": found.get("fields") or {}}})
     return held
+
+
+def _what_is_held_of(transport, project: str, collection: str, doc_ids: Sequence[str], digest_field: str, day_field: str) -> Dict[str, tuple]:
+    """For each record asked for, its fingerprint and file day (nothing for a record that is not there yet)."""
+    return {
+        name: (str(one.get(digest_field) or ""), str(one.get(day_field) or ""))
+        for name, one in _the_held_records(transport, project, collection, doc_ids).items()
+    }
 
 
 def _is_news(held: Dict[str, tuple], doc_id: str, digest: str, day: str) -> bool:
@@ -456,62 +465,6 @@ def a_returns_sink(transport, project: str, today: str) -> Callable[..., int]:
     return sink
 
 
-def _what_claims_have_recovered(transport, project: str, doc_ids: Sequence[str]) -> Dict[str, tuple]:
-    """For each claim record already held, the rupees it has recovered and the amount that replaced (nothing for a claim that has none)."""
-    out: Dict[str, tuple] = {}
-    for at in range(0, len(doc_ids), ASKED_AT_A_TIME):
-        names = [firestore.where_a_document_lives(project, firestore.CLAIMS, one) for one in doc_ids[at:at + ASKED_AT_A_TIME]]
-        where = BATCH_GET.format(api=API, project=project, database=DATABASE)
-        got = _answered(transport.post(where, json={"documents": names}), "asking what the held claims have recovered").records()
-        if not isinstance(got, list):
-            raise TheirDatabaseSaidNo("asking what the held claims have recovered: the answer was not a list of records.")
-        for answer in got:
-            found = answer.get("found")
-            if found:
-                fields = firestore.plain(found.get("fields") or {})
-                said = str(fields.get("recovered") or "")
-                if said:
-                    out[found["name"].rsplit("/", 1)[-1]] = (said, str(fields.get("recoveredWas") or ""))
-    return out
-
-
-def a_claims_sink(transport, project: str) -> Callable[..., int]:
-    """The claims a claims file names, into their records -- ONLY the ones that are new or that differ from what is held (A87, D459).
-
-    **THE RECORDS ARE ASKED FOR FIRST**, so a second run on the same file writes nothing; a later file's status for a claim replaces an earlier
-    one's, and an older file never puts a newer status back (`_is_news`). Answers how many records were written.
-    """
-
-    def sink(report_id: str, day: str, records: Dict[str, Dict]) -> int:
-        import claims  # noqa: PLC0415 - kept beside its one use
-
-        held = _what_is_held_of(transport, project, firestore.CLAIMS, sorted(records), "digest", "fileDay")
-        paid = _what_claims_have_recovered(transport, project, sorted(records))
-        # The rupees already recorded are kept before the fingerprints are compared (see `claims.keeping_what_was_paid`).
-        records = {doc_id: claims.keeping_what_was_paid(record, *paid.get(doc_id, ("", ""))) for doc_id, record in records.items()}
-        writes = [
-            firestore.a_claim_write(project, record)
-            for doc_id, record in sorted(records.items()) if _is_news(held, doc_id, record["digest"], day)
-        ]
-        return write_them(transport, project, writes, "writing the claims the platforms' files name")
-
-    return sink
-
-
-def a_performance_sink(transport, project: str) -> Callable[..., int]:
-    """The product weeks a product-performance file names, into their records -- ONLY the new or changed ones, never over a newer file's (A87, D459)."""
-
-    def sink(report_id: str, day: str, records: Dict[str, Dict]) -> int:
-        held = _what_is_held_of(transport, project, firestore.PERFORMANCE, sorted(records), "digest", "fileDay")
-        writes = [
-            firestore.a_performance_write(project, doc_id, record)
-            for doc_id, record in sorted(records.items()) if _is_news(held, doc_id, record["digest"], day)
-        ]
-        return write_them(transport, project, writes, "writing how each Meesho product did in its week")
-
-    return sink
-
-
 def _the_documents_of(transport, project: str, collection: str, where: object, select: Sequence[str], doing: str) -> List[tuple]:
     """`(record name, plain record)` for the documents of one collection that match, asked of the database. A reply that is not a list stops it."""
     query: Dict = {"from": [{"collectionId": collection}]}
@@ -537,54 +490,35 @@ def _the_days_between(first: str, last: str) -> Dict:
     ]}}
 
 
-def a_shop_days_sink(transport, project: str) -> Callable[..., int]:
-    """The whole-shop days a shop figures file names, into their records -- ONLY the new or changed ones, never over a newer file's (A87, D473)."""
+def a_records_sink(transport, project: str, kind, merge=None) -> Callable[..., int]:
+    """The records of one `records.RecordKind` a file names, into the database -- ONLY the new or changed ones, never over a newer file's (A87, D482).
 
-    def sink(report_id: str, day: str, records: Dict[str, Dict]) -> int:
-        held = _what_is_held_of(transport, project, firestore.SHOP_DAYS, sorted(records), "digest", "fileDay")
-        writes = [
-            firestore.a_shop_day_write(project, doc_id, record)
-            for doc_id, record in sorted(records.items()) if _is_news(held, doc_id, record["digest"], day)
-        ]
-        return write_them(transport, project, writes, "writing the shop's figures for each day")
-
-    return sink
-
-
-def a_quality_sink(transport, project: str) -> Callable[..., int]:
-    """The listings' quality a quality file names, into their records -- ONLY the new or changed ones, never over a newer file's, each with its history (A87).
-
-    The history is the held record's own readings with this day's put on the end (`quality.with_history`); a record only changes when what the platform
-    says changed, so the history gains a point when the figures move.
+    **THE RECORDS ARE ASKED FOR FIRST**, so a second run on the same file writes nothing. `merge(record, held)` lets a kind keep what the held record
+    knows (a paid claim's rupees, a listing's history) before the fingerprints are compared. Answers how many records were written.
     """
 
     def sink(report_id: str, day: str, records: Dict[str, Dict]) -> int:
-        import quality  # noqa: PLC0415 - kept beside its one use
-
-        held: Dict[str, tuple] = {}
-        names = sorted(records)
-        for at in range(0, len(names), ASKED_AT_A_TIME):
-            chunk = [firestore.where_a_document_lives(project, firestore.QUALITY, one) for one in names[at:at + ASKED_AT_A_TIME]]
-            got = _answered(
-                transport.post(BATCH_GET.format(api=API, project=project, database=DATABASE), json={"documents": chunk}),
-                "asking which listing quality records are already held",
-            ).records()
-            if not isinstance(got, list):
-                raise TheirDatabaseSaidNo("asking which listing quality records are already held: the answer was not a list of records.")
-            for answer in got:
-                found = answer.get("found")
-                if found:
-                    fields = firestore.plain_deep({"mapValue": {"fields": found.get("fields") or {}}})
-                    held[found["name"].rsplit("/", 1)[-1]] = (str(fields.get("digest") or ""), str(fields.get("fileDay") or ""), tuple(fields.get("history") or ()))
+        held = _the_held_records(transport, project, kind.collection, sorted(records))
+        news = {name: (str(one.get("digest") or ""), str(one.get("fileDay") or "")) for name, one in held.items()}
         writes = []
         for doc_id, record in sorted(records.items()):
-            before = held.get(doc_id)
-            if before is not None and not (before[0] != record["digest"] and before[1] <= day):
-                continue
-            writes.append(firestore.a_quality_write(project, doc_id, quality.with_history(record, before[2] if before else ())))
-        return write_them(transport, project, writes, "writing how each listing's quality stands")
+            if merge is not None:
+                record = merge(record, held.get(doc_id))
+            if _is_news(news, doc_id, record["digest"], day):
+                writes.append(firestore.a_record_write(project, kind, doc_id, record))
+        return write_them(transport, project, writes, f"writing the {kind.what} records")
 
     return sink
+
+
+def the_record_sinks(transport, project: str) -> Dict[str, Callable[..., int]]:
+    """The sink of every report in `record_reports.RECORD_REPORTS`, by report id -- built from the table, so a new report needs no new sink."""
+    import record_reports  # noqa: PLC0415 - kept beside its one use
+
+    return {
+        report_id: a_records_sink(transport, project, one.kind, one.merge)
+        for report_id, one in record_reports.RECORD_REPORTS.items()
+    }
 
 
 def an_ads_month_sink(transport, project: str, today: str) -> Callable[..., int]:
@@ -622,7 +556,7 @@ def an_ads_month_sink(transport, project: str, today: str) -> Callable[..., int]
                     continue
                 # One call per month, so one that Firestore refuses cannot take another month's write down with it.
                 try:
-                    sent += write_them(transport, project, [firestore.a_ads_month_write(project, f"{platform}__{month}", record)], "writing a month of ads")
+                    sent += write_them(transport, project, [firestore.a_record_write(project, ads.MONTH, f"{platform}__{month}", record)], "writing a month of ads")
                 except TheirDatabaseSaidNo as wrong:
                     refused.append(f"{platform} {month}: {wrong}")
         if refused:

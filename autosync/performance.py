@@ -16,12 +16,13 @@ Nothing here opens a file, a clock or a connection.
 """
 
 import hashlib
-import json
 import re
 from datetime import date
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from typing import Dict, FrozenSet, Optional, Tuple
 
+import firestore
+import records as shared
 import returns
 import table
 
@@ -31,6 +32,7 @@ PERFORMANCE_FIELDS = (
     "platform", "report", "product", "weekFrom", "weekTo", "catalogId", "matched", "note", "rating", "views", "viewsOther", "clicks", "orders",
     "conversion", "conversionOther", "sales", "returnsPct", "fileDay", "digest",
 )
+KIND = shared.RecordKind(firestore.PERFORMANCE, PERFORMANCE_FIELDS, "product week", required_days=("weekFrom", "weekTo", "fileDay"))
 NOT_MATCHED = "not matched to a catalog"
 
 _DAY = re.compile(r"(\d{1,2})(?:st|nd|rd|th)\s+([A-Za-z]{3,9})\s+'(\d{2})")
@@ -53,25 +55,12 @@ def a_week(said: str) -> Optional[Tuple[str, str]]:
     return days[0], days[1]
 
 
-def _a_number(said: str) -> Optional[Decimal]:
-    text = (said or "").replace("\u20b9", "").replace("%", "").replace(",", "").strip()
-    if not text:
-        return None
-    try:
-        value = Decimal(text)
-    except InvalidOperation:
-        raise ValueError(f"{said!r} is not a figure") from None
-    if not value.is_finite():
-        raise ValueError(f"{said!r} is not a figure")
-    return value
-
-
 def _two_figures(said: str) -> Tuple[Optional[Decimal], Optional[Decimal]]:
     parts = [p.strip() for p in (said or "").split("|")]
     if len(parts) > 2:
         raise ValueError(f"{said!r} has more than two figures")
-    first = _a_number(parts[0])
-    return first, _a_number(parts[1]) if len(parts) == 2 else None
+    first = shared.a_figure(parts[0])
+    return first, shared.a_figure(parts[1], negative=True) if len(parts) == 2 else None
 
 
 def _plain(value: Decimal):
@@ -90,12 +79,7 @@ def titles_of(listings: Dict[str, Dict[str, object]]) -> Dict[str, FrozenSet[str
 
 def read_performance(report_id: str, platform: str, rows: table.Table, file_day: str, titles: Dict[str, FrozenSet[str]]):
     """`(records, not_read)`: one record per product row, named `<platform>__<week end>__<fingerprint of the title>`."""
-    missing = [c for c in THE_COLUMNS if c not in rows.columns]
-    if missing:
-        raise table.CannotRead(
-            "This does not look like a product performance file. It has no " + ", ".join(repr(c) for c in missing)
-            + ". It has: " + ", ".join(repr(c) for c in rows.columns if c) + ". Nothing was read."
-        )
+    shared.require_columns(rows, THE_COLUMNS, "a product performance file")
     records: Dict[str, Dict[str, object]] = {}
     not_read = []
     seen: Dict[str, int] = {}
@@ -113,9 +97,9 @@ def read_performance(report_id: str, platform: str, rows: table.Table, file_day:
             conversion, conversion_other = _two_figures(row["Conversions"])
             figures = {
                 "views": views, "viewsOther": views_other, "conversion": conversion, "conversionOther": conversion_other,
-                "clicks": _a_number(row["Clicks"]), "orders": _a_number(row["Orders"]), "sales": _a_number(row["Sales"]),
-                "returnsPct": _a_number(row["Returns"]),
-                "rating": _a_number(row["Rating"]) if "Rating" in rows.columns else None,
+                "clicks": shared.a_figure(row["Clicks"]), "orders": shared.a_figure(row["Orders"]), "sales": shared.a_figure(row["Sales"]),
+                "returnsPct": shared.a_figure(row["Returns"]),
+                "rating": shared.a_figure(row["Rating"]) if "Rating" in rows.columns else None,
             }
         except ValueError as wrong:
             not_read.append(f"line {row.line}: {wrong}")
@@ -129,8 +113,7 @@ def read_performance(report_id: str, platform: str, rows: table.Table, file_day:
         else:
             record["matched"] = False
             record["note"] = NOT_MATCHED if not ids else f"the title belongs to {len(ids)} catalogs, so which one is meant cannot be said"
-        said = {k: v for k, v in sorted(record.items()) if k != "fileDay"}
-        record["digest"] = hashlib.sha1(json.dumps(said, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()[:16]
+        record["digest"] = shared.the_digest(record)
         base = f"{platform}__{week[1]}__{hashlib.sha1(product.encode('utf-8')).hexdigest()[:12]}"
         # Two rows with one title in a week (three in his file) are two records, never one lost.
         seen[base] = seen.get(base, 0) + 1

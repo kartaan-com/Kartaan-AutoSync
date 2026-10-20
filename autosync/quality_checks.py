@@ -11,12 +11,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import firestore  # noqa: E402
-import firestore_door  # noqa: E402
 import quality  # noqa: E402
-import reading  # noqa: E402
+import records  # noqa: E402
 import table  # noqa: E402
-import whats_new  # noqa: E402
 
 ran = 0
 failures = []
@@ -107,87 +104,19 @@ check("THE HISTORY IS THE HELD READINGS WITH TODAY'S PUT ON THE END, one reading
 long_ago = tuple({"day": f"2026-09-{n:02d}", "stars": 4.0} for n in range(1, 21))
 check("and only the last twelve days are kept", len(quality.with_history(today_record, long_ago)["history"]) == quality.HISTORY_KEPT)
 check("the fingerprint ignores the day and the history, so the same file read twice writes nothing",
-      quality.the_digest(today_record) == quality.the_digest(merged) == quality.the_digest(dict(today_record, fileDay="2026-10-26")))
+      records.the_digest(today_record, leave_out=quality.NOT_IN_THE_DIGEST) == records.the_digest(merged, leave_out=quality.NOT_IN_THE_DIGEST)
+      == records.the_digest(dict(today_record, fileDay="2026-10-26"), leave_out=quality.NOT_IN_THE_DIGEST))
 
 
-# ---------------------------------------------------------------- the sink
+# ---------------------------------------------------------------- what the record keeps of the one held
 
-
-class Reply:
-    def __init__(self, status=200, body=None):
-        self.status, self._body, self.text = status, body if body is not None else {}, str(body or "")
-
-    ok = property(lambda self: 200 <= self.status < 300)
-
-    def json(self):
-        return self._body
-
-    def records(self):
-        return self._body if isinstance(self._body, list) else None
-
-
-class Database:
-    def __init__(self, held=None):
-        self.held, self.posts = held or {}, []
-
-    def post(self, url, params=None, headers=None, json=None, data=None):
-        self.posts.append({"url": url, "json": json})
-        if url.endswith(":batchGet"):
-            found = []
-            for name in json["documents"]:
-                got = self.held.get(name.rsplit("/", 1)[-1])
-                found.append({"found": {"name": name, "fields": firestore.a_deep(got)["mapValue"]["fields"]}} if got else {"missing": name})
-            return Reply(200, found)
-        return Reply(200, {})
-
-    def written(self):
-        out = {}
-        for post in self.posts:
-            if post["url"].endswith(":commit"):
-                for write in post["json"]["writes"]:
-                    out[write["update"]["name"].rsplit("/", 1)[-1]] = firestore.plain_deep({"mapValue": {"fields": write["update"]["fields"]}})
-        return out
-
-
-db = Database()
-wrote = answered(lambda: firestore_door.a_quality_sink(db, "p")("fk_quality_insights", "2026-10-19", made))
-check("THE QUALITY RECORDS ARE ASKED ABOUT FIRST, THEN WRITTEN, each with its history of one reading",
-      wrote == 4 and [p["url"].rsplit(":", 1)[-1] for p in db.posts] == ["batchGet", "commit"]
-      and db.written()["flipkart__DJ-5 Bahubali"]["history"] == [{"day": "2026-10-19", "stars": 4.2, "returnsPct": 17.6}])
-held_same = Database({k: dict(v, history=[{"day": "2026-10-19", "stars": 4.2}]) for k, v in made.items()})
-check("a second run on the same file writes nothing",
-      answered(lambda: firestore_door.a_quality_sink(held_same, "p")("fk_quality_insights", "2026-10-19", made)) == 0)
-held_older = Database({"flipkart__DJ-5 Bahubali": dict(first, stars=4.0, digest="stale", fileDay="2026-10-12", history=list(older))})
-check("a changed figure is written with the earlier reading kept in the history",
-      answered(lambda: firestore_door.a_quality_sink(held_older, "p")("fk_quality_insights", "2026-10-19", {"flipkart__DJ-5 Bahubali": first})) == 1
-      and [p["day"] for p in held_older.written()["flipkart__DJ-5 Bahubali"]["history"]] == ["2026-10-12", "2026-10-19"])
-held_newer = Database({"flipkart__DJ-5 Bahubali": dict(first, stars=3.0, digest="other", fileDay="2026-10-25", history=[])})
-check("and an older file never puts a newer file's figures back",
-      answered(lambda: firestore_door.a_quality_sink(held_newer, "p")("fk_quality_insights", "2026-10-19", {"flipkart__DJ-5 Bahubali": first})) == 0)
-check("a field the record may not hold is refused by the writer", caught(lambda: firestore.a_quality_write("p", "x", dict(first, secret=1))) is not None)
-
-# ---------------------------------------------------------------- the night
-
-_files = {"fk_quality_insights": [whats_new.InTheFolder(which="q1", name="flipkart_fk_quality_insights_2026-10-19.csv", size=900)]}
-BODY = ("\n".join([HEAD, *ROWS]) + "\n").encode("utf-8")
-_written = []
-night = answered(lambda: reading.read_what_is_new(
-    already_read=(), what_is_in_the_folder=lambda r: list(_files.get(r, ())), bring_it_back=lambda w: BODY,
-    record_the_sales=lambda readings: None,
-    record_quality=lambda report_id, day, records: _written.append((day, sorted(records))) or len(records)))
-check("THE NIGHT WRITES EVERY LISTING'S QUALITY and the file is read",
-      night is not None and night.read_tonight == ("q1",) and night.quality_written == 4 and _written[0][0] == "2026-10-19")
-nowhere = answered(lambda: reading.read_what_is_new(
-    already_read=(), what_is_in_the_folder=lambda r: list(_files.get(r, ())), bring_it_back=lambda w: BODY, record_the_sales=lambda readings: None))
-check("and with nowhere to write them the file is left unread, not lost",
-      nowhere is not None and nowhere.read_tonight == () and nowhere.quality_waiting == 1)
-check("the report is read and no longer said to be waiting",
-      [o.report_id for o in reading.WHAT_QUALITY_CAN_BE_READ] == ["fk_quality_insights"]
-      and "fk_quality_insights" not in reading.WHAT_IS_FETCHED_AND_NOT_READ_YET and reading.why_a_report_has_no_decision() == "")
+check("MERGE GIVES A NEW LISTING A HISTORY OF ONE READING, and a held listing's history its place",
+      quality.merge(today_record, None)["history"] == [{"day": "2026-10-19", "stars": 4.2, "returnsPct": 17.6}]
+      and [p["day"] for p in quality.merge(today_record, {"history": list(older)})["history"]] == ["2026-10-12", "2026-10-19"])
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 21
+EXPECTED = 14
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

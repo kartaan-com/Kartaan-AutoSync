@@ -15,6 +15,7 @@ import ads  # noqa: E402
 import firestore  # noqa: E402
 import firestore_door  # noqa: E402
 import reading  # noqa: E402
+import records  # noqa: E402
 import reports  # noqa: E402
 import returns  # noqa: E402
 import table  # noqa: E402
@@ -106,7 +107,7 @@ same = answered(lambda: returns.read_returns("fk_returns", fk(
     '"OD1","111","TRK1","DJ-1","2","2 October, 2026","11 October, 2026","Closed","courier_return","R","S"'), "2026-10-12"))
 check("the fingerprint ignores the day the file was read, so the same return in tomorrow's file is the same",
       same is not None and same.records["flipkart__111"]["digest"] != "" and same.records["flipkart__111"]["fileDay"] == "2026-10-12"
-      and same.records["flipkart__111"]["digest"] == returns.the_digest({**one, "reason": "R", "subReason": "S"}))
+      and same.records["flipkart__111"]["digest"] == records.the_digest({**one, "reason": "R", "subReason": "S"}))
 changed = answered(lambda: returns.read_returns("fk_returns", fk(
     '"OD1","111","TRK1","DJ-1","2","2 October, 2026","11 October, 2026","Closed","courier_return","OTHER","S"'), "2026-10-11"))
 check("a changed reason is a different fingerprint", changed is not None and changed.records["flipkart__111"]["digest"] != one.get("digest"))
@@ -596,108 +597,9 @@ check("THE NIGHT HANDS A FINISHED RETURN TO THE LEDGER as well as to the returns
       _night_with_ledger is not None and _night_with_ledger.read_tonight == ("m1",) and len(_into_the_ledger) == 1
       and _into_the_ledger[0].sales[0].order_id == "555_1")
 
-# ---- the claims, each in a record of its own (A87, D459)
-import claims  # noqa: E402
-
-_CL_HEAD = ('"S No","Product Name","SKU","Variation","Qty","Meesho PID","Order Number","Suborder Number","Ticket ID","Ticket Status",'
-            '"Created Date","Issue","Last Update","Reopen Validity","CPP Flag"')
-_PAID_MSG = "Your claim payment of Rs 177.84 for this order was done on 28 Sep 2026 with a transaction id: AXISCN1481062641"
-
-
-def _claim_file(*lines):
-    return table.read(("\n".join([_CL_HEAD, *lines]) + "\n").encode("utf-8"))
-
-
-_cl_rows = (
-    '"1","","","","","","11","11_1","T1","Approved","2026-09-22T19:59:37","Item/s are missing in my return","' + _PAID_MSG + '","null",""',
-    '"2","","","","","","12","12_1","T2","Approved","2026-09-23T10:00:00","wrong return","Approved, will be settled on 20 Oct","null",""',
-    '"3","","","","","","12","12_1","T3","Open","2026-09-25T10:00:00","wrong return","escalated","null",""',
-)
-_cl = answered(lambda: claims.read_claim_records("me_claims", "meesho", _claim_file(*_cl_rows), "2026-10-14"))
-check("EVERY CLAIM IS A RECORD OF ITS OWN named by its claim id and carrying its sub-order, even two on one order, and none is tied to an order row",
-      _cl is not None and set(_cl) == {"meesho__T1", "meesho__T2", "meesho__T3"} and _cl["meesho__T2"]["orderId"] == "12_1"
-      and _cl["meesho__T3"]["orderId"] == "12_1" and _cl["meesho__T1"]["raisedOn"] == "2026-09-22")
-check("'Approved, will be settled' has no rupees until a later file gives them; a paid one has",
-      "recovered" not in _cl["meesho__T2"] and _cl["meesho__T1"]["recovered"] == "177.84")
-check("the platform's own long message is not kept, and the fields are only the claim's own",
-      all(set(r) <= set(claims.CLAIM_FIELDS) for r in _cl.values()))
-_claim_db = Transport()
-_wrote = answered(lambda: firestore_door.a_claims_sink(_claim_db, "p")("me_claims", "2026-10-14", _cl))
-check("the claims are asked about first (what is held, and what it has recovered), then written, and the sink says how many",
-      _wrote == 3 and [p["url"].rsplit(":", 1)[-1] for p in _claim_db.posts] == ["batchGet", "batchGet", "commit"])
-_held_claims = Transport(held={k: ("digest", v["digest"], "fileDay", "2026-10-14") for k, v in _cl.items()})
-check("a second run on the same file writes nothing",
-      answered(lambda: firestore_door.a_claims_sink(_held_claims, "p")("me_claims", "2026-10-14", _cl)) == 0)
-_older_held = Transport(held={k: ("digest", "different", "fileDay", "2026-10-20") for k in _cl})
-check("and an older file never puts a newer file's status back",
-      answered(lambda: firestore_door.a_claims_sink(_older_held, "p")("me_claims", "2026-10-14", _cl)) == 0)
-_later_status = Transport(held={k: ("digest", "different", "fileDay", "2026-10-11") for k in _cl})
-check("while a later file's status replaces an earlier one's",
-      answered(lambda: firestore_door.a_claims_sink(_later_status, "p")("me_claims", "2026-10-14", _cl)) == 3)
-
-class _PaidTransport(Transport):
-    """A held claim that has already recovered some rupees."""
-
-    was = ""
-
-    def post(self, url, params=None, headers=None, json=None, data=None):
-        reply = super().post(url, params, headers, json, data)
-        if url.endswith(":batchGet"):
-            for one in reply.records():
-                if "found" in one:
-                    one["found"]["fields"]["recovered"] = {"stringValue": "177.84"}
-                    if self.was:
-                        one["found"]["fields"]["recoveredWas"] = {"stringValue": self.was}
-        return reply
-
-
-_paid_before = _PaidTransport(held={"meesho__T1": ("digest", "stale", "fileDay", "2026-10-11")})
-_reworded = {"meesho__T1": {k: v for k, v in _cl["meesho__T1"].items() if k != "recovered"}}
-_reworded["meesho__T1"]["digest"] = claims.the_digest(_reworded["meesho__T1"])
-answered(lambda: firestore_door.a_claims_sink(_paid_before, "p")("me_claims", "2026-10-14", _reworded))
-_commit = [p for p in _paid_before.posts if p["url"].endswith(":commit")]
-_fields = _commit[0]["json"]["writes"][0]["update"]["fields"] if _commit else {}
-check("A PAID CLAIM NEVER LOSES ITS RUPEES: a later file that says nothing of the amount leaves the recorded amount standing",
-      _fields.get("recovered", {}).get("stringValue") == "177.84" and "recoveredWas" not in _fields)
-_changed = {"meesho__T1": dict(_cl["meesho__T1"], recovered="150.00")}
-_changed["meesho__T1"]["digest"] = claims.the_digest(_changed["meesho__T1"])
-_paid_again = _PaidTransport(held={"meesho__T1": ("digest", "stale", "fileDay", "2026-10-11")})
-answered(lambda: firestore_door.a_claims_sink(_paid_again, "p")("me_claims", "2026-10-14", _changed))
-_fields2 = [p for p in _paid_again.posts if p["url"].endswith(":commit")][0]["json"]["writes"][0]["update"]["fields"]
-check("and a different amount replaces it, the one it replaced noted",
-      _fields2.get("recovered", {}).get("stringValue") == "150.00" and _fields2.get("recoveredWas", {}).get("stringValue") == "177.84")
-
-_again = _PaidTransport(held={"meesho__T1": ("digest", "stale", "fileDay", "2026-10-11")})
-_again.was = "100.00"
-_same_amount = {"meesho__T1": dict(_cl["meesho__T1"])}
-answered(lambda: firestore_door.a_claims_sink(_again, "p")("me_claims", "2026-10-15", _same_amount))
-_fields3 = [p for p in _again.posts if p["url"].endswith(":commit")][0]["json"]["writes"][0]["update"]["fields"]
-check("and the note of what a replaced amount was survives the next runs, not only the one that replaced it",
-      _fields3.get("recoveredWas", {}).get("stringValue") == "100.00" and _fields3.get("recovered", {}).get("stringValue") == "177.84")
-
-_claims_in = []
-_claims_night = answered(lambda: reading.read_what_is_new(
-    already_read=(),
-    what_is_in_the_folder=lambda r: [a_file("c1", "meesho_me_claims_2026-10-14.csv")] if r == "me_claims" else [],
-    bring_it_back=lambda w: ("\n".join([_CL_HEAD, *_cl_rows]) + "\n").encode("utf-8"),
-    record_the_sales=lambda readings: None,
-    record_claims=lambda report_id, day, records: _claims_in.append((report_id, day, sorted(records))) or len(records),
-))
-check("THE NIGHT WRITES EVERY CLAIM TO ITS RECORD, then notes it on the ledger, and the file is read",
-      _claims_night is not None and _claims_night.read_tonight == ("c1",) and _claims_night.claims_written == 3
-      and _claims_in == [("me_claims", "2026-10-14", ["meesho__T1", "meesho__T2", "meesho__T3"])])
-_nowhere = answered(lambda: reading.read_what_is_new(
-    already_read=(),
-    what_is_in_the_folder=lambda r: [a_file("c1", "meesho_me_claims_2026-10-14.csv")] if r == "me_claims" else [],
-    bring_it_back=lambda w: ("\n".join([_CL_HEAD, *_cl_rows]) + "\n").encode("utf-8"),
-    record_the_sales=lambda readings: None,
-))
-check("and with nowhere to write the claims the file is left unread, not lost",
-      _nowhere is not None and _nowhere.read_tonight == () and _nowhere.claims_waiting == 1)
-
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 119
+EXPECTED = 107
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

@@ -11,8 +11,6 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import firestore  # noqa: E402
-import firestore_door  # noqa: E402
 import performance  # noqa: E402
 import reading  # noqa: E402
 import table  # noqa: E402
@@ -118,48 +116,6 @@ check("and the fields are only the product week's own", all(set(r) <= set(perfor
 # ---------------------------------------------------------------- the record, the sink and the night
 
 
-class Reply:
-    def __init__(self, status=200, body=None):
-        self.status, self._body, self.text = status, body if body is not None else {}, str(body or "")
-
-    ok = property(lambda self: 200 <= self.status < 300)
-
-    def json(self):
-        return self._body
-
-    def records(self):
-        return self._body if isinstance(self._body, list) else None
-
-
-class Database:
-    def __init__(self, held=None):
-        self.posts, self.held = [], held or {}
-
-    def post(self, url, params=None, headers=None, json=None, data=None):
-        self.posts.append({"url": url, "json": json})
-        if url.endswith(":batchGet"):
-            found = []
-            for name in json["documents"]:
-                got = self.held.get(name.rsplit("/", 1)[-1])
-                found.append({"found": {"name": name, "fields": {got[0]: {"stringValue": got[1]}, got[2]: {"stringValue": got[3]}}}}
-                             if got else {"missing": name})
-            return Reply(200, found)
-        return Reply(200, {})
-
-
-db = Database()
-wrote = answered(lambda: firestore_door.a_performance_sink(db, "p")("me_product_performance", "2026-10-19", made))
-check("THE PRODUCT WEEKS ARE ASKED ABOUT FIRST, THEN WRITTEN, and the sink says how many",
-      wrote == 3 and [p["url"].rsplit(":", 1)[-1] for p in db.posts] == ["batchGet", "commit"])
-held_same = Database({k: ("digest", v["digest"], "fileDay", "2026-10-19") for k, v in made.items()})
-check("a second run on the same file writes nothing",
-      answered(lambda: firestore_door.a_performance_sink(held_same, "p")("me_product_performance", "2026-10-19", made)) == 0)
-held_newer = Database({k: ("digest", "different", "fileDay", "2026-10-25") for k in made})
-check("and an older file never puts a newer file's figures back",
-      answered(lambda: firestore_door.a_performance_sink(held_newer, "p")("me_product_performance", "2026-10-19", made)) == 0)
-check("a field the record may not hold is refused by the writer",
-      caught(lambda: firestore.a_performance_write("p", "x", {**mine, "secret": 1})) is not None)
-
 _night_records = []
 _files = {
     "me_product_performance": [whats_new.InTheFolder(which="pp1", name="meesho_me_product_performance_2026-10-19.csv", size=900)],
@@ -186,13 +142,13 @@ try:
         what_is_in_the_folder=lambda r: list(_files.get(r, ())),
         bring_it_back=lambda w: ("\n".join([HEAD, row("Gold Jhumka"), row("Unknown Product")]) + "\n").encode("utf-8"),
         record_the_sales=lambda readings: None,
-        record_performance=lambda report_id, day, records: _night_records.append((report_id, day, records)) or len(records),
+        record_records={"me_product_performance": lambda report_id, day, records: _night_records.append((report_id, day, records)) or len(records)},
     ))
 finally:
     reading.a_listings_reading = _real_listings_reading
 _night_made = _night_records[0][2] if _night_records else {}
 check("THE NIGHT MATCHES BY THE NEWEST CATALOG FILE'S TITLES, writes every product week, keeps a product it cannot match, and the file is read",
-      night is not None and night.read_tonight == ("pp1",) and night.performance_written == 2 and _asked_for == ["cat1"]
+      night is not None and night.read_tonight == ("pp1",) and night.wrote("me_product_performance") == 2 and _asked_for == ["cat1"]
       and {r["product"]: r["matched"] for r in _night_made.values()} == {"Gold Jhumka": True, "Unknown Product": False})
 
 
@@ -207,25 +163,15 @@ try:
         already_read=("cat0", "cat1"), what_is_in_the_folder=lambda r: list(_files.get(r, ())),
         bring_it_back=lambda w: ("\n".join([HEAD, row("Gold Jhumka")]) + "\n").encode("utf-8"),
         record_the_sales=lambda readings: None,
-        record_performance=lambda report_id, day, records: _wrote_anyway.append(1) or len(records),
+        record_records={"me_product_performance": lambda report_id, day, records: _wrote_anyway.append(1) or len(records)},
     ))
 finally:
     reading.a_listings_reading = _real_listings_reading
 check("A CATALOG FILE THAT WILL NOT READ LEAVES THE PERFORMANCE FILE UNREAD and says why -- matched against nothing, every product would be flagged for good",
       broken is not None and broken.read_tonight == () and _wrote_anyway == [] and any("could not be read" in x for x in broken.could_not_read))
-nowhere = answered(lambda: reading.read_what_is_new(
-    already_read=(), what_is_in_the_folder=lambda r: list(_files.get(r, ())), bring_it_back=lambda w: b"",
-    record_the_sales=lambda readings: None))
-check("and with nowhere to write them the file is left unread, not lost",
-      nowhere is not None and nowhere.read_tonight == () and nowhere.performance_waiting == 1)
-check("the report is read by a reader of its own",
-      [o.report_id for o in reading.WHAT_PERFORMANCE_CAN_BE_READ] == ["me_product_performance"])
-check("the rule tying every report to a reader or a reason still holds", reading.why_a_report_has_no_decision() == ""
-      and "me_product_performance" not in reading.WHAT_IS_FETCHED_AND_NOT_READ_YET)
-
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 22
+EXPECTED = 15
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

@@ -2008,6 +2008,33 @@
         "autosync/start.py",
         "autosync/nightly.py"
       ]
+    },
+    {
+      "id": "record-reports",
+      "name": "One table, one reader branch and one sink for every report written as records (A87, his standing order D482)",
+      "what": "autosync/records.py holds what record readers share (fingerprint, column check, figure parsing, safe names, the kind of record); autosync/record_reports.py is the one table of reports written as records; reading.py has one branch that walks it and firestore_door.a_records_sink serves it; firestore.a_record_write is the one writer.",
+      "rests_on": [
+        "report-list"
+      ],
+      "files": [
+        "autosync/records.py",
+        "autosync/record_reports.py",
+        "autosync/record_reports_checks.py",
+        "autosync/fake_firestore.py"
+      ],
+      "also_touches": [
+        "autosync/reading.py",
+        "autosync/firestore.py",
+        "autosync/firestore_door.py",
+        "autosync/claims.py",
+        "autosync/performance.py",
+        "autosync/quality.py",
+        "autosync/shopdays.py",
+        "autosync/ads.py",
+        "autosync/returns.py",
+        "autosync/start.py",
+        "autosync/nightly.py"
+      ]
     }
   ]
 }

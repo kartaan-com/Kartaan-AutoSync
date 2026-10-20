@@ -124,22 +124,22 @@ RETURNS_SHEET = "returns_sheet"
 THE_RETURNS_RECORD = "sheet"
 # **AND TWELFTH, FROM A87 / D459: WHAT A CLAIM SAYS.** One record per claim (`platform_claims`), named `<platform>__<claim id>` and carrying the id of the
 # sub-order it is about, on the same pattern as `platform_returns`. A claim never creates an order row (many are about orders from before the sheet
-# began); the ERP reads these. Written only by `a_claim_write`. The ERP's rules must let the run write them as the owner.
+# began); the ERP reads these. Written only by `a_record_write`. The ERP's rules must let the run write them as the owner.
 CLAIMS = "platform_claims"
 # **AND THIRTEENTH, FROM A87 / D459: HOW EACH MEESHO PRODUCT DID IN A WEEK.** One record per product per week (`platform_performance`), written only by
-# `a_performance_write`; the product's catalog id is carried when its title says one, and a title that matches none is kept and flagged. The ERP's
+# `a_record_write`; the product's catalog id is carried when its title says one, and a title that matches none is kept and flagged. The ERP's
 # rules must let the run write them as the owner.
 PERFORMANCE = "platform_performance"
 # **AND FOURTEENTH, FROM A87 / D463: ONE SUMMARY RECORD PER PLATFORM PER MONTH OF ADS** (`platform_ads_month/<platform>__<yyyy-mm>`), rebuilt whole from that
 # month's `platform_ads_days` and `platform_ads_detail` records so the ERP's Ads tab reads a few records instead of hundreds. Written only by
-# `a_ads_month_write`. The ERP's rules must let the run write it as the owner; the ERP never writes it.
+# `a_record_write`. The ERP's rules must let the run write it as the owner; the ERP never writes it.
 ADS_MONTH = "platform_ads_month"
 # **AND FIFTEENTH, FROM A87 / PLAN PART F: WHAT THE PLATFORM SAYS OF EACH LISTING'S QUALITY** (`platform_quality/<platform>__<SKU>`): the star level, the returns
-# share, the badge and the suppression risk as they stand, with a short history of the last readings. Written only by `a_quality_write`; the ERP's rules
+# share, the badge and the suppression risk as they stand, with a short history of the last readings. Written only by `a_record_write`; the ERP's rules
 # must let the run write it as the owner.
 QUALITY = "platform_quality"
 # **AND SIXTEENTH, FROM A87 / D473: A WHOLE-SHOP FIGURE FOR A DAY** (`platform_shop_days/<platform>__<day>`: Meesho's dashboard views and orders), one record per day,
-# written only by `a_shop_day_write`. It belongs to no listing. The ERP's rules must let the run write it as the owner.
+# written only by `a_record_write`. It belongs to no listing. The ERP's rules must let the run write it as the owner.
 SHOP_DAYS = "platform_shop_days"
 WHAT_IT_MAY_WRITE = (
     LOG, BOARD, RUNS, LISTING_VIEWS, LISTINGS_SEEN, CHECK, RETURNS, ADS_DAYS, ADS_DETAIL, SYNC_LEDGER, RETURNS_SHEET, CLAIMS, PERFORMANCE, ADS_MONTH,
@@ -688,58 +688,6 @@ def a_return_write(project: str, record: Dict, named_by: Optional[str] = None) -
     return {"update": {"name": where_a_document_lives(project, RETURNS, doc_id), "fields": {k: a_deep(v) for k, v in record.items()}}}
 
 
-def a_claim_write(project: str, record: Dict) -> Dict:
-    """One claim, written whole (nothing else writes this record). **THE FIELDS ARE `claims.CLAIM_FIELDS` AND NO OTHERS**; absent fields are absent."""
-    import claims  # noqa: PLC0415 - kept beside its one use
-
-    stray = sorted(set(record) - set(claims.CLAIM_FIELDS))
-    if stray:
-        raise Refused(f"{stray} are not fields of a claim.")
-    for day in ("raisedOn", "fileDay"):
-        if day in record and not A_DAY.match(str(record[day])):
-            raise Refused(f"{record[day]!r} is not a day written year-month-day, so no claim was written for it.")
-    doc_id = f"{record['platform']}__{record['claimKey']}"
-    return {"update": {"name": where_a_document_lives(project, CLAIMS, doc_id), "fields": {k: a_deep(v) for k, v in record.items()}}}
-
-
-def a_performance_write(project: str, doc_id: str, record: Dict) -> Dict:
-    """One product's week, written whole. **THE FIELDS ARE `performance.PERFORMANCE_FIELDS` AND NO OTHERS**; absent fields are absent."""
-    import performance  # noqa: PLC0415 - kept beside its one use
-
-    stray = sorted(set(record) - set(performance.PERFORMANCE_FIELDS))
-    if stray:
-        raise Refused(f"{stray} are not fields of a product's week.")
-    for day in ("weekFrom", "weekTo", "fileDay"):
-        if not A_DAY.match(str(record.get(day, ""))):
-            raise Refused(f"{record.get(day)!r} is not a day written year-month-day, so no product week was written for it.")
-    return {"update": {"name": where_a_document_lives(project, PERFORMANCE, doc_id), "fields": {k: a_deep(v) for k, v in record.items()}}}
-
-
-def a_quality_write(project: str, doc_id: str, record: Dict) -> Dict:
-    """One listing's quality, written whole. **THE FIELDS ARE `quality.QUALITY_FIELDS` AND NO OTHERS**; absent fields are absent."""
-    import quality  # noqa: PLC0415 - kept beside its one use
-
-    stray = sorted(set(record) - set(quality.QUALITY_FIELDS))
-    if stray:
-        raise Refused(f"{stray} are not fields of a listing's quality.")
-    if not A_DAY.match(str(record.get("fileDay", ""))):
-        raise Refused(f"{record.get('fileDay')!r} is not a day written year-month-day, so no quality record was written for it.")
-    return {"update": {"name": where_a_document_lives(project, QUALITY, doc_id), "fields": {k: a_deep(v) for k, v in record.items()}}}
-
-
-def a_shop_day_write(project: str, doc_id: str, record: Dict) -> Dict:
-    """One day's whole-shop figures, written whole. **THE FIELDS ARE `shopdays.SHOP_FIELDS` AND NO OTHERS**; absent fields are absent."""
-    import shopdays  # noqa: PLC0415 - kept beside its one use
-
-    stray = sorted(set(record) - set(shopdays.SHOP_FIELDS))
-    if stray:
-        raise Refused(f"{stray} are not fields of a shop day.")
-    for day in ("day", "fileDay"):
-        if not A_DAY.match(str(record.get(day, ""))):
-            raise Refused(f"{record.get(day)!r} is not a day written year-month-day, so no shop day was written for it.")
-    return {"update": {"name": where_a_document_lives(project, SHOP_DAYS, doc_id), "fields": {k: a_deep(v) for k, v in record.items()}}}
-
-
 def plain_deep(held) -> object:
     """One Firestore value (any shape, maps and lists included) back as plain data. Only ever used on records this job wrote itself."""
     if not isinstance(held, dict):
@@ -751,16 +699,22 @@ def plain_deep(held) -> object:
     return next(iter(plain({"x": held}).values()))
 
 
-def a_ads_month_write(project: str, doc_id: str, record: Dict) -> Dict:
-    """One platform's ads for one month, written whole. **THE FIELDS ARE `ads.MONTH_FIELDS` AND NO OTHERS**; a month is `yyyy-mm`."""
-    import ads  # noqa: PLC0415 - kept beside its one use
+def a_record_write(project: str, kind, doc_id: str, record: Dict) -> Dict:
+    """One record of any kind in `records.RecordKind`, written whole (nothing else writes it).
 
-    stray = sorted(set(record) - set(ads.MONTH_FIELDS))
+    **THE KIND SAYS WHICH FIELDS IT MAY HOLD AND WHICH OF THEM ARE DAYS AND MONTHS**; a field outside the list, a day that is not one and a missing day that
+    must be there are refused, so nothing a platform adds can reach a seller's database by way of a reader that was not told about it.
+    """
+    stray = sorted(set(record) - set(kind.fields))
     if stray:
-        raise Refused(f"{stray} are not fields of a month of ads.")
-    if not re.fullmatch(r"\d{4}-\d{2}", str(record.get("month", ""))) or not A_DAY.match(str(record.get("updatedOn", ""))):
-        raise Refused("A month of ads needs its month as yyyy-mm and the day it was rebuilt, so none was written.")
-    return {"update": {"name": where_a_document_lives(project, ADS_MONTH, doc_id), "fields": {k: a_deep(v) for k, v in record.items()}}}
+        raise Refused(f"{stray} are not fields of a {kind.what}.")
+    for day in kind.required_days + kind.days:
+        if (day in record or day in kind.required_days) and not A_DAY.match(str(record.get(day, ""))):
+            raise Refused(f"{record.get(day)!r} is not a day written year-month-day, so no {kind.what} was written for it.")
+    for month in kind.months:
+        if not re.fullmatch(r"\d{4}-\d{2}", str(record.get(month, ""))):
+            raise Refused(f"{record.get(month)!r} is not a month written year-month, so no {kind.what} was written for it.")
+    return {"update": {"name": where_a_document_lives(project, kind.collection, doc_id), "fields": {k: a_deep(v) for k, v in record.items()}}}
 
 
 def a_ads_days_write(project: str, platform: str, day: str, campaigns: Dict, digest: str, file_day: str, updated_on: str) -> Dict:

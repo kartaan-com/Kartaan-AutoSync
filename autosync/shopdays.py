@@ -10,44 +10,21 @@ words naming the columns it has.
 Nothing here opens a file, a clock or a connection.
 """
 
-import hashlib
-import json
-from decimal import Decimal, InvalidOperation
 from typing import Dict, Tuple
 
+import firestore
+import records as shared
 import returns
 import table
 
 THE_COLUMNS = ("Date", "Views", "Orders")
 SHOP_FIELDS = ("platform", "report", "day", "views", "orders", "fileDay", "digest")
-
-
-def _a_count(said: str):
-    text = (said or "").replace(",", "").strip()
-    if not text:
-        return None
-    try:
-        value = Decimal(text)
-    except InvalidOperation:
-        raise ValueError(f"{said!r} is not a count") from None
-    if not value.is_finite() or value < 0 or value != value.to_integral_value():
-        raise ValueError(f"{said!r} is not a whole count")
-    return int(value)
-
-
-def the_digest(record: Dict[str, object]) -> str:
-    said = {k: v for k, v in sorted(record.items()) if k not in ("fileDay", "digest")}
-    return hashlib.sha1(json.dumps(said, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()[:16]
+KIND = shared.RecordKind(firestore.SHOP_DAYS, SHOP_FIELDS, "shop day", required_days=("day", "fileDay"))
 
 
 def read_shop_days(report_id: str, platform: str, rows: table.Table, file_day: str) -> Tuple[Dict[str, Dict[str, object]], Tuple[str, ...]]:
     """`(records, not_read)`: one record per day, named `<platform>__<day>`; a day named twice in a file is its later line."""
-    missing = [c for c in THE_COLUMNS if c not in rows.columns]
-    if missing:
-        raise table.CannotRead(
-            "This does not look like a shop figures file. It has no " + ", ".join(repr(c) for c in missing)
-            + ". It has: " + ", ".join(repr(c) for c in rows.columns if c) + ". Nothing was read."
-        )
+    shared.require_columns(rows, THE_COLUMNS, "a shop figures file")
     records: Dict[str, Dict[str, object]] = {}
     not_read = []
     for row in rows:
@@ -56,16 +33,16 @@ def read_shop_days(report_id: str, platform: str, rows: table.Table, file_day: s
             not_read.append(f"line {row.line}: {row['Date']!r} is not a day this can read")
             continue
         try:
-            views, orders = _a_count(row["Views"]), _a_count(row["Orders"])
+            views, orders = shared.a_figure(row["Views"], whole=True), shared.a_figure(row["Orders"], whole=True)
         except ValueError as wrong:
             not_read.append(f"line {row.line}: {wrong}")
             continue
         record: Dict[str, object] = {"platform": platform, "report": report_id, "day": day, "fileDay": file_day}
         if views is not None:
-            record["views"] = views
+            record["views"] = int(views)
         if orders is not None:
-            record["orders"] = orders
-        record["digest"] = the_digest(record)
+            record["orders"] = int(orders)
+        record["digest"] = shared.the_digest(record)
         if f"{platform}__{day}" in records:
             not_read.append(f"line {row.line}: {day} is named twice in this file, so the later line stands")
         records[f"{platform}__{day}"] = record

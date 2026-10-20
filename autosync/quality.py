@@ -18,11 +18,11 @@ rest are read; a column the file lacks stops the file in words naming the column
 Nothing here opens a file, a clock or a connection.
 """
 
-import hashlib
-import json
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from typing import Dict, Optional, Tuple
 
+import firestore
+import records as shared
 import table
 
 THE_COLUMNS = ("Product", "SKU ID", "Yearly Sales", "1Y Ratings Trend", "5M Returns Trend", "FA badge", "Suppression Risk", "Issue Details")
@@ -31,47 +31,31 @@ QUALITY_FIELDS = (
     "platform", "report", "sku", "product", "yearlySales", "stars", "returnsPct", "returnsNote", "faBadge", "suppressionRisk", "issue",
     "history", "fileDay", "digest",
 )
+KIND = shared.RecordKind(firestore.QUALITY, QUALITY_FIELDS, "listing quality record", required_days=("fileDay",))
 HISTORY_KEPT = 12
+# The history grows with every change, so it is not part of what the listing "says".
+NOT_IN_THE_DIGEST = ("history",)
 _SUFFIX = {"K": Decimal(1000), "L": Decimal(100000), "CR": Decimal(10000000)}
 
 
 def rupees(said: str) -> Optional[int]:
     """`₹6.32L` -> 632000. Nothing for a blank or `NA`; a suffix this does not know is refused (`ValueError`), never guessed."""
-    text = (said or "").replace("₹", "").replace(",", "").strip()
-    if not text or text.upper() == "NA":
-        return None
+    text = (said or "").strip()
     factor = Decimal(1)
     for suffix in ("CR", "K", "L"):
         if text.upper().endswith(suffix):
-            factor, text = _SUFFIX[suffix], text[: -len(suffix)].strip()
+            factor, text = _SUFFIX[suffix], text[: -len(suffix)]
             break
     try:
-        value = Decimal(text) * factor
-        if not value.is_finite() or abs(value) > Decimal(10) ** 13:
-            raise ValueError(f"{said!r} is not an amount of rupees this can hold")
-        return int(value.to_integral_value())
-    except (InvalidOperation, ArithmeticError):
+        value = shared.a_figure(text, most=10 ** 13 / float(factor))
+    except ValueError:
         raise ValueError(f"{said!r} is not an amount of rupees") from None
+    return None if value is None else int((value * factor).to_integral_value())
 
 
-def _a_number(said: str, most: float) -> Optional[float]:
-    """A figure from `0` to `most`, or nothing for a blank or `NA`; anything else is refused (`ValueError`)."""
-    text = (said or "").replace("%", "").strip()
-    if not text or text.upper() == "NA":
-        return None
-    try:
-        value = Decimal(text)
-        if not value.is_finite() or value < 0 or value > Decimal(str(most)):
-            raise ValueError(f"{said!r} is not a figure from 0 to {most:g}")
-        return float(value)
-    except (InvalidOperation, ArithmeticError):
-        raise ValueError(f"{said!r} is not a figure") from None
-
-
-def the_digest(record: Dict[str, object]) -> str:
-    """A fingerprint of what a listing's quality SAYS (never of the day it was read, nor of its history), so the same file read twice writes nothing."""
-    said = {k: v for k, v in sorted(record.items()) if k not in ("fileDay", "digest", "history")}
-    return hashlib.sha1(json.dumps(said, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()[:16]
+def merge(record: Dict[str, object], held) -> Dict[str, object]:
+    """The record with its history made from the held record's (`held` is the record in the database, or nothing)."""
+    return with_history(record, tuple((held or {}).get("history") or ()))
 
 
 def with_history(record: Dict[str, object], held: Tuple[Dict, ...]) -> Dict[str, object]:
@@ -90,17 +74,12 @@ def with_history(record: Dict[str, object], held: Tuple[Dict, ...]) -> Dict[str,
 
 def read_quality(report_id: str, platform: str, rows: table.Table, file_day: str):
     """`(records, not_read)`: one record per listing, named `<platform>__<SKU ID>`."""
-    missing = [c for c in THE_COLUMNS if c not in rows.columns]
-    if missing:
-        raise table.CannotRead(
-            "This does not look like a quality insights file. It has no " + ", ".join(repr(c) for c in missing)
-            + ". It has: " + ", ".join(repr(c) for c in rows.columns if c) + ". Nothing was read."
-        )
+    shared.require_columns(rows, THE_COLUMNS, "a quality insights file")
     records: Dict[str, Dict[str, object]] = {}
     not_read = []
     for row in rows:
         sku = row["SKU ID"].strip()
-        if not sku or "/" in sku or sku in (".", "..") or len(sku.encode("utf-8")) > 1000:
+        if not shared.a_safe_name(sku):
             not_read.append(f"line {row.line}: {sku[:60]!r} cannot be the name of a listing record (empty, a slash, a dot name or too long)")
             continue
         record: Dict[str, object] = {"platform": platform, "report": report_id, "sku": sku, "fileDay": file_day}
@@ -108,18 +87,18 @@ def read_quality(report_id: str, platform: str, rows: table.Table, file_day: str
             record["product"] = row["Product"].strip()
         try:
             sales = rupees(row["Yearly Sales"])
-            stars = _a_number(row["1Y Ratings Trend"], 5)
+            stars = shared.a_figure(row["1Y Ratings Trend"], most=5)
             returns_cell = [part.strip() for part in row["5M Returns Trend"].split("|")]
-            returns_pct = _a_number(returns_cell[0], 100)
+            returns_pct = shared.a_figure(returns_cell[0], most=100)
         except ValueError as wrong:
             not_read.append(f"line {row.line} ({sku}): {wrong}")
             continue
         if sales is not None:
             record["yearlySales"] = sales
         if stars is not None:
-            record["stars"] = stars
+            record["stars"] = float(stars)
         if returns_pct is not None:
-            record["returnsPct"] = returns_pct
+            record["returnsPct"] = float(returns_pct)
         if len(returns_cell) > 1 and returns_cell[1]:
             record["returnsNote"] = returns_cell[1]
         badge = row["FA badge"].strip().lower()
@@ -128,7 +107,7 @@ def read_quality(report_id: str, platform: str, rows: table.Table, file_day: str
         for field, column in (("suppressionRisk", "Suppression Risk"), ("issue", "Issue Details")):
             if row[column].strip():
                 record[field] = row[column].strip()
-        record["digest"] = the_digest(record)
+        record["digest"] = shared.the_digest(record, leave_out=NOT_IN_THE_DIGEST)
         if f"{platform}__{sku}" in records:
             not_read.append(f"line {row.line}: {sku!r} is named twice in this file, so the later line stands")
         records[f"{platform}__{sku}"] = record

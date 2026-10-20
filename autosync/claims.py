@@ -15,16 +15,15 @@ on an Approved claim. Any other message leaves the recovered amount blank (a rej
 Nothing here opens a file, a clock or a connection.
 """
 
-import hashlib
-import json
 import re
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Dict, List, Tuple
 
+import firestore
+import records as shared
 import returns
 
-import table
 from sales import Sale
 from table import Row, Table
 
@@ -44,6 +43,7 @@ class WhatClaimsSaid:
 # What a claim's record holds, in the order it is written (a field outside this list is refused by the writer). **The platform's own long message is
 # not kept** -- it can be a page of HTML; what it says about being paid is the amount, taken by `the_amount_paid`.
 CLAIM_FIELDS = ("platform", "report", "claimKey", "orderId", "status", "raisedOn", "issue", "recovered", "recoveredWas", "fileDay", "digest")
+KIND = shared.RecordKind(firestore.CLAIMS, CLAIM_FIELDS, "claim", days=("raisedOn", "fileDay"))
 
 
 def the_amount_paid(message: str, status: str) -> str:
@@ -61,12 +61,7 @@ def the_amount_paid(message: str, status: str) -> str:
 
 def read_claims(platform: str, rows: Table, file_day: str) -> WhatClaimsSaid:
     """One file's claims. A file lacking a column it cannot be read without is refused in words naming the columns it has."""
-    missing = [c for c in THE_COLUMNS if c not in rows.columns]
-    if missing:
-        raise table.CannotRead(
-            "This does not look like a claims file. It has no " + ", ".join(repr(c) for c in missing)
-            + ". It has: " + ", ".join(repr(c) for c in rows.columns if c) + ". Nothing was read."
-        )
+    shared.require_columns(rows, THE_COLUMNS, "a claims file")
     claims: Dict[str, Tuple[str, str, Row]] = {}
     not_read: List[str] = []
     count = 0
@@ -93,8 +88,8 @@ def read_claims(platform: str, rows: Table, file_day: str) -> WhatClaimsSaid:
     return WhatClaimsSaid(out, tuple(not_read), count)
 
 
-def read_claim_records(report_id: str, platform: str, rows: Table, file_day: str) -> Dict[str, Dict[str, object]]:
-    """Every claim a file names, as a record each, by record name `<platform>__<claim id>` (D459).
+def read_claim_records(report_id: str, platform: str, rows: Table, file_day: str, context=None):
+    """`(records, rows refused)`: every claim a file names, as a record each, by record name `<platform>__<claim id>` (D459).
 
     **THE CLAIM'S OWN ID NAMES IT**, so the same claim in many files (30-day downloads) is one record, and the latest file's status wins in the
     writer. It carries the sub-order it is about and is never tied to an order row. **`Approved, will be settled` has no `recovered` until a
@@ -102,9 +97,11 @@ def read_claim_records(report_id: str, platform: str, rows: Table, file_day: str
     """
     read_claims(platform, rows, file_day)  # refuses a file without the columns, in words
     records: Dict[str, Dict[str, object]] = {}
+    not_read = []
     for row in rows:
         order, claim = row["Suborder Number"].strip(), row["Ticket ID"].strip()
-        if not order or not claim or "/" in claim:
+        if not order or not shared.a_safe_name(claim):
+            not_read.append(f"line {row.line}: no order, or a claim id that cannot name a record, so the claim belongs to nothing")
             continue
         record: Dict[str, object] = {
             "platform": platform, "report": report_id, "claimKey": claim, "orderId": order, "fileDay": file_day,
@@ -121,15 +118,15 @@ def read_claim_records(report_id: str, platform: str, rows: Table, file_day: str
         paid = the_amount_paid(row["Last Update"], status)
         if paid:
             record["recovered"] = paid
-        record["digest"] = the_digest(record)
+        record["digest"] = shared.the_digest(record)
         records[f"{platform}__{claim}"] = record
-    return records
+    return records, tuple(not_read)
 
 
-def the_digest(record: Dict[str, object]) -> str:
-    """A fingerprint of what a claim SAYS (never of the day it was read), so the same file read twice writes nothing."""
-    said = {k: v for k, v in sorted(record.items()) if k not in ("fileDay", "digest")}
-    return hashlib.sha1(json.dumps(said, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()[:16]
+def merge(record: Dict[str, object], held) -> Dict[str, object]:
+    """The record with the rupees already held for this claim kept (`held` is the record in the database, or nothing)."""
+    held = held or {}
+    return keeping_what_was_paid(record, str(held.get("recovered") or ""), str(held.get("recoveredWas") or ""))
 
 
 def keeping_what_was_paid(record: Dict[str, object], recovered_before: str, was_before: str = "") -> Dict[str, object]:
@@ -149,7 +146,7 @@ def keeping_what_was_paid(record: Dict[str, object], recovered_before: str, was_
     elif was_before:
         # The same amount again: the note of what it replaced stands, or the next run would drop it.
         kept["recoveredWas"] = was_before
-    kept["digest"] = the_digest(kept)
+    kept["digest"] = shared.the_digest(kept)
     return kept
 
 

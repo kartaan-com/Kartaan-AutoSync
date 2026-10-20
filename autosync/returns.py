@@ -26,8 +26,6 @@ name it has twice stops it too**. **A ROW WITH NO KEY, NO ORDER, OR A DATE THAT 
 Nothing here opens a file, a clock or a connection.
 """
 
-import hashlib
-import json
 import re
 from dataclasses import dataclass
 from datetime import date
@@ -35,6 +33,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Dict, List, Optional, Tuple
 
 import orders
+import records as shared
 import sales
 import table
 
@@ -182,12 +181,6 @@ def _a_count(said: str) -> Optional[int]:
     return int(value)
 
 
-def the_digest(record: Dict[str, object]) -> str:
-    """A fingerprint of what a record SAYS (never of the day it was read), so the same file read twice writes nothing."""
-    said = {k: v for k, v in sorted(record.items()) if k not in ("digest", "fileDay")}
-    return hashlib.sha1(json.dumps(said, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()[:16]
-
-
 def read_returns(report_id: str, rows: table.Table, file_day: str) -> WhatReturnsSaid:
     """One file's rows turned into returned lines. `file_day` is the day in the file's name, kept as `fileDay`."""
     way = way_for(report_id)
@@ -240,7 +233,7 @@ def read_returns(report_id: str, rows: table.Table, file_day: str) -> WhatReturn
         except ValueError as wrong:
             not_read.append(f"line {row.line}: {wrong}")
             continue
-        record["digest"] = the_digest(record)
+        record["digest"] = shared.the_digest(record)
         name = f"{way.platform}__{key}"
         if (way.key_is_the_order and name in records and records[name]["digest"] != record["digest"]
                 and records[name].get("startedOn") != record.get("startedOn")):

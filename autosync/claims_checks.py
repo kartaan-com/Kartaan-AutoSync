@@ -14,8 +14,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import claims  # noqa: E402
 import ledger  # noqa: E402
 import reading  # noqa: E402
+import records  # noqa: E402
 import sales  # noqa: E402
 import table  # noqa: E402
+import whats_new  # noqa: E402
 
 ran = 0
 failures = []
@@ -153,6 +155,65 @@ payment_no_sku = ledger.Reading(report="me_payments", on="2026-10-14", knows=("s
 check("and a payment line with no SKU is still not placed by guessing: the SKU-less placement is for claims only",
       (lambda p: p is not None and p.update == () and len(p.unmatched) == 1)(answered(lambda: ledger.plan(sheet_with_row("11_1"), [payment_no_sku]))))
 
+# ---------------------------------------------------------------- every claim is a record of its own (D459)
+
+_ROWS = (
+    line("11_1", "T1", "Approved", "2026-09-22T19:59:37", PAID),
+    line("12_1", "T2", "Approved", "2026-09-23T10:00:00", "Approved, will be settled on 20 Oct"),
+    line("12_1", "T3", "Open", "2026-09-25T10:00:00", "escalated"),
+)
+_made, _refused = answered(lambda: claims.read_claim_records("me_claims", "meesho", file_of(*_ROWS), "2026-10-14")) or ({}, ())
+check("EVERY CLAIM IS A RECORD OF ITS OWN named by its claim id and carrying its sub-order, even two on one order, and none is tied to an order row",
+      set(_made) == {"meesho__T1", "meesho__T2", "meesho__T3"} and _made["meesho__T2"]["orderId"] == "12_1"
+      and _made["meesho__T3"]["orderId"] == "12_1" and _made["meesho__T1"]["raisedOn"] == "2026-09-22" and _refused == ())
+check("'Approved, will be settled' has no rupees until a later file gives them; a paid one has",
+      "recovered" not in _made["meesho__T2"] and _made["meesho__T1"]["recovered"] == "177.84")
+check("the platform's own long message is not kept, and the fields are only the claim's own",
+      all(set(r) <= set(claims.CLAIM_FIELDS) for r in _made.values()))
+_, _skipped = answered(lambda: claims.read_claim_records("me_claims", "meesho", file_of(
+    line("15_1", "", "Open", "2026-09-24T10:00:00"), line("", "T5", "Open", "2026-09-24T10:00:00"), line("16_1", "a/b", "Open", "2026-09-24T10:00:00")),
+    "2026-10-14")) or ({}, ())
+check("a claim with no order, no id or an id that cannot name a record is refused by name", len(_skipped) == 3)
+
+# ---------------------------------------------------------------- A PAID CLAIM NEVER LOSES ITS RUPEES
+
+_held_paid = {"recovered": "177.84"}
+_reworded = {k: v for k, v in _made["meesho__T1"].items() if k != "recovered"}
+_kept = claims.merge(_reworded, _held_paid)
+check("A PAID CLAIM NEVER LOSES ITS RUPEES: a later file that says nothing of the amount leaves the recorded amount standing, and the fingerprint is worked out again",
+      _kept["recovered"] == "177.84" and "recoveredWas" not in _kept and _kept["digest"] == records.the_digest(_kept)
+      and _kept["digest"] == _made["meesho__T1"]["digest"])
+_changed = claims.merge(dict(_made["meesho__T1"], recovered="150.00"), _held_paid)
+check("and a different amount replaces it, the one it replaced noted",
+      _changed["recovered"] == "150.00" and _changed["recoveredWas"] == "177.84")
+_again = claims.merge(dict(_made["meesho__T1"]), {"recovered": "177.84", "recoveredWas": "100.00"})
+check("and the note of what a replaced amount was survives the next runs, not only the one that replaced it",
+      _again["recoveredWas"] == "100.00" and _again["recovered"] == "177.84")
+check("a claim not held yet, or held with no rupees, is left exactly as read",
+      claims.merge(_made["meesho__T2"], None) == _made["meesho__T2"] and claims.merge(_made["meesho__T2"], {"status": "Open"}) == _made["meesho__T2"])
+
+# ---------------------------------------------------------------- the night writes the claims AND notes them on the ledger
+
+_handed, _ledger = [], []
+_night = answered(lambda: reading.read_what_is_new(
+    already_read=(), what_is_in_the_folder=lambda r: [whats_new.InTheFolder(which="c1", name="meesho_me_claims_2026-10-14.csv", size=900)] if r == "me_claims" else [],
+    bring_it_back=lambda w: ("\n".join([HEAD, *_ROWS]) + "\n").encode("utf-8"),
+    record_the_sales=lambda readings: _ledger.extend(readings),
+    record_records={"me_claims": lambda report_id, day, made: _handed.append(sorted(made)) or len(made)}))
+check("THE NIGHT WRITES EVERY CLAIM TO ITS RECORD AND HANDS THE LEDGER ITS NOTE (one per order), and the file is read",
+      _night is not None and _night.read_tonight == ("c1",) and _night.wrote("me_claims") == 3 and _handed == [["meesho__T1", "meesho__T2", "meesho__T3"]]
+      and len(_ledger) == 1 and sorted(s.order_id for s in _ledger[0].sales) == ["11_1", "12_1"])
+
+_ledger_only = []
+_odd_night = answered(lambda: reading.read_what_is_new(
+    already_read=(), what_is_in_the_folder=lambda r: [whats_new.InTheFolder(which="c2", name="meesho_me_claims_2026-10-14.csv", size=900)] if r == "me_claims" else [],
+    bring_it_back=lambda w: ("\n".join([HEAD, line("17_1", "..", "Open", "2026-09-24T10:00:00")]) + "\n").encode("utf-8"),
+    record_the_sales=lambda readings: _ledger_only.extend(readings),
+    record_records={"me_claims": lambda report_id, day, made: len(made)}))
+check("A CLAIM WHOSE ID CANNOT NAME A RECORD DOES NOT STOP ITS NOTE ON THE LEDGER: the file is read, nothing is recorded, the refusal is counted",
+      _odd_night is not None and _odd_night.read_tonight == ("c2",) and _odd_night.wrote("me_claims") == 0 and len(_ledger_only) == 1
+      and _odd_night.rows_refused == 1)
+
 # ---------------------------------------------------------------- the report is tied in
 
 HOW = next(h for h in reading.WHAT_CAN_BE_READ if h.report_id == "me_claims")
@@ -164,7 +225,7 @@ check("and a file of it would really say its own day (the guard that refuses to 
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 19
+EXPECTED = 29
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
