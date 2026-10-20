@@ -1076,8 +1076,7 @@ RECIPES: Dict[str, Recipe] = {
     # could not reach it at all.** Meesho shows the day's views and orders on two
     # cards on the seller's own dashboard and sells no export of them short of a
     # paid subscription. There is no button to press. So the figures are read off
-    # the page and added to a running list -- his decision, put to him as a
-    # question and answered, and `reports.a_running_list` carries the reasoning.
+    # the page and written as a one-row file for the day (his D473: one new file a day).
     #
     # **MEASURED ON HIS OWN DASHBOARD, 2026-09-11, rather than taken from the
     # reference, whose own version of this is a pile of fallbacks that gives up
@@ -1118,7 +1117,7 @@ RECIPES: Dict[str, Recipe] = {
                            day_in_words_of=THE_DAY_IT_IS_ABOUT),
                  patience=30, why="reading the orders for the day"),
             Step(ADD_TO_THE_LIST, patience=30,
-                 why="adding the day to the running list"),
+                 why="writing the day as its own file"),
         ),
     ),
     # **THE THREE TABLES WITH NO DOWNLOAD BUTTON (plan jobs 44 and 43, and Flipkart's Product Quality Insights).** Each is read page by

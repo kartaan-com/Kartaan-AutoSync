@@ -4690,7 +4690,7 @@
           "find": null,
           "address": "",
           "patience": 30,
-          "why": "adding the day to the running list",
+          "why": "writing the day as its own file",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null,
@@ -4811,133 +4811,107 @@
   "fileNames": {
     "fk_ads_daily": {
       "platform": "flipkart",
-      "extension": "csv",
-      "aRunningList": false
+      "extension": "csv"
     },
     "fk_ads_fsn": {
       "platform": "flipkart",
-      "extension": "csv",
-      "aRunningList": false
+      "extension": "csv"
     },
     "fk_ads_kw": {
       "platform": "flipkart",
-      "extension": "csv",
-      "aRunningList": false
+      "extension": "csv"
     },
     "fk_ads_orders": {
       "platform": "flipkart",
-      "extension": "csv",
-      "aRunningList": false
+      "extension": "csv"
     },
     "fk_ads_overall": {
       "platform": "flipkart",
-      "extension": "csv",
-      "aRunningList": false
+      "extension": "csv"
     },
     "fk_ads_placements": {
       "platform": "flipkart",
-      "extension": "csv",
-      "aRunningList": false
+      "extension": "csv"
     },
     "fk_ads_search": {
       "platform": "flipkart",
-      "extension": "csv",
-      "aRunningList": false
+      "extension": "csv"
     },
     "fk_claims": {
       "platform": "flipkart",
-      "extension": "xlsx",
-      "aRunningList": false
+      "extension": "xlsx"
     },
     "fk_keywords": {
       "platform": "flipkart",
-      "extension": "csv",
-      "aRunningList": false
+      "extension": "csv"
     },
     "fk_listings": {
       "platform": "flipkart",
-      "extension": "xls",
-      "aRunningList": false
+      "extension": "xls"
     },
     "fk_orders": {
       "platform": "flipkart",
-      "extension": "xlsx",
-      "aRunningList": false
+      "extension": "xlsx"
     },
     "fk_payments": {
       "platform": "flipkart",
-      "extension": "xlsx",
-      "aRunningList": false
+      "extension": "xlsx"
     },
     "fk_quality_insights": {
       "platform": "flipkart",
-      "extension": "csv",
-      "aRunningList": false
+      "extension": "csv"
     },
     "fk_returns": {
       "platform": "flipkart",
-      "extension": "csv",
-      "aRunningList": false
+      "extension": "csv"
     },
     "fk_views": {
       "platform": "flipkart",
-      "extension": "xlsx",
-      "aRunningList": false
+      "extension": "xlsx"
     },
     "me_ads": {
       "platform": "meesho",
-      "extension": "csv",
-      "aRunningList": false
+      "extension": "csv"
     },
     "me_ads_catalog": {
       "platform": "meesho",
-      "extension": "csv",
-      "aRunningList": false
+      "extension": "csv"
     },
     "me_ads_summary": {
       "platform": "meesho",
-      "extension": "csv",
-      "aRunningList": false
+      "extension": "csv"
     },
     "me_catalog": {
       "platform": "meesho",
-      "extension": "xlsx",
-      "aRunningList": false
+      "extension": "xlsx"
     },
     "me_claims": {
       "platform": "meesho",
-      "extension": "csv",
-      "aRunningList": false
+      "extension": "csv"
     },
     "me_orders": {
       "platform": "meesho",
-      "extension": "csv",
-      "aRunningList": false
+      "extension": "csv"
     },
     "me_payments": {
       "platform": "meesho",
-      "extension": "xlsx",
-      "aRunningList": false
+      "extension": "xlsx"
     },
     "me_pricing": {
       "platform": "meesho",
-      "extension": "csv",
-      "aRunningList": false
+      "extension": "csv"
     },
     "me_product_performance": {
       "platform": "meesho",
-      "extension": "csv",
-      "aRunningList": false
+      "extension": "csv"
     },
     "me_returns": {
       "platform": "meesho",
-      "extension": "csv",
-      "aRunningList": false
+      "extension": "csv"
     },
     "me_views": {
       "platform": "meesho",
-      "extension": "csv",
-      "aRunningList": false
+      "extension": "csv"
     }
   },
   "madeByAnother": {

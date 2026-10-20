@@ -88,26 +88,20 @@ check(
     answered(lambda: tool.data_date_in("flipkart_fk_ads_overall_2026-09-20_0PTESTCAMP001.csv") == DAY("2026-09-20")),
 )
 check(
-    "and that holds for every report whose file is named by a day",
+    "and that holds for every report there is, Meesho views included (his D473)",
     answered(lambda: all(
         tool.data_date_in(tool.file_name_for(r, DAY("2026-08-26"))) == DAY("2026-08-26")
-        for r in REPORTS if not r.a_running_list
+        for r in REPORTS
     )),
 )
 
-# ------------------------------------------------- the other shape: a running list
+# ------------------------------------------------- no report is undated (his D473, 20 Oct)
 #
-# **HIS DECISION, 2026-09-11, asked as a question and answered.** Meesho shows the
-# day's views on a card and sells no export of them, so there is nothing to fetch:
-# the figure is read off the page and added to one file. **That file has no day in
-# its name, which is exactly what every line above is built on** -- so the
-# exception is NAMED here rather than the rule being softened.
-# **NO REPORT IS A RUNNING LIST ANY MORE (his D473, 20 Oct).** Meesho views was the one, and one undated file rewritten in place is
-# never read again by the read-once-by-Drive-id rule. It is now one new file a day like every other report. The running-list
-# SHAPE is still checked below on a stand-in report, because the code that reads one is still here.
+# Meesho views was the one report with no day in its name: one file added to every day, which the read-once-by-Drive-id
+# rule never read again. It is one new file a day like every other, so every report's file name carries its day.
 check(
-    "NO REPORT IS WITHOUT A DAY IN ITS NAME: Meesho views is one new file a day (D473)",
-    answered(lambda: [r.id for r in REPORTS if r.a_running_list] == []),
+    "NO REPORT IS WITHOUT A DAY IN ITS NAME: every report's file carries its day (D473)",
+    answered(lambda: [r.id for r in REPORTS if tool.data_date_in(tool.file_name_for(r, DAY("2026-08-26"))) is None] == []),
 )
 check(
     "Meesho views is named by its day, like every other report",
@@ -118,38 +112,9 @@ check(
     "and its day can be read back out of the name",
     answered(lambda: tool.data_date_in("meesho_me_views_2026-08-26.csv") == DAY("2026-08-26")),
 )
-VIEWS = Report("me_views", "meesho", "Meesho views as a running list", BROWSER, DAILY, "csv", a_running_list=True)
-check("a running list is named without a day, because it holds many",
-      answered(lambda: tool.file_name_for(VIEWS, DAY("2026-08-26")) == "meesho_me_views.csv"))
-# **ASKED FOR TWO DIFFERENT DAYS IT IS THE SAME FILE**, which is the whole idea.
-# A caller should not have to know which shape it is holding to ask a fair
-# question, and "the 26th's views file" has an honest answer: the one there is.
-check("and it is the same file whichever day is asked for",
-      answered(lambda: tool.file_name_for(VIEWS, DAY("2026-08-26"))
-               == tool.file_name_for(VIEWS, DAY("2026-09-10"))))
-check("and the day cannot be read back out of it, which is the truth",
-      answered(lambda: tool.data_date_in(tool.file_name_for(VIEWS, DAY("2026-08-26"))) is None))
-check("and one place builds that name too",
-      answered(lambda: tool.the_running_list_is_called(VIEWS) == "meesho_me_views.csv"))
-
-# **AND THE DAYS COME OUT OF THE FILE INSTEAD, THROUGH THE SAME ONE FUNCTION.**
-# `days_that_arrived` says of itself that ONE place turns files into days, because
-# the day the board and the schedule could disagree about what is owed, every day
-# gets fetched again for ever.
-_LIST = tool.Arrived("meesho_me_views.csv", 120,
-                     days_inside=(DAY("2026-09-09"), DAY("2026-09-10")))
-check("a running list answers with the days inside it",
-      answered(lambda: tool.days_that_arrived([_LIST])
-               == (DAY("2026-09-09"), DAY("2026-09-10"))))
-check("and an empty one answers with no days at all, however many it claims",
-      answered(lambda: tool.days_that_arrived([
-          tool.Arrived("meesho_me_views.csv", 0, days_inside=(DAY("2026-09-10"),))]) == ()))
 # **AND NOTHING ELSE CHANGED SHAPE.** An ordinary report still answers by its name.
 check("while an ordinary report still answers by the day in its name",
       answered(lambda: tool.days_that_arrived([tool.Arrived(name, 5)]) == (DAY("2026-08-26"),)))
-check("and the two can sit in one answer together",
-      answered(lambda: tool.days_that_arrived([_LIST, tool.Arrived(name, 5)])
-               == (DAY("2026-08-26"), DAY("2026-09-09"), DAY("2026-09-10"))))
 
 # ------------------------------------------- THE SEVEN FILES NOTHING COULD FIND
 
@@ -570,7 +535,7 @@ check("a file the seller copied or backed up, with a date in its name but not th
 check("the per-campaign ads file, with the campaign after the day, is one of ours and may go",
       tool.why_a_report_file_may_go("flipkart_fk_ads_orders_2017-08-01_CAMP-123.csv", date(2099, 1, 1)) is not None)
 check("a recent file is kept", tool.why_a_report_file_may_go("amazon_az_orders_2026-09-01.csv", date(2026, 10, 5)) is None)
-check("a running list, whose name has no day, is never removed",
+check("an old undated views file, whose name has no day, is never removed",
       tool.why_a_report_file_may_go("meesho_me_views.csv", date(2099, 1, 1)) is None)
 check("and neither is a file with a name nothing can read a day from",
       tool.why_a_report_file_may_go("notes.txt", date(2099, 1, 1)) is None)
@@ -626,7 +591,7 @@ check("a range-looking name that is not a real range is kept, not removed",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 114 + 19 + 2
+EXPECTED = 128
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

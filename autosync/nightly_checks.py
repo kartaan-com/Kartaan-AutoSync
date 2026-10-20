@@ -679,32 +679,6 @@ check("an empty file is not a day that arrived",
 check("and the name comes back as it is, so the day inside it can be read",
       sorted(one.name for one in GOT)[0].endswith("2026-08-26.csv"))
 
-# **A RUNNING LIST THAT CANNOT BE READ IS SAID (job 49).** It still counts as holding no days, but the run's log says why.
-class DriveThatWillNotHandOverAFile(FakeDrive):
-    def get(self, url, params=None, headers=None):
-        if url.startswith(FILES + "/"):
-            return Reply(500, {}, b"Drive would not hand it over")
-        return super().get(url, params, headers)
-
-
-drive = DriveThatWillNotHandOverAFile()
-# **A STAND-IN RUNNING LIST: no report is one any more (D473), but the code that reads one is still here and still checked.**
-import dataclasses as _dataclasses  # noqa: E402
-import reports as _reports  # noqa: E402
-_real_report = _reports.report
-_reports.report = lambda rid: (_dataclasses.replace(_real_report(rid), a_running_list=True) if rid == "me_views" else _real_report(rid))
-VIEWS = tool._drive_folder(drive, INSIDE, "me_views")
-drive.file("meesho_me_views.csv", VIEWS, b"Date,Views,2026-10-04,5")
-told = []
-GOT = answered(lambda: list(tool._arrivals_from_drive(drive, INSIDE, told.append)("me_views"))) or []
-check("a running list that cannot be read still holds no days", len(GOT) == 1 and GOT[0].days_inside == ())
-check("and the log names the report, the file and what happens next",
-      len(told) == 1 and "me_views" in told[0] and "meesho_me_views.csv" in told[0] and "fetched again" in told[0])
-quiet = []
-answered(lambda: list(tool._arrivals_from_drive(drive, INSIDE)("me_views")))
-check("asked without anywhere to say it, it stays as it was and does not throw", quiet == [] and not THREW)
-_reports.report = _real_report
-
 # ------------------------------------------- the secrets
 
 _os.environ.pop("A_MADE_UP_SECRET", None)
@@ -2504,7 +2478,7 @@ tidy_drive.file("amazon_az_orders_2017-08-01.csv", ORDERS_HERE, b"far too old")
 tidy_drive.file("amazon_az_orders_2026-09-01.csv", ORDERS_HERE, b"recent")
 tidy_drive.file("amazon_az_orders_2025-04-01.csv", ORDERS_HERE, b"inside the period")
 VIEWS_HERE = tool._drive_folder(tidy_drive, INSIDE, "me_views")
-tidy_drive.file("meesho_me_views.csv", VIEWS_HERE, b"a running list")
+tidy_drive.file("meesho_me_views.csv", VIEWS_HERE, b"his old undated views file")
 told = []
 faults_found = answered(lambda: tool.tidy_the_drive(tidy_drive, INSIDE, TODAY, told.append))
 left = {one["name"] for one in tidy_drive.things.values()}
@@ -2518,7 +2492,7 @@ check("today's log, a file that is not one of the run's logs, and a csv with a l
 check("a report file past the GST period is gone, and a recent one and one inside the period stay",
       "amazon_az_orders_2017-08-01.csv" not in left and "amazon_az_orders_2026-09-01.csv" in left
       and "amazon_az_orders_2025-04-01.csv" in left)
-check("a running list is never touched", "meesho_me_views.csv" in left)
+check("his old undated views file is never touched", "meesho_me_views.csv" in left)
 check("EVERYTHING TAKEN AWAY WENT TO THE BIN, NOT A PERMANENT DELETE",
       tidy_drive.deleted == [] and sorted(one["name"] for one in tidy_drive.binned)
       == sorted(["autosync-log-" + (TODAY - timedelta(days=61)).isoformat() + ".txt", "amazon_az_orders_2017-08-01.csv"]))
@@ -2710,7 +2684,7 @@ check("and the tick asks for them under exactly those names",
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 369 + 15 + 11 + 2
+EXPECTED = 394
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

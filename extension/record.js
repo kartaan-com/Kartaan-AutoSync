@@ -74,7 +74,7 @@ export function aLineFor({ reportId, fileName, size, day, on }) {
   };
 }
 
-/** The lines for one landing: a file named by its day, or a running list holding many days. */
+/** The lines for one landing: a file named by its day (or by a range of days), or the days a written row reports. */
 export function theLinesFor({ reportId, fileName, size, days, on }) {
   /* **A RANGE FILE IS A VERIFIED LINE FOR EVERY DAY IT NAMES (P16, review finding).** Read as the first date in the name it was one
    * line for its FROM day, and the day it is dated by, and every day between, were never recorded as landed. */

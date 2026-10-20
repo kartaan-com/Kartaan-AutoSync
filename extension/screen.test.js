@@ -638,7 +638,7 @@ check('Amazon is not fetched through the browser at all',
     no({ reportIds: ['me_orders'], panel: 'mine' }) === null);
   /* **AND `me_views` IS NO LONGER ONE OF THEM, which is the point of the change
    * on 2026-09-11.** The door learned to read a number off a card and to add a
-   * row to a running list, so the one report Meesho sells no export of became
+   * row as the day's own file, so the one report Meesho sells no export of became
    * fetchable. It needs the panel name like every other Meesho report. */
   check('and the views card can be ticked now, like any other Meesho report',
     no({ reportIds: ['me_views'], panel: 'mine' }) === null);

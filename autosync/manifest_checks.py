@@ -185,11 +185,6 @@ check(
 # ---------------------------------------------------------- a folder to ask
 
 def a_real_file(a_report, day, size=4021):
-    # **A RUNNING LIST CARRIES ITS DAYS INSIDE IT, because its name has none.**
-    # The same thing the real folder lister has to do -- a helper that made one
-    # look dated would be checking a product that does not exist.
-    if a_report.a_running_list:
-        return Arrived(file_name_for(a_report, day), size, days_inside=(day,))
     return Arrived(file_name_for(a_report, day), size)
 
 
@@ -704,15 +699,6 @@ check("TWO INSTALLS ON ONE GOOGLE ACCOUNT: both installs' lines are there when t
 check("and one install's record alone still joins as before",
       len(tool.cross_check(tool.Standing((), ()), install_a)) == 1)
 
-# **A ROLLING FILE IS RECORDED PER DAY BY LOOKING INSIDE IT, and a day missing inside it is missing for that day only.**
-the_views = next(one for one in REPORTS if one.id == "me_views")
-inside = [Arrived(name="meesho_me_views.csv", size=500, days_inside=(date(2026, 9, 19), date(2026, 9, 21)))]
-views_lines = {one.data_date: one.state for one in tool.lines_for(
-    [the_views], lambda rid: inside, date(2026, 9, 22), checked_on=date(2026, 9, 22), look_back_days=3)}
-check("a views day absent from inside the rolling file is missing, and only that day",
-      views_lines.get(date(2026, 9, 20)) == tool.MISSING and views_lines.get(date(2026, 9, 19)) == tool.VERIFIED
-      and views_lines.get(date(2026, 9, 21)) == tool.VERIFIED)
-
 # **A RANGE FILE IS RECORDED PER DAY TOO (P16): one request for several days leaves one file, and each day inside it is verified.**
 the_fk_orders = next(one for one in REPORTS if one.id == "fk_orders")
 _ranged = [Arrived(name="flipkart_fk_orders_2026-09-19_to_2026-09-21.xlsx", size=500)]
@@ -722,7 +708,7 @@ check("every day inside a range file is verified, and the day before it is missi
       all(ranged_lines.get(date(2026, 9, d)) == tool.VERIFIED for d in (19, 20, 21))
       and ranged_lines.get(date(2026, 9, 18)) == tool.MISSING)
 
-EXPECTED = 66 + 20 + 1
+EXPECTED = 66 + 20
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

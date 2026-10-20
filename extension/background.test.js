@@ -312,10 +312,11 @@ const LATER = '2026-08-27T16:04:00.000Z';
     JSON.stringify((await browser.chrome.storage.local.get(LAST_LANDED))[LAST_LANDED].me_orders)
       === JSON.stringify(['2026-09-16']));
   await afterALanding(browser.chrome, {
-    reportId: 'me_views', fileName: 'meesho_me_views.csv', bytes: new Uint8Array([1]),
+    reportId: 'me_views', fileName: 'meesho_me_views_2026-09-17.csv', bytes: new Uint8Array([1]),
   });
-  check('and a running list, whose name carries no day, remembers nothing',
-    (await browser.chrome.storage.local.get(LAST_LANDED))[LAST_LANDED].me_views === undefined);
+  check('and Meesho views, one new file a day like the rest (D473), remembers its day too',
+    JSON.stringify((await browser.chrome.storage.local.get(LAST_LANDED))[LAST_LANDED].me_views)
+      === JSON.stringify(['2026-09-17']));
   await afterALanding(browser.chrome, {
     reportId: 'fk_ads_overall',
     fileName: 'flipkart_fk_ads_overall_2026-09-20_0PTESTCAMP001.csv',
@@ -758,23 +759,16 @@ const LATER = '2026-08-27T16:04:00.000Z';
   }
   check('and not one of them reached the Drive at all', putAway.length === asManyAsHadLanded);
 
-  /* **AND THE SECOND NAME THIS PRODUCT WRITES IS LET THROUGH -- FOR ITS OWN
-   * REPORT AND NO OTHER.** A running list is one file added to every day, so its
-   * name carries no day at all (`reports.a_running_list`). **This guard was the
-   * fifth place assuming every name has a day in it**, and it was found on his
-   * own panel with the walk otherwise finished: the figures read, the row built,
-   * refused here.
-   *
-   * **THE UNDATED SHAPE IS NARROWER THAN THE DATED ONE, WHICH IS THE WHOLE
-   * SAFETY OF IT.** The report id in the name has to be the very report the
-   * message is about, so there is exactly one undated name per report and it is
-   * fixed. The dated form has never asked that. */
-  check("a running list's own undated name is allowed",
-    whyTheseAreNotNames('me_views', 'meesho_me_views.csv') === null);
-  check('but the same shape naming a DIFFERENT report is refused',
-    typeof whyTheseAreNotNames('me_views', 'meesho_me_orders.csv') === 'string');
-  check('and an undated name is still refused a path, however it is dressed up',
-    typeof whyTheseAreNotNames('me_views', '../meesho_me_views.csv') === 'string');
+  /* **EVERY NAME THIS PRODUCT WRITES CARRIES ITS DAY (his D473, 20 Oct).** Meesho views was once one
+   * undated running list and this guard let that one name through; it is one new file a day now, so
+   * an undated name is refused for every report. */
+  check('an undated name is refused, Meesho views included',
+    typeof whyTheseAreNotNames('me_views', 'meesho_me_views.csv') === 'string'
+    && typeof whyTheseAreNotNames('me_views', 'meesho_me_orders.csv') === 'string');
+  check('and Meesho views is let through under its day',
+    whyTheseAreNotNames('me_views', 'meesho_me_views_2026-09-05.csv') === null);
+  check('and a dated name is still refused a path, however it is dressed up',
+    typeof whyTheseAreNotNames('me_views', '../meesho_me_views_2026-09-05.csv') === 'string');
   /* **AND NOTHING ABOUT THE DATED FORM MOVED.** Everything above still refuses,
    * and a real day is still required in the names that carry one. */
   check('while the dated name this product writes is still let through',

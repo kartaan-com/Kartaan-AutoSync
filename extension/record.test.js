@@ -67,10 +67,10 @@ check('a file of nothing is not a file that arrived, so it has no line',
   aLineFor({ reportId: 'me_orders', fileName: 'x_2026-09-20.csv', size: 0, day: '2026-09-20' }) === null);
 check('and neither has one with no real day',
   aLineFor({ reportId: 'me_orders', fileName: 'x.csv', size: 9, day: '' }) === null);
-check('a running list is recorded for every day inside it, not for the day it was last touched',
+check('a written row is recorded for the days it reports, not for the day it was last touched',
   theLinesFor({
-    reportId: 'me_views', fileName: 'meesho_me_views.csv', size: 90, days: ['2026-09-19', '2026-09-21'], on: '2026-09-22',
-  }).map((one) => one.dataDate).join() === '2026-09-19,2026-09-21');
+    reportId: 'me_views', fileName: 'meesho_me_views_2026-09-19.csv', size: 90, days: ['2026-09-19'], on: '2026-09-22',
+  }).map((one) => one.dataDate).join() === '2026-09-19');
 check('and a file named by its day is recorded for that day',
   theLinesFor({ reportId: 'me_orders', fileName: 'meesho_me_orders_2026-09-20.csv', size: 5 })
     .map((one) => one.dataDate).join() === '2026-09-20');

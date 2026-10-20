@@ -442,12 +442,6 @@ check("and each one carries a platform and a file type, never a blank",
 check("THE NAME THE JAVASCRIPT WOULD BUILD IS THE NAME PYTHON BUILDS, REPORT BY REPORT",
       answered(lambda: all(
                            (
-                               "{platform}_{report}.{extension}".format(
-                                   platform=HELD["fileNames"][one]["platform"],
-                                   report=one,
-                                   extension=HELD["fileNames"][one]["extension"],
-                               )
-                               if HELD["fileNames"][one]["aRunningList"] else
                                "{platform}_{report}_{day}.{extension}".format(
                                    platform=HELD["fileNames"][one]["platform"],
                                    report=one,
@@ -465,8 +459,8 @@ check("and the platform and the file type are the report's own, not read off its
           HELD["fileNames"][one]["platform"] == reports_list.report(one).platform
           and HELD["fileNames"][one]["extension"] == reports_list.report(one).extension
           for one in HELD["fileNames"])))
-check("MEESHO VIEWS CROSSES AS A REPORT NAMED BY ITS DAY, not as one undated running list (D473)",
-      answered(lambda: HELD["fileNames"]["me_views"]["aRunningList"] is False))
+check("NO REPORT CROSSES AS AN UNDATED RUNNING LIST: Meesho views is named by its day like the rest (D473)",
+      answered(lambda: all("aRunningList" not in HELD["fileNames"][one] for one in HELD["fileNames"])))
 check("the file names are in a settled order too",
       answered(lambda: list(HELD["fileNames"]) == sorted(HELD["fileNames"])))
 
@@ -513,10 +507,9 @@ check("THE RANGE NAME THE JAVASCRIPT BUILDS IS THE NAME PYTHON BUILDS, REPORT BY
       answered(lambda: all(
           RANGE_NAMES_IN_JAVASCRIPT[one] == landing.file_name_for_range(reports_list.report(one), A_RANGE_FROM, A_RANGE_TO)
           for one in HELD["fileNames"])))
-check("and a range name differs from the day name for every dated report, and is the one name for a running list",
+check("and a range name differs from the day name for every report",
       answered(lambda: all(
-          (RANGE_NAMES_IN_JAVASCRIPT[one] == landing.file_name_for(reports_list.report(one), A_RANGE_TO))
-          == bool(HELD["fileNames"][one]["aRunningList"])
+          RANGE_NAMES_IN_JAVASCRIPT[one] != landing.file_name_for(reports_list.report(one), A_RANGE_TO)
           for one in HELD["fileNames"])))
 check("and the days Python reads out of the range name are the days of the range",
       answered(lambda: all(

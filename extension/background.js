@@ -51,8 +51,7 @@ import { theLatestDateInside } from './unzip.js';
 /** The day landed in this file's own name, whichever of the two dated shapes
  *  it is written in (see `whyTheseAreNotNames`): the ordinary
  *  `platform_report_YYYY-MM-DD.ext`, or one file per campaign,
- *  `platform_report_YYYY-MM-DD_campaign.ext`. A running list's name carries no
- *  day at all, and this answers nothing for it. */
+ *  `platform_report_YYYY-MM-DD_campaign.ext`. */
 function theDayInAFileName(fileName) {
   return (String(fileName || '').match(/_(\d{4}-\d{2}-\d{2})(?:_[A-Za-z0-9_-]+)?\.[a-z0-9]+$/i) || [])[1] || '';
 }
@@ -138,30 +137,17 @@ export function whyTheseAreNotNames(reportId, fileName) {
     return `"${report}" is not the name of a report this can put a file away for, so `
       + 'nothing has been put in the seller\'s Drive.';
   }
-  /* **THERE ARE TWO NAMES THIS PRODUCT WRITES, AND THE SECOND HAS NO DAY IN IT.
-   * THIS GUARD WAS THE FIFTH PLACE THAT ASSUMED THERE WAS ONLY ONE**, found on
-   * his own panel on 2026-09-11 with the walk otherwise finished: both figures
-   * read off the dashboard, the row built, and refused here.
-   *
-   * **A RUNNING LIST IS ONE FILE ADDED TO EVERY DAY** (`reports.a_running_list`),
-   * so its days are the first column inside it and its name carries none. Meesho
-   * sells no export of the day's views, which is why one exists at all.
-   *
-   * **AND THE UNDATED SHAPE IS NARROWER THAN THE DATED ONE, NOT LOOSER.** The
-   * report id in the name has to be the very report this message is about --
-   * `meesho_me_views.csv` for `me_views` and nothing else. The dated form does
-   * not ask that and never has. So this widens what may be written by exactly one
-   * name per report, and that name is fixed. */
+  /* **EVERY NAME THIS PRODUCT WRITES CARRIES ITS DAY** (his D473, 20 Oct: Meesho views too is one new
+   * file a day, where it was once one undated running list). The ordinary shape first. */
   const shaped = /^[a-z0-9]{1,32}_[a-z0-9_]{1,64}_(\d{4}-\d{2}-\d{2})\.[a-z0-9]{1,8}$/.exec(called);
-  const aList = new RegExp('^[a-z0-9]{1,32}_' + report + '\\.[a-z0-9]{1,8}$').test(called);
-  /* **THE THIRD NAME: ONE FILE PER CAMPAIGN.** When more than one campaign ran,
+  /* **THE SECOND NAME: ONE FILE PER CAMPAIGN.** When more than one campaign ran,
    * the walk puts the campaign id after the day (`walk.theCampaignsFileName`,
    * the reference's own rule), so the day is no longer last. Refused here on the
    * 2026-09-21 run, which lost every day with live ads. Allowed only for a
    * report fetched per campaign, only under its own report id, and the campaign
    * part is `A_CAMPAIGN_ID`'s own letters -- no dot, slash or quote. */
-  /* **THE FOURTH NAME: ONE REQUEST FOR SEVERAL DAYS (P16).** `platform_report_FROM_to_TO.ext`, and
-   * narrower than the dated form just as the list's name is: the report id in the name has to be the
+  /* **THE THIRD NAME: ONE REQUEST FOR SEVERAL DAYS (P16).** `platform_report_FROM_to_TO.ext`, and
+   * narrower than the dated form: the report id in the name has to be the
    * very report this message is about. Both ends real days, FROM before TO, no more days than one
    * press takes (`whyTheRangeIsRefused`). **AND ONLY FOR THE REPORTS ASKED FOR IN ONE REQUEST** (`SPENDS_THE_ALLOWANCE`; Meesho's
    * join here when they are built), so a stray range name for any other report never reaches the Drive. **AND IT IS NEVER A PER-CAMPAIGN NAME** -- that shape would
@@ -172,15 +158,11 @@ export function whyTheseAreNotNames(reportId, fileName) {
   const perCampaign = NAMED_PER_CAMPAIGN.includes(report) && !/_\d{4}-\d{2}-\d{2}_to_\d{4}-\d{2}-\d{2}\./.test(called)
     ? new RegExp('^[a-z0-9]{1,32}_' + report + '_(\\d{4}-\\d{2}-\\d{2})_[A-Za-z0-9_-]{1,64}\\.[a-z0-9]{1,8}$').exec(called)
     : null;
-  if (!shaped && !aList && !perCampaign && !ranged) {
+  if (!shaped && !perCampaign && !ranged) {
     return `"${called}" is not a name this product writes, so nothing has been put in the `
       + 'seller\'s Drive. A file is put away as platform_report_YYYY-MM-DD.extension, or as '
-      + 'platform_report.extension when it is one list added to every day, or as '
       + 'platform_report_YYYY-MM-DD_to_YYYY-MM-DD.extension when it is several days in one request.';
   }
-  /* **A LIST'S NAME HAS NO DAY TO CHECK, so the check below is the dated form's
-   * alone.** Asked of a name with no day in it, it would refuse every one. */
-  if (!shaped && !perCampaign && !ranged) return null;
   if (ranged) {
     const notARange = whyTheRangeIsRefused(ranged[1], ranged[2]);
     return notARange ? `${called}: ${notARange}` : null;

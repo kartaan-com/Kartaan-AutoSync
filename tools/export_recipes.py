@@ -272,13 +272,6 @@ def what_the_extension_reads():
             one: {
                 "platform": list_of_reports.report(one).platform,
                 "extension": list_of_reports.report(one).extension,
-                # **AND WHETHER IT IS A RUNNING LIST, because that decides
-                # whether the day goes in the name at all.** Left out, the
-                # browser half would name the views file by a day, a new one
-                # would land every night, and the one file the day board is
-                # taught to expect would never exist. One rule, carried across
-                # rather than written twice.
-                "aRunningList": list_of_reports.report(one).a_running_list,
             }
             # **AND EVERY REPORT ANOTHER REPORT'S RUN PUTS AWAY (2026-09-15).** The ads
             # sweep lands `me_ads_summary` and `me_ads_catalog` too, and with only the

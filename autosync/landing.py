@@ -45,46 +45,6 @@ A_RANGE_IN_NAME = re.compile(r"_(\d{4}-\d{2}-\d{2})_to_(\d{4}-\d{2}-\d{2})\.[A-Z
 MOST_DAYS_IN_A_RANGE_FILE = 31
 
 
-def the_running_list_is_called(a_report: Report) -> str:
-    """What a running list is called. **No day in it, and that is the point.**
-
-    A running list is one file that every day is added to, so there is no day it
-    belongs to. Its days are the first column INSIDE it -- see `Arrived`.
-
-    **IT IS ITS OWN FUNCTION RATHER THAN A BRANCH SOMEWHERE, because three
-    different places have to agree about this name:** the walk that writes it, the
-    board that must not call it a stray, and whoever looks for it by hand.
-    """
-    return f"{a_report.platform}_{a_report.id}.{a_report.extension}"
-
-
-def the_days_in_the_list(text: str) -> Tuple[date, ...]:
-    """Which days a running list holds, read out of its own first column.
-
-    **THE OTHER HALF OF `the_running_list_is_called`.** The name says nothing
-    about days, so this is the only thing that can -- and the day board, the
-    manifest and the schedule all rest on it.
-
-    **ONLY A REAL DAY COUNTS.** A half-written line, a blank, or a note somebody
-    typed into the file by hand is not a day that arrived, and counting one would
-    stop that day ever being fetched again -- the quietest way there is to lose a
-    day for good.
-
-    **`extension/drive.js theDaysInTheList` IS THE SAME RULE ON THE OTHER SIDE**,
-    because the half that writes the file and the half that reads it back have to
-    agree about what a row is.
-    """
-    lines = str(text or "").strip().splitlines()
-    out = []
-    for one in lines[1:]:
-        first = one.split(",")[0].strip()
-        try:
-            out.append(date.fromisoformat(first))
-        except ValueError:
-            continue
-    return tuple(sorted(set(out)))
-
-
 def file_name_for(a_report: Report, data_date: date) -> str:
     """What one day's file of this report is called.
 
@@ -92,13 +52,7 @@ def file_name_for(a_report: Report, data_date: date) -> str:
     convention is two records of one fact, and the day board's entire idea of
     whether something arrived rests on these agreeing.
 
-    **AND A RUNNING LIST HAS ONE NAME FOR EVERY DAY, so the day is ignored rather
-    than refused.** Callers ask this the same way for every report and should not
-    have to know which shape they are holding; asking for "the 10th of September's
-    views file" is a fair question and the honest answer is the one file there is.
     """
-    if a_report.a_running_list:
-        return the_running_list_is_called(a_report)
     return f"{a_report.platform}_{a_report.id}_{data_date.isoformat()}.{a_report.extension}"
 
 
@@ -112,7 +66,7 @@ def file_name_for_range(a_report: Report, first_day: date, last_day: date) -> st
     checked against a name built by the rule rather than typed out. **A range the wrong way round, or longer than one press takes, is refused**, because the
     name is what every later reader trusts about which days the file holds.
     """
-    if a_report.a_running_list or first_day == last_day:
+    if first_day == last_day:
         return file_name_for(a_report, last_day)
     if first_day > last_day:
         raise ValueError(f"a range cannot start ({first_day}) after it ends ({last_day})")
@@ -232,8 +186,8 @@ A_DAYS_REPORT_FILE = re.compile(
 def why_a_report_file_may_go(file_name: str, today: date) -> Optional[str]:
     """Words saying why this file is past what the law asks to be kept, or None to keep it.
 
-    **A FILE WITH NO DAY IN ITS NAME IS KEPT, AND SO IS ANY FILE NOT NAMED AS A DAY'S REPORT** -- a
-    running list holds many days and nothing here can say which are old.
+    **A FILE WITH NO DAY IN ITS NAME IS KEPT, AND SO IS ANY FILE NOT NAMED AS A DAY'S REPORT** -- nothing
+    here can say which days it holds.
     """
     shape = A_DAYS_REPORT_FILE.fullmatch(file_name or "")
     # **A RANGE FILE IS KEPT BY ITS LAST DAY** -- the day `data_date_in` gives it -- and a name
@@ -271,17 +225,6 @@ class Arrived:
 
     name: str
     size: int
-    # **THE DAYS A RUNNING LIST HOLDS, READ OUT OF THE FILE ITSELF.**
-    #
-    # **ONE RULE, TWO SOURCES, AND BOTH ARE NAMED.** An ordinary report's day is
-    # in its NAME. A running list has no day in its name at all -- it is one file
-    # added to every day -- so its days are the first column inside it, and
-    # whoever listed the folder reads them and puts them here.
-    #
-    # **EMPTY IS THE ORDINARY CASE and means "ask the name", not "no days".**
-    # Every report but the running lists leaves this alone.
-    days_inside: Tuple[date, ...] = ()
-
     @property
     def data_date(self) -> Optional[date]:
         return data_date_in(self.name)
@@ -299,12 +242,9 @@ class Arrived:
         report stopped having its day in its name, all three would have quietly
         answered "no" about a file holding every day it was asked about.
 
-        **ONE RULE, TWO SOURCES, BOTH NAMED:** an ordinary report's day is in its
-        NAME (every day of it, when the name is a range); a running list's days are
-        the first column INSIDE it.
+        **EVERY REPORT'S DAY IS IN ITS NAME** (every day of it, when the name is a
+        range), so the name is the one source.
         """
-        if self.days_inside:
-            return day in self.days_inside
         return day in days_in_name(self.name)
 
 
@@ -336,15 +276,6 @@ def days_that_arrived(records: Iterable["Arrived"]) -> Tuple[date, ...]:
     out = set()
     for one in records or ():
         if one.is_empty:
-            continue
-        # **A RUNNING LIST ANSWERS WITH WHAT IS INSIDE IT, and it still answers
-        # here rather than anywhere else.** This function's own rule is that ONE
-        # place turns files into days -- the moment a second place learned about
-        # running lists, the schedule and the board would be able to disagree
-        # about what is still owed, which is the fault this docstring opens with.
-        inside = one.days_inside
-        if inside:
-            out.update(inside)
             continue
         # **A RANGE FILE ANSWERS WITH EVERY DAY IT NAMES, here and nowhere else.** Answering with
         # its last day alone would make every other day inside it look like a hole, and each

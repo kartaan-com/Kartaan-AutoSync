@@ -111,7 +111,7 @@ const BOOK = {
     },
     /* **THE ONE REPORT THAT IS NOT A FILE ANYWHERE.** Meesho sells no export of
      * the day's views, so the figures are read off two cards on the dashboard and
-     * a row is added to a running list. Same shape as the real `me_views`. */
+     * written as that day's own one-row file. Same shape as the real `me_views`. */
     me_views: {
       readyInMinutes: 0,
       toAsk: [],
@@ -125,7 +125,7 @@ const BOOK = {
         step({ do: 'read-number', find: find('Orders'), patience: 30,
           why: 'reading the orders for the day' }),
         step({ do: 'add-to-the-list', patience: 30,
-          why: 'adding the day to the running list' }),
+          why: 'writing the day as its own file' }),
       ],
     },
     /* **THE SWEEP: NOTHING IS PRESSED AND NO FILE IS OFFERED.** Meesho's ads
@@ -426,9 +426,7 @@ const BOOK = {
    * to `landing.file_name_for`, report by report. */
   fileNames: {
     me_orders: { platform: 'meesho', extension: 'csv' },
-    /* **NO DAY IN THIS ONE'S NAME, and that is the whole of the second shape.**
-     * One file, added to every night; its days are the first column inside it. */
-    me_views: { platform: 'meesho', extension: 'csv', aRunningList: true },
+    me_views: { platform: 'meesho', extension: 'csv' },
     me_ads: { platform: 'meesho', extension: 'csv' },
     me_ads_summary: { platform: 'meesho', extension: 'csv' },
     me_ads_catalog: { platform: 'meesho', extension: 'csv' },
@@ -493,7 +491,7 @@ function aPortal(how = {}) {
   };
   /* **WHERE THE BYTES GO, in miniature.** The real one is a message to the
    * background half, which is the only side that can reach `chrome.identity`. */
-  /* **THE OTHER WAY A DAY IS PUT AWAY: a row on a running list.** Recorded
+  /* **THE OTHER WAY A DAY IS PUT AWAY: a one-row file for the day.** Recorded
    * rather than counted, for the same reason `putAway` is -- a stand-in that
    * answered "yes" leaves every walk looking right with the numbers on the
    * floor. */
@@ -1064,8 +1062,8 @@ check('asked to step back by nothing at all, it answers the day itself',
   const portal = aPortal();
   const got = await aWalk(portal)('me_views', DAY);
   check('a day read off two cards is put away as a row', got.state === LANDED);
-  check('and it went into the running list, whose name carries no day',
-    portal.rowsAdded.length === 1 && portal.rowsAdded[0].fileName === 'meesho_me_views.csv');
+  check('and it went into the day\'s own file, named by the day (his D473)',
+    portal.rowsAdded.length === 1 && portal.rowsAdded[0].fileName === `meesho_me_views_${DAY}.csv`);
   /* **THE COLUMNS ARE THE RECIPE'S ORDER, NOT A BROWSER'S.** A file whose
    * columns can change order between two nights is a file nothing can read. */
   check('the header is the day and then the cards, in the order the recipe reads them',
@@ -1106,7 +1104,7 @@ check('asked to step back by nothing at all, it answers the day itself',
   check('a list that refused the row is a failure that says so',
     got.state === FAILED && got.say.includes('columns have changed'));
   check('and it names the file the row was for',
-    got.fileName === 'meesho_me_views.csv');
+    got.fileName === `meesho_me_views_${DAY}.csv`);
 }
 
 /* ------------------------------- moving like a person, so a portal does not block */
@@ -2230,8 +2228,6 @@ check('a walk still going is told apart from one that landed',
   check('31 days are named and 32 are not',
     theFileName(BOOK, 'fk_orders', '2026-10-01', '2026-09-01') !== ''
     && theFileName(BOOK, 'fk_orders', '2026-10-02', '2026-09-01') === '');
-  check('a running list is named without a day however a range is asked',
-    theFileName(BOOK, 'me_views', '2026-10-03', '2026-09-29') === 'meesho_me_views.csv');
   check('days between are counted with both ends', howManyDaysBetween('2026-09-29', '2026-10-03') === 5
     && howManyDaysBetween('2026-09-30', '2026-10-01') === 2 && MOST_DAYS_IN_A_RANGE_FILE === 31);
   check('why a range is refused names the cause in words',
@@ -2800,7 +2796,7 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
     && whyStepIsRefused({ do: 'go', address: 'https://x.invalid', table: 'meesho-pricing', patience: 30, why: 'x' }) !== null);
 }
 
-const EXPECTED = 349 + 10;
+const EXPECTED = 349 + 9;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

@@ -2040,15 +2040,7 @@ export function theFileName(book, reportId, dataDate, fromDay = '') {
    * comment above exists to prevent. The walk refuses a bad day before it gets
    * here; this is the second lock on the same door, and it is the same rule
    * rather than a second copy of it. */
-  /* **A RUNNING LIST HAS ONE NAME FOR EVERY DAY, AND THE DAY IS STILL REFUSED
-   * FIRST.** The name does not carry it, but the ROW inside does -- so a bad day
-   * has to stop here either way, or it reaches the file instead of the name and
-   * the day board reads it back as a row nothing can place.
-   * `landing.the_running_list_is_called` is the same sentence on the Python
-   * side, and `export_recipes.py` carries the flag across so there is one rule
-   * and not two. */
   if (whyTheDayIsRefused(dataDate)) return '';
-  if (how.aRunningList) return `${how.platform}_${reportId}.${how.extension}`;
   /* **A RANGE ASKED FOR IN ONE REQUEST IS NAMED FOR BOTH ENDS, AND ONLY WHEN THE FIRST DAY IS BEFORE
    * THE LAST** (P16): `platform_report_FROM_to_TO.ext`. A range of one day is a day file, exactly as
    * ever. **A range the wrong way round, or longer than one press takes, answers nothing**, and the
