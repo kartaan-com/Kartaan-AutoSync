@@ -55,7 +55,8 @@ export function leavesOf(root) {
       if (said) out.push(said);
       return;
     }
-    kids.forEach(walk);
+    /* A real page's `children` is an HTMLCollection, which has no `forEach` (A84, 15 Oct: "kids.forEach is not a function"). */
+    Array.from(kids).forEach(walk);
   };
   walk(root);
   return out;
@@ -170,9 +171,15 @@ function theTableOn(page, way) {
   return below(page, 'table').find((one) => textOf(one).includes(way.words)) || null;
 }
 
+/* **TWO HEADER CELLS ARE READ BY THEIR NAME FROM THE 15 OCT RUN, AND NO OTHER** (A84): Flipkart's tick-box cell now carries its icon's name
+ * as words (`CheckBoxOutlineBlank`), so it is an empty cell as before; Meesho's pricing header runs two words together (`Growthin 30 days`),
+ * so it is the column it always was. Any other word is still refused, naming the columns the table has. */
+const ICON_NAMES = new Set(['CheckBoxOutlineBlank']);
+const RUN_TOGETHER = { 'Growthin 30 days': 'Growth in 30 days' };
+
 /** The header cells of a table: their words, in order, with the empty ones kept in place (a tick box has no words). */
 function headerCellsOf(table) {
-  return below(table, 'th').map(textOf);
+  return below(table, 'th').map(textOf).map((words) => (ICON_NAMES.has(words) ? '' : (RUN_TOGETHER[words] || words)));
 }
 
 const isOff = (button) => !!(button && (button.disabled === true || (button.getAttribute && button.getAttribute('aria-disabled') === 'true')));

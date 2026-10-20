@@ -21,19 +21,40 @@ function check(name, passed) {
 
 /* ---------------------------------------------------------------- a page made of plain objects */
 
+class Collection {
+  constructor(list) {
+    this.length = list.length;
+    list.forEach((one, at) => { this[at] = one; });
+  }
+
+  [Symbol.iterator]() {
+    return Array.prototype[Symbol.iterator].call(this);
+  }
+}
+
 class El {
   constructor(tagName, { text = '', attrs = {}, kids = [] } = {}) {
     this.tagName = tagName.toUpperCase();
     this.attrs = attrs;
-    this.children = kids;
+    this._kids = kids;
     this.ownText = text;
     this.disabled = attrs.disabled === true;
     this.clicks = 0;
     this.onClick = null;
   }
 
+  /* **A REAL PAGE'S `children` IS AN HTMLCollection: it can be counted, indexed and looped over, and it has no `forEach`** (the live fault
+   * "kids.forEach is not a function", 15 Oct). Switched on for the checks that need it; every other check keeps a plain list. */
+  get children() {
+    return El.realistic ? new Collection(this._kids) : this._kids;
+  }
+
+  set children(list) {
+    this._kids = list;
+  }
+
   get textContent() {
-    return this.ownText + this.children.map((one) => one.textContent).join(' ');
+    return this.ownText + this._kids.map((one) => one.textContent).join(' ');
   }
 
   getAttribute(name) {
@@ -273,8 +294,55 @@ check('and the file carries the guard', theCsv(['a'], [['=1+1']]).split('\n')[1]
     [...asked].sort().join() === [...THE_TABLES].sort().join());
 }
 
+/* ---------------------------------------------------------------- the faults of 15 Oct (A84) */
+
+{
+  /* **A84, FAULT 1: a real page's `children` has no `forEach`.** Every other check here hands `children` a plain list. */
+  El.realistic = true;
+  const { page } = aPage({ headers: PERF_HEADERS, pages: [[perfRow('A', '1')]], extra: PRINTED, pager: PAGER(1) });
+  const got = await readTheTable(page, { table: 'meesho-product-performance', rest: noWaiting });
+  El.realistic = false;
+  check('A84: A PAGE WHOSE CHILDREN ARE AN HTMLCollection (NO forEach) IS READ, not refused with "kids.forEach is not a function"',
+    got.rows === 1 && got.csv.split('\n')[1].includes('"A","1","3.9"'));
+  check('and the same words are read when the leaves are asked for directly',
+    (() => { El.realistic = true; const out = leavesOf(el('td', '', [p('Name'), el('div', '', [p('x')])])).join('|'); El.realistic = false; return out === 'Name|x'; })());
+}
+
+{
+  /* **A84, FAULT 2: Meesho's header cell now reads "Growthin 30 days" (its words run together).** Both spellings are the one column. */
+  const joinedHeaders = PRICE_HEADERS.map((one) => (one === 'Growth in 30 days' ? 'Growthin 30 days' : one));
+  const { page } = aPage({
+    headers: joinedHeaders, pages: [[priceRow('A', '1', 'S-1', 'Losing Views')]],
+    extra: [p('Losing Orders (0)'), p('Losing Views (1)'), p('Best Priced (0)')], pager: PAGER(1),
+  });
+  const got = await readTheTable(page, { table: 'meesho-pricing', rest: noWaiting });
+  check('A84: PRICING WITH "Growthin 30 days" IS READ, and the file still names the column the old way', got.rows === 1
+    && got.csv.split('\n')[0].includes('"Growth in 30 days"'));
+  const other = PRICE_HEADERS.map((one) => (one === 'Growth in 30 days' ? 'Growt hin 30 days' : one));
+  const why = await thrown(() => readTheTable(aPage({
+    headers: other, pages: [[priceRow('A', '1', 'S-1', 'x')]], extra: [p('All Products (1)')], pager: PAGER(1),
+  }).page, { table: 'meesho-pricing', rest: noWaiting }));
+  check('and any other spelling is still refused, naming the columns it has', why.includes('not the ones expected') && why.includes('Growt hin'));
+}
+
+{
+  /* **A84, FAULT 3: Flipkart's tick-box header cell now carries its icon's name as words.** */
+  const iconHeaders = QI_HEADERS.map((one, at) => (at === 0 ? 'CheckBoxOutlineBlank' : one));
+  const { page } = aPage({
+    headers: iconHeaders, tableText: 'Suppression Risk', pages: [[qiRow('A', 'S-1', true)]],
+    pager: [{ label: 'Previous Page' }, { label: 'Next Page', disabled: true }],
+  });
+  const got = await readTheTable(page, { table: 'flipkart-quality-insights', rest: noWaiting });
+  check('A84: QUALITY WITH THE TICK-BOX CELL READING "CheckBoxOutlineBlank" IS READ', got.rows === 1 && got.csv.split('\n')[1].startsWith('"A","S-1"'));
+  const why = await thrown(() => readTheTable(aPage({
+    headers: QI_HEADERS.map((one, at) => (at === 0 ? 'SomethingElseIcon' : one)), tableText: 'Suppression Risk',
+    pages: [[qiRow('A', 'S-1', true)]], pager: [{ label: 'Previous Page' }, { label: 'Next Page', disabled: true }],
+  }).page, { table: 'flipkart-quality-insights', rest: noWaiting }));
+  check('and any other word in that cell is still refused', why.includes('not the ones expected') && why.includes('SomethingElseIcon'));
+}
+
 console.log(failures ? `\n${failures} FAILED (${ran} checks)` : `\nall ${ran} checks passed`);
-const EXPECTED = 40;
+const EXPECTED = 46;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   process.exit(1);

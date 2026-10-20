@@ -202,7 +202,8 @@ export async function theSetup(chrome) {
  * downloading when none was ever kept. Never the Run now ticks: on 09-18..09-20
  * two ticked ad reports became the whole daily sync, and no Meesho ran.
  */
-/* Put off by him (decision E): Flipkart offers keywords only for its latest day. */
+/* Put off by him (decision E; fk_ads_kw 12 Oct, Flipkart ended keyword ads). **NEVER FETCHED -- NOT BY THE TIMER, NOT BY A RUN NOW TICK (A84):**
+ * the first run of 15 Oct fetched both because Run now opened with every report ticked, this pair included. */
 const OFF_THE_TIMED_LIST = Object.freeze(['fk_keywords', 'fk_ads_kw']);
 
 export function theTimedList(book, setUp) {
@@ -216,7 +217,8 @@ export function theTimedList(book, setUp) {
 /** Every report with a tick box of its own on the Run now panel (A61, Job 5b). */
 function theTickableReports(book) {
   return (book.reports || [])
-    .filter((one) => THROUGH_THE_BROWSER.includes(one.platform) && (book.recipes || {})[one.id])
+    .filter((one) => THROUGH_THE_BROWSER.includes(one.platform) && (book.recipes || {})[one.id]
+      && !OFF_THE_TIMED_LIST.includes(one.id))
     .map((one) => one.id);
 }
 
@@ -769,7 +771,8 @@ export async function howItStands(chrome, { book, now = Date.now(), theClock = n
         id: one.id,
         name: one.name,
         platform: one.platform,
-        canBeFetched: Boolean((book.recipes || {})[one.id] || fetchedByAnother[one.id]),
+        /* The switched-off pair has no tick box and cannot be started (A84). */
+        canBeFetched: Boolean((book.recipes || {})[one.id] || fetchedByAnother[one.id]) && !OFF_THE_TIMED_LIST.includes(one.id),
         /* **AND WHICH RUN BRINGS IT, said rather than left to be guessed.** A
          * seller ticking it on its own would be ticking nothing. */
         fetchedBy: fetchedByAnother[one.id] || '',
@@ -981,11 +984,12 @@ export async function answerThePanelsQuestion(chrome, parts, asked) {
      * "make it like Rumee"; `D:/rumee-auto-sync/background.js:191-209`)** -- the same
      * queue the timed sync uses. Every part is asked first, so a Meesho part that
      * cannot start never lets Flipkart spend its requests. */
+    /* A tick kept from before the pair was switched off is dropped here, not started as asked (A84). */
+    const wanted = [...new Set(asked.reportIds || [])].filter((id) => !OFF_THE_TIMED_LIST.includes(id));
     const byPlatform = PLATFORM_ORDER
-      .map((platform) => [...new Set(asked.reportIds || [])]
-        .filter((id) => thePlatformOf(book, id) === platform))
+      .map((platform) => wanted.filter((id) => thePlatformOf(book, id) === platform))
       .filter((ids) => ids.length);
-    if (byPlatform.length < 2) return startASync(chrome, parts, { reportIds: asked.reportIds, ...how });
+    if (byPlatform.length < 2) return startASync(chrome, parts, { reportIds: wanted, ...how });
     const setUp = await theSetup(chrome);
     const night = await theNight(chrome);
     for (const ids of byPlatform) {
@@ -1132,7 +1136,9 @@ export async function startASync(chrome, parts, asked) {
 async function startASyncInTurn(chrome, parts, asked) {
   const { book, now = () => Date.now() } = parts;
   {
-    const reportIds = withTheListsTheyRead(book, [...new Set(asked.reportIds || [])]);
+    /* **EVERY WAY A RUN STARTS COMES THROUGH HERE**: a resumed run, a queue kept by an older build and the hourly re-check carry ids saved
+     * before the pair was switched off (A84, review). */
+    const reportIds = withTheListsTheyRead(book, [...new Set(asked.reportIds || [])].filter((id) => !OFF_THE_TIMED_LIST.includes(id)));
     const setUp = await theSetup(chrome);
     const night = await theNight(chrome);
     const wrong = whyItCannotBeStarted(book, { reportIds, panel: setUp.panel, night });

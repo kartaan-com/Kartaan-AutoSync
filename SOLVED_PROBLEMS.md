@@ -48,6 +48,9 @@ the file where it happened. A reviewer finding something already on this list is
 - Test one report at a time. -- working rule
 - Reloading a Flipkart tab means a real page load: changing only what follows `#` keeps the old page half (add or change something before the `#`). -- working rule
 - After every extension reload, reload EVERY open platform tab: a tab left open keeps the old page half, which cannot reach the extension, and a file handed through it never reaches Drive ("Receiving end does not exist"). -- working rule
+- A page's `children` is an HTMLCollection and has no `forEach`: loop it with `Array.from` or `for...of`. Checks that hand `children` a plain list never show it. -- `extension/tables.js` `leavesOf`, `extension/tables.test.js` `Collection` (A84, 15 Oct: Meesho product performance died on "kids.forEach is not a function")
+- A header cell can carry its icon's name as words (`CheckBoxOutlineBlank`) or run two words together (`Growthin 30 days`): name those exact words, accept no others, and the refusal still lists what the table has. -- `extension/tables.js` `ICON_NAMES`, `RUN_TOGETHER` (A84)
+- A report switched off by a ruling must be off everywhere it can be started, not only on the timer: the Run now panel opened with `fk_keywords` and `fk_ads_kw` ticked and started a stale tick as asked. -- `extension/screen.js` `OFF_THE_TIMED_LIST`, `theTickableReports`, `run-now` (A84)
 
 ## Taking the file
 

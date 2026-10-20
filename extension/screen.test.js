@@ -60,6 +60,7 @@ import {
   markCarriedOn,
   releaseCarriedOn,
   startASync,
+  THE_QUEUE,
   startTheNextPlatform,
   startTheScheduledSync,
   theSignInAlert,
@@ -633,10 +634,6 @@ check('Amazon is not fetched through the browser at all',
     (no({ reportIds: ['me_orders'] }) || '').includes('fulfillment/'));
   check('a Meesho run with a panel name is allowed',
     no({ reportIds: ['me_orders'], panel: 'mine' }) === null);
-  /* **THE KEYWORDS WERE THE LAST REPORT THIS DOOR COULD NOT FETCH, AND SINCE
-   * 2026-09-15 THEY CAN BE**, so they are allowed like any other. */
-  check('the keywords, now built, can be started like any other report',
-    no({ reportIds: ['fk_keywords'] }) === null);
   /* **AND `me_views` IS NO LONGER ONE OF THEM, which is the point of the change
    * on 2026-09-11.** The door learned to read a number off a card and to add a
    * row to a running list, so the one report Meesho sells no export of became
@@ -915,8 +912,8 @@ check('the allowance is twenty, and it is a number a program can read',
     stands.cannotBeFetched.every((one) => one.why.length > 40));
   check('the reasons are the Python\'s own words, not words invented here',
     stands.cannotBeFetched.every((one) => one.why === BOOK.notYetARecipe[one.id]));
-  check('so every report can be ticked',
-    stands.reports.filter((one) => !one.canBeFetched).length === 0);
+  check('so every report can be ticked but the two switched off (A84)',
+    stands.reports.filter((one) => !one.canBeFetched).map((one) => one.id).sort().join() === 'fk_ads_kw,fk_keywords');
   /* **AND THE TWO THE ADS SWEEP BRINGS ARE TICKABLE AND SAY WHO BRINGS THEM.**
    * Listed as unfetchable, a seller would read "cannot be fetched" about two
    * files that arrive in their Drive every night. */
@@ -1305,7 +1302,7 @@ function panelParts(chrome, held = {}) {
    * whole set, and Run now then saved no ticks and started nothing. */
   check('the box is off for exactly the reports that arrive with another',
     [...parts.boxes.entries()].filter(([, one]) => one.disabled).map(([id]) => id).join(',')
-    === stands.reports.filter((one) => one.fetchedBy).map((one) => one.id).join(','));
+    === stands.reports.filter((one) => one.fetchedBy || !one.canBeFetched).map((one) => one.id).join(','));
   check('what cannot be fetched is on the page with its reason',
     parts.cannot.children.length === 1);
   check('the log says no night has been run rather than nothing at all',
@@ -1709,6 +1706,41 @@ function panelParts(chrome, held = {}) {
   check('5b: a Meesho part that cannot start stops the whole run, saying which and why',
     started.length === 0 && (said.wrong || '').includes('Meesho')
     && (said.wrong || '').includes('fulfillment/') && (said.wrong || '').includes('Nothing was started'));
+}
+
+{
+  /* **A84: THE TWO SWITCHED-OFF FLIPKART REPORTS ARE NEVER FETCHED, BY THE TIMER OR BY A TICK** (the 15 Oct first run fetched both because
+   * Run now opened with every report ticked, this pair included, and a stale tick was started as asked). */
+  const { chrome } = installFakeChrome();
+  const held = {};
+  const say = (asked) => answerThePanelsQuestion(chrome, panelParts(chrome, held), asked);
+  await say({ do: 'connect-the-drive' });
+  await say({ do: 'save-the-panel-name', panel: 'rumee-panel' });
+  const stands = (await say({ do: 'how-it-stands' })).stands;
+  check('A84: the panel opens without a tick box for either switched-off report',
+    !stands.setUp.ticked.includes('fk_keywords') && !stands.setUp.ticked.includes('fk_ads_kw') && stands.setUp.ticked.includes('fk_views'));
+  const alone = await say({ do: 'run-now', reportIds: ['fk_keywords'] });
+  check('and a stale tick on one of them alone starts nothing', Boolean(alone.wrong) && !alone.started);
+  const started = await say({ do: 'run-now', reportIds: ['fk_keywords', 'fk_ads_kw', 'fk_views'] });
+  check('and with others ticked, they are fetched and the two are left out',
+    Array.isArray(started.started) && started.started.join() === 'fk_views');
+}
+
+{
+  /* **A84 REVIEW: A QUEUE KEPT BY THE 15 OCT BUILD STILL HOLDS THE SWITCHED-OFF PAIR**, and the next platform's start must not fetch them. */
+  const { chrome } = installFakeChrome();
+  const started = [];
+  const parts = {
+    book: BOOK, now: () => Date.UTC(2026, 8, 16, 3, 0),
+    startTheNight: async (c, how) => { started.push(how); return startTheNight(c, how); },
+    carryOn: async () => {},
+  };
+  await answerThePanelsQuestion(chrome, parts, { do: 'save-the-panel-name', panel: 'xuptj' });
+  await answerThePanelsQuestion(chrome, parts, { do: 'check-the-drive' });
+  await chrome.storage.local.set({ [THE_QUEUE]: [{ reportIds: ['fk_keywords', 'fk_ads_kw', 'fk_views'] }] });
+  const next = await startTheNextPlatform(chrome, parts);
+  check('A84: a stored queue naming the switched-off pair starts without them',
+    Boolean(next.started) && started.length === 1 && started[0].doing.join() === 'fk_views');
 }
 
 reachedTheEnd = true;
