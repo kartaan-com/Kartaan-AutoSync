@@ -259,9 +259,8 @@ class LedgerDoor:
                     f"Row {row} was to be changed but the plan does not say which cells, and writing the whole row could put back what the ERP "
                     "wrote since it was read, so nothing was written."
                 )
+        # Row 1 needs no lock of its own here: a row with cells must be a changed row (above), and a changed row 1 is refused first.
         for row, those in plan.cells:
-            if row <= 1:
-                raise LedgerRefused(f"Something asked to write cells on row {row}. Row 1 is the column names.")
             for column, _ in those:
                 if column not in COLUMNS or column in ERP_OWNED_COLUMNS:
                     raise LedgerRefused(f"The run may not write {column!r}: it is not a column of the run's, so nothing was written.")

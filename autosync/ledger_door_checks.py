@@ -274,6 +274,18 @@ check("a cell that is the ERP's cannot be named in a plan the door will write",
 check("adjacent changed columns go in one range",
       [one["range"] for one in tool._ranges_of(5, (("id", "a"), ("platform", "b"), ("sku", "c")))]
       == [f"orders!A5:B5", f"orders!{sales.column_letter(AT['sku'] + 1)}5"])
+check("and that one range carries EVERY cell of the run, in column order, not only its first (R20 proving)",
+      [one["values"] for one in tool._ranges_of(5, (("id", "a"), ("platform", "b"), ("sku", "c")))] == [[["a", "b"]], [["c"]]])
+_one_row = lambda: Pretend(rows=HEADER + [["x"] * len(sales.COLUMNS)] * 2)
+check("a changed row whose cell list is EMPTY is refused, not taken as said (R20 proving)",
+      refused_by(lambda: tool.LedgerDoor(_one_row(), "S1").carry_out(
+          ledger.Plan(update=((2, tuple("y" for _ in sales.COLUMNS)),), cells=((2, ()),)))))
+check("cells named on a row the plan does not change are refused (R20 proving)",
+      refused_by(lambda: tool.LedgerDoor(_one_row(), "S1").carry_out(
+          ledger.Plan(update=((2, tuple("y" for _ in sales.COLUMNS)),), cells=((2, (("gmv", "y"),)), (3, (("gmv", "y"),)))))))
+check("a cell named for a column the ledger does not have is refused as such, not a crash (R20 proving)",
+      refused_by(lambda: tool.LedgerDoor(_one_row(), "S1").carry_out(
+          ledger.Plan(update=((2, tuple("y" for _ in sales.COLUMNS)),), cells=((2, (("noSuchColumn", "y"),)),)))))
 
 # ----------------------------------------------- a failure is not swallowed
 
@@ -325,7 +337,7 @@ check("nothing here invents a second address for Google",
 print()
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 54
+EXPECTED = 54 + 4
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

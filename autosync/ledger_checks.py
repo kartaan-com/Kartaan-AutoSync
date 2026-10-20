@@ -671,6 +671,16 @@ _kept = answered(lambda: tool.plan(
     as_sheet([_delivered]), [a_reading("amazon orders", "2026-10-20", [a_sale("O9")], knows=_WITH_WORD)]))
 check("but a blank still never wipes a real outcome such as Delivered",
       _kept is not None and _kept.update == ())
+_no_qty = answered(lambda: tool.plan(as_sheet([sales.the_row_for(a_sale("O8", qty=1, gmv="100"))]),
+                                     [a_reading("meesho orders", "2026-10-20", [a_sale("O8")])]))
+check("a blank price beside a quantity that says nothing (not a nought) leaves the old price standing (R20 proving)",
+      _no_qty is not None and all(one[1][AT["gmv"]] == "100" for one in _no_qty.update))
+_two = answered(lambda: tool.plan(as_sheet([sales.the_row_for(a_sale("O5", on="2026-09-11", qty=1, gmv="100"))]),
+                                  [a_reading("meesho orders", "2026-10-20", [a_sale("O5", on="2026-09-10", qty=2, gmv="150")])]))
+check("the cells of a changed row are named in the SHEET'S column order (R20 proving)",
+      _two is not None and len(_two.cells) == 1
+      and [c for c, _ in _two.cells[0][1]] == [c for c in sales.COLUMNS if c in {c for c, _ in _two.cells[0][1]}]
+      and len(_two.cells[0][1]) >= 2)
 for _source, _knows, _day in (("payments", ("settlement", "paymentsOn", "whatHappened"), {"payments_on": "2026-10-20"}),
                               ("returns", ("platform", "orderId", "sku", "whatHappened", "returnsOn"), {"returns_on": "2026-10-20"})):
     _left = answered(lambda k=_knows, s=_source, d=_day: tool.plan(
@@ -741,7 +751,7 @@ check("but a sale with a quantity above nought never loses its price to a blank"
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-WITH_HIS_FILES = 115 + 2
+WITH_HIS_FILES = 115 + 2 + 2
 EXPECTED = WITH_HIS_FILES - (9 if not_run else 0)
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")

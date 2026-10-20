@@ -241,7 +241,7 @@ def read_returns(report_id: str, rows: table.Table, file_day: str) -> WhatReturn
             # earlier return keeps the plain name every earlier night wrote it under; a later one is named by the day it was requested.
             earlier, later = sorted((records[name], record), key=lambda r: (str(r.get("startedOn", "")), r["digest"]))
             records[name] = earlier
-            name = f"{name}~{later.get('startedOn') or later['digest'][:8]}"
+            name = f"{name}~{later['startedOn']}"
             if name in records:
                 if records[name]["digest"] != later["digest"]:
                     not_read.append(f"line {row.line}: {key!r} is returned a third time on the same day with different words, so only the first was kept")

@@ -690,8 +690,6 @@ def a_return_write(project: str, record: Dict, named_by: Optional[str] = None) -
 
 def plain_deep(held) -> object:
     """One Firestore value (any shape, maps and lists included) back as plain data. Only ever used on records this job wrote itself."""
-    if not isinstance(held, dict):
-        return held
     if "mapValue" in held:
         return {name: plain_deep(one) for name, one in ((held["mapValue"].get("fields")) or {}).items()}
     if "arrayValue" in held:

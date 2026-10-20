@@ -66,9 +66,22 @@ check("A DAY NAMED TWICE IN ONE FILE IS SAID, the later line standing",
 no_columns = caught(lambda: shopdays.read_shop_days("me_views", "meesho", file_of("A,B\n1,2\n"), "2026-10-20"))
 check("a file without the columns is refused in words naming what it has",
       no_columns is not None and "Views" in str(no_columns) and "Nothing was read" in str(no_columns))
+# ---------------------------------------------------------------- R20 proving
+import records  # noqa: E402
+
+_sd = (answered(lambda: shopdays.read_shop_days("me_views", "meesho", file_of(REAL), "2026-10-20")) or ({}, ()))[0]
+_sdwant = {"platform": "meesho", "report": "me_views", "day": "2026-10-07", "views": 38976, "orders": 27, "fileDay": "2026-10-20"}
+check("A SHOP DAY'S RECORD HOLDS EXACTLY its day, views, orders and the file's day (R20 proving)",
+      _sd.get("meesho__2026-10-07") == dict(_sdwant, digest=records.the_digest(_sdwant)))
+_, _frac = answered(lambda: shopdays.read_shop_days("me_views", "meesho", file_of("Date,Views,Orders\n2026-10-06,12.5,1\n2026-10-07,1,2.5\n"), "2026-10-20")) or ({}, ())
+check("views and orders are whole counts: a fraction is refused by line (R20 proving)", len(_frac) == 2)
+_no_orders = (answered(lambda: shopdays.read_shop_days("me_views", "meesho", file_of("Date,Views,Orders\n2026-10-06,5,\n"), "2026-10-20")) or ({}, ()))[0]
+check("a blank Orders cell is nothing, not nought (R20 proving)", "orders" not in _no_orders.get("meesho__2026-10-06", {"orders": 0}))
+check("a file without the Orders column is refused in words (R20 proving)",
+      "Nothing was read" in str(caught(lambda: shopdays.read_shop_days("me_views", "meesho", file_of("Date,Views\n2026-10-06,1\n"), "2026-10-20"))))
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 7
+EXPECTED = 7 + 4
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

@@ -227,6 +227,16 @@ const PRINTED = [p("28th Sep '26 - 4th Oct '26"), p('Last updated 4th Oct | 10:3
 }
 
 {
+  /* R20 proving: a next button that switched itself off after the first press is not pressed again. */
+  const built = aPage({ headers: PERF_HEADERS, pages: [[perfRow('A', '1')], [perfRow('B', '2')]], extra: PRINTED, pager: PAGER(2) });
+  const nextButton = built.buttons.find((one) => one.getAttribute('aria-label') === 'Next page');
+  nextButton.onClick = null;
+  Object.defineProperty(nextButton, 'disabled', { get: () => nextButton.clicks >= 1 });
+  await thrown(() => readTheTable(built.page, { table: 'meesho-product-performance', rest: noWaiting, patience: 1 }));
+  check('a pager button that has switched itself off is never pressed again (R20 proving)', nextButton.clicks === 1);
+}
+
+{
   /* **A86: FLIPKART'S PAGER, WHICH NAMES NO PAGES, ENDS BY NOT MOVING AND IS NEVER PRESSED AGAIN** -- three waits at the real end of a
    * table would be a minute and a half for nothing. */
   const { page, buttons } = aPage({
@@ -417,7 +427,7 @@ check('and the file carries the guard', theCsv(['a'], [['=1+1']]).split('\n')[1]
 }
 
 console.log(failures ? `\n${failures} FAILED (${ran} checks)` : `\nall ${ran} checks passed`);
-const EXPECTED = 52;
+const EXPECTED = 52 + 1;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   process.exit(1);

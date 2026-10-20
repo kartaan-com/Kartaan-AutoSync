@@ -169,9 +169,50 @@ finally:
     reading.a_listings_reading = _real_listings_reading
 check("A CATALOG FILE THAT WILL NOT READ LEAVES THE PERFORMANCE FILE UNREAD and says why -- matched against nothing, every product would be flagged for good",
       broken is not None and broken.read_tonight == () and _wrote_anyway == [] and any("could not be read" in x for x in broken.could_not_read))
+# ---------------------------------------------------------------- R20 proving: what each record holds, exactly
+import hashlib  # noqa: E402
+import records  # noqa: E402
+
+_pm, _pr = answered(lambda: performance.read_performance("me_product_performance", "meesho", file_of(
+    row("Gold Jhumka", rating="4.3", views="100 | -5.5%", conversions="10.126% | 2.0%", returns="120%"),
+    row("Gold Jhumka"),
+    row("Shared Title"),
+    row("Bad Range", week="13th Oct '26 - 19th Oct '26 - 20th Oct '26"),
+    row("Bad Month", week="13th Foo '26 - 19th Oct '26"),
+    row("Three Figures", views="1 | 2 | 3"),
+), "2026-10-20", TITLES)) or ({}, ())
+_base = "meesho__2026-10-19__" + hashlib.sha1("Gold Jhumka".encode("utf-8")).hexdigest()[:12]
+_pwant = {"platform": "meesho", "report": "me_product_performance", "product": "Gold Jhumka", "weekFrom": "2026-10-13", "weekTo": "2026-10-19",
+          "fileDay": "2026-10-20", "views": 100, "viewsOther": -5.5, "conversion": 10.13, "conversionOther": 2, "clicks": 10, "orders": 1,
+          "sales": 1250.5, "returnsPct": 120, "rating": 4.3, "catalogId": "111", "matched": True}
+check("A PRODUCT WEEK HOLDS EXACTLY ITS OWN FIGURES: whole ones whole, others to two places, a second figure that may be below nought, "
+      "returns above a hundred per cent as said, named by the week's LAST day and twelve characters of the title (R20 proving)",
+      _pm.get(_base) == dict(_pwant, digest=records.the_digest(_pwant))
+      and all(type(_pm.get(_base, {}).get(k)) is int for k in ("views", "conversionOther", "clicks", "orders", "returnsPct")))
+check("the same title twice in a week: the first keeps the plain name, the second is -2 (R20 proving)",
+      set(_pm) >= {_base, _base + "-2"} and _pm[_base]["rating"] == 4.3)
+check("a week of three dates, a month word that is not one, and three joined figures are each refused by line, not guessed (R20 proving)",
+      len(_pr) == 3 and len(_pm) == 3)
+check("a title two catalogs share is not matched, and says how many (R20 proving)",
+      performance.titles_of({"a": {"productName": "Shared", "catalogId": "1"}, "b": {"productName": " shared ", "catalogId": "2"}})
+      == {"shared": frozenset({"1", "2"})})
+check("a figure that changes changes the fingerprint, so a changed week is written again (R20 proving)",
+      (lambda a, b: a and b and next(iter(a[0].values()))["digest"] != next(iter(b[0].values()))["digest"])(
+          answered(lambda: performance.read_performance("p", "meesho", file_of(row("Gold Jhumka", orders="1")), "2026-10-20", TITLES)),
+          answered(lambda: performance.read_performance("p", "meesho", file_of(row("Gold Jhumka", orders="2")), "2026-10-20", TITLES))))
+_no_rating = answered(lambda: performance.read_performance("p", "meesho", table.read(
+    (HEAD.replace('"Rating",', "") + "\n" + f'"{WEEK}","x","Gold Jhumka","","100 | 5.0%","10","1","10.0% | 2.0%","9","0.0%","",""' + "\n").encode("utf-8")),
+    "2026-10-20", TITLES))
+check("a file without the optional Rating column is still read, with no rating (R20 proving)",
+      _no_rating is not None and len(_no_rating[0]) == 1 and "rating" not in next(iter(_no_rating[0].values())))
+for _gone in ("Returns", "Conversions"):
+    check(f"a file without the {_gone} column is refused in words (R20 proving)",
+          "Nothing was read" in str(caught(lambda g=_gone: performance.read_performance("p", "meesho", table.read(
+              (HEAD.replace(f'"{g}",', "") + "\n").encode("utf-8")), "2026-10-20", TITLES))))
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 15
+EXPECTED = 15 + 8
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

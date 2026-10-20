@@ -33,6 +33,7 @@ import {
   STOP_TRUSTING_IT_MS,
   THE_TOKEN,
   aDriveToken,
+  addARowTo,
   asAQuotedValue,
   aWayOfAsking,
   forgetTheToken,
@@ -42,6 +43,8 @@ import {
   landTheFile,
   putTheFile,
   recordWhatLanded,
+  theDaysInTheList,
+  theListWith,
   theMetadata,
   whatIsAlreadyThere,
   theKartaanFolder,
@@ -770,7 +773,36 @@ check('and other files in the folder are none of its business',
     first.contents === '{"shape":2,"reads":[],"lines":[]}' && drive.put.length === 1 && !drive.put[0].address.includes('/a'));
 }
 
-const EXPECTED = 88;
+/* ------------------------------------------- one day's row as the day's own file (R20 proving) */
+
+check('only a real day in the first column counts as a day the list holds (R20 proving)',
+  JSON.stringify(theDaysInTheList('Date,Views,Orders\n2026-10-14,5,1\nnote by hand,1,1\n,2,2\n')) === '["2026-10-14"]');
+check('the same day written again replaces its row, never adds a second (R20 proving)',
+  theListWith('Date,Views,Orders\n2026-10-14,5,1', 'Date,Views,Orders', '2026-10-14,9,2', '2026-10-14') === 'Date,Views,Orders\n2026-10-14,9,2');
+
+{
+  const browser = installFakeChrome();
+  const drive = aDrive({ holds: [...theFoldersFor('me_views')] });
+  const added = await addARowTo(browser.chrome, drive.ask, {
+    reportId: 'me_views', fileName: 'meesho_me_views_2026-10-14.csv', inside: 'kartaan',
+    header: 'Date,Views,Orders', row: '2026-10-14,5,1', forTheDay: '2026-10-14', layout: LAYOUT,
+  });
+  check('a NEW day file says which day it holds, for the install record (R20 proving)', JSON.stringify(added.days) === '["2026-10-14"]');
+}
+
+{
+  const browser = installFakeChrome();
+  const there = { id: 'v1', name: 'meesho_me_views_2026-10-14.csv', parents: ['f1'], contents: 'Date,Views,Orders\n2026-10-14,5,1' };
+  const drive = aDrive({ holds: [...theFoldersFor('me_views'), there] });
+  const again = await addARowTo(browser.chrome, drive.ask, {
+    reportId: 'me_views', fileName: 'meesho_me_views_2026-10-14.csv', inside: 'kartaan',
+    header: 'Date,Views,Orders', row: '2026-10-14,9,2', forTheDay: '2026-10-14', layout: LAYOUT,
+  });
+  check('a day file written AGAIN is replaced in place and still says its day (R20 proving)',
+    JSON.stringify(again.days) === '["2026-10-14"]' && there.contents === 'Date,Views,Orders\n2026-10-14,9,2');
+}
+
+const EXPECTED = 88 + 4;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

@@ -478,6 +478,24 @@ check("MEESHO'S CAMPAIGNS-SO-FAR FILE IS READ INTO A RECORD OF ITS OWN KIND, nev
       _life is not None and set(_life.records) == {"meesho__2026-10-14__lifetime"} and _life_row.get("spend") == 5649.58
       and _life_row.get("revenue") == 57154.0 and _life_row.get("units") == 234 and _life_row.get("views") == 1848493
       and _life_row.get("status") == "LIVE" and _life_row.get("startDate") == "2026-08-07" and _life_row.get("campaignId") == "24960469")
+check("the campaigns-so-far file's clicks are read too (R20 proving)", _life_row.get("clicks") == 52783)
+check("and its campaign name (R20 proving)", _life_row.get("campaignName") == "1244938 - 8/7/2026")
+_ME_ROW = '"2026-10-14","24960469","1244938 - 8/7/2026","LIVE","2026-08-07","5649.58","57154","234","1848493","52783","10.12","0.44","244.25","24.14"'
+check("a campaigns-so-far file without its Ad Spend or Campaign ID column is refused, never read without them (R20 proving)",
+      all(refused(lambda h=h: ads.read_ads("me_ads", table.read(csv(_ME_ADS_HEAD.replace(h, '"Other"'), _ME_ROW)), "2026-10-14", None))
+          for h in ('"Ad Spend"', '"Campaign ID"')))
+_me_night = Night({"me_ads": [a_file("ma", "meesho_me_ads_2026-10-14.csv")]}, {"ma": csv(_ME_ADS_HEAD, _ME_ROW)})
+_me_night_said = _me_night.go()
+check("and the night reads it with its names on the FIRST line (R20 proving)",
+      _me_night_said is not None and _me_night_said.read_tonight == ("ma",) and len(_me_night.advertised) == 1)
+_life_more = answered(lambda: ads.read_ads("me_ads", table.read(csv(
+    _ME_ADS_HEAD, '"2026-10-14","24960469","1244938 - 8/7/2026","LIVE","2026-08-07","5700.00","57154","234","1848493","52783","10.12","0.44","244.25","24.14"')),
+    "2026-10-14", None))
+_life_rec = (_life.records if _life else {}).get("meesho__2026-10-14__lifetime") or {}
+_more_rec = (_life_more.records if _life_more else {}).get("meesho__2026-10-14__lifetime") or {}
+check("an ads record's fingerprint is of everything it holds, its rows included, so a changed figure is written again (R20 proving)",
+      _life_rec.get("digest") == records.the_digest({k: v for k, v in _life_rec.items() if k != "digest"})
+      and _life_rec.get("digest") != _more_rec.get("digest"))
 check("the rule that ties every report to a reader or a reason still holds", reading.why_a_report_has_no_decision() == "")
 
 # ------------------------------------------------------------------ found by the independent review (A78)
@@ -554,6 +572,22 @@ _same_day = answered(lambda: returns.read_returns("me_returns", me(
     _ret1, '"2","SKU-M","1","334_1","2026-10-08","Customer Return","2026-10-10","AWB1","OTHER WORDS","d1"'), "2026-10-18"))
 check("a Meesho return listed twice for the SAME request day with different words is said, not made into a second return",
       _same_day is not None and set(_same_day.records) == {"meesho__334_1"} and len(_same_day.not_read) == 1)
+_third = answered(lambda: returns.read_returns("me_returns", me(
+    _ret1, _ret2, '"3","SKU-M","1","334_1","2026-10-11","Customer Return","2026-10-19","AWB3","THIRD","d3"'), "2026-10-18"))
+check("a THIRD return of one sub-order on the later return's day, in other words, is said and does not replace the second (R20 proving)",
+      _third is not None and set(_third.records) == {"meesho__334_1", "meesho__334_1~2026-10-11"}
+      and _third.records["meesho__334_1~2026-10-11"]["reason"] == "SECOND" and len(_third.not_read) == 1)
+_by_day = []
+for _words in ("A", "B", "C", "D", "E", "F", "G", "H"):
+    _pair = answered(lambda w=_words: returns.read_returns("me_returns", me(
+        f'"1","SKU-M","1","334_1","2026-10-08","Customer Return","2026-10-10","AWB1","{w}","d1"', _ret2), "2026-10-18"))
+    _by_day.append(_pair is not None and _pair.records.get("meesho__334_1", {}).get("reason") == _words)
+check("whichever words the two returns carry, the EARLIER request day keeps the plain name (R20 proving)", all(_by_day))
+_fk_twice = answered(lambda: returns.read_returns("fk_returns", fk(
+    '"OD1","111","T","S","1","2 October, 2026","11 October, 2026","Closed","c","FIRST","S"',
+    '"OD1","111","T","S","1","5 October, 2026","11 October, 2026","Closed","c","SECOND","S"'), "2026-10-11"))
+check("only a MEESHO sub-order is one return per request day: a Flipkart return id named twice on two days is said, not split (R20 proving)",
+      _fk_twice is not None and set(_fk_twice.records) == {"flipkart__111"} and len(_fk_twice.not_read) == 1)
 # ------------------------------------------------------------------ a return in the ledger (D447, D449, A87)
 
 import ledger  # noqa: E402
@@ -597,9 +631,32 @@ check("THE NIGHT HANDS A FINISHED RETURN TO THE LEDGER as well as to the returns
       _night_with_ledger is not None and _night_with_ledger.read_tonight == ("m1",) and len(_into_the_ledger) == 1
       and _into_the_ledger[0].sales[0].order_id == "555_1")
 
+check("and that reading names the returns report and the file, and may make a row an order has not made yet (R20 proving)",
+      len(_into_the_ledger) == 1 and _into_the_ledger[0].report == "me_returns" and _into_the_ledger[0].which == "m1"
+      and _into_the_ledger[0].only_existing is False)
+_fk_spaced = answered(lambda: returns.read_returns("fk_returns", fk(
+    '"OD3","333","T","S","1","2 October, 2026","11 October, 2026"," Closed ","c","R","S"'), "2026-10-11"))
+check("a Flipkart status written ' Closed ' still says the order came back (R20 proving)",
+      (lambda r: r is not None and [s.what_happened for s in r.sales] == ["Came back"])(
+          answered(lambda: reading.a_returns_in_the_ledger(_fk_spaced, "2026-10-11", "f", "fk_returns"))))
+
+
+def _ledger_says_no(readings):
+    raise ledger.LedgerRefused("the sheet's columns have moved")
+
+
+_two_returns = {"m1": [a_file("m1", "meesho_me_returns_2026-10-18.csv"), a_file("m2", "meesho_me_returns_2026-10-19.csv")]}
+_refused_night = answered(lambda: reading.read_what_is_new(
+    already_read=(), what_is_in_the_folder=lambda r: _two_returns["m1"] if r == "me_returns" else [],
+    bring_it_back=lambda w: csv("", '"Meesho Supplier Panel"', '"Supplier ID","1"', "", ME_RET_HEAD, _done),
+    record_the_sales=_ledger_says_no, record_returns=lambda report_id, day, records: len(records), record_ads=lambda *a: 0))
+check("A LEDGER THAT REFUSES A RETURNS FILE IS SAID AS THE LEDGER'S REFUSAL, the file left unread, and the next file still tried (R20 proving)",
+      _refused_night is not None and _refused_night.read_tonight == () and len(_refused_night.the_ledger_refused) == 2
+      and "columns have moved" in _refused_night.the_ledger_refused[0])
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 107
+EXPECTED = 107 + 3 + 2 + 3 + 3
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

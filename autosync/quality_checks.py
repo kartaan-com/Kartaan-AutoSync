@@ -114,9 +114,33 @@ check("MERGE GIVES A NEW LISTING A HISTORY OF ONE READING, and a held listing's 
       quality.merge(today_record, None)["history"] == [{"day": "2026-10-19", "stars": 4.2, "returnsPct": 17.6}]
       and [p["day"] for p in quality.merge(today_record, {"history": list(older)})["history"]] == ["2026-10-12", "2026-10-19"])
 
+# ---------------------------------------------------------------- R20 proving: what each record holds, exactly
+_qm, _qr = answered(lambda: quality.read_quality("fk_quality", "flipkart", table.read(("\n".join([
+    HEAD,
+    f'"Ring","SKU1","{RUPEE}1.2346K","4.2","9.1% | up 2%","Yes","Low","Quality"',
+    '"","SKU2","","","9.1% |","Maybe","",""',
+    f'"Big","SKU3","{RUPEE}1K","4","150%","No","",""',
+]) + "\n").encode("utf-8")), "2026-10-19")) or ({}, ())
+_qwant = {"platform": "flipkart", "report": "fk_quality", "sku": "SKU1", "fileDay": "2026-10-19", "product": "Ring", "yearlySales": 1235,
+          "stars": 4.2, "returnsPct": 9.1, "returnsNote": "up 2%", "faBadge": True, "suppressionRisk": "Low", "issue": "Quality"}
+check("A LISTING'S RECORD HOLDS EXACTLY WHAT THE ROW SAYS: rupees rounded to the nearest one after the K, the note after the bar, "
+      "the badge as yes or no (R20 proving)",
+      _qm.get("flipkart__SKU1") == dict(_qwant, digest=records.the_digest(_qwant, leave_out=quality.NOT_IN_THE_DIGEST)))
+check("a row that says nothing in a cell writes nothing for it: no product, sales, stars, note, unknown badge word, risk or issue (R20 proving)",
+      set(_qm.get("flipkart__SKU2", {})) == {"platform", "report", "sku", "fileDay", "returnsPct", "digest"})
+check("a returns share above a hundred per cent is refused by line (R20 proving)", "flipkart__SKU3" not in _qm and len(_qr) == 1)
+_shuffled = tuple({"day": f"2026-09-{n:02d}", "stars": 4.0} for n in (7, 1, 13, 4, 10, 2, 12, 3, 9, 5, 11, 6, 8))
+check("THE HISTORY KEEPS THE LAST TWELVE BY DAY, oldest dropped, whatever order they were held in (R20 proving)",
+      [p["day"] for p in quality.with_history(dict(today_record, fileDay="2026-10-01"), _shuffled)["history"]]
+      == [f"2026-09-{n:02d}" for n in range(3, 14)] + ["2026-10-01"])
+for _gone in ("FA badge", "Issue Details"):
+    check(f"a file without the {_gone} column is refused in words (R20 proving)",
+          "Nothing was read" in str(caught(lambda g=_gone: quality.read_quality("fk_quality", "flipkart", table.read(
+              (HEAD.replace(f'"{g}"', '"X"') + "\n").encode("utf-8")), "2026-10-19"))))
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 14
+EXPECTED = 14 + 6
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

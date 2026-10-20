@@ -174,9 +174,100 @@ for report_id in TABLE:
     check(f"{report_id}: a database that says no leaves the file unread and says so as the database's refusal",
           refused is not None and refused.read_tonight == () and len(refused.the_database_refused) == 1)
 
+# ---------------------------------------------------------------- R20 proving: the shared helpers every record reader uses
+import table  # noqa: E402
+
+check("a fingerprint is sixteen characters (R20 proving)", len(records.the_digest({"a": 1})) == 16)
+check("a figure that is not finite is refused, NaN and Infinity alike (R20 proving)",
+      all(caught(lambda s=s: records.a_figure(s)) is not None for s in ("Infinity", "NaN", "-Infinity")))
+check("a figure exactly at its most is taken, one past it refused (R20 proving)",
+      records.a_figure("5", most=5) == 5 and caught(lambda: records.a_figure("5.01", most=5)) is not None)
+check("a whole count with a fraction is refused (R20 proving)", caught(lambda: records.a_figure("12.5", whole=True)) is not None)
+check("a name is measured in BYTES: a thousand bytes is allowed, a thousand and one is not, however few the characters (R20 proving)",
+      records.a_safe_name("a" * 1000) and not records.a_safe_name("a" * 1001) and not records.a_safe_name("\u00e9" * 501))
+_said_no = caught(lambda: records.require_columns(table.read(b"A,,B\n1,2,3\n"), ("Z",), "a test file"))
+check("a refusal names the columns the file has, leaving out blank ones (R20 proving)",
+      _said_no is not None and "It has: 'A', 'B'." in str(_said_no))
+check("the shop days are kept as said, with nothing of another reader's history merged into them, and summed up in their own words (R20 proving)",
+      record_reports.RECORD_REPORTS["me_views"].merge is None and record_reports.RECORD_REPORTS["me_views"].label == "shop day(s)")
+
+# ---------------------------------------------------------------- R20 proving: the record writer's own locks
+import ads  # noqa: E402
+import claims  # noqa: E402
+import performance  # noqa: E402
+
+_claim = {"platform": "meesho", "report": "me_claims", "claimKey": "T1", "orderId": "1_1", "fileDay": "2026-10-14", "digest": "d"}
+check("the writer refuses an optional day that is not a day (R20 proving)",
+      caught(lambda: firestore.a_record_write("p", claims.KIND, "meesho__T1", dict(_claim, raisedOn="soon"))) is not None
+      and caught(lambda: firestore.a_record_write("p", claims.KIND, "meesho__T1", _claim)) is None)
+check("the writer refuses a record missing a day it must carry (R20 proving)",
+      caught(lambda: firestore.a_record_write("p", performance.KIND, "x", {"platform": "meesho", "weekFrom": "2026-10-13", "fileDay": "2026-10-20"})) is not None)
+check("the writer refuses a month with anything after the month (R20 proving)",
+      caught(lambda: firestore.a_record_write("p", ads.MONTH, "x", {"platform": "f", "month": "2026-10-xx", "updatedOn": "2026-10-20"})) is not None)
+check("EVERY RECORD IS WRITTEN INTO ITS OWN KIND'S COLLECTION (R20 proving)",
+      all(firestore.a_record_write("p", one.kind, "n", {}).get("update", {}).get("name", "").endswith(f"/documents/{one.kind.collection}/n")
+          for one in record_reports.RECORD_REPORTS.values() if not one.kind.required_days)
+      and firestore.a_record_write("p", claims.KIND, "n", _claim)["update"]["name"].endswith(f"/documents/{firestore.CLAIMS}/n"))
+
+# ---------------------------------------------------------------- R20 proving: the records branch of the night
+
+
+def _views_night(bodies, sinks=None, more=None):
+    files = [whats_new.InTheFolder(which=w, name=f"meesho_me_views_2026-10-{20 + n}.csv", size=9) for n, w in enumerate(sorted(bodies))]
+    listed = dict({"me_views": files}, **(more or {}))
+    fetched = []
+    said = answered(lambda: reading.read_what_is_new(
+        already_read=(), what_is_in_the_folder=lambda r: list(listed.get(r, ())),
+        bring_it_back=lambda w: fetched.append(w) or bodies.get(w, b""), record_the_sales=lambda readings: None,
+        record_records={"me_views": lambda rid, day, made: len(made)} if sinks is None else sinks))
+    return said, fetched
+
+
+_all_bad, _ = _views_night({"v1": b"Date,Views,Orders\nsoon,1,1\n"})
+check("A RECORDS FILE WHOSE EVERY ROW IS REFUSED IS NOT READ, so it is opened again (R20 proving)",
+      _all_bad is not None and _all_bad.read_tonight == ())
+_part, _fetched = _views_night({"v1": b"Date,Views,Orders\nsoon,1,1\n2026-10-14,5,1\n"},
+                               more={"me_catalog": [whats_new.InTheFolder(which="cat", name="meesho_me_catalog_2026-10-20.xlsx", size=9)]})
+check("a file with SOME rows refused is read, the refused counted and said by line (R20 proving)",
+      _part is not None and _part.read_tonight == ("v1",) and _part.rows_refused == 1 and any("1 row(s) not read" in x for x in _part.could_not_read))
+_vread = [r for r in (_part.reads if _part else ()) if r.report_id == "me_views"]
+check("and its record of what was opened says two rows held, one read, so it shows as landed-not-read (R20 proving)",
+      len(_vread) == 1 and (_vread[0].rows_in_file, _vread[0].rows_read) == (2, 1))
+check("a report that does not match catalog titles never downloads the catalog (R20 proving)", _fetched == ["v1"])
+_two, _ = _views_night({"v1": b"Date,Views,Orders\n2026-10-14,5,1\n", "v2": b"Date,Views,Orders\n2026-10-15,5,1\n"})
+check("two files of one records report in one night: what they wrote is added up, and said in the report's own words (R20 proving)",
+      _two is not None and _two.wrote("me_views") == 2
+      and "  2 shop day(s) were new or changed in the shop figures files and were recorded." in _two.says())
+_two_wait, _ = _views_night({"v1": b"Date,Views,Orders\n2026-10-14,5,1\n", "v2": b"Date,Views,Orders\n2026-10-15,5,1\n"}, sinks={})
+check("and with nowhere to write, both files are counted as waiting, in the report's words (R20 proving)",
+      _two_wait is not None and _two_wait.waiting("me_views") == 2
+      and "  2 shop figures file(s) were left unread because the seller's database could not be reached" in _two_wait.says())
+_cats = []
+_real_listings = reading.a_listings_reading
+try:
+    reading.a_listings_reading = lambda how, one, body: _cats.append(one.which) or (type("R", (), {"records": {}})(), "x")
+    answered(lambda: reading.write_the_records(
+        next(h for h in reading.WHAT_RECORDS_CAN_BE_READ if h.report_id == "me_product_performance"),
+        whats_new.InTheFolder(which="pp", name="meesho_me_product_performance_2026-10-19.csv", size=9), SAMPLES["me_product_performance"][1].encode("utf-8"),
+        "2026-10-19", lambda rid, day, made: len(made),
+        {"me_catalog": [whats_new.InTheFolder(which="undated", name="meesho_me_catalog.xlsx", size=9),
+                        whats_new.InTheFolder(which="cat-a", name="meesho_me_catalog_2026-10-18.xlsx", size=9),
+                        whats_new.InTheFolder(which="cat-b", name="meesho_me_catalog_2026-10-18.xlsx", size=9)]},
+        lambda w: b""))
+finally:
+    reading.a_listings_reading = _real_listings
+check("the titles come from the newest DATED catalog file, Drive's id breaking a tie of one day (R20 proving)", _cats == ["cat-b"])
+check("the reading rules carry this release's change, so files read under the old rules are read once more (R20 proving)",
+      reading.READING_RULES.endswith("-returns-in-the-ledger-a87"))
+_orders_key = reading._which_day_it_is_about((next(h for h in reading.WHAT_CAN_BE_READ if h.report_id == "me_orders"),
+                                              whats_new.InTheFolder(which="o", name="meesho_me_orders_2026-10-20.csv", size=9)))
+_claims_key = reading._which_day_it_is_about((next(h for h in reading.WHAT_CAN_BE_READ if h.report_id == "me_claims"),
+                                              whats_new.InTheFolder(which="c", name="meesho_me_claims_2026-10-01.csv", size=9)))
+check("a claims file is read after every orders file, whatever day each is about (R20 proving)", _claims_key > _orders_key)
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 17 + 3 * len(TABLE)
+EXPECTED = 17 + 3 * len(TABLE) + 7 + 4 + 9
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

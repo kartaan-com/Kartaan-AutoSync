@@ -145,9 +145,77 @@ night = answered(lambda: reading.read_what_is_new(
 check("A NIGHT THAT READS AN ADS FILE SAYS WHICH PLATFORM AND MONTH IT TOUCHED",
       night is not None and night.ads_months == (("flipkart", "2026-10"),))
 
+# ---------------------------------------------------------------- R20 proving
+def _a_day(platform, day, **more):
+    return dict({"platform": platform, "day": day, "campaigns": {"C1": {"spend": 1.0}}}, **more)
+
+
+edges = database([_a_day("flipkart", d) for d in ("2026-09-30", "2026-10-01", "2026-10-31", "2026-11-01")] + [_a_day("meesho", "2026-10-15")],
+                 [], months=("flipkart__2026-09", "flipkart__2026-11", "meesho__2026-10"))
+answered(lambda: firestore_door.an_ads_month_sink(edges, "p", "2026-11-02")((("flipkart", "2026-10"),)))
+check("A MONTH HOLDS ITS FIRST AND ITS 31ST DAY and nothing of the month either side, nor another platform's day (R20 proving)",
+      set(edges.written().get("flipkart__2026-10", {}).get("days", {})) == {"01", "31"})
+check("and it is written into the month-of-ads collection itself (R20 proving)",
+      edges.written_where() == {"flipkart__2026-10": firestore.ADS_MONTH})
+odd_days = fake_firestore.FakeFirestore({firestore.ADS_DAYS: {"a": {"day": "2026-08-05", "campaigns": {"C": {"spend": 1}}},
+                                                              "b": {"platform": "flipkart", "campaigns": {"C": {"spend": 1}}}}})
+check("a day record with no platform, or no day, starts no month: no month is even asked for (R20 proving)",
+      answered(lambda: firestore_door.an_ads_month_sink(odd_days, "p", "2026-10-21")(())) == 0 and odd_days.written() == {}
+      and not [p for p in odd_days.posts if p["url"].endswith(":runQuery") and "where" in p["json"]["structuredQuery"]])
+only_detail = database([], [SEARCH_10, dict(MEESHO_LIFE, day="2026-09-14")], months=("flipkart__2026-10",))
+answered(lambda: firestore_door.an_ads_month_sink(only_detail, "p", "2026-10-21")(
+    (("flipkart", "2026-10"), ("meesho", "2026-10"), ("flipkart", "2026-09"), ("amazon", "2026-10"))))
+check("a month with ad detail but no day records is built; a wanted month where only ANOTHER platform has anything, or nothing at all, is not (R20 proving)",
+      set(only_detail.written()) == {"flipkart__2026-10"})
+two_wants = database([_a_day("flipkart", "2026-09-10"), _a_day("flipkart", "2026-10-10"), _a_day("meesho", "2026-09-10"), _a_day("meesho", "2026-10-10")],
+                     [], months=("flipkart__2026-09", "flipkart__2026-10", "meesho__2026-09", "meesho__2026-10"))
+answered(lambda: firestore_door.an_ads_month_sink(two_wants, "p", "2026-10-21")((("flipkart", "2026-10"), ("meesho", "2026-09"))))
+check("each platform's month is built only where THAT platform wanted it (R20 proving)",
+      set(two_wants.written()) == {"flipkart__2026-10", "meesho__2026-09"})
+huge_first = database(
+    [SEPT, DAY_10], [dict(SEARCH_10, day="2026-09-30", rows=[{"campaignId": "C", "query": "x" * 1000, "n": n} for n in range(2000)])],
+    months=("flipkart__2026-10", "flipkart__2026-09"))
+said_first = caught(lambda: firestore_door.an_ads_month_sink(huge_first, "p", "2026-10-21")((("flipkart", "2026-09"), ("flipkart", "2026-10"))))
+check("a month too big that comes FIRST does not stop a later month being written (R20 proving)",
+      said_first is not None and "would make a summary" in str(said_first) and set(huge_first.written()) == {"flipkart__2026-10"})
+refusing = fake_firestore.FakeFirestore({firestore.ADS_DAYS: {"flipkart__2026-09-30": SEPT, "flipkart__2026-10-10": DAY_10},
+                                         firestore.ADS_MONTH: {"flipkart__2026-09": {"platform": "flipkart"}, "flipkart__2026-10": {"platform": "flipkart"}}},
+                                        refuse={"flipkart__2026-09"})
+said_no = caught(lambda: firestore_door.an_ads_month_sink(refusing, "p", "2026-10-21")((("flipkart", "2026-09"), ("flipkart", "2026-10"))))
+check("A MONTH THE DATABASE REFUSES IS SAID BY NAME, and the next month is still written (R20 proving)",
+      isinstance(said_no, firestore_door.TheirDatabaseSaidNo) and "flipkart 2026-09" in str(said_no)
+      and [p for p in refusing.posts if p["url"].endswith(":commit")][-1]["json"]["writes"][0]["update"]["name"].endswith("flipkart__2026-10"))
+check("an answer to a query that is not a list stops the sink as the database's refusal (R20 proving)",
+      isinstance(caught(lambda: firestore_door.an_ads_month_sink(fake_firestore.FakeFirestore(odd_query=True), "p", "2026-10-21")(())),
+                 firestore_door.TheirDatabaseSaidNo))
+check("the month with a day held to size goes through the real writer, its note of what was trimmed allowed (R20 proving)",
+      month_trim is not None and firestore.a_record_write("p", ads.MONTH, "flipkart__2026-10", month_trim) is not None)
+ORDERS_10 = {"platform": "flipkart", "day": "2026-10-10", "kind": "orders", "rows": [{"campaignId": "C1", "orderId": "OD1"}]}
+check("ad orders are a kind of their own in the month (R20 proving)",
+      ads.build_month("flipkart", "2026-10", {}, [ORDERS_10], "2026-10-20")["orders"] == {"10": ORDERS_10["rows"]})
+shaped = ads.build_month("flipkart", "2026-10", {
+    "2026-10-10": DAY_10, "2026-10-12": _a_day("meesho", "2026-10-12"), "2026-10-13": dict(_a_day("flipkart", "2026-10-13"), campaigns={}),
+    "2026-10-14": dict(_a_day("flipkart", "2026-10-14"), campaigns=["C1"])}, [
+    dict(OVERALL_C2, rows=[{"campaignId": "C2"}]), dict(OVERALL_C1, rows=[{"campaignId": "C1"}]), dict(SEARCH_10, kind="weird"),
+    dict(SEARCH_10, rowsInFile=5, rowsKept=5), dict(SEARCH_11, rowsInFile=5), dict(SEARCH_11, rowsKept=5, day="2026-10-11"),
+    dict(OVERALL_C1, day="2026-10-12", rowsInFile=9, rowsKept=3)], "2026-10-20")
+check("a month keeps only this platform's days that hold a map of campaigns (R20 proving)", set(shaped["days"]) == {"10"})
+check("a day's detail rows are in campaign order whatever order they came in, and an unknown kind is left out (R20 proving)",
+      [r["campaignId"] for r in shaped["overall"]["11"]] == ["C1", "C2"] and "weird" not in shaped)
+check("only a day held SHORT is noted as trimmed, with its campaign when it has one; a day missing either count is not (R20 proving)",
+      shaped.get("trimmed") == {"12": [{"kind": "overall", "rowsInFile": 9, "rowsKept": 3, "campaignId": "C1"}]})
+_pad0 = ads.firestore_size(ads.build_month("flipkart", "2026-10", {}, [dict(SEARCH_10, rows=[{"q": ""}])], "2026-10-20"))
+_at_most = ads.MOST_MONTH_BYTES - _pad0
+check("A MONTH OF EXACTLY THE LIMIT IS WRITTEN, ONE BYTE MORE IS REFUSED (R20 proving)",
+      caught(lambda: ads.build_month("flipkart", "2026-10", {}, [dict(SEARCH_10, rows=[{"q": "x" * _at_most}])], "2026-10-20")) is None
+      and caught(lambda: ads.build_month("flipkart", "2026-10", {}, [dict(SEARCH_10, rows=[{"q": "x" * (_at_most + 1)}])], "2026-10-20")) is not None
+      and ads.MOST_MONTH_BYTES == 1000 * 1000)
+check("the size counts names and text in BYTES, a yes/no or nothing as 1 (R20 proving)",
+      ads.firestore_size({"\u00e9": "\u00e9\u00e9"}) == 32 + 3 + 5 and ads.firestore_size(True) == 1 and ads.firestore_size(None) == 1)
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 21
+EXPECTED = 21 + 15
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

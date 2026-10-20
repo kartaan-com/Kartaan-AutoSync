@@ -13,6 +13,7 @@ Run: python autosync/nightly_checks.py
 """
 
 import ast
+import dataclasses
 import re
 import sys
 from datetime import date, datetime, timedelta
@@ -2715,9 +2716,48 @@ check("start.py hands the tick the month builder, built by the real builder",
       isinstance(HANDED_TO_THE_TICK.get("rebuild_ads_months"), ast.Call)
       and getattr(HANDED_TO_THE_TICK["rebuild_ads_months"].func, "id", "") == "an_ads_month_sink")
 
+# ----- R20 proving: the record sinks reach the reading, the months handed are the reading's, and nothing is summed when nothing was read
+_real_read = tool.reading.read_what_is_new
+_seen_by_reading = {}
+_SINKS = {"me_claims": lambda *_a, **_k: 0}
+
+
+def _spy_read(**words):
+    _seen_by_reading.update(words)
+    return dataclasses.replace(_real_read(**words), ads_months=(("meesho", "2026-08"),))
+
+
+def _read_refused(**_words):
+    raise RuntimeError("Drive would not list the folder")
+
+
+_months_from_spy, _months_when_refused = [], []
+tool.reading.read_what_is_new = _spy_read
+try:
+    Harness().go(**TheSellersDrive([]).wiring(), record_records=_SINKS, rebuild_ads_months=lambda m: _months_from_spy.append(m) or 0)
+    tool.reading.read_what_is_new = _read_refused
+    _refused_tick = Harness().go(**TheSellersDrive([]).wiring(), rebuild_ads_months=lambda m: _months_when_refused.append(m) or 0)
+finally:
+    tool.reading.read_what_is_new = _real_read
+check("the tick hands the reading the record sinks it was given (R20 proving)", _seen_by_reading.get("record_records") is _SINKS)
+check("and the months of ads it hands on are the very months the reading touched (R20 proving)",
+      _months_from_spy == [(("meesho", "2026-08"),)])
+check("and when the reading itself failed, no month is summed from nothing, and no fault is made up about it (R20 proving)",
+      _months_when_refused == [] and _refused_tick is not None and not any("month of ads" in one for one in _refused_tick.our_faults))
+check("start.py hands the tick the record sinks, built by the real builder (R20 proving)",
+      isinstance(HANDED_TO_THE_TICK.get("record_records"), ast.Call)
+      and getattr(HANDED_TO_THE_TICK["record_records"].func, "id", "") == "the_record_sinks")
+check("and the month builder is told today's day, not a blank (R20 proving)",
+      isinstance(HANDED_TO_THE_TICK.get("rebuild_ads_months"), ast.Call)
+      and any(isinstance(a, ast.Call) and getattr(a.func, "attr", "") == "isoformat" for a in HANDED_TO_THE_TICK["rebuild_ads_months"].args))
+_IMPORTED_BY_START = {alias.asname or alias.name for node in ast.walk(START) if isinstance(node, ast.ImportFrom) for alias in node.names}
+check("and every builder start.py hands the tick is imported there, so the first real night does not stop on a missing name (R20 proving)",
+      all(getattr(v.func, "id", None) in _IMPORTED_BY_START for v in HANDED_TO_THE_TICK.values()
+          if isinstance(v, ast.Call) and isinstance(v.func, ast.Name) and v.func.id.startswith(("a_", "an_", "the_"))))
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 394 + 3
+EXPECTED = 394 + 3 + 6
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

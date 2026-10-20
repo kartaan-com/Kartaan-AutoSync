@@ -465,6 +465,21 @@ tool.recording_into(LedgerDoor(PretendSheets(rows=list(THE_HEADER)), "s"), say=h
     [A_READING])
 check("what was written is said in the run's own words", any("added" in one for one in heard))
 
+# **A CLAIM WITH NO ORDER ROW IS COUNTED, NOT LISTED AS MONEY WITH NO ORDER (D459)**; a payment with no order beside it is still listed (R20 proving).
+_claims_heard = []
+_NO_ROW_CLAIMS = ledger.Reading(report="me_claims", on="2026-10-14", knows=("claimId", "claimStatus", "claimRecovered", "claimsOn"), which="cl-1",
+                                only_existing=True, sales=tuple(sales.Sale(platform="meesho", order_id=f"GONE-{n}", sku="", claim_id=f"T{n}",
+                                                                          claim_status="Open", claims_on="2026-10-14") for n in (1, 2)))
+_NO_ROW_PAYMENT = ledger.Reading(report="me_payments", on="2026-10-14", knows=("settlement", "paymentsOn"), which="pay-9", only_existing=True,
+                                 sales=(sales.Sale(platform="meesho", order_id="GONE-9", sku="", settlement="5", payments_on="2026-10-14"),))
+answered(lambda: tool.recording_into(LedgerDoor(PretendSheets(rows=list(THE_HEADER)), "s"), say=_claims_heard.append)([_NO_ROW_CLAIMS, _NO_ROW_PAYMENT]))
+check("two claims with no order row are said as ONE count of two, never as payments with no order (R20 proving)",
+      [one for one in _claims_heard if one.startswith("SALES LEDGER CLAIMS")]
+      == ["SALES LEDGER CLAIMS  2 claim(s) have no order row in the sheet and are kept in their own records only."]
+      and not any(one.startswith("SALES LEDGER PAYMENT WITH NO ORDER") and "GONE-1" in one for one in _claims_heard))
+check("while the payment with no order beside them is still listed by itself (R20 proving)",
+      len([one for one in _claims_heard if one.startswith("SALES LEDGER PAYMENT WITH NO ORDER")]) == 1)
+
 
 # ---- THE RECOVERY THIS PROMISED AND DID NOT HAVE (A32)
 #
@@ -1228,7 +1243,7 @@ check("PROOF: a tally that let the record's failure out WOULD have refused the f
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 144 + 12 + 9 + 2
+EXPECTED = 144 + 12 + 9 + 2 + 2
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

@@ -352,6 +352,24 @@ _m1 = _me_sales.get(("M1_1", "SKU-M"))
 check("MEESHO'S LIVE ORDER STATUS SAYS WHAT BECAME OF THE ORDER: Delivered is Delivered, Return is Came back (D447)",
       _m1 is not None and _m1.what_happened == "Delivered" and _me_sales[("M2_1", "SKU-N")].what_happened == "Came back")
 check("what was paid is the final settlement", _m1 is not None and _m1.settlement == "150")
+_rto = answered(lambda: read_as("me_payments", "meesho_me_payments_2026-10-04.xlsx", a_meesho_file(
+    a_meesho_line("M3_1", "SKU-R", "-40", status="RTO"),
+    a_meesho_line("M4_1", "SKU-T", "-60", status="Return"), a_meesho_line("M4_1", "SKU-T", "10", status="Delivered"))))
+_rto_sales = {s.order_id: s for s in (_rto[0].sales if _rto else ())}
+check("RTO (returned to origin) in Live Order Status is Came back too (R20 proving)",
+      _rto_sales.get("M3_1") is not None and _rto_sales["M3_1"].what_happened == "Came back")
+check("a sub-order with a Return line and a LATER Delivered line has still come back (R20 proving)",
+      _rto_sales.get("M4_1") is not None and _rto_sales["M4_1"].what_happened == "Came back")
+_twice = a_spreadsheet([
+    ("Disclaimer", [["Meesho"]]),
+    ("Order Payments", [["Order Related Details"] + [""] * len(MEESHO_HEADER), MEESHO_HEADER + ["Live Order Status"],
+                        ["", "A", "(B + C)"] + [""] * (len(MEESHO_HEADER) - 2),
+                        a_meesho_line("M5_1", "SKU-W", "150", status="Delivered") + ["Return"]]),
+    ("Ads Cost", [["Ads Cost"], ["Deduction Date"], ["No data is available for these dates."]]),
+])
+_two_cols = answered(lambda: read_as("me_payments", "meesho_me_payments_2026-10-05.xlsx", _twice))
+check("a file with TWO Live Order Status columns says nothing about what became of an order, rather than picking one (R20 proving)",
+      _two_cols is not None and all(not s.what_happened for s in _two_cols[0].sales) and len(_two_cols[0].sales) == 1)
 check("a charge is positive where money was taken", _m1 is not None and _m1.charges.get("commission") == "20"
       and _m1.charges.get("shipping") == "30" and _m1.charges.get("tcs") == "1" and _m1.charges.get("tds") == "0.5")
 check("A NAME MEESHO USES TWICE IS READ FROM THE DEDUCTIONS BLOCK ONLY: the first Fixed Fee's 99 is not a charge",
@@ -1061,7 +1079,7 @@ if failures:
     print(f"{len(failures)} FAILED: {failures}")
     sys.exit(1)
 WITHOUT = ran - real_ran
-if WITHOUT != 95 + 22 + 17 + 8 + 2:
-    print(f"FAIL  checks went missing -- {WITHOUT} ran without his files, 144 expected")
+if WITHOUT != 95 + 22 + 17 + 8 + 2 + 3:
+    print(f"FAIL  checks went missing -- {WITHOUT} ran without his files, 147 expected")
     sys.exit(1)
 print(f"all {ran} checks passed" + ("" if real_ran == HIS_FILES_GROUP else f" ({HIS_FILES_GROUP - real_ran} of his real-file checks not run -- the files are elsewhere)"))

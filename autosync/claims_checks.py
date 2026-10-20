@@ -154,6 +154,16 @@ payment_no_sku = ledger.Reading(report="me_payments", on="2026-10-14", knows=("s
                                 sales=(sales.Sale(platform="meesho", order_id="11_1", sku="", settlement="5", payments_on="2026-10-14"),))
 check("and a payment line with no SKU is still not placed by guessing: the SKU-less placement is for claims only",
       (lambda p: p is not None and p.update == () and len(p.unmatched) == 1)(answered(lambda: ledger.plan(sheet_with_row("11_1"), [payment_no_sku]))))
+_fk_row = [COLS, list(sales.the_row_for(sales.Sale(platform="flipkart", order_id="OD9", sku="RING", on="2026-09-20", qty=1, gmv="100")))]
+_fk_claim = sales.Sale(platform="flipkart", order_id="OD9", sku="", claim_id="F1", claim_status="Open", claims_on="2026-10-14")
+check("a SKU-less claim is placed on an order's one row for MEESHO only, whose sub-order is one line; another platform's is said (R20 proving)",
+      (lambda p: p is not None and p.update == () and len(p.unmatched) == 1)(
+          answered(lambda: ledger.plan(_fk_row, [a_claims_reading("2026-10-14", _fk_claim)]))))
+_same_again = sales.Sale(platform="meesho", order_id="11_1", sku="", claim_id="T1", claim_status="Approved", claims_on="2026-10-15")
+_kept = answered(lambda: ledger.plan(sheet_paid, [a_claims_reading("2026-10-15", _same_again)]))
+check("the SAME claim seen again with no rupees keeps the rupees already recovered (R20 proving)",
+      _kept is not None and len(_kept.update) == 1 and all(dict(zip(COLS, one[1])).get("claimRecovered") == "177.84" for one in _kept.update)
+      and dict(zip(COLS, sheet_paid[1])).get("claimRecovered") == "177.84")
 
 # ---------------------------------------------------------------- every claim is a record of its own (D459)
 
@@ -192,6 +202,50 @@ check("and the note of what a replaced amount was survives the next runs, not on
 check("a claim not held yet, or held with no rupees, is left exactly as read",
       claims.merge(_made["meesho__T2"], None) == _made["meesho__T2"] and claims.merge(_made["meesho__T2"], {"status": "Open"}) == _made["meesho__T2"])
 
+# ---------------------------------------------------------------- R20 proving: what each record holds, exactly
+
+def _raw(sub, ticket, status, created, issue, message):
+    return f'"1","","","","","","{sub.split("_")[0]}","{sub}","{ticket}","{status}","{created}","{issue}","{message}","null",""'
+
+
+_G = (
+    _raw("21_1", "T21", " approved ", "2026-09-22T19:59:37", "  Item missing  ", "Your claim payment of Rs 1,234.50 for this order was done on 1 Oct 2026"),
+    _raw("22_1", "T22", "Rejected", "2026-09-22T10:00:00", "x", "Your claim payment of Rs 50 for this order was done on 1 Oct 2026"),
+    _raw("23_1", "T23", "", "2026-09-22T10:00:00", "", "escalated"),
+    _raw("24_1", "T24", "Approved", "2026-09-22T10:00:00", "", "Note: Your claim payment of Rs 5 for this order was done on 1 Oct 2026"),
+    _raw("25_1", "T25", "Approved", "2026-09-22T10:00:00", "", "  Your claim payment of Rs 7 for this order was done on 1 Oct 2026"),
+    _raw("26_1", "T26", "Approved", "2026-09-22T10:00:00", "", "claim payment of Rs 8 for this order was done on 1 Oct 2026"),
+    _raw("27_1", "T27", "Approved", "2026-09-22T10:00:00", "", "Your claim payment of Rs 9 for this order was reversed"),
+)
+_gm, _gr = answered(lambda: claims.read_claim_records("me_claims", "meesho", file_of(*_G), "2026-10-14")) or ({}, ())
+_want = {"platform": "meesho", "report": "me_claims", "claimKey": "T21", "orderId": "21_1", "fileDay": "2026-10-14", "status": "approved",
+         "raisedOn": "2026-09-22", "issue": "Item missing", "recovered": "1234.50"}
+check("A CLAIM RECORD HOLDS EXACTLY ITS OWN FIELDS: the claim id, the trimmed status and issue, the rupees with the thousands comma taken out, "
+      "whatever the case of Approved, and the fingerprint of all of it (R20 proving)",
+      _gm.get("meesho__T21") == dict(_want, digest=records.the_digest(_want)))
+check("a rejected claim whose words look like a payment recovers nothing (R20 proving)", "recovered" not in _gm.get("meesho__T22", {"recovered": 1}))
+check("a claim with no status writes no status (R20 proving)", "status" not in _gm.get("meesho__T23", {"status": 1}))
+check("the payment words count only at the START of the message, leading spaces allowed, starting 'Your', ending 'was done on' (R20 proving)",
+      [_gm.get(f"meesho__T{n}", {}).get("recovered") for n in (24, 25, 26, 27)] == [None, "7", None, None])
+_gs = answered(lambda: claims.read_claims("meesho", file_of(*_G), "2026-10-14"))
+_by_claim = {s.claim_id: s for s in (_gs.sales if _gs else ())}
+check("as a note for the ledger, a blank status and no rupees are nothing, not blank text, and every row is counted (R20 proving)",
+      _by_claim.get("T23") is not None and _by_claim["T23"].claim_status is None and _by_claim["T23"].claim_recovered is None
+      and _gs.rows_in_file == 7)
+check("and the ledger note of a paid claim whose status is written ' approved ' still carries its rupees (R20 proving)",
+      _by_claim.get("T21") is not None and _by_claim["T21"].claim_recovered == "1234.50")
+_tie = answered(lambda: claims.read_claims("meesho", file_of(
+    line("31_1", "T32", "Open", "2026-09-22T10:00:00"), line("31_1", "T31", "Approved", "2026-09-22T10:00:00")), "2026-10-14"))
+check("two claims of one order raised at the same moment: the larger claim id is the order's note, whatever the row order (R20 proving)",
+      _tie is not None and [s.claim_id for s in _tie.sales] == ["T32"])
+_no_cols = caught(lambda: claims.read_claim_records("me_claims", "meesho", table.read(b"A,B\n1,2\n"), "2026-10-14"))
+check("records are not made from a file without the claims columns: it is refused in words (R20 proving)",
+      _no_cols is not None and "Nothing was read" in str(_no_cols))
+_later_no_amount = {k: v for k, v in _made["meesho__T1"].items() if k not in ("recovered", "digest")}
+_later_no_amount["digest"] = records.the_digest(_later_no_amount)
+check("A LATER FILE WITHOUT THE AMOUNT, merged with the paid record held, comes out with the HELD fingerprint, so nothing is rewritten (R20 proving)",
+      claims.merge(_later_no_amount, _made["meesho__T1"])["digest"] == _made["meesho__T1"]["digest"])
+
 # ---------------------------------------------------------------- the night writes the claims AND notes them on the ledger
 
 _handed, _ledger = [], []
@@ -223,9 +277,37 @@ check("the Meesho claims report is read into the ledger and says only what a cla
 check("and a file of it would really say its own day (the guard that refuses to write otherwise)",
       reading.would_a_file_say_which_day_it_is(HOW))
 
+# ---------------------------------------------------------------- R20 proving: the claims in the night
+_real_read_claims = claims.read_claims
+try:
+    claims.read_claims = lambda platform, rows, day: claims.WhatClaimsSaid(tuple(
+        sales.Sale(platform=platform, order_id="1_1", sku="", claim_id="T", claims_on="2000-01-01") for _ in (1,)))
+    _forgets = reading.would_a_file_say_which_day_it_is(HOW)
+
+    def _throws(platform, rows, day):
+        raise ValueError("this reader cannot read its own table")
+
+    claims.read_claims = _throws
+    _throwing = answered(lambda: reading.would_a_file_say_which_day_it_is(HOW))
+finally:
+    claims.read_claims = _real_read_claims
+check("a claims reader that writes another day than the file's is caught by the day guard, and one that throws is an answer of no, not a crash (R20 proving)",
+      _forgets is False and _throwing is False)
+_seen_ledger = []
+_claims_night = answered(lambda: reading.read_what_is_new(
+    already_read=(),
+    what_is_in_the_folder=lambda r: {"me_claims": [whats_new.InTheFolder(which="c9", name="meesho_me_claims_2026-10-14.csv", size=900)],
+                                     "me_orders": [whats_new.InTheFolder(which="o9", name="meesho_me_orders_2026-10-20.csv", size=900)]}.get(r, []),
+    bring_it_back=lambda w: ("\n".join([HEAD, *_ROWS, line("", "T9", "Open", "2026-09-24T10:00:00")]) + "\n").encode("utf-8") if w == "c9" else b"x",
+    record_the_sales=lambda readings: _seen_ledger.extend(readings),
+    record_records={"me_claims": lambda report_id, day, made: len(made)}))
+_claims_reading = [r for r in _seen_ledger if r.report == "me_claims"]
+check("A CLAIMS FILE ONLY NOTES CLAIMS ON ROWS THAT EXIST, never makes a row, and a row with no order is counted ONCE although both its readers refuse it (R20 review)",
+      len(_claims_reading) == 1 and _claims_reading[0].only_existing is True and _claims_night is not None and _claims_night.rows_refused == 1)
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 29
+EXPECTED = 29 + 2 + 9 + 2
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

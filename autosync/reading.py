@@ -1069,7 +1069,8 @@ def read_what_is_new(
                     said, the_day = a_returns_reading(how, one, bring_it_back(one.which))
                     returns_written += record(how.report_id, the_day, said.records)
                     in_the_ledger = a_returns_in_the_ledger(said, the_day, one.which, how.report_id)
-                    if in_the_ledger is not None and record_the_sales is not None:
+                    # (No ledger at all means nothing is read tonight -- the early return above -- so there is always one here.)
+                    if in_the_ledger is not None:
                         record_the_sales([in_the_ledger])
                 else:
                     said, the_day = an_ads_reading(how, one, bring_it_back(one.which))
@@ -1160,7 +1161,9 @@ def read_what_is_new(
             if how.kind == "claims":
                 # Every claim in its own record first (the day is proved by `a_reading` above); the ledger's note on an order's row follows.
                 _, claims_refused, wrote = write_the_records(how, one, body, reading.on, record_records[how.report_id], listed, bring_it_back, strict=False)
-                refused_rows += len(claims_refused)
+                # **EACH REFUSED ROW COUNTED ONCE (R20 review):** every row the ledger note refuses (no order, no claim id) the record refuses
+                # too, so the record's refusals ARE the file's -- added to the note's, one bad row read as two.
+                refused_rows = len(claims_refused)
                 records_written[how.report_id] = records_written.get(how.report_id, 0) + wrote
             # **THE ONE PLACE A SALE LANDS.** Everything above this line can be
             # done again tomorrow at no cost; everything below depends on this
