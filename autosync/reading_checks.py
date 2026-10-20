@@ -149,7 +149,7 @@ check("and every column an orders report claims is a column the ledger has",
 # somebody writes next month.
 check("nothing that cannot be turned into sales is listed as readable",
       set(tool.what_this_can_read()) == {
-          "me_orders", "fk_orders", "az_orders", "fk_payments", "me_payments", "az_settlements"})
+          "me_orders", "me_claims", "fk_orders", "az_orders", "fk_payments", "me_payments", "az_settlements"})
 check("the report ids it can read are asked of it rather than worked out",
       tool.what_this_can_read() == tuple(o.report_id for o in tool.WHAT_CAN_BE_READ))
 
@@ -269,7 +269,7 @@ check("and what it read is counted, not merely done",
 # **THE ORDER IS THE POINT.** Marked before the recording, a run that died
 # between the two would lose the file for ever.
 check("the file is recorded before anything says it has been read",
-      night.events == ["listed me_orders", "listed fk_orders", "listed az_orders",
+      night.events == ["listed me_orders", "listed me_claims", "listed fk_orders", "listed az_orders",
                        "listed fk_payments", "listed me_payments", "listed az_settlements",
                        "fetched id-1", "recorded id-1"])
 
@@ -426,10 +426,11 @@ gone = Folder(
            "az_orders": [a_file("az-1", "amazon_az_orders_2026-08-02.csv")],
            "fk_payments": [a_file("fp-1", "flipkart_fk_payments_2026-08-02.xlsx")],
            "me_payments": [a_file("mp-1", "meesho_me_payments_2026-08-02.xlsx")],
-           "az_settlements": [a_file("as-1", "amazon_az_settlements_2026-08-02.csv")]},
+           "az_settlements": [a_file("as-1", "amazon_az_settlements_2026-08-02.csv")],
+           "me_claims": [a_file("mc-1", "meesho_me_claims_2026-08-02.csv")]},
     bodies={"id-2": TWO_MEESHO},
 )
-was = gone.go(already=("id-1", "id-2", "fk-1", "az-1", "fp-1", "mp-1", "as-1"))
+was = gone.go(already=("id-1", "id-2", "fk-1", "az-1", "fp-1", "mp-1", "as-1", "mc-1"))
 check("AN ID IS LET GO OF WHEN ITS FILE HAS GONE FROM THE FOLDER",
       was is not None and was.let_go_of == ("id-1",))
 check("and one whose file is still there is kept", "id-2" in was.files_read)
@@ -1034,10 +1035,10 @@ check("the rules the read-files list was made under are named, so a change to th
 
 check("every report in REPORTS has a reader or a written reason it is not yet read",
       tool.why_a_report_has_no_decision() == "")
-check("the 29 reports are 20 read (6 into the ledger, 3 into listing records, 2 listing files, 3 returns files, 6 ads files) and 9 with a reason, which is Finding 51 stated as numbers (A78 moved the returns and ads files up)",
-      len(tool.WHAT_CAN_BE_READ) == 6 and len(tool.WHAT_VIEWS_CAN_BE_READ) == 3 and len(tool.WHAT_LISTINGS_CAN_BE_READ) == 2
-      and len(tool.WHAT_RETURNS_CAN_BE_READ) == 3 and len(tool.WHAT_ADS_CAN_BE_READ) == 6
-      and len(tool.WHAT_IS_FETCHED_AND_NOT_READ_YET) == 9
+check("the 29 reports are 22 read (7 into the ledger, 3 into listing records, 2 listing files, 3 returns files, 7 ads files) and 7 with a reason, which is Finding 51 stated as numbers (A78 moved the returns and ads files up)",
+      len(tool.WHAT_CAN_BE_READ) == 7 and len(tool.WHAT_VIEWS_CAN_BE_READ) == 3 and len(tool.WHAT_LISTINGS_CAN_BE_READ) == 2
+      and len(tool.WHAT_RETURNS_CAN_BE_READ) == 3 and len(tool.WHAT_ADS_CAN_BE_READ) == 7
+      and len(tool.WHAT_IS_FETCHED_AND_NOT_READ_YET) == 7
       and len(reports.REPORTS) == 29)
 every_reason = list(tool.WHAT_IS_FETCHED_AND_NOT_READ_YET.values())
 check("every reason is words and names the piece that will read it, or says it is off",

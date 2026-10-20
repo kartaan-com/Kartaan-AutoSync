@@ -458,16 +458,25 @@ check("a file whose columns have moved stops, in words, and is left to be read a
 # ------------------------------------------------------------------ the rule that ties reports to readers
 
 readers = {o.report_id for o in reading.WHAT_RETURNS_CAN_BE_READ + reading.WHAT_ADS_CAN_BE_READ}
-check("the returns and ads readers are the nine reports named",
+check("the returns and ads readers are the ten reports named",
       readers == {"fk_returns", "me_returns", "az_returns", "fk_ads_daily", "fk_ads_placements", "fk_ads_overall", "fk_ads_search",
-                  "fk_ads_orders", "me_ads_summary"})
+                  "fk_ads_orders", "me_ads_summary", "me_ads"})
 check("each is a report that exists and none is also said to be unread",
       all(r in reports.BY_ID for r in readers) and not (readers & set(reading.WHAT_IS_FETCHED_AND_NOT_READ_YET)))
 check("and they write no ledger column", all(o.knows == () for o in reading.WHAT_RETURNS_CAN_BE_READ + reading.WHAT_ADS_CAN_BE_READ))
 check("Flipkart keyword ads are not read, are not fetched, and say why in words",
       "fk_ads_kw" in reading.WHAT_IS_FETCHED_AND_NOT_READ_YET and "discontinued" in reading.WHAT_IS_FETCHED_AND_NOT_READ_YET["fk_ads_kw"]
       and reports.BY_ID["fk_ads_kw"].needs_a_person is True)
-check("Meesho's lifetime campaign file is not guessed at, and says so", "no real file" in reading.WHAT_IS_FETCHED_AND_NOT_READ_YET["me_ads"])
+# ---- me_ads (A87): read from his real file meesho_me_ads_2026-10-14.csv (Date, Campaign ID, Campaign Name, Status, Start Date, Ad Spend, ...)
+_ME_ADS_HEAD = '"Date","Campaign ID","Campaign Name","Status","Start Date","Ad Spend","Revenue","Orders","Views","Clicks","ROI","Conversion %","Avg Order Value","Ad Spend Per Order"'
+_life = answered(lambda: ads.read_ads("me_ads", table.read(csv(
+    _ME_ADS_HEAD, '"2026-10-14","24960469","1244938 - 8/7/2026","LIVE","2026-08-07","5649.58","57154","234","1848493","52783","10.12","0.44","244.25","24.14"')),
+    "2026-10-14", None))
+_life_row = (((_life.records if _life else {}).get("meesho__2026-10-14__lifetime") or {}).get("rows") or [{}])[0]
+check("MEESHO'S CAMPAIGNS-SO-FAR FILE IS READ INTO A RECORD OF ITS OWN KIND, never one of the day-by-day records its campaign id shares",
+      _life is not None and set(_life.records) == {"meesho__2026-10-14__lifetime"} and _life_row.get("spend") == 5649.58
+      and _life_row.get("revenue") == 57154.0 and _life_row.get("units") == 234 and _life_row.get("views") == 1848493
+      and _life_row.get("status") == "LIVE" and _life_row.get("startDate") == "2026-08-07" and _life_row.get("campaignId") == "24960469")
 check("the rule that ties every report to a reader or a reason still holds", reading.why_a_report_has_no_decision() == "")
 
 # ------------------------------------------------------------------ found by the independent review (A78)

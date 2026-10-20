@@ -554,7 +554,7 @@ def recording_into(
         # is never written as a row and never dropped: it is named here, and the count is handed back so that the file it came from
         # is NOT written down as read while any of its lines is waiting (A81) -- it is opened again on later runs until its orders arrive.
         for one in what.unmatched:
-            speak(f"SALES LEDGER PAYMENT WITH NO ORDER  {one}")
+            speak(f"SALES LEDGER {'CLAIM' if 'claim' in str(one.from_report) else 'PAYMENT'} WITH NO ORDER  {one}")
         for one in what.restated:
             speak(f"SALES LEDGER PAYMENT RESTATED  {one}")
         for each in readings or ():

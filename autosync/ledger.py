@@ -785,7 +785,11 @@ def _put_each_on_its_row(
             continue  # reported already, as an unreadable row; written to nowhere
         if target is None:
             there = [n for n in rows_of_order.get((sale.platform, sale.order_id), ()) if n not in poisoned]
-            if not sale.sku and there:
+            if not sale.sku and len(there) == 1 and sale.platform == "meesho" and "claimsOn" in reading.knows:
+                # **A MEESHO SUB-ORDER IS ONE LINE BY ITS OWN NUMBER, so a CLAIM (which names no SKU) has exactly one row to be on.** Only a
+                # claim: a payment line with no SKU is still said, never placed by guessing.
+                target = there[0]
+            elif not sale.sku and there:
                 # **NEVER PLACED BY GUESSING FROM THE LEDGER.** The reader places a line with no SKU on its order's one SKU when
                 # its own file names exactly one. What is left names none, and the ledger may not yet hold the order's other
                 # items, so "the only row it has" could be the wrong item's.
@@ -901,6 +905,9 @@ def plan(
                 fresh.append(name)
                 changed[name] = True
 
+            # **A DIFFERENT CLAIM TAKES ITS OWN RUPEES (A87 review):** when the order's claim changes, a blank recovered amount clears the old
+            # claim's rupees instead of leaving them beside the new claim's id.
+            claim_changed = bool(says.get("claimId")) and now[name].get("claimId", "") not in ("", says["claimId"])
             for column, value in says.items():
                 if column == "id":
                     continue
@@ -933,7 +940,8 @@ def plan(
                 # line printed its price beside a nought quantity; that figure was written once and a blank must now be able to take it back.
                 if str(value) == "" and str(was) != "" and not (
                         (column == "whatHappened" and str(was) == NOT_UNDERSTOOD_YET)
-                        or (column == "gmv" and _is_nought(says.get("qty")))):
+                        or (column == "gmv" and _is_nought(says.get("qty")))
+                        or (column == "claimRecovered" and claim_changed)):
                     continue
                 # **A MEESHO SUB-ORDER LISTED AGAIN UNDER A LATER DATE KEEPS THE FIRST DATE SEEN (D447, A87, AU2 finding 4).** Meesho
                 # re-lists a sub-order in later files with a new order date; the day it was first seen is the order's day and a later

@@ -4,6 +4,7 @@
 
 | Kind | Id | From | Holds |
 |---|---|---|---|
+| lifetime | `<platform>__<day>__lifetime` | `me_ads` (Meesho) | `rows`: each campaign's takings since it began, as read that day |
 | days | `<platform>__<day>` | `fk_ads_daily` (Flipkart), `me_ads_summary` (Meesho) | `campaigns`: campaign id -> name, spend, views, clicks, units, revenue |
 | detail | `<platform>__<day>__<kind>` (`overall`: `..__overall__<campaignId>`, a file per campaign) | `fk_ads_placements`, `fk_ads_overall`, `fk_ads_search`, `fk_ads_orders` | `rows`: the file's rows, in the ERP's words |
 
@@ -69,6 +70,17 @@ WAYS: Dict[str, Way] = {
         {
             "campaignId": ("campaign id",), "campaignName": ("campaign name",), "spend": ("ad spend",), "views": ("views",),
             "clicks": ("clicks",), "units": ("orders",), "revenue": ("revenue",),
+        },
+        needed=("campaignId", "spend"), header_row=1, day_column="date",
+    ),
+    # **A CAMPAIGN'S TAKINGS SINCE IT BEGAN, stamped with the day it was read (A87; his real file meesho_me_ads_2026-10-14.csv).** Its campaign
+    # id is the one `me_ads_summary` reads day by day, so it is a record of its own kind (`lifetime`) and never one of the day-by-day `days`
+    # records, which its lifetime figures would overwrite.
+    "me_ads": Way(
+        "meesho", "lifetime",
+        {
+            "campaignId": ("campaign id",), "campaignName": ("campaign name",), "status": ("status",), "startDate": ("start date",),
+            "spend": ("ad spend",), "revenue": ("revenue",), "units": ("orders",), "views": ("views",), "clicks": ("clicks",),
         },
         needed=("campaignId", "spend"), header_row=1, day_column="date",
     ),

@@ -1899,6 +1899,24 @@
         "autosync/ledger_sheet_checks.py",
         "autosync/start.py"
       ]
+    },
+    {
+      "id": "claims-reader",
+      "name": "Meesho claims are read into the ledger's claim columns (A87, plan job 78)",
+      "what": "autosync/claims.py reads a claims file into one claim per order, keyed by the platform's own claim id, the latest file's status winning, the rupees recovered taken only from the platform's own words for paying; the ledger puts a SKU-less Meesho claim on the order's one row.",
+      "rests_on": [
+        "report-list"
+      ],
+      "files": [
+        "autosync/claims.py",
+        "autosync/claims_checks.py"
+      ],
+      "also_touches": [
+        "autosync/reading.py",
+        "autosync/reading_checks.py",
+        "autosync/ledger.py",
+        "autosync/ledger_sheet.py"
+      ]
     }
   ]
 }

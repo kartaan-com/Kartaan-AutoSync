@@ -85,6 +85,7 @@ from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 import landing
 import ads
+import claims
 import listings
 import manifest
 import orders
@@ -155,8 +156,12 @@ class HowToRead:
 # said them. Never an order's own columns: a payment cannot change what was sold, only say what was paid for it.
 WHAT_PAYMENTS_KNOW = payments.WHAT_PAYMENTS_KNOW
 
+# **WHAT A CLAIMS REPORT IS ENTITLED TO WRITE (A87):** the claim's id, status and recovered rupees, and the day of the file that said them.
+WHAT_CLAIMS_KNOW = ("claimId", "claimStatus", "claimRecovered", "claimsOn")
+
 WHAT_CAN_BE_READ: Tuple[HowToRead, ...] = (
     HowToRead("me_orders", WHAT_ORDERS_KNOWS),
+    HowToRead("me_claims", WHAT_CLAIMS_KNOW, kind="claims"),
     HowToRead(
         "fk_orders",
         WHAT_ORDERS_KNOWS,
@@ -234,7 +239,6 @@ WHAT_IS_FETCHED_AND_NOT_READ_YET: Dict[str, str] = {
         "switched off by his ruling (piece 49), so it is not fetched at all and has no folder"
     ),
     "fk_claims": "decided: into the claims columns of the ledger and the ERP's Claims section -- piece 78",
-    "me_claims": "decided: into the claims columns of the ledger and the ERP's Claims section -- piece 78",
     "me_product_performance": (
         "decided: the day's views, clicks, orders and conversion worked out from the kept files, as piece 44 says; waits for the "
         "first two days' files to show how Meesho's seven-day window moves"
@@ -255,10 +259,6 @@ WHAT_IS_FETCHED_AND_NOT_READ_YET: Dict[str, str] = {
 WHAT_IS_FETCHED_AND_NOT_READ_YET["fk_ads_kw"] = (
     "Flipkart has discontinued keyword ads (his word, 12 Oct), so nothing is read and it is no longer fetched: it is off the extension's "
     "timed list (screen.js OFF_THE_TIMED_LIST) and marked as needing a person (reports.py), like fk_keywords (piece 35)"
-)
-WHAT_IS_FETCHED_AND_NOT_READ_YET["me_ads"] = (
-    "a campaign's takings since it began, stamped with the day it was read; no real file of it has been seen yet, so its columns are not "
-    "guessed (piece 78). Its day-by-day figures are already read from me_ads_summary"
 )
 
 
@@ -629,6 +629,12 @@ def _a_reading_of_the_rows(
             ),
             len(paid.not_read),
         )
+    if how.kind == "claims":
+        said = claims.read_claims(platform, rows, day)
+        return (
+            Reading(report=how.report_id, on=day, knows=how.knows, sales=said.sales, which=one.which, only_existing=True),
+            len(said.not_read),
+        )
     was = orders.read_orders(rows, platform, data_date=day)
     return (
         Reading(
@@ -813,6 +819,15 @@ def would_a_file_say_which_day_it_is(how: HowToRead) -> bool:
             )
             for sale in reading.sales
         )
+    if how.kind == "claims":
+        try:
+            reading = _a_reading_of_the_rows(
+                how, whats_new.InTheFolder(which="asking", name="", size=1), claims.a_table_to_ask_with(),
+                the_report(how.report_id).platform, A_DAY_TO_ASK_WITH,
+            )[0]
+        except Exception:  # noqa: BLE001 - any refusal is an answer of "no"
+            return False
+        return bool(reading.sales) and all(str(sale.claims_on or "").strip() == A_DAY_TO_ASK_WITH for sale in reading.sales)
     try:
         which = the_report(how.report_id)
         way = orders.mapping_for(which.platform)
@@ -1153,7 +1168,7 @@ def _which_day_it_is_about(pair: Tuple[HowToRead, whats_new.InTheFolder]):
     # is written down as read when it has been applied. Taken in plain day order a catch-up night applies a settlement before the
     # orders it settles, every line finds no row, and the file is read for good with its money on nothing. The two kinds write
     # different columns under different markers, so putting every payments file after every orders file changes no figure.
-    return (how.kind == "payments", when is None, when.isoformat() if when is not None else "", one.which)
+    return (how.kind in ("payments", "claims"), when is None, when.isoformat() if when is not None else "", one.which)
 
 
 def _oldest_first(
