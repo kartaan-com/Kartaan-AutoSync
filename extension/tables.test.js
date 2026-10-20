@@ -167,6 +167,81 @@ const PRINTED = [p("28th Sep '26 - 4th Oct '26"), p('Last updated 4th Oct | 10:3
 }
 
 {
+  /* **A86 (his 20 Oct run: Meesho pricing, "page 7 did not draw", the page text only the left menu).** Meesho can take the whole
+   * content area away while a page loads. A table that is gone gets the whole patience, not the thirty seconds a table that is still
+   * there and unchanged gets. `rest` here counts the half-seconds that really pass. */
+  const three = () => aPage({
+    headers: PERF_HEADERS, pages: [[perfRow('A', '1')], [perfRow('B', '2')], [perfRow('C', '3')]], extra: PRINTED, pager: PAGER(3),
+  });
+  const built = three();
+  const nextButton = built.buttons.find((one) => one.getAttribute('aria-label') === 'Next page');
+  const drawn = nextButton.onClick;
+  let lateAfter = -1;
+  let slept = 0;
+  nextButton.onClick = () => {
+    if (built.state.at === 1) {
+      // the move to the third page takes the content area away, and brings it back 50 seconds later
+      built.page.children = built.page.children.filter((one) => one !== built.table);
+      lateAfter = slept + 100;
+    } else drawn();
+  };
+  const rest = async () => {
+    slept += 1;
+    if (slept === lateAfter) {
+      built.state.at = 2;
+      built.table._kids[1].children = [el('tr', '', [perfRow('C', '3')][0].map((leaves) => el('td', '', leaves.map(p))))];
+      built.page.children = [...built.page.children, built.table];
+    }
+  };
+  const got = await readTheTable(built.page, { table: 'meesho-product-performance', rest });
+  check('A PAGE THAT TAKES FIFTY SECONDS TO DRAW IS WAITED FOR, not given up on at thirty', got.rows === 3 && got.pages === 3);
+  const stuck = three();
+  const stuckNext = stuck.buttons.find((one) => one.getAttribute('aria-label') === 'Next page');
+  const stuckDraw = stuckNext.onClick;
+  stuckNext.onClick = () => { if (stuck.state.at === 1) stuck.page.children = stuck.page.children.filter((one) => one !== stuck.table); else stuckDraw(); };
+  const why = await thrown(() => readTheTable(stuck.page, { table: 'meesho-product-performance', rest: noWaiting, patience: 2 }));
+  check('A PAGE THAT NEVER DRAWS STILL FAILS THE WHOLE READ, naming the page, with nothing put away',
+    why.includes('page 3 did not draw') || why.includes('went from the page'));
+}
+
+{
+  /* **A86: A PRESS THE PAGE DID NOT HEAR IS MADE AGAIN.** The first press on the way to page 2 does nothing; the second is heard. */
+  const built = aPage({ headers: PERF_HEADERS, pages: [[perfRow('A', '1')], [perfRow('B', '2')]], extra: PRINTED, pager: PAGER(2) });
+  const nextButton = built.buttons.find((one) => one.getAttribute('aria-label') === 'Next page');
+  const heard = nextButton.onClick;
+  nextButton.onClick = () => { if (nextButton.clicks > 1) heard(); };
+  const said = [];
+  const got = await readTheTable(built.page, { table: 'meesho-product-performance', rest: noWaiting, say: (line) => said.push(line) });
+  check('A LOST PRESS IS ASKED AGAIN AND THE TABLE IS WHOLE', got.rows === 2 && got.pages === 2 && nextButton.clicks === 2);
+  check('and the run says the pager was pressed again', said.some((line) => line.includes('pressed again')));
+}
+
+{
+  /* **A86: AND IT IS ONLY TWICE MORE** -- a pager that never answers is pressed three times in all, then the read fails. */
+  const built = aPage({ headers: PERF_HEADERS, pages: [[perfRow('A', '1')], [perfRow('B', '2')]], extra: PRINTED, pager: PAGER(2) });
+  const nextButton = built.buttons.find((one) => one.getAttribute('aria-label') === 'Next page');
+  nextButton.onClick = null;
+  const why = await thrown(() => readTheTable(built.page, { table: 'meesho-product-performance', rest: noWaiting, patience: 1 }));
+  check('A PAGER THAT NEVER ANSWERS IS PRESSED THREE TIMES IN ALL AND THEN FAILS THE READ',
+    nextButton.clicks === 3 && why.includes('did not draw'));
+}
+
+{
+  /* **A86: FLIPKART'S PAGER, WHICH NAMES NO PAGES, ENDS BY NOT MOVING AND IS NEVER PRESSED AGAIN** -- three waits at the real end of a
+   * table would be a minute and a half for nothing. */
+  const { page, buttons } = aPage({
+    headers: ['', 'Product Details', 'Yearly Sales', '1Y Ratings Trend', '5M Returns Trend', 'FA', 'Suppression Risk', 'Issue Details', ''],
+    pages: [[[[], ['P', 'SKU ID:', 'S-1'], ['1'], ['2'], ['3'], [], ['No Risk'], ['x'], []]], [[[], ['Q', 'SKU ID:', 'S-2'], ['1'], ['2'], ['3'], [], ['No Risk'], ['x'], []]]],
+    tableText: 'Suppression Risk', pager: [{ label: 'Next Page' }],
+  });
+  const next = buttons[0];
+  Object.defineProperty(next, 'disabled', { get: () => false });
+  next.onClick = null;
+  const got = await readTheTable(page, { table: 'flipkart-quality-insights', rest: noWaiting, patience: 1 });
+  check('a pager with no page numbers is pressed once and ends the table when it does not move', got.rows === 1 && next.clicks === 1);
+}
+
+{
   const { page } = aPage({ headers: PERF_HEADERS, pages: [[[['x'], ['1']]]], extra: PRINTED, pager: PAGER(1) });
   const why = await thrown(() => readTheTable(page, { table: 'meesho-product-performance', rest: noWaiting }));
   check('a row with the wrong number of cells refuses the read, never a part of the table', why.includes('not the shape of the table'));
@@ -342,7 +417,7 @@ check('and the file carries the guard', theCsv(['a'], [['=1+1']]).split('\n')[1]
 }
 
 console.log(failures ? `\n${failures} FAILED (${ran} checks)` : `\nall ${ran} checks passed`);
-const EXPECTED = 46;
+const EXPECTED = 52;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   process.exit(1);

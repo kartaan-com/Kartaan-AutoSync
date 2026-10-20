@@ -95,7 +95,7 @@ for report_id in tool.every_recipe():
     # being broken rather than as a recipe missing its end.
     # **AND ONE RECIPE ENDS THE OTHER WAY, which is named rather than excused.**
     # Meesho sells no export of the day's views, so `me_views` reads the figures
-    # off two cards and ends by adding a row to a running list. It still ENDS with
+    # off two cards and ends by writing a one-row file for the day. It still ENDS with
     # the thing that puts the day away -- that is what this check is about, and
     # there are now two ways of doing it.
     # **AND A THIRD WAY SINCE 2026-09-15: FLIPKART'S KEYWORDS**, read off the
@@ -514,6 +514,9 @@ check("everything else that is CLICKED is matched exactly",
 # refused by a Submit that does nothing at all, with no message.
 rc_range = [s for s in tool.recipe("fk_orders").to_ask if s.do == pages.PICK_RANGE][0]
 check("the reports centre asks for a two-day range", answered(lambda: rc_range.range_days == 2))
+fk_claims_range = [s for s in tool.recipe("fk_claims").to_take if s.do == pages.PICK_RANGE][0]
+check("Flipkart claims ask for thirty days ending on the day, because one day's file is nearly always empty (A86)",
+      answered(lambda: fk_claims_range.range_days == 30))
 me_range = [s for s in tool.recipe("me_orders").to_take if s.do == pages.PICK_RANGE][0]
 check("while Meesho asks for the one day", answered(lambda: me_range.range_days == 1))
 check("and a range of no days at all is refused",
@@ -722,7 +725,7 @@ check("and none of them is called both built and not built",
 # five are the whole of what this door cannot reach, and the number should fall.
 # **AND THE NUMBER HAS FALLEN BY ONE, WHICH IS WHAT THE LINE ABOVE ASKED FOR.**
 # `me_views` left this list on 2026-09-11: the door learned to read a number off a
-# page and to add a row to a running list, so the reason it carried -- *"the door
+# page and to write a one-row file for the day, so the reason it carried -- *"the door
 # has no step for reading a number off a page"* -- stopped being true.
 # **AND ON 2026-09-15 IT FELL TO NOUGHT.** `fk_keywords` left: the door learned to
 # read the keyword pop-ups off the traffic report, and the part the reference left
@@ -1386,7 +1389,7 @@ check("and the panel name was still filled into the addresses on the way",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 323
+EXPECTED = 324
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

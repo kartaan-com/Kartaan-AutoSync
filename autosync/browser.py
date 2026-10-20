@@ -317,7 +317,7 @@ PICK_RANGE = "pick-range"  # a date range
 TAKE_FILE = "take-file"    # whatever download the last click produced
 WAIT = "wait"              # this long, for something that is not on the page
 READ_NUMBER = "read-number"        # the number a label on the page names
-ADD_TO_THE_LIST = "add-to-the-list"  # what was read, as a row on a running list
+ADD_TO_THE_LIST = "add-to-the-list"  # what was read, as a one-row file for the day
 SWEEP_THE_ADS = "sweep-the-ads"    # ask the platform's own ads addresses, from its page
 TYPE_IN = "type-in"                # words into the one box that matches
 READ_THE_KEYWORDS = "read-the-keywords"  # every listing's top search keywords, off the page
@@ -383,10 +383,8 @@ ONCE_PER_CAMPAIGN = (TYPE_IN, CLICK, WAIT_FOR, TAKE_FILE)
 # order and a file name -- which is a recipe pretending to be a program. Two
 # plain steps read two numbers; the third writes the row.
 #
-# **AND THE ROW IS ADDED TO ONE FILE, NOT WRITTEN AS A NEW ONE EACH DAY.** That is
-# his decision of 2026-09-11, put to him as a question and answered: the working
-# reference has kept these in one running CSV since it was written, and
-# `reports.a_running_list` is where that shape is declared and explained.
+# **AND THE ROW IS WRITTEN AS ITS OWN FILE FOR THE DAY (his D473, 20 Oct).** It was once added to one
+# undated running list, which the read-once-by-Drive-id rule never read again.
 #
 # **THE DAY IS WRITTEN THE WAY EVERYTHING ELSE HERE WRITES A DAY -- ISO, the same
 # `date.isoformat()` the file names use and the same spelling that reaches the

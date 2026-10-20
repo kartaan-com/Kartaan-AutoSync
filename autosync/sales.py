@@ -199,6 +199,14 @@ COLUMNS_BEFORE_PACKAGING_OWED = PLAIN_FIELDS + CHARGE_COLUMNS + WHAT_HAPPENED_CO
 
 COLUMNS = PLAIN_FIELDS + CHARGE_COLUMNS + WHAT_HAPPENED_COLUMNS + PACKAGING_OWED_COLUMNS
 
+# **THE COLUMNS THE ERP WRITES AND THE RUN NEVER DOES (P15 piece 4, D462).** A write of a whole row from a copy read earlier puts the ERP's own cells
+# back to what the run read: a blank `took` put back is a sale taken off stock a second time. The run writes only the cells it changed, and
+# `ledger.plan` refuses a reading that would change one of these (`ledger_checks` pins this list to the sheet's own "comes back from Kartaan" set).
+ERP_OWNED_COLUMNS = (
+    "state", "heldFor", "took", "taking", "cogs", "packagingCost", "earringCondition", "boxCondition", "chainCondition",
+    "itemLoss", "packingLoss", "chainLoss", "netPnl", "returnPnl", "rev",
+) + PACKAGING_OWED_COLUMNS
+
 # The fields that are figures. **A sheet hands back TEXT for everything**, so
 # whatever reads a row back has to know which ones to turn into numbers -- and
 # `0` read back as the text "0" is what every sum in the product would join
@@ -471,16 +479,6 @@ def column_letter(how_many: int) -> str:
 def the_whole_tab() -> str:
     """The whole ledger, as a range. Worked out, never written down."""
     return f"{THE_TAB}!A:{column_letter(len(COLUMNS))}"
-
-
-def the_range_for(row: int) -> str:
-    """One row of the ledger, as a range. Row 1 is the header."""
-    if not isinstance(row, int) or isinstance(row, bool) or row < 2:
-        raise NotASale(
-            "Row 1 is the header, so a sale is on row 2 or later. Writing a sale "
-            "to row 1 would replace the column names with a sale."
-        )
-    return f"{THE_TAB}!A{row}:{column_letter(len(COLUMNS))}{row}"
 
 
 def by_name(sales: Sequence["Sale"]) -> Dict[str, "Sale"]:

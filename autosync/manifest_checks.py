@@ -185,11 +185,6 @@ check(
 # ---------------------------------------------------------- a folder to ask
 
 def a_real_file(a_report, day, size=4021):
-    # **A RUNNING LIST CARRIES ITS DAYS INSIDE IT, because its name has none.**
-    # The same thing the real folder lister has to do -- a helper that made one
-    # look dated would be checking a product that does not exist.
-    if a_report.a_running_list:
-        return Arrived(file_name_for(a_report, day), size, days_inside=(day,))
     return Arrived(file_name_for(a_report, day), size)
 
 
@@ -642,10 +637,15 @@ check("a day read again replaces the earlier read in place, and every other read
 RUN = tool.Standing(lines=(THE_RUNS_LINE,), reads=(A_READ,))
 EXTENSION = tool.Standing(lines=(THE_EXTENSIONS_LINE,), reads=())
 crossed = {(c.report_id, c.data_date): c for c in tool.cross_check(RUN, EXTENSION)}
-check("a file the extension saved and the run read is landed by the extension, and read, with both numbers",
-      crossed[("me_orders", D1)].verdict == tool.LANDED_AND_READ
-      and crossed[("me_orders", D1)].landed_by == "the extension"
+check("a file the extension saved and the run read is landed by the extension, with both numbers",
+      crossed[("me_orders", D1)].landed_by == "the extension"
       and (crossed[("me_orders", D1)].rows_in_file, crossed[("me_orders", D1)].rows_read) == (40, 38))
+# A87 (AU2): one of fifty Meesho return rows was dropped and the line still said "landed and read".
+check("A FILE WITH A ROW LEFT UNREAD (38 of 40) IS LANDED, NOT READ -- never 'landed and read'",
+      crossed[("me_orders", D1)].verdict == tool.LANDED_NOT_READ)
+_whole = tool.Read(D1, "me_orders", "meesho_me_orders_2026-09-20.csv", "the sales ledger", 40, 40, D2)
+check("and the same file with every row read is 'landed and read'",
+      tool.cross_check(tool.Standing(lines=(), reads=(_whole,)), EXTENSION)[0].verdict == tool.LANDED_AND_READ)
 check("A FILE THE EXTENSION SAVES AND THE RUN NEVER READS APPEARS AS LANDED, NOT READ",
       tool.cross_check(tool.Standing((), ()), EXTENSION)[0].verdict == tool.LANDED_NOT_READ)
 check("A FILE READ WITH NO LANDING LINE APPEARS AS READ, NEVER SEEN LANDING",
@@ -704,16 +704,16 @@ check("TWO INSTALLS ON ONE GOOGLE ACCOUNT: both installs' lines are there when t
 check("and one install's record alone still joins as before",
       len(tool.cross_check(tool.Standing((), ()), install_a)) == 1)
 
-# **A ROLLING FILE IS RECORDED PER DAY BY LOOKING INSIDE IT, and a day missing inside it is missing for that day only.**
-the_views = next(one for one in REPORTS if one.id == "me_views")
-inside = [Arrived(name="meesho_me_views.csv", size=500, days_inside=(date(2026, 9, 19), date(2026, 9, 21)))]
-views_lines = {one.data_date: one.state for one in tool.lines_for(
-    [the_views], lambda rid: inside, date(2026, 9, 22), checked_on=date(2026, 9, 22), look_back_days=3)}
-check("a views day absent from inside the rolling file is missing, and only that day",
-      views_lines.get(date(2026, 9, 20)) == tool.MISSING and views_lines.get(date(2026, 9, 19)) == tool.VERIFIED
-      and views_lines.get(date(2026, 9, 21)) == tool.VERIFIED)
+# **A RANGE FILE IS RECORDED PER DAY TOO (P16): one request for several days leaves one file, and each day inside it is verified.**
+the_fk_orders = next(one for one in REPORTS if one.id == "fk_orders")
+_ranged = [Arrived(name="flipkart_fk_orders_2026-09-19_to_2026-09-21.xlsx", size=500)]
+ranged_lines = {one.data_date: one.state for one in tool.lines_for(
+    [the_fk_orders], lambda rid: _ranged, date(2026, 9, 22), checked_on=date(2026, 9, 22), look_back_days=4)}
+check("every day inside a range file is verified, and the day before it is missing",
+      all(ranged_lines.get(date(2026, 9, d)) == tool.VERIFIED for d in (19, 20, 21))
+      and ranged_lines.get(date(2026, 9, 18)) == tool.MISSING)
 
-EXPECTED = 66 + 20
+EXPECTED = 66 + 22
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

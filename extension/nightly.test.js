@@ -52,6 +52,7 @@ import {
   daysNobodyTried,
   CATCH_UP_REACH_DAYS,
   clearNamedNeedsYouEntries,
+  theRangeOfTheDays,
 } from './nightly.js';
 import { NOT_AVAILABLE_YET as THE_WALKS_WORD } from './walk.js';
 
@@ -1312,6 +1313,112 @@ check('and three days of trying is the reference\'s own number', GIVE_UP_AFTER_D
 }
 
 {
+  /* **P16 (D424): A TYPED RANGE FOR A REPORT THAT SPENDS THE TWENTY IS ONE REQUEST.** Three days of
+   * `fk_orders` used to be three walks and three of Flipkart's twenty. */
+  const browser = installFakeChrome();
+  const walk = aWalkThat();
+  await startTheNight(browser.chrome, {
+    doing: ['fk_orders'], mayAskFor: 20, at: 1, openAt: 'https://x/', dataDate: '2026-09-14',
+    days: ['2026-09-12', '2026-09-13', '2026-09-14'],
+  });
+  await carryTheNightOn(browser.chrome, { ...walk, at: 2 });
+  check('fk_orders over three days is walked ONCE, for the last day, from the first',
+    walk.started.length === 1 && walk.started[0].dataDate === '2026-09-14'
+    && walk.started[0].fromDay === '2026-09-12' && walk.started[0].namedAsARange === true);
+  check('and it counts ONE of the twenty, not three', (await theNight(browser.chrome)).spent === 1);
+  walk.itFinished({ state: 'landed', reportId: 'fk_orders', size: 10, dataDate: '2026-09-14' });
+  await carryTheNightOn(browser.chrome, { ...walk, at: 3 });
+  check('and once it has landed there is no second walk for the days inside it',
+    walk.started.length === 1 && (await theNight(browser.chrome)).spent === 1);
+}
+
+{
+  /* **A REPORT THAT COSTS NOTHING PER REQUEST STAYS A DAY AT A TIME**, and so does a stretch with a gap
+   * in it or one longer than a file's name may hold. */
+  check('a run of days is one range from the first to the last',
+    JSON.stringify(theRangeOfTheDays(['2026-09-14', '2026-09-12', '2026-09-13']))
+    === JSON.stringify({ from: '2026-09-12', to: '2026-09-14' }));
+  check('across a month end too',
+    JSON.stringify(theRangeOfTheDays(['2026-09-30', '2026-10-01'])) === JSON.stringify({ from: '2026-09-30', to: '2026-10-01' }));
+  check('one day is not a range, and nor is nothing',
+    theRangeOfTheDays(['2026-09-14']) === null && theRangeOfTheDays([]) === null && theRangeOfTheDays(undefined) === null);
+  check('days with a gap are not one range', theRangeOfTheDays(['2026-09-12', '2026-09-14']) === null);
+  const days = (n) => Array.from({ length: n }, (_, at) => new Date(Date.UTC(2026, 7, 1 + at)).toISOString().slice(0, 10));
+  check('31 days are a range and 32 are not', theRangeOfTheDays(days(31)) !== null && theRangeOfTheDays(days(32)) === null);
+  const browser = installFakeChrome();
+  const walk = aWalkThat();
+  await startTheNight(browser.chrome, {
+    doing: ['fk_orders'], mayAskFor: 20, at: 1, openAt: 'https://x/', dataDate: '2026-09-14',
+    days: ['2026-09-12', '2026-09-14'],
+  });
+  await carryTheNightOn(browser.chrome, { ...walk, at: 2 });
+  check('a gap in the typed days is walked a day at a time as ever, with no range name',
+    walk.started[0].dataDate === '2026-09-12' && !walk.started[0].namedAsARange);
+  const meesho = installFakeChrome();
+  const meeshoWalk = aWalkThat();
+  await startTheNight(meesho.chrome, {
+    doing: ['me_orders'], at: 1, openAt: 'https://x/', dataDate: '2026-09-14',
+    days: ['2026-09-12', '2026-09-13', '2026-09-14'],
+  });
+  await carryTheNightOn(meesho.chrome, { ...meeshoWalk, at: 2 });
+  check('a Meesho report over three days is still walked the oldest day first and not as a range',
+    meeshoWalk.started[0].dataDate === '2026-09-12' && !meeshoWalk.started[0].namedAsARange);
+}
+
+{
+  /* **A RANGE REQUEST THAT IS NOT READY IS RE-CHECKED AS THE SAME RANGE (P16, review finding).** The row Flipkart finishes holds every day,
+   * so collected as one day it would be named for one day and the rest asked for again. */
+  const browser = installFakeChrome();
+  const walk = aWalkThat();
+  await startTheNight(browser.chrome, {
+    doing: ['fk_orders'], mayAskFor: 20, at: 1, openAt: 'https://x/', dataDate: '2026-09-14',
+    days: ['2026-09-12', '2026-09-13', '2026-09-14'],
+  });
+  await carryTheNightOn(browser.chrome, { ...walk, at: 2 });
+  walk.itFinished({ state: 'failed', reportId: 'fk_orders', size: 0, dataDate: '2026-09-14', say: 'not ready' });
+  await thatOneIsDone(browser.chrome, { reportId: 'fk_orders', state: 'still-waiting', say: 'asked', at: 3, dataDate: '2026-09-14', theirId: 'req-1' });
+  await thatOneIsDone(browser.chrome, { reportId: 'fk_orders', state: 'failed', say: 'not ready', at: 4, dataDate: '2026-09-14' });
+  const waiting = Object.values(await whatIsBeingRechecked(browser.chrome));
+  check('the re-check entry remembers the first day of the range',
+    waiting.length === 1 && waiting[0].dataDate === '2026-09-14' && waiting[0].fromDay === '2026-09-12');
+  const plan = theRecheckSync(await whatIsBeingRechecked(browser.chrome));
+  check('and the hourly re-check is a sync of that range, not of one day', plan.from === '2026-09-12' && plan.day === '2026-09-14');
+  const grouped = theRecheckSync({
+    a: { reportId: 'fk_orders', dataDate: '2026-09-14', fromDay: '2026-09-12' },
+    b: { reportId: 'fk_claims', dataDate: '2026-09-14' },
+  });
+  check('a report asked for a single day is not swept into the range re-check',
+    grouped.reportIds.length === 1 && grouped.from === '2026-09-12');
+  check('and an ordinary re-check has no range at all',
+    theRecheckSync({ a: { reportId: 'fk_claims', dataDate: '2026-09-14' } }).from === undefined);
+}
+
+{
+  /* **DAYS OWED INSIDE THE RANGE ARE COVERED BY IT; DAYS OWED OUTSIDE ARE STILL WALKED.** */
+  const browser = installFakeChrome();
+  const walk = aWalkThat();
+  await rememberLastLanded(browser.chrome, 'fk_orders', '2026-09-05');
+  await rememberLastLanded(browser.chrome, 'fk_orders', '2026-09-10');
+  await startTheNight(browser.chrome, {
+    doing: ['fk_orders'], mayAskFor: 20, at: 1, openAt: 'https://x/', dataDate: '2026-09-14',
+    days: ['2026-09-12', '2026-09-13', '2026-09-14'], canGoBack: ['fk_orders'],
+  });
+  const walked = [];
+  for (let turn = 2; turn < 14; turn += 1) {
+    // eslint-disable-next-line no-await-in-loop
+    await carryTheNightOn(browser.chrome, { ...walk, at: turn });
+    if (walk.started.length === walked.length) break;
+    walked.push(walk.started[walked.length]);
+    walk.itFinished({ state: 'landed', reportId: 'fk_orders', size: 10, dataDate: walked[walked.length - 1].dataDate });
+  }
+  check('the range is walked first, then each owed day outside it, and none inside it',
+    walked.map((one) => one.dataDate).join() === '2026-09-14,2026-09-06,2026-09-07,2026-09-08,2026-09-09,2026-09-11');
+  check('and only the range walk carries the range',
+    walked[0].namedAsARange === true && walked[0].fromDay === '2026-09-12'
+    && walked.slice(1).every((one) => !one.namedAsARange && !one.fromDay));
+}
+
+{
   /* **A53, HIS RULING 2026-09-16: *"when run is for past day it will ignore meesho
    * views as it is not available"*.** Meesho's dashboard card shows its newest day
    * and nothing else, so a sync for an older day was looking for a card that can
@@ -1625,7 +1732,7 @@ async function seedLandedRangeForTest(c, reportId, from, to) {
       && one.say.includes('has not been asked for')).length === 3);
 }
 
-const EXPECTED = 180;
+const EXPECTED = 180 + 16;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

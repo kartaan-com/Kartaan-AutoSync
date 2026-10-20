@@ -1899,6 +1899,142 @@
         "autosync/ledger_sheet_checks.py",
         "autosync/start.py"
       ]
+    },
+    {
+      "id": "claims-reader",
+      "name": "Meesho claims are read into the ledger's claim columns (A87, plan job 78)",
+      "what": "autosync/claims.py reads a claims file into one claim per order, keyed by the platform's own claim id, the latest file's status winning, the rupees recovered taken only from the platform's own words for paying; the ledger puts a SKU-less Meesho claim on the order's one row.",
+      "rests_on": [
+        "report-list"
+      ],
+      "files": [
+        "autosync/claims.py",
+        "autosync/claims_checks.py"
+      ],
+      "also_touches": [
+        "autosync/reading.py",
+        "autosync/reading_checks.py",
+        "autosync/ledger.py",
+        "autosync/ledger_sheet.py",
+        "autosync/firestore.py",
+        "autosync/firestore_checks.py",
+        "autosync/firestore_door.py",
+        "autosync/start.py",
+        "autosync/nightly.py",
+        "autosync/returns_ads_checks.py"
+      ]
+    },
+    {
+      "id": "performance-reader",
+      "name": "Meesho product performance is read into a record per product per week (A87, D459, plan piece 44)",
+      "what": "autosync/performance.py reads the weekly product performance file into platform_performance records, one per product per week, the product matched to a catalog by its title among the seller's own Meesho listings and kept and flagged when it is not.",
+      "rests_on": [
+        "report-list"
+      ],
+      "files": [
+        "autosync/performance.py",
+        "autosync/performance_checks.py"
+      ],
+      "also_touches": [
+        "autosync/reading.py",
+        "autosync/reading_checks.py",
+        "autosync/firestore.py",
+        "autosync/firestore_door.py",
+        "autosync/start.py",
+        "autosync/nightly.py"
+      ]
+    },
+    {
+      "id": "ads-month",
+      "name": "Each platform's ads of a month are summed into one record for the ERP (A87, D463)",
+      "what": "autosync/ads.py build_month and firestore_door.an_ads_month_sink rebuild platform_ads_month/<platform>__<yyyy-mm> whole from that month's per-day ads records after each night's ads files (and for every month that has day records when none exists yet); nothing is summed over the month.",
+      "rests_on": [
+        "report-list"
+      ],
+      "files": [
+        "autosync/ads_month_checks.py"
+      ],
+      "also_touches": [
+        "autosync/ads.py",
+        "autosync/firestore.py",
+        "autosync/firestore_checks.py",
+        "autosync/firestore_door.py",
+        "autosync/reading.py",
+        "autosync/nightly.py",
+        "autosync/nightly_checks.py",
+        "autosync/start.py"
+      ]
+    },
+    {
+      "id": "quality-reader",
+      "name": "Flipkart quality insights are read into a record per listing (A87, plan part F1)",
+      "what": "autosync/quality.py reads the quality insights file into platform_quality records, one per listing named by its SKU: star level and returns share as levels, rupees from K/L/Cr suffixes, badge, suppression risk and issue as the platform wrote them, with a short history.",
+      "rests_on": [
+        "report-list"
+      ],
+      "files": [
+        "autosync/quality.py",
+        "autosync/quality_checks.py"
+      ],
+      "also_touches": [
+        "autosync/reading.py",
+        "autosync/reading_checks.py",
+        "autosync/firestore.py",
+        "autosync/firestore_checks.py",
+        "autosync/firestore_door.py",
+        "autosync/returns_ads_checks.py",
+        "autosync/start.py",
+        "autosync/nightly.py"
+      ]
+    },
+    {
+      "id": "shop-days-reader",
+      "name": "Meesho's whole-shop dashboard figures are read into a record per day (A87, D473)",
+      "what": "autosync/shopdays.py reads the dashboard views and orders file into platform_shop_days records, one per day, tied to no listing and never derived from.",
+      "rests_on": [
+        "report-list"
+      ],
+      "files": [
+        "autosync/shopdays.py",
+        "autosync/shopdays_checks.py"
+      ],
+      "also_touches": [
+        "autosync/reading.py",
+        "autosync/reading_checks.py",
+        "autosync/firestore.py",
+        "autosync/firestore_checks.py",
+        "autosync/firestore_door.py",
+        "autosync/returns_ads_checks.py",
+        "autosync/start.py",
+        "autosync/nightly.py"
+      ]
+    },
+    {
+      "id": "record-reports",
+      "name": "One table, one reader branch and one sink for every report written as records (A87, his standing order D482)",
+      "what": "autosync/records.py holds what record readers share (fingerprint, column check, figure parsing, safe names, the kind of record); autosync/record_reports.py is the one table of reports written as records; reading.py has one branch that walks it and firestore_door.a_records_sink serves it; firestore.a_record_write is the one writer.",
+      "rests_on": [
+        "report-list"
+      ],
+      "files": [
+        "autosync/records.py",
+        "autosync/record_reports.py",
+        "autosync/record_reports_checks.py",
+        "autosync/fake_firestore.py"
+      ],
+      "also_touches": [
+        "autosync/reading.py",
+        "autosync/firestore.py",
+        "autosync/firestore_door.py",
+        "autosync/claims.py",
+        "autosync/performance.py",
+        "autosync/quality.py",
+        "autosync/shopdays.py",
+        "autosync/ads.py",
+        "autosync/returns.py",
+        "autosync/start.py",
+        "autosync/nightly.py"
+      ]
     }
   ]
 }

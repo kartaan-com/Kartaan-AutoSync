@@ -85,9 +85,12 @@ from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 import landing
 import ads
+import claims
 import listings
 import manifest
 import orders
+import performance
+import record_reports
 import payments
 import returns
 import sheet
@@ -97,7 +100,7 @@ import whats_new
 from firestore_door import TheirDatabaseSaidNo
 from ledger import LedgerRefused, Reading, which_markers
 from reports import report as the_report
-from sales import FROM_FIELD
+from sales import FROM_FIELD, Sale
 
 # **WHAT AN ORDERS REPORT IS ENTITLED TO WRITE (D150 rule 1).** It knows nothing
 # about settlements, returns or charges, and naming the columns here is what
@@ -123,7 +126,7 @@ WHAT_ORDERS_KNOWS = ("platform", "orderId", "on", "sku", "qty", "gmv", "status",
 # already in his ledger would go on looking like sales for ever. Change this name whenever the orders reader
 # learns to write a column it did not, and every file is read once more -- which is safe, because reading a
 # file again writes the same figures and an older file never undoes a newer one (D150 rule 2).
-READING_RULES = "orders-with-the-platforms-status-word-and-what-happened-india-day-a81"
+READING_RULES = "orders-with-the-platforms-status-word-and-what-happened-india-day-a81-returns-in-the-ledger-a87"
 # Payments reports whose lines wait for their order (A81).
 PAYMENTS_THAT_WAIT_FOR_THEIR_ORDERS = ("fk_payments", "me_payments")
 
@@ -155,8 +158,12 @@ class HowToRead:
 # said them. Never an order's own columns: a payment cannot change what was sold, only say what was paid for it.
 WHAT_PAYMENTS_KNOW = payments.WHAT_PAYMENTS_KNOW
 
+# **WHAT A CLAIMS REPORT IS ENTITLED TO WRITE (A87):** the claim's id, status and recovered rupees, and the day of the file that said them.
+WHAT_CLAIMS_KNOW = ("claimId", "claimStatus", "claimRecovered", "claimsOn")
+
 WHAT_CAN_BE_READ: Tuple[HowToRead, ...] = (
     HowToRead("me_orders", WHAT_ORDERS_KNOWS),
+    HowToRead("me_claims", WHAT_CLAIMS_KNOW, kind="claims"),
     HowToRead(
         "fk_orders",
         WHAT_ORDERS_KNOWS,
@@ -213,6 +220,12 @@ WHAT_RETURNS_CAN_BE_READ: Tuple[HowToRead, ...] = tuple(
 
 # **THE AD FILES (A78):** an ads record per platform per day, and the detail behind it, in the seller's own database
 # (`firestore_door.an_ads_sink`). Their shapes are `ads.py`'s.
+# **THE REPORTS WRITTEN AS RECORDS OF THEIR OWN (A87, D459, D473, D482):** product performance, listing quality and the shop's own figures are read by the one
+# branch below from the one table in `record_reports.py`. (Claims are read into the ledger too, so they are in `WHAT_CAN_BE_READ`.)
+WHAT_RECORDS_CAN_BE_READ: Tuple[HowToRead, ...] = tuple(
+    HowToRead(report_id, (), kind="records") for report_id in record_reports.RECORD_REPORTS if report_id != "me_claims"
+)
+
 WHAT_ADS_CAN_BE_READ: Tuple[HowToRead, ...] = tuple(
     HowToRead(report_id, (), header_row=ads.way_for(report_id).header_row, kind="ads") for report_id in ads.WAYS
 )
@@ -234,31 +247,14 @@ WHAT_IS_FETCHED_AND_NOT_READ_YET: Dict[str, str] = {
         "switched off by his ruling (piece 49), so it is not fetched at all and has no folder"
     ),
     "fk_claims": "decided: into the claims columns of the ledger and the ERP's Claims section -- piece 78",
-    "me_claims": "decided: into the claims columns of the ledger and the ERP's Claims section -- piece 78",
-    "me_product_performance": (
-        "decided: the day's views, clicks, orders and conversion worked out from the kept files, as piece 44 says; waits for the "
-        "first two days' files to show how Meesho's seven-day window moves"
-    ),
     "me_pricing": (
         "decided: current price, recommended price and Meesho's own label put on each Meesho listing in Products, as piece 43 says; "
         "that screen is the ERP's"
-    ),
-    "fk_quality_insights": (
-        "decided: each listing's yearly sales, rating, returns, assured badge and suppression risk shown beside it in listing "
-        "health; the reading waits for the first real file (piece 86, stream B9)"
-    ),
-    "me_views": (
-        "a whole-shop figure with no listing in it, so it has no per-listing record; Meesho's views per product "
-        "are piece 44 (Product Performance), which will write them into the same listing record"
     ),
 }
 WHAT_IS_FETCHED_AND_NOT_READ_YET["fk_ads_kw"] = (
     "Flipkart has discontinued keyword ads (his word, 12 Oct), so nothing is read and it is no longer fetched: it is off the extension's "
     "timed list (screen.js OFF_THE_TIMED_LIST) and marked as needing a person (reports.py), like fk_keywords (piece 35)"
-)
-WHAT_IS_FETCHED_AND_NOT_READ_YET["me_ads"] = (
-    "a campaign's takings since it began, stamped with the day it was read; no real file of it has been seen yet, so its columns are not "
-    "guessed (piece 78). Its day-by-day figures are already read from me_ads_summary"
 )
 
 
@@ -270,7 +266,7 @@ def why_a_report_has_no_decision() -> str:
     """
     from reports import REPORTS  # noqa: PLC0415 - kept beside its one use
 
-    read = {one.report_id for one in WHAT_CAN_BE_READ + WHAT_VIEWS_CAN_BE_READ + WHAT_LISTINGS_CAN_BE_READ + WHAT_RETURNS_CAN_BE_READ + WHAT_ADS_CAN_BE_READ}
+    read = {one.report_id for one in WHAT_CAN_BE_READ + WHAT_VIEWS_CAN_BE_READ + WHAT_LISTINGS_CAN_BE_READ + WHAT_RETURNS_CAN_BE_READ + WHAT_ADS_CAN_BE_READ + WHAT_RECORDS_CAN_BE_READ}
     said = set(WHAT_IS_FETCHED_AND_NOT_READ_YET)
     known = {one.id for one in REPORTS}
     wrong = []
@@ -336,6 +332,12 @@ class WhatTheNightRead:
     # **THE RETURN AND AD FILES (A78):** records written tonight (new or changed), and files left unread because there was nowhere to write them.
     returns_written: int = 0
     returns_waiting: int = 0
+    # **THE REPORTS THAT ARE WRITTEN AS RECORDS (A87, D482 -- ONE pair for all of them):** `(report id, records written tonight)` and the ids whose files were
+    # left unread for want of anywhere to write them. Asked with `wrote(report_id)` and `waiting(report_id)`.
+    records_written: Tuple[Tuple[str, int], ...] = ()
+    records_waiting: Tuple[str, ...] = ()
+    # **THE MONTHS OF ADS TONIGHT'S ADS FILES TOUCHED (D463):** `(platform, yyyy-mm)`, so the run can rebuild each month's one summary record.
+    ads_months: Tuple[Tuple[str, str], ...] = ()
     ads_written: int = 0
     ads_waiting: int = 0
     # **PAYMENT LINES WAITING FOR THEIR ORDER (A81):** how many lines, and which files are being held for them (not written down as
@@ -361,6 +363,14 @@ class WhatTheNightRead:
         seller's files piled up unread for ever -- **found by an independent
         reviewer, and it is Golden Rule 29 exactly.**"""
         return bool(self.could_not_list or self.the_ledger_refused or self.the_database_refused)
+
+    def wrote(self, report_id: str) -> int:
+        """How many records of this report were written tonight."""
+        return dict(self.records_written).get(report_id, 0)
+
+    def waiting(self, report_id: str) -> int:
+        """How many files of this report were left unread tonight for want of anywhere to write their records."""
+        return self.records_waiting.count(report_id)
 
     def says(self) -> str:
         """One line for the night's summary. **EVERY COUNT, EVEN THE NOUGHTS.**
@@ -405,6 +415,14 @@ class WhatTheNightRead:
             )
         if self.returns_written:
             said += f"  {self.returns_written} returned line(s) were new or changed in the returns files and were recorded."
+        for report_id, one in record_reports.RECORD_REPORTS.items():
+            if self.wrote(report_id):
+                said += f"  {self.wrote(report_id)} {one.label} were new or changed in the {one.files} files and were recorded."
+            if self.waiting(report_id):
+                said += (
+                    f"  {self.waiting(report_id)} {one.files} file(s) were left unread because the seller's database could not be reached for them; "
+                    "they will be read when it can."
+                )
         if self.ads_written:
             said += f"  {self.ads_written} ad record(s) were new or changed in the ads files and were recorded."
         if self.returns_waiting or self.ads_waiting:
@@ -629,6 +647,12 @@ def _a_reading_of_the_rows(
             ),
             len(paid.not_read),
         )
+    if how.kind == "claims":
+        said = claims.read_claims(platform, rows, day)
+        return (
+            Reading(report=how.report_id, on=day, knows=how.knows, sales=said.sales, which=one.which, only_existing=True),
+            len(said.not_read),
+        )
     was = orders.read_orders(rows, platform, data_date=day)
     return (
         Reading(
@@ -706,6 +730,71 @@ def a_returns_reading(how: HowToRead, one: whats_new.InTheFolder, body: bytes) -
     return said, when.isoformat()
 
 
+# **WHAT A RETURNS FILE MAY SAY IN THE LEDGER (D447, D449, A87):** the day it was read, and -- for a return the platform has finished
+# (it names a day the return closed) -- that the order came back. Nothing else: the reason, status and tracking stay in the returns record.
+WHAT_RETURNS_KNOW = ("platform", "orderId", "sku", "whatHappened", "returnsOn")
+
+
+def _a_finished_return(one: Dict[str, object]) -> bool:
+    """Has the platform finished this return? Meesho names a delivered day only once the parcel is back; Flipkart fills its completed day
+    on open claims too (a real open MISSING_ITEM claim carried one), so its own status must say Closed. Amazon's statuses (Rejected,
+    Undelivered) are not understood well enough to say a parcel came back, so Amazon says nothing here."""
+    if not one.get("closedOn"):
+        return False
+    if one.get("platform") == "meesho":
+        return True
+    return one.get("platform") == "flipkart" and str(one.get("status", "")).strip().lower() == "closed"
+
+
+def a_returns_in_the_ledger(said: returns.WhatReturnsSaid, day: str, which: str, report_id: str) -> Optional[Reading]:
+    """The returned lines of one file as a reading of the ledger, or nothing when none names its SKU.
+
+    **A RETURN THAT ARRIVES BEFORE ITS ORDER CREATES THE ORDER'S ROW (D449)**, keyed as the orders reader keys it. A line with no SKU has no
+    row to key and stays only in the returns record.
+    """
+    lines = tuple(
+        Sale(
+            platform=one["platform"], order_id=one["orderId"], sku=one["sku"], returns_on=day,
+            what_happened=orders.CAME_BACK if _a_finished_return(one) else None,
+        )
+        for _, one in sorted(said.records.items()) if one.get("sku")
+    )
+    return Reading(report=report_id, on=day, knows=WHAT_RETURNS_KNOW, sales=lines, which=which) if lines else None
+
+
+def write_the_records(
+    how: HowToRead, one: whats_new.InTheFolder, body: bytes, day: str, sink: Callable[[str, str, Dict], int],
+    listed: Dict[str, List[whats_new.InTheFolder]], bring_it_back: Callable[[str], bytes], strict: bool = True,
+):
+    """A file's rows turned into records by the table (`record_reports.RECORD_REPORTS`) and handed to the report's sink: `(records, rows refused, written)`.
+
+    **NOTHING READ FROM A FILE THAT HAD ROWS IS A FILE NOT READ**, not one read for good: marked, it would never be opened again. (`strict=False` is for a
+    file that is also read for another purpose, whose other reading must go ahead: the claims, whose ledger note does not wait on their records.)
+    """
+    report = record_reports.RECORD_REPORTS[how.report_id]
+    titles = _the_titles_of_the_catalog(listed, bring_it_back) if report.wants_the_catalog_titles else None
+    made, not_read = report.read(how.report_id, the_report(how.report_id).platform, _rows_in(how, body, one.name or one.which), day, titles)
+    if strict and not made and not_read:
+        raise table.CannotRead(f"no row of {one.name or one.which} could be read; the first was {not_read[0]}")
+    return made, not_read, sink(how.report_id, day, made)
+
+
+def _the_titles_of_the_catalog(listed: Dict[str, List[whats_new.InTheFolder]], bring_it_back: Callable[[str], bytes]) -> Dict:
+    """The seller's own Meesho listing titles, from the newest `me_catalog` file in the folder (none when there is no such file; a file that will not read stops the caller)."""
+    how = next((one for one in WHAT_LISTINGS_CAN_BE_READ if one.report_id == "me_catalog"), None)
+    files = [one for one in listed.get("me_catalog", ()) if landing.data_date_in(one.name) is not None]
+    if how is None or not files:
+        return {}
+    newest = max(files, key=lambda one: (landing.data_date_in(one.name), one.which))
+    try:
+        return performance.titles_of(a_listings_reading(how, newest, bring_it_back(newest.which))[0].records)
+    except Exception as wrong:  # noqa: BLE001 - said, and the file waits: matched against nothing it would be flagged unmatched for good
+        raise table.CannotRead(
+            f"the catalog file {newest.name or newest.which} could not be read ({wrong}), so the products cannot be matched to a catalog yet; "
+            "this file is left to be read again"
+        ) from wrong
+
+
 def an_ads_reading(how: HowToRead, one: whats_new.InTheFolder, body: bytes) -> Tuple[ads.WhatAdsSaid, str]:
     """One ads file turned into ad records, and the day of the file (same refusals as `a_returns_reading`)."""
     when = _the_day_of(one)
@@ -781,6 +870,15 @@ def would_a_file_say_which_day_it_is(how: HowToRead) -> bool:
             )
             for sale in reading.sales
         )
+    if how.kind == "claims":
+        try:
+            reading = _a_reading_of_the_rows(
+                how, whats_new.InTheFolder(which="asking", name="", size=1), claims.a_table_to_ask_with(),
+                the_report(how.report_id).platform, A_DAY_TO_ASK_WITH,
+            )[0]
+        except Exception:  # noqa: BLE001 - any refusal is an answer of "no"
+            return False
+        return bool(reading.sales) and all(str(sale.claims_on or "").strip() == A_DAY_TO_ASK_WITH for sale in reading.sales)
     try:
         which = the_report(how.report_id)
         way = orders.mapping_for(which.platform)
@@ -828,6 +926,7 @@ def read_what_is_new(
     record_listings: Optional[Callable[[str, str, Dict], int]] = None,
     record_returns: Optional[Callable[[str, str, Dict], int]] = None,
     record_ads: Optional[Callable[[str, str, str, str, Dict], int]] = None,
+    record_records: Optional[Dict[str, Callable[[str, str, Dict], int]]] = None,
     correcting: bool = False,
 ) -> WhatTheNightRead:
     """Read every file in the seller's folders that has not been read before.
@@ -854,6 +953,7 @@ def read_what_is_new(
     if can_be_read is None:
         can_be_read = (
             WHAT_CAN_BE_READ + WHAT_VIEWS_CAN_BE_READ + WHAT_LISTINGS_CAN_BE_READ + WHAT_RETURNS_CAN_BE_READ + WHAT_ADS_CAN_BE_READ
+            + WHAT_RECORDS_CAN_BE_READ
         )
     remembered = tuple(sorted({
         str(one).strip() for one in (already_read or ()) if str(one).strip()
@@ -917,6 +1017,9 @@ def read_what_is_new(
     listings_waiting = 0
     returns_written = 0
     returns_waiting = 0
+    records_written: Dict[str, int] = {}
+    records_waiting: List[str] = []
+    ads_months = set()
     ads_written = 0
     ads_waiting = 0
     payments_waiting = 0
@@ -965,11 +1068,18 @@ def read_what_is_new(
                 if how.kind == "returns":
                     said, the_day = a_returns_reading(how, one, bring_it_back(one.which))
                     returns_written += record(how.report_id, the_day, said.records)
+                    in_the_ledger = a_returns_in_the_ledger(said, the_day, one.which, how.report_id)
+                    if in_the_ledger is not None and record_the_sales is not None:
+                        record_the_sales([in_the_ledger])
                 else:
                     said, the_day = an_ads_reading(how, one, bring_it_back(one.which))
                     ads_written += record(how.report_id, said.platform, said.kind, the_day, said.records)
+                    ads_months.update((said.platform, str(one["day"])[:7]) for one in said.records.values() if one.get("day"))
             except TheirDatabaseSaidNo as wrong:
                 the_database_refused.append(f"{one.name or one.which}: {wrong}")
+                continue
+            except LedgerRefused as wrong:
+                the_ledger_refused.append(f"{one.name or one.which}: {wrong}")
                 continue
             except Exception as wrong:  # noqa: BLE001 - named, never swallowed
                 could_not_read.append(f"{one.name or one.which}: {wrong}")
@@ -984,6 +1094,31 @@ def read_what_is_new(
                 data_date=landing.data_date_in(one.name), report_id=how.report_id, file_name=one.name or one.which,
                 into="returned lines" if how.kind == "returns" else "ad records", rows_in_file=said.rows_in_file,
                 rows_read=said.rows_in_file - len(said.not_read),
+            ))
+            continue
+        # **A REPORT WRITTEN AS RECORDS WAITS UNREAD WHERE THERE IS NOWHERE TO WRITE THEM (D459)** -- the claims too, whose ledger note waits with them.
+        if how.report_id in record_reports.RECORD_REPORTS and (record_records or {}).get(how.report_id) is None:
+            records_waiting.append(how.report_id)
+            continue
+        if how.kind == "records":
+            sink = record_records[how.report_id]
+            try:
+                when = _the_day_of(one)
+                made, said_not_read, wrote = write_the_records(how, one, bring_it_back(one.which), when.isoformat(), sink, listed, bring_it_back)
+                records_written[how.report_id] = records_written.get(how.report_id, 0) + wrote
+            except TheirDatabaseSaidNo as wrong:
+                the_database_refused.append(f"{one.name or one.which}: {wrong}")
+                continue
+            except Exception as wrong:  # noqa: BLE001 - named, never swallowed
+                could_not_read.append(f"{one.name or one.which}: {wrong}")
+                continue
+            read_tonight.append(one)
+            rows_refused += len(said_not_read)
+            if said_not_read:
+                could_not_read.append(f"{one.name or one.which}: {len(said_not_read)} row(s) not read, the first being {said_not_read[0]}")
+            reads.append(manifest.Read(
+                data_date=when, report_id=how.report_id, file_name=one.name or one.which,
+                into=f"{record_reports.RECORD_REPORTS[how.report_id].kind.what}s", rows_in_file=len(made) + len(said_not_read), rows_read=len(made),
             ))
             continue
         if how.kind == "views":
@@ -1022,10 +1157,18 @@ def read_what_is_new(
                 reading, refused_rows = a_reading(how, one, body)
             if correcting and how.kind == "orders":
                 reading = replace(reading, corrects=True)
+            if how.kind == "claims":
+                # Every claim in its own record first (the day is proved by `a_reading` above); the ledger's note on an order's row follows.
+                _, claims_refused, wrote = write_the_records(how, one, body, reading.on, record_records[how.report_id], listed, bring_it_back, strict=False)
+                refused_rows += len(claims_refused)
+                records_written[how.report_id] = records_written.get(how.report_id, 0) + wrote
             # **THE ONE PLACE A SALE LANDS.** Everything above this line can be
             # done again tomorrow at no cost; everything below depends on this
             # having happened.
             lines_waiting = record_the_sales([reading]) or 0
+        except TheirDatabaseSaidNo as wrong:
+            the_database_refused.append(f"{one.name or one.which}: {wrong}")
+            continue
         except LedgerRefused as wrong:
             # **OUR OWN FAULT, KEPT APART FROM THE PLATFORM'S.** See
             # `is_a_defect`: a night where our own rule refused every file must
@@ -1054,8 +1197,10 @@ def read_what_is_new(
             for sale in reading.sales:
                 if sale.what_happened == orders.NOT_UNDERSTOOD_YET:
                     unknown_words[sale.status or ""] = unknown_words.get(sale.status or "", 0) + 1
-        the_day = landing.data_date_in(one.name)
-        if the_day is not None:
+        # **EVERY DAY THE NAME HOLDS, NOT ITS LAST (R20).** A range file (Flipkart orders and payments,
+        # one request for several days) is landed as each of its days; read as its last day alone, the
+        # days before it would stand "landed, not read" for ever.
+        for the_day in landing.days_in_name(one.name):
             reads.append(manifest.Read(
                 data_date=the_day, report_id=how.report_id, file_name=one.name or one.which,
                 into="the sales ledger", rows_in_file=len(reading.sales) + refused_rows,
@@ -1087,6 +1232,9 @@ def read_what_is_new(
         listings_waiting=listings_waiting,
         returns_written=returns_written,
         returns_waiting=returns_waiting,
+        records_written=tuple(sorted(records_written.items())),
+        records_waiting=tuple(records_waiting),
+        ads_months=tuple(sorted(ads_months)),
         ads_written=ads_written,
         ads_waiting=ads_waiting,
         payments_waiting=payments_waiting,
@@ -1115,7 +1263,7 @@ def _which_day_it_is_about(pair: Tuple[HowToRead, whats_new.InTheFolder]):
     # is written down as read when it has been applied. Taken in plain day order a catch-up night applies a settlement before the
     # orders it settles, every line finds no row, and the file is read for good with its money on nothing. The two kinds write
     # different columns under different markers, so putting every payments file after every orders file changes no figure.
-    return (how.kind == "payments", when is None, when.isoformat() if when is not None else "", one.which)
+    return (how.kind in ("payments", "claims"), when is None, when.isoformat() if when is not None else "", one.which)
 
 
 def _oldest_first(

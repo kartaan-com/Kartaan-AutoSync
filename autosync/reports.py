@@ -97,23 +97,6 @@ class Report:
     depends_on: Tuple[str, ...] = field(default_factory=tuple)
     # It needs somebody sitting there. Almost nothing should be this.
     needs_a_person: bool = False
-    # **ONE FILE THAT IS ADDED TO, RATHER THAN ONE FILE A DAY. HIS DECISION,
-    # 2026-09-11, asked as a question and answered.**
-    #
-    # **WHY IT EXISTS: SOME NUMBERS ARE NOT A DOWNLOAD AT ALL.** Meesho shows the
-    # day's views on a card on its dashboard and offers no file of them at any
-    # price short of a paid subscription. There is nothing to fetch -- the figure
-    # is read off the page and written down. The working reference has kept those
-    # in one running CSV since it was written, and his instruction is that Kartaan
-    # does the same: *"only for the reports which are not downloadable files."*
-    #
-    # **AND IT IS A SECOND SHAPE, WHICH IS WHY IT IS A FIELD AND NOT A HABIT.**
-    # Every other report here is one file per day with the day in its NAME, and
-    # `landing`, `board` and `reading` are all built on reading it out of there.
-    # A running list has no day in its name at all; its days are the first column
-    # INSIDE it. Both of those are true, both are named, and nothing has to guess
-    # which it is looking at.
-    a_running_list: bool = False
 
 
 def why_report_is_refused(report) -> Optional[str]:
@@ -148,16 +131,6 @@ def why_report_is_refused(report) -> Optional[str]:
         )
     if report.id in report.depends_on:
         return f"{report.id}: cannot depend on itself."
-    # **A RUNNING LIST HAS TO BE SOMETHING A ROW CAN BE ADDED TO.** A spreadsheet
-    # or a zip is opened, parsed and rewritten whole; a line-per-day file is not.
-    # Nothing in this product can add a row to an `xlsx`, and a report declaring
-    # both would fail at the last step of a walk, at night, having done all the
-    # work.
-    if report.a_running_list and report.extension != "csv":
-        return (
-            f"{report.id}: is a running list and is written as {report.extension!r}. "
-            "A row can only be added to a csv."
-        )
     return None
 
 
@@ -282,10 +255,10 @@ REPORTS: Tuple[Report, ...] = (
            cannot_backfill=_SNAPSHOT),
     # **THE ONE REPORT THAT IS NOT A FILE ANYWHERE.** Meesho shows the day's
     # views and orders on a card on its dashboard and sells no export of them.
-    # So it is read off the page and added to a running list -- see
-    # `a_running_list` on `Report` for his decision and the reasoning.
+    # So it is read off the page and written as a one-row file for the day (his D473: one new
+    # file a day, named by its day, like every other report).
     Report("me_views", "meesho", "Meesho views", BROWSER, DAILY, "csv",
-           cannot_backfill=_SNAPSHOT, a_running_list=True),
+           cannot_backfill=_SNAPSHOT),
     # **THE TWO MEESHO TABLES WITH NO DOWNLOAD BUTTON (plan jobs 44 and 43).** Product performance is a sliding seven-day window that
     # Meesho moves and the seller cannot, and pricing is how things stand today; neither can be asked for a past day. One file a day,
     # kept exactly as the page showed it.

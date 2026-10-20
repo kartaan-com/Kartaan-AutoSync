@@ -18,6 +18,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import ledger as tool  # noqa: E402
+import ledger_sheet  # noqa: E402
 import orders  # noqa: E402
 import sales  # noqa: E402
 import sheet  # noqa: E402
@@ -236,8 +237,8 @@ check("RULE 1: AND DOES NOT WIPE THE DATE IT KNOWS NOTHING ABOUT",
       after_pay is not None and after_pay.update[0][1][AT["on"]] == "2026-08-01")
 check("RULE 1: nor the money the orders file had put there",
       after_pay is not None and after_pay.update[0][1][AT["gmv"]] == "100")
-check("the version moves on a change, or every guarded write goes out unguarded",
-      after_pay is not None and after_pay.update[0][1][AT["rev"]] == "1")
+check("THE RUN NEVER MOVES THE VERSION: `rev` is the ERP's alone (D472), and the run is guarded by its four date markers",
+      after_pay is not None and after_pay.update[0][1][AT["rev"]] == "" and "rev" not in {c for _, those in after_pay.cells for c, _ in those})
 
 # ------------------------------------------------------ RULE 2 (D150)
 
@@ -657,9 +658,90 @@ check("A REPORT IS HELD TO ITS OWN MARKER ONLY -- a payments file is not stopped
       "by an orders file dated later",
       _pay is not None and len(_pay.update) == 1 and _pay.left_alone == ())
 
+# ------------------------------- A87 (AU2): "NOT UNDERSTOOD YET" IS CLEARED ONCE THE WORD IS KNOWN, AND NO OTHER WORD IS WIPED BY A BLANK
+
+_WITH_WORD = ORDERS_KNOWS_WITH_STATUS + ("whatHappened",)
+_stale = sales.the_row_for(a_sale("O9", what_happened=orders.NOT_UNDERSTOOD_YET))
+_cleared = answered(lambda: tool.plan(
+    as_sheet([_stale]), [a_reading("amazon orders", "2026-10-20", [a_sale("O9")], knows=_WITH_WORD)]))
+check("AN OLD 'NOT UNDERSTOOD YET' IS CLEARED BY A READING WHERE THE WORD IS NOW KNOWN (an order still on its way is blank)",
+      _cleared is not None and len(_cleared.update) == 1 and _cleared.update[0][1][AT["whatHappened"]] == "")
+_delivered = sales.the_row_for(a_sale("O9", what_happened=orders.DELIVERED))
+_kept = answered(lambda: tool.plan(
+    as_sheet([_delivered]), [a_reading("amazon orders", "2026-10-20", [a_sale("O9")], knows=_WITH_WORD)]))
+check("but a blank still never wipes a real outcome such as Delivered",
+      _kept is not None and _kept.update == ())
+for _source, _knows, _day in (("payments", ("settlement", "paymentsOn", "whatHappened"), {"payments_on": "2026-10-20"}),
+                              ("returns", ("platform", "orderId", "sku", "whatHappened", "returnsOn"), {"returns_on": "2026-10-20"})):
+    _left = answered(lambda k=_knows, s=_source, d=_day: tool.plan(
+        as_sheet([_stale]), [a_reading("flipkart " + s, "2026-10-20", [a_sale("O9", **d)], knows=k)]))
+    check(f"a {_source} file, which carries no status word, leaves 'NOT UNDERSTOOD YET' standing (R20 review)",
+          _left is not None and all(one[1][AT["whatHappened"]] == orders.NOT_UNDERSTOOD_YET for one in _left.update))
+
+_first = sales.the_row_for(a_sale("O7", on="2026-09-11", status="DELIVERED"))
+_relisted = answered(lambda: tool.plan(
+    as_sheet([_first]), [a_reading("meesho orders", "2026-09-23", [a_sale("O7", on="2026-09-23", status="READY_TO_SHIP")],
+                                   knows=ORDERS_KNOWS_WITH_STATUS)]))
+check("A MEESHO SUB-ORDER LISTED AGAIN UNDER A LATER DATE KEEPS ITS FIRST DATE, and the status still moves on (D447)",
+      _relisted is not None and len(_relisted.update) == 1 and _relisted.update[0][1][AT["on"]] == "2026-09-11"
+      and _relisted.update[0][1][AT["status"]] == "READY_TO_SHIP")
+_earlier = answered(lambda: tool.plan(
+    as_sheet([sales.the_row_for(a_sale("O7", on="2026-09-23"))]),
+    [a_reading("meesho orders", "2026-09-24", [a_sale("O7", on="2026-09-11")], knows=ORDERS_KNOWS)]))
+check("but an EARLIER date still replaces a later one",
+      _earlier is not None and _earlier.update[0][1][AT["on"]] == "2026-09-11")
+
+_came = sales.the_row_for(a_sale("O6", what_happened=orders.CAME_BACK))
+for _word, _source in ((orders.DELIVERED, "payments"), (orders.NOT_UNDERSTOOD_YET, "orders")):
+    _back = answered(lambda w=_word: tool.plan(
+        as_sheet([_came]), [a_reading("meesho " + _source, "2026-10-01", [a_sale("O6", what_happened=w)],
+                                      knows=("platform", "orderId", "sku", "whatHappened"))]))
+    check(f"A RETURNED ORDER STAYS RETURNED: a {_source} file saying {_word!r} does not take 'Came back' back, whichever file is newer",
+          _back is not None and _back.update == ())
+_delivered_then = answered(lambda: tool.plan(
+    as_sheet([sales.the_row_for(a_sale("O6", what_happened=orders.DELIVERED))]),
+    [a_reading("meesho returns", "2026-10-01", [a_sale("O6", what_happened=orders.CAME_BACK)],
+               knows=("platform", "orderId", "sku", "whatHappened"))]))
+check("but 'Came back' still replaces 'Delivered'",
+      _delivered_then is not None and _delivered_then.update[0][1][AT["whatHappened"]] == "Came back")
+_odd = answered(lambda: tool.plan(
+    as_sheet([sales.the_row_for(a_sale("O7", on="11/09/2026"))]),
+    [a_reading("meesho orders", "2026-09-23", [a_sale("O7", on="2026-09-23")], knows=ORDERS_KNOWS)]))
+check("the first-date rule compares only real days: a cell that is not one is replaced, not compared as text",
+      _odd is not None and _odd.update[0][1][AT["on"]] == "2026-09-23")
+
+# ------------------------------- P15 piece 4 (D462): THE RUN WRITES ONLY THE CELLS IT CHANGED, AND NEVER THE ERP'S
+_settled = sales.the_row_for(a_sale("O5", qty=1, gmv=100, took="stock-lot-7"))
+_payment = tool.Reading(report="me_payments", on="2026-10-01", knows=("settlement", "charge_commission", "paymentsOn"),
+                          sales=(a_sale("O5", settlement="80", charges={"commission": "20"}, payments_on="2026-10-01"),), only_existing=True)
+_cells = answered(lambda: tool.plan(as_sheet([_settled]), [_payment]))
+_named = {c for _, those in (_cells.cells if _cells else ()) for c, _ in those}
+check("A PAYMENTS FILE THAT STATES A SETTLEMENT NAMES EXACTLY ITS SETTLEMENT, ITS CHARGE AND ITS DATE MARKER -- nothing else",
+      _named == {"settlement", "charge_commission", "paymentsOn"})
+check("and the row it will look like keeps the ERP's cell", _cells is not None and _cells.update[0][1][AT["took"]] == "stock-lot-7")
+check("A READING THAT NAMES A COLUMN THE ERP OWNS IS REFUSED, not written",
+      refused_by(lambda: tool.plan(as_sheet([_settled]), [a_reading("meesho orders", "2026-10-01", [a_sale("O5", cogs=5)],
+                                                                        knows=("platform", "orderId", "sku", "cogs"))])))
+check("the columns the ERP owns are the sheet's 'comes back from Kartaan' set and the version (D472)",
+      set(sales.ERP_OWNED_COLUMNS) == {c for c, (origin, _) in ledger_sheet.WHERE_A_COLUMN_COMES_BACK_FROM.items() if origin == ledger_sheet.FROM_KARTAAN} | {"rev"})
+check("a reading naming the version is refused too",
+      refused_by(lambda: tool.plan(as_sheet([_settled]), [a_reading("meesho orders", "2026-10-01", [a_sale("O5")],
+                                                                        knows=("platform", "orderId", "sku", "rev"))])))
+
+_priced = sales.the_row_for(a_sale("O8", qty=0, gmv=338.83))
+_unpriced = answered(lambda: tool.plan(
+    as_sheet([_priced]), [a_reading("amazon orders", "2026-10-20", [a_sale("O8", qty=0)], knows=ORDERS_KNOWS)]))
+check("A PRICE BESIDE A QUANTITY OF NOUGHT IS TAKEN BACK BY A READING THAT SAYS QUANTITY NOUGHT AND NO PRICE",
+      _unpriced is not None and len(_unpriced.update) == 1 and _unpriced.update[0][1][AT["gmv"]] == "")
+_priced_sale = sales.the_row_for(a_sale("O8", qty=1, gmv=338.83))
+_not_wiped = answered(lambda: tool.plan(
+    as_sheet([_priced_sale]), [a_reading("amazon orders", "2026-10-20", [a_sale("O8", qty=1)], knows=ORDERS_KNOWS)]))
+check("but a sale with a quantity above nought never loses its price to a blank",
+      _not_wiped is not None and _not_wiped.update == ())
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-WITH_HIS_FILES = 100
+WITH_HIS_FILES = 115 + 2
 EXPECTED = WITH_HIS_FILES - (9 if not_run else 0)
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")

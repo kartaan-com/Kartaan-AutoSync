@@ -24,7 +24,7 @@ different places, and one message for both is a wasted evening.
 """
 
 from datetime import date, timedelta
-from typing import Callable, Dict, Optional, Sequence
+from typing import Callable, Dict, List, Optional, Sequence
 
 import firestore
 import returns
@@ -398,22 +398,31 @@ def a_listings_sink(transport, project: str) -> Callable[..., int]:
     return sink
 
 
-def _what_is_held_of(transport, project: str, collection: str, doc_ids: Sequence[str], digest_field: str, day_field: str) -> Dict[str, tuple]:
-    """For each record asked for, its fingerprint and file day (nothing for a record that is not there yet)."""
-    held: Dict[str, tuple] = {}
+def _the_held_records(transport, project: str, collection: str, doc_ids: Sequence[str]) -> Dict[str, Dict]:
+    """The records already held under these names, each as plain data (nothing for a name that is not there). A reply that is not a list stops it."""
+    held: Dict[str, Dict] = {}
     for at in range(0, len(doc_ids), ASKED_AT_A_TIME):
-        chunk = list(doc_ids[at:at + ASKED_AT_A_TIME])
-        names = [firestore.where_a_document_lives(project, collection, one) for one in chunk]
-        where = BATCH_GET.format(api=API, project=project, database=DATABASE)
-        got = _answered(transport.post(where, json={"documents": names}), f"asking which {collection} records are already held").records()
+        names = [firestore.where_a_document_lives(project, collection, one) for one in doc_ids[at:at + ASKED_AT_A_TIME]]
+        got = _answered(
+            transport.post(BATCH_GET.format(api=API, project=project, database=DATABASE), json={"documents": names}),
+            f"asking which {collection} records are already held",
+        ).records()
         if not isinstance(got, list):
-            # **A REPLY THAT IS NOT A LIST IS NOT "NOTHING HELD".** Taken so, every record would be written again, as new, every night.
+            # A reply that is not a list is not "nothing held": taken so, every record would be written again as new, every night.
             raise TheirDatabaseSaidNo(f"asking which {collection} records are already held: the answer was not a list of records.")
         for answer in got:
             found = answer.get("found")
             if found:
-                held[found["name"].rsplit("/", 1)[-1]] = firestore.what_a_record_says(found, digest_field, day_field)
+                held[found["name"].rsplit("/", 1)[-1]] = firestore.plain_deep({"mapValue": {"fields": found.get("fields") or {}}})
     return held
+
+
+def _what_is_held_of(transport, project: str, collection: str, doc_ids: Sequence[str], digest_field: str, day_field: str) -> Dict[str, tuple]:
+    """For each record asked for, its fingerprint and file day (nothing for a record that is not there yet)."""
+    return {
+        name: (str(one.get(digest_field) or ""), str(one.get(day_field) or ""))
+        for name, one in _the_held_records(transport, project, collection, doc_ids).items()
+    }
 
 
 def _is_news(held: Dict[str, tuple], doc_id: str, digest: str, day: str) -> bool:
@@ -452,6 +461,107 @@ def a_returns_sink(transport, project: str, today: str) -> Callable[..., int]:
             if _is_news(held, stored_as, record["digest"], day):
                 writes.append(firestore.a_return_write(project, record, named_by=stored_as.split("__", 1)[1]))
         return write_them(transport, project, writes, "writing the returns the platforms' files name")
+
+    return sink
+
+
+def _the_documents_of(transport, project: str, collection: str, where: object, select: Sequence[str], doing: str) -> List[tuple]:
+    """`(record name, plain record)` for the documents of one collection that match, asked of the database. A reply that is not a list stops it."""
+    query: Dict = {"from": [{"collectionId": collection}]}
+    if select:
+        query["select"] = {"fields": [{"fieldPath": one} for one in select]}
+    if where:
+        query["where"] = where
+    got = _answered(
+        transport.post(RUN_QUERY.format(api=API, project=project, database=DATABASE), json={"structuredQuery": query}), doing,
+    ).records()
+    if not isinstance(got, list):
+        raise TheirDatabaseSaidNo(f"{doing}: the answer was not a list of records.")
+    return [
+        (one["document"]["name"].rsplit("/", 1)[-1], firestore.plain_deep({"mapValue": {"fields": one["document"].get("fields") or {}}}))
+        for one in got if one.get("document")
+    ]
+
+
+def _the_days_between(first: str, last: str) -> Dict:
+    return {"compositeFilter": {"op": "AND", "filters": [
+        {"fieldFilter": {"field": {"fieldPath": "day"}, "op": "GREATER_THAN_OR_EQUAL", "value": {"stringValue": first}}},
+        {"fieldFilter": {"field": {"fieldPath": "day"}, "op": "LESS_THAN_OR_EQUAL", "value": {"stringValue": last}}},
+    ]}}
+
+
+def a_records_sink(transport, project: str, kind, merge=None) -> Callable[..., int]:
+    """The records of one `records.RecordKind` a file names, into the database -- ONLY the new or changed ones, never over a newer file's (A87, D482).
+
+    **THE RECORDS ARE ASKED FOR FIRST**, so a second run on the same file writes nothing. `merge(record, held)` lets a kind keep what the held record
+    knows (a paid claim's rupees, a listing's history) before the fingerprints are compared. Answers how many records were written.
+    """
+
+    def sink(report_id: str, day: str, records: Dict[str, Dict]) -> int:
+        held = _the_held_records(transport, project, kind.collection, sorted(records))
+        news = {name: (str(one.get("digest") or ""), str(one.get("fileDay") or "")) for name, one in held.items()}
+        writes = []
+        for doc_id, record in sorted(records.items()):
+            if merge is not None:
+                record = merge(record, held.get(doc_id))
+            if _is_news(news, doc_id, record["digest"], day):
+                writes.append(firestore.a_record_write(project, kind, doc_id, record))
+        return write_them(transport, project, writes, f"writing the {kind.what} records")
+
+    return sink
+
+
+def the_record_sinks(transport, project: str) -> Dict[str, Callable[..., int]]:
+    """The sink of every report in `record_reports.RECORD_REPORTS`, by report id -- built from the table, so a new report needs no new sink."""
+    import record_reports  # noqa: PLC0415 - kept beside its one use
+
+    return {
+        report_id: a_records_sink(transport, project, one.kind, one.merge)
+        for report_id, one in record_reports.RECORD_REPORTS.items()
+    }
+
+
+def an_ads_month_sink(transport, project: str, today: str) -> Callable[..., int]:
+    """Rebuild each platform's month of ads whole, from that month's per-day records (D463). Answers how many month records were written.
+
+    **WHICH MONTHS:** the ones tonight's ads files touched, and every month that has day records but no month record yet (the backfill, so the ERP
+    can read the month records alone; it finishes itself if a night was cut off). A month is read ONCE, in two queries bounded by the month's days
+    (the platform is told apart in memory, so no index is needed). A month that cannot be summarised or written is said after the others are done.
+    """
+    import ads  # noqa: PLC0415 - kept beside its one use
+
+    def sink(touched: Sequence[tuple]) -> int:
+        wanted = {(str(platform), str(month)) for platform, month in touched}
+        held = {name for name, _ in _the_documents_of(transport, project, firestore.ADS_MONTH, None, ("platform",), "asking which month records exist")}
+        # **EVERY MONTH THAT HAS DAY RECORDS BUT NO MONTH RECORD IS BUILT (the backfill, finished even if an earlier night was cut off):** the days
+        # are the two-a-day `platform_ads_days` records, read by name only.
+        for _, one in _the_documents_of(transport, project, firestore.ADS_DAYS, None, ("platform", "day"), "asking which months have days of ads"):
+            at = (str(one.get("platform", "")), str(one.get("day", ""))[:7])
+            if at[0] and at[1] and f"{at[0]}__{at[1]}" not in held:
+                wanted.add(at)
+        sent = 0
+        refused: List[str] = []
+        for month in sorted({month for _, month in wanted}):
+            between = _the_days_between(f"{month}-01", f"{month}-31")
+            days = [one for _, one in _the_documents_of(transport, project, firestore.ADS_DAYS, between, (), f"reading {month}'s days of ads")]
+            details = [one for _, one in _the_documents_of(transport, project, firestore.ADS_DETAIL, between, (), f"reading {month}'s ad detail")]
+            for platform in sorted({p for p, m in wanted if m == month}):
+                mine = {str(one.get("day")): one for one in days if one.get("platform") == platform}
+                if not mine and not any(one.get("platform") == platform for one in details):
+                    continue
+                try:
+                    record = ads.build_month(platform, month, mine, details, today)
+                except Exception as wrong:  # noqa: BLE001 - said below, after the other months are written
+                    refused.append(str(wrong))
+                    continue
+                # One call per month, so one that Firestore refuses cannot take another month's write down with it.
+                try:
+                    sent += write_them(transport, project, [firestore.a_record_write(project, ads.MONTH, f"{platform}__{month}", record)], "writing a month of ads")
+                except TheirDatabaseSaidNo as wrong:
+                    refused.append(f"{platform} {month}: {wrong}")
+        if refused:
+            raise TheirDatabaseSaidNo(" ".join(refused))
+        return sent
 
     return sink
 

@@ -26,8 +26,6 @@ name it has twice stops it too**. **A ROW WITH NO KEY, NO ORDER, OR A DATE THAT 
 Nothing here opens a file, a clock or a connection.
 """
 
-import hashlib
-import json
 import re
 from dataclasses import dataclass
 from datetime import date
@@ -35,6 +33,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Dict, List, Optional, Tuple
 
 import orders
+import records as shared
 import sales
 import table
 
@@ -84,6 +83,9 @@ class Way:
     needed: Tuple[str, ...]
     header_row: int = 1
     header_starts: Optional[str] = None
+    # The key is the ORDER's number, not the return's own (Meesho's Suborder Number): the same key twice with different words is two
+    # returns of one sub-order (A87, AU2), not one return named twice.
+    key_is_the_order: bool = False
 
 
 WAYS: Dict[str, Way] = {
@@ -105,7 +107,7 @@ WAYS: Dict[str, Way] = {
         },
         needed=("returnKey", "orderId", "reason", "closedOn"),
         # **THE COLUMN NAMES ARE ON LINE 8 TODAY, AFTER A TITLE BLOCK THE PLATFORM MAY LENGTHEN:** found by its first word.
-        header_row=8, header_starts="S No",
+        header_row=8, header_starts="S No", key_is_the_order=True,
     ),
     "az_returns": Way(
         "amazon",
@@ -179,12 +181,6 @@ def _a_count(said: str) -> Optional[int]:
     return int(value)
 
 
-def the_digest(record: Dict[str, object]) -> str:
-    """A fingerprint of what a record SAYS (never of the day it was read), so the same file read twice writes nothing."""
-    said = {k: v for k, v in sorted(record.items()) if k not in ("digest", "fileDay")}
-    return hashlib.sha1(json.dumps(said, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()[:16]
-
-
 def read_returns(report_id: str, rows: table.Table, file_day: str) -> WhatReturnsSaid:
     """One file's rows turned into returned lines. `file_day` is the day in the file's name, kept as `fileDay`."""
     way = way_for(report_id)
@@ -237,8 +233,22 @@ def read_returns(report_id: str, rows: table.Table, file_day: str) -> WhatReturn
         except ValueError as wrong:
             not_read.append(f"line {row.line}: {wrong}")
             continue
-        record["digest"] = the_digest(record)
+        record["digest"] = shared.the_digest(record)
         name = f"{way.platform}__{key}"
+        if (way.key_is_the_order and name in records and records[name]["digest"] != record["digest"]
+                and records[name].get("startedOn") != record.get("startedOn")):
+            # **A SUB-ORDER RETURNED TWICE KEEPS BOTH RETURNS (A87, AU2: 334340762231555264_1, returned 8 Oct and again 11 Oct).** The
+            # earlier return keeps the plain name every earlier night wrote it under; a later one is named by the day it was requested.
+            earlier, later = sorted((records[name], record), key=lambda r: (str(r.get("startedOn", "")), r["digest"]))
+            records[name] = earlier
+            name = f"{name}~{later.get('startedOn') or later['digest'][:8]}"
+            if name in records:
+                if records[name]["digest"] != later["digest"]:
+                    not_read.append(f"line {row.line}: {key!r} is returned a third time on the same day with different words, so only the first was kept")
+                continue
+            record = later
+            records[name] = record
+            continue
         if name in records:
             # **THE SAME RETURN TWICE WITH THE SAME WORDS IS ONE RETURN; WITH DIFFERENT WORDS IT IS SAID, never silently the first.**
             if records[name]["digest"] != record["digest"]:

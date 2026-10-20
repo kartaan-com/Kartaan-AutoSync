@@ -364,8 +364,8 @@ def what_it_says(a_report: Report, day: date, arrived: Sequence[Arrived],
     """
     best: Optional[Arrived] = None
     for one in arrived or ():
-        # **ASKED OF THE RECORD RATHER THAN OF ITS NAME.** A running list has no
-        # day in its name at all and holds many -- see `landing.Arrived.covers`.
+        # **ASKED OF THE RECORD RATHER THAN OF ITS NAME**, so a range file covers every day it names
+        # -- see `landing.Arrived.covers`.
         if not one.covers(day):
             continue
         if one.is_empty:
@@ -567,7 +567,9 @@ def cross_check(run: Standing, extension) -> Tuple[Crossing, ...]:
         opened = reads.get(key)
         there = line is not None and line.state == VERIFIED
         if there and opened:
-            verdict = LANDED_AND_READ
+            # **A FILE WITH A ROW LEFT UNREAD IS NOT "LANDED AND READ" (A87, AU2).** One of fifty Meesho return rows was dropped and the
+            # line still said read. Not every row read is not a read file: it shows as landed, not read, until it is whole.
+            verdict = LANDED_AND_READ if opened.rows_read >= opened.rows_in_file else LANDED_NOT_READ
         elif there:
             verdict = LANDED_NOT_READ
         elif opened:

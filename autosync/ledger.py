@@ -90,9 +90,9 @@ from typing import Dict, List, Optional, Sequence, Tuple
 # **THE ONE READER OF 'IS THIS A DAY' IN THIS PACKAGE.** A second way of
 # deciding it here would be a second answer waiting to disagree, and what it
 # decides is whether an older file may put its figure over a newer one.
-from orders import the_day_in
+from orders import CAME_BACK, DELIVERED, NOT_UNDERSTOOD_YET, the_day_in
 from payments import two_sales_of_one_row
-from sales import COLUMNS, FROM_FIELD, Sale, a_cell, name_for, the_row_for
+from sales import COLUMNS, ERP_OWNED_COLUMNS, FROM_FIELD, Sale, a_cell, name_for, the_row_for
 from table import CannotRead
 
 # The first row of the sheet is the column names, so a sale is on row 2 or later.
@@ -262,10 +262,10 @@ class Reading:
     # been decided, which is what makes a tie visible at all.
     which: str = ""
 
-    # **A PAYMENTS FILE ADDS TO ORDERS THE LEDGER ALREADY HAS, AND NEVER MAKES ONE (job 36).** A payment line for an order the
-    # ledger holds no row for is not a sale: it is money nobody has an order for, and appended it would put a row in the seller's
-    # sheet with a figure and no quantity, no price and no date -- which then looks like an order. Such a line is kept out of the
-    # sheet and SAID (`Plan.unmatched`), never dropped and never turned into a row.
+    # **A PAYMENTS FILE PUTS ITS MONEY ON THE ROW OF ITS OWN ORDER AND SKU (job 36), AND CREATES THAT ROW WHEN THE LEDGER KNOWS
+    # NOTHING OF THE ORDER (D449, A87):** platform, order, SKU and the money, no quantity, price or date until the orders file lands.
+    # A line with no SKU to key a row by is kept out of the sheet and SAID
+    # (`Plan.unmatched`) -- never dropped, never put on another item's row.
     only_existing: bool = False
     # **A READING THAT CORRECTS WHAT AN EARLIER READING OF THE SAME DAY GOT WRONG (A81).** Set only on the one night every file is read
     # again because the reading rules changed. Rule 3 keeps what is there when two statements of ONE day disagree -- right for two
@@ -444,6 +444,8 @@ class Plan:
 
     append: Tuple[Tuple[str, ...], ...] = ()
     update: Tuple[Tuple[int, Tuple[str, ...]], ...] = ()
+    # **WHAT IS WRITTEN OF AN UPDATED ROW: ONLY THE CELLS THE RUN CHANGED (D462).** `(row, ((column, cell), ...))`, in the sheet's column order, never `rev`. `update` is what the row will look like; this is what is sent. A row the ERP wrote to since the run read it keeps the ERP's cells.
+    cells: Tuple[Tuple[int, Tuple[Tuple[str, str], ...]], ...] = ()
     disagreements: Tuple[Disagreement, ...] = ()
     unreadable: Tuple[Unreadable, ...] = ()
     touched: Tuple[str, ...] = ()
@@ -747,6 +749,17 @@ def _what_the_sheet_remembers(
     return None
 
 
+def _is_a_day(said) -> bool:
+    return the_day_in(str(said)) == str(said)
+
+
+def _is_nought(quantity) -> bool:
+    try:
+        return float(str(quantity)) == 0
+    except ValueError:
+        return False
+
+
 def _put_each_on_its_row(
     reading: "Reading",
     now: Dict[str, Dict[str, str]],
@@ -774,7 +787,11 @@ def _put_each_on_its_row(
             continue  # reported already, as an unreadable row; written to nowhere
         if target is None:
             there = [n for n in rows_of_order.get((sale.platform, sale.order_id), ()) if n not in poisoned]
-            if not sale.sku and there:
+            if not sale.sku and len(there) == 1 and sale.platform == "meesho" and "claimsOn" in reading.knows:
+                # **A MEESHO SUB-ORDER IS ONE LINE BY ITS OWN NUMBER, so a CLAIM (which names no SKU) has exactly one row to be on.** Only a
+                # claim: a payment line with no SKU is still said, never placed by guessing.
+                target = there[0]
+            elif not sale.sku and there:
                 # **NEVER PLACED BY GUESSING FROM THE LEDGER.** The reader places a line with no SKU on its order's one SKU when
                 # its own file names exactly one. What is left names none, and the ledger may not yet hold the order's other
                 # items, so "the only row it has" could be the wrong item's.
@@ -782,8 +799,13 @@ def _put_each_on_its_row(
                     "this line names no SKU and the file names no single SKU to put it on, so which of the order's "
                     f"{len(there)} row(s) it belongs to cannot be said"
                 )
-            elif there:
-                why = "the ledger has this order, but not under this SKU"
+            elif sale.sku:
+                # **THE MONEY CAME BEFORE THE ORDER (D449, A87; his ruling "for all the reports", 20 Oct).** No row for this order and SKU,
+                # whether the order is unknown or known only under its other SKUs, and the line knows its item: it CREATES the row, keyed
+                # exactly as the orders reader keys it, and fills the payment now. The order's own columns fill the same row the day its
+                # file lands. RISK TAKEN ON HIS RULING: a SKU spelt differently in the two platforms' files would make a second row.
+                target = sale.id
+                why = ""
             else:
                 why = "the ledger has no row for this order"
             if target is None:
@@ -843,8 +865,16 @@ def plan(
 
     unmatched: List[Unmatched] = []
     restated: List[Restated] = []
+    columns_changed: Dict[str, set] = {}
 
     for reading in in_order:
+        # **A READING THAT NAMES A COLUMN THE ERP OWNS IS REFUSED BEFORE ANYTHING IS DECIDED (D462),** so the night's memory never holds a decision
+        # that was not written.
+        owned = sorted(set(reading.knows) & set(ERP_OWNED_COLUMNS))
+        if owned:
+            raise LedgerRefused(
+                f"The {reading.report} report names {', '.join(owned)}, which the ERP owns: the run never writes them, so nothing was written."
+            )
         if reading.only_existing:
             sales_here, said_lines = _put_each_on_its_row(reading, now, poisoned)
             unmatched.extend(said_lines)
@@ -879,9 +909,15 @@ def plan(
                 # yet", which for a Flipkart sale's money is the truth.
                 now[name] = {c: "" for c in COLUMNS}
                 now[name]["id"] = name
+                # **A ROW IS FOUND BY ITS PLATFORM, ORDER AND SKU (D449, A87 review):** a row a payment creates carries them from the line
+                # itself, or the ERP files it under no platform and a later line for the order cannot find it.
+                now[name]["platform"], now[name]["orderId"], now[name]["sku"] = sale.platform, sale.order_id, sale.sku
                 fresh.append(name)
                 changed[name] = True
 
+            # **A DIFFERENT CLAIM TAKES ITS OWN RUPEES (A87 review):** when the order's claim changes, a blank recovered amount clears the old
+            # claim's rupees instead of leaving them beside the new claim's id.
+            claim_changed = bool(says.get("claimId")) and now[name].get("claimId", "") not in ("", says["claimId"])
             for column, value in says.items():
                 if column == "id":
                     continue
@@ -903,7 +939,34 @@ def plan(
                 #
                 # **Found by a check, not by reasoning: the check named for rule
                 # 1 went red because the fix was not here.**
-                if str(value) == "" and str(was) != "":
+                #
+                # **ONE BLANK DOES REPLACE: "NOT UNDERSTOOD YET" (A87, AU2).** That
+                # word says only "this program had no meaning for the platform's word
+                # that day". Once the word is known the true answer for an order still
+                # on its way is blank, and the old complaint must not stay on the sheet
+                # for ever (25 Amazon rows said it about parcels simply being delivered). **ONLY A FILE THAT CARRIES THE PLATFORM'S
+                # OWN STATUS WORD (an orders file) knows the word now (R20 review):** a payments file or an unfinished return says
+                # nothing about it, and its blank must not wipe the complaint.
+                #
+                # **AND ONE MORE (A87, AU2): THE PRICE OF A LINE THIS FILE SAYS WAS NEVER SENT (QUANTITY NOUGHT).** A cancelled Amazon
+                # line printed its price beside a nought quantity; that figure was written once and a blank must now be able to take it back.
+                if str(value) == "" and str(was) != "" and not (
+                        (column == "whatHappened" and str(was) == NOT_UNDERSTOOD_YET and "status" in reading.knows)
+                        or (column == "gmv" and _is_nought(says.get("qty")))
+                        or (column == "claimRecovered" and claim_changed)):
+                    continue
+                # **A MEESHO SUB-ORDER LISTED AGAIN UNDER A LATER DATE KEEPS THE FIRST DATE SEEN (D447, A87, AU2 finding 4).** Meesho
+                # re-lists a sub-order in later files with a new order date; the day it was first seen is the order's day and a later
+                # file may change only the status. An earlier date still replaces a later one.
+                if (column == "on" and now[name].get("platform") == "meesho" and _is_a_day(was) and _is_a_day(value)
+                        and str(value) > str(was)):
+                    continue
+                # **"CAME BACK" IS NOT TAKEN BACK BY A SOURCE THAT KNOWS LESS (A87 review).** Orders, payments and returns files each say
+                # what became of an order, and the last one processed used to win: a payments file still saying Delivered, or an orders
+                # file re-listing the sub-order, put a returned order back to Delivered. Whichever order the files arrive in, a returned
+                # order stays returned; Came back still replaces Delivered.
+                if (column == "whatHappened" and str(was) == CAME_BACK
+                        and str(value) in (DELIVERED, NOT_UNDERSTOOD_YET)):
                     continue
                 before = decided_on.what_decided(name, column)
                 from_the_sheet = before is None
@@ -945,10 +1008,12 @@ def plan(
                         ))
                     now[name][column] = value
                     changed[name] = True
+                    columns_changed.setdefault(name, set()).add(column)
                 decided_on.now_decided(name, column, reading.on, reading.one_statement)
 
     append: List[Tuple[str, ...]] = []
     update: List[Tuple[int, Tuple[str, ...]]] = []
+    cells: List[Tuple[int, Tuple[Tuple[str, str], ...]]] = []
     touched: List[str] = []
 
     for name in fresh:
@@ -958,19 +1023,17 @@ def plan(
     for name, row in sorted(row_of.items(), key=lambda kv: kv[1]):
         if not changed.get(name):
             continue
-        # **THE VERSION MOVES ON EVERY CHANGE**, or the ERP's guarded writes
-        # compare one number for ever and refuse nothing.
-        was = now[name].get("rev", "")
-        try:
-            now[name]["rev"] = a_cell(int(float(was or 0)) + 1)
-        except (TypeError, ValueError):
-            now[name]["rev"] = a_cell(1)
+        # **THE VERSION IS THE ERP'S ALONE (D472).** The run never writes or bumps `rev`: a version the run moved could collide with the ERP's own and
+        # hide a change from its guarded writes. The run is guarded by the four date markers instead (D157).
         update.append((row, tuple(now[name].get(c, "") for c in COLUMNS)))
+        sent = columns_changed.get(name, set())
+        cells.append((row, tuple((c, now[name].get(c, "")) for c in COLUMNS if c in sent)))
         touched.append(name)
 
     return Plan(
         append=tuple(append),
         update=tuple(update),
+        cells=tuple(cells),
         disagreements=tuple(disagreements),
         unreadable=unreadable,
         touched=tuple(touched),

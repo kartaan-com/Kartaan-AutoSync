@@ -29,7 +29,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Callable, Dict, Iterable, List, Optional, Sequence, Set
 
-from landing import Arrived, the_running_list_is_called, undated
+from landing import Arrived, days_in_name, undated
 from reports import ONLY_WHEN_ASKED, WHEN_THEY_PUBLISH_IT, Report, blocked_by
 from schedule import data_date_for, days_late, should_ask_a_person, window_start
 
@@ -91,32 +91,18 @@ def rows_for(
         # What is really there, by the date in each file's own name.
         by_date: Dict[date, Arrived] = {}
         for got in arrivals(a_report.id) or ():
-            # **A RUNNING LIST IS ONE FILE COVERING MANY DAYS, so its days come
-            # from inside it and every one of them is a row on this board.**
+            # **A RANGE FILE FILLS EVERY DAY ITS NAME COVERS**, the same shape as the running
+            # list above: answering for its last day alone would leave the days before it
+            # looking missing and owed while the file sat in the folder holding them.
             #
-            # **WITHOUT THIS THE BOARD WOULD BE CONFIDENTLY WRONG, which is worse
-            # than blank.** The file has no day in its name, so `data_date` is
-            # None, so every day would fall through the line below and the board
-            # would say the views are missing for a fortnight while the file sat
-            # in the folder holding every one of them. **That is precisely the
-            # seven-files-for-six-weeks failure this module opens by naming**,
-            # arriving through a shape that did not exist when it was written.
-            if got.days_inside:
-                for when in got.days_inside:
-                    standing = by_date.get(when)
-                    if standing is None or (standing.is_empty and not got.is_empty):
-                        by_date[when] = got
-                continue
-            when = got.data_date
-            if when is None:
-                # Counted separately by `files_nothing_can_find`. It is neither
-                # arrived nor missing, and pretending otherwise is what hid seven
-                # real files for six weeks.
-                continue
-            # A later file for the same day wins only if the earlier one was empty.
-            standing = by_date.get(when)
-            if standing is None or (standing.is_empty and not got.is_empty):
-                by_date[when] = got
+            # An empty answer is a name with no day. Counted separately by
+            # `files_nothing_can_find`. It is neither arrived nor missing, and pretending
+            # otherwise is what hid seven real files for six weeks.
+            for when in days_in_name(got.name):
+                # A later file for the same day wins only if the earlier one was empty.
+                standing = by_date.get(when)
+                if standing is None or (standing.is_empty and not got.is_empty):
+                    by_date[when] = got
 
         newest_owed = data_date_for(a_report, today)
         # **THE SAME WINDOW THE RUN ASKS FOR, from one place (`window_start`).**
@@ -195,15 +181,6 @@ def files_nothing_can_find(
     for a_report in reports:
         names = [g.name for g in (arrivals(a_report.id) or ())]
         stray = undated(names)
-        # **A RUNNING LIST'S OWN FILE IS NOT A STRAY. It has no day in its name on
-        # purpose, and it is the only file in this product that is allowed none.**
-        #
-        # **ONLY THAT ONE NAME IS FORGIVEN, not the whole folder.** Anything else
-        # landing in there undated is still exactly what this function is for --
-        # a file with data in it that nothing downstream can ever reach.
-        if a_report.a_running_list:
-            allowed = the_running_list_is_called(a_report)
-            stray = tuple(n for n in stray if n != allowed)
         if stray:
             out[a_report.id] = stray
     return out

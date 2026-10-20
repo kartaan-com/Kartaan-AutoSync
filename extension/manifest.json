@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Kartaan Auto-sync",
-  "version": "0.1.19",
+  "version": "0.1.20",
   "minimum_chrome_version": "111",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAnJpYVL/6eo8mkB8IO45EODuiaxw7TBw0ax8u/YQUlYU8KGQ1gn3311y/HoMwZZYNYkzGeixuwUexIC/LqnULykbqJdX/SZcnk6gWDz1vQAUnlZ9JWJ2bsd+fru+0+7UwSWSOG2SgwUnfKUBTlm3uC852q3f2IN2qkeT4cxMv7VlGvB6mlXmfcFATq0Ju+y8rA/GuFHnlamfRkwq2RS5w1iN4yxwARqgcZk1xTKRFvPM2rsMVesjy5/Z3RMiraPU42xBlmSz94B3SyMVlKqF78GpBpzH30+aoZTVj5mb74i3v+837nZR8bH0wLl75YXq5885jh4gdi2gcCBnCuolCtwIDAQAB",
   "description": "Fetches a seller's own reports from Meesho and Flipkart, in their own browser.",

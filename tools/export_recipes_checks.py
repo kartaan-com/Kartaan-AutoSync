@@ -442,12 +442,6 @@ check("and each one carries a platform and a file type, never a blank",
 check("THE NAME THE JAVASCRIPT WOULD BUILD IS THE NAME PYTHON BUILDS, REPORT BY REPORT",
       answered(lambda: all(
                            (
-                               "{platform}_{report}.{extension}".format(
-                                   platform=HELD["fileNames"][one]["platform"],
-                                   report=one,
-                                   extension=HELD["fileNames"][one]["extension"],
-                               )
-                               if HELD["fileNames"][one]["aRunningList"] else
                                "{platform}_{report}_{day}.{extension}".format(
                                    platform=HELD["fileNames"][one]["platform"],
                                    report=one,
@@ -465,8 +459,62 @@ check("and the platform and the file type are the report's own, not read off its
           HELD["fileNames"][one]["platform"] == reports_list.report(one).platform
           and HELD["fileNames"][one]["extension"] == reports_list.report(one).extension
           for one in HELD["fileNames"])))
+check("NO REPORT CROSSES AS AN UNDATED RUNNING LIST: Meesho views is named by its day like the rest (D473)",
+      answered(lambda: all("aRunningList" not in HELD["fileNames"][one] for one in HELD["fileNames"])))
 check("the file names are in a settled order too",
       answered(lambda: list(HELD["fileNames"]) == sorted(HELD["fileNames"])))
+
+# ---------------------------------- A RANGE ASKED FOR IN ONE REQUEST (P16, D424)
+#
+# **THE RANGE NAME IS THE SAME FACT ON BOTH SIDES AND IT IS RUN, NOT COPIED.** The shipped
+# `extension/walk.js` `theFileName` is asked for the name of a range, report by report, out of the
+# recipe file; `landing.file_name_for_range` is the Python's answer. A copy of the rule written out
+# here would pass while the real builder drifted.
+ASK_FOR_RANGE_NAMES = """
+import { readFileSync } from 'node:fs';
+import { theFileName } from './extension/walk.js';
+const book = JSON.parse(readFileSync('./extension/recipes.json', 'utf8'));
+const [last, first] = process.argv.slice(1);
+const said = {};
+for (const one of Object.keys(book.fileNames)) said[one] = theFileName(book, one, last, first);
+console.log(JSON.stringify(said));
+"""
+A_RANGE_FROM = datetime.date(2026, 9, 1)
+A_RANGE_TO = datetime.date(2026, 10, 1)
+
+
+def the_range_names_in_javascript():
+    try:
+        done = subprocess.run(
+            ["node", "--input-type=module", "-e", ASK_FOR_RANGE_NAMES,
+             A_RANGE_TO.isoformat(), A_RANGE_FROM.isoformat()],
+            cwd=tool.ROOT, capture_output=True, text=True, check=False,
+        )
+    except OSError:
+        return {}
+    if done.returncode != 0:
+        return {}
+    try:
+        return json.loads(done.stdout)
+    except ValueError:
+        return {}
+
+
+RANGE_NAMES_IN_JAVASCRIPT = the_range_names_in_javascript()
+check("the JavaScript half can be asked for a range's name at all",
+      answered(lambda: sorted(RANGE_NAMES_IN_JAVASCRIPT) == sorted(HELD["fileNames"]) and bool(RANGE_NAMES_IN_JAVASCRIPT)))
+check("THE RANGE NAME THE JAVASCRIPT BUILDS IS THE NAME PYTHON BUILDS, REPORT BY REPORT",
+      answered(lambda: all(
+          RANGE_NAMES_IN_JAVASCRIPT[one] == landing.file_name_for_range(reports_list.report(one), A_RANGE_FROM, A_RANGE_TO)
+          for one in HELD["fileNames"])))
+check("and a range name differs from the day name for every report",
+      answered(lambda: all(
+          RANGE_NAMES_IN_JAVASCRIPT[one] != landing.file_name_for(reports_list.report(one), A_RANGE_TO)
+          for one in HELD["fileNames"])))
+check("and the days Python reads out of the range name are the days of the range",
+      answered(lambda: all(
+          landing.data_date_in(RANGE_NAMES_IN_JAVASCRIPT[one]) in (A_RANGE_TO, None)
+          for one in HELD["fileNames"])))
 
 # ----------------------------------------- what the panel needs, and only it
 #
@@ -866,7 +914,7 @@ check("and it is the Python's own spelling, so nothing translates on the way",
       answered(lambda: language.BY_THE_CONTROL_BESIDE == "beside"))
 
 
-EXPECTED = 117
+EXPECTED = 117 + 4 + 1
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

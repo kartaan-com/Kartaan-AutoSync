@@ -31,6 +31,10 @@ import {
   looksLikeAPage,
   daysBefore,
   theFileName,
+  whyTheRangeIsRefused,
+  theDaysOfARangeName,
+  howManyDaysBetween,
+  MOST_DAYS_IN_A_RANGE_FILE,
   theWalk,
   TOO_BIG_TO_CARRY,
   theDaysInWords,
@@ -107,7 +111,7 @@ const BOOK = {
     },
     /* **THE ONE REPORT THAT IS NOT A FILE ANYWHERE.** Meesho sells no export of
      * the day's views, so the figures are read off two cards on the dashboard and
-     * a row is added to a running list. Same shape as the real `me_views`. */
+     * written as that day's own one-row file. Same shape as the real `me_views`. */
     me_views: {
       readyInMinutes: 0,
       toAsk: [],
@@ -121,7 +125,7 @@ const BOOK = {
         step({ do: 'read-number', find: find('Orders'), patience: 30,
           why: 'reading the orders for the day' }),
         step({ do: 'add-to-the-list', patience: 30,
-          why: 'adding the day to the running list' }),
+          why: 'writing the day as its own file' }),
       ],
     },
     /* **THE SWEEP: NOTHING IS PRESSED AND NO FILE IS OFFERED.** Meesho's ads
@@ -422,9 +426,7 @@ const BOOK = {
    * to `landing.file_name_for`, report by report. */
   fileNames: {
     me_orders: { platform: 'meesho', extension: 'csv' },
-    /* **NO DAY IN THIS ONE'S NAME, and that is the whole of the second shape.**
-     * One file, added to every night; its days are the first column inside it. */
-    me_views: { platform: 'meesho', extension: 'csv', aRunningList: true },
+    me_views: { platform: 'meesho', extension: 'csv' },
     me_ads: { platform: 'meesho', extension: 'csv' },
     me_ads_summary: { platform: 'meesho', extension: 'csv' },
     me_ads_catalog: { platform: 'meesho', extension: 'csv' },
@@ -489,7 +491,7 @@ function aPortal(how = {}) {
   };
   /* **WHERE THE BYTES GO, in miniature.** The real one is a message to the
    * background half, which is the only side that can reach `chrome.identity`. */
-  /* **THE OTHER WAY A DAY IS PUT AWAY: a row on a running list.** Recorded
+  /* **THE OTHER WAY A DAY IS PUT AWAY: a one-row file for the day.** Recorded
    * rather than counted, for the same reason `putAway` is -- a stand-in that
    * answered "yes" leaves every walk looking right with the numbers on the
    * floor. */
@@ -1060,8 +1062,8 @@ check('asked to step back by nothing at all, it answers the day itself',
   const portal = aPortal();
   const got = await aWalk(portal)('me_views', DAY);
   check('a day read off two cards is put away as a row', got.state === LANDED);
-  check('and it went into the running list, whose name carries no day',
-    portal.rowsAdded.length === 1 && portal.rowsAdded[0].fileName === 'meesho_me_views.csv');
+  check('and it went into the day\'s own file, named by the day (his D473)',
+    portal.rowsAdded.length === 1 && portal.rowsAdded[0].fileName === `meesho_me_views_${DAY}.csv`);
   /* **THE COLUMNS ARE THE RECIPE'S ORDER, NOT A BROWSER'S.** A file whose
    * columns can change order between two nights is a file nothing can read. */
   check('the header is the day and then the cards, in the order the recipe reads them',
@@ -1102,7 +1104,7 @@ check('asked to step back by nothing at all, it answers the day itself',
   check('a list that refused the row is a failure that says so',
     got.state === FAILED && got.say.includes('columns have changed'));
   check('and it names the file the row was for',
-    got.fileName === 'meesho_me_views.csv');
+    got.fileName === `meesho_me_views_${DAY}.csv`);
 }
 
 /* ------------------------------- moving like a person, so a portal does not block */
@@ -2211,6 +2213,43 @@ check('a walk still going is told apart from one that landed',
 }
 
 {
+  /* **P16 (D424): ONE REQUEST FOR SEVERAL DAYS LEAVES A FILE NAMED FOR BOTH ENDS**, and only when the
+   * first day is before the last. `landing.file_name_for_range` is the same sentence in Python and
+   * `export_recipes_checks.py` holds the two equal. */
+  check('a range is named for both its ends',
+    theFileName(BOOK, 'fk_orders', '2026-10-03', '2026-09-29') === 'flipkart_fk_orders_2026-09-29_to_2026-10-03.xlsx');
+  check('a range of one day is a day file, named as ever',
+    theFileName(BOOK, 'fk_orders', '2026-10-03', '2026-10-03') === 'flipkart_fk_orders_2026-10-03.xlsx'
+    && theFileName(BOOK, 'fk_orders', '2026-10-03', '') === 'flipkart_fk_orders_2026-10-03.xlsx');
+  check('a range the wrong way round, or not made of real days, answers no name at all',
+    theFileName(BOOK, 'fk_orders', '2026-09-29', '2026-10-03') === ''
+    && theFileName(BOOK, 'fk_orders', '2026-10-03', '2026-02-30') === ''
+    && theFileName(BOOK, 'fk_orders', '2026-10-03', '29/09/2026') === '');
+  check('31 days are named and 32 are not',
+    theFileName(BOOK, 'fk_orders', '2026-10-01', '2026-09-01') !== ''
+    && theFileName(BOOK, 'fk_orders', '2026-10-02', '2026-09-01') === '');
+  check('days between are counted with both ends', howManyDaysBetween('2026-09-29', '2026-10-03') === 5
+    && howManyDaysBetween('2026-09-30', '2026-10-01') === 2 && MOST_DAYS_IN_A_RANGE_FILE === 31);
+  check('why a range is refused names the cause in words',
+    String(whyTheRangeIsRefused('2026-10-03', '2026-09-29')).includes('before the last')
+    && String(whyTheRangeIsRefused('2026-09-01', '2026-10-02')).includes('32 days')
+    && whyTheRangeIsRefused('2026-09-29', '2026-10-03') === null);
+  check('the days in a range name are every day, and a name that only looks like a range gives none and one that is not a range gives nothing to read',
+    theDaysOfARangeName('a_fk_orders_2026-09-29_to_2026-10-03.xlsx').join() === '2026-09-29,2026-09-30,2026-10-01,2026-10-02,2026-10-03'
+    && theDaysOfARangeName('a_fk_orders_2026-09-01_to_2026-10-02.xlsx').length === 0
+    && theDaysOfARangeName('a_fk_orders_2026-10-03_to_2026-09-29.xlsx').length === 0
+    && theDaysOfARangeName('a_fk_orders_2026-10-03.xlsx') === undefined);
+  const portal = aPortal();
+  await aWalk(portal)('me_orders', DAY, { fromDay: '2026-08-20', namedAsARange: true });
+  check('A WALK TOLD THE RANGE NAMES THE FILE IT PUTS AWAY FOR BOTH ENDS',
+    portal.putAway.length === 1 && portal.putAway[0].fileName === `meesho_me_orders_2026-08-20_to_${DAY}.csv`);
+  const traffic = aPortal();
+  await aWalk(traffic)('me_orders', DAY, { fromDay: '2026-08-20' });
+  check('while a walk given a range to start from but not told to name it by one keeps the end day (traffic)',
+    traffic.putAway.length === 1 && traffic.putAway[0].fileName === `meesho_me_orders_${DAY}.csv`);
+}
+
+{
   /* **A53: AT THE SIGN-IN WALL, ONE ATTEMPT -- HIS RULING.** */
   const walkWith = (door, options = {}) => {
     const portal = aPortal();
@@ -2757,7 +2796,7 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
     && whyStepIsRefused({ do: 'go', address: 'https://x.invalid', table: 'meesho-pricing', patience: 30, why: 'x' }) !== null);
 }
 
-const EXPECTED = 349;
+const EXPECTED = 349 + 9;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

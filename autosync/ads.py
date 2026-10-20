@@ -4,6 +4,7 @@
 
 | Kind | Id | From | Holds |
 |---|---|---|---|
+| lifetime | `<platform>__<day>__lifetime` | `me_ads` (Meesho) | `rows`: each campaign's takings since it began, as read that day |
 | days | `<platform>__<day>` | `fk_ads_daily` (Flipkart), `me_ads_summary` (Meesho) | `campaigns`: campaign id -> name, spend, views, clicks, units, revenue |
 | detail | `<platform>__<day>__<kind>` (`overall`: `..__overall__<campaignId>`, a file per campaign) | `fk_ads_placements`, `fk_ads_overall`, `fk_ads_search`, `fk_ads_orders` | `rows`: the file's rows, in the ERP's words |
 
@@ -21,13 +22,14 @@ record says how many were in the file (`rowsInFile`) and how many it holds (`row
 Nothing here opens a file, a clock or a connection.
 """
 
-import hashlib
 import json
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Callable, Dict, List, Optional, Tuple
 
+import firestore
 import orders
+import records as shared
 import returns
 import table
 import views
@@ -72,6 +74,17 @@ WAYS: Dict[str, Way] = {
         },
         needed=("campaignId", "spend"), header_row=1, day_column="date",
     ),
+    # **A CAMPAIGN'S TAKINGS SINCE IT BEGAN, stamped with the day it was read (A87; his real file meesho_me_ads_2026-10-14.csv).** Its campaign
+    # id is the one `me_ads_summary` reads day by day, so it is a record of its own kind (`lifetime`) and never one of the day-by-day `days`
+    # records, which its lifetime figures would overwrite.
+    "me_ads": Way(
+        "meesho", "lifetime",
+        {
+            "campaignId": ("campaign id",), "campaignName": ("campaign name",), "status": ("status",), "startDate": ("start date",),
+            "spend": ("ad spend",), "revenue": ("revenue",), "units": ("orders",), "views": ("views",), "clicks": ("clicks",),
+        },
+        needed=("campaignId", "spend"), header_row=1, day_column="date",
+    ),
     "fk_ads_placements": Way(
         "flipkart", "placements",
         {
@@ -110,6 +123,59 @@ WAYS: Dict[str, Way] = {
         needed=("campaignId", "orderId"), header_row=3, day_column="date",
     ),
 }
+
+
+# **ONE MONTH OF ADS, BUILT FROM THE PER-DAY RECORDS (D463, A87).** Nothing is summed: every day stays a day, so any period inside the month can still be
+# answered. `days` is each day's campaigns as `platform_ads_days` holds them; the other five are each day's rows as `platform_ads_detail` holds them.
+MONTH_FIELDS = ("platform", "month", "updatedOn", "days", "search", "placements", "overall", "orders", "lifetime", "trimmed")
+MONTH_KINDS = ("search", "placements", "overall", "orders", "lifetime")
+MONTH = shared.RecordKind(firestore.ADS_MONTH, MONTH_FIELDS, "month of ads", required_days=("updatedOn",), months=("month",))
+# Firestore's record limit is 1 MiB, counted the way Firestore counts (see `firestore_size`); a month that would not fit is refused in words, never shortened.
+MOST_MONTH_BYTES = 1000 * 1000
+
+
+def firestore_size(held) -> int:
+    """About what Firestore counts for a value: text its UTF-8 bytes + 1, a number 8, a name its bytes + 1, plus 32 for a record. Never less than the truth."""
+    if isinstance(held, dict):
+        return 32 + sum(len(str(k).encode("utf-8")) + 1 + firestore_size(v) for k, v in held.items())
+    if isinstance(held, (list, tuple)):
+        return sum(firestore_size(v) for v in held)
+    if isinstance(held, str):
+        return len(held.encode("utf-8")) + 1
+    return 8 if isinstance(held, (int, float)) and not isinstance(held, bool) else 1
+
+
+def build_month(platform: str, month: str, days: Dict[str, Dict], details: List[Dict], updated_on: str) -> Dict[str, object]:
+    """The month's record. `days` is `{day: record}` of `platform_ads_days`; `details` is every `platform_ads_detail` record of the month (any platform).
+
+    Another platform's records are left out. A day with nothing of a kind is left out of that kind.
+    """
+    out: Dict[str, object] = {"platform": platform, "month": month, "updatedOn": updated_on, "days": {}, **{kind: {} for kind in MONTH_KINDS}}
+    trimmed: Dict[str, List[Dict]] = {}
+    for day, record in sorted(days.items()):
+        campaigns = record.get("campaigns")
+        if str(record.get("platform", platform)) == platform and isinstance(campaigns, dict) and campaigns:
+            out["days"][day[8:10]] = campaigns
+    for record in sorted(details, key=lambda one: (str(one.get("day", "")), str(one.get("campaignId", "")))):
+        kind, day = str(record.get("kind", "")), str(record.get("day", ""))
+        if str(record.get("platform", "")) != platform or kind not in MONTH_KINDS or not day.startswith(month):
+            continue
+        out[kind].setdefault(day[8:10], []).extend(record.get("rows") or [])
+        # **A DAY THAT WAS HELD TO SIZE WHEN IT WAS WRITTEN SAYS SO IN THE MONTH TOO (D463 review):** the month must not look more complete than its days.
+        if record.get("rowsKept") is not None and record.get("rowsInFile") is not None and record["rowsKept"] < record["rowsInFile"]:
+            trimmed.setdefault(day[8:10], []).append({
+                "kind": kind, "rowsInFile": record["rowsInFile"], "rowsKept": record["rowsKept"],
+                **({"campaignId": record["campaignId"]} if record.get("campaignId") else {}),
+            })
+    if trimmed:
+        out["trimmed"] = trimmed
+    size = firestore_size(out)
+    if size > MOST_MONTH_BYTES:
+        raise table.CannotRead(
+            f"The {platform} ads for {month} would make a summary of {size} bytes, past the {MOST_MONTH_BYTES} one record may hold, "
+            "so it was not written; the Ads tab goes on reading that month's days one by one."
+        )
+    return out
 
 
 def way_for(report_id: str) -> Way:
@@ -184,10 +250,6 @@ def held_to_size(rows: List[Dict], most: int = MOST_BYTES) -> List[Dict]:
         kept.append(one)
         used += cost
     return kept
-
-
-def the_digest(content: Dict) -> str:
-    return hashlib.sha1(json.dumps(content, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()[:16]
 
 
 def read_ads(report_id: str, rows: table.Table, file_day: str, header_day: Optional[str]) -> WhatAdsSaid:
@@ -269,7 +331,7 @@ def read_ads(report_id: str, rows: table.Table, file_day: str, header_day: Optio
                 **({"campaignId": part} if part else {}),
             }
     for record in records.values():
-        record["digest"] = the_digest({k: v for k, v in record.items() if k != "digest"})
+        record["digest"] = shared.the_digest(record)
     return WhatAdsSaid(report_id, way.platform, way.kind, records, tuple(not_read), count)
 
 

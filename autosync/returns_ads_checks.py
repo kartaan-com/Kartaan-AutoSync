@@ -15,6 +15,7 @@ import ads  # noqa: E402
 import firestore  # noqa: E402
 import firestore_door  # noqa: E402
 import reading  # noqa: E402
+import records  # noqa: E402
 import reports  # noqa: E402
 import returns  # noqa: E402
 import table  # noqa: E402
@@ -106,7 +107,7 @@ same = answered(lambda: returns.read_returns("fk_returns", fk(
     '"OD1","111","TRK1","DJ-1","2","2 October, 2026","11 October, 2026","Closed","courier_return","R","S"'), "2026-10-12"))
 check("the fingerprint ignores the day the file was read, so the same return in tomorrow's file is the same",
       same is not None and same.records["flipkart__111"]["digest"] != "" and same.records["flipkart__111"]["fileDay"] == "2026-10-12"
-      and same.records["flipkart__111"]["digest"] == returns.the_digest({**one, "reason": "R", "subReason": "S"}))
+      and same.records["flipkart__111"]["digest"] == records.the_digest({**one, "reason": "R", "subReason": "S"}))
 changed = answered(lambda: returns.read_returns("fk_returns", fk(
     '"OD1","111","TRK1","DJ-1","2","2 October, 2026","11 October, 2026","Closed","courier_return","OTHER","S"'), "2026-10-11"))
 check("a changed reason is a different fingerprint", changed is not None and changed.records["flipkart__111"]["digest"] != one.get("digest"))
@@ -287,8 +288,8 @@ det_write = answered(lambda: firestore.a_ads_detail_write("p", "flipkart__2026-1
 check("a breakdown is written whole, rows as a list of maps",
       det_write is not None and det_write["update"]["name"].endswith("/platform_ads_detail/flipkart__2026-10-11__placements")
       and len(det_write["update"]["fields"]["rows"]["arrayValue"]["values"]) == 2)
-check("the three new collections are the only ones added to what the run may write",
-      set(firestore.WHAT_IT_MAY_WRITE) - {"sync_log", "sync_board", "sync_runs", "listing_views", "listings_seen", "sync_check", "sync_ledger", "returns_sheet"} ==
+check("the new collections are the only ones added to what the run may write",
+      set(firestore.WHAT_IT_MAY_WRITE) - {"sync_log", "sync_board", "sync_runs", "listing_views", "listings_seen", "sync_check", "sync_ledger", "returns_sheet", "platform_claims", "platform_performance", "platform_ads_month", "platform_quality", "platform_shop_days"} ==
       {"platform_returns", "platform_ads_days", "platform_ads_detail"})
 check("a collection the run may not write is still refused", refused(lambda: firestore.where_a_document_lives("p", "orders", "x"), firestore.Refused))
 
@@ -458,16 +459,25 @@ check("a file whose columns have moved stops, in words, and is left to be read a
 # ------------------------------------------------------------------ the rule that ties reports to readers
 
 readers = {o.report_id for o in reading.WHAT_RETURNS_CAN_BE_READ + reading.WHAT_ADS_CAN_BE_READ}
-check("the returns and ads readers are the nine reports named",
+check("the returns and ads readers are the ten reports named",
       readers == {"fk_returns", "me_returns", "az_returns", "fk_ads_daily", "fk_ads_placements", "fk_ads_overall", "fk_ads_search",
-                  "fk_ads_orders", "me_ads_summary"})
+                  "fk_ads_orders", "me_ads_summary", "me_ads"})
 check("each is a report that exists and none is also said to be unread",
       all(r in reports.BY_ID for r in readers) and not (readers & set(reading.WHAT_IS_FETCHED_AND_NOT_READ_YET)))
 check("and they write no ledger column", all(o.knows == () for o in reading.WHAT_RETURNS_CAN_BE_READ + reading.WHAT_ADS_CAN_BE_READ))
 check("Flipkart keyword ads are not read, are not fetched, and say why in words",
       "fk_ads_kw" in reading.WHAT_IS_FETCHED_AND_NOT_READ_YET and "discontinued" in reading.WHAT_IS_FETCHED_AND_NOT_READ_YET["fk_ads_kw"]
       and reports.BY_ID["fk_ads_kw"].needs_a_person is True)
-check("Meesho's lifetime campaign file is not guessed at, and says so", "no real file" in reading.WHAT_IS_FETCHED_AND_NOT_READ_YET["me_ads"])
+# ---- me_ads (A87): read from his real file meesho_me_ads_2026-10-14.csv (Date, Campaign ID, Campaign Name, Status, Start Date, Ad Spend, ...)
+_ME_ADS_HEAD = '"Date","Campaign ID","Campaign Name","Status","Start Date","Ad Spend","Revenue","Orders","Views","Clicks","ROI","Conversion %","Avg Order Value","Ad Spend Per Order"'
+_life = answered(lambda: ads.read_ads("me_ads", table.read(csv(
+    _ME_ADS_HEAD, '"2026-10-14","24960469","1244938 - 8/7/2026","LIVE","2026-08-07","5649.58","57154","234","1848493","52783","10.12","0.44","244.25","24.14"')),
+    "2026-10-14", None))
+_life_row = (((_life.records if _life else {}).get("meesho__2026-10-14__lifetime") or {}).get("rows") or [{}])[0]
+check("MEESHO'S CAMPAIGNS-SO-FAR FILE IS READ INTO A RECORD OF ITS OWN KIND, never one of the day-by-day records its campaign id shares",
+      _life is not None and set(_life.records) == {"meesho__2026-10-14__lifetime"} and _life_row.get("spend") == 5649.58
+      and _life_row.get("revenue") == 57154.0 and _life_row.get("units") == 234 and _life_row.get("views") == 1848493
+      and _life_row.get("status") == "LIVE" and _life_row.get("startDate") == "2026-08-07" and _life_row.get("campaignId") == "24960469")
 check("the rule that ties every report to a reader or a reason still holds", reading.why_a_report_has_no_decision() == "")
 
 # ------------------------------------------------------------------ found by the independent review (A78)
@@ -524,9 +534,72 @@ check("a file with some rows refused is read, and says how many rows and which w
       part_night is not None and part_night.read_tonight == ("p",) and part_night.rows_refused == 1
       and "1 row(s) not read" in part_night.could_not_read[0])
 
+# ------------------------------------------------------------------ a sub-order returned twice (A87, AU2)
+
+_ret1 = '"1","SKU-M","1","334_1","2026-10-08","Customer Return","2026-10-10","AWB1","FIRST","d1"'
+_ret2 = '"2","SKU-M","1","334_1","2026-10-11","Customer Return","2026-10-19","AWB2","SECOND","d2"'
+back_twice = answered(lambda: returns.read_returns("me_returns", me(_ret1, _ret2), "2026-10-18"))
+back_twice_reversed = answered(lambda: returns.read_returns("me_returns", me(_ret2, _ret1), "2026-10-18"))
+check("A MEESHO SUB-ORDER RETURNED TWICE KEEPS BOTH RETURNS, the earlier under the name it always had and the later named by its day",
+      back_twice is not None and set(back_twice.records) == {"meesho__334_1", "meesho__334_1~2026-10-11"}
+      and back_twice.records["meesho__334_1"]["reason"] == "FIRST"
+      and back_twice.records["meesho__334_1~2026-10-11"]["reason"] == "SECOND"
+      and back_twice.records["meesho__334_1~2026-10-11"]["returnKey"] == "334_1" and back_twice.not_read == ())
+check("and the file's row order makes no difference to which return is which",
+      back_twice_reversed is not None and back_twice_reversed.records == back_twice.records)
+check("the same two returns written out twice are still two returns",
+      (lambda x: x is not None and len(x.records) == 2 and x.not_read == ())(
+          answered(lambda: returns.read_returns("me_returns", me(_ret1, _ret2, _ret1, _ret2), "2026-10-18"))))
+_same_day = answered(lambda: returns.read_returns("me_returns", me(
+    _ret1, '"2","SKU-M","1","334_1","2026-10-08","Customer Return","2026-10-10","AWB1","OTHER WORDS","d1"'), "2026-10-18"))
+check("a Meesho return listed twice for the SAME request day with different words is said, not made into a second return",
+      _same_day is not None and set(_same_day.records) == {"meesho__334_1"} and len(_same_day.not_read) == 1)
+# ------------------------------------------------------------------ a return in the ledger (D447, D449, A87)
+
+import ledger  # noqa: E402
+import sales  # noqa: E402
+
+_done = '"1","SKU-M","1","555_1","2026-10-08","Customer Return","2026-10-10","AWB1","R","d"'
+_open = '"2","SKU-M","1","556_1","2026-10-08","Customer Return","","AWB2","R","d"'
+_said = answered(lambda: returns.read_returns("me_returns", me(_done, _open), "2026-10-18"))
+_in_ledger = answered(lambda: reading.a_returns_in_the_ledger(_said, "2026-10-18", "file-1", "me_returns"))
+_made = answered(lambda: ledger.plan([list(sales.COLUMNS)], [_in_ledger]))
+_cols = list(sales.COLUMNS)
+_rows = {r[_cols.index("id")]: dict(zip(_cols, r)) for r in (_made.append if _made else ())}
+check("A RETURN ARRIVING BEFORE ITS ORDER CREATES THE ORDER'S ROW with platform, order, SKU and the return's day (D449)",
+      _made is not None and set(_rows) == {"meesho::555_1::SKU-M", "meesho::556_1::SKU-M"}
+      and _rows["meesho::555_1::SKU-M"]["platform"] == "meesho" and _rows["meesho::555_1::SKU-M"]["returnsOn"] == "2026-10-18")
+check("A FINISHED RETURN SAYS THE ORDER CAME BACK; one still open says nothing about it",
+      _rows["meesho::555_1::SKU-M"]["whatHappened"] == "Came back" and _rows["meesho::556_1::SKU-M"]["whatHappened"] == "")
+_fk_open = answered(lambda: returns.read_returns("fk_returns", fk(
+    '"OD1","111","T","S","1","2 October, 2026","11 October, 2026","Open","c","R","S"',
+    '"OD2","222","T","S","1","2 October, 2026","11 October, 2026","Closed","c","R","S"'), "2026-10-11"))
+_fk_led = answered(lambda: reading.a_returns_in_the_ledger(_fk_open, "2026-10-11", "f", "fk_returns"))
+check("A FLIPKART RETURN STILL OPEN IS NOT 'CAME BACK' even though Flipkart fills its completed day; a Closed one is",
+      _fk_led is not None and {s.order_id: s.what_happened for s in _fk_led.sales} == {"OD1": None, "OD2": "Came back"})
+check("and a return line with no SKU makes no row (it has none to be keyed by)",
+      reading.a_returns_in_the_ledger(answered(lambda: returns.read_returns("me_returns", me(
+          '"1","","1","557_1","2026-10-08","Customer Return","2026-10-10","AWB1","R","d"'), "2026-10-18")), "2026-10-18", "f", "me_returns") is None)
+
+check("a Flipkart Return ID named twice is still one return (its Return ID is the return's own), only Meesho's key is the order's",
+      twice is not None and len(twice.records) == 1)
+
+_into_the_ledger = []
+_night_with_ledger = answered(lambda: reading.read_what_is_new(
+    already_read=(),
+    what_is_in_the_folder=lambda r: [a_file("m1", "meesho_me_returns_2026-10-18.csv")] if r == "me_returns" else [],
+    bring_it_back=lambda w: csv("", '"Meesho Supplier Panel"', '"Supplier ID","1"', "", ME_RET_HEAD, _done),
+    record_the_sales=lambda readings: _into_the_ledger.extend(readings),
+    record_returns=lambda report_id, day, records: len(records),
+    record_ads=lambda *a: 0,
+))
+check("THE NIGHT HANDS A FINISHED RETURN TO THE LEDGER as well as to the returns record",
+      _night_with_ledger is not None and _night_with_ledger.read_tonight == ("m1",) and len(_into_the_ledger) == 1
+      and _into_the_ledger[0].sales[0].order_id == "555_1")
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 97
+EXPECTED = 107
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

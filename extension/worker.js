@@ -316,7 +316,7 @@ const writeItDown = (ask, layout, inside, lines) => {
   return theRecordQueue;
 };
 
-/* **AND THE OTHER WAY A DAY REACHES A DRIVE: one row added to a running list.**
+/* **AND THE OTHER WAY A DAY REACHES A DRIVE: one row written as the day's own file.**
  * Same door, same folder, same quiet permission -- the only difference is that
  * there is no file to fetch. Meesho sells no export of the day's views. */
 const addOneRow = async ({ reportId, fileName, header, row, forTheDay }) => {

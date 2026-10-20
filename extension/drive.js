@@ -163,7 +163,7 @@ export function whatToDoAbout(fileName, alreadyThere) {
 }
 
 /**
- * The running list, with this day's row in it once.
+ * The day's file, with this day's row in it once.
  *
  * **PURE, AND THAT IS DELIBERATE.** Everything that can be got wrong about
  * adding a row -- losing the header, writing the same day twice, silently
@@ -204,11 +204,8 @@ export function theListWith(existing, header, row, forTheDay) {
 }
 
 /**
- * Which days a running list already holds, read out of its own first column.
- *
- * **THE DAY BOARD'S WHOLE IDEA OF THIS SHAPE RESTS ON THIS.** A running list has
- * no day in its name, so `landing.Arrived.days_inside` is filled from here -- one
- * place reads those days, exactly as one place writes them.
+ * Which days a one-row file holds, read out of its own first column -- the day it was written for, and what
+ * the install's record is told landed.
  *
  * **AND ONLY A REAL DAY COUNTS.** A half-written line, a stray blank, or a note
  * somebody typed into the file by hand is not a day that arrived, and counting
@@ -610,7 +607,7 @@ export async function landTheFile(chrome, ask, { reportId, fileName, inside, bod
 }
 
 /**
- * Add one day's row to a report's running list, and answer how big it now is.
+ * Write one day's row as that day's own file, and answer how big it now is.
  *
  * **THE OTHER HALF OF `landTheFile`, FOR THE REPORTS THAT ARE NOT A FILE
  * ANYWHERE.** Meesho sells no export of the day's views, so there is nothing to

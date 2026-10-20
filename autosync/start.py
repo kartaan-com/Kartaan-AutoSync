@@ -65,7 +65,7 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
     import merge
     from drive_door import a_door, the_kartaan_folder
     from firestore_door import (
-        a_board_sink, a_check_sink, a_ledger_sink, a_listings_sink, a_log_sink, a_returns_sheet_held, a_returns_sheet_sink, a_returns_sink,
+        a_board_sink, a_check_sink, a_ledger_sink, a_listings_sink, a_log_sink, a_returns_sheet_held, a_returns_sheet_sink, a_returns_sink, an_ads_month_sink, the_record_sinks,
         a_run_sink, a_views_sink, an_ads_sink, both_places, what_they_chose,
     )
     from transport import FirebaseSeller, Google, for_amazon
@@ -191,7 +191,7 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
         now=now,
         read_state=read_state,
         save_state=save_state,
-        arrivals=nightly._arrivals_from_drive(google, inside, say),
+        arrivals=nightly._arrivals_from_drive(google, inside),
         fetch=fetch,
         # **WRITTEN TWICE, ON PURPOSE (D100), AND THE ORDER IS THE DESIGN.** The
         # seller's own database is what the three screens read; the copy in their
@@ -244,6 +244,11 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
         # **AND THE RETURNED LINES AND THE ADS (A78):** one record per returned line, and per platform per day of ads.
         record_returns=a_returns_sink(their_login, their_project, today.isoformat()),
         record_ads=an_ads_sink(their_login, their_project, today.isoformat()),
+        # **AND THE RECORDS OF THE REPORTS THAT ARE WRITTEN AS RECORDS (A87, D459, D473, D482):** claims, product performance, listing quality and the
+        # shop's own figures, one sink each, all built from the one table in `record_reports.py`.
+        record_records=the_record_sinks(their_login, their_project),
+        # **AND EACH MONTH OF ADS AS ONE RECORD (D463).**
+        rebuild_ads_months=an_ads_month_sink(their_login, their_project, today.isoformat()),
         # Set only by somebody pressing the button in GitHub. The workflow passes
         # it through; nothing on a schedule ever sets it.
         even_if_not_due=os.environ.get("EVEN_IF_NOT_DUE", "").strip().lower() == "true",

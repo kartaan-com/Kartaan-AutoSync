@@ -122,7 +122,29 @@ THE_LEDGER_RECORD = "ledger"
 # It is never rewritten on a later run, so `createdAt` stays the day the sheet was made. The ERP's rules must let the run write it as the owner.
 RETURNS_SHEET = "returns_sheet"
 THE_RETURNS_RECORD = "sheet"
-WHAT_IT_MAY_WRITE = (LOG, BOARD, RUNS, LISTING_VIEWS, LISTINGS_SEEN, CHECK, RETURNS, ADS_DAYS, ADS_DETAIL, SYNC_LEDGER, RETURNS_SHEET)
+# **AND TWELFTH, FROM A87 / D459: WHAT A CLAIM SAYS.** One record per claim (`platform_claims`), named `<platform>__<claim id>` and carrying the id of the
+# sub-order it is about, on the same pattern as `platform_returns`. A claim never creates an order row (many are about orders from before the sheet
+# began); the ERP reads these. Written only by `a_record_write`. The ERP's rules must let the run write them as the owner.
+CLAIMS = "platform_claims"
+# **AND THIRTEENTH, FROM A87 / D459: HOW EACH MEESHO PRODUCT DID IN A WEEK.** One record per product per week (`platform_performance`), written only by
+# `a_record_write`; the product's catalog id is carried when its title says one, and a title that matches none is kept and flagged. The ERP's
+# rules must let the run write them as the owner.
+PERFORMANCE = "platform_performance"
+# **AND FOURTEENTH, FROM A87 / D463: ONE SUMMARY RECORD PER PLATFORM PER MONTH OF ADS** (`platform_ads_month/<platform>__<yyyy-mm>`), rebuilt whole from that
+# month's `platform_ads_days` and `platform_ads_detail` records so the ERP's Ads tab reads a few records instead of hundreds. Written only by
+# `a_record_write`. The ERP's rules must let the run write it as the owner; the ERP never writes it.
+ADS_MONTH = "platform_ads_month"
+# **AND FIFTEENTH, FROM A87 / PLAN PART F: WHAT THE PLATFORM SAYS OF EACH LISTING'S QUALITY** (`platform_quality/<platform>__<SKU>`): the star level, the returns
+# share, the badge and the suppression risk as they stand, with a short history of the last readings. Written only by `a_record_write`; the ERP's rules
+# must let the run write it as the owner.
+QUALITY = "platform_quality"
+# **AND SIXTEENTH, FROM A87 / D473: A WHOLE-SHOP FIGURE FOR A DAY** (`platform_shop_days/<platform>__<day>`: Meesho's dashboard views and orders), one record per day,
+# written only by `a_record_write`. It belongs to no listing. The ERP's rules must let the run write it as the owner.
+SHOP_DAYS = "platform_shop_days"
+WHAT_IT_MAY_WRITE = (
+    LOG, BOARD, RUNS, LISTING_VIEWS, LISTINGS_SEEN, CHECK, RETURNS, ADS_DAYS, ADS_DETAIL, SYNC_LEDGER, RETURNS_SHEET, CLAIMS, PERFORMANCE, ADS_MONTH,
+    QUALITY, SHOP_DAYS,
+)
 
 # Where the seller's own business record lives, and the one field this job reads
 # out of it. **READ, NEVER WRITTEN (D114):** the hour is the seller's setting,
@@ -666,6 +688,35 @@ def a_return_write(project: str, record: Dict, named_by: Optional[str] = None) -
     return {"update": {"name": where_a_document_lives(project, RETURNS, doc_id), "fields": {k: a_deep(v) for k, v in record.items()}}}
 
 
+def plain_deep(held) -> object:
+    """One Firestore value (any shape, maps and lists included) back as plain data. Only ever used on records this job wrote itself."""
+    if not isinstance(held, dict):
+        return held
+    if "mapValue" in held:
+        return {name: plain_deep(one) for name, one in ((held["mapValue"].get("fields")) or {}).items()}
+    if "arrayValue" in held:
+        return [plain_deep(one) for one in ((held["arrayValue"].get("values")) or [])]
+    return next(iter(plain({"x": held}).values()))
+
+
+def a_record_write(project: str, kind, doc_id: str, record: Dict) -> Dict:
+    """One record of any kind in `records.RecordKind`, written whole (nothing else writes it).
+
+    **THE KIND SAYS WHICH FIELDS IT MAY HOLD AND WHICH OF THEM ARE DAYS AND MONTHS**; a field outside the list, a day that is not one and a missing day that
+    must be there are refused, so nothing a platform adds can reach a seller's database by way of a reader that was not told about it.
+    """
+    stray = sorted(set(record) - set(kind.fields))
+    if stray:
+        raise Refused(f"{stray} are not fields of a {kind.what}.")
+    for day in kind.required_days + kind.days:
+        if (day in record or day in kind.required_days) and not A_DAY.match(str(record.get(day, ""))):
+            raise Refused(f"{record.get(day)!r} is not a day written year-month-day, so no {kind.what} was written for it.")
+    for month in kind.months:
+        if not re.fullmatch(r"\d{4}-\d{2}", str(record.get(month, ""))):
+            raise Refused(f"{record.get(month)!r} is not a month written year-month, so no {kind.what} was written for it.")
+    return {"update": {"name": where_a_document_lives(project, kind.collection, doc_id), "fields": {k: a_deep(v) for k, v in record.items()}}}
+
+
 def a_ads_days_write(project: str, platform: str, day: str, campaigns: Dict, digest: str, file_day: str, updated_on: str) -> Dict:
     """One platform's ad figures for one day, written WITH A MASK so only the campaigns change (what the charge file says is another's)."""
     for one in (day, file_day, updated_on):
@@ -689,14 +740,6 @@ def a_ads_detail_write(project: str, doc_id: str, platform: str, content: Dict, 
     fields = {k: a_deep(v) for k, v in content.items()}
     fields.update({"platform": a_value(str(platform)), "fileDay": a_value(str(file_day)), "updatedOn": a_value(str(updated_on))})
     return {"update": {"name": where_a_document_lives(project, ADS_DETAIL, doc_id), "fields": fields}}
-
-
-def what_a_record_says(document: Optional[Dict], digest_field: str, day_field: str) -> Optional[Tuple[str, str]]:
-    """The fingerprint and file day a held record carries, or None when there is no record."""
-    if not document:
-        return None
-    fields = plain(document.get("fields") or {})
-    return (str(fields.get(digest_field) or ""), str(fields.get(day_field) or ""))
 
 
 def how_big(writes: Sequence[Dict]) -> int:

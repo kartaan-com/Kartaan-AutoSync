@@ -430,14 +430,16 @@ answered(lambda: record([A_READING]))
 check("A SALE THAT IS READ ACTUALLY REACHES THE SELLER'S SHEET",
       any(A_SALE.id in str(r) for r in sheet.rows))
 
-# **A PAYMENT LINE WHOSE ORDER IS NOT IN THE SHEET IS COUNTED AND HANDED BACK (A81)**, so `read_what_is_new` can keep the file unread.
+# **A PAYMENT LINE WHOSE ORDER IS NOT IN THE SHEET IS COUNTED AND HANDED BACK (A81; now a created row, D449)**, so `read_what_is_new` can keep the file unread.
 _PAID = sales.Sale(platform="meesho", order_id="M-1", sku="RING-1", settlement="62.32")
 _PAID_TO_NOTHING = sales.Sale(platform="meesho", order_id="NO-SUCH-ORDER", sku="RING-1", settlement="10.00")
 _PAYMENTS = ledger.Reading(report="me_payments", on="2026-09-02", knows=("settlement",), sales=(_PAID, _PAID_TO_NOTHING),
                            which="pay-1", only_existing=True)
 _sheet_for_payments = PretendSheets(rows=list(sheet.rows))
 _how_many_wait = answered(lambda: tool.recording_into(LedgerDoor(_sheet_for_payments, "sheet-1"))([_PAYMENTS]))
-check("A PAYMENTS FILE WITH ONE LINE WHOSE ORDER IS NOT THERE HANDS BACK ONE WAITING", _how_many_wait == 1)
+# **D449 (A87) SUPERSEDES THE WAITING:** a payment for an order not in the sheet creates the order's row, so nothing is handed back to wait.
+check("A PAYMENTS FILE WITH ONE LINE WHOSE ORDER IS NOT THERE CREATES THAT ORDER'S ROW AND HANDS BACK NOUGHT WAITING",
+      _how_many_wait == 0 and any("NO-SUCH-ORDER" in str(r) and "10.00" in str(r) for r in _sheet_for_payments.rows))
 _all_matched = ledger.Reading(report="me_payments", on="2026-09-02", knows=("settlement",), sales=(_PAID,), which="pay-2", only_existing=True)
 check("and a file whose every line found its order hands back nought",
       answered(lambda: tool.recording_into(LedgerDoor(PretendSheets(rows=list(sheet.rows)), "sheet-1"))([_all_matched])) == 0)
@@ -543,6 +545,24 @@ SAME_DAY_TWO = ledger.Reading(report="ms_orders", on="2026-09-01",
 THE_TIED_SALE = SAME_DAY_ONE.sales[0].id
 
 
+def _write_range(rows, one):
+    """Apply one `values:batchUpdate` range to a stand-in sheet's rows as Google does: ONLY the cells the range names (D462)."""
+    import re
+
+    found = re.fullmatch(r"([A-Z]+)(\d+)", one["range"].split("!")[1].split(":")[0])
+    col = 0
+    for letter in found.group(1):
+        col = col * 26 + ord(letter) - 64
+    col -= 1
+    n = int(found.group(2))
+    while len(rows) < n:
+        rows.append([])
+    values = list(one["values"][0])
+    while len(rows[n - 1]) < col + len(values):
+        rows[n - 1].append("")
+    rows[n - 1][col:col + len(values)] = values
+
+
 class KeepsWhatItIsGiven(PretendSheets):
     """`PretendSheets`, plus a row that really changes when it is written to.
 
@@ -558,9 +578,8 @@ class KeepsWhatItIsGiven(PretendSheets):
         said = super().__call__(method, path, query, body)
         if method == "POST" and "values:batchUpdate" in path:
             for one in (body or {}).get("data", ()):
-                # `orders!A7:AS7` -- the row number is the plan's own.
-                at = int(one["range"].split("!A")[1].split(":")[0])
-                self.rows[at - 1] = list(one["values"][0])
+                # `orders!X7` -- the row number is the plan's own, and only the cells named change.
+                _write_range(self.rows, one)
         return said
 
 
@@ -825,7 +844,7 @@ assert ledger.plan is _the_real_plan
 def _a_plan_that_says_nothing(values, readings, so_far=None):
     what = _the_real_plan(values, readings, so_far)
     return ledger.Plan(
-        append=what.append, update=what.update, disagreements=what.disagreements,
+        append=what.append, update=what.update, cells=what.cells, disagreements=what.disagreements,
         unreadable=what.unreadable, touched=what.touched, left_alone=(),
     )
 

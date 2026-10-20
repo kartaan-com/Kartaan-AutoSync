@@ -182,6 +182,9 @@ function headerCellsOf(table) {
   return below(table, 'th').map(textOf).map((words) => (ICON_NAMES.has(words) ? '' : (RUN_TOGETHER[words] || words)));
 }
 
+/** How many times one page change is asked of the pager before it is called undrawn: the press, and two more. */
+const A_PAGE_IS_ASKED_FOR_AT_MOST = 3;
+
 const isOff = (button) => !!(button && (button.disabled === true || (button.getAttribute && button.getAttribute('aria-disabled') === 'true')));
 
 const labelled = (page, label) => below(page, 'button').find((one) => one.getAttribute && one.getAttribute('aria-label') === label) || null;
@@ -263,14 +266,36 @@ export async function readTheTable(page, {
     const next = labelled(page, way.next);
     if (!next || isOff(next)) break;
     next.click();
-    /* **THE NEXT PAGE IS WAITED FOR BY ITS FIRST ROW CHANGING**, never by time alone. */
+    /* **THE NEXT PAGE IS WAITED FOR BY ITS FIRST ROW CHANGING**, never by time alone.
+     *
+     * **A PAGE THAT HAS NOT DRAWN IS WAITED FOR LONGER, AND ASKED FOR AGAIN (A86, his 20 Oct run: Meesho pricing page 7 "did not draw",
+     * the page text only the left menu).** Meesho can take the whole content area away while a page loads, and a table that is gone is
+     * not a page that failed -- it gets the whole `patience`, not the thirty seconds a table that is still there and has not changed
+     * gets. If that still draws nothing, the press may simply not have been heard: the pager is asked again, at most twice more, and
+     * only after the wait above ended with the page still undrawn -- nothing can draw between that look and the press, so a press never lands on a page that had drawn. A pager
+     * that names its pages is the only kind that retries -- Flipkart's ends by not moving, and would wait three times at its real end.
+     * **NOTHING IS PUT AWAY UNTIL EVERY PAGE THE PAGER NAMES HAS BEEN READ** (below), so a page that never draws still fails the read
+     * as a whole and never lands half a table. */
     let moved = false;
-    for (let waited = 0; waited < Math.min(patience, 30) * 1000; waited += 500) {
-      // eslint-disable-next-line no-await-in-loop
-      await rest(500);
+    const hasMoved = () => {
       const after = theTableOn(page, way);
       const rowsAfter = after ? below(after, 'tr').filter((one) => below(one, 'td').length) : [];
-      if (rowsAfter.length && textOf(rowsAfter[0]) !== firstKey) { moved = true; break; }
+      return { rowsAfter, moved: rowsAfter.length > 0 && textOf(rowsAfter[0]) !== firstKey };
+    };
+    for (let pressed = 1; pressed <= (way.pageLabel ? A_PAGE_IS_ASKED_FOR_AT_MOST : 1) && !moved; pressed += 1) {
+      if (pressed > 1) {
+        const again = labelled(page, way.next);
+        if (!again || isOff(again)) break;
+        again.click();
+        say(`${table}: page ${pages + 1} had not drawn, so the pager was pressed again.`);
+      }
+      for (let waited = 0; ; waited += 500) {
+        // eslint-disable-next-line no-await-in-loop
+        await rest(500);
+        const seen = hasMoved();
+        if (seen.moved) { moved = true; break; }
+        if (waited >= (seen.rowsAfter.length ? Math.min(patience, 30) : patience) * 1000) break;
+      }
     }
     /* **A PAGER WITH NO PAGE NUMBERS (Flipkart's) HAS NO OTHER WAY TO SAY IT HAS ENDED**: a next button that is still on and moves
      * nothing, after the whole wait, is the end of the table. A pager that names its pages never ends this way. */

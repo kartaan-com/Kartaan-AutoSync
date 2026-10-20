@@ -33,45 +33,16 @@ from reports import Report
 # The date is always ISO and always present. Read back by DATE_IN_NAME below.
 DATE_IN_NAME = re.compile(r"(\d{4}-\d{2}-\d{2})")
 
+# **THE ONE OTHER SHAPE OF A DAY'S NAME: A RANGE ASKED FOR IN ONE REQUEST (P16, D424).**
+# `<platform>_<report>_<from>_to_<to>.<ext>`, e.g. `flipkart_fk_orders_2026-09-29_to_2026-10-03.xlsx`.
+# **ITS DAY IS ITS `to` DAY** -- Flipkart names the row by its end date, and the ledger's "newest
+# file wins" must see a range fetched today as new as its last day, not as old as its first.
+A_RANGE_IN_NAME = re.compile(r"_(\d{4}-\d{2}-\d{2})_to_(\d{4}-\d{2}-\d{2})\.[A-Za-z0-9]+$")
 
-def the_running_list_is_called(a_report: Report) -> str:
-    """What a running list is called. **No day in it, and that is the point.**
-
-    A running list is one file that every day is added to, so there is no day it
-    belongs to. Its days are the first column INSIDE it -- see `Arrived`.
-
-    **IT IS ITS OWN FUNCTION RATHER THAN A BRANCH SOMEWHERE, because three
-    different places have to agree about this name:** the walk that writes it, the
-    board that must not call it a stray, and whoever looks for it by hand.
-    """
-    return f"{a_report.platform}_{a_report.id}.{a_report.extension}"
-
-
-def the_days_in_the_list(text: str) -> Tuple[date, ...]:
-    """Which days a running list holds, read out of its own first column.
-
-    **THE OTHER HALF OF `the_running_list_is_called`.** The name says nothing
-    about days, so this is the only thing that can -- and the day board, the
-    manifest and the schedule all rest on it.
-
-    **ONLY A REAL DAY COUNTS.** A half-written line, a blank, or a note somebody
-    typed into the file by hand is not a day that arrived, and counting one would
-    stop that day ever being fetched again -- the quietest way there is to lose a
-    day for good.
-
-    **`extension/drive.js theDaysInTheList` IS THE SAME RULE ON THE OTHER SIDE**,
-    because the half that writes the file and the half that reads it back have to
-    agree about what a row is.
-    """
-    lines = str(text or "").strip().splitlines()
-    out = []
-    for one in lines[1:]:
-        first = one.split(",")[0].strip()
-        try:
-            out.append(date.fromisoformat(first))
-        except ValueError:
-            continue
-    return tuple(sorted(set(out)))
+# **MOST DAYS ONE RANGE FILE MAY NAME.** One press takes at most 31 days (`extension/screen.js`
+# `AS_MANY_DAYS_AS_ONE_PRESS_TAKES`, counting both ends), so a name claiming more was not written by
+# this product, and reading it would spread one file over a stretch of days it cannot be holding.
+MOST_DAYS_IN_A_RANGE_FILE = 31
 
 
 def file_name_for(a_report: Report, data_date: date) -> str:
@@ -81,24 +52,78 @@ def file_name_for(a_report: Report, data_date: date) -> str:
     convention is two records of one fact, and the day board's entire idea of
     whether something arrived rests on these agreeing.
 
-    **AND A RUNNING LIST HAS ONE NAME FOR EVERY DAY, so the day is ignored rather
-    than refused.** Callers ask this the same way for every report and should not
-    have to know which shape they are holding; asking for "the 10th of September's
-    views file" is a fair question and the honest answer is the one file there is.
     """
-    if a_report.a_running_list:
-        return the_running_list_is_called(a_report)
     return f"{a_report.platform}_{a_report.id}_{data_date.isoformat()}.{a_report.extension}"
+
+
+def file_name_for_range(a_report: Report, first_day: date, last_day: date) -> str:
+    """What the file of one request for several days is called.
+
+    **ONLY WHEN THE FIRST DAY IS BEFORE THE LAST.** A range of one day is a day file, named
+    exactly as `file_name_for` names it, so the daily files stay as the reader knows them.
+    **NOTHING IN A RUN CALLS THIS -- THE EXTENSION NAMES A RANGE FILE (`walk.js` `theFileName`)**; this is the Python half of that one
+    shape, kept so `tools/export_recipes_checks.py` can hold the two builders equal, report by report, and so a reader here can be
+    checked against a name built by the rule rather than typed out. **A range the wrong way round, or longer than one press takes, is refused**, because the
+    name is what every later reader trusts about which days the file holds.
+    """
+    if first_day == last_day:
+        return file_name_for(a_report, last_day)
+    if first_day > last_day:
+        raise ValueError(f"a range cannot start ({first_day}) after it ends ({last_day})")
+    if (last_day - first_day).days + 1 > MOST_DAYS_IN_A_RANGE_FILE:
+        raise ValueError(f"a range of {(last_day - first_day).days + 1} days is more than one file may name")
+    return f"{a_report.platform}_{a_report.id}_{first_day.isoformat()}_to_{last_day.isoformat()}.{a_report.extension}"
+
+
+def range_in_name(file_name: str) -> Optional[Tuple[date, date]]:
+    """The first and last day a range file's name gives, or None when it names no real range.
+
+    **A NAME THAT LOOKS LIKE A RANGE AND IS NOT ONE IS NOT A RANGE** -- two days the wrong way
+    round, the same day twice, a day that does not exist, or more days than one file may name.
+    """
+    found = A_RANGE_IN_NAME.search(file_name or "")
+    if not found:
+        return None
+    try:
+        first_day, last_day = date.fromisoformat(found.group(1)), date.fromisoformat(found.group(2))
+    except ValueError:
+        return None
+    if not first_day < last_day or (last_day - first_day).days + 1 > MOST_DAYS_IN_A_RANGE_FILE:
+        return None
+    return first_day, last_day
+
+
+def days_in_name(file_name: str) -> Tuple[date, ...]:
+    """Every day a file's NAME says it holds: its one day, or each day of a range, or none.
+
+    **THE OTHER HALF OF `file_name_for_range`.** Asked of a range name it answers every day from
+    the first to the last; asked of a day name, that one day; asked of a name with no day, or a
+    range name that is not a real range, nothing.
+    """
+    the_range = range_in_name(file_name)
+    if the_range is None:
+        one = data_date_in(file_name)
+        return (one,) if one is not None else ()
+    first_day, last_day = the_range
+    return tuple(first_day + timedelta(days=n) for n in range((last_day - first_day).days + 1))
 
 
 def data_date_in(file_name: str) -> Optional[date]:
     """The data date inside a file name, or None if it has none.
+
+    **A RANGE FILE'S DATE IS ITS LAST DAY.** Taking the first date in the name would give a
+    range file the age of its first day, and the ledger would leave its rows alone as older than
+    day files it overlaps. **A name that looks like a range and is not one answers None** rather
+    than its first date, so it is reported as undated and not read as the wrong day.
 
     **None IS A REAL ANSWER AND IT IS A PROBLEM, not a nought.** A file with no
     date in its name is a file nothing downstream can ever find. It is reported as
     itself -- see `undated` below -- rather than silently counted as missing,
     which is what happened to seven real files for six weeks.
     """
+    if A_RANGE_IN_NAME.search(file_name or ""):
+        the_range = range_in_name(file_name)
+        return the_range[1] if the_range else None
     found = DATE_IN_NAME.search(file_name or "")
     if not found:
         return None
@@ -154,18 +179,20 @@ def gst_keep_until(data_day: date) -> date:
 # files. A loose date anywhere in a name -- `backup_2017-08-01_final.xlsx`, or a copy the seller
 # made, `..._2017-08-01 (1).csv` -- is somebody else's file and is kept.
 A_DAYS_REPORT_FILE = re.compile(
-    r"(?:amazon|flipkart|meesho)_[a-z0-9_]+?_(\d{4}-\d{2}-\d{2})(?:_[A-Za-z0-9-]+)?\.[a-z]+"
+    r"(?:amazon|flipkart|meesho)_[a-z0-9_]+?_(\d{4}-\d{2}-\d{2})(?:_to_\d{4}-\d{2}-\d{2}|_[A-Za-z0-9-]+)?\.[a-z]+"
 )
 
 
 def why_a_report_file_may_go(file_name: str, today: date) -> Optional[str]:
     """Words saying why this file is past what the law asks to be kept, or None to keep it.
 
-    **A FILE WITH NO DAY IN ITS NAME IS KEPT, AND SO IS ANY FILE NOT NAMED AS A DAY'S REPORT** -- a
-    running list holds many days and nothing here can say which are old.
+    **A FILE WITH NO DAY IN ITS NAME IS KEPT, AND SO IS ANY FILE NOT NAMED AS A DAY'S REPORT** -- nothing
+    here can say which days it holds.
     """
     shape = A_DAYS_REPORT_FILE.fullmatch(file_name or "")
-    day = data_date_in(shape.group(1)) if shape else None
+    # **A RANGE FILE IS KEPT BY ITS LAST DAY** -- the day `data_date_in` gives it -- and a name
+    # that only looks like a range is not ours to remove.
+    day = data_date_in(file_name) if shape else None
     if day is None:
         return None
     until = gst_keep_until(day)
@@ -198,17 +225,6 @@ class Arrived:
 
     name: str
     size: int
-    # **THE DAYS A RUNNING LIST HOLDS, READ OUT OF THE FILE ITSELF.**
-    #
-    # **ONE RULE, TWO SOURCES, AND BOTH ARE NAMED.** An ordinary report's day is
-    # in its NAME. A running list has no day in its name at all -- it is one file
-    # added to every day -- so its days are the first column inside it, and
-    # whoever listed the folder reads them and puts them here.
-    #
-    # **EMPTY IS THE ORDINARY CASE and means "ask the name", not "no days".**
-    # Every report but the running lists leaves this alone.
-    days_inside: Tuple[date, ...] = ()
-
     @property
     def data_date(self) -> Optional[date]:
         return data_date_in(self.name)
@@ -226,12 +242,10 @@ class Arrived:
         report stopped having its day in its name, all three would have quietly
         answered "no" about a file holding every day it was asked about.
 
-        **ONE RULE, TWO SOURCES, BOTH NAMED:** an ordinary report's day is in its
-        NAME; a running list's days are the first column INSIDE it.
+        **EVERY REPORT'S DAY IS IN ITS NAME** (every day of it, when the name is a
+        range), so the name is the one source.
         """
-        if self.days_inside:
-            return day in self.days_inside
-        return self.data_date == day
+        return day in days_in_name(self.name)
 
 
 def days_that_arrived(records: Iterable["Arrived"]) -> Tuple[date, ...]:
@@ -263,19 +277,10 @@ def days_that_arrived(records: Iterable["Arrived"]) -> Tuple[date, ...]:
     for one in records or ():
         if one.is_empty:
             continue
-        # **A RUNNING LIST ANSWERS WITH WHAT IS INSIDE IT, and it still answers
-        # here rather than anywhere else.** This function's own rule is that ONE
-        # place turns files into days -- the moment a second place learned about
-        # running lists, the schedule and the board would be able to disagree
-        # about what is still owed, which is the fault this docstring opens with.
-        inside = one.days_inside
-        if inside:
-            out.update(inside)
-            continue
-        when = one.data_date
-        if when is None:
-            continue
-        out.add(when)
+        # **A RANGE FILE ANSWERS WITH EVERY DAY IT NAMES, here and nowhere else.** Answering with
+        # its last day alone would make every other day inside it look like a hole, and each
+        # would be fetched again -- on Flipkart's orders and payments that spends the twenty a day.
+        out.update(days_in_name(one.name))
     return tuple(sorted(out))
 
 

@@ -23,6 +23,8 @@
  * for none of them at all.
  */
 
+import { MOST_DAYS_IN_A_RANGE_FILE } from './walk.js';
+
 /* What the night's own record is called in storage. */
 export const THE_NIGHT = 'kartaan-autosync-night';
 
@@ -74,6 +76,25 @@ export function theDay(at) {
 /** Does asking for this report cost the seller one of their twenty? */
 export function spendsTheAllowance(reportId) {
   return SPENDS_THE_ALLOWANCE.includes(reportId);
+}
+
+/** The first and last of these days when they run one after the other with no gap and fit one file's
+ *  name, otherwise null.
+ *
+ *  **THIS IS WHAT TURNS A TYPED FROM-TO INTO ONE REQUEST (P16, D424).** Flipkart's twenty a day are
+ *  spent per request, so a by-hand run over several days asks `fk_orders` and `fk_payments` ONCE for
+ *  the whole stretch. **A run whose days have a gap, or are more than one press takes, is not a range
+ *  and is walked a day at a time as ever** -- the name of a range file claims every day between its
+ *  ends, so a gap in the list would be a day the file says it holds and does not. */
+export function theRangeOfTheDays(days) {
+  const sorted = [...new Set(days || [])].map(String).sort();
+  if (sorted.length < 2 || sorted.length > MOST_DAYS_IN_A_RANGE_FILE) return null;
+  for (let n = 1; n < sorted.length; n += 1) {
+    const after = new Date(`${sorted[n - 1]}T00:00:00Z`);
+    after.setUTCDate(after.getUTCDate() + 1);
+    if (Number.isNaN(after.getTime()) || after.toISOString().slice(0, 10) !== sorted[n]) return null;
+  }
+  return { from: sorted[0], to: sorted[sorted.length - 1] };
 }
 
 /**
@@ -475,9 +496,15 @@ export function theRecheckSync(rechecks) {
   const all = Object.values(rechecks || {}).filter((one) => one && one.reportId && one.dataDate);
   if (!all.length) return null;
   const day = all.map((one) => String(one.dataDate)).sort()[0];
+  const atThatDay = all.filter((one) => one.dataDate === day);
+  /* **A RANGE ASKED FOR IN ONE REQUEST IS RE-CHECKED AS THAT RANGE (P16, review finding).** The row Flipkart finishes holds every day
+   * of it, so collected as a single day it would be named for one day and the rest would look missing and be asked for again. Only
+   * the reports that were asked for the same range go in one re-check; the others wait for the next. */
+  const from = String(atThatDay[0].fromDay || '');
   return {
     day,
-    reportIds: [...new Set(all.filter((one) => one.dataDate === day).map((one) => one.reportId))],
+    reportIds: [...new Set(atThatDay.filter((one) => String(one.fromDay || '') === from).map((one) => one.reportId))],
+    ...(from ? { from } : {}),
   };
 }
 
@@ -757,7 +784,7 @@ export async function thatOneIsDone(chrome, {
       const tries = ((rechecks[key] && rechecks[key].tries) || 0) + 1;
       if (tries <= RECHECK_TIMES) {
         await chrome.storage.local.set({
-          [RECHECKS]: { ...rechecks, [key]: { reportId, dataDate: day, tries } },
+          [RECHECKS]: { ...rechecks, [key]: { reportId, dataDate: day, tries, ...theRangeFromFor(night, reportId, day) } },
         });
         rechecking = true;
         written = {
@@ -787,6 +814,8 @@ export async function thatOneIsDone(chrome, {
    * days that really landed were remembered, so a day with no campaign running (or none to record) was walked
    * again on every sync for the whole reach. `settled` comes from the walk's own answer only -- never from the
    * allowance or the only-its-newest-day refusals, which are not facts about the platform. */
+  /* **A SETTLED RANGE WALK MARKS ITS LAST DAY ONLY (P16)**: the days before it in the range are not marked, so they may be walked once more
+   * as single days. That costs nothing from Flipkart's twenty (nothing was there to fetch) and is the safe way round. */
   if (settled && day) await rememberLastLanded(chrome, reportId, day);
   const counted = thatOneAndThatDay(reportId, day);
   const givenBack = ((written.state === NOT_AVAILABLE_YET || written.state === NEEDS_YOU_STATE)
@@ -1187,6 +1216,24 @@ async function tellThatItEnded(chrome, ended, tell) {
   }
 }
 
+/** `{ fromDay }` when this walk is the one request for a typed range, else nothing -- what a re-check must remember. */
+function theRangeFromFor(night, reportId, day) {
+  const theRange = spendsTheAllowance(reportId)
+    ? theRangeOfTheDays((night.days && night.days.length) ? night.days : [night.dataDate])
+    : null;
+  return theRange && theRange.to === day ? { fromDay: theRange.from } : {};
+}
+
+/** What a walk is told about its range: `fromDay` (and, for a range asked in one request, that it also
+ *  names the file), or nothing. **A RANGE ONLY FOR THE LAST DAY OF THE TYPED STRETCH** -- the owed days
+ *  after it are walked as the single days they are. Flipkart traffic keeps its own way (from the day
+ *  after the last captured, named by its end day). */
+async function theRangeForThisWalk(chrome, night, reportId, day) {
+  const range = theRangeFromFor(night, reportId, day);
+  if (range.fromDay) return { fromDay: range.fromDay, namedAsARange: true };
+  return { fromDay: await theDayAfterTheLastCaptured(chrome, reportId, day) };
+}
+
 /** Start the next report the night owes, skipping any it may not ask for. */
 async function startTheNextOne(chrome, { startAWalk, at, tellKartaan = null }) {
   for (;;) {
@@ -1252,14 +1299,21 @@ async function startTheNextOne(chrome, { startAWalk, at, tellKartaan = null }) {
         }
       }
       const asked = (night.days && night.days.length) ? night.days : [night.dataDate];
+      /* **A TYPED RANGE FOR A REPORT THAT SPENDS THE TWENTY IS ONE REQUEST (P16, D424).** Its days become
+       * the one entry for the range's last day, walked once with `fromDay` the first day, and any owed day
+       * that falls inside the range is covered by that walk and dropped. Owed days outside it are still
+       * walked one at a time. */
+      const theRange = spendsTheAllowance(next) ? theRangeOfTheDays(asked) : null;
       /* **A REPORT THAT SPENDS THE FLIPKART ALLOWANCE ASKS FOR ITS OWN DAYS FIRST, THEN THE GAPS (review
        * finding, 2026-10-05).** Oldest first meant the gap days used the request cap and yesterday -- the day
        * the sync is for -- was refused first, so with a backlog it was never fetched until the gap was gone. */
       daysLeft = {
         ...daysLeft,
-        [next]: spendsTheAllowance(next)
-          ? [...new Set([...[...asked].sort(), ...[...owed].sort()])]
-          : [...new Set([...owed, ...asked])].sort(),
+        [next]: theRange
+          ? [theRange.to, ...[...new Set(owed)].filter((one) => one < theRange.from || one > theRange.to).sort()]
+          : spendsTheAllowance(next)
+            ? [...new Set([...[...asked].sort(), ...[...owed].sort()])]
+            : [...new Set([...owed, ...asked])].sort(),
       };
       // eslint-disable-next-line no-await-in-loop
       await chrome.storage.local.set({ [THE_NIGHT]: { ...night, daysLeft } });
@@ -1324,7 +1378,7 @@ async function startTheNextOne(chrome, { startAWalk, at, tellKartaan = null }) {
          * COLLECT.** Nothing else about the walk changes: it has accepted this
          * since it was written (`walk.js`) and picks its phase from it. */
         askedAlready,
-        fromDay: await theDayAfterTheLastCaptured(chrome, next, day),
+        ...(await theRangeForThisWalk(chrome, night, next, day)),
       });
     } catch (wrong) {
       /* **A WALK THAT COULD NOT BE STARTED IS WRITTEN DOWN AND THE NIGHT MOVES
