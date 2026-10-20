@@ -285,7 +285,7 @@ REPORTS: Tuple[Report, ...] = (
     # So it is read off the page and added to a running list -- see
     # `a_running_list` on `Report` for his decision and the reasoning.
     Report("me_views", "meesho", "Meesho views", BROWSER, DAILY, "csv",
-           cannot_backfill=_SNAPSHOT, a_running_list=True),
+           cannot_backfill=_SNAPSHOT),
     # **THE TWO MEESHO TABLES WITH NO DOWNLOAD BUTTON (plan jobs 44 and 43).** Product performance is a sliding seven-day window that
     # Meesho moves and the seller cannot, and pricing is how things stand today; neither can be asked for a past day. One file a day,
     # kept exactly as the page showed it.

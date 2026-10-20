@@ -465,6 +465,8 @@ check("and the platform and the file type are the report's own, not read off its
           HELD["fileNames"][one]["platform"] == reports_list.report(one).platform
           and HELD["fileNames"][one]["extension"] == reports_list.report(one).extension
           for one in HELD["fileNames"])))
+check("MEESHO VIEWS CROSSES AS A REPORT NAMED BY ITS DAY, not as one undated running list (D473)",
+      answered(lambda: HELD["fileNames"]["me_views"]["aRunningList"] is False))
 check("the file names are in a settled order too",
       answered(lambda: list(HELD["fileNames"]) == sorted(HELD["fileNames"])))
 
@@ -919,7 +921,7 @@ check("and it is the Python's own spelling, so nothing translates on the way",
       answered(lambda: language.BY_THE_CONTROL_BESIDE == "beside"))
 
 
-EXPECTED = 117 + 4
+EXPECTED = 117 + 4 + 1
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

@@ -102,11 +102,23 @@ check(
 # the figure is read off the page and added to one file. **That file has no day in
 # its name, which is exactly what every line above is built on** -- so the
 # exception is NAMED here rather than the rule being softened.
+# **NO REPORT IS A RUNNING LIST ANY MORE (his D473, 20 Oct).** Meesho views was the one, and one undated file rewritten in place is
+# never read again by the read-once-by-Drive-id rule. It is now one new file a day like every other report. The running-list
+# SHAPE is still checked below on a stand-in report, because the code that reads one is still here.
 check(
-    "the only reports without a day in the name are the running lists, by name",
-    answered(lambda: sorted(r.id for r in REPORTS if r.a_running_list) == ["me_views"]),
+    "NO REPORT IS WITHOUT A DAY IN ITS NAME: Meesho views is one new file a day (D473)",
+    answered(lambda: [r.id for r in REPORTS if r.a_running_list] == []),
 )
-VIEWS = next(r for r in REPORTS if r.id == "me_views")
+check(
+    "Meesho views is named by its day, like every other report",
+    answered(lambda: tool.file_name_for(next(r for r in REPORTS if r.id == "me_views"), DAY("2026-08-26"))
+             == "meesho_me_views_2026-08-26.csv"),
+)
+check(
+    "and its day can be read back out of the name",
+    answered(lambda: tool.data_date_in("meesho_me_views_2026-08-26.csv") == DAY("2026-08-26")),
+)
+VIEWS = Report("me_views", "meesho", "Meesho views as a running list", BROWSER, DAILY, "csv", a_running_list=True)
 check("a running list is named without a day, because it holds many",
       answered(lambda: tool.file_name_for(VIEWS, DAY("2026-08-26")) == "meesho_me_views.csv"))
 # **ASKED FOR TWO DIFFERENT DAYS IT IS THE SAME FILE**, which is the whole idea.
@@ -614,7 +626,7 @@ check("a range-looking name that is not a real range is kept, not removed",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 114 + 19
+EXPECTED = 114 + 19 + 2
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

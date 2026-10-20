@@ -38,6 +38,8 @@ the file where it happened. A reviewer finding something already on this list is
 
 - A report whose rows are dated by when something HAPPENED (a claim is raised on a day of its own) is not fetched one day at a time: a day's file holds only that day's claims and nearly every day's is empty. Ask a window ending on the day and settle overlaps by the report's own id. -- `autosync/recipes.py` `fk_claims` `THE_CLAIMS_REACH_IN_DAYS` (A86, 20 Oct: 24 empty claims files; not yet seen live)
 
+- A report landed as ONE undated file rewritten in place (Meesho views, a running list) is never read again, because a file is read once by its Drive id: every report is one new file a day named by its day. -- `autosync/reports.py` `me_views` (A86, D473, 20 Oct)
+
 ## Pages, tabs and waiting
 
 - A fresh Flipkart tab restores its last route: load the base page, then set the address, and measure on the right tab of the right page. -- `autosync/recipes.py` `TRAFFIC`

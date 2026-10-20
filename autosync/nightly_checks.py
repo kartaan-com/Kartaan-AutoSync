@@ -688,6 +688,11 @@ class DriveThatWillNotHandOverAFile(FakeDrive):
 
 
 drive = DriveThatWillNotHandOverAFile()
+# **A STAND-IN RUNNING LIST: no report is one any more (D473), but the code that reads one is still here and still checked.**
+import dataclasses as _dataclasses  # noqa: E402
+import reports as _reports  # noqa: E402
+_real_report = _reports.report
+_reports.report = lambda rid: (_dataclasses.replace(_real_report(rid), a_running_list=True) if rid == "me_views" else _real_report(rid))
 VIEWS = tool._drive_folder(drive, INSIDE, "me_views")
 drive.file("meesho_me_views.csv", VIEWS, b"Date,Views,2026-10-04,5")
 told = []
@@ -698,6 +703,7 @@ check("and the log names the report, the file and what happens next",
 quiet = []
 answered(lambda: list(tool._arrivals_from_drive(drive, INSIDE)("me_views")))
 check("asked without anywhere to say it, it stays as it was and does not throw", quiet == [] and not THREW)
+_reports.report = _real_report
 
 # ------------------------------------------- the secrets
 
