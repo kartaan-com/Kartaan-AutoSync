@@ -1,5 +1,5 @@
 {
-  "version": "0.1.17",
+  "version": "0.1.18",
   "url": "https://github.com/kartaan-com/Kartaan-AutoSync/releases/latest/download/kartaan-autosync-extension.zip",
-  "notes": "Days refused for want of the allowance are reported as not asked."
+  "notes": "Three table reports read again; keyword reports stay off."
 }
