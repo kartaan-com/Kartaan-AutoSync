@@ -97,7 +97,7 @@ import whats_new
 from firestore_door import TheirDatabaseSaidNo
 from ledger import LedgerRefused, Reading, which_markers
 from reports import report as the_report
-from sales import FROM_FIELD
+from sales import FROM_FIELD, Sale
 
 # **WHAT AN ORDERS REPORT IS ENTITLED TO WRITE (D150 rule 1).** It knows nothing
 # about settlements, returns or charges, and naming the columns here is what
@@ -123,7 +123,7 @@ WHAT_ORDERS_KNOWS = ("platform", "orderId", "on", "sku", "qty", "gmv", "status",
 # already in his ledger would go on looking like sales for ever. Change this name whenever the orders reader
 # learns to write a column it did not, and every file is read once more -- which is safe, because reading a
 # file again writes the same figures and an older file never undoes a newer one (D150 rule 2).
-READING_RULES = "orders-with-the-platforms-status-word-and-what-happened-india-day-a81"
+READING_RULES = "orders-with-the-platforms-status-word-and-what-happened-india-day-a81-returns-in-the-ledger-a87"
 # Payments reports whose lines wait for their order (A81).
 PAYMENTS_THAT_WAIT_FOR_THEIR_ORDERS = ("fk_payments", "me_payments")
 
@@ -706,6 +706,38 @@ def a_returns_reading(how: HowToRead, one: whats_new.InTheFolder, body: bytes) -
     return said, when.isoformat()
 
 
+# **WHAT A RETURNS FILE MAY SAY IN THE LEDGER (D447, D449, A87):** the day it was read, and -- for a return the platform has finished
+# (it names a day the return closed) -- that the order came back. Nothing else: the reason, status and tracking stay in the returns record.
+WHAT_RETURNS_KNOW = ("platform", "orderId", "sku", "whatHappened", "returnsOn")
+
+
+def _a_finished_return(one: Dict[str, object]) -> bool:
+    """Has the platform finished this return? Meesho names a delivered day only once the parcel is back; Flipkart fills its completed day
+    on open claims too (a real open MISSING_ITEM claim carried one), so its own status must say Closed. Amazon's statuses (Rejected,
+    Undelivered) are not understood well enough to say a parcel came back, so Amazon says nothing here."""
+    if not one.get("closedOn"):
+        return False
+    if one.get("platform") == "meesho":
+        return True
+    return one.get("platform") == "flipkart" and str(one.get("status", "")).strip().lower() == "closed"
+
+
+def a_returns_in_the_ledger(said: returns.WhatReturnsSaid, day: str, which: str, report_id: str) -> Optional[Reading]:
+    """The returned lines of one file as a reading of the ledger, or nothing when none names its SKU.
+
+    **A RETURN THAT ARRIVES BEFORE ITS ORDER CREATES THE ORDER'S ROW (D449)**, keyed as the orders reader keys it. A line with no SKU has no
+    row to key and stays only in the returns record.
+    """
+    lines = tuple(
+        Sale(
+            platform=one["platform"], order_id=one["orderId"], sku=one["sku"], returns_on=day,
+            what_happened=orders.CAME_BACK if _a_finished_return(one) else None,
+        )
+        for _, one in sorted(said.records.items()) if one.get("sku")
+    )
+    return Reading(report=report_id, on=day, knows=WHAT_RETURNS_KNOW, sales=lines, which=which) if lines else None
+
+
 def an_ads_reading(how: HowToRead, one: whats_new.InTheFolder, body: bytes) -> Tuple[ads.WhatAdsSaid, str]:
     """One ads file turned into ad records, and the day of the file (same refusals as `a_returns_reading`)."""
     when = _the_day_of(one)
@@ -965,11 +997,17 @@ def read_what_is_new(
                 if how.kind == "returns":
                     said, the_day = a_returns_reading(how, one, bring_it_back(one.which))
                     returns_written += record(how.report_id, the_day, said.records)
+                    in_the_ledger = a_returns_in_the_ledger(said, the_day, one.which, how.report_id)
+                    if in_the_ledger is not None and record_the_sales is not None:
+                        record_the_sales([in_the_ledger])
                 else:
                     said, the_day = an_ads_reading(how, one, bring_it_back(one.which))
                     ads_written += record(how.report_id, said.platform, said.kind, the_day, said.records)
             except TheirDatabaseSaidNo as wrong:
                 the_database_refused.append(f"{one.name or one.which}: {wrong}")
+                continue
+            except LedgerRefused as wrong:
+                the_ledger_refused.append(f"{one.name or one.which}: {wrong}")
                 continue
             except Exception as wrong:  # noqa: BLE001 - named, never swallowed
                 could_not_read.append(f"{one.name or one.which}: {wrong}")

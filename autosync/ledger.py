@@ -90,7 +90,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 # **THE ONE READER OF 'IS THIS A DAY' IN THIS PACKAGE.** A second way of
 # deciding it here would be a second answer waiting to disagree, and what it
 # decides is whether an older file may put its figure over a newer one.
-from orders import NOT_UNDERSTOOD_YET, the_day_in
+from orders import CAME_BACK, DELIVERED, NOT_UNDERSTOOD_YET, the_day_in
 from payments import two_sales_of_one_row
 from sales import COLUMNS, FROM_FIELD, Sale, a_cell, name_for, the_row_for
 from table import CannotRead
@@ -264,7 +264,7 @@ class Reading:
 
     # **A PAYMENTS FILE PUTS ITS MONEY ON THE ROW OF ITS OWN ORDER AND SKU (job 36), AND CREATES THAT ROW WHEN THE LEDGER KNOWS
     # NOTHING OF THE ORDER (D449, A87):** platform, order, SKU and the money, no quantity, price or date until the orders file lands.
-    # A line for an order the ledger holds under OTHER SKUs, or with no SKU to key a row by, is kept out of the sheet and SAID
+    # A line with no SKU to key a row by is kept out of the sheet and SAID
     # (`Plan.unmatched`) -- never dropped, never put on another item's row.
     only_existing: bool = False
     # **A READING THAT CORRECTS WHAT AN EARLIER READING OF THE SAME DAY GOT WRONG (A81).** Set only on the one night every file is read
@@ -747,6 +747,10 @@ def _what_the_sheet_remembers(
     return None
 
 
+def _is_a_day(said) -> bool:
+    return the_day_in(str(said)) == str(said)
+
+
 def _is_nought(quantity) -> bool:
     try:
         return float(str(quantity)) == 0
@@ -789,13 +793,11 @@ def _put_each_on_its_row(
                     "this line names no SKU and the file names no single SKU to put it on, so which of the order's "
                     f"{len(there)} row(s) it belongs to cannot be said"
                 )
-            elif there:
-                why = "the ledger has this order, but not under this SKU"
             elif sale.sku:
-                # **THE MONEY CAME BEFORE THE ORDER (D449, A87).** The ledger knows nothing of this order and the line knows its item: it
-                # CREATES the row, keyed exactly as the orders reader keys it, and fills the payment now. The order's own columns fill
-                # the same row the day its file lands. An order known under OTHER SKUs is still said: a SKU spelt differently in the two
-                # files must not become a second row with the money on it.
+                # **THE MONEY CAME BEFORE THE ORDER (D449, A87; his ruling "for all the reports", 20 Oct).** No row for this order and SKU,
+                # whether the order is unknown or known only under its other SKUs, and the line knows its item: it CREATES the row, keyed
+                # exactly as the orders reader keys it, and fills the payment now. The order's own columns fill the same row the day its
+                # file lands. RISK TAKEN ON HIS RULING: a SKU spelt differently in the two platforms' files would make a second row.
                 target = sale.id
                 why = ""
             else:
@@ -932,6 +934,19 @@ def plan(
                 if str(value) == "" and str(was) != "" and not (
                         (column == "whatHappened" and str(was) == NOT_UNDERSTOOD_YET)
                         or (column == "gmv" and _is_nought(says.get("qty")))):
+                    continue
+                # **A MEESHO SUB-ORDER LISTED AGAIN UNDER A LATER DATE KEEPS THE FIRST DATE SEEN (D447, A87, AU2 finding 4).** Meesho
+                # re-lists a sub-order in later files with a new order date; the day it was first seen is the order's day and a later
+                # file may change only the status. An earlier date still replaces a later one.
+                if (column == "on" and now[name].get("platform") == "meesho" and _is_a_day(was) and _is_a_day(value)
+                        and str(value) > str(was)):
+                    continue
+                # **"CAME BACK" IS NOT TAKEN BACK BY A SOURCE THAT KNOWS LESS (A87 review).** Orders, payments and returns files each say
+                # what became of an order, and the last one processed used to win: a payments file still saying Delivered, or an orders
+                # file re-listing the sub-order, put a returned order back to Delivered. Whichever order the files arrive in, a returned
+                # order stays returned; Came back still replaces Delivered.
+                if (column == "whatHappened" and str(was) == CAME_BACK
+                        and str(value) in (DELIVERED, NOT_UNDERSTOOD_YET)):
                     continue
                 before = decided_on.what_decided(name, column)
                 from_the_sheet = before is None

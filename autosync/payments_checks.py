@@ -146,6 +146,7 @@ MEESHO_HEADER = (
     ["Sub Order No", "Supplier SKU", "Final Settlement Amount", "Fixed Fee (Incl. GST)"]
     + MEESHO_COLUMNS[3:5]
     + MEESHO_COLUMNS[5:]
+    + ["Live Order Status"]
 )
 
 
@@ -159,7 +160,7 @@ def a_meesho_file(*rows, rename=None):
     ])
 
 
-def a_meesho_line(order, sku, settlement, first_fixed_fee="", **charges):
+def a_meesho_line(order, sku, settlement, first_fixed_fee="", status="", **charges):
     names = {
         "commission": "Meesho Commission (Incl. GST)", "shipping": "Shipping Charge (Incl. GST)",
         "returnShipping": "Return Shipping Charge (Incl. GST)", "tcs": "TCS", "tds": "TDS",
@@ -167,7 +168,7 @@ def a_meesho_line(order, sku, settlement, first_fixed_fee="", **charges):
         "returnPremiumOfReturn": "Return premium (incl GST) of Return",
     }
     cells = a_line(MEESHO_HEADER, **{
-        "Sub Order No": order, "Supplier SKU": sku, "Final Settlement Amount": settlement,
+        "Sub Order No": order, "Supplier SKU": sku, "Final Settlement Amount": settlement, "Live Order Status": status,
         **{names[k]: v for k, v in charges.items() if k != "fixedFee"},
     })
     cells[3] = first_fixed_fee  # the first of the two `Fixed Fee`s
@@ -339,15 +340,17 @@ check("A LINE WITH MONEY AND NO ORDER ID IS SAID, not dropped",
 # ================================================================ the readers: MEESHO
 
 MEESHO_BODY = a_meesho_file(
-    a_meesho_line("M1_1", "SKU-M", "150", commission="-20", shipping="-30", tcs="-1", tds="-0.5", fixedFee="-4",
+    a_meesho_line("M1_1", "SKU-M", "150", status="Delivered", commission="-20", shipping="-30", tcs="-1", tds="-0.5", fixedFee="-4",
                   first_fixed_fee="99"),
-    a_meesho_line("M2_1", "SKU-N", "-60", returnShipping="-60"),
+    a_meesho_line("M2_1", "SKU-N", "-60", status="Return", returnShipping="-60"),
 )
 _me = answered(lambda: read_as("me_payments", "meesho_me_payments_2026-10-03.xlsx", MEESHO_BODY))
 _me_reading = _me[0] if _me else None
 _me_sales = {(s.order_id, s.sku): s for s in (_me_reading.sales if _me_reading else ())}
 check("MEESHO: THE FORMULA ROW UNDER THE NAMES IS NOT AN ORDER", _me_reading is not None and len(_me_sales) == 2)
 _m1 = _me_sales.get(("M1_1", "SKU-M"))
+check("MEESHO'S LIVE ORDER STATUS SAYS WHAT BECAME OF THE ORDER: Delivered is Delivered, Return is Came back (D447)",
+      _m1 is not None and _m1.what_happened == "Delivered" and _me_sales[("M2_1", "SKU-N")].what_happened == "Came back")
 check("what was paid is the final settlement", _m1 is not None and _m1.settlement == "150")
 check("a charge is positive where money was taken", _m1 is not None and _m1.charges.get("commission") == "20"
       and _m1.charges.get("shipping") == "30" and _m1.charges.get("tcs") == "1" and _m1.charges.get("tds") == "0.5")
@@ -432,9 +435,9 @@ check("the day a payments file is read under must be a day", refused_by(
     lambda: tool.read_payments(tool.a_table_to_ask_with("amazon"), "amazon", "yesterday")))
 check("and the platform must be one it knows", refused_by(
     lambda: tool.read_payments(tool.a_table_to_ask_with("amazon"), "ebay", "2026-01-01")))
-check("A PAYMENTS REPORT MAY WRITE THE SETTLEMENT, THE CHARGES AND ITS OWN MARKER, AND NO ORDER COLUMN",
-      set(reading.WHAT_PAYMENTS_KNOW) == {"settlement", "paymentsOn"} | set(sales.CHARGE_COLUMNS)
-      and not set(reading.WHAT_PAYMENTS_KNOW) & set(reading.WHAT_ORDERS_KNOWS))
+check("A PAYMENTS REPORT MAY WRITE THE SETTLEMENT, THE CHARGES, ITS OWN MARKER AND WHAT BECAME OF THE ORDER (Meesho's Live Order Status), AND NO OTHER ORDER COLUMN",
+      set(reading.WHAT_PAYMENTS_KNOW) == {"settlement", "paymentsOn", "whatHappened"} | set(sales.CHARGE_COLUMNS)
+      and not set(reading.WHAT_PAYMENTS_KNOW) & (set(reading.WHAT_ORDERS_KNOWS) - {"whatHappened"}))
 check("and every charge the ledger has is one a payments report may write",
       all(c in reading.WHAT_PAYMENTS_KNOW for c in sales.CHARGE_COLUMNS))
 
@@ -525,9 +528,8 @@ check("WHEN THE ORDER'S OWN FILE ARRIVES IT FILLS THE SAME ROW, and the money st
 
 _p4 = answered(lambda: ledger.plan(HELD, [pays("fk_payments", "2026-09-05",
                                                a_payment("flipkart", "OD1", "DJ 99", "5"))]))
-check("A LINE THAT NAMES A SKU THE ORDER DOES NOT HAVE IS NOT PUT ON THE ORDER'S ONLY ROW, and makes no second row either (a SKU spelt differently would)",
-      _p4 is not None and _p4.update == () and _p4.append == () and len(_p4.unmatched) == 1
-      and "not under this SKU" in str(_p4.unmatched[0]))
+check("A LINE THAT NAMES A SKU THE ORDER DOES NOT HAVE IS NOT PUT ON THE ORDER'S ONLY ROW: it CREATES its own order+SKU row (D449)",
+      _p4 is not None and _p4.update == () and len(_p4.append) == 1 and _p4.unmatched == ())
 
 _p5 = answered(lambda: ledger.plan(HELD, [pays("az_settlements", "2026-09-05",
                                                a_payment("amazon", "404-1", "", "-20", shipping="20"))]))
@@ -649,24 +651,23 @@ _n1 = answered(lambda: a_night(_the, _files, _bodies))
 _mine = {n: a_row(_the.values, sales.name_for(*n)) or {} for n in [
     ("amazon", "404-1", "SKU-A"), ("flipkart", "OD1", "DJ 14"), ("flipkart", "OD2", "DJ 14"), ("meesho", "M1_1", "SKU-M")]}
 check("THREE PLATFORMS' PAYMENT FILES, THROUGH THE REAL READER AND THE REAL LEDGER, FILL THE MATCHING ROWS",
-      _n1 is not None and _n1.read_tonight and len(_n1.read_tonight) == 2
+      _n1 is not None and _n1.read_tonight and len(_n1.read_tonight) == 3
       and _mine[("amazon", "404-1", "SKU-A")].get("settlement") == "80.5"
       and _mine[("flipkart", "OD1", "DJ 14")].get("settlement") == "-300.5"
       and _mine[("flipkart", "OD2", "DJ 14")].get("charge_penalty") == "7"
       and _mine[("meesho", "M1_1", "SKU-M")].get("charge_fixedFee") == "4")
 # **D449 (A87): A PAYMENT THAT ARRIVES BEFORE ITS ORDER CREATES THE ORDER'S ROW, so no payments file waits for orders any more.** (OD1/DJ 15 and
 # M2_1 have no row: each gets one, with the money on it and nothing of the order's.)
-check("a file whose every line has its order or can make its row is read; the Flipkart file, with a SKU its order is not known under, waits", _n1 is not None
-      and set(_n1.files_read) == {"as-1", "mp-1"} and _n1.payments_waiting == 1 and len(_n1.payment_files_waiting) == 1)
-_created = {n: a_row(_the.values, sales.name_for(*n)) or {} for n in [("meesho", "M2_1", "SKU-N")]}
-check("AND THE PAYMENT WITH NO ORDER YET HAS ITS OWN ROW, with money and no order columns, and the other order's SKU got no second row",
-      len(_the.values) == 11 and all(r.get("settlement") not in (None, "") and r.get("qty") == "" for r in _created.values())
-      and a_row(_the.values, sales.name_for("flipkart", "OD1", "DJ 15")) is None)
+check("every file is written down as read, so none is read again, and none is left waiting for its orders", _n1 is not None
+      and set(_n1.files_read) == {"as-1", "fp-1", "mp-1"} and _n1.payments_waiting == 0 and not _n1.payment_files_waiting)
+_created = {n: a_row(_the.values, sales.name_for(*n)) or {} for n in [("flipkart", "OD1", "DJ 15"), ("meesho", "M2_1", "SKU-N")]}
+check("AND THE TWO PAYMENTS WITH NO ORDER LINE YET HAVE THEIR OWN ROWS, with money and no order columns",
+      len(_the.values) == 12 and all(r.get("settlement") not in (None, "") and r.get("qty") == "" for r in _created.values()))
 check("the lines set aside and the payment with no SKU to key a row by are said in the night's own words",
       any("PAYMENT WITH NO ORDER" in x and "404-6" in x for x in _the.said)
       and any("SET ASIDE" in x and "Transfer" in x for x in _the.said)
       and any("SET ASIDE" in x and "Deferred" in x for x in _the.said))
-check("and the manifest has a line for each of the two files read", _n1 is not None and len(_n1.reads) == 2)
+check("and the manifest has a line for each of the three files read", _n1 is not None and len(_n1.reads) == 3)
 _before = [list(r) for r in _the.values]
 _n2 = answered(lambda: a_night(_the, _files, _bodies, already=_n1.files_read if _n1 else ()))
 check("A SECOND NIGHT OVER THE SAME FILES WRITES NOTHING", _n2 is not None and _n2.read_tonight == () and _the.values == _before)
@@ -1060,7 +1061,7 @@ if failures:
     print(f"{len(failures)} FAILED: {failures}")
     sys.exit(1)
 WITHOUT = ran - real_ran
-if WITHOUT != 95 + 22 + 17 + 8 + 1:
-    print(f"FAIL  checks went missing -- {WITHOUT} ran without his files, 143 expected")
+if WITHOUT != 95 + 22 + 17 + 8 + 2:
+    print(f"FAIL  checks went missing -- {WITHOUT} ran without his files, 144 expected")
     sys.exit(1)
 print(f"all {ran} checks passed" + ("" if real_ran == HIS_FILES_GROUP else f" ({HIS_FILES_GROUP - real_ran} of his real-file checks not run -- the files are elsewhere)"))

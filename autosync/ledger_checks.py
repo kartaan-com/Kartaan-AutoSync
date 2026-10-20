@@ -671,6 +671,38 @@ _kept = answered(lambda: tool.plan(
 check("but a blank still never wipes a real outcome such as Delivered",
       _kept is not None and _kept.update == ())
 
+_first = sales.the_row_for(a_sale("O7", on="2026-09-11", status="DELIVERED"))
+_relisted = answered(lambda: tool.plan(
+    as_sheet([_first]), [a_reading("meesho orders", "2026-09-23", [a_sale("O7", on="2026-09-23", status="READY_TO_SHIP")],
+                                   knows=ORDERS_KNOWS_WITH_STATUS)]))
+check("A MEESHO SUB-ORDER LISTED AGAIN UNDER A LATER DATE KEEPS ITS FIRST DATE, and the status still moves on (D447)",
+      _relisted is not None and len(_relisted.update) == 1 and _relisted.update[0][1][AT["on"]] == "2026-09-11"
+      and _relisted.update[0][1][AT["status"]] == "READY_TO_SHIP")
+_earlier = answered(lambda: tool.plan(
+    as_sheet([sales.the_row_for(a_sale("O7", on="2026-09-23"))]),
+    [a_reading("meesho orders", "2026-09-24", [a_sale("O7", on="2026-09-11")], knows=ORDERS_KNOWS)]))
+check("but an EARLIER date still replaces a later one",
+      _earlier is not None and _earlier.update[0][1][AT["on"]] == "2026-09-11")
+
+_came = sales.the_row_for(a_sale("O6", what_happened=orders.CAME_BACK))
+for _word, _source in ((orders.DELIVERED, "payments"), (orders.NOT_UNDERSTOOD_YET, "orders")):
+    _back = answered(lambda w=_word: tool.plan(
+        as_sheet([_came]), [a_reading("meesho " + _source, "2026-10-01", [a_sale("O6", what_happened=w)],
+                                      knows=("platform", "orderId", "sku", "whatHappened"))]))
+    check(f"A RETURNED ORDER STAYS RETURNED: a {_source} file saying {_word!r} does not take 'Came back' back, whichever file is newer",
+          _back is not None and _back.update == ())
+_delivered_then = answered(lambda: tool.plan(
+    as_sheet([sales.the_row_for(a_sale("O6", what_happened=orders.DELIVERED))]),
+    [a_reading("meesho returns", "2026-10-01", [a_sale("O6", what_happened=orders.CAME_BACK)],
+               knows=("platform", "orderId", "sku", "whatHappened"))]))
+check("but 'Came back' still replaces 'Delivered'",
+      _delivered_then is not None and _delivered_then.update[0][1][AT["whatHappened"]] == "Came back")
+_odd = answered(lambda: tool.plan(
+    as_sheet([sales.the_row_for(a_sale("O7", on="11/09/2026"))]),
+    [a_reading("meesho orders", "2026-09-23", [a_sale("O7", on="2026-09-23")], knows=ORDERS_KNOWS)]))
+check("the first-date rule compares only real days: a cell that is not one is replaced, not compared as text",
+      _odd is not None and _odd.update[0][1][AT["on"]] == "2026-09-23")
+
 _priced = sales.the_row_for(a_sale("O8", qty=0, gmv=338.83))
 _unpriced = answered(lambda: tool.plan(
     as_sheet([_priced]), [a_reading("amazon orders", "2026-10-20", [a_sale("O8", qty=0)], knows=ORDERS_KNOWS)]))
@@ -684,7 +716,7 @@ check("but a sale with a quantity above nought never loses its price to a blank"
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-WITH_HIS_FILES = 104
+WITH_HIS_FILES = 110
 EXPECTED = WITH_HIS_FILES - (9 if not_run else 0)
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")

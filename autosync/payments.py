@@ -29,7 +29,7 @@ order is decided in `ledger.plan`, which knows the ledger -- this file does not.
 **NOTHING HERE TOUCHES THE NETWORK, THE DISK OR A CLOCK.**
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal, InvalidOperation
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
@@ -56,7 +56,13 @@ AMAZON_SETTLEMENT_HEADER_STARTS = "settlement-id"
 
 # **WHAT EACH PLATFORM'S FILE KNOWS, IN THE LEDGER'S OWN WORDS.** The columns a payments file may write, and no others (D150
 # rule 1). `paymentsOn` is the file's own data day: it is what lets an older payments file be told from a newer one.
-WHAT_PAYMENTS_KNOW = ("settlement",) + CHARGE_COLUMNS + ("paymentsOn",)
+WHAT_PAYMENTS_KNOW = ("settlement",) + CHARGE_COLUMNS + ("paymentsOn", "whatHappened")
+
+# **MEESHO'S PAYMENTS FILE NAMES WHAT BECAME OF EACH SUB-ORDER (D447, A87; `Live Order Status`, seen on his real file: Delivered, Return, RTO).**
+# Delivered is Delivered; Return and RTO (returned to origin) are Came back. Any other word, or a blank, says nothing. The only platform whose
+# payments file carries such a column; the others leave `what_happened` empty and a blank never overwrites.
+MEESHO_LIVE_STATUS = "Live Order Status"
+MEESHO_STATUS_MEANS = {"delivered": "Delivered", "return": "Came back", "rto": "Came back"}
 
 
 @dataclass(frozen=True)
@@ -434,6 +440,8 @@ def read_meesho(rows: Table, data_date: str, extras: Optional[Dict[str, object]]
     for charge, name in MEESHO_RETURN_PREMIUM:
         places.setdefault(charge, []).append(_where(columns, name))
 
+    status_at = [at for at, one in enumerate(columns) if one.strip() == MEESHO_LIVE_STATUS]
+    became: Dict[Tuple[str, str], str] = {}
     lines = _Lines()
     nameless_money = 0
     for row in rows:
@@ -444,7 +452,12 @@ def read_meesho(rows: Table, data_date: str, extras: Optional[Dict[str, object]]
             if paid is not None or charges:
                 nameless_money += 1
             continue
-        lines.put((order_id, _cell(row, sku_at).strip()), paid, charges)
+        key = (order_id, _cell(row, sku_at).strip())
+        lines.put(key, paid, charges)
+        word = MEESHO_STATUS_MEANS.get(_cell(row, status_at[0]).strip().lower()) if len(status_at) == 1 else None
+        # A sub-order with a line that came back has come back, whatever its other lines say.
+        if word and became.get(key) != "Came back":
+            became[key] = word
 
     aside: List[str] = []
     if nameless_money:
@@ -454,7 +467,8 @@ def read_meesho(rows: Table, data_date: str, extras: Optional[Dict[str, object]]
         said = _lines_stating_money(name, found, lambda one, wanted=wanted: one.strip() == wanted)
         if said:
             aside.append(said)
-    return WhatWasPaid(MEESHO, lines.sales(MEESHO, data_date), tuple(_the_refused(rows)), tuple(aside))
+    paid_sales = tuple(replace(one, what_happened=became.get((one.order_id, one.sku))) for one in lines.sales(MEESHO, data_date))
+    return WhatWasPaid(MEESHO, paid_sales, tuple(_the_refused(rows)), tuple(aside))
 
 
 # ---------------------------------------------------------------- Amazon
