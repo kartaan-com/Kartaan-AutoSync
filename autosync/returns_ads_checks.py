@@ -524,9 +524,32 @@ check("a file with some rows refused is read, and says how many rows and which w
       part_night is not None and part_night.read_tonight == ("p",) and part_night.rows_refused == 1
       and "1 row(s) not read" in part_night.could_not_read[0])
 
+# ------------------------------------------------------------------ a sub-order returned twice (A87, AU2)
+
+_ret1 = '"1","SKU-M","1","334_1","2026-10-08","Customer Return","2026-10-10","AWB1","FIRST","d1"'
+_ret2 = '"2","SKU-M","1","334_1","2026-10-11","Customer Return","2026-10-19","AWB2","SECOND","d2"'
+back_twice = answered(lambda: returns.read_returns("me_returns", me(_ret1, _ret2), "2026-10-18"))
+back_twice_reversed = answered(lambda: returns.read_returns("me_returns", me(_ret2, _ret1), "2026-10-18"))
+check("A MEESHO SUB-ORDER RETURNED TWICE KEEPS BOTH RETURNS, the earlier under the name it always had and the later named by its day",
+      back_twice is not None and set(back_twice.records) == {"meesho__334_1", "meesho__334_1~2026-10-11"}
+      and back_twice.records["meesho__334_1"]["reason"] == "FIRST"
+      and back_twice.records["meesho__334_1~2026-10-11"]["reason"] == "SECOND"
+      and back_twice.records["meesho__334_1~2026-10-11"]["returnKey"] == "334_1" and back_twice.not_read == ())
+check("and the file's row order makes no difference to which return is which",
+      back_twice_reversed is not None and back_twice_reversed.records == back_twice.records)
+check("the same two returns written out twice are still two returns",
+      (lambda x: x is not None and len(x.records) == 2 and x.not_read == ())(
+          answered(lambda: returns.read_returns("me_returns", me(_ret1, _ret2, _ret1, _ret2), "2026-10-18"))))
+_same_day = answered(lambda: returns.read_returns("me_returns", me(
+    _ret1, '"2","SKU-M","1","334_1","2026-10-08","Customer Return","2026-10-10","AWB1","OTHER WORDS","d1"'), "2026-10-18"))
+check("a Meesho return listed twice for the SAME request day with different words is said, not made into a second return",
+      _same_day is not None and set(_same_day.records) == {"meesho__334_1"} and len(_same_day.not_read) == 1)
+check("a Flipkart Return ID named twice is still one return (its Return ID is the return's own), only Meesho's key is the order's",
+      twice is not None and len(twice.records) == 1)
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 97
+EXPECTED = 102
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

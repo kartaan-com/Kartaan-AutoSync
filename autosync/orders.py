@@ -268,10 +268,14 @@ THE_OUTCOME_OF = {
     "rto_complete": CAME_BACK,
     # Amazon's all-orders report writes the delivery as one phrase (seen on his real run #19 file, 8 of 19 rows).
     "shipped - delivered to buyer": DELIVERED,
+    # No document defines these phrases; this is Control's reading of the plain words (D447, 20 Oct 2026): the parcel came back to him.
+    "shipped - returned to seller": CAME_BACK,
 }
 STILL_ON_ITS_WAY = frozenset({
     "shipped", "ready_to_ship", "approved", "hold", "pending", "unshipped",
     "return_requested", "rto_initiated", "rto_locked", "rto_ofd",
+    # Flipkart's order not yet approved by Flipkart: pending, not a sale, not shipped, not a return (his ruling D446, 20 Oct 2026).
+    "approval_hold",
     # **AMAZON'S OWN LIST (Orders API v0 `Order.OrderStatus`, selling-partner-api-models/ordersV0.json):** Pending, Unshipped,
     # PartiallyShipped, Shipped, Canceled, Unfulfillable, InvoiceUnconfirmed, PendingAvailability. The first, second, fourth and
     # fifth were already known; the three below are added -- each says only that the order is not yet finished. `Unfulfillable`
@@ -279,6 +283,7 @@ STILL_ON_ITS_WAY = frozenset({
     # The report spells the shipped stage out ("Shipped - Picked Up", seen on his real file) and publishes no list of those
     # phrases, so only the ones seen in his files are known; any other stays "not understood yet" and is named in the run's report.
     "partiallyshipped", "invoiceunconfirmed", "pendingavailability", "shipped - picked up",
+    "shipped - out for delivery",  # Control's reading of the plain words (D447): the parcel is on its last leg, not yet delivered.
 })
 
 
@@ -482,6 +487,10 @@ def read_orders(rows: Table, platform: str,
         # **THE MONEY IS ALLOWED TO BE MISSING; THE REST IS NOT.** Flipkart never
         # sends it, and Amazon leaves it blank on rows it has not priced.
         money = a_figure(row[how.gmv]) if money_is_here else None
+        # **A CANCELLED AMAZON LINE IS SOLD FOR NOTHING (A87, AU2: 408-9245771-4709952 kept 338.83 beside a quantity of nought).** Amazon
+        # still prints the price of a line it did not ship; a price beside a quantity of nought is a figure for a sale that did not happen.
+        if how.platform == AMAZON and float(how_many) == 0:
+            money = None
 
         if their_word:
             words[their_word] = words.get(their_word, 0) + 1

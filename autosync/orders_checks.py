@@ -369,9 +369,26 @@ if not_run:
     print("      They are not passes.")
 
 print()
+# ---- A87 (AU2): A CANCELLED AMAZON LINE KEEPS NO PRICE (408-9245771-4709952 held 338.83 beside a quantity of nought)
+_AZ_HEAD = ("amazon-order-id", "sku", "quantity", "purchase-date", "order-status", "item-price")
+_az = answered(lambda: tool.read_orders(a_file(
+    _AZ_HEAD,
+    ("AZ1", "AAA", "0", "2026-08-30T10:00:00+00:00", "Cancelled", "338.83"),
+    ("AZ2", "AAA", "1", "2026-08-30T10:00:00+00:00", "Shipped", "199.0")), "amazon"))
+check("AN AMAZON LINE WITH A QUANTITY OF NOUGHT CARRIES NO PRICE, and a shipped line keeps its own",
+      _az is not None and _az.sales[0].gmv is None and _az.sales[1].gmv == "199.0")
+_me = answered(lambda: tool.read_orders(a_file(GOOD, ("S1", "AAA", "0", "2026-08-30", "CANCELLED", "174.0")), "meesho"))
+check("and the rule is Amazon's only: another platform's price is not touched",
+      _me is not None and _me.sales[0].gmv == "174.0")
+
+check("AMAZON'S 'Shipped - Returned to Seller' IS A PARCEL THAT CAME BACK, and 'Shipped - Out for Delivery' IS STILL ON ITS WAY (D447)",
+      tool.what_happened("Shipped - Returned to Seller") == tool.CAME_BACK and tool.what_happened("Shipped - Out for Delivery") is None)
+check("FLIPKART'S APPROVAL_HOLD IS AN ORDER STILL WAITING FOR APPROVAL: blank, not 'not understood yet' (D446)",
+      tool.what_happened("APPROVAL_HOLD") is None)
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-WITH_HIS_FILES = 94
+WITH_HIS_FILES = 98
 WITHOUT = WITH_HIS_FILES - 7 * len(REAL) - 3
 EXPECTED = WITH_HIS_FILES if not not_run else WITHOUT
 if ran != EXPECTED:

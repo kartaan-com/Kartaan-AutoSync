@@ -642,10 +642,15 @@ check("a day read again replaces the earlier read in place, and every other read
 RUN = tool.Standing(lines=(THE_RUNS_LINE,), reads=(A_READ,))
 EXTENSION = tool.Standing(lines=(THE_EXTENSIONS_LINE,), reads=())
 crossed = {(c.report_id, c.data_date): c for c in tool.cross_check(RUN, EXTENSION)}
-check("a file the extension saved and the run read is landed by the extension, and read, with both numbers",
-      crossed[("me_orders", D1)].verdict == tool.LANDED_AND_READ
-      and crossed[("me_orders", D1)].landed_by == "the extension"
+check("a file the extension saved and the run read is landed by the extension, with both numbers",
+      crossed[("me_orders", D1)].landed_by == "the extension"
       and (crossed[("me_orders", D1)].rows_in_file, crossed[("me_orders", D1)].rows_read) == (40, 38))
+# A87 (AU2): one of fifty Meesho return rows was dropped and the line still said "landed and read".
+check("A FILE WITH A ROW LEFT UNREAD (38 of 40) IS LANDED, NOT READ -- never 'landed and read'",
+      crossed[("me_orders", D1)].verdict == tool.LANDED_NOT_READ)
+_whole = tool.Read(D1, "me_orders", "meesho_me_orders_2026-09-20.csv", "the sales ledger", 40, 40, D2)
+check("and the same file with every row read is 'landed and read'",
+      tool.cross_check(tool.Standing(lines=(), reads=(_whole,)), EXTENSION)[0].verdict == tool.LANDED_AND_READ)
 check("A FILE THE EXTENSION SAVES AND THE RUN NEVER READS APPEARS AS LANDED, NOT READ",
       tool.cross_check(tool.Standing((), ()), EXTENSION)[0].verdict == tool.LANDED_NOT_READ)
 check("A FILE READ WITH NO LANDING LINE APPEARS AS READ, NEVER SEEN LANDING",
@@ -713,7 +718,7 @@ check("a views day absent from inside the rolling file is missing, and only that
       views_lines.get(date(2026, 9, 20)) == tool.MISSING and views_lines.get(date(2026, 9, 19)) == tool.VERIFIED
       and views_lines.get(date(2026, 9, 21)) == tool.VERIFIED)
 
-EXPECTED = 66 + 20
+EXPECTED = 66 + 22
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

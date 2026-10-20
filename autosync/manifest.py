@@ -567,7 +567,9 @@ def cross_check(run: Standing, extension) -> Tuple[Crossing, ...]:
         opened = reads.get(key)
         there = line is not None and line.state == VERIFIED
         if there and opened:
-            verdict = LANDED_AND_READ
+            # **A FILE WITH A ROW LEFT UNREAD IS NOT "LANDED AND READ" (A87, AU2).** One of fifty Meesho return rows was dropped and the
+            # line still said read. Not every row read is not a read file: it shows as landed, not read, until it is whole.
+            verdict = LANDED_AND_READ if opened.rows_read >= opened.rows_in_file else LANDED_NOT_READ
         elif there:
             verdict = LANDED_NOT_READ
         elif opened:

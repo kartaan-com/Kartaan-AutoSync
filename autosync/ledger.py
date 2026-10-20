@@ -90,7 +90,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 # **THE ONE READER OF 'IS THIS A DAY' IN THIS PACKAGE.** A second way of
 # deciding it here would be a second answer waiting to disagree, and what it
 # decides is whether an older file may put its figure over a newer one.
-from orders import the_day_in
+from orders import NOT_UNDERSTOOD_YET, the_day_in
 from payments import two_sales_of_one_row
 from sales import COLUMNS, FROM_FIELD, Sale, a_cell, name_for, the_row_for
 from table import CannotRead
@@ -262,10 +262,10 @@ class Reading:
     # been decided, which is what makes a tie visible at all.
     which: str = ""
 
-    # **A PAYMENTS FILE ADDS TO ORDERS THE LEDGER ALREADY HAS, AND NEVER MAKES ONE (job 36).** A payment line for an order the
-    # ledger holds no row for is not a sale: it is money nobody has an order for, and appended it would put a row in the seller's
-    # sheet with a figure and no quantity, no price and no date -- which then looks like an order. Such a line is kept out of the
-    # sheet and SAID (`Plan.unmatched`), never dropped and never turned into a row.
+    # **A PAYMENTS FILE PUTS ITS MONEY ON THE ROW OF ITS OWN ORDER AND SKU (job 36), AND CREATES THAT ROW WHEN THE LEDGER KNOWS
+    # NOTHING OF THE ORDER (D449, A87):** platform, order, SKU and the money, no quantity, price or date until the orders file lands.
+    # A line for an order the ledger holds under OTHER SKUs, or with no SKU to key a row by, is kept out of the sheet and SAID
+    # (`Plan.unmatched`) -- never dropped, never put on another item's row.
     only_existing: bool = False
     # **A READING THAT CORRECTS WHAT AN EARLIER READING OF THE SAME DAY GOT WRONG (A81).** Set only on the one night every file is read
     # again because the reading rules changed. Rule 3 keeps what is there when two statements of ONE day disagree -- right for two
@@ -747,6 +747,13 @@ def _what_the_sheet_remembers(
     return None
 
 
+def _is_nought(quantity) -> bool:
+    try:
+        return float(str(quantity)) == 0
+    except ValueError:
+        return False
+
+
 def _put_each_on_its_row(
     reading: "Reading",
     now: Dict[str, Dict[str, str]],
@@ -784,6 +791,13 @@ def _put_each_on_its_row(
                 )
             elif there:
                 why = "the ledger has this order, but not under this SKU"
+            elif sale.sku:
+                # **THE MONEY CAME BEFORE THE ORDER (D449, A87).** The ledger knows nothing of this order and the line knows its item: it
+                # CREATES the row, keyed exactly as the orders reader keys it, and fills the payment now. The order's own columns fill
+                # the same row the day its file lands. An order known under OTHER SKUs is still said: a SKU spelt differently in the two
+                # files must not become a second row with the money on it.
+                target = sale.id
+                why = ""
             else:
                 why = "the ledger has no row for this order"
             if target is None:
@@ -879,6 +893,9 @@ def plan(
                 # yet", which for a Flipkart sale's money is the truth.
                 now[name] = {c: "" for c in COLUMNS}
                 now[name]["id"] = name
+                # **A ROW IS FOUND BY ITS PLATFORM, ORDER AND SKU (D449, A87 review):** a row a payment creates carries them from the line
+                # itself, or the ERP files it under no platform and a later line for the order cannot find it.
+                now[name]["platform"], now[name]["orderId"], now[name]["sku"] = sale.platform, sale.order_id, sale.sku
                 fresh.append(name)
                 changed[name] = True
 
@@ -903,7 +920,18 @@ def plan(
                 #
                 # **Found by a check, not by reasoning: the check named for rule
                 # 1 went red because the fix was not here.**
-                if str(value) == "" and str(was) != "":
+                #
+                # **ONE BLANK DOES REPLACE: "NOT UNDERSTOOD YET" (A87, AU2).** That
+                # word says only "this program had no meaning for the platform's word
+                # that day". Once the word is known the true answer for an order still
+                # on its way is blank, and the old complaint must not stay on the sheet
+                # for ever (25 Amazon rows said it about parcels simply being delivered).
+                #
+                # **AND ONE MORE (A87, AU2): THE PRICE OF A LINE THIS FILE SAYS WAS NEVER SENT (QUANTITY NOUGHT).** A cancelled Amazon
+                # line printed its price beside a nought quantity; that figure was written once and a blank must now be able to take it back.
+                if str(value) == "" and str(was) != "" and not (
+                        (column == "whatHappened" and str(was) == NOT_UNDERSTOOD_YET)
+                        or (column == "gmv" and _is_nought(says.get("qty")))):
                     continue
                 before = decided_on.what_decided(name, column)
                 from_the_sheet = before is None

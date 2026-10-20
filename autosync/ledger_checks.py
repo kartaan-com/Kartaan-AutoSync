@@ -657,9 +657,34 @@ check("A REPORT IS HELD TO ITS OWN MARKER ONLY -- a payments file is not stopped
       "by an orders file dated later",
       _pay is not None and len(_pay.update) == 1 and _pay.left_alone == ())
 
+# ------------------------------- A87 (AU2): "NOT UNDERSTOOD YET" IS CLEARED ONCE THE WORD IS KNOWN, AND NO OTHER WORD IS WIPED BY A BLANK
+
+_WITH_WORD = ORDERS_KNOWS + ("whatHappened",)
+_stale = sales.the_row_for(a_sale("O9", what_happened=orders.NOT_UNDERSTOOD_YET))
+_cleared = answered(lambda: tool.plan(
+    as_sheet([_stale]), [a_reading("amazon orders", "2026-10-20", [a_sale("O9")], knows=_WITH_WORD)]))
+check("AN OLD 'NOT UNDERSTOOD YET' IS CLEARED BY A READING WHERE THE WORD IS NOW KNOWN (an order still on its way is blank)",
+      _cleared is not None and len(_cleared.update) == 1 and _cleared.update[0][1][AT["whatHappened"]] == "")
+_delivered = sales.the_row_for(a_sale("O9", what_happened=orders.DELIVERED))
+_kept = answered(lambda: tool.plan(
+    as_sheet([_delivered]), [a_reading("amazon orders", "2026-10-20", [a_sale("O9")], knows=_WITH_WORD)]))
+check("but a blank still never wipes a real outcome such as Delivered",
+      _kept is not None and _kept.update == ())
+
+_priced = sales.the_row_for(a_sale("O8", qty=0, gmv=338.83))
+_unpriced = answered(lambda: tool.plan(
+    as_sheet([_priced]), [a_reading("amazon orders", "2026-10-20", [a_sale("O8", qty=0)], knows=ORDERS_KNOWS)]))
+check("A PRICE BESIDE A QUANTITY OF NOUGHT IS TAKEN BACK BY A READING THAT SAYS QUANTITY NOUGHT AND NO PRICE",
+      _unpriced is not None and len(_unpriced.update) == 1 and _unpriced.update[0][1][AT["gmv"]] == "")
+_priced_sale = sales.the_row_for(a_sale("O8", qty=1, gmv=338.83))
+_not_wiped = answered(lambda: tool.plan(
+    as_sheet([_priced_sale]), [a_reading("amazon orders", "2026-10-20", [a_sale("O8", qty=1)], knows=ORDERS_KNOWS)]))
+check("but a sale with a quantity above nought never loses its price to a blank",
+      _not_wiped is not None and _not_wiped.update == ())
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-WITH_HIS_FILES = 100
+WITH_HIS_FILES = 104
 EXPECTED = WITH_HIS_FILES - (9 if not_run else 0)
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
