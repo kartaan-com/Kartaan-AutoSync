@@ -43,7 +43,7 @@ class WhatClaimsSaid:
 
 # What a claim's record holds, in the order it is written (a field outside this list is refused by the writer). **The platform's own long message is
 # not kept** -- it can be a page of HTML; what it says about being paid is the amount, taken by `the_amount_paid`.
-CLAIM_FIELDS = ("platform", "report", "claimKey", "orderId", "status", "raisedOn", "issue", "recovered", "fileDay", "digest")
+CLAIM_FIELDS = ("platform", "report", "claimKey", "orderId", "status", "raisedOn", "issue", "recovered", "recoveredWas", "fileDay", "digest")
 
 
 def the_amount_paid(message: str, status: str) -> str:
@@ -121,10 +121,36 @@ def read_claim_records(report_id: str, platform: str, rows: Table, file_day: str
         paid = the_amount_paid(row["Last Update"], status)
         if paid:
             record["recovered"] = paid
-        said = {k: v for k, v in sorted(record.items()) if k != "fileDay"}
-        record["digest"] = hashlib.sha1(json.dumps(said, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()[:16]
+        record["digest"] = the_digest(record)
         records[f"{platform}__{claim}"] = record
     return records
+
+
+def the_digest(record: Dict[str, object]) -> str:
+    """A fingerprint of what a claim SAYS (never of the day it was read), so the same file read twice writes nothing."""
+    said = {k: v for k, v in sorted(record.items()) if k not in ("fileDay", "digest")}
+    return hashlib.sha1(json.dumps(said, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()[:16]
+
+
+def keeping_what_was_paid(record: Dict[str, object], recovered_before: str, was_before: str = "") -> Dict[str, object]:
+    """The record with the rupees already recorded for this claim kept. **A PAID CLAIM NEVER LOSES ITS RUPEES (his ruling, 20 Oct).**
+
+    A later file that says nothing about the amount, or words it so that none can be taken, leaves the recorded amount standing; a different
+    amount replaces it and the one it replaced is noted in `recoveredWas`. The fingerprint is worked out again, so the same file read twice
+    still writes nothing.
+    """
+    if not recovered_before:
+        return record
+    kept = dict(record)
+    if not kept.get("recovered"):
+        kept["recovered"] = recovered_before
+    if str(kept["recovered"]) != str(recovered_before):
+        kept["recoveredWas"] = recovered_before
+    elif was_before:
+        # The same amount again: the note of what it replaced stands, or the next run would drop it.
+        kept["recoveredWas"] = was_before
+    kept["digest"] = the_digest(kept)
+    return kept
 
 
 def a_table_to_ask_with() -> Table:

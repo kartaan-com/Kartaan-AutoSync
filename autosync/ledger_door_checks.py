@@ -62,6 +62,24 @@ def _catch(work):
     return None
 
 
+def _write_range(rows, one):
+    """Apply one `values:batchUpdate` range to a stand-in sheet's rows as Google does: ONLY the cells the range names (D462)."""
+    import re
+
+    found = re.fullmatch(r"([A-Z]+)(\d+)", one["range"].split("!")[1].split(":")[0])
+    col = 0
+    for letter in found.group(1):
+        col = col * 26 + ord(letter) - 64
+    col -= 1
+    n = int(found.group(2))
+    while len(rows) < n:
+        rows.append([])
+    values = list(one["values"][0])
+    while len(rows[n - 1]) < col + len(values):
+        rows[n - 1].append("")
+    rows[n - 1][col:col + len(values)] = values
+
+
 class Pretend:
     """A stand-in Google that remembers exactly what it was asked."""
 
@@ -85,11 +103,7 @@ class Pretend:
             return {}
         if path.endswith("values:batchUpdate"):
             for one in body["data"]:
-                where = one["range"].split("!")[1].split(":")[0]
-                n = int("".join(c for c in where if c.isdigit()))
-                while len(self.rows) < n:
-                    self.rows.append([])
-                self.rows[n - 1] = list(one["values"][0])
+                _write_range(self.rows, one)
             return {}
         return {}
 
@@ -173,8 +187,10 @@ check("a sale that has changed is updated, not added again",
 up = [c for c in g.calls if c["path"].endswith("values:batchUpdate")][-1]
 check("changing uses batchUpdate, as the ERP does", up["method"] == "POST")
 check("with RAW there too", up["body"].get("valueInputOption") == "RAW")
-check("the range names the row that sale is really on",
-      up["body"]["data"][0]["range"] == sales.the_range_for(2))
+check("the ranges name the row that sale is really on, and only the cells that changed (its price and its version)",
+      [one["range"] for one in up["body"]["data"]] == [
+          f"orders!{sales.column_letter(AT['gmv'] + 1)}2", f"orders!{sales.column_letter(AT['rev'] + 1)}2"]
+      and all(len(one["values"][0]) == 1 for one in up["body"]["data"]))
 check("and the sheet now holds the new figure",
       g.rows[1][AT["gmv"]] == "150")
 check("the ledger still holds one row for that sale, not two", len(g.rows) == 2)
@@ -191,8 +207,9 @@ check("twenty rows are added in ONE call",
       len([c for c in g.calls if c["path"].endswith(":append")]) == 1)
 check("and twenty rows are changed in ONE call",
       len([c for c in g.calls if c["path"].endswith("values:batchUpdate")]) == 1)
-check("that one call carries all twenty ranges",
-      len([c for c in g.calls if c["path"].endswith("values:batchUpdate")][0]["body"]["data"]) == 20)
+check("that one call carries the changed cells of all twenty rows",
+      len({one["range"].split("!")[1].lstrip("ABCDEFGHIJKLMNOPQRSTUVWXYZ") for one in
+           [c for c in g.calls if c["path"].endswith("values:batchUpdate")][0]["body"]["data"]}) == 20)
 
 # ---------------------------------------------------------- a quiet night
 
@@ -228,10 +245,36 @@ door = tool.LedgerDoor(g, "S1")
 door.carry_out(ledger.Plan(
     append=(tuple("x" for _ in sales.COLUMNS),),
     update=((2, tuple("y" for _ in sales.COLUMNS)),),
+    cells=((2, (("gmv", "y"),)),),
 ))
 kinds = [("update" if c["path"].endswith("values:batchUpdate") else "append")
          for c in g.calls if c["method"] == "POST"]
 check("CHANGES GO FIRST AND ADDITIONS LAST", kinds == ["update", "append"])
+
+# ----------------------------------- ONLY THE RUN'S OWN CELLS ARE WRITTEN (P15 piece 4, D462)
+
+# **THE ERP WRITES BETWEEN THE RUN'S READ AND THE RUN'S WRITE.** The sheet is read with `took` blank; the ERP then fills it; the run's write must
+# not put the blank back (a blank `took` put back is a sale taken off stock a second time).
+g = Pretend(rows=HEADER)
+door = tool.LedgerDoor(g, "S1")
+door.carry_out(ledger.plan(door.everything(), [a_reading("2026-08-01", [a_sale("O1", gmv=100)])]))
+read_with_took_blank = door.everything()
+plan_from_that = ledger.plan(read_with_took_blank, [a_reading("2026-08-05", [a_sale("O1", gmv=150)])])
+g.rows[1][AT["took"]] = "stock-lot-7"
+g.rows[1][AT["state"]] = "taken"
+door.carry_out(plan_from_that)
+check("AN ERP WRITE LANDING BETWEEN THE RUN'S READ AND ITS WRITE IS NOT PUT BACK: the ERP's cells stand and the run's new price is there",
+      g.rows[1][AT["took"]] == "stock-lot-7" and g.rows[1][AT["state"]] == "taken" and g.rows[1][AT["gmv"]] == "150")
+check("and the version moved on, because the run changed the row", g.rows[1][AT["rev"]] == "1")
+check("a plan that changes a row without saying which cells is refused, not written whole",
+      refused_by(lambda: tool.LedgerDoor(Pretend(rows=HEADER + [["x"] * len(sales.COLUMNS)]), "S1").carry_out(
+          ledger.Plan(update=((2, tuple("y" for _ in sales.COLUMNS)),)))))
+check("a cell that is the ERP's cannot be named in a plan the door will write",
+      refused_by(lambda: tool.LedgerDoor(Pretend(rows=HEADER + [["x"] * len(sales.COLUMNS)]), "S1").carry_out(
+          ledger.Plan(update=((2, tuple("y" for _ in sales.COLUMNS)),), cells=((2, (("took", "y"),)),)))))
+check("adjacent changed columns go in one range",
+      [one["range"] for one in tool._ranges_of(5, (("id", "a"), ("platform", "b"), ("sku", "c")))]
+      == [f"orders!A5:B5", f"orders!{sales.column_letter(AT['sku'] + 1)}5"])
 
 # ----------------------------------------------- a failure is not swallowed
 
@@ -283,7 +326,7 @@ check("nothing here invents a second address for Google",
 print()
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 49
+EXPECTED = 54
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

@@ -18,6 +18,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import ledger as tool  # noqa: E402
+import ledger_sheet  # noqa: E402
 import orders  # noqa: E402
 import sales  # noqa: E402
 import sheet  # noqa: E402
@@ -703,6 +704,21 @@ _odd = answered(lambda: tool.plan(
 check("the first-date rule compares only real days: a cell that is not one is replaced, not compared as text",
       _odd is not None and _odd.update[0][1][AT["on"]] == "2026-09-23")
 
+# ------------------------------- P15 piece 4 (D462): THE RUN WRITES ONLY THE CELLS IT CHANGED, AND NEVER THE ERP'S
+_settled = sales.the_row_for(a_sale("O5", qty=1, gmv=100, took="stock-lot-7"))
+_payment = tool.Reading(report="me_payments", on="2026-10-01", knows=("settlement", "charge_commission", "paymentsOn"),
+                          sales=(a_sale("O5", settlement="80", charges={"commission": "20"}, payments_on="2026-10-01"),), only_existing=True)
+_cells = answered(lambda: tool.plan(as_sheet([_settled]), [_payment]))
+_named = {c for _, those in (_cells.cells if _cells else ()) for c, _ in those}
+check("A PAYMENTS FILE THAT STATES A SETTLEMENT NAMES EXACTLY ITS SETTLEMENT, ITS CHARGE, ITS DATE MARKER AND THE VERSION -- nothing else",
+      _named == {"settlement", "charge_commission", "paymentsOn", "rev"})
+check("and the row it will look like keeps the ERP's cell", _cells is not None and _cells.update[0][1][AT["took"]] == "stock-lot-7")
+check("A READING THAT NAMES A COLUMN THE ERP OWNS IS REFUSED, not written",
+      refused_by(lambda: tool.plan(as_sheet([_settled]), [a_reading("meesho orders", "2026-10-01", [a_sale("O5", cogs=5)],
+                                                                        knows=("platform", "orderId", "sku", "cogs"))])))
+check("the columns the ERP owns are exactly the sheet's 'comes back from Kartaan' set",
+      set(sales.ERP_OWNED_COLUMNS) == {c for c, (origin, _) in ledger_sheet.WHERE_A_COLUMN_COMES_BACK_FROM.items() if origin == ledger_sheet.FROM_KARTAAN})
+
 _priced = sales.the_row_for(a_sale("O8", qty=0, gmv=338.83))
 _unpriced = answered(lambda: tool.plan(
     as_sheet([_priced]), [a_reading("amazon orders", "2026-10-20", [a_sale("O8", qty=0)], knows=ORDERS_KNOWS)]))
@@ -716,7 +732,7 @@ check("but a sale with a quantity above nought never loses its price to a blank"
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-WITH_HIS_FILES = 110
+WITH_HIS_FILES = 114
 EXPECTED = WITH_HIS_FILES - (9 if not_run else 0)
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")

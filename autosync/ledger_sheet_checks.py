@@ -545,6 +545,24 @@ SAME_DAY_TWO = ledger.Reading(report="ms_orders", on="2026-09-01",
 THE_TIED_SALE = SAME_DAY_ONE.sales[0].id
 
 
+def _write_range(rows, one):
+    """Apply one `values:batchUpdate` range to a stand-in sheet's rows as Google does: ONLY the cells the range names (D462)."""
+    import re
+
+    found = re.fullmatch(r"([A-Z]+)(\d+)", one["range"].split("!")[1].split(":")[0])
+    col = 0
+    for letter in found.group(1):
+        col = col * 26 + ord(letter) - 64
+    col -= 1
+    n = int(found.group(2))
+    while len(rows) < n:
+        rows.append([])
+    values = list(one["values"][0])
+    while len(rows[n - 1]) < col + len(values):
+        rows[n - 1].append("")
+    rows[n - 1][col:col + len(values)] = values
+
+
 class KeepsWhatItIsGiven(PretendSheets):
     """`PretendSheets`, plus a row that really changes when it is written to.
 
@@ -560,9 +578,8 @@ class KeepsWhatItIsGiven(PretendSheets):
         said = super().__call__(method, path, query, body)
         if method == "POST" and "values:batchUpdate" in path:
             for one in (body or {}).get("data", ()):
-                # `orders!A7:AS7` -- the row number is the plan's own.
-                at = int(one["range"].split("!A")[1].split(":")[0])
-                self.rows[at - 1] = list(one["values"][0])
+                # `orders!X7` -- the row number is the plan's own, and only the cells named change.
+                _write_range(self.rows, one)
         return said
 
 
@@ -827,7 +844,7 @@ assert ledger.plan is _the_real_plan
 def _a_plan_that_says_nothing(values, readings, so_far=None):
     what = _the_real_plan(values, readings, so_far)
     return ledger.Plan(
-        append=what.append, update=what.update, disagreements=what.disagreements,
+        append=what.append, update=what.update, cells=what.cells, disagreements=what.disagreements,
         unreadable=what.unreadable, touched=what.touched, left_alone=(),
     )
 

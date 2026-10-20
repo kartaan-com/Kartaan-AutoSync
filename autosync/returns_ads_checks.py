@@ -623,8 +623,8 @@ check("the platform's own long message is not kept, and the fields are only the 
       all(set(r) <= set(claims.CLAIM_FIELDS) for r in _cl.values()))
 _claim_db = Transport()
 _wrote = answered(lambda: firestore_door.a_claims_sink(_claim_db, "p")("me_claims", "2026-10-14", _cl))
-check("the claims are asked about first, then written, and the sink says how many",
-      _wrote == 3 and [p["url"].rsplit(":", 1)[-1] for p in _claim_db.posts] == ["batchGet", "commit"])
+check("the claims are asked about first (what is held, and what it has recovered), then written, and the sink says how many",
+      _wrote == 3 and [p["url"].rsplit(":", 1)[-1] for p in _claim_db.posts] == ["batchGet", "batchGet", "commit"])
 _held_claims = Transport(held={k: ("digest", v["digest"], "fileDay", "2026-10-14") for k, v in _cl.items()})
 check("a second run on the same file writes nothing",
       answered(lambda: firestore_door.a_claims_sink(_held_claims, "p")("me_claims", "2026-10-14", _cl)) == 0)
@@ -634,6 +634,46 @@ check("and an older file never puts a newer file's status back",
 _later_status = Transport(held={k: ("digest", "different", "fileDay", "2026-10-11") for k in _cl})
 check("while a later file's status replaces an earlier one's",
       answered(lambda: firestore_door.a_claims_sink(_later_status, "p")("me_claims", "2026-10-14", _cl)) == 3)
+
+class _PaidTransport(Transport):
+    """A held claim that has already recovered some rupees."""
+
+    was = ""
+
+    def post(self, url, params=None, headers=None, json=None, data=None):
+        reply = super().post(url, params, headers, json, data)
+        if url.endswith(":batchGet"):
+            for one in reply.records():
+                if "found" in one:
+                    one["found"]["fields"]["recovered"] = {"stringValue": "177.84"}
+                    if self.was:
+                        one["found"]["fields"]["recoveredWas"] = {"stringValue": self.was}
+        return reply
+
+
+_paid_before = _PaidTransport(held={"meesho__T1": ("digest", "stale", "fileDay", "2026-10-11")})
+_reworded = {"meesho__T1": {k: v for k, v in _cl["meesho__T1"].items() if k != "recovered"}}
+_reworded["meesho__T1"]["digest"] = claims.the_digest(_reworded["meesho__T1"])
+answered(lambda: firestore_door.a_claims_sink(_paid_before, "p")("me_claims", "2026-10-14", _reworded))
+_commit = [p for p in _paid_before.posts if p["url"].endswith(":commit")]
+_fields = _commit[0]["json"]["writes"][0]["update"]["fields"] if _commit else {}
+check("A PAID CLAIM NEVER LOSES ITS RUPEES: a later file that says nothing of the amount leaves the recorded amount standing",
+      _fields.get("recovered", {}).get("stringValue") == "177.84" and "recoveredWas" not in _fields)
+_changed = {"meesho__T1": dict(_cl["meesho__T1"], recovered="150.00")}
+_changed["meesho__T1"]["digest"] = claims.the_digest(_changed["meesho__T1"])
+_paid_again = _PaidTransport(held={"meesho__T1": ("digest", "stale", "fileDay", "2026-10-11")})
+answered(lambda: firestore_door.a_claims_sink(_paid_again, "p")("me_claims", "2026-10-14", _changed))
+_fields2 = [p for p in _paid_again.posts if p["url"].endswith(":commit")][0]["json"]["writes"][0]["update"]["fields"]
+check("and a different amount replaces it, the one it replaced noted",
+      _fields2.get("recovered", {}).get("stringValue") == "150.00" and _fields2.get("recoveredWas", {}).get("stringValue") == "177.84")
+
+_again = _PaidTransport(held={"meesho__T1": ("digest", "stale", "fileDay", "2026-10-11")})
+_again.was = "100.00"
+_same_amount = {"meesho__T1": dict(_cl["meesho__T1"])}
+answered(lambda: firestore_door.a_claims_sink(_again, "p")("me_claims", "2026-10-15", _same_amount))
+_fields3 = [p for p in _again.posts if p["url"].endswith(":commit")][0]["json"]["writes"][0]["update"]["fields"]
+check("and the note of what a replaced amount was survives the next runs, not only the one that replaced it",
+      _fields3.get("recoveredWas", {}).get("stringValue") == "100.00" and _fields3.get("recovered", {}).get("stringValue") == "177.84")
 
 _claims_in = []
 _claims_night = answered(lambda: reading.read_what_is_new(
@@ -657,7 +697,7 @@ check("and with nowhere to write the claims the file is left unread, not lost",
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 116
+EXPECTED = 119
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

@@ -13,9 +13,9 @@ is the duplication D119 exists to prevent.
 | What | The call |
 |---|---|
 | is this our sheet | `GET /v4/spreadsheets/{id}` with `fields=sheets.properties.title` |
-| the whole ledger | `GET /v4/spreadsheets/{id}/values/{tab}!A:AB` |
-| add rows | `POST .../values/{tab}!A:AB:append`, `valueInputOption=RAW`, `insertDataOption=INSERT_ROWS` |
-| change rows | `POST .../values:batchUpdate`, `valueInputOption=RAW` |
+| the whole ledger | `GET /v4/spreadsheets/{id}/values/{tab}!A:BA` |
+| add rows | `POST .../values/{tab}!A:BA:append`, `valueInputOption=RAW`, `insertDataOption=INSERT_ROWS` |
+| change rows | `POST .../values:batchUpdate`, `valueInputOption=RAW`, one range per cell the run changed (never the whole row) |
 
 **IT NEEDS NO PERMISSION THE SELLER HAS NOT ALREADY GIVEN (D137).** Google's own
 scope list marks `drive.file` as accepted by the Sheets API, Non-sensitive, and
@@ -44,7 +44,7 @@ is refused in words rather than retried.
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 from ledger import LedgerRefused, Plan
-from sales import COLUMNS, THE_TAB, column_letter, the_whole_tab
+from sales import COLUMNS, ERP_OWNED_COLUMNS, THE_TAB, column_letter, the_whole_tab
 
 # Where the Sheets API is. Written once so nothing can invent a near-miss.
 API = "https://sheets.googleapis.com"
@@ -248,6 +248,23 @@ class LedgerDoor:
                     "column names, and writing a sale there makes every later "
                     "read of the sheet refuse."
                 )
+        # **ONLY THE CELLS THE RUN CHANGED ARE SENT (D462).** A row changed with no cells named is refused, and so is a cell that is the ERP's.
+        said_cells = {row for row, those in plan.cells if those}
+        for row, _ in plan.cells:
+            if row not in {r for r, _ in plan.update}:
+                raise LedgerRefused(f"Cells were named on row {row} which the plan does not change, so nothing was written.")
+        for row, _ in plan.update:
+            if row not in said_cells:
+                raise LedgerRefused(
+                    f"Row {row} was to be changed but the plan does not say which cells, and writing the whole row could put back what the ERP "
+                    "wrote since it was read, so nothing was written."
+                )
+        for row, those in plan.cells:
+            if row <= 1:
+                raise LedgerRefused(f"Something asked to write cells on row {row}. Row 1 is the column names.")
+            for column, _ in those:
+                if column not in COLUMNS or column in ERP_OWNED_COLUMNS:
+                    raise LedgerRefused(f"The run may not write {column!r}: it is not a column of the run's, so nothing was written.")
         for cells in plan.append:
             if len(cells) != len(COLUMNS):
                 raise LedgerRefused(
@@ -265,10 +282,7 @@ class LedgerDoor:
                 f"/v4/spreadsheets/{self._sheet_id}/values:batchUpdate",
                 body={
                     "valueInputOption": "RAW",
-                    "data": [
-                        {"range": _a_row_range(row), "values": [list(cells)]}
-                        for row, cells in plan.update
-                    ],
+                    "data": [one for row, those in plan.cells for one in _ranges_of(row, those)],
                 },
             )
             changed = len(plan.update)
@@ -287,8 +301,17 @@ class LedgerDoor:
         return {"added": added, "changed": changed}
 
 
-def _a_row_range(row: int) -> str:
-    """One row of the ledger, as a range. Worked out, never typed."""
-    from sales import the_range_for
-
-    return the_range_for(row)
+def _ranges_of(row: int, those) -> List[Dict]:
+    """The ranges that change these cells of one row, adjacent columns joined into one range. Letters are worked out from `COLUMNS`, never typed."""
+    at = [(COLUMNS.index(column), cell) for column, cell in those]
+    out: List[Dict] = []
+    run: List[Tuple[int, str]] = []
+    for index, cell in at + [(None, None)]:
+        if run and (index is None or index != run[-1][0] + 1):
+            first, last = run[0][0], run[-1][0]
+            where = f"{column_letter(first + 1)}{row}" + (f":{column_letter(last + 1)}{row}" if last != first else "")
+            out.append({"range": f"{THE_TAB}!{where}", "values": [[c for _, c in run]]})
+            run = []
+        if index is not None:
+            run.append((index, cell))
+    return out

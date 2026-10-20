@@ -92,7 +92,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 # decides is whether an older file may put its figure over a newer one.
 from orders import CAME_BACK, DELIVERED, NOT_UNDERSTOOD_YET, the_day_in
 from payments import two_sales_of_one_row
-from sales import COLUMNS, FROM_FIELD, Sale, a_cell, name_for, the_row_for
+from sales import COLUMNS, ERP_OWNED_COLUMNS, FROM_FIELD, Sale, a_cell, name_for, the_row_for
 from table import CannotRead
 
 # The first row of the sheet is the column names, so a sale is on row 2 or later.
@@ -444,6 +444,9 @@ class Plan:
 
     append: Tuple[Tuple[str, ...], ...] = ()
     update: Tuple[Tuple[int, Tuple[str, ...]], ...] = ()
+    # **WHAT IS WRITTEN OF AN UPDATED ROW: ONLY THE CELLS THE RUN CHANGED (D462).** `(row, ((column, cell), ...))`, in the sheet's column order, `rev`
+    # among them. `update` is what the row will look like; this is what is sent. A row the ERP wrote to since the run read it keeps the ERP's cells.
+    cells: Tuple[Tuple[int, Tuple[Tuple[str, str], ...]], ...] = ()
     disagreements: Tuple[Disagreement, ...] = ()
     unreadable: Tuple[Unreadable, ...] = ()
     touched: Tuple[str, ...] = ()
@@ -863,8 +866,16 @@ def plan(
 
     unmatched: List[Unmatched] = []
     restated: List[Restated] = []
+    columns_changed: Dict[str, set] = {}
 
     for reading in in_order:
+        # **A READING THAT NAMES A COLUMN THE ERP OWNS IS REFUSED BEFORE ANYTHING IS DECIDED (D462),** so the night's memory never holds a decision
+        # that was not written.
+        owned = sorted(set(reading.knows) & set(ERP_OWNED_COLUMNS))
+        if owned:
+            raise LedgerRefused(
+                f"The {reading.report} report names {', '.join(owned)}, which the ERP owns: the run never writes them, so nothing was written."
+            )
         if reading.only_existing:
             sales_here, said_lines = _put_each_on_its_row(reading, now, poisoned)
             unmatched.extend(said_lines)
@@ -996,10 +1007,12 @@ def plan(
                         ))
                     now[name][column] = value
                     changed[name] = True
+                    columns_changed.setdefault(name, set()).add(column)
                 decided_on.now_decided(name, column, reading.on, reading.one_statement)
 
     append: List[Tuple[str, ...]] = []
     update: List[Tuple[int, Tuple[str, ...]]] = []
+    cells: List[Tuple[int, Tuple[Tuple[str, str], ...]]] = []
     touched: List[str] = []
 
     for name in fresh:
@@ -1017,11 +1030,14 @@ def plan(
         except (TypeError, ValueError):
             now[name]["rev"] = a_cell(1)
         update.append((row, tuple(now[name].get(c, "") for c in COLUMNS)))
+        sent = columns_changed.get(name, set()) | {"rev"}
+        cells.append((row, tuple((c, now[name].get(c, "")) for c in COLUMNS if c in sent)))
         touched.append(name)
 
     return Plan(
         append=tuple(append),
         update=tuple(update),
+        cells=tuple(cells),
         disagreements=tuple(disagreements),
         unreadable=unreadable,
         touched=tuple(touched),

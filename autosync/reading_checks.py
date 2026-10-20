@@ -563,6 +563,24 @@ import ledger_door  # noqa: E402
 import ledger_sheet  # noqa: E402
 
 
+def _write_range(rows, one):
+    """Apply one `values:batchUpdate` range to a stand-in sheet's rows as Google does: ONLY the cells the range names (D462)."""
+    import re
+
+    found = re.fullmatch(r"([A-Z]+)(\d+)", one["range"].split("!")[1].split(":")[0])
+    col = 0
+    for letter in found.group(1):
+        col = col * 26 + ord(letter) - 64
+    col -= 1
+    n = int(found.group(2))
+    while len(rows) < n:
+        rows.append([])
+    values = list(one["values"][0])
+    while len(rows[n - 1]) < col + len(values):
+        rows[n - 1].append("")
+    rows[n - 1][col:col + len(values)] = values
+
+
 class PretendLedgerSheet:
     """A Google Sheets that KEEPS WHAT IT WAS TOLD.
 
@@ -586,10 +604,8 @@ class PretendLedgerSheet:
             return {}
         if "values:batchUpdate" in path:
             for one in (body or {}).get("data", ()):
-                # `orders!A7:AS7` -- the row number is the plan's own, and a plan
-                # built against a stale reading names the wrong one.
-                at = int(one["range"].split("!A")[1].split(":")[0])
-                self.rows[at - 1] = list(one["values"][0])
+                # `orders!X7` -- the row number is the plan's own, and a plan built against a stale reading names the wrong one.
+                _write_range(self.rows, one)
             return {}
         return {}
 

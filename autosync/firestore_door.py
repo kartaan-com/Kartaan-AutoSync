@@ -456,6 +456,25 @@ def a_returns_sink(transport, project: str, today: str) -> Callable[..., int]:
     return sink
 
 
+def _what_claims_have_recovered(transport, project: str, doc_ids: Sequence[str]) -> Dict[str, tuple]:
+    """For each claim record already held, the rupees it has recovered and the amount that replaced (nothing for a claim that has none)."""
+    out: Dict[str, tuple] = {}
+    for at in range(0, len(doc_ids), ASKED_AT_A_TIME):
+        names = [firestore.where_a_document_lives(project, firestore.CLAIMS, one) for one in doc_ids[at:at + ASKED_AT_A_TIME]]
+        where = BATCH_GET.format(api=API, project=project, database=DATABASE)
+        got = _answered(transport.post(where, json={"documents": names}), "asking what the held claims have recovered").records()
+        if not isinstance(got, list):
+            raise TheirDatabaseSaidNo("asking what the held claims have recovered: the answer was not a list of records.")
+        for answer in got:
+            found = answer.get("found")
+            if found:
+                fields = firestore.plain(found.get("fields") or {})
+                said = str(fields.get("recovered") or "")
+                if said:
+                    out[found["name"].rsplit("/", 1)[-1]] = (said, str(fields.get("recoveredWas") or ""))
+    return out
+
+
 def a_claims_sink(transport, project: str) -> Callable[..., int]:
     """The claims a claims file names, into their records -- ONLY the ones that are new or that differ from what is held (A87, D459).
 
@@ -464,7 +483,12 @@ def a_claims_sink(transport, project: str) -> Callable[..., int]:
     """
 
     def sink(report_id: str, day: str, records: Dict[str, Dict]) -> int:
+        import claims  # noqa: PLC0415 - kept beside its one use
+
         held = _what_is_held_of(transport, project, firestore.CLAIMS, sorted(records), "digest", "fileDay")
+        paid = _what_claims_have_recovered(transport, project, sorted(records))
+        # The rupees already recorded are kept before the fingerprints are compared (see `claims.keeping_what_was_paid`).
+        records = {doc_id: claims.keeping_what_was_paid(record, *paid.get(doc_id, ("", ""))) for doc_id, record in records.items()}
         writes = [
             firestore.a_claim_write(project, record)
             for doc_id, record in sorted(records.items()) if _is_news(held, doc_id, record["digest"], day)
