@@ -1915,7 +1915,33 @@
         "autosync/reading.py",
         "autosync/reading_checks.py",
         "autosync/ledger.py",
-        "autosync/ledger_sheet.py"
+        "autosync/ledger_sheet.py",
+        "autosync/firestore.py",
+        "autosync/firestore_checks.py",
+        "autosync/firestore_door.py",
+        "autosync/start.py",
+        "autosync/nightly.py",
+        "autosync/returns_ads_checks.py"
+      ]
+    },
+    {
+      "id": "performance-reader",
+      "name": "Meesho product performance is read into a record per product per week (A87, D459, plan piece 44)",
+      "what": "autosync/performance.py reads the weekly product performance file into platform_performance records, one per product per week, the product matched to a catalog by its title among the seller's own Meesho listings and kept and flagged when it is not.",
+      "rests_on": [
+        "report-list"
+      ],
+      "files": [
+        "autosync/performance.py",
+        "autosync/performance_checks.py"
+      ],
+      "also_touches": [
+        "autosync/reading.py",
+        "autosync/reading_checks.py",
+        "autosync/firestore.py",
+        "autosync/firestore_door.py",
+        "autosync/start.py",
+        "autosync/nightly.py"
       ]
     }
   ]

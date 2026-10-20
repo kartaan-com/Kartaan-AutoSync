@@ -65,7 +65,7 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
     import merge
     from drive_door import a_door, the_kartaan_folder
     from firestore_door import (
-        a_board_sink, a_check_sink, a_ledger_sink, a_listings_sink, a_log_sink, a_returns_sheet_held, a_returns_sheet_sink, a_returns_sink,
+        a_board_sink, a_check_sink, a_ledger_sink, a_listings_sink, a_log_sink, a_returns_sheet_held, a_returns_sheet_sink, a_returns_sink, a_claims_sink, a_performance_sink,
         a_run_sink, a_views_sink, an_ads_sink, both_places, what_they_chose,
     )
     from transport import FirebaseSeller, Google, for_amazon
@@ -244,6 +244,10 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
         # **AND THE RETURNED LINES AND THE ADS (A78):** one record per returned line, and per platform per day of ads.
         record_returns=a_returns_sink(their_login, their_project, today.isoformat()),
         record_ads=an_ads_sink(their_login, their_project, today.isoformat()),
+        # **AND THE CLAIMS (A87, D459):** one record per claim, carrying the sub-order it is about.
+        record_claims=a_claims_sink(their_login, their_project),
+        # **AND HOW EACH MEESHO PRODUCT DID IN ITS WEEK (A87, D459).**
+        record_performance=a_performance_sink(their_login, their_project),
         # Set only by somebody pressing the button in GitHub. The workflow passes
         # it through; nothing on a schedule ever sets it.
         even_if_not_due=os.environ.get("EVEN_IF_NOT_DUE", "").strip().lower() == "true",

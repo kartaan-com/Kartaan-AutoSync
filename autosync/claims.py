@@ -15,10 +15,14 @@ on an Approved claim. Any other message leaves the recovered amount blank (a rej
 Nothing here opens a file, a clock or a connection.
 """
 
+import hashlib
+import json
 import re
+from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Dict, List, Tuple
-from dataclasses import dataclass
+
+import returns
 
 import table
 from sales import Sale
@@ -35,6 +39,11 @@ class WhatClaimsSaid:
     sales: Tuple[Sale, ...]
     not_read: Tuple[str, ...] = ()
     rows_in_file: int = 0
+
+
+# What a claim's record holds, in the order it is written (a field outside this list is refused by the writer). **The platform's own long message is
+# not kept** -- it can be a page of HTML; what it says about being paid is the amount, taken by `the_amount_paid`.
+CLAIM_FIELDS = ("platform", "report", "claimKey", "orderId", "status", "raisedOn", "issue", "recovered", "fileDay", "digest")
 
 
 def the_amount_paid(message: str, status: str) -> str:
@@ -82,6 +91,40 @@ def read_claims(platform: str, rows: Table, file_day: str) -> WhatClaimsSaid:
         for order, (claim, _, row) in sorted(by_order.items())
     )
     return WhatClaimsSaid(out, tuple(not_read), count)
+
+
+def read_claim_records(report_id: str, platform: str, rows: Table, file_day: str) -> Dict[str, Dict[str, object]]:
+    """Every claim a file names, as a record each, by record name `<platform>__<claim id>` (D459).
+
+    **THE CLAIM'S OWN ID NAMES IT**, so the same claim in many files (30-day downloads) is one record, and the latest file's status wins in the
+    writer. It carries the sub-order it is about and is never tied to an order row. **`Approved, will be settled` has no `recovered` until a
+    later file gives it.** The file's columns are checked by `read_claims`, which is asked first.
+    """
+    read_claims(platform, rows, file_day)  # refuses a file without the columns, in words
+    records: Dict[str, Dict[str, object]] = {}
+    for row in rows:
+        order, claim = row["Suborder Number"].strip(), row["Ticket ID"].strip()
+        if not order or not claim or "/" in claim:
+            continue
+        record: Dict[str, object] = {
+            "platform": platform, "report": report_id, "claimKey": claim, "orderId": order, "fileDay": file_day,
+        }
+        status = row["Ticket Status"].strip()
+        if status:
+            record["status"] = status
+        raised = returns.a_day(row["Created Date"])
+        if raised:
+            record["raisedOn"] = raised
+        issue = row["Issue"].strip() if "Issue" in rows.columns else ""
+        if issue:
+            record["issue"] = issue
+        paid = the_amount_paid(row["Last Update"], status)
+        if paid:
+            record["recovered"] = paid
+        said = {k: v for k, v in sorted(record.items()) if k != "fileDay"}
+        record["digest"] = hashlib.sha1(json.dumps(said, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()[:16]
+        records[f"{platform}__{claim}"] = record
+    return records
 
 
 def a_table_to_ask_with() -> Table:

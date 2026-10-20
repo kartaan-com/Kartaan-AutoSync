@@ -89,6 +89,7 @@ import claims
 import listings
 import manifest
 import orders
+import performance
 import payments
 import returns
 import sheet
@@ -218,6 +219,9 @@ WHAT_RETURNS_CAN_BE_READ: Tuple[HowToRead, ...] = tuple(
 
 # **THE AD FILES (A78):** an ads record per platform per day, and the detail behind it, in the seller's own database
 # (`firestore_door.an_ads_sink`). Their shapes are `ads.py`'s.
+# **MEESHO'S PRODUCT PERFORMANCE (A87, D459):** a record per product per week, in the seller's database, matched to a catalog by title.
+WHAT_PERFORMANCE_CAN_BE_READ: Tuple[HowToRead, ...] = (HowToRead("me_product_performance", (), kind="performance"),)
+
 WHAT_ADS_CAN_BE_READ: Tuple[HowToRead, ...] = tuple(
     HowToRead(report_id, (), header_row=ads.way_for(report_id).header_row, kind="ads") for report_id in ads.WAYS
 )
@@ -239,10 +243,6 @@ WHAT_IS_FETCHED_AND_NOT_READ_YET: Dict[str, str] = {
         "switched off by his ruling (piece 49), so it is not fetched at all and has no folder"
     ),
     "fk_claims": "decided: into the claims columns of the ledger and the ERP's Claims section -- piece 78",
-    "me_product_performance": (
-        "decided: the day's views, clicks, orders and conversion worked out from the kept files, as piece 44 says; waits for the "
-        "first two days' files to show how Meesho's seven-day window moves"
-    ),
     "me_pricing": (
         "decided: current price, recommended price and Meesho's own label put on each Meesho listing in Products, as piece 43 says; "
         "that screen is the ERP's"
@@ -270,7 +270,7 @@ def why_a_report_has_no_decision() -> str:
     """
     from reports import REPORTS  # noqa: PLC0415 - kept beside its one use
 
-    read = {one.report_id for one in WHAT_CAN_BE_READ + WHAT_VIEWS_CAN_BE_READ + WHAT_LISTINGS_CAN_BE_READ + WHAT_RETURNS_CAN_BE_READ + WHAT_ADS_CAN_BE_READ}
+    read = {one.report_id for one in WHAT_CAN_BE_READ + WHAT_VIEWS_CAN_BE_READ + WHAT_LISTINGS_CAN_BE_READ + WHAT_RETURNS_CAN_BE_READ + WHAT_ADS_CAN_BE_READ + WHAT_PERFORMANCE_CAN_BE_READ}
     said = set(WHAT_IS_FETCHED_AND_NOT_READ_YET)
     known = {one.id for one in REPORTS}
     wrong = []
@@ -336,6 +336,10 @@ class WhatTheNightRead:
     # **THE RETURN AND AD FILES (A78):** records written tonight (new or changed), and files left unread because there was nowhere to write them.
     returns_written: int = 0
     returns_waiting: int = 0
+    claims_written: int = 0
+    claims_waiting: int = 0
+    performance_written: int = 0
+    performance_waiting: int = 0
     ads_written: int = 0
     ads_waiting: int = 0
     # **PAYMENT LINES WAITING FOR THEIR ORDER (A81):** how many lines, and which files are being held for them (not written down as
@@ -405,6 +409,20 @@ class WhatTheNightRead:
             )
         if self.returns_written:
             said += f"  {self.returns_written} returned line(s) were new or changed in the returns files and were recorded."
+        if self.claims_written:
+            said += f"  {self.claims_written} claim(s) were new or changed in the claims files and were recorded."
+        if self.claims_waiting:
+            said += (
+                f"  {self.claims_waiting} claims file(s) were left unread because the seller's database could not be reached for them; "
+                "they will be read when it can."
+            )
+        if self.performance_written:
+            said += f"  {self.performance_written} product week(s) were new or changed in the product performance files and were recorded."
+        if self.performance_waiting:
+            said += (
+                f"  {self.performance_waiting} product performance file(s) were left unread because the seller's database could not be "
+                "reached for them; they will be read when it can."
+            )
         if self.ads_written:
             said += f"  {self.ads_written} ad record(s) were new or changed in the ads files and were recorded."
         if self.returns_waiting or self.ads_waiting:
@@ -744,6 +762,22 @@ def a_returns_in_the_ledger(said: returns.WhatReturnsSaid, day: str, which: str,
     return Reading(report=report_id, on=day, knows=WHAT_RETURNS_KNOW, sales=lines, which=which) if lines else None
 
 
+def _the_titles_of_the_catalog(listed: Dict[str, List[whats_new.InTheFolder]], bring_it_back: Callable[[str], bytes]) -> Dict:
+    """The seller's own Meesho listing titles, from the newest `me_catalog` file in the folder (none when there is no such file; a file that will not read stops the caller)."""
+    how = next((one for one in WHAT_LISTINGS_CAN_BE_READ if one.report_id == "me_catalog"), None)
+    files = [one for one in listed.get("me_catalog", ()) if landing.data_date_in(one.name) is not None]
+    if how is None or not files:
+        return {}
+    newest = max(files, key=lambda one: (landing.data_date_in(one.name), one.which))
+    try:
+        return performance.titles_of(a_listings_reading(how, newest, bring_it_back(newest.which))[0].records)
+    except Exception as wrong:  # noqa: BLE001 - said, and the file waits: matched against nothing it would be flagged unmatched for good
+        raise table.CannotRead(
+            f"the catalog file {newest.name or newest.which} could not be read ({wrong}), so the products cannot be matched to a catalog yet; "
+            "this file is left to be read again"
+        ) from wrong
+
+
 def an_ads_reading(how: HowToRead, one: whats_new.InTheFolder, body: bytes) -> Tuple[ads.WhatAdsSaid, str]:
     """One ads file turned into ad records, and the day of the file (same refusals as `a_returns_reading`)."""
     when = _the_day_of(one)
@@ -875,6 +909,8 @@ def read_what_is_new(
     record_listings: Optional[Callable[[str, str, Dict], int]] = None,
     record_returns: Optional[Callable[[str, str, Dict], int]] = None,
     record_ads: Optional[Callable[[str, str, str, str, Dict], int]] = None,
+    record_claims: Optional[Callable[[str, str, Dict], int]] = None,
+    record_performance: Optional[Callable[[str, str, Dict], int]] = None,
     correcting: bool = False,
 ) -> WhatTheNightRead:
     """Read every file in the seller's folders that has not been read before.
@@ -901,6 +937,7 @@ def read_what_is_new(
     if can_be_read is None:
         can_be_read = (
             WHAT_CAN_BE_READ + WHAT_VIEWS_CAN_BE_READ + WHAT_LISTINGS_CAN_BE_READ + WHAT_RETURNS_CAN_BE_READ + WHAT_ADS_CAN_BE_READ
+            + WHAT_PERFORMANCE_CAN_BE_READ
         )
     remembered = tuple(sorted({
         str(one).strip() for one in (already_read or ()) if str(one).strip()
@@ -964,6 +1001,10 @@ def read_what_is_new(
     listings_waiting = 0
     returns_written = 0
     returns_waiting = 0
+    claims_written = 0
+    claims_waiting = 0
+    performance_written = 0
+    performance_waiting = 0
     ads_written = 0
     ads_waiting = 0
     payments_waiting = 0
@@ -1039,6 +1080,34 @@ def read_what_is_new(
                 rows_read=said.rows_in_file - len(said.not_read),
             ))
             continue
+        if how.kind == "performance":
+            if record_performance is None:
+                performance_waiting += 1
+                continue
+            try:
+                when = _the_day_of(one)
+                made, said_not_read = performance.read_performance(
+                    how.report_id, the_report(how.report_id).platform, _rows_in(how, bring_it_back(one.which), one.name or one.which),
+                    when.isoformat(), _the_titles_of_the_catalog(listed, bring_it_back),
+                )
+                if not made and said_not_read:
+                    raise table.CannotRead(f"no row of {one.name or one.which} could be read; the first was {said_not_read[0]}")
+                performance_written += record_performance(how.report_id, when.isoformat(), made)
+            except TheirDatabaseSaidNo as wrong:
+                the_database_refused.append(f"{one.name or one.which}: {wrong}")
+                continue
+            except Exception as wrong:  # noqa: BLE001 - named, never swallowed
+                could_not_read.append(f"{one.name or one.which}: {wrong}")
+                continue
+            read_tonight.append(one)
+            rows_refused += len(said_not_read)
+            if said_not_read:
+                could_not_read.append(f"{one.name or one.which}: {len(said_not_read)} row(s) not read, the first being {said_not_read[0]}")
+            reads.append(manifest.Read(
+                data_date=when, report_id=how.report_id, file_name=one.name or one.which, into="product weeks",
+                rows_in_file=len(made) + len(said_not_read), rows_read=len(made),
+            ))
+            continue
         if how.kind == "views":
             if record_views is None:
                 views_waiting += 1
@@ -1067,6 +1136,10 @@ def read_what_is_new(
                     rows_read=said.rows_in_file - len(said.not_read),
                 ))
             continue
+        # **A CLAIM IS KEPT IN ITS OWN RECORDS (D459), SO A CLAIMS FILE WAITS UNREAD WHERE THERE IS NOWHERE TO WRITE THEM.**
+        if how.kind == "claims" and record_claims is None:
+            claims_waiting += 1
+            continue
         try:
             body = bring_it_back(one.which)
             if how.report_id == "az_settlements":
@@ -1075,10 +1148,17 @@ def read_what_is_new(
                 reading, refused_rows = a_reading(how, one, body)
             if correcting and how.kind == "orders":
                 reading = replace(reading, corrects=True)
+            if how.kind == "claims":
+                # Every claim in its own record first (the day is proved by `a_reading` above); the ledger's note on an order's row follows.
+                claims_written += record_claims(how.report_id, reading.on, claims.read_claim_records(
+                    how.report_id, the_report(how.report_id).platform, _rows_in(how, body, one.name or one.which), reading.on))
             # **THE ONE PLACE A SALE LANDS.** Everything above this line can be
             # done again tomorrow at no cost; everything below depends on this
             # having happened.
             lines_waiting = record_the_sales([reading]) or 0
+        except TheirDatabaseSaidNo as wrong:
+            the_database_refused.append(f"{one.name or one.which}: {wrong}")
+            continue
         except LedgerRefused as wrong:
             # **OUR OWN FAULT, KEPT APART FROM THE PLATFORM'S.** See
             # `is_a_defect`: a night where our own rule refused every file must
@@ -1140,6 +1220,10 @@ def read_what_is_new(
         listings_waiting=listings_waiting,
         returns_written=returns_written,
         returns_waiting=returns_waiting,
+        claims_written=claims_written,
+        claims_waiting=claims_waiting,
+        performance_written=performance_written,
+        performance_waiting=performance_waiting,
         ads_written=ads_written,
         ads_waiting=ads_waiting,
         payments_waiting=payments_waiting,

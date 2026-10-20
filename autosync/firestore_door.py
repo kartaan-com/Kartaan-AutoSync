@@ -456,6 +456,38 @@ def a_returns_sink(transport, project: str, today: str) -> Callable[..., int]:
     return sink
 
 
+def a_claims_sink(transport, project: str) -> Callable[..., int]:
+    """The claims a claims file names, into their records -- ONLY the ones that are new or that differ from what is held (A87, D459).
+
+    **THE RECORDS ARE ASKED FOR FIRST**, so a second run on the same file writes nothing; a later file's status for a claim replaces an earlier
+    one's, and an older file never puts a newer status back (`_is_news`). Answers how many records were written.
+    """
+
+    def sink(report_id: str, day: str, records: Dict[str, Dict]) -> int:
+        held = _what_is_held_of(transport, project, firestore.CLAIMS, sorted(records), "digest", "fileDay")
+        writes = [
+            firestore.a_claim_write(project, record)
+            for doc_id, record in sorted(records.items()) if _is_news(held, doc_id, record["digest"], day)
+        ]
+        return write_them(transport, project, writes, "writing the claims the platforms' files name")
+
+    return sink
+
+
+def a_performance_sink(transport, project: str) -> Callable[..., int]:
+    """The product weeks a product-performance file names, into their records -- ONLY the new or changed ones, never over a newer file's (A87, D459)."""
+
+    def sink(report_id: str, day: str, records: Dict[str, Dict]) -> int:
+        held = _what_is_held_of(transport, project, firestore.PERFORMANCE, sorted(records), "digest", "fileDay")
+        writes = [
+            firestore.a_performance_write(project, doc_id, record)
+            for doc_id, record in sorted(records.items()) if _is_news(held, doc_id, record["digest"], day)
+        ]
+        return write_them(transport, project, writes, "writing how each Meesho product did in its week")
+
+    return sink
+
+
 def an_ads_sink(transport, project: str, today: str) -> Callable[..., int]:
     """The ad figures an ads file names, into their records -- ONLY the ones that are new or that differ from what is held (A78).
 

@@ -216,6 +216,9 @@ def one_tick(
     # **WHERE THE RETURNED LINES AND THE AD RECORDS GO (A78).**
     record_returns: Optional[Callable[[str, str, dict], int]] = None,
     record_ads: Optional[Callable[[str, str, str, str, dict], int]] = None,
+    # **WHERE THE CLAIMS GO (A87, D459).**
+    record_claims: Optional[Callable[[str, str, dict], int]] = None,
+    record_performance: Optional[Callable[[str, str, dict], int]] = None,
 ) -> Tick:
     """Wake up, decide whether a run is due, and if it is, do one.
 
@@ -418,6 +421,8 @@ def one_tick(
             record_listings=record_listings,
             record_returns=record_returns,
             record_ads=record_ads,
+            record_claims=record_claims,
+            record_performance=record_performance,
             correcting=migrating,
         )
     except Exception as wrong:  # noqa: BLE001 - reported, never swallowed

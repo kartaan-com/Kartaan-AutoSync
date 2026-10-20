@@ -122,7 +122,15 @@ THE_LEDGER_RECORD = "ledger"
 # It is never rewritten on a later run, so `createdAt` stays the day the sheet was made. The ERP's rules must let the run write it as the owner.
 RETURNS_SHEET = "returns_sheet"
 THE_RETURNS_RECORD = "sheet"
-WHAT_IT_MAY_WRITE = (LOG, BOARD, RUNS, LISTING_VIEWS, LISTINGS_SEEN, CHECK, RETURNS, ADS_DAYS, ADS_DETAIL, SYNC_LEDGER, RETURNS_SHEET)
+# **AND TWELFTH, FROM A87 / D459: WHAT A CLAIM SAYS.** One record per claim (`platform_claims`), named `<platform>__<claim id>` and carrying the id of the
+# sub-order it is about, on the same pattern as `platform_returns`. A claim never creates an order row (many are about orders from before the sheet
+# began); the ERP reads these. Written only by `a_claim_write`. The ERP's rules must let the run write them as the owner.
+CLAIMS = "platform_claims"
+# **AND THIRTEENTH, FROM A87 / D459: HOW EACH MEESHO PRODUCT DID IN A WEEK.** One record per product per week (`platform_performance`), written only by
+# `a_performance_write`; the product's catalog id is carried when its title says one, and a title that matches none is kept and flagged. The ERP's
+# rules must let the run write them as the owner.
+PERFORMANCE = "platform_performance"
+WHAT_IT_MAY_WRITE = (LOG, BOARD, RUNS, LISTING_VIEWS, LISTINGS_SEEN, CHECK, RETURNS, ADS_DAYS, ADS_DETAIL, SYNC_LEDGER, RETURNS_SHEET, CLAIMS, PERFORMANCE)
 
 # Where the seller's own business record lives, and the one field this job reads
 # out of it. **READ, NEVER WRITTEN (D114):** the hour is the seller's setting,
@@ -664,6 +672,33 @@ def a_return_write(project: str, record: Dict, named_by: Optional[str] = None) -
             raise Refused(f"{record[day]!r} is not a day written year-month-day, so no return was written for it.")
     doc_id = f"{record['platform']}__{named_by or record['returnKey']}"
     return {"update": {"name": where_a_document_lives(project, RETURNS, doc_id), "fields": {k: a_deep(v) for k, v in record.items()}}}
+
+
+def a_claim_write(project: str, record: Dict) -> Dict:
+    """One claim, written whole (nothing else writes this record). **THE FIELDS ARE `claims.CLAIM_FIELDS` AND NO OTHERS**; absent fields are absent."""
+    import claims  # noqa: PLC0415 - kept beside its one use
+
+    stray = sorted(set(record) - set(claims.CLAIM_FIELDS))
+    if stray:
+        raise Refused(f"{stray} are not fields of a claim.")
+    for day in ("raisedOn", "fileDay"):
+        if day in record and not A_DAY.match(str(record[day])):
+            raise Refused(f"{record[day]!r} is not a day written year-month-day, so no claim was written for it.")
+    doc_id = f"{record['platform']}__{record['claimKey']}"
+    return {"update": {"name": where_a_document_lives(project, CLAIMS, doc_id), "fields": {k: a_deep(v) for k, v in record.items()}}}
+
+
+def a_performance_write(project: str, doc_id: str, record: Dict) -> Dict:
+    """One product's week, written whole. **THE FIELDS ARE `performance.PERFORMANCE_FIELDS` AND NO OTHERS**; absent fields are absent."""
+    import performance  # noqa: PLC0415 - kept beside its one use
+
+    stray = sorted(set(record) - set(performance.PERFORMANCE_FIELDS))
+    if stray:
+        raise Refused(f"{stray} are not fields of a product's week.")
+    for day in ("weekFrom", "weekTo", "fileDay"):
+        if not A_DAY.match(str(record.get(day, ""))):
+            raise Refused(f"{record.get(day)!r} is not a day written year-month-day, so no product week was written for it.")
+    return {"update": {"name": where_a_document_lives(project, PERFORMANCE, doc_id), "fields": {k: a_deep(v) for k, v in record.items()}}}
 
 
 def a_ads_days_write(project: str, platform: str, day: str, campaigns: Dict, digest: str, file_day: str, updated_on: str) -> Dict:

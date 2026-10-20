@@ -553,8 +553,13 @@ def recording_into(
         # **MONEY THAT HAS NO ORDER TO GO ON IS SAID, ONE LINE EACH (job 36).** A payment for an order the ledger does not hold
         # is never written as a row and never dropped: it is named here, and the count is handed back so that the file it came from
         # is NOT written down as read while any of its lines is waiting (A81) -- it is opened again on later runs until its orders arrive.
+        # **A CLAIM WITH NO ORDER ROW IS NOT A FAULT (D459):** it is kept in its own record and only noted on a row that exists, so they are counted, not listed.
+        unclaimed = [one for one in what.unmatched if "claim" in str(one.from_report)]
         for one in what.unmatched:
-            speak(f"SALES LEDGER {'CLAIM' if 'claim' in str(one.from_report) else 'PAYMENT'} WITH NO ORDER  {one}")
+            if one not in unclaimed:
+                speak(f"SALES LEDGER PAYMENT WITH NO ORDER  {one}")
+        if unclaimed:
+            speak(f"SALES LEDGER CLAIMS  {len(unclaimed)} claim(s) have no order row in the sheet and are kept in their own records only.")
         for one in what.restated:
             speak(f"SALES LEDGER PAYMENT RESTATED  {one}")
         for each in readings or ():
