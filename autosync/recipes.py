@@ -413,6 +413,8 @@ QUALITY_INSIGHTS = FLIPKART.format(where="dashboard/listings-management/customer
 # not throttle it.
 ADS_REPORTS = FLIPKART.format(where="dashboard/ads/reports/others")
 CLAIMS = FLIPKART.format(where="dashboard/payments/spf")
+# How many days one claims download covers, ending on the day fetched (A86). A claim is raised on a day of its own.
+THE_CLAIMS_REACH_IN_DAYS = 30
 # **THE ALL RETURNS TAB, BY ITS OWN ADDRESS -- THE REFERENCE'S ROUTE, READ IN ITS
 # CODE AND MEASURED ON HIS PANEL 2026-09-14.** `#dashboard/returnsV2` alone opens
 # on `Important for Today`, and the words `All Returns` match TWO things on the
@@ -1512,7 +1514,19 @@ RECIPES: Dict[str, Recipe] = {
             # has to step it forward, which it does by the arrows -- and the
             # headings are `label` elements, which is a second reason `label` had
             # to become something the door can see.
-            Step(PICK_RANGE, patience=30, why="setting the day to fetch"),
+            #
+            # **THIRTY DAYS ENDING ON THE DAY, NOT THE ONE DAY (A86, 20 Oct, his claims ARE raised and all 24 kept
+            # files were empty).** The page and the report are the right ones -- the page itself reads `Raised by
+            # you (150)` and `Auto approved (12)`, and the download is the very `napi/payments/downloadClaimReport`
+            # the earlier tool read. What was wrong was asking it for ONE day: a claim is raised on a day of its
+            # own, so a day's file holds only the claims raised or processed on it and nearly every day's is
+            # empty (23,295 bytes, two empty sheets). The earlier tool asks from the day after its last run to
+            # today and de-duplicates by Claim ID (the earlier tool's docs, FK_CLAIMS, "Overlapping
+            # ranges are fine"). Thirty days is the longest the page's own menu names (`Last 30 days`), the
+            # file keeps the day it was fetched for, and the reader (piece 78) settles overlaps by claim id.
+            # **NOT YET SEEN LIVE: a thirty-day pick crosses a month and the calendar opens two months behind.**
+            Step(PICK_RANGE, range_days=THE_CLAIMS_REACH_IN_DAYS, patience=30,
+                 why="setting the thirty days that end on the day to fetch"),
             # **`Done` IS A `span` WITH A POINTER CURSOR**, and pressing it is
             # what starts the download. Asked for as a control, nothing matched.
             Step(TAKE_FILE, find=Find(BY_PRESSABLE_TEXT, "Done"), patience=90,

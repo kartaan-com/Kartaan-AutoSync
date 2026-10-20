@@ -36,6 +36,8 @@ the file where it happened. A reviewer finding something already on this list is
 - A range request that is not ready is re-checked as the SAME range: the hourly re-check keeps the range's first day, or the row Flipkart finishes (all the days) is named for one day. -- `extension/nightly.js` `theRecheckSync`, `RECHECKS` (A86, review)
 - The Drive name guard lets a range name through for the reports asked for in one request only, never for a report fetched per campaign (its `_to_TO` would read as a campaign id). -- `extension/background.js` `whyTheseAreNotNames` (A86, review)
 
+- A report whose rows are dated by when something HAPPENED (a claim is raised on a day of its own) is not fetched one day at a time: a day's file holds only that day's claims and nearly every day's is empty. Ask a window ending on the day and settle overlaps by the report's own id. -- `autosync/recipes.py` `fk_claims` `THE_CLAIMS_REACH_IN_DAYS` (A86, 20 Oct: 24 empty claims files; not yet seen live)
+
 ## Pages, tabs and waiting
 
 - A fresh Flipkart tab restores its last route: load the base page, then set the address, and measure on the right tab of the right page. -- `autosync/recipes.py` `TRAFFIC`

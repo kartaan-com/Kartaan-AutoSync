@@ -514,6 +514,9 @@ check("everything else that is CLICKED is matched exactly",
 # refused by a Submit that does nothing at all, with no message.
 rc_range = [s for s in tool.recipe("fk_orders").to_ask if s.do == pages.PICK_RANGE][0]
 check("the reports centre asks for a two-day range", answered(lambda: rc_range.range_days == 2))
+fk_claims_range = [s for s in tool.recipe("fk_claims").to_take if s.do == pages.PICK_RANGE][0]
+check("Flipkart claims ask for thirty days ending on the day, because one day's file is nearly always empty (A86)",
+      answered(lambda: fk_claims_range.range_days == 30))
 me_range = [s for s in tool.recipe("me_orders").to_take if s.do == pages.PICK_RANGE][0]
 check("while Meesho asks for the one day", answered(lambda: me_range.range_days == 1))
 check("and a range of no days at all is refused",
@@ -1386,7 +1389,7 @@ check("and the panel name was still filled into the addresses on the way",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 323
+EXPECTED = 324
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
