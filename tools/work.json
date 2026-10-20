@@ -1943,6 +1943,27 @@
         "autosync/start.py",
         "autosync/nightly.py"
       ]
+    },
+    {
+      "id": "ads-month",
+      "name": "Each platform's ads of a month are summed into one record for the ERP (A87, D463)",
+      "what": "autosync/ads.py build_month and firestore_door.an_ads_month_sink rebuild platform_ads_month/<platform>__<yyyy-mm> whole from that month's per-day ads records after each night's ads files (and for every month that has day records when none exists yet); nothing is summed over the month.",
+      "rests_on": [
+        "report-list"
+      ],
+      "files": [
+        "autosync/ads_month_checks.py"
+      ],
+      "also_touches": [
+        "autosync/ads.py",
+        "autosync/firestore.py",
+        "autosync/firestore_checks.py",
+        "autosync/firestore_door.py",
+        "autosync/reading.py",
+        "autosync/nightly.py",
+        "autosync/nightly_checks.py",
+        "autosync/start.py"
+      ]
     }
   ]
 }

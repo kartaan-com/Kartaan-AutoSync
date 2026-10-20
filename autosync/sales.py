@@ -201,10 +201,10 @@ COLUMNS = PLAIN_FIELDS + CHARGE_COLUMNS + WHAT_HAPPENED_COLUMNS + PACKAGING_OWED
 
 # **THE COLUMNS THE ERP WRITES AND THE RUN NEVER DOES (P15 piece 4, D462).** A write of a whole row from a copy read earlier puts the ERP's own cells
 # back to what the run read: a blank `took` put back is a sale taken off stock a second time. The run writes only the cells it changed, and
-# `ledger.plan` refuses a reading that would change one of these (`ledger_sheet_checks` pins this list to the sheet's own "comes back from Kartaan" set).
+# `ledger.plan` refuses a reading that would change one of these (`ledger_checks` pins this list to the sheet's own "comes back from Kartaan" set).
 ERP_OWNED_COLUMNS = (
     "state", "heldFor", "took", "taking", "cogs", "packagingCost", "earringCondition", "boxCondition", "chainCondition",
-    "itemLoss", "packingLoss", "chainLoss", "netPnl", "returnPnl",
+    "itemLoss", "packingLoss", "chainLoss", "netPnl", "returnPnl", "rev",
 ) + PACKAGING_OWED_COLUMNS
 
 # The fields that are figures. **A sheet hands back TEXT for everything**, so

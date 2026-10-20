@@ -187,9 +187,8 @@ check("a sale that has changed is updated, not added again",
 up = [c for c in g.calls if c["path"].endswith("values:batchUpdate")][-1]
 check("changing uses batchUpdate, as the ERP does", up["method"] == "POST")
 check("with RAW there too", up["body"].get("valueInputOption") == "RAW")
-check("the ranges name the row that sale is really on, and only the cells that changed (its price and its version)",
-      [one["range"] for one in up["body"]["data"]] == [
-          f"orders!{sales.column_letter(AT['gmv'] + 1)}2", f"orders!{sales.column_letter(AT['rev'] + 1)}2"]
+check("the ranges name the row that sale is really on, and only the cell that changed (its price)",
+      [one["range"] for one in up["body"]["data"]] == [f"orders!{sales.column_letter(AT['gmv'] + 1)}2"]
       and all(len(one["values"][0]) == 1 for one in up["body"]["data"]))
 check("and the sheet now holds the new figure",
       g.rows[1][AT["gmv"]] == "150")
@@ -265,7 +264,7 @@ g.rows[1][AT["state"]] = "taken"
 door.carry_out(plan_from_that)
 check("AN ERP WRITE LANDING BETWEEN THE RUN'S READ AND ITS WRITE IS NOT PUT BACK: the ERP's cells stand and the run's new price is there",
       g.rows[1][AT["took"]] == "stock-lot-7" and g.rows[1][AT["state"]] == "taken" and g.rows[1][AT["gmv"]] == "150")
-check("and the version moved on, because the run changed the row", g.rows[1][AT["rev"]] == "1")
+check("and the run did not touch the version, which is the ERP's", g.rows[1][AT["rev"]] == "")
 check("a plan that changes a row without saying which cells is refused, not written whole",
       refused_by(lambda: tool.LedgerDoor(Pretend(rows=HEADER + [["x"] * len(sales.COLUMNS)]), "S1").carry_out(
           ledger.Plan(update=((2, tuple("y" for _ in sales.COLUMNS)),)))))

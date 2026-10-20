@@ -444,8 +444,7 @@ class Plan:
 
     append: Tuple[Tuple[str, ...], ...] = ()
     update: Tuple[Tuple[int, Tuple[str, ...]], ...] = ()
-    # **WHAT IS WRITTEN OF AN UPDATED ROW: ONLY THE CELLS THE RUN CHANGED (D462).** `(row, ((column, cell), ...))`, in the sheet's column order, `rev`
-    # among them. `update` is what the row will look like; this is what is sent. A row the ERP wrote to since the run read it keeps the ERP's cells.
+    # **WHAT IS WRITTEN OF AN UPDATED ROW: ONLY THE CELLS THE RUN CHANGED (D462).** `(row, ((column, cell), ...))`, in the sheet's column order, never `rev`. `update` is what the row will look like; this is what is sent. A row the ERP wrote to since the run read it keeps the ERP's cells.
     cells: Tuple[Tuple[int, Tuple[Tuple[str, str], ...]], ...] = ()
     disagreements: Tuple[Disagreement, ...] = ()
     unreadable: Tuple[Unreadable, ...] = ()
@@ -1022,15 +1021,10 @@ def plan(
     for name, row in sorted(row_of.items(), key=lambda kv: kv[1]):
         if not changed.get(name):
             continue
-        # **THE VERSION MOVES ON EVERY CHANGE**, or the ERP's guarded writes
-        # compare one number for ever and refuse nothing.
-        was = now[name].get("rev", "")
-        try:
-            now[name]["rev"] = a_cell(int(float(was or 0)) + 1)
-        except (TypeError, ValueError):
-            now[name]["rev"] = a_cell(1)
+        # **THE VERSION IS THE ERP'S ALONE (D472).** The run never writes or bumps `rev`: a version the run moved could collide with the ERP's own and
+        # hide a change from its guarded writes. The run is guarded by the four date markers instead (D157).
         update.append((row, tuple(now[name].get(c, "") for c in COLUMNS)))
-        sent = columns_changed.get(name, set()) | {"rev"}
+        sent = columns_changed.get(name, set())
         cells.append((row, tuple((c, now[name].get(c, "")) for c in COLUMNS if c in sent)))
         touched.append(name)
 

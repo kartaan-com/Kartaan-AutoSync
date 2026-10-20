@@ -219,6 +219,8 @@ def one_tick(
     # **WHERE THE CLAIMS GO (A87, D459).**
     record_claims: Optional[Callable[[str, str, dict], int]] = None,
     record_performance: Optional[Callable[[str, str, dict], int]] = None,
+    # **WHERE A MONTH OF ADS IS SUMMED INTO ONE RECORD (D463):** the months tonight touched in, records written out.
+    rebuild_ads_months: Optional[Callable[[Sequence], int]] = None,
 ) -> Tick:
     """Wake up, decide whether a run is due, and if it is, do one.
 
@@ -571,6 +573,14 @@ def one_tick(
             save_check(manifest.cross_check(kept_standing, installs), today)
         except Exception as wrong:  # noqa: BLE001 - recorded, never swallowed
             faults.append(f"What landed against what was read could not be written down for the ERP: {wrong}")
+
+    # **EACH MONTH OF ADS IS SUMMED INTO ONE RECORD (D463).** Its own step with its own refusal, like the cross-check above: a month that cannot be written
+    # costs the reading nothing, is said, and is rebuilt whole by the next run.
+    if rebuild_ads_months is not None and what_was_read is not None:
+        try:
+            rebuild_ads_months(what_was_read.ads_months)
+        except Exception as wrong:  # noqa: BLE001 - recorded, never swallowed
+            faults.append(f"A month of ads could not be summed into its one record: {wrong}")
 
     # **AND THE RUN IS WRITTEN DOWN AGAIN, FINISHED.** The same name, so this
     # replaces the record written before the fetching rather than leaving two

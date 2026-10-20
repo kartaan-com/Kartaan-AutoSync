@@ -2719,9 +2719,25 @@ check("and the tick asks for them under exactly those names",
           tool.one_tick.__code__.co_varnames[:tool.one_tick.__code__.co_argcount
                                              + tool.one_tick.__code__.co_kwonlyargcount]))
 
+# ----- each month of ads is summed into one record by the run (D463)
+handed_months = []
+Harness().go(rebuild_ads_months=lambda months: handed_months.append(months) or 0)
+check("the run hands the months of ads on once, every night, so a first run can backfill", len(handed_months) == 1)
+
+
+def _will_not_sum(_months):
+    raise RuntimeError("the database said no")
+
+
+check("a month of ads that will not be summed is said out loud, in words",
+      any("month of ads" in one and "the database said no" in one for one in Harness().go(rebuild_ads_months=_will_not_sum).our_faults))
+check("start.py hands the tick the month builder, built by the real builder",
+      isinstance(HANDED_TO_THE_TICK.get("rebuild_ads_months"), ast.Call)
+      and getattr(HANDED_TO_THE_TICK["rebuild_ads_months"].func, "id", "") == "an_ads_month_sink")
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 369 + 15 + 11 + 2
+EXPECTED = 369 + 15 + 11 + 2 + 3
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

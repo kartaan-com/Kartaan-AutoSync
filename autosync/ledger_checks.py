@@ -237,8 +237,8 @@ check("RULE 1: AND DOES NOT WIPE THE DATE IT KNOWS NOTHING ABOUT",
       after_pay is not None and after_pay.update[0][1][AT["on"]] == "2026-08-01")
 check("RULE 1: nor the money the orders file had put there",
       after_pay is not None and after_pay.update[0][1][AT["gmv"]] == "100")
-check("the version moves on a change, or every guarded write goes out unguarded",
-      after_pay is not None and after_pay.update[0][1][AT["rev"]] == "1")
+check("THE RUN NEVER MOVES THE VERSION: `rev` is the ERP's alone (D472), and the run is guarded by its four date markers",
+      after_pay is not None and after_pay.update[0][1][AT["rev"]] == "" and "rev" not in {c for _, those in after_pay.cells for c, _ in those})
 
 # ------------------------------------------------------ RULE 2 (D150)
 
@@ -710,14 +710,17 @@ _payment = tool.Reading(report="me_payments", on="2026-10-01", knows=("settlemen
                           sales=(a_sale("O5", settlement="80", charges={"commission": "20"}, payments_on="2026-10-01"),), only_existing=True)
 _cells = answered(lambda: tool.plan(as_sheet([_settled]), [_payment]))
 _named = {c for _, those in (_cells.cells if _cells else ()) for c, _ in those}
-check("A PAYMENTS FILE THAT STATES A SETTLEMENT NAMES EXACTLY ITS SETTLEMENT, ITS CHARGE, ITS DATE MARKER AND THE VERSION -- nothing else",
-      _named == {"settlement", "charge_commission", "paymentsOn", "rev"})
+check("A PAYMENTS FILE THAT STATES A SETTLEMENT NAMES EXACTLY ITS SETTLEMENT, ITS CHARGE AND ITS DATE MARKER -- nothing else",
+      _named == {"settlement", "charge_commission", "paymentsOn"})
 check("and the row it will look like keeps the ERP's cell", _cells is not None and _cells.update[0][1][AT["took"]] == "stock-lot-7")
 check("A READING THAT NAMES A COLUMN THE ERP OWNS IS REFUSED, not written",
       refused_by(lambda: tool.plan(as_sheet([_settled]), [a_reading("meesho orders", "2026-10-01", [a_sale("O5", cogs=5)],
                                                                         knows=("platform", "orderId", "sku", "cogs"))])))
-check("the columns the ERP owns are exactly the sheet's 'comes back from Kartaan' set",
-      set(sales.ERP_OWNED_COLUMNS) == {c for c, (origin, _) in ledger_sheet.WHERE_A_COLUMN_COMES_BACK_FROM.items() if origin == ledger_sheet.FROM_KARTAAN})
+check("the columns the ERP owns are the sheet's 'comes back from Kartaan' set and the version (D472)",
+      set(sales.ERP_OWNED_COLUMNS) == {c for c, (origin, _) in ledger_sheet.WHERE_A_COLUMN_COMES_BACK_FROM.items() if origin == ledger_sheet.FROM_KARTAAN} | {"rev"})
+check("a reading naming the version is refused too",
+      refused_by(lambda: tool.plan(as_sheet([_settled]), [a_reading("meesho orders", "2026-10-01", [a_sale("O5")],
+                                                                        knows=("platform", "orderId", "sku", "rev"))])))
 
 _priced = sales.the_row_for(a_sale("O8", qty=0, gmv=338.83))
 _unpriced = answered(lambda: tool.plan(
@@ -732,7 +735,7 @@ check("but a sale with a quantity above nought never loses its price to a blank"
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-WITH_HIS_FILES = 114
+WITH_HIS_FILES = 115
 EXPECTED = WITH_HIS_FILES - (9 if not_run else 0)
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")

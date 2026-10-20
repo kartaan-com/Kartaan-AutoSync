@@ -24,7 +24,7 @@ different places, and one message for both is a wasted evening.
 """
 
 from datetime import date, timedelta
-from typing import Callable, Dict, Optional, Sequence
+from typing import Callable, Dict, List, Optional, Sequence
 
 import firestore
 import returns
@@ -508,6 +508,76 @@ def a_performance_sink(transport, project: str) -> Callable[..., int]:
             for doc_id, record in sorted(records.items()) if _is_news(held, doc_id, record["digest"], day)
         ]
         return write_them(transport, project, writes, "writing how each Meesho product did in its week")
+
+    return sink
+
+
+def _the_documents_of(transport, project: str, collection: str, where: object, select: Sequence[str], doing: str) -> List[tuple]:
+    """`(record name, plain record)` for the documents of one collection that match, asked of the database. A reply that is not a list stops it."""
+    query: Dict = {"from": [{"collectionId": collection}]}
+    if select:
+        query["select"] = {"fields": [{"fieldPath": one} for one in select]}
+    if where:
+        query["where"] = where
+    got = _answered(
+        transport.post(RUN_QUERY.format(api=API, project=project, database=DATABASE), json={"structuredQuery": query}), doing,
+    ).records()
+    if not isinstance(got, list):
+        raise TheirDatabaseSaidNo(f"{doing}: the answer was not a list of records.")
+    return [
+        (one["document"]["name"].rsplit("/", 1)[-1], firestore.plain_deep({"mapValue": {"fields": one["document"].get("fields") or {}}}))
+        for one in got if one.get("document")
+    ]
+
+
+def _the_days_between(first: str, last: str) -> Dict:
+    return {"compositeFilter": {"op": "AND", "filters": [
+        {"fieldFilter": {"field": {"fieldPath": "day"}, "op": "GREATER_THAN_OR_EQUAL", "value": {"stringValue": first}}},
+        {"fieldFilter": {"field": {"fieldPath": "day"}, "op": "LESS_THAN_OR_EQUAL", "value": {"stringValue": last}}},
+    ]}}
+
+
+def an_ads_month_sink(transport, project: str, today: str) -> Callable[..., int]:
+    """Rebuild each platform's month of ads whole, from that month's per-day records (D463). Answers how many month records were written.
+
+    **WHICH MONTHS:** the ones tonight's ads files touched, and every month that has day records but no month record yet (the backfill, so the ERP
+    can read the month records alone; it finishes itself if a night was cut off). A month is read ONCE, in two queries bounded by the month's days
+    (the platform is told apart in memory, so no index is needed). A month that cannot be summarised or written is said after the others are done.
+    """
+    import ads  # noqa: PLC0415 - kept beside its one use
+
+    def sink(touched: Sequence[tuple]) -> int:
+        wanted = {(str(platform), str(month)) for platform, month in touched}
+        held = {name for name, _ in _the_documents_of(transport, project, firestore.ADS_MONTH, None, ("platform",), "asking which month records exist")}
+        # **EVERY MONTH THAT HAS DAY RECORDS BUT NO MONTH RECORD IS BUILT (the backfill, finished even if an earlier night was cut off):** the days
+        # are the two-a-day `platform_ads_days` records, read by name only.
+        for _, one in _the_documents_of(transport, project, firestore.ADS_DAYS, None, ("platform", "day"), "asking which months have days of ads"):
+            at = (str(one.get("platform", "")), str(one.get("day", ""))[:7])
+            if at[0] and at[1] and f"{at[0]}__{at[1]}" not in held:
+                wanted.add(at)
+        sent = 0
+        refused: List[str] = []
+        for month in sorted({month for _, month in wanted}):
+            between = _the_days_between(f"{month}-01", f"{month}-31")
+            days = [one for _, one in _the_documents_of(transport, project, firestore.ADS_DAYS, between, (), f"reading {month}'s days of ads")]
+            details = [one for _, one in _the_documents_of(transport, project, firestore.ADS_DETAIL, between, (), f"reading {month}'s ad detail")]
+            for platform in sorted({p for p, m in wanted if m == month}):
+                mine = {str(one.get("day")): one for one in days if one.get("platform") == platform}
+                if not mine and not any(one.get("platform") == platform for one in details):
+                    continue
+                try:
+                    record = ads.build_month(platform, month, mine, details, today)
+                except Exception as wrong:  # noqa: BLE001 - said below, after the other months are written
+                    refused.append(str(wrong))
+                    continue
+                # One call per month, so one that Firestore refuses cannot take another month's write down with it.
+                try:
+                    sent += write_them(transport, project, [firestore.a_ads_month_write(project, f"{platform}__{month}", record)], "writing a month of ads")
+                except TheirDatabaseSaidNo as wrong:
+                    refused.append(f"{platform} {month}: {wrong}")
+        if refused:
+            raise TheirDatabaseSaidNo(" ".join(refused))
+        return sent
 
     return sink
 

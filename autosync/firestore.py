@@ -130,7 +130,13 @@ CLAIMS = "platform_claims"
 # `a_performance_write`; the product's catalog id is carried when its title says one, and a title that matches none is kept and flagged. The ERP's
 # rules must let the run write them as the owner.
 PERFORMANCE = "platform_performance"
-WHAT_IT_MAY_WRITE = (LOG, BOARD, RUNS, LISTING_VIEWS, LISTINGS_SEEN, CHECK, RETURNS, ADS_DAYS, ADS_DETAIL, SYNC_LEDGER, RETURNS_SHEET, CLAIMS, PERFORMANCE)
+# **AND FOURTEENTH, FROM A87 / D463: ONE SUMMARY RECORD PER PLATFORM PER MONTH OF ADS** (`platform_ads_month/<platform>__<yyyy-mm>`), rebuilt whole from that
+# month's `platform_ads_days` and `platform_ads_detail` records so the ERP's Ads tab reads a few records instead of hundreds. Written only by
+# `a_ads_month_write`. The ERP's rules must let the run write it as the owner; the ERP never writes it.
+ADS_MONTH = "platform_ads_month"
+WHAT_IT_MAY_WRITE = (
+    LOG, BOARD, RUNS, LISTING_VIEWS, LISTINGS_SEEN, CHECK, RETURNS, ADS_DAYS, ADS_DETAIL, SYNC_LEDGER, RETURNS_SHEET, CLAIMS, PERFORMANCE, ADS_MONTH,
+)
 
 # Where the seller's own business record lives, and the one field this job reads
 # out of it. **READ, NEVER WRITTEN (D114):** the hour is the seller's setting,
@@ -699,6 +705,29 @@ def a_performance_write(project: str, doc_id: str, record: Dict) -> Dict:
         if not A_DAY.match(str(record.get(day, ""))):
             raise Refused(f"{record.get(day)!r} is not a day written year-month-day, so no product week was written for it.")
     return {"update": {"name": where_a_document_lives(project, PERFORMANCE, doc_id), "fields": {k: a_deep(v) for k, v in record.items()}}}
+
+
+def plain_deep(held) -> object:
+    """One Firestore value (any shape, maps and lists included) back as plain data. Only ever used on records this job wrote itself."""
+    if not isinstance(held, dict):
+        return held
+    if "mapValue" in held:
+        return {name: plain_deep(one) for name, one in ((held["mapValue"].get("fields")) or {}).items()}
+    if "arrayValue" in held:
+        return [plain_deep(one) for one in ((held["arrayValue"].get("values")) or [])]
+    return next(iter(plain({"x": held}).values()))
+
+
+def a_ads_month_write(project: str, doc_id: str, record: Dict) -> Dict:
+    """One platform's ads for one month, written whole. **THE FIELDS ARE `ads.MONTH_FIELDS` AND NO OTHERS**; a month is `yyyy-mm`."""
+    import ads  # noqa: PLC0415 - kept beside its one use
+
+    stray = sorted(set(record) - set(ads.MONTH_FIELDS))
+    if stray:
+        raise Refused(f"{stray} are not fields of a month of ads.")
+    if not re.fullmatch(r"\d{4}-\d{2}", str(record.get("month", ""))) or not A_DAY.match(str(record.get("updatedOn", ""))):
+        raise Refused("A month of ads needs its month as yyyy-mm and the day it was rebuilt, so none was written.")
+    return {"update": {"name": where_a_document_lives(project, ADS_MONTH, doc_id), "fields": {k: a_deep(v) for k, v in record.items()}}}
 
 
 def a_ads_days_write(project: str, platform: str, day: str, campaigns: Dict, digest: str, file_day: str, updated_on: str) -> Dict:

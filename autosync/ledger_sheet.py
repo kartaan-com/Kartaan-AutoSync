@@ -884,7 +884,7 @@ WHERE_A_COLUMN_COMES_BACK_FROM: Dict[str, Tuple[str, str]] = {
     ),
     "rev": (
         CANNOT_COME_BACK,
-        "how many times THIS sheet's row had been written. It is about the sheet's "
+        "the ERP's version of the row (the run never writes it). It is about the sheet's "
         "own history, so a new sheet starts again from nothing",
     ),
 }

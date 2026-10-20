@@ -124,6 +124,58 @@ WAYS: Dict[str, Way] = {
 }
 
 
+# **ONE MONTH OF ADS, BUILT FROM THE PER-DAY RECORDS (D463, A87).** Nothing is summed: every day stays a day, so any period inside the month can still be
+# answered. `days` is each day's campaigns as `platform_ads_days` holds them; the other five are each day's rows as `platform_ads_detail` holds them.
+MONTH_FIELDS = ("platform", "month", "updatedOn", "days", "search", "placements", "overall", "orders", "lifetime", "trimmed")
+MONTH_KINDS = ("search", "placements", "overall", "orders", "lifetime")
+# Firestore's record limit is 1 MiB, counted the way Firestore counts (see `firestore_size`); a month that would not fit is refused in words, never shortened.
+MOST_MONTH_BYTES = 1000 * 1000
+
+
+def firestore_size(held) -> int:
+    """About what Firestore counts for a value: text its UTF-8 bytes + 1, a number 8, a name its bytes + 1, plus 32 for a record. Never less than the truth."""
+    if isinstance(held, dict):
+        return 32 + sum(len(str(k).encode("utf-8")) + 1 + firestore_size(v) for k, v in held.items())
+    if isinstance(held, (list, tuple)):
+        return sum(firestore_size(v) for v in held)
+    if isinstance(held, str):
+        return len(held.encode("utf-8")) + 1
+    return 8 if isinstance(held, (int, float)) and not isinstance(held, bool) else 1
+
+
+def build_month(platform: str, month: str, days: Dict[str, Dict], details: List[Dict], updated_on: str) -> Dict[str, object]:
+    """The month's record. `days` is `{day: record}` of `platform_ads_days`; `details` is every `platform_ads_detail` record of the month (any platform).
+
+    Another platform's records are left out. A day with nothing of a kind is left out of that kind.
+    """
+    out: Dict[str, object] = {"platform": platform, "month": month, "updatedOn": updated_on, "days": {}, **{kind: {} for kind in MONTH_KINDS}}
+    trimmed: Dict[str, List[Dict]] = {}
+    for day, record in sorted(days.items()):
+        campaigns = record.get("campaigns")
+        if str(record.get("platform", platform)) == platform and isinstance(campaigns, dict) and campaigns:
+            out["days"][day[8:10]] = campaigns
+    for record in sorted(details, key=lambda one: (str(one.get("day", "")), str(one.get("campaignId", "")))):
+        kind, day = str(record.get("kind", "")), str(record.get("day", ""))
+        if str(record.get("platform", "")) != platform or kind not in MONTH_KINDS or not day.startswith(month):
+            continue
+        out[kind].setdefault(day[8:10], []).extend(record.get("rows") or [])
+        # **A DAY THAT WAS HELD TO SIZE WHEN IT WAS WRITTEN SAYS SO IN THE MONTH TOO (D463 review):** the month must not look more complete than its days.
+        if record.get("rowsKept") is not None and record.get("rowsInFile") is not None and record["rowsKept"] < record["rowsInFile"]:
+            trimmed.setdefault(day[8:10], []).append({
+                "kind": kind, "rowsInFile": record["rowsInFile"], "rowsKept": record["rowsKept"],
+                **({"campaignId": record["campaignId"]} if record.get("campaignId") else {}),
+            })
+    if trimmed:
+        out["trimmed"] = trimmed
+    size = firestore_size(out)
+    if size > MOST_MONTH_BYTES:
+        raise table.CannotRead(
+            f"The {platform} ads for {month} would make a summary of {size} bytes, past the {MOST_MONTH_BYTES} one record may hold, "
+            "so it was not written; the Ads tab goes on reading that month's days one by one."
+        )
+    return out
+
+
 def way_for(report_id: str) -> Way:
     found = WAYS.get(report_id)
     if found is None:

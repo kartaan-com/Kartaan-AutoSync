@@ -340,6 +340,8 @@ class WhatTheNightRead:
     claims_waiting: int = 0
     performance_written: int = 0
     performance_waiting: int = 0
+    # **THE MONTHS OF ADS TONIGHT'S ADS FILES TOUCHED (D463):** `(platform, yyyy-mm)`, so the run can rebuild each month's one summary record.
+    ads_months: Tuple[Tuple[str, str], ...] = ()
     ads_written: int = 0
     ads_waiting: int = 0
     # **PAYMENT LINES WAITING FOR THEIR ORDER (A81):** how many lines, and which files are being held for them (not written down as
@@ -1005,6 +1007,7 @@ def read_what_is_new(
     claims_waiting = 0
     performance_written = 0
     performance_waiting = 0
+    ads_months = set()
     ads_written = 0
     ads_waiting = 0
     payments_waiting = 0
@@ -1059,6 +1062,7 @@ def read_what_is_new(
                 else:
                     said, the_day = an_ads_reading(how, one, bring_it_back(one.which))
                     ads_written += record(how.report_id, said.platform, said.kind, the_day, said.records)
+                    ads_months.update((said.platform, str(one["day"])[:7]) for one in said.records.values() if one.get("day"))
             except TheirDatabaseSaidNo as wrong:
                 the_database_refused.append(f"{one.name or one.which}: {wrong}")
                 continue
@@ -1224,6 +1228,7 @@ def read_what_is_new(
         claims_waiting=claims_waiting,
         performance_written=performance_written,
         performance_waiting=performance_waiting,
+        ads_months=tuple(sorted(ads_months)),
         ads_written=ads_written,
         ads_waiting=ads_waiting,
         payments_waiting=payments_waiting,

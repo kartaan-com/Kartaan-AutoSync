@@ -1030,7 +1030,7 @@ _again = answered(lambda: tool.read_what_is_new(
 _changed = dict(zip(sales.COLUMNS, _planned[0].update[0][1])) if _planned and _planned[0].update else {}
 check("AN ORDER ALREADY IN HIS LEDGER, READ AGAIN, GAINS THE NEW WORD AND NOTHING ELSE CHANGES",
       _changed.get("whatHappened") == "Cancelled" and _changed.get("status") == "CANCELLED"
-      and _changed.get("notes") == "his own note" and _changed.get("qty") == "0" and _changed.get("rev") == "4")
+      and _changed.get("notes") == "his own note" and _changed.get("qty") == "0" and _changed.get("rev") == "3")
 check("and the orders report is entitled to write that column", "whatHappened" in tool.WHAT_ORDERS_KNOWS)
 check("and the rules the read files were read under changed, so every file already read is read once more",
       tool.READING_RULES != "orders-with-the-platforms-status-word")

@@ -501,7 +501,7 @@ check("and the day of the file is in the payments marker, and in no other", _r.g
       and _r.get("returnsOn") == "" and _r.get("claimsOn") == "")
 check("AND NOTHING THE ORDERS FILE SAID WAS TOUCHED: quantity, price, status and the orders marker stand",
       _r.get("qty") == "2" and _r.get("gmv") == "199" and _r.get("status") == "Delivered" and _r.get("ordersOn") == "2026-08-02")
-check("and the row's version moved on, because the row changed", _r.get("rev") == "1")
+check("and the row's version is left to the ERP", _r.get("rev") == "")
 check("and a charge the file did not state is still blank, never nought", _r.get("charge_penalty") == ""
       and _r.get("charge_tds") == "")
 _p2 = answered(lambda: ledger.plan(_after1, [pays("az_settlements", "2026-09-05",

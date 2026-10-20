@@ -130,10 +130,10 @@ check("and it is written in the same base", "held.toString(36)" in THE_PAGES_OWN
 
 # ------------------------------------- what it may write, and what it may not
 
-check("there are exactly thirteen things it may write", len(tool.WHAT_IT_MAY_WRITE) == 13)
-check("and they are the three D114 named, how each listing is doing (job 86 part A), the listings a listing file names (job 41), the cross-check (job 19), the returns and ads (A78), where the sales ledger and the returns sheet are (plan jobs 78, 77), the claims and how each Meesho product did in its week (A87, D459)",
+check("there are exactly fourteen things it may write", len(tool.WHAT_IT_MAY_WRITE) == 14)
+check("and they are the three D114 named, how each listing is doing (job 86 part A), the listings a listing file names (job 41), the cross-check (job 19), the returns and ads (A78), where the sales ledger and the returns sheet are (plan jobs 78, 77), the claims, how each Meesho product did in its week (A87, D459) and a month of ads in one record (D463)",
       set(tool.WHAT_IT_MAY_WRITE) == {tool.LOG, tool.BOARD, tool.RUNS, tool.LISTING_VIEWS, tool.LISTINGS_SEEN, tool.CHECK,
-                                      tool.RETURNS, tool.ADS_DAYS, tool.ADS_DETAIL, tool.SYNC_LEDGER, tool.RETURNS_SHEET, tool.CLAIMS, tool.PERFORMANCE})
+                                      tool.RETURNS, tool.ADS_DAYS, tool.ADS_DETAIL, tool.SYNC_LEDGER, tool.RETURNS_SHEET, tool.CLAIMS, tool.PERFORMANCE, tool.ADS_MONTH})
 
 check("the run log can be written",
       answered(lambda: tool.where_a_document_lives(PROJECT, tool.LOG, "r1"))
