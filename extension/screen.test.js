@@ -45,7 +45,7 @@ import {
 } from './background.js';
 import { RELAY_TO_THE_PAGE } from './driver.js';
 import {
-  A_DAYS_ALLOWANCE, KEPT_FOR_HIS_OWN_RUNS, THE_NIGHT, carryTheNightOn, endTheNight, howTheNightWent, oneWasAskedFor,
+  A_DAYS_ALLOWANCE, KEPT_FOR_HIS_OWN_RUNS, PAUSED, RECHECKS, THE_NIGHT, carryTheNightOn, endTheNight, howTheNightWent, oneWasAskedFor,
   startTheNight, thatOneIsBeingTried, theNight,
 } from './nightly.js';
 import { hasNotFinished, theWalk } from './walk.js';
@@ -1741,6 +1741,50 @@ function panelParts(chrome, held = {}) {
   const next = await startTheNextPlatform(chrome, parts);
   check('A84: a stored queue naming the switched-off pair starts without them',
     Boolean(next.started) && started.length === 1 && started[0].doing.join() === 'fk_views');
+}
+
+{
+  /* **A84 REVIEW ROUND 3: A PAUSE OR A RE-CHECK HOLDING ONLY THE SWITCHED-OFF PAIR IS FORGOTTEN, NOT LEFT SAYING "Nothing is ticked"** (records
+   * kept by the 15 Oct build). */
+  const { chrome } = installFakeChrome();
+  const parts = { book: BOOK, now: () => Date.UTC(2026, 8, 16, 3, 0), startTheNight, carryOn: async () => {} };
+  const say = (asked) => answerThePanelsQuestion(chrome, parts, asked);
+  await say({ do: 'save-the-panel-name', panel: 'xuptj' });
+  await say({ do: 'check-the-drive' });
+  await chrome.storage.local.set({ [PAUSED]: { reportIds: ['fk_keywords', 'fk_ads_kw'], dataDate: '2026-10-14' } });
+  const resumed = await say({ do: 'resume' });
+  check('A84: resuming a pause that held only the pair says nothing is paused', (resumed.wrong || '').includes('Nothing is paused'));
+  check('and the pause is gone', (await chrome.storage.local.get(PAUSED))[PAUSED] === undefined);
+  await chrome.storage.local.set({ [PAUSED]: { reportIds: ['fk_keywords', 'fk_views'], dataDate: '2026-10-14' } });
+  await startASync(chrome, parts, { reportIds: ['fk_views'] });
+  await chrome.storage.local.set({ [PAUSED]: { reportIds: ['fk_keywords', 'fk_views'], dataDate: '2026-10-14' } });
+  await endTheNight(chrome, { at: Date.UTC(2026, 8, 16, 3, 30), why: 'Every report was reached.' });
+  await startASync(chrome, parts, { reportIds: ['fk_views'] });
+  check('a pause holding the pair and another keeps the other',
+    ((await chrome.storage.local.get(PAUSED))[PAUSED] || {}).reportIds.join() === 'fk_views');
+  await chrome.storage.local.set({ [RECHECKS]: {
+    a: { reportId: 'fk_keywords', dataDate: '2026-10-14' }, b: { reportId: 'fk_views', dataDate: '2026-10-15' },
+  } });
+  await endTheNight(chrome, { at: Date.UTC(2026, 8, 16, 4, 30), why: 'Every report was reached.' });
+  await startASync(chrome, parts, { reportIds: ['fk_views'] });
+  check('a re-check of the pair is forgotten and the others stay',
+    Object.values((await chrome.storage.local.get(RECHECKS))[RECHECKS]).map((one) => one.reportId).join() === 'fk_views');
+}
+
+{
+  /* **A84 PROVING: A TICK ON THE PAIR BESIDE ANOTHER WEBSITE'S REPORT DOES NOT REFUSE THE OTHER WEBSITE.** */
+  const { chrome } = installFakeChrome();
+  const started = [];
+  const parts = {
+    book: BOOK, now: () => Date.UTC(2026, 8, 16, 3, 0),
+    startTheNight: async (c, how) => { started.push(how); return startTheNight(c, how); },
+    carryOn: async () => {},
+  };
+  await answerThePanelsQuestion(chrome, parts, { do: 'save-the-panel-name', panel: 'xuptj' });
+  await answerThePanelsQuestion(chrome, parts, { do: 'check-the-drive' });
+  const said = await answerThePanelsQuestion(chrome, parts, { do: 'run-now', reportIds: ['fk_keywords', 'me_orders'] });
+  check('A84: the pair ticked beside a Meesho report leaves the Meesho report running alone',
+    !said.wrong && started.length === 1 && started[0].doing.join() === 'me_orders');
 }
 
 reachedTheEnd = true;

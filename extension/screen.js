@@ -41,7 +41,7 @@ import { theUpdateNotice } from './update.js';
 import { THE_WALK } from './background.js';
 import { aDriveToken } from './drive.js';
 import {
-  PAUSED, THE_NIGHT, THE_SCHEDULED_QUEUE, THE_SYNC_FAILED, whatIsPaused,
+  PAUSED, RECHECKS, THE_NIGHT, THE_SCHEDULED_QUEUE, THE_SYNC_FAILED, whatIsPaused,
 } from './nightly.js';
 import {
   askMayFetch, saveTheRunPass, whatKartaanLastSaid,
@@ -984,12 +984,11 @@ export async function answerThePanelsQuestion(chrome, parts, asked) {
      * "make it like Rumee"; `D:/rumee-auto-sync/background.js:191-209`)** -- the same
      * queue the timed sync uses. Every part is asked first, so a Meesho part that
      * cannot start never lets Flipkart spend its requests. */
-    /* A tick kept from before the pair was switched off is dropped here, not started as asked (A84). */
-    const wanted = [...new Set(asked.reportIds || [])].filter((id) => !OFF_THE_TIMED_LIST.includes(id));
     const byPlatform = PLATFORM_ORDER
-      .map((platform) => wanted.filter((id) => thePlatformOf(book, id) === platform))
+      .map((platform) => [...new Set(asked.reportIds || [])]
+        .filter((id) => thePlatformOf(book, id) === platform))
       .filter((ids) => ids.length);
-    if (byPlatform.length < 2) return startASync(chrome, parts, { reportIds: wanted, ...how });
+    if (byPlatform.length < 2) return startASync(chrome, parts, { reportIds: asked.reportIds, ...how });
     const setUp = await theSetup(chrome);
     const night = await theNight(chrome);
     for (const ids of byPlatform) {
@@ -1011,6 +1010,7 @@ export async function answerThePanelsQuestion(chrome, parts, asked) {
   if (asked.do === 'resume') {
     /* **CARRIES ON FROM THE REPORT THAT MET THE SIGN-IN -- RUMEE'S RESUME SYNC
      * (`D:\rumee-auto-sync\background.js:712-726`).** */
+    await forgetTheSwitchedOff(chrome);
     const paused = await whatIsPaused(chrome);
     if (!paused) return { wrong: 'Nothing is paused, so there is nothing to resume.' };
     const said = await startASync(chrome, parts, { reportIds: paused.reportIds, day: paused.dataDate });
@@ -1133,8 +1133,28 @@ export async function startASync(chrome, parts, asked) {
   return said;
 }
 
+/**
+ * **A PAUSE OR A RE-CHECK KEPT BY THE 15 OCT BUILD MAY HOLD THE SWITCHED-OFF PAIR (A84, review).** They are taken out of what is kept, and a
+ * record left with nothing is removed, so nothing keeps saying "Nothing is ticked" and a re-check of only the pair never blocks the days behind it.
+ */
+async function forgetTheSwitchedOff(chrome) {
+  const paused = (await chrome.storage.local.get(PAUSED))[PAUSED];
+  if (paused && Array.isArray(paused.reportIds)) {
+    const kept = paused.reportIds.filter((id) => !OFF_THE_TIMED_LIST.includes(id));
+    if (!kept.length) await chrome.storage.local.remove(PAUSED);
+    else if (kept.length !== paused.reportIds.length) await chrome.storage.local.set({ [PAUSED]: { ...paused, reportIds: kept } });
+  }
+  /* Read again here, not with the pause: the resume branch runs outside the night's own line, and a write made in between must not be overwritten. */
+  const rechecks = (await chrome.storage.local.get(RECHECKS))[RECHECKS];
+  if (rechecks && typeof rechecks === 'object') {
+    const kept = Object.fromEntries(Object.entries(rechecks).filter(([, one]) => !(one && OFF_THE_TIMED_LIST.includes(one.reportId))));
+    if (Object.keys(kept).length !== Object.keys(rechecks).length) await chrome.storage.local.set({ [RECHECKS]: kept });
+  }
+}
+
 async function startASyncInTurn(chrome, parts, asked) {
   const { book, now = () => Date.now() } = parts;
+  await forgetTheSwitchedOff(chrome);
   {
     /* **EVERY WAY A RUN STARTS COMES THROUGH HERE**: a resumed run, a queue kept by an older build and the hourly re-check carry ids saved
      * before the pair was switched off (A84, review). */
