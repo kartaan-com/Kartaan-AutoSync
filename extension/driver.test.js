@@ -1586,6 +1586,83 @@ function labelled(node, label) {
     from.value === '' && to.value === '');
 }
 
+for (const [start, end, from, expectedMonth] of [
+  ['2026-09-15', '2026-09-16', 10, 9],
+  ['2026-09-30', '2026-09-30', 10, 9],
+  ['2026-09-15', '2026-09-16', 8, 9],
+]) {
+  /* **A85, 2026-10-20: HIS REAL MEESHO, A DAY IN ANOTHER MONTH.** The modal
+   * opens on the current month (October) and its month is a dropdown, so no
+   * heading ever reads "September 2026". 27, 28 and 30 September failed with
+   * "0 date boxes ... no month heading" -- the day was not on the page, no
+   * heading could ever say a calendar was there, and nothing pressed the
+   * previous-month arrow. The cells' own labels say which month is showing.
+   * The grid also draws a few greyed days of the month before and after, which
+   * must not count as the month on show (the first review caught that). */
+  const page = aPage();
+  const door = doorOn();
+  let showing = from;
+  const modal = thing('div');
+  const months = thing('select');
+  for (const name of MONTHS_IN_FULL) months.append(thing('option', name));
+  const holder = thing('div');
+  const draw = () => {
+    holder.textContent = '';
+    for (let d = 28; d <= 30; d += 1) {
+      holder.append(thing('td', String(d), { attrs: { 'aria-label': meeshoOrdersLabel(2026, showing - 1, d) } }));
+    }
+    for (let d = 1; d <= 30; d += 1) {
+      holder.append(thing('td', String(d), { attrs: { 'aria-label': meeshoOrdersLabel(2026, showing, d) } }));
+    }
+    for (let d = 1; d <= 3; d += 1) {
+      holder.append(thing('td', String(d), { attrs: { 'aria-label': meeshoOrdersLabel(2026, showing + 1, d) } }));
+    }
+  };
+  const back = thing('button', '', { attrs: { 'aria-label': 'Previous month' } });
+  back.addEventListener('click', () => { showing -= 1; draw(); });
+  const on = thing('button', '', { attrs: { 'aria-label': 'Next month' } });
+  on.addEventListener('click', () => { showing += 1; draw(); });
+  draw();
+  modal.append(months, back, on, thing('input', '', { type: 'text', readOnly: true, placeholder: 'Select From Date' }),
+    thing('input', '', { type: 'text', readOnly: true, placeholder: 'DD/MM/YYYY' }), holder);
+  page.body.append(modal);
+
+  check(`${start} from a calendar open on month ${from}, with no readable heading and neighbours' greyed days, is reached`,
+    (await saidAfterWaiting(() => door.pick_range(start, end))) === '');
+  check(`and it stopped on month ${expectedMonth} rather than stepping past it`, showing === expectedMonth);
+}
+
+{
+  /* **THE SAME STEPPING FOR THE PAYMENTS WAY OF WRITING A DAY ("Jun 2, 2026")**,
+   * with no heading. Forty hidden cells of another month and forty cells whose
+   * month name is not a month sit beside it: neither may outvote the month
+   * really on show, or the calendar is stepped the wrong way. */
+  const page = aPage();
+  const door = doorOn();
+  let showing = 10;
+  const modal = thing('div');
+  const holder = thing('div');
+  const draw = () => {
+    holder.textContent = '';
+    for (let d = 1; d <= 30; d += 1) {
+      holder.append(thing('td', String(d), { attrs: { 'aria-label': meeshoPaymentsLabel(2026, showing, d) } }));
+    }
+    for (let d = 1; d <= 31; d += 1) {
+      holder.append(thing('td', String(d), { box: NOT_PAINTED, attrs: { 'aria-label': meeshoPaymentsLabel(2026, 1, d) } }));
+      holder.append(thing('td', String(d), { attrs: { 'aria-label': `Foo ${d}, 2026` } }));
+    }
+  };
+  const back = thing('button', '', { attrs: { 'aria-label': 'Previous month' } });
+  back.addEventListener('click', () => { showing -= 1; draw(); });
+  draw();
+  modal.append(back, holder);
+  page.body.append(modal);
+
+  check('payments-style labels with no heading are stepped back to the right month',
+    (await saidAfterWaiting(() => door.pick_range('2026-09-15', '2026-09-16'))) === '');
+  check('and hidden cells and cells with no real month did not outvote the month on show', showing === 9);
+}
+
 {
   /* **THE SAME PORTAL WRITES THE SAME DAY TWO DIFFERENT WAYS**, and the
    * reference knows both because it was caught by the second: orders and
@@ -2585,7 +2662,7 @@ function labelled(node, label) {
     (await shutDoor.try_signing_in()) === false);
 }
 
-const EXPECTED = 317;
+const EXPECTED = 325;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

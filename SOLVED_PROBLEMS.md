@@ -52,6 +52,7 @@ the file where it happened. A reviewer finding something already on this list is
 - A header cell can carry its icon's name as words (`CheckBoxOutlineBlank`) or run two words together (`Growthin 30 days`): name those exact words, accept no others, and the refusal still lists what the table has. -- `extension/tables.js` `ICON_NAMES`, `RUN_TOGETHER` (A84)
 - A report switched off by a ruling must be off everywhere it can be started, not only on the timer: the Run now panel opened with `fk_keywords` and `fk_ads_kw` ticked and started a stale tick as asked. -- `extension/screen.js` `OFF_THE_TIMED_LIST`, `theTickableReports`, `run-now` (A84)
 - A switched-off report can also sit in saved state from before (a paused run, a queued platform, the hourly re-check): filter where every run starts, and forget the saved records, or a record holding only the pair says "Nothing is ticked" for ever. Read each saved key fresh before writing it back. -- `extension/screen.js` `startASyncInTurn`, `forgetTheSwitchedOff` (A84, review)
+- A calendar opens on the current month and its heading may be unreadable (Meesho's month is a dropdown): a day in an earlier month is then not on the page, so recognise the calendar by any cell naming a day and step the month by the months those cells name, not only by a heading. -- `extension/driver.js` `everyMonthTheCellsName`, `pickRange`, `bringTheMonthIntoView` (A85, 20 Oct: Meesho orders for 27, 28, 30 Sep)
 
 ## Taking the file
 

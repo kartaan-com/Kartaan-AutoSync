@@ -778,6 +778,11 @@ const LEVELS_UP_TO_A_MONTH_PANEL = 8;
  * merely ends in four digits is refused exactly as it was before. */
 const A_MONTH_HEADING = /^([A-Za-z]{3,9})\s*(\d{4})$/;
 
+/* A CELL SAYING WHICH DAY IT IS, read only for the month and year in it:
+ * "Fri May 01 2026" (Meesho orders), "Jun 2, 2026" (Meesho payments). Both of
+ * Meesho's ways; the month name is checked by `whichMonth` as for a heading. */
+const A_DAY_CELL_LABEL = /^(?:[A-Za-z]{3}\s+([A-Za-z]{3})\s+\d{1,2}\s+(\d{4})|([A-Za-z]{3})\s+\d{1,2},\s*(\d{4}))$/;
+
 /* WHAT AN ARROW TO ANOTHER MONTH LOOKS LIKE. Either it is named, or it is one
  * of the characters a portal draws instead of a word. */
 const NAMED_ON = Object.freeze(['next']);
@@ -894,6 +899,40 @@ function everyMonthOnShow() {
   }
   const smallest = innermostOf(found.map((one) => one.node));
   return found.filter((one) => smallest.includes(one.node));
+}
+
+/**
+ * The month the day cells themselves say they are in.
+ *
+ * **FOR A CALENDAR WHOSE HEADING CAN NEVER BE READ (A85, 2026-10-20).** Meesho's
+ * month is a dropdown of all twelve names, so no heading ever says "October
+ * 2026" -- and with the calendar open on October, a day in September is not on
+ * the page at all: no cell names it and no heading shows, so the step gave up
+ * saying there was no calendar. Its cells do say which month they are
+ * (`aria-label="Tue Sep 01 2026"`), so a cell naming any day at all is a
+ * calendar, and it says which month to step away from.
+ *
+ * **THE MONTH MOST CELLS NAME, NOT EVERY MONTH ANY CELL NAMES.** A month's grid
+ * also draws a few greyed days of its neighbours, and counting those as "on
+ * show" stopped the stepping a month early, or sent it the wrong way. **MADE
+ * FOR MEESHO'S ONE PANEL.** An unheaded calendar drawing two panels side by side
+ * is not handled (it may step to the cap and refuse); none is known.
+ */
+function everyMonthTheCellsName() {
+  const counts = new Map();
+  for (const node of everything(thePage())) {
+    if (!isPainted(node)) continue;
+    const named = words(node.getAttribute('aria-label') ?? '');
+    const said = A_DAY_CELL_LABEL.exec(named);
+    if (!said) continue;
+    const which = whichMonth(said[1] ?? said[3]);
+    const year = Number(said[2] ?? said[4]);
+    if (which === -1) continue;
+    const key = monthKey(year, which + 1);
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  const most = Math.max(0, ...counts.values());
+  return [...counts].filter(([, n]) => n === most).map(([key]) => key);
 }
 
 /**
@@ -1620,7 +1659,8 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
        * heading**, which is the reference's own order: it never asks whether a
        * calendar is showing, it looks for the day. */
       if (boxes.length === 0
-        && (everyCellNaming(start).length > 0 || everyMonthOnShow().length > 0)) {
+        && (everyCellNaming(start).length > 0 || everyMonthOnShow().length > 0
+          || everyMonthTheCellsName().length > 0)) {
         await clickTheDay(start, switchedOffDaysChangeTheCursor);
         /* HALF A SECOND BETWEEN THE TWO, WHICH IS THE REFERENCE'S OWN NUMBER.
          * A range picker redraws itself once the first day is taken. */
@@ -1727,15 +1767,17 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
   async function bringTheMonthIntoView(day) {
     const wanted = monthKey(day.y, day.m);
     for (let step = 0; step < MONTHS_TO_STEP_THROUGH; step += 1) {
-      const onShow = everyMonthOnShow();
+      const headed = everyMonthOnShow().map((one) => one.key);
+      /* A heading comes first; the cells' own labels only when there is none. */
+      const onShow = headed.length > 0 ? headed : everyMonthTheCellsName();
       /* Nothing to steer by. Say nothing here and let the day lookup report
        * what it could not find -- it says what it looked for, and this cannot. */
       if (onShow.length === 0) return;
-      if (onShow.some((one) => one.key === wanted)) return;
+      if (onShow.includes(wanted)) return;
       /* **A CALENDAR CAN SHOW TWO MONTHS AT ONCE**, so the direction is decided
        * against the whole of what is on show rather than the first heading
        * found. Every month on show earlier than the one wanted means forwards. */
-      const forwards = Math.max(...onShow.map((one) => one.key)) < wanted;
+      const forwards = Math.max(...onShow) < wanted;
       const arrows = innermostOf(theWayToAnotherMonth(forwards));
       if (arrows.length === 0) return;
       /* **THE FIRST ONE, AND THIS IS THE ONE PLACE HERE THAT DOES NOT REFUSE ON
