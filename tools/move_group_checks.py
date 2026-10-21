@@ -5,6 +5,7 @@ below hands it a world (which tags exist, which have a published release, where
 each group points now) and asks whether it refuses or prints the push commands.
 It must never run anything that writes to GitHub: it only prints.
 """
+import json
 import sys
 from pathlib import Path
 
@@ -84,6 +85,35 @@ import re
 SRC = (Path(__file__).resolve().parent / "move_group.py").read_text(encoding="utf-8")
 check("the tool's own code never calls a git or gh command that writes",
       SRC != "" and not re.search(r"""["'](push|tag|branch|create|edit|delete|api|-f|--force)["']""", SRC))
+
+# ---- gather(): what it makes of GitHub's own answers (git ls-remote, gh release list) ----
+LS = "\n".join([
+    "aaa1\trefs/tags/v0.1.19", "bbb2\trefs/tags/v0.1.20", "ccc3\trefs/tags/v0.1.20^{}",
+    "ccc3\trefs/heads/group-1", "aaa1\trefs/heads/group-2", "ddd4\trefs/heads/main",
+    "ccc3\trefs/heads/v0.1.20-fix"])
+RL = json.dumps([{"tagName": "v0.1.19", "isDraft": False, "isPrerelease": False},
+                 {"tagName": "v0.1.20", "isDraft": False, "isPrerelease": False},
+                 {"tagName": "v0.1.21", "isDraft": True, "isPrerelease": False},
+                 {"tagName": "v0.1.22", "isDraft": False, "isPrerelease": True}])
+_real_read = mg._read
+mg._read = lambda *args: LS if args[0] == "git" else RL
+try:
+    got = mg.gather()
+finally:
+    mg._read = _real_read
+check("an annotated tag is read as the commit it points at, not the tag object", got.tags["v0.1.20"] == "ccc3")
+check("a plain tag is read as itself", got.tags["v0.1.19"] == "aaa1")
+check("a group is named by the tag at its commit", got.groups["group-1"] == "v0.1.20" and got.groups["group-2"] == "v0.1.19")
+check("a group that does not exist has no tag", got.groups["group-3"] is None and "group-3" not in got.branches)
+check("branches are listed", got.branches["main"] == "ddd4" and "group-1" in got.branches)
+check("releases are read as published, draft or prerelease",
+      got.releases == {"v0.1.19": "published", "v0.1.20": "published", "v0.1.21": "draft", "v0.1.22": "prerelease"})
+check("a branch whose name looks like a tag is not counted as a tag", "v0.1.20-fix" not in got.tags)
+
+EXPECTED = 48
+if ran != EXPECTED:
+    print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
+    failures.append("count")
 
 print(f"\n{len(failures)} FAILED ({ran} checks)" if failures else f"\nall {ran} checks passed")
 sys.exit(1 if failures else 0)
