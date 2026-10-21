@@ -420,6 +420,12 @@ check("THE REFRESH TOKEN IS NOT IN THE REFUSAL", "REFRESH-TOKEN-VALUE" not in st
 check("and it names the seven-day expiry, which is the likeliest cause",
       "seven days" in str(turned_away))
 
+check("A GOOGLE PERMISSION THAT HAS GONE (invalid_grant) SAYS SO IN PLAIN WORDS, not a bare HTTP 400 (A90)",
+      str(turned_away).startswith("Google permission gone -- press Allow Google"))
+afresh((400, [], b'{"error": "invalid_client"}'))
+check("and a refusal that is not a lost permission does not claim it is",
+      "press Allow Google" not in str(refused(a_google().token)))
+
 afresh((200, [], b'{"expires_in": 3600}'))
 check("an answer with no token in it is a refusal, not an empty token",
       isinstance(refused(a_google().token), PermissionError))
@@ -536,7 +542,7 @@ for method, use in (("PUT", lambda: drive.put("https://up/1", data=b"x")),
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 111
+EXPECTED = 113
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

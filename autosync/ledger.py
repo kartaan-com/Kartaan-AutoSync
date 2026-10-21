@@ -91,8 +91,8 @@ from typing import Dict, List, Optional, Sequence, Tuple
 # deciding it here would be a second answer waiting to disagree, and what it
 # decides is whether an older file may put its figure over a newer one.
 from orders import CAME_BACK, DELIVERED, NOT_UNDERSTOOD_YET, the_day_in
-from payments import two_sales_of_one_row
-from sales import COLUMNS, ERP_OWNED_COLUMNS, FROM_FIELD, Sale, a_cell, name_for, the_row_for
+from payments import a_decimal, as_text, shared_by_value, two_sales_of_one_row
+from sales import CHARGE_COLUMNS, COLUMNS, ERP_OWNED_COLUMNS, FROM_FIELD, Sale, a_cell, name_for, the_row_for
 from table import CannotRead
 
 # The first row of the sheet is the column names, so a sale is on row 2 or later.
@@ -416,6 +416,21 @@ class Unmatched:
 
 
 @dataclass(frozen=True)
+class SharedCharge:
+    """A charge Amazon took with no SKU, shared across its order's rows by each row's sale value (D563). Said, one line each."""
+
+    order_id: str
+    amount: str
+    rows: Tuple[str, ...]
+    from_report: str
+    on: str
+
+    def __str__(self) -> str:
+        return (f"{self.order_id!r}: {self.amount} shared over {len(self.rows)} rows by sale value "
+                f"({self.from_report} of {self.on}); split may change when more items land")
+
+
+@dataclass(frozen=True)
 class Restated:
     """A newer payments file put a different settlement over one an earlier file had written. Said, so it can be looked at (job 36).
 
@@ -455,6 +470,8 @@ class Plan:
     unmatched: Tuple[Unmatched, ...] = ()
     # **A SETTLEMENT A NEWER PAYMENTS FILE CHANGED** (job 36). Never a count on its own: each is named.
     restated: Tuple[Restated, ...] = ()
+    # **A CHARGE SHARED ACROSS AN ORDER'S ROWS (D563).** The ledger has no column to mark a share, so each is named here and in the night's lines.
+    shared: Tuple[SharedCharge, ...] = ()
 
     def says(self) -> str:
         """One line for the run log. **Every count, even the noughts.**"""
@@ -764,6 +781,8 @@ def _put_each_on_its_row(
     reading: "Reading",
     now: Dict[str, Dict[str, str]],
     poisoned,
+    shared_out: Optional[List[SharedCharge]] = None,
+    only_a_fee: Optional[set] = None,
 ) -> Tuple[List[Tuple[str, Sale]], List[Unmatched]]:
     """Which ledger row each line of a payments file is about, and which lines are about none (job 36).
 
@@ -781,6 +800,8 @@ def _put_each_on_its_row(
 
     landed: Dict[str, Sale] = {}
     said: List[Unmatched] = []
+    by_fee: set = set()  # rows this file reaches ONLY through a no-SKU line
+    by_sku: set = set()
     for sale in reading.sales:
         target = sale.id if sale.id in now else None
         if target is None and sale.id in poisoned:
@@ -791,6 +812,23 @@ def _put_each_on_its_row(
                 # **A MEESHO SUB-ORDER IS ONE LINE BY ITS OWN NUMBER, so a CLAIM (which names no SKU) has exactly one row to be on.** Only a
                 # claim: a payment line with no SKU is still said, never placed by guessing.
                 target = there[0]
+            elif not sale.sku and len(there) == 1 and sale.platform == "amazon":
+                # **A CHARGE AMAZON TOOK WITH NO SKU (a cancellation fee) GOES ON ITS ORDER'S ROW (D554, his words: "if that has been deducted
+                # from us it must show for that order").** Matched by the order id the settlement line carries, and only when the order has
+                # exactly one row: with several, which item it is for cannot be said, and it falls to the case below.
+                target = there[0]
+                by_fee.add(target)
+            elif not sale.sku and len(there) > 1 and sale.platform == "amazon" and (shares := shared_by_value(
+                    sale, {n: a_decimal(now[n].get("gmv", "")) for n in there})) is not None:
+                # **SEVERAL ROWS: THE CHARGE IS SHARED BY EACH ROW'S SALE VALUE (D563), never all on one row and never left off.** The shares
+                # add to the charge exactly; a row with no sale value makes the share a guess, and that case is said below.
+                if shared_out is not None:
+                    shared_out.append(SharedCharge(
+                        order_id=sale.order_id, amount=sale.settlement or "", rows=tuple(shares), from_report=reading.report, on=reading.on))
+                for share_of, share in shares.items():
+                    landed[share_of] = two_sales_of_one_row(landed[share_of], share) if share_of in landed else share
+                    by_fee.add(share_of)
+                continue
             elif not sale.sku and there:
                 # **NEVER PLACED BY GUESSING FROM THE LEDGER.** The reader places a line with no SKU on its order's one SKU when
                 # its own file names exactly one. What is left names none, and the ledger may not yet hold the order's other
@@ -814,7 +852,11 @@ def _put_each_on_its_row(
                     from_file=reading.one_statement,
                 ))
                 continue
+        if sale.sku or target not in by_fee:
+            by_sku.add(target)
         landed[target] = two_sales_of_one_row(landed[target], sale) if target in landed else sale
+    if only_a_fee is not None:
+        only_a_fee.update(by_fee - by_sku)
     return list(landed.items()), said
 
 
@@ -865,6 +907,7 @@ def plan(
 
     unmatched: List[Unmatched] = []
     restated: List[Restated] = []
+    shared: List[SharedCharge] = []
     columns_changed: Dict[str, set] = {}
 
     for reading in in_order:
@@ -875,8 +918,9 @@ def plan(
             raise LedgerRefused(
                 f"The {reading.report} report names {', '.join(owned)}, which the ERP owns: the run never writes them, so nothing was written."
             )
+        only_a_fee: set = set()
         if reading.only_existing:
-            sales_here, said_lines = _put_each_on_its_row(reading, now, poisoned)
+            sales_here, said_lines = _put_each_on_its_row(reading, now, poisoned, shared, only_a_fee)
             unmatched.extend(said_lines)
         else:
             sales_here = [(sale.id, sale) for sale in reading.sales]
@@ -918,10 +962,32 @@ def plan(
             # **A DIFFERENT CLAIM TAKES ITS OWN RUPEES (A87 review):** when the order's claim changes, a blank recovered amount clears the old
             # claim's rupees instead of leaving them beside the new claim's id.
             claim_changed = bool(says.get("claimId")) and now[name].get("claimId", "") not in ("", says["claimId"])
+            # **A NO-SKU FEE IS KEYED BY ITS SETTLEMENT ID AND LINE (D575), and a key already in the row's notes is a fee already added.**
+            # Reading the same file again must not add it twice; the row's money is then left exactly as it is.
+            fee_keys = {k for k in (sale.notes or "").split() if k.startswith("fee:")} if name in only_a_fee else set()
+            standing = set((now[name].get("notes", "") or "").split())
+            fee_seen = bool(fee_keys & standing)
+            if fee_seen and not fee_keys <= standing:
+                # Some of this file's fees are on the row and some are not: which figure is the missing part cannot be said, so it is said.
+                disagreements.append(Disagreement(
+                    name=name, column="settlement", kept=str(now[name].get("settlement", "")),
+                    also_said=str(says.get("settlement", "")), from_report=reading.report, on=reading.on,
+                    kept_from=THE_SHEET_REMEMBERS, also_from=reading.one_statement,
+                ))
             for column, value in says.items():
                 if column == "id":
                     continue
+                if fee_seen and (column == "settlement" or column in CHARGE_COLUMNS):
+                    continue
                 was = now[name].get(column, "")
+                added = False
+                if name in only_a_fee and (column == "settlement" or column in CHARGE_COLUMNS) and str(value) != "" and str(was) != "":
+                    # **A FEE THIS FILE NAMES NO SKU FOR ADDS TO WHAT THE ROW ALREADY HOLDS, never replaces it (D574 item 3): the figure the
+                    # row holds is the order's other money from an earlier file, and a replacement would lose it.** A figure either side that
+                    # cannot be read is left to the ordinary rule.
+                    old_figure, fee = a_decimal(str(was)), a_decimal(str(value))
+                    if old_figure is not None and fee is not None:
+                        value, added = as_text(old_figure + fee), True
 
                 # **SAYING NOTHING IS NOT SAYING "NOTHING". A blank never
                 # overwrites something already there.**
@@ -1001,7 +1067,7 @@ def plan(
                         ))
                     continue
                 if str(was) != str(value):
-                    if reading.only_existing and column == "settlement" and str(was) != "":
+                    if reading.only_existing and column == "settlement" and str(was) != "" and not added:
                         restated.append(Restated(
                             name=name, was=str(was), now=str(value), from_report=reading.report,
                             on=reading.on, from_file=reading.one_statement,
@@ -1014,6 +1080,11 @@ def plan(
                 # delivered order read blank. A blank is nobody's statement.
                 if str(value) != "" or str(was) != "":
                     decided_on.now_decided(name, column, reading.on, reading.one_statement)
+            if fee_keys and not fee_seen:
+                # The keys go into the row's notes beside whatever he wrote there, so the next reading of this file knows it was added.
+                now[name]["notes"] = " ".join(filter(None, [now[name].get("notes", "") or "", *sorted(fee_keys)]))
+                changed[name] = True
+                columns_changed.setdefault(name, set()).add("notes")
 
     append: List[Tuple[str, ...]] = []
     update: List[Tuple[int, Tuple[str, ...]]] = []
@@ -1044,4 +1115,5 @@ def plan(
         left_alone=tuple(left_alone),
         unmatched=tuple(unmatched),
         restated=tuple(restated),
+        shared=tuple(shared),
     )

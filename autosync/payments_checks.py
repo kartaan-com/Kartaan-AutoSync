@@ -14,6 +14,7 @@ import io
 import os
 import sys
 import zipfile
+from dataclasses import replace
 from decimal import Decimal
 from io import BytesIO
 from pathlib import Path
@@ -551,8 +552,78 @@ check("A LINE THAT NAMES A SKU THE ORDER DOES NOT HAVE IS NOT PUT ON THE ORDER'S
 
 _p5 = answered(lambda: ledger.plan(HELD, [pays("az_settlements", "2026-09-05",
                                                a_payment("amazon", "404-1", "", "-20", shipping="20"))]))
-check("A LINE WITH NO SKU THAT REACHES THE LEDGER IS NEVER GUESSED ONTO 'THE ORDER'S ONLY ROW': it is said",
-      _p5 is not None and _p5.update == () and len(_p5.unmatched) == 1 and "names no SKU" in str(_p5.unmatched[0]))
+check("A CHARGE WITH NO SKU GOES ON ITS ORDER'S ROW WHEN THE ORDER HAS EXACTLY ONE, matched by the order id (D554, A90)",
+      _p5 is not None and len(_p5.update) == 1 and _p5.unmatched == ()
+      and (a_row(after(HELD, _p5), _name) or {}).get("charge_shipping") == "20"
+      and (a_row(after(HELD, _p5), _name) or {}).get("settlement") == "-20")
+check("PAYMENTS NAMES NO STATUS BY HAND: it uses the shared names, so a rename can never silently stop matching (A90)",
+      '"Delivered"' not in Path(tool.__file__).read_text(encoding="utf-8")
+      and '"Came back"' not in Path(tool.__file__).read_text(encoding="utf-8")
+      and tool.MEESHO_STATUS_MEANS == {"delivered": tool.DELIVERED, "return": tool.CAME_BACK, "rto": tool.CAME_BACK})
+
+
+def _priced(sku, gmv):
+    return sales.Sale(platform="amazon", order_id="404-7", sku=sku, on="2026-08-01", qty="1", gmv=gmv, status="Delivered",
+                      orders_on="2026-08-02")
+
+
+_TWO = sheet_with(_priced("SKU-X", "300"), _priced("SKU-Y", "100"))
+_p5b = answered(lambda: ledger.plan(_TWO, [pays("az_settlements", "2026-09-05",
+                                                a_payment("amazon", "404-7", "", "-28.91", otherServices="28.91"))]))
+_after5b = after(_TWO, _p5b) if _p5b else _TWO
+_rx = a_row(_after5b, sales.name_for("amazon", "404-7", "SKU-X")) or {}
+_ry = a_row(_after5b, sales.name_for("amazon", "404-7", "SKU-Y")) or {}
+check("A CHARGE WITH NO SKU FOR AN ORDER WITH SEVERAL ROWS IS SHARED BY EACH ROW'S SALE VALUE, none left off (D563, A90)",
+      _p5b is not None and len(_p5b.update) == 2 and _p5b.unmatched == ()
+      and _rx.get("charge_otherServices") == "21.68" and _ry.get("charge_otherServices") == "7.23")
+check("AND THE SHARES ADD UP TO THE CHARGE EXACTLY, the odd paisa on the last row, and the settlement is shared the same way",
+      Decimal(_rx.get("charge_otherServices", "0")) + Decimal(_ry.get("charge_otherServices", "0")) == Decimal("28.91")
+      and Decimal(_rx.get("settlement", "0")) + Decimal(_ry.get("settlement", "0")) == Decimal("-28.91"))
+_h5 = answered(lambda: sheet_with(_priced("SKU-X", ""), _priced("SKU-Y", "")))
+_p5d = answered(lambda: ledger.plan(_h5, [pays("az_settlements", "2026-09-05",
+                                               a_payment("amazon", "404-7", "", "-28.91", otherServices="28.91"))]))
+check("A SHARE THAT CANNOT BE WORKED OUT (a row with no sale value) IS SAID, never guessed",
+      _p5d is not None and _p5d.update == () and len(_p5d.unmatched) == 1 and "names no SKU" in str(_p5d.unmatched[0]))
+
+# D574 (3): a no-SKU fee from a LATER file ADDS to the row's settlement, never replaces it (replacing loses money).
+_paid_before = sales.Sale(platform="amazon", order_id="404-8", sku="SKU-P", on="2026-08-01", qty="1", gmv="500", status="Delivered",
+                          orders_on="2026-08-02", settlement="450", charges={"commission": "50"}, payments_on="2026-09-01")
+_HP = sheet_with(_paid_before)
+_pn = sales.name_for("amazon", "404-8", "SKU-P")
+_p5e = answered(lambda: ledger.plan(_HP, [pays("az_settlements", "2026-09-05",
+                                               a_payment("amazon", "404-8", "", "-28.91", otherServices="28.91"))]))
+_r5e = a_row(after(_HP, _p5e), _pn) if _p5e else {}
+check("A LATER FILE'S NO-SKU FEE ADDS TO THE ROW'S SETTLEMENT AND CHARGES, never replaces them (D574 item 3, A90)",
+      _r5e is not None and _r5e.get("settlement") == "421.09" and _r5e.get("charge_otherServices") == "28.91"
+      and _r5e.get("charge_commission") == "50" and (_p5e is not None and _p5e.restated == ()))
+_p5f = answered(lambda: ledger.plan(_HP, [pays("az_settlements", "2026-09-05",
+                                               a_payment("amazon", "404-8", "SKU-P", "400", commission="60"))]))
+_r5f = a_row(after(_HP, _p5f), _pn) if _p5f else {}
+check("BUT A LATER FILE'S LINE THAT NAMES THE SKU STILL REPLACES, as before: it is the order's whole figure",
+      _r5f is not None and _r5f.get("settlement") == "400" and _r5f.get("charge_commission") == "60")
+# D575: adding a later no-SKU fee is SAFE TO RE-READ. Each fee carries its settlement id and line; a fee already on the row is never added twice.
+_fee = replace(a_payment("amazon", "404-8", "", "-28.91", otherServices="28.91"), notes="fee:S1:5")
+_fee_reading = pays("az_settlements", "2026-09-05", _fee)
+_once = answered(lambda: ledger.plan(_HP, [_fee_reading]))
+_sheet1 = after(_HP, _once) if _once else _HP
+_twice = answered(lambda: ledger.plan(_sheet1, [_fee_reading]))
+_sheet2 = after(_sheet1, _twice) if _twice else _sheet1
+_again = answered(lambda: ledger.plan(_sheet2, [pays("az_settlements", "2026-09-06", _fee, which="az_settlements2026-09-06")]))
+_sheet3 = after(_sheet2, _again) if _again else _sheet2
+check("A FEE READ TWICE (a full re-read, even under another day's file) IS ADDED ONCE (D575, A90)",
+      (a_row(_sheet1, _pn) or {}).get("settlement") == "421.09" and (a_row(_sheet2, _pn) or {}).get("settlement") == "421.09"
+      and (a_row(_sheet3, _pn) or {}).get("settlement") == "421.09"
+      and (a_row(_sheet3, _pn) or {}).get("charge_otherServices") == "28.91")
+check("AND THE ROW'S NOTES KEEP THE FEE'S KEY, with whatever he typed there left in place",
+      "fee:S1:5" in (a_row(_sheet1, _pn) or {}).get("notes", ""))
+_other_fee = replace(a_payment("amazon", "404-8", "", "-1.09", otherServices="1.09"), notes="fee:S2:9")
+_third = answered(lambda: ledger.plan(_sheet3, [pays("az_settlements", "2026-09-07", _other_fee, which="az_settlements2026-09-07")]))
+check("A DIFFERENT FEE (another settlement or line) STILL ADDS",
+      (a_row(after(_sheet3, _third), _pn) or {}).get("settlement") == "420" if _third else False)
+_dr_bad = answered(lambda: read_as("az_settlements", "amazon_az_settlements_2026-09-30.csv", an_amazon_file(
+    an_amazon_line("Order", "407-1", "SKU-A", "100", "Released", **{"fba fees": "x?"}))))
+check("THE DATE RANGE READER SAYS AN UNREADABLE CHARGE, with its order and its own text (D575, Rule 29)",
+      _dr_bad is not None and any("unreadable charge 407-1" in x and "'x?'" in x for x in _dr_bad[0].set_aside))
 _p7 = answered(lambda: ledger.plan(HELD, [pays("az_settlements", "2026-09-05",
                                                a_payment("amazon", "404-1", "SKU-A", "100", commission="10"),
                                                a_payment("amazon", "404-1", "SKU-A", "-20", shipping="20"))]))
@@ -653,6 +724,14 @@ def a_night(the_sheet, files, bodies, already=()):
         record_the_sales=record,
     )
 
+
+_said5 = []
+answered(lambda: ledger_sheet.recording_into(TheSheet([list(r) for r in _TWO]), _said5.append)([pays(
+    "az_settlements", "2026-09-05", a_payment("amazon", "404-7", "", "-28.91", otherServices="28.91"))]))
+check("EACH SHARED CHARGE IS LISTED IN THE NIGHT'S OWN WORDS: the order, the amount and how it was split (D563 as amended)",
+      _p5b is not None and len(_p5b.shared) == 1
+      and any(x.startswith("SALES LEDGER SHARED ORDER CHARGE") and "404-7" in x and "28.91" in x and "sale value" in x for x in _said5)
+      and any("split may change when more items land" in x for x in _said5))
 
 _the = TheSheet(sheet_with(
     an_order("amazon", "404-1", "SKU-A"), an_order("amazon", "404-5", "SKU-X"), an_order("amazon", "404-5", "SKU-Y"),
@@ -1005,8 +1084,17 @@ check("and its day is the file's own, out of its name", _v2_reading is not None 
       and all(s.payments_on == "2026-09-08" for s in _v2_reading.sales))
 _v2_bad = answered(lambda: read_as("az_settlements", V2_NAME, a_v2_file(
     a_v2_line("Order", "406-9", "SKU-Z", "ItemPrice", "Principal", "12abc"))))
-check("and an amount that is not a figure is said, not dropped as a blank",
-      _v2_bad is not None and any("not a figure" in x for x in _v2_bad[0].set_aside) and not _v2_bad[0].sales)
+check("and an amount that is not a figure is said with its order and its own text, not dropped as a blank (D574 item 5)",
+      _v2_bad is not None and "unreadable charge 406-9: '12abc'" in _v2_bad[0].set_aside and not _v2_bad[0].sales)
+_v2_bad2 = answered(lambda: read_as("az_settlements", V2_NAME, a_v2_file(
+    a_v2_line("Order", "", "", "Other", "Fee", "x9"))))
+check("and so is one with no order id at all",
+      _v2_bad2 is not None and "unreadable charge (no order id): 'x9'" in _v2_bad2[0].set_aside)
+_v2_keyed = answered(lambda: read_as("az_settlements", V2_NAME, a_v2_file(
+    a_v2_line("Order", "406-1", "SKU-A", "ItemPrice", "Principal", "100.00", sid="77"),
+    a_v2_line("Order", "406-1", "", "ItemFees", "Cancellation", "-28.91", sid="77"))))
+check("THE SETTLEMENT READER KEYS A NO-SKU FEE BY ITS SETTLEMENT ID AND LINE",
+      _v2_keyed is not None and any("fee:77:" in (s.notes or "") for s in _v2_keyed[0].sales))
 check("and a settlement file that has lost a column is refused, naming it",
       refused_by(lambda: read_as("az_settlements", V2_NAME, a_v2_file(
           a_v2_line("Order", "406-1", "SKU-A", "ItemPrice", "Principal", "1"),
@@ -1079,7 +1167,7 @@ if failures:
     print(f"{len(failures)} FAILED: {failures}")
     sys.exit(1)
 WITHOUT = ran - real_ran
-if WITHOUT != 95 + 22 + 17 + 8 + 2 + 3:
-    print(f"FAIL  checks went missing -- {WITHOUT} ran without his files, 147 expected")
+if WITHOUT != 95 + 22 + 17 + 8 + 2 + 3 + 5 + 3 + 5:
+    print(f"FAIL  checks went missing -- {WITHOUT} ran without his files, 160 expected")
     sys.exit(1)
 print(f"all {ran} checks passed" + ("" if real_ran == HIS_FILES_GROUP else f" ({HIS_FILES_GROUP - real_ran} of his real-file checks not run -- the files are elsewhere)"))
