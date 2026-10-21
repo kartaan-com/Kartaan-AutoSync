@@ -20,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ledger as tool  # noqa: E402
 import ledger_sheet  # noqa: E402
 import orders  # noqa: E402
+import reading  # noqa: E402
 import sales  # noqa: E402
 import sheet  # noqa: E402
 import table  # noqa: E402
@@ -749,9 +750,44 @@ _not_wiped = answered(lambda: tool.plan(
 check("but a sale with a quantity above nought never loses its price to a blank",
       _not_wiped is not None and _not_wiped.update == ())
 
+# **AN ORDER DELIVERED AND RETURNED ON THE SAME DAY KEEPS "DELIVERED" WHICHEVER FILE IS READ FIRST (A89, AU3 item 4).** Amazon's returns file says
+# nothing about what became of an order until the platform has finished the return; its blank must not count as that day's word and shut out the
+# orders file of the same day. **THE PROOF IS THE MIDDLE CHECK** (returns file between the two orders files); the other two guard the orders that already
+# worked. Real files: 405-8281274-2953914 (delivered 16 Oct, return requested 16 Oct) read blank in the sheet after run #25.
+_RETURNS_KNOW = reading.WHAT_RETURNS_KNOW
+_ORDERS_KNOW = reading.WHAT_ORDERS_KNOWS
+
+
+def _amazon_night(files):
+    values, memory = HEADER, tool.WhatTheNightHasDecided()
+    for one in files:
+        made = tool.plan(values, [one], memory)
+        values = [list(r) for r in values]
+        values += [list(r) for r in made.append]
+        for at, row in made.update:
+            values[at - 1] = list(row)
+    return dict(zip(sales.COLUMNS, values[-1]))
+
+
+def _amazon(order_id="A1", **rest):
+    return sales.Sale(platform="amazon", order_id=order_id, sku="S", **rest)
+
+
+_picked_up = tool.Reading("az_orders", "2026-10-12", _ORDERS_KNOW, (_amazon(on="2026-10-10", qty=1, gmv=349, status="Shipped - Picked Up",
+                          orders_on="2026-10-12"),), "o12")
+_delivered = tool.Reading("az_orders", "2026-10-16", _ORDERS_KNOW, (_amazon(on="2026-10-10", qty=1, gmv=349, status="Shipped - Delivered to Buyer",
+                          what_happened="Delivered", orders_on="2026-10-16"),), "o16")
+_requested = tool.Reading("az_returns", "2026-10-16", _RETURNS_KNOW, (_amazon(returns_on="2026-10-16"),), "r16")
+for _name, _files in (("orders file first", [_picked_up, _delivered, _requested]),
+                      ("returns file between the two orders files", [_picked_up, _requested, _delivered]),
+                      ("returns file first", [_requested, _picked_up, _delivered])):
+    _row = answered(lambda f=_files: _amazon_night(f))
+    check(f"a delivered order whose return was only requested the same day reads Delivered -- {_name}",
+          _row is not None and _row["whatHappened"] == "Delivered" and _row["returnsOn"] == "2026-10-16")
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-WITH_HIS_FILES = 115 + 2 + 2
+WITH_HIS_FILES = 115 + 2 + 2 + 3
 EXPECTED = WITH_HIS_FILES - (9 if not_run else 0)
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")

@@ -1009,7 +1009,11 @@ def plan(
                     now[name][column] = value
                     changed[name] = True
                     columns_changed.setdefault(name, set()).add(column)
-                decided_on.now_decided(name, column, reading.on, reading.one_statement)
+                # **A BLANK OVER A BLANK DECIDES NOTHING (A89, AU3 item 4).** Amazon's returns file says nothing of what became of an order until
+                # the return is finished; marking that blank as the day's word shut out the orders file of the same day as a "tie", and a
+                # delivered order read blank. A blank is nobody's statement.
+                if str(value) != "" or str(was) != "":
+                    decided_on.now_decided(name, column, reading.on, reading.one_statement)
 
     append: List[Tuple[str, ...]] = []
     update: List[Tuple[int, Tuple[str, ...]]] = []
