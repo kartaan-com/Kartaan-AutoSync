@@ -19,13 +19,16 @@ name: Auto-sync
 # the day it is made: a fix pushed here would never reach it. So this says
 # `uses:` and the code comes from Kartaan every night.
 #
-# **AND IT NAMES A VERSION TAG, NEVER A BRANCH -- D122.** A seller pinned to a
-# branch gets whatever was pushed that afternoon, and one bad push breaks every
-# seller that night. A three-part tag never moves.
+# **AND IT NAMES A GROUP, NEVER A VERSION AND NEVER A BRANCH OF OURS -- D426.**
+# `group-1`, `group-2` and `group-3` are the only names accepted. Each one only
+# ever points at a released version tag and is moved only by Kartaan after a
+# release (group-1 first, the others after a quiet night each), so a seller
+# follows new versions by themselves and never gets whatever was pushed that
+# afternoon. A version tag itself never moves (D122).
 #
 # **WHAT A SELLER'S FROZEN COPY OF THIS FILE CANNOT PICK UP** is a change to the
-# CALLER: a ninth secret, or a newer tag. That is real, it is not solved here,
-# and it is why the tag below is changed deliberately and rarely.
+# CALLER: a ninth secret, or a different group. That is rare, and it is the one
+# line below -- the last word after the `@`.
 
 # **WHAT THIS JOB MAY DO TO THE SELLER'S OWN REPOSITORY: NOTHING (D135).** Left
 # unsaid, `GITHUB_TOKEN` takes the repository's default, which on many accounts
@@ -90,17 +93,17 @@ on:
 
 jobs:
   fetch:
-    # **THE TAG IS THE WHOLE OF D122.** Three parts, never a branch, never a
-    # moving `v0`. Changing it is a deliberate act by the seller or by whoever
-    # sets their repository up -- it is the only line here that decides which
-    # code runs tonight.
+    # **THE GROUP IS THE WHOLE OF D426.** `group-1`, `group-2` or `group-3`;
+    # never a version, never `main`, never a moving `v0`. Which version a group
+    # points at is decided by Kartaan, after a release -- this is still the only
+    # line here that decides which code runs tonight, and it is set once.
     #
     # **v0.1.0 IS BURNT AND MUST NEVER BE HANDED TO A SELLER (A41).** At that
     # tag the called workflow fetched the CALLER's repository -- this one,
     # which holds only this file -- and then looked for an `autosync` folder
     # in it. Every night would have failed inside a run. `v0.1.1` is the
     # first tag a seller can actually fetch on.
-    uses: kartaan-com/Kartaan-AutoSync/.github/workflows/autosync.yml@v0.1.20
+    uses: kartaan-com/Kartaan-AutoSync/.github/workflows/autosync.yml@group-1
     with:
       # **`|| false` IS NOT DECORATION.** On a scheduled tick the `inputs`
       # context has nothing in it, and an empty value handed to a boolean input
