@@ -414,11 +414,32 @@ check("being turned away raises rather than answering an empty token",
       isinstance(turned_away, PermissionError))
 check("and it says which status Google gave", "400" in str(turned_away))
 check("THE REFRESH TOKEN IS NOT IN THE REFUSAL", "REFRESH-TOKEN-VALUE" not in str(turned_away))
-# The likeliest cause is documented and silent, so it is named rather than left
-# for somebody to find: a refresh token issued while the app is in Google's
-# Testing state dies after seven days.
-check("and it names the seven-day expiry, which is the likeliest cause",
-      "seven days" in str(turned_away))
+# **SU1 (D524): GOOGLE TURNING THE PERMISSION DOWN IS SAID AS WHAT IT IS, WITH THE FIX.** On 21 Oct 2026 a seller's
+# nightly job failed with a bare HTTP 400 and nothing said whose it was to fix. 400 and 401 are Google saying the
+# client, secret or permission is wrong or gone -- and pressing Allow Google in Kartaan writes all three again.
+# **D214: A CAUSE IS STATED ONLY WHEN GOOGLE SAID IT.** `invalid_grant` is Google saying the permission was taken back or
+# has expired, so that is said; any other 400 or 401 is said as what happened, with the same fix and no guessed cause.
+FIX = ("What to do: open Kartaan, go to This business, and press Allow Google (step 3, the button 'Get a code from Google'). ")
+check("Google's own invalid_grant says the permission is gone, and what to do about it, in those words",
+      str(turned_away) == "Google permission gone (HTTP 400): Google says the permission was taken back or has expired. "
+      + FIX + "That one step renews it; nothing else needs doing.")
+afresh((401, [], b'{"error": "invalid_client"}'))
+other_refusal = str(refused(a_google().token))
+check("any other refusal says only that Google did not accept the sign-in, with the same fix and no cause",
+      other_refusal == "Google did not accept the sign-in this fetching uses (HTTP 401). " + FIX
+      + "That one step renews it, the client details included; nothing else needs doing."
+      and "taken back" not in other_refusal)
+afresh((400, [], b"<html>not a record</html>"))
+check("a 400 whose body cannot be read is the same, never 'gone'", "did not accept the sign-in" in str(refused(a_google().token))
+      and "taken back" not in str(refused(a_google().token)))
+afresh((400, [], b'{"error": "invalid_grant"}'))
+check("and a 400 invalid_grant still never prints the body or the error code it read",
+      "invalid_grant" not in str(refused(a_google().token)))
+afresh((503, [], b"Service Unavailable"))
+busy_google = refused(a_google().token)
+check("but a Google that is only down is not told as a lost permission",
+      isinstance(busy_google, PermissionError) and "press Allow Google" not in str(busy_google)
+      and "503" in str(busy_google))
 
 afresh((200, [], b'{"expires_in": 3600}'))
 check("an answer with no token in it is a refusal, not an empty token",
@@ -536,7 +557,7 @@ for method, use in (("PUT", lambda: drive.put("https://up/1", data=b"x")),
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 111
+EXPECTED = 115
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

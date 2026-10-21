@@ -110,6 +110,14 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
     # be MADE by this connection, and it is: the same object below both makes it
     # and writes to it, which is what makes the everyday permission carry.
     google = the_google_connection(now)
+    # **THE ONE THING A SELLER CAN FIX IS SAID FIRST, AS GITHUB'S OWN RED LINE (SU1, D524).** A permission Google
+    # turned down is found out here, before anything is fetched, and the run's last line says to press Allow Google in
+    # Kartaan -- not a traceback ending in a bare status. The token is kept, so this costs the next call nothing.
+    try:
+        google.token()
+    except PermissionError as gone:
+        print(f"::error::{gone}")
+        return 1
     # **THE ONE `Kartaan` FOLDER AT THE TOP OF HIS DRIVE, FOUND BY NAME (job 34).** Everything
     # the run puts away is inside it, in his layout, and the extension finds the same folder
     # the same way. No folder id is kept anywhere.
