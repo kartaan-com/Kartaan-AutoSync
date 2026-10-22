@@ -31,3 +31,8 @@
 *.xlsx binary
 *.xls binary
 *.png binary
+
+# The early catcher is generated from catch-blob.js and a check compares the two
+# byte for byte, so both stay Unix-ended on every machine (base fix, AP5c).
+extension/catch-blob.js text eol=lf
+extension/catch-early.js text eol=lf
