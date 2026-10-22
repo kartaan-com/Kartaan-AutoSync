@@ -51,6 +51,7 @@ ADS = "Ads"
 BELOW_REPORTS: Dict[str, Tuple[str, ...]] = {
     "az_orders": (AMAZON, "Orders"),
     "az_returns": (AMAZON, "Returns"),
+    "az_suppressed": (AMAZON, "Suppressed"),
     "az_settlements": (AMAZON, "Settlements"),
     "fk_orders": (FLIPKART, "Orders"),
     "fk_returns": (FLIPKART, "Returns"),

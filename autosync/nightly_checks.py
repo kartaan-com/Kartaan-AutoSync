@@ -353,7 +353,7 @@ check("what has been said is written down, so the next run knows",
 default = Harness()
 default.go(reports=None)
 check("left to itself it fetches only what can be fetched with nobody present",
-      {r for r, _, _ in default.fetched} == {"az_orders", "az_settlements", "az_returns"})
+      {r for r, _, _ in default.fetched} == {"az_orders", "az_settlements", "az_returns", "az_suppressed"})
 
 # ------------------------------------------- what a tick says it was
 

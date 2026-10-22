@@ -293,6 +293,44 @@ check("and all three are different", answered(lambda: len(set(tool.HOSTS.values(
 check("a refused marketplace is named in the refusal", answered(lambda: "A1F83G8C2ARO7P" in _said(lambda: tool.host_for("A1F83G8C2ARO7P"))))
 check("and the refusal points at Amazon's own table", answered(lambda: "marketplace-id table" in _said(lambda: tool.host_for("A1F83G8C2ARO7P"))))
 
+# ----------------------------------- v0.1.21 job 6: snapshot reports (suppressed listings, account health)
+#
+# **FROM AMAZON'S OWN PAGES, read 2026-10-22 (Golden Rule 1):**
+# developer-docs.amazon.com/sp-api/docs/report-type-values-inventory -- GET_MERCHANTS_LISTINGS_FYP_REPORT, "Suppressed Listings Report":
+#   "Contains suppressed listings, the reason each listing is suppressed, and instructions for removing each suppression."
+#   Tab-delimited flat file; the page lists no dates; Product Listing role; only the first of several marketplaceIds is accepted.
+# developer-docs.amazon.com/sp-api/docs/report-type-values-performance -- GET_V2_SELLER_PERFORMANCE_REPORT, "Seller Performance Report":
+#   "Contains the individual performance metrics data from the Seller Central Account Health dashboard." No request dates are
+#   listed; the report "can only be requested"; Selling Partner Insights role; schema accountHealthReport-2020-11-18.
+# India is named on neither page, so the first real request (plan sample A5, Control's) is the only proof.
+suppressed = answered(lambda: tool.amazon_report("az_suppressed"))
+health = answered(lambda: tool.amazon_report("az_health"))
+check("suppressed listings are Amazon's GET_MERCHANTS_LISTINGS_FYP_REPORT, asked for",
+      suppressed is not None and suppressed.report_type == "GET_MERCHANTS_LISTINGS_FYP_REPORT" and suppressed.how == tool.ASK_FOR_IT)
+check("account health is Amazon's GET_V2_SELLER_PERFORMANCE_REPORT, asked for",
+      health is not None and health.report_type == "GET_V2_SELLER_PERFORMANCE_REPORT" and health.how == tool.ASK_FOR_IT)
+check("both are snapshots, and none of the three older reports is", answered(lambda: suppressed.snapshot and health.snapshot
+      and not any(tool.amazon_report(one).snapshot for one in ("az_orders", "az_returns", "az_settlements"))))
+import reports as _reports  # noqa: E402
+
+_nightly_ids = [r.id for r in _reports.on_the_api_door()]
+check("az_health is not yet on the nightly list: its file would be refused as a message until the first real file shows its format",
+      "az_health" not in _nightly_ids and "az_suppressed" in _nightly_ids)
+snap_body = answered(lambda: tool.create_body("az_suppressed", DAY("2026-08-26"), DAY("2026-08-26")))
+check("A SNAPSHOT BODY HAS NO DATES: the type and the marketplace only",
+      snap_body == {"reportType": "GET_MERCHANTS_LISTINGS_FYP_REPORT", "marketplaceIds": [tool.INDIA]})
+check("the account-health body has no dates either",
+      answered(lambda: "dataStartTime" not in tool.create_body("az_health", DAY("2026-08-26"), DAY("2026-08-26"))
+               and "dataEndTime" not in tool.create_body("az_health", DAY("2026-08-26"), DAY("2026-08-26"))))
+check("a dated report still sends its dates", answered(lambda: "dataStartTime" in body and "dataEndTime" in body))
+check("a snapshot is not refused for the length of the range, which it does not send",
+      answered(lambda: tool.why_request_is_refused("az_health", DAY("2026-01-01"), DAY("2026-08-26")) is None))
+check("a DATED report is still refused over its max_days (orders 30, returns 60)",
+      answered(lambda: tool.why_request_is_refused("az_orders", DAY("2026-07-01"), DAY("2026-08-26")) is not None
+               and tool.why_request_is_refused("az_returns", DAY("2026-07-01"), DAY("2026-08-30")) is not None))
+check("the notes name Amazon's own page words", answered(lambda: "Suppressed Listings Report" in suppressed.note
+      and "Account Health" in health.note))
+
 # **THE NOTES ARE READ, not decoration.** Each says why the report is fetched the
 # way it is, and that is the thing somebody changing it needs to see.
 check("the orders note says why last-update is used",
@@ -345,7 +383,7 @@ check("and it says why nothing was written", answered(lambda: "worse than a miss
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 118
+EXPECTED = 128
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

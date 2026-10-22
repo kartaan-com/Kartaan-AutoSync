@@ -243,6 +243,10 @@ WHAT_ADS_CAN_BE_READ: Tuple[HowToRead, ...] = tuple(
 # below is the plan's decision for that report, taken ONE BY ONE, and the piece that builds its
 # reader; when the reader is built the entry moves up and the check refuses it in both places.
 WHAT_IS_FETCHED_AND_NOT_READ_YET: Dict[str, str] = {
+    "az_suppressed": (
+        "decided (v0.1.21 plan 1c): `suppressed`, `suppressedReason`, `fixHint` put on each listing record -- the reader is the piece that comes with "
+        "the first real file (plan sample A5), so the file is kept untouched until then"
+    ),
     "fk_keywords": (
         "switched off by his ruling (piece 49), so it is not fetched at all and has no folder"
     ),

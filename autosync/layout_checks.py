@@ -48,6 +48,9 @@ check("a report's path starts at Reports and ends at its own folder",
 check("Amazon's three are Orders, Returns and Settlements, as he wrote them",
       [tool.where_it_goes(one)[-1] for one in ("az_orders", "az_returns", "az_settlements")]
       == ["Orders", "Returns", "Settlements"])
+check("and the Amazon snapshot has its own folder, Suppressed",
+      [tool.where_it_goes(one) for one in ("az_suppressed",)]
+      == [("Reports", "Amazon", "Suppressed")])
 check("Meesho's three ads folders are ads, catalog and summary",
       sorted(tool.where_it_goes(one)[-1] for one in ("me_ads", "me_ads_catalog", "me_ads_summary"))
       == ["ads", "catalog", "summary"])
@@ -92,7 +95,7 @@ for one in sorted(HERE.glob("*.py")):
 check(f"the run makes a folder in exactly one place, in drive_door.py -- {makes_a_folder_py}",
       len(makes_a_folder_py) == 1 and makes_a_folder_py[0].startswith("drive_door.py:"))
 
-EXPECTED = 16
+EXPECTED = 17
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

@@ -85,7 +85,7 @@ EVERY_ID = (
     "me_orders", "me_returns", "me_payments", "me_claims", "me_catalog", "me_views",
     "me_product_performance", "me_pricing",
     "me_ads", "me_ads_summary", "me_ads_catalog",
-    "az_orders", "az_settlements", "az_returns",
+    "az_orders", "az_settlements", "az_returns", "az_suppressed",
 )
 check("the report list is exactly what it is meant to be", answered(lambda: tuple(r.id for r in tool.REPORTS) == EVERY_ID))
 check("there are reports at all", answered(lambda: len(tool.REPORTS) == len(EVERY_ID)))
@@ -384,7 +384,7 @@ check("and its returns are too",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 88
+EXPECTED = 89
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

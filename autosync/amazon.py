@@ -109,6 +109,9 @@ class AmazonReport:
     how: str
     max_days: Optional[int] = None
     note: str = ""
+    # **A SNAPSHOT IS ASKED FOR WITH NO DATES** (v0.1.21 job 6): Amazon's page for the report lists none, so a body that carried them
+    # would be guessing at a parameter (Golden Rule 1). It is a picture of how things stand when it is made.
+    snapshot: bool = False
 
 
 AMAZON_REPORTS: Tuple[AmazonReport, ...] = (
@@ -143,6 +146,28 @@ AMAZON_REPORTS: Tuple[AmazonReport, ...] = (
             "Amazon schedules this itself. It is found, never requested. The two older "
             "settlement types are deprecated and are removed on 11 November 2026."
         ),
+    ),
+    # **TWO SNAPSHOTS, BUILT FROM AMAZON'S OWN PAGES (read 2026-10-22), NEVER YET ASKED OF A REAL ACCOUNT (plan sample A5 is Control's).**
+    # developer-docs.amazon.com/sp-api/docs/report-type-values-inventory, "Suppressed Listings Report": "Contains suppressed
+    # listings, the reason each listing is suppressed, and instructions for removing each suppression." Tab-delimited; Product
+    # Listing role; no dates listed; only the first marketplaceId is accepted. India is not named on the page.
+    AmazonReport(
+        "az_suppressed",
+        "GET_MERCHANTS_LISTINGS_FYP_REPORT",
+        ASK_FOR_IT,
+        snapshot=True,
+        note="Suppressed Listings Report: the listings hidden from buyers, why, and how to fix each. A picture of now, sent with no dates.",
+    ),
+    # developer-docs.amazon.com/sp-api/docs/report-type-values-performance, "Seller Performance Report": "Contains the
+    # individual performance metrics data from the Seller Central Account Health dashboard." Schema accountHealthReport-2020-11-18;
+    # Selling Partner Insights role; "can only be requested"; no request dates or options listed. The page does not say the output is
+    # JSON, so nothing here assumes it.
+    AmazonReport(
+        "az_health",
+        "GET_V2_SELLER_PERFORMANCE_REPORT",
+        ASK_FOR_IT,
+        snapshot=True,
+        note="Seller Performance Report: the metrics on Seller Central's Account Health dashboard. A picture of now, sent with no dates.",
     ),
 )
 
@@ -189,6 +214,9 @@ def why_request_is_refused(report_id: str, start: date, end: date) -> Optional[s
             f"{report_id} cannot be asked for. Amazon schedules it itself, so it is found "
             "rather than requested."
         )
+    if which.snapshot:
+        # Sent with no dates, so the range it was handed is never put to Amazon and cannot be wrong.
+        return None
     if end < start:
         return f"{report_id}: the range ends before it starts."
     if which.max_days is not None and (end - start).days + 1 > which.max_days:
@@ -227,6 +255,8 @@ def create_body(report_id: str, start: date, end: date, marketplace_id: str = IN
     wrong = why_request_is_refused(report_id, start, end)
     if wrong:
         raise ValueError(wrong)
+    if amazon_report(report_id).snapshot:
+        return {"reportType": amazon_report(report_id).report_type, "marketplaceIds": [marketplace_id]}
     return {
         "reportType": amazon_report(report_id).report_type,
         "marketplaceIds": [marketplace_id],

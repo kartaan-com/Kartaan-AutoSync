@@ -310,6 +310,12 @@ REPORTS: Tuple[Report, ...] = (
     # publish one is not a day anybody is owed anything.
     Report("az_settlements", "amazon", "Amazon settlements", API, WHEN_THEY_PUBLISH_IT, "csv"),
     Report("az_returns", "amazon", "Amazon returns", API, DAILY, "csv"),
+    # **ONE SNAPSHOT BY THE API DOOR (v0.1.21 job 6): what Amazon hides from buyers and why.** A picture of now, asked with no dates, so
+    # a past day cannot be fetched again. **`az_health` IS NOT HERE ON PURPOSE:** Amazon's page does not state its file format and
+    # `landing.what_it_really_is` refuses any body that starts with `{` as "a message rather than a report", so listed here it would
+    # cost two rationed requests a night and land nothing. It joins this list with the landing rule once the first real file (plan
+    # sample A5) shows the bytes. The door side (`amazon.py`) is ready.
+    Report("az_suppressed", "amazon", "Amazon suppressed listings", API, DAILY, "csv", cannot_backfill=_SNAPSHOT),
 )
 
 

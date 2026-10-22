@@ -26,6 +26,12 @@
       "cannotBeAskedForAgain": null
     },
     {
+      "id": "az_suppressed",
+      "platform": "amazon",
+      "name": "Amazon suppressed listings",
+      "cannotBeAskedForAgain": "This is a picture of how things stand right now. The platform keeps no history to ask for, so a past day cannot be fetched again -- only the day it was taken."
+    },
+    {
       "id": "fk_ads_daily",
       "platform": "flipkart",
       "name": "Flipkart ads, by day",
