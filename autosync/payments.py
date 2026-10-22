@@ -29,11 +29,12 @@ order is decided in `ledger.plan`, which knows the ledger -- this file does not.
 **NOTHING HERE TOUCHES THE NETWORK, THE DISK OR A CLOCK.**
 """
 
+import hashlib
 from dataclasses import dataclass, replace
 from decimal import Decimal, InvalidOperation
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
-from orders import NotRead, _unwrap_flipkart_sku, a_figure, the_day_in
+from orders import CAME_BACK, DELIVERED, NotRead, _unwrap_flipkart_sku, a_figure, the_day_in
 from sales import CHARGE_COLUMNS, CHARGE_IDS, Sale
 from table import CannotRead, Row, Table
 
@@ -62,7 +63,7 @@ WHAT_PAYMENTS_KNOW = ("settlement",) + CHARGE_COLUMNS + ("paymentsOn", "whatHapp
 # Delivered is Delivered; Return and RTO (returned to origin) are Came back. Any other word, or a blank, says nothing. The only platform whose
 # payments file carries such a column; the others leave `what_happened` empty and a blank never overwrites.
 MEESHO_LIVE_STATUS = "Live Order Status"
-MEESHO_STATUS_MEANS = {"delivered": "Delivered", "return": "Came back", "rto": "Came back"}
+MEESHO_STATUS_MEANS = {"delivered": DELIVERED, "return": CAME_BACK, "rto": CAME_BACK}
 
 
 @dataclass(frozen=True)
@@ -137,7 +138,43 @@ def two_sales_of_one_row(first: Sale, second: Sale) -> Sale:
         first,
         settlement=add_up(first.settlement, second.settlement),
         charges=charges,
+        notes=" ".join(sorted({*(first.notes or "").split(), *(second.notes or "").split()})) or None,
     )
+
+
+def shared_by_value(sale: Sale, values: Dict[str, Optional[Decimal]]) -> Optional[Dict[str, Sale]]:
+    """One order-level line (no SKU) cut into a share for each of the order's rows, in proportion to each row's sale value (D563).
+
+    **THE SHARES ADD UP TO THE LINE EXACTLY: each is rounded to the paisa and the LAST row (by name) takes what is left**, so the
+    order's total is counted once. Nothing is returned when a row has no sale value, or the values add to nothing: a share worked
+    out from a guess is the thing this must never do, and the caller says the line instead.
+    """
+    if len(values) < 2 or any(v is None or v < 0 for v in values.values()):
+        return None
+    whole = sum(values.values(), Decimal(0))
+    if whole <= 0:
+        return None
+    names = sorted(values)
+    cent = Decimal("0.01")
+    figures = {"settlement": a_decimal(sale.settlement) if sale.settlement is not None else None,
+               **{one: a_decimal(f) for one, f in (sale.charges or {}).items()}}
+    shares: Dict[str, Dict[str, Optional[Decimal]]] = {n: {} for n in names}
+    for key, figure in figures.items():
+        if figure is None:
+            continue
+        given = Decimal(0)
+        for n in names[:-1]:
+            shares[n][key] = (figure * values[n] / whole).quantize(cent)
+            given += shares[n][key]
+        shares[names[-1]][key] = figure - given
+    return {
+        n: replace(
+            sale,
+            settlement=None if shares[n].get("settlement") is None else as_text(shares[n]["settlement"]),
+            charges={one: as_text(f) for one, f in shares[n].items() if one != "settlement"},
+        )
+        for n in names
+    }
 
 
 # ---------------------------------------------------------------- finding columns
@@ -183,14 +220,18 @@ class _Lines:
     def __init__(self):
         self._settlement: Dict[Tuple[str, str], Optional[Decimal]] = {}
         self._charges: Dict[Tuple[str, str], Dict[str, Decimal]] = {}
+        # **THE KEY OF EVERY NO-SKU FEE FOLDED INTO A ROW (D575)**: settlement id and line, so the ledger can tell a fee it already added.
+        self._keys: Dict[Tuple[str, str], List[str]] = {}
 
     def states(self, key: Tuple[str, str]) -> bool:
         """Does this file already state money for that order and SKU?"""
         return key in self._settlement
 
-    def put(self, key: Tuple[str, str], settlement: Optional[Decimal], charges: Dict[str, Decimal]) -> None:
+    def put(self, key: Tuple[str, str], settlement: Optional[Decimal], charges: Dict[str, Decimal], fee_key: str = "") -> None:
         if settlement is None and not charges:
             return  # a line with nothing in it states nothing
+        if fee_key:
+            self._keys.setdefault(key, []).append(fee_key)
         if settlement is not None:
             self._settlement[key] = (self._settlement.get(key) or Decimal(0)) + settlement
         else:
@@ -214,7 +255,9 @@ class _Lines:
             target = (key[0], names[0])
             settlement = self._settlement.pop(key)
             charges = self._charges.pop(key)
+            keys = self._keys.pop(key, [])
             self.put(target, settlement, charges)
+            self._keys.setdefault(target, []).extend(keys)
 
     def sales(self, platform: str, data_date: str) -> Tuple[Sale, ...]:
         self._the_skuless_placed()
@@ -227,6 +270,7 @@ class _Lines:
                 sku=key[1],
                 settlement=None if settlement is None else as_text(settlement),
                 charges={one: as_text(figure) for one, figure in sorted(self._charges[key].items())},
+                notes=" ".join(sorted(set(self._keys.get(key, [])))) or None,
                 payments_on=data_date,
             ))
         return tuple(out)
@@ -456,7 +500,7 @@ def read_meesho(rows: Table, data_date: str, extras: Optional[Dict[str, object]]
         lines.put(key, paid, charges)
         word = MEESHO_STATUS_MEANS.get(_cell(row, status_at[0]).strip().lower()) if len(status_at) == 1 else None
         # A sub-order with a line that came back has come back, whatever its other lines say.
-        if word and became.get(key) != "Came back":
+        if word and became.get(key) != CAME_BACK:
             became[key] = word
 
     aside: List[str] = []
@@ -507,6 +551,8 @@ def read_amazon(rows: Table, data_date: str, extras: Optional[Dict[str, object]]
     lines = _Lines()
     no_order: Dict[str, int] = {}
     not_yet: Dict[str, int] = {}
+    unreadable: List[str] = []
+    seen: Dict[str, int] = {}
     for row in rows:
         kind = _cell(row, kind_at).strip() or "unnamed"
         order_id = _cell(row, order_at).strip()
@@ -520,9 +566,22 @@ def read_amazon(rows: Table, data_date: str, extras: Optional[Dict[str, object]]
             word = status or "no status"
             not_yet[word] = not_yet.get(word, 0) + 1
             continue
-        lines.put((order_id, _cell(row, sku_at).strip()), a_decimal(_cell(row, total_at)), _taken(row, places))
+        # **A MONEY CELL THAT IS NOT A FIGURE IS SAID, WITH ITS ORDER AND ITS OWN TEXT, never dropped as if it were blank (D575, Rule 29).**
+        for at in [total_at] + [spot for spots in places.values() for spot in spots]:
+            if _cell(row, at).strip() and a_decimal(_cell(row, at)) is None:
+                unreadable.append(f"unreadable charge {order_id}: {_cell(row, at).strip()!r}")
+        sku = _cell(row, sku_at).strip()
+        fee_key = ""
+        if sku == "":
+            # **A NO-SKU FEE IS KEYED BY THE LINE'S OWN FIELDS (D581 item 2, D575)**, never by its place in the file or the file's name, so the
+            # same file read twice, or downloaded again under another day, gives the same key and the ledger adds the fee once. Two lines
+            # that are identical in every field are two fees, told apart by how many came before.
+            own = "|".join(cell.strip() for cell in row.cells)
+            seen[own] = seen.get(own, 0) + 1
+            fee_key = f"fee:dr:{hashlib.sha1(own.encode('utf-8')).hexdigest()[:12]}:{seen[own]}"
+        lines.put((order_id, sku), a_decimal(_cell(row, total_at)), _taken(row, places), fee_key)
 
-    aside: List[str] = []
+    aside: List[str] = list(unreadable)
     for kind, count in sorted(no_order.items()):
         aside.append(f"{count} {kind!r} lines with no order id, which belong to no sale")
     for word, count in sorted(not_yet.items()):
@@ -588,13 +647,19 @@ def read_amazon_settlement(rows: Table, data_date: str, extras: Optional[Dict[st
     ids: set = set()
     no_order: Dict[str, int] = {}
     unnamed: Dict[str, int] = {}
-    for row in rows:
+    unreadable: List[str] = []
+    for line_no, row in enumerate(rows, start=1):
         if _cell(row, id_at).strip():
             ids.add(_cell(row, id_at).strip())
         amount = a_decimal(_cell(row, amount_at))
         order_id = _cell(row, order_at).strip()
         amount_type = _cell(row, type_at).strip()
         description = _cell(row, desc_at).strip()
+        if amount is None and _cell(row, amount_at).strip():
+            # **A MONEY CELL THAT IS NOT A FIGURE IS SAID, WITH ITS ORDER AND ITS OWN TEXT, never dropped as if it were blank (D574 item 5,
+            # Rule 29)** -- whether or not the line has an order id.
+            unreadable.append(f"unreadable charge {order_id or '(no order id)'}: {_cell(row, amount_at).strip()!r}")
+            continue
         if order_id == "":
             # The settlement's own first line (its total, no amount) states nothing; any other line with no order is money that
             # belongs to no sale, said by what Amazon calls it.
@@ -602,20 +667,16 @@ def read_amazon_settlement(rows: Table, data_date: str, extras: Optional[Dict[st
                 named = amount_type or _cell(row, kind_at).strip() or "unnamed"
                 no_order[named] = no_order.get(named, 0) + 1
             continue
-        if amount is None and _cell(row, amount_at).strip():
-            # **A MONEY CELL THAT IS NOT A FIGURE IS SAID, never dropped as if it were blank.**
-            unnamed[f"{amount_type} / {description} (amount not a figure)"] = (
-                unnamed.get(f"{amount_type} / {description} (amount not a figure)", 0) + 1)
-            continue
         charge = _v2_charge(amount_type, description)
         charges: Dict[str, Decimal] = {}
         if charge is not None and amount is not None:
             charges[charge] = -amount
             if charge == "otherServices" and amount_type.lower() not in ("itemfees",) and not description.lower().startswith("fba"):
                 unnamed[f"{amount_type} / {description}"] = unnamed.get(f"{amount_type} / {description}", 0) + 1
-        lines.put((order_id, _cell(row, sku_at).strip()), amount, charges)
+        sku = _cell(row, sku_at).strip()
+        lines.put((order_id, sku), amount, charges, "" if sku else f"fee:{_cell(row, id_at).strip()}:{line_no}")
 
-    aside: List[str] = []
+    aside: List[str] = list(unreadable)
     for named, count in sorted(no_order.items()):
         aside.append(f"{count} {named!r} lines with no order id, which belong to no sale")
     for named, count in sorted(unnamed.items()):

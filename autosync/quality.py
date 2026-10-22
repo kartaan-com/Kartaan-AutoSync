@@ -89,7 +89,7 @@ def read_quality(report_id: str, platform: str, rows: table.Table, file_day: str
             sales = rupees(row["Yearly Sales"])
             stars = shared.a_figure(row["1Y Ratings Trend"], most=5)
             returns_cell = [part.strip() for part in row["5M Returns Trend"].split("|")]
-            returns_pct = shared.a_figure(returns_cell[0], most=100)
+            returns_pct = shared.a_figure(returns_cell[0], most=10**6)
         except ValueError as wrong:
             not_read.append(f"line {row.line} ({sku}): {wrong}")
             continue

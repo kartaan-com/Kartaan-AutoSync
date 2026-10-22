@@ -14,6 +14,7 @@ import io
 import os
 import sys
 import zipfile
+from dataclasses import replace
 from decimal import Decimal
 from io import BytesIO
 from pathlib import Path
@@ -551,8 +552,213 @@ check("A LINE THAT NAMES A SKU THE ORDER DOES NOT HAVE IS NOT PUT ON THE ORDER'S
 
 _p5 = answered(lambda: ledger.plan(HELD, [pays("az_settlements", "2026-09-05",
                                                a_payment("amazon", "404-1", "", "-20", shipping="20"))]))
-check("A LINE WITH NO SKU THAT REACHES THE LEDGER IS NEVER GUESSED ONTO 'THE ORDER'S ONLY ROW': it is said",
-      _p5 is not None and _p5.update == () and len(_p5.unmatched) == 1 and "names no SKU" in str(_p5.unmatched[0]))
+check("A CHARGE WITH NO SKU GOES ON ITS ORDER'S ROW WHEN THE ORDER HAS EXACTLY ONE, matched by the order id (D554, A90)",
+      _p5 is not None and len(_p5.update) == 1 and _p5.unmatched == ()
+      and (a_row(after(HELD, _p5), _name) or {}).get("charge_shipping") == "20"
+      and (a_row(after(HELD, _p5), _name) or {}).get("settlement") == "-20")
+check("PAYMENTS NAMES NO STATUS BY HAND: it uses the shared names, so a rename can never silently stop matching (A90)",
+      '"Delivered"' not in Path(tool.__file__).read_text(encoding="utf-8")
+      and '"Came back"' not in Path(tool.__file__).read_text(encoding="utf-8")
+      and tool.MEESHO_STATUS_MEANS == {"delivered": tool.DELIVERED, "return": tool.CAME_BACK, "rto": tool.CAME_BACK})
+
+
+def _priced(sku, gmv):
+    return sales.Sale(platform="amazon", order_id="404-7", sku=sku, on="2026-08-01", qty="1", gmv=gmv, status="Delivered",
+                      orders_on="2026-08-02")
+
+
+_TWO = sheet_with(_priced("SKU-X", "300"), _priced("SKU-Y", "100"))
+_p5b = answered(lambda: ledger.plan(_TWO, [pays("az_settlements", "2026-09-05",
+                                                a_payment("amazon", "404-7", "", "-28.91", otherServices="28.91"))]))
+_after5b = after(_TWO, _p5b) if _p5b else _TWO
+_rx = a_row(_after5b, sales.name_for("amazon", "404-7", "SKU-X")) or {}
+_ry = a_row(_after5b, sales.name_for("amazon", "404-7", "SKU-Y")) or {}
+check("A CHARGE WITH NO SKU FOR AN ORDER WITH SEVERAL ROWS IS SHARED BY EACH ROW'S SALE VALUE, none left off (D563, A90)",
+      _p5b is not None and len(_p5b.update) == 2 and _p5b.unmatched == ()
+      and _rx.get("charge_otherServices") == "21.68" and _ry.get("charge_otherServices") == "7.23")
+check("AND THE SHARES ADD UP TO THE CHARGE EXACTLY, the odd paisa on the last row, and the settlement is shared the same way",
+      Decimal(_rx.get("charge_otherServices", "0")) + Decimal(_ry.get("charge_otherServices", "0")) == Decimal("28.91")
+      and Decimal(_rx.get("settlement", "0")) + Decimal(_ry.get("settlement", "0")) == Decimal("-28.91"))
+_h5 = answered(lambda: sheet_with(_priced("SKU-X", ""), _priced("SKU-Y", "")))
+_p5d = answered(lambda: ledger.plan(_h5, [pays("az_settlements", "2026-09-05",
+                                               a_payment("amazon", "404-7", "", "-28.91", otherServices="28.91"))]))
+check("A SHARE THAT CANNOT BE WORKED OUT (a row with no sale value) IS SAID, never guessed",
+      _p5d is not None and _p5d.update == () and len(_p5d.unmatched) == 1 and "names no SKU" in str(_p5d.unmatched[0]))
+
+# D574 (3): a no-SKU fee from a LATER file ADDS to the row's settlement, never replaces it (replacing loses money).
+_paid_before = sales.Sale(platform="amazon", order_id="404-8", sku="SKU-P", on="2026-08-01", qty="1", gmv="500", status="Delivered",
+                          orders_on="2026-08-02", settlement="450", charges={"commission": "50"}, payments_on="2026-09-01")
+_HP = sheet_with(_paid_before)
+_pn = sales.name_for("amazon", "404-8", "SKU-P")
+_p5e = answered(lambda: ledger.plan(_HP, [pays("az_settlements", "2026-09-05",
+                                               a_payment("amazon", "404-8", "", "-28.91", otherServices="28.91"))]))
+_r5e = a_row(after(_HP, _p5e), _pn) if _p5e else {}
+check("A LATER FILE'S NO-SKU FEE ADDS TO THE ROW'S SETTLEMENT AND CHARGES, never replaces them (D574 item 3, A90)",
+      _r5e is not None and _r5e.get("settlement") == "421.09" and _r5e.get("charge_otherServices") == "28.91"
+      and _r5e.get("charge_commission") == "50" and (_p5e is not None and _p5e.restated == ()))
+_p5f = answered(lambda: ledger.plan(_HP, [pays("az_settlements", "2026-09-05",
+                                               a_payment("amazon", "404-8", "SKU-P", "400", commission="60"))]))
+_r5f = a_row(after(_HP, _p5f), _pn) if _p5f else {}
+check("BUT A LATER FILE'S LINE THAT NAMES THE SKU STILL REPLACES, as before: it is the order's whole figure",
+      _r5f is not None and _r5f.get("settlement") == "400" and _r5f.get("charge_commission") == "60")
+# D575: adding a later no-SKU fee is SAFE TO RE-READ. Each fee carries its settlement id and line; a fee already on the row is never added twice.
+_fee = replace(a_payment("amazon", "404-8", "", "-28.91", otherServices="28.91"), notes="fee:S1:5")
+_fee_reading = pays("az_settlements", "2026-09-05", _fee)
+_once = answered(lambda: ledger.plan(_HP, [_fee_reading]))
+_sheet1 = after(_HP, _once) if _once else _HP
+_twice = answered(lambda: ledger.plan(_sheet1, [_fee_reading]))
+_sheet2 = after(_sheet1, _twice) if _twice else _sheet1
+_again = answered(lambda: ledger.plan(_sheet2, [pays("az_settlements", "2026-09-06", _fee, which="az_settlements2026-09-06")]))
+_sheet3 = after(_sheet2, _again) if _again else _sheet2
+check("A FEE READ TWICE (a full re-read, even under another day's file) IS ADDED ONCE (D575, A90)",
+      (a_row(_sheet1, _pn) or {}).get("settlement") == "421.09" and (a_row(_sheet2, _pn) or {}).get("settlement") == "421.09"
+      and (a_row(_sheet3, _pn) or {}).get("settlement") == "421.09"
+      and (a_row(_sheet3, _pn) or {}).get("charge_otherServices") == "28.91")
+check("AND THE ROW'S NOTES KEEP THE FEE'S KEY, with whatever he typed there left in place",
+      "fee:S1:5" in (a_row(_sheet1, _pn) or {}).get("notes", ""))
+_other_fee = replace(a_payment("amazon", "404-8", "", "-1.09", otherServices="1.09"), notes="fee:S2:9")
+_third = answered(lambda: ledger.plan(_sheet3, [pays("az_settlements", "2026-09-07", _other_fee, which="az_settlements2026-09-07")]))
+check("A DIFFERENT FEE (another settlement or line) STILL ADDS",
+      (a_row(after(_sheet3, _third), _pn) or {}).get("settlement") == "420" if _third else False)
+_dr_bad = answered(lambda: read_as("az_settlements", "amazon_az_settlements_2026-09-30.csv", an_amazon_file(
+    an_amazon_line("Order", "407-1", "SKU-A", "100", "Released", **{"fba fees": "x?"}))))
+check("THE DATE RANGE READER SAYS AN UNREADABLE CHARGE, with its order and its own text (D575, Rule 29)",
+      _dr_bad is not None and any("unreadable charge 407-1" in x and "'x?'" in x for x in _dr_bad[0].set_aside))
+# D581 (2): a Date Range no-SKU fee is SAFE TO RE-READ too, keyed by the line's own fields so a re-download of the file reads the same.
+_dr_fee_line = an_amazon_line("Shipping Services", "404-8", "", "-28.91", **{"date/time": "5 Sep 2026 10:11:12 am UTC", "other transaction fees": "-28.91"})
+_dr_fee_file = lambda day: an_amazon_file(_dr_fee_line)
+_dr_one = answered(lambda: read_as("az_settlements", "amazon_az_settlements_2026-09-05.csv", _dr_fee_file(1)))
+_dr_two = answered(lambda: read_as("az_settlements", "amazon_az_settlements_2026-09-12.csv", _dr_fee_file(2)))
+_dr_s1 = after(_HP, answered(lambda: ledger.plan(_HP, [_dr_one[0]])))
+_dr_s2 = after(_dr_s1, answered(lambda: ledger.plan(_dr_s1, [_dr_one[0]])))
+_dr_s3 = after(_dr_s2, answered(lambda: ledger.plan(_dr_s2, [_dr_two[0]])))
+check("THE SAME DATE RANGE FILE READ TWICE, EVEN RE-DOWNLOADED UNDER ANOTHER DAY, ADDS ITS NO-SKU FEE ONCE (D581 item 2, D575)",
+      (a_row(_dr_s1, _pn) or {}).get("settlement") == "421.09" and (a_row(_dr_s2, _pn) or {}).get("settlement") == "421.09"
+      and (a_row(_dr_s3, _pn) or {}).get("settlement") == "421.09" and (a_row(_dr_s3, _pn) or {}).get("charge_otherServices", "") != "57.82")
+_dr_other = an_amazon_line("Shipping Services", "404-8", "", "-1.09", **{"date/time": "6 Sep 2026 1:00:00 pm UTC", "other transaction fees": "-1.09"})
+_dr_s4 = after(_dr_s3, answered(lambda: ledger.plan(_dr_s3, [read_as("az_settlements", "amazon_az_settlements_2026-09-13.csv",
+                                                                     an_amazon_file(_dr_other))[0]])))
+check("AND A DIFFERENT DATE RANGE LINE (another day or figure) STILL ADDS", (a_row(_dr_s4, _pn) or {}).get("settlement") == "420")
+_dr_same_twice = read_as("az_settlements", "amazon_az_settlements_2026-09-14.csv", an_amazon_file(_dr_fee_line, _dr_fee_line))
+check("TWO IDENTICAL LINES IN ONE FILE ARE TWO FEES, each with its own key",
+      len({k for s in _dr_same_twice[0].sales for k in (s.notes or "").split()}) == 2)
+
+# D581 (3): a SKU line that replaces the row's figure clears the fee keys, so a later re-read of the first fee file ADDS it back correctly.
+_c_fee = replace(a_payment("amazon", "404-8", "", "-28.91", otherServices="28.91"), notes="fee:S1:5")
+_c1 = after(_HP, answered(lambda: ledger.plan(_HP, [pays("az_settlements", "2026-09-05", _c_fee)])))
+_c2 = after(_c1, answered(lambda: ledger.plan(_c1, [pays("az_settlements", "2026-09-07", a_payment("amazon", "404-8", "SKU-P", "400", commission="60"),
+                                                          which="az_settlements2026-09-07")])))
+check("A SKU LINE THAT REPLACES THE ROW'S FIGURE CLEARS THE REPLACED FEE KEYS FROM ITS NOTES (D581 item 3)",
+      (a_row(_c2, _pn) or {}).get("settlement") == "400" and "fee:" not in (a_row(_c2, _pn) or {}).get("notes", ""))
+_c3 = after(_c2, answered(lambda: ledger.plan(_c2, [pays("az_settlements", "2026-09-08", _c_fee, which="az_settlements2026-09-08")])))
+check("AND A LATER RE-READ OF THE FIRST FEE FILE ADDS THE FEE BACK, once (D581 item 3)",
+      (a_row(_c3, _pn) or {}).get("settlement") == "371.09" and "fee:S1:5" in (a_row(_c3, _pn) or {}).get("notes", ""))
+_c_typed = sheet_with(replace(_paid_before, notes="call buyer fee:S1:5 keep"))
+_c4 = after(_c_typed, answered(lambda: ledger.plan(_c_typed, [pays("az_settlements", "2026-09-07", a_payment("amazon", "404-8", "SKU-P", "400", commission="60"))])))
+check("CLEARING THE FEE KEYS LEAVES WHAT HE TYPED IN THE NOTES", (a_row(_c4, _pn) or {}).get("notes") == "call buyer keep")
+_c_word = sheet_with(replace(_paid_before, notes="fee:waived fee:200 fee:S1:5"))
+_c5 = after(_c_word, answered(lambda: ledger.plan(_c_word, [pays("az_settlements", "2026-09-07", a_payment("amazon", "404-8", "SKU-P", "400", commission="60"))])))
+_c_plan = answered(lambda: ledger.plan(_c1, [pays("az_settlements", "2026-09-07", a_payment("amazon", "404-8", "SKU-P", "400", commission="60"),
+                                                   which="az_settlements2026-09-07")]))
+check("THE CLEARED NOTES CELL IS SENT TO THE SHEET, not only changed in memory (D581 item 3)",
+      _c_plan is not None and any(c == "notes" and v == "" for _, cs in _c_plan.cells for c, v in cs))
+_c_two_fees = after(_c1, answered(lambda: ledger.plan(_c1, [pays("az_settlements", "2026-09-07", replace(a_payment("amazon", "404-8", "", "-1.09", otherServices="1.09"), notes="fee:S2:9"),
+                                                                 which="az_settlements2026-09-07")])))
+check("A SECOND FEE ADDED BESIDE THE FIRST KEEPS BOTH KEYS: adding is not replacing, so nothing is cleared",
+      (a_row(_c_two_fees, _pn) or {}).get("notes") == "fee:S1:5 fee-base:450 fee:S2:9")
+check("AND A WORD OF HIS OWN THAT BEGINS 'fee:' IS NOT A KEY AND STAYS", (a_row(_c5, _pn) or {}).get("notes") == "fee:waived fee:200")
+
+# D582: a SKU file downloaded AGAIN under a later day with the SAME figure is a re-download, not a replacement: it clears no fee key, and the fee is never lost.
+_rd_sku = a_payment("amazon", "404-8", "SKU-P", "450", commission="50")
+_rd1 = after(_HP, answered(lambda: ledger.plan(_HP, [pays("az_settlements", "2026-09-05", _c_fee)])))
+_rd2 = after(_rd1, answered(lambda: ledger.plan(_rd1, [pays("az_settlements", "2026-09-07", _rd_sku, which="az_settlements2026-09-07")])))
+_rd3 = after(_rd2, answered(lambda: ledger.plan(_rd2, [pays("az_settlements", "2026-09-08", _c_fee, which="az_settlements2026-09-08")])))
+check("A SKU FILE RE-DOWNLOADED UNDER A LATER DAY WITH THE SAME FIGURE LEAVES THE EARLIER FEE COUNTED ONCE (D582, Rule 29)",
+      (a_row(_rd1, _pn) or {}).get("settlement") == "421.09" and (a_row(_rd2, _pn) or {}).get("settlement") == "421.09"
+      and (a_row(_rd2, _pn) or {}).get("charge_otherServices") == "28.91" and "fee:S1:5" in (a_row(_rd2, _pn) or {}).get("notes", ""))
+check("AND RE-READING THE FEE FILE AFTER THAT ADDS NOTHING", (a_row(_rd3, _pn) or {}).get("settlement") == "421.09"
+      and (a_row(_rd3, _pn) or {}).get("charge_otherServices") == "28.91")
+_rd_new = after(_rd1, answered(lambda: ledger.plan(_rd1, [pays("az_settlements", "2026-09-07", a_payment("amazon", "404-8", "SKU-P", "400", commission="60"),
+                                                                which="az_settlements2026-09-07")])))
+check("BUT A SKU LINE THAT CHANGES THE FIGURE STILL REPLACES AND CLEARS THE FEE KEYS AND THE REMEMBERED FIGURE (D582)",
+      (a_row(_rd_new, _pn) or {}).get("settlement") == "400" and (a_row(_rd_new, _pn) or {}).get("notes") == "")
+_rd_fee2 = after(_rd1, answered(lambda: ledger.plan(_rd1, [pays("az_settlements", "2026-09-06", replace(a_payment("amazon", "404-8", "", "-1.09", otherServices="1.09"), notes="fee:S2:9"),
+                                                                which="az_settlements2026-09-06")])))
+_rd_fee2b = after(_rd_fee2, answered(lambda: ledger.plan(_rd_fee2, [pays("az_settlements", "2026-09-07", _rd_sku, which="az_settlements2026-09-07")])))
+check("A SKU RE-DOWNLOAD AFTER TWO FEES LEAVES BOTH COUNTED (the first figure is the one remembered)",
+      (a_row(_rd_fee2b, _pn) or {}).get("settlement") == "420")
+
+# Proving (A90f): a fee whose own figure equals the remembered one still ADDS; a fee onto a row with no figure remembers nothing.
+_rd_big = after(_rd1, answered(lambda: ledger.plan(_rd1, [pays("az_settlements", "2026-09-06", replace(a_payment("amazon", "404-8", "", "450", otherServices="-450"), notes="fee:S3:1"),
+                                                              which="az_settlements2026-09-06")])))
+check("A NEW FEE WHOSE FIGURE EQUALS THE REMEMBERED ONE IS STILL ADDED, it is not a SKU line (D582)", (a_row(_rd_big, _pn) or {}).get("settlement") == "871.09")
+_blank_row = sheet_with(replace(_paid_before, settlement=""))
+_rd_blank = after(_blank_row, answered(lambda: ledger.plan(_blank_row, [pays("az_settlements", "2026-09-05", _c_fee)])))
+check("A FEE ONTO A ROW WITH NO FIGURE REMEMBERS NO FIGURE (nothing was added to)", "fee-base" not in (a_row(_rd_blank, _pn) or {}).get("notes", ""))
+
+# Proving (A90d): every change a mutation could make to the fee code, each with a check that goes red for it.
+_fee_two = replace(a_payment("amazon", "404-8", "", "-30", otherServices="30"), notes="fee:S1:5 fee:S1:6")
+_held_noted = sheet_with(replace(_paid_before, notes="call buyer fee:S1:5"))
+_part_reading = pays("az_settlements", "2026-09-05", _fee_two)
+_fee_reading_one_statement = _part_reading.one_statement
+_part = answered(lambda: ledger.plan(_held_noted, [_part_reading]))
+check("A FILE WHOSE FEES ARE ONLY PARTLY ON THE ROW LEAVES THE ROW'S MONEY ALONE AND SAYS SO (D575)",
+      _part is not None and len(_part.disagreements) == 1 and _part.disagreements[0].kept == "450"
+      and _part.disagreements[0].column == "settlement"
+      and _part.disagreements[0].kept_from == ledger.THE_SHEET_REMEMBERS and _part.disagreements[0].also_from == _fee_reading_one_statement
+      and (a_row(after(_held_noted, _part), _pn) or {}).get("settlement") == "450")
+_all_seen = answered(lambda: ledger.plan(_held_noted, [pays("az_settlements", "2026-09-05", replace(_fee_two, notes="fee:S1:5"))]))
+check("AND A FILE WHOSE FEES ARE ALL ON THE ROW SAYS NOTHING ABOUT IT",
+      _all_seen is not None and _all_seen.disagreements == ()
+      and (a_row(after(_held_noted, _all_seen), _pn) or {}).get("settlement") == "450")
+_first_fee = replace(a_payment("amazon", "404-8", "", "-28.91", otherServices="28.91"), notes="fee:S1:5")
+_then_sku = a_payment("amazon", "404-8", "SKU-P", "400", commission="60")
+_both = answered(lambda: ledger.plan(_HP, [pays("az_settlements", "2026-09-05", _first_fee, _then_sku)]))
+check("A FILE THAT NAMES THE SKU AS WELL AS CARRYING A NO-SKU FEE REPLACES THE ROW'S FIGURE, never adds to it (D574 item 3)",
+      _both is not None and (a_row(after(_HP, _both), _pn) or {}).get("settlement") == "371.09")
+_typed = sheet_with(replace(_paid_before, notes="call buyer"))
+_keep = answered(lambda: ledger.plan(_typed, [_fee_reading]))
+check("THE FEE'S KEY GOES BESIDE WHATEVER HE TYPED IN THE ROW'S NOTES, which stays",
+      _keep is not None and (a_row(after(_typed, _keep), _pn) or {}).get("notes") == "call buyer fee:S1:5 fee-base:450")
+_zero_fee = replace(a_payment("amazon", "404-8", "", "0"), notes="fee:S3:1")
+_zero = answered(lambda: ledger.plan(_HP, [pays("az_settlements", "2026-09-01", replace(_zero_fee, payments_on="2026-09-01"))]))
+check("A FEE THAT CHANGES NO FIGURE STILL WRITES ITS KEY, so the row is updated and the notes cell is sent",
+      _zero is not None and len(_zero.update) == 1 and (a_row(after(_HP, _zero), _pn) or {}).get("settlement") == "450"
+      and "fee:S3:1" in (a_row(after(_HP, _zero), _pn) or {}).get("notes", "")
+      and any(c == "notes" for _, cs in _zero.cells for c, _v in cs))
+_shape = [list(r) for r in _HP]
+_shape[1][_shape[0].index("settlement")] = "n/a"
+_odd = answered(lambda: ledger.plan(_shape, [_fee_reading]))
+check("A SETTLEMENT ON THE ROW THAT IS NOT A FIGURE IS LEFT TO THE ORDINARY RULE, not added to and not a crash",
+      _odd is not None and (a_row(after(_shape, _odd), _pn) or {}).get("settlement") == "-28.91")
+_two_paid = sheet_with(replace(_priced("SKU-X", "300"), settlement="250", payments_on="2026-09-01"),
+                       replace(_priced("SKU-Y", "100"), settlement="100", payments_on="2026-09-01"))
+_sh_add = answered(lambda: ledger.plan(_two_paid, [pays("az_settlements", "2026-09-05",
+                                                        a_payment("amazon", "404-7", "", "-28.91", otherServices="28.91"))]))
+_sx = a_row(after(_two_paid, _sh_add), sales.name_for("amazon", "404-7", "SKU-X")) if _sh_add else {}
+_sy = a_row(after(_two_paid, _sh_add), sales.name_for("amazon", "404-7", "SKU-Y")) if _sh_add else {}
+check("A SHARED FEE ADDS TO EACH ROW'S SETTLEMENT, never replaces it (D563 with D574 item 3)",
+      _sx is not None and _sy is not None and _sx.get("settlement") == "228.32" and _sy.get("settlement") == "92.77")
+_now_plain = {sales.name_for("amazon", "404-8", "SKU-P"): dict(zip(_HP[0], _HP[1]))}
+_got = answered(lambda: ledger._put_each_on_its_row(pays("az_settlements", "2026-09-05", _first_fee), _now_plain, set()))
+check("PLACING A LINE WORKS WITHOUT ASKING WHICH ROWS WERE REACHED ONLY BY A FEE", _got is not None and len(_got[0]) == 1)
+_shared_one = ledger.SharedCharge(order_id="404-7", amount="-28.91", rows=("a",), from_report="r", on="2026-09-05")
+try:
+    _shared_one.amount = "1"
+    _frozen = False
+except Exception:  # noqa: BLE001
+    _frozen = True
+check("A SHARED CHARGE'S RECORD CANNOT BE CHANGED AFTER IT IS MADE", _frozen)
+_fee_a = replace(a_payment("amazon", "404-8", "", "-28.91", otherServices="28.91"), notes="fee:S1:5")
+_fee_b = replace(a_payment("amazon", "404-8", "", "-1.09", otherServices="1.09"), notes="fee:S1:6")
+_two_fees = answered(lambda: ledger.plan(_HP, [pays("az_settlements", "2026-09-05", _fee_a, _fee_b)]))
+_r_two = a_row(after(_HP, _two_fees), _pn) if _two_fees else {}
+check("TWO NO-SKU FEES OF ONE FILE ON ONE ROW ARE ADDED TOGETHER AND BOTH KEYS ARE KEPT (D575)",
+      _r_two is not None and _r_two.get("settlement") == "420" and _r_two.get("notes") == "fee:S1:5 fee:S1:6 fee-base:450")
+_dr_blank = answered(lambda: read_as("az_settlements", "amazon_az_settlements_2026-09-30.csv", an_amazon_file(
+    an_amazon_line("Order", "407-2", "SKU-A", "100", "Released", **{"fba fees": ""}))))
+check("A BLANK CHARGE CELL IN THE DATE RANGE REPORT IS NOT SAID TO BE UNREADABLE (it is a blank)",
+      _dr_blank is not None and not any("unreadable charge" in x for x in _dr_blank[0].set_aside))
 _p7 = answered(lambda: ledger.plan(HELD, [pays("az_settlements", "2026-09-05",
                                                a_payment("amazon", "404-1", "SKU-A", "100", commission="10"),
                                                a_payment("amazon", "404-1", "SKU-A", "-20", shipping="20"))]))
@@ -653,6 +859,14 @@ def a_night(the_sheet, files, bodies, already=()):
         record_the_sales=record,
     )
 
+
+_said5 = []
+answered(lambda: ledger_sheet.recording_into(TheSheet([list(r) for r in _TWO]), _said5.append)([pays(
+    "az_settlements", "2026-09-05", a_payment("amazon", "404-7", "", "-28.91", otherServices="28.91"))]))
+check("EACH SHARED CHARGE IS LISTED IN THE NIGHT'S OWN WORDS: the order, the amount and how it was split (D563 as amended)",
+      _p5b is not None and len(_p5b.shared) == 1
+      and any(x.startswith("SALES LEDGER SHARED ORDER CHARGE") and "404-7" in x and "28.91" in x and "sale value" in x for x in _said5)
+      and any("split may change when more items land" in x for x in _said5))
 
 _the = TheSheet(sheet_with(
     an_order("amazon", "404-1", "SKU-A"), an_order("amazon", "404-5", "SKU-X"), an_order("amazon", "404-5", "SKU-Y"),
@@ -1005,8 +1219,34 @@ check("and its day is the file's own, out of its name", _v2_reading is not None 
       and all(s.payments_on == "2026-09-08" for s in _v2_reading.sales))
 _v2_bad = answered(lambda: read_as("az_settlements", V2_NAME, a_v2_file(
     a_v2_line("Order", "406-9", "SKU-Z", "ItemPrice", "Principal", "12abc"))))
-check("and an amount that is not a figure is said, not dropped as a blank",
-      _v2_bad is not None and any("not a figure" in x for x in _v2_bad[0].set_aside) and not _v2_bad[0].sales)
+check("and an amount that is not a figure is said with its order and its own text, not dropped as a blank (D574 item 5)",
+      _v2_bad is not None and "unreadable charge 406-9: '12abc'" in _v2_bad[0].set_aside and not _v2_bad[0].sales)
+_v2_bad2 = answered(lambda: read_as("az_settlements", V2_NAME, a_v2_file(
+    a_v2_line("Order", "", "", "Other", "Fee", "x9"))))
+_v2_bad3 = answered(lambda: read_as("az_settlements", V2_NAME, a_v2_file(
+    a_v2_line("Order", "406-1", "SKU-A", "ItemPrice", "Principal", "100.00", sid="77"),
+    a_v2_line("Order", "406-1", "", "ItemFees", "Cancellation", "x?", sid="77"))))
+check("and an unreadable no-SKU fee adds nothing to its order's sale, not even its key",
+      _v2_bad3 is not None and len(_v2_bad3[0].sales) == 1 and _v2_bad3[0].sales[0].settlement == "100"
+      and _v2_bad3[0].sales[0].notes is None and any("unreadable charge 406-1: 'x?'" in x for x in _v2_bad3[0].set_aside))
+check("and so is one with no order id at all",
+      _v2_bad2 is not None and "unreadable charge (no order id): 'x9'" in _v2_bad2[0].set_aside)
+_v2_keyed = answered(lambda: read_as("az_settlements", V2_NAME, a_v2_file(
+    a_v2_line("Order", "406-1", "SKU-A", "ItemPrice", "Principal", "100.00", sid="77"),
+    a_v2_line("Order", "406-1", "", "ItemFees", "Cancellation", "-28.91", sid="77"))))
+check("THE SETTLEMENT READER KEYS A NO-SKU FEE BY ITS SETTLEMENT ID AND LINE",
+      _v2_keyed is not None and any("fee:77:" in (s.notes or "") for s in _v2_keyed[0].sales))
+_v2_two = answered(lambda: read_as("az_settlements", V2_NAME, a_v2_file(
+    a_v2_line("Order", "406-1", "SKU-A", "ItemPrice", "Principal", "100.00", sid="77"),
+    a_v2_line("Order", "406-1", "", "ItemFees", "Cancellation", "-28.91", sid="77"),
+    a_v2_line("Order", "406-1", "", "ItemFees", "Cancellation", "-1.09", sid="77"))))
+check("TWO NO-SKU FEES OF ONE ORDER KEEP BOTH THEIR KEYS, in order",
+      _v2_two is not None and [s.notes for s in _v2_two[0].sales] == ["fee:77:3 fee:77:4"])
+_v2_nokey = answered(lambda: read_as("az_settlements", V2_NAME, a_v2_file(
+    a_v2_line("Order", "406-1", "SKU-A", "ItemPrice", "Principal", "100.00", sid="77"),
+    a_v2_line("Order", "406-1", "SKU-A", "ItemPrice", "Tax", "5.00", sid="77"))))
+check("and two lines of one row with no fee between them leave no notes at all",
+      _v2_nokey is not None and len(_v2_nokey[0].sales) == 1 and _v2_nokey[0].sales[0].notes is None)
 check("and a settlement file that has lost a column is refused, naming it",
       refused_by(lambda: read_as("az_settlements", V2_NAME, a_v2_file(
           a_v2_line("Order", "406-1", "SKU-A", "ItemPrice", "Principal", "1"),
@@ -1079,7 +1319,7 @@ if failures:
     print(f"{len(failures)} FAILED: {failures}")
     sys.exit(1)
 WITHOUT = ran - real_ran
-if WITHOUT != 95 + 22 + 17 + 8 + 2 + 3:
-    print(f"FAIL  checks went missing -- {WITHOUT} ran without his files, 147 expected")
+if WITHOUT != 95 + 22 + 17 + 8 + 2 + 3 + 5 + 3 + 5 + 14 + 9 + 4 + 2:  # the 14 are A90d proving, the 9 A90e (D581), the 6 A90f (D582)
+    print(f"FAIL  checks went missing -- {WITHOUT} ran without his files, 189 expected")
     sys.exit(1)
 print(f"all {ran} checks passed" + ("" if real_ran == HIS_FILES_GROUP else f" ({HIS_FILES_GROUP - real_ran} of his real-file checks not run -- the files are elsewhere)"))

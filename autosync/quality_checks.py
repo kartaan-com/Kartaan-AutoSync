@@ -89,6 +89,10 @@ _, odd = answered(lambda: quality.read_quality("fk_quality_insights", "flipkart"
     row("A", "S1", "Infinity", "4.0", "1%"), row("B", "S2", "1e400K", "4.0", "1%"), row("C", "S3", "1K", "42", "1%"),
     row("D", "S4", "1K", "4.0", "-3%"), row("E", "S5", "1K", "4.0", "1%"), row("F", "S" * 2000, "1K", "4.0", "1%")), "2026-10-19")) or ({}, ())
 check("a cell that is not a sane amount, star level or percentage, or a SKU too long to name a record, refuses its row and not the file", len(odd) == 5)
+_over, over_said = answered(lambda: quality.read_quality("fk_quality_insights", "flipkart", file_of(
+    row("A", "S1", "1K", "4.0", "150%"), row("B", "S2", "1K", "4.0", "100%")), "2026-10-19")) or ({}, ())
+check("THE PLATFORM'S OWN RETURN % IS STORED EXACTLY AS GIVEN, even past 100: never capped, never refused (D561, A90)",
+      over_said == () and _over.get("flipkart__S1", {}).get("returnsPct") == 150.0 and _over.get("flipkart__S2", {}).get("returnsPct") == 100.0)
 no_columns = caught(lambda: quality.read_quality("fk_quality_insights", "flipkart", table.read(b"A,B\n1,2\n"), "2026-10-19"))
 check("a file without the columns is refused in words naming what it has",
       no_columns is not None and "SKU ID" in str(no_columns) and "Nothing was read" in str(no_columns))
@@ -128,7 +132,8 @@ check("A LISTING'S RECORD HOLDS EXACTLY WHAT THE ROW SAYS: rupees rounded to the
       _qm.get("flipkart__SKU1") == dict(_qwant, digest=records.the_digest(_qwant, leave_out=quality.NOT_IN_THE_DIGEST)))
 check("a row that says nothing in a cell writes nothing for it: no product, sales, stars, note, unknown badge word, risk or issue (R20 proving)",
       set(_qm.get("flipkart__SKU2", {})) == {"platform", "report", "sku", "fileDay", "returnsPct", "digest"})
-check("a returns share above a hundred per cent is refused by line (R20 proving)", "flipkart__SKU3" not in _qm and len(_qr) == 1)
+check("a returns share above a hundred per cent is stored as the platform gave it, never refused (D561, A90; was R20 proving)",
+      _qm.get("flipkart__SKU3", {}).get("returnsPct") == 150.0 and len(_qr) == 0)
 _shuffled = tuple({"day": f"2026-09-{n:02d}", "stars": 4.0} for n in (7, 1, 13, 4, 10, 2, 12, 3, 9, 5, 11, 6, 8))
 check("THE HISTORY KEEPS THE LAST TWELVE BY DAY, oldest dropped, whatever order they were held in (R20 proving)",
       [p["day"] for p in quality.with_history(dict(today_record, fileDay="2026-10-01"), _shuffled)["history"]]
@@ -140,7 +145,7 @@ for _gone in ("FA badge", "Issue Details"):
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 14 + 6
+EXPECTED = 14 + 6 + 1
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
