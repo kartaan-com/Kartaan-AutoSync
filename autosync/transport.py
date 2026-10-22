@@ -250,6 +250,10 @@ class Reply:
         return got if isinstance(got, list) else None
 
 
+# **THE TWO STATUSES GOOGLE'S TOKEN ADDRESS ANSWERS WHEN THE PERMISSION, THE CLIENT OR ITS SECRET IS NOT ACCEPTED (SU1).**
+GOOGLE_TURNED_IT_DOWN = (400, 401)
+
+
 class Google:
     """A way of talking to Drive that keeps the seller's token alive.
 
@@ -307,6 +311,24 @@ class Google:
             self._timeout,
         )
         said = _decoded(raw)
+        if status in GOOGLE_TURNED_IT_DOWN:
+            # **SU1 (D524): SAID AS WHAT IT IS, WITH THE FIX.** 400 and 401 from the token address are Google saying
+            # the client, secret or permission is wrong or gone, and pressing Allow Google in Kartaan writes all
+            # three again. The status only, never the body, for the reason below.
+            #
+            # **D214: THE CAUSE IS SAID ONLY WHEN GOOGLE SAID IT.** `invalid_grant` is Google's own word for a permission
+            # taken back or expired; any other code, or none, is said as what happened. The code is compared, never printed.
+            fix = ("What to do: open Kartaan, go to This business, and press Allow Google (step 3, the button "
+                   "'Get a code from Google'). ")
+            if (said or {}).get("error") == "invalid_grant":
+                raise PermissionError(
+                    f"Google permission gone (HTTP {status}): Google says the permission was taken back or has expired. "
+                    + fix + "That one step renews it; nothing else needs doing."
+                )
+            raise PermissionError(
+                f"Google did not accept the sign-in this fetching uses (HTTP {status}). "
+                + fix + "That one step renews it, the client details included; nothing else needs doing."
+            )
         if status != 200 or not said or not said.get("access_token"):
             # **THE STATUS, NOT THE BODY.** A refusal from a sign-in can carry
             # back what was sent to it, and this sentence goes into a log that
