@@ -1,0 +1,33 @@
+# How git stores the line endings in this repository (cycle 46, R2#19).
+#
+# **WHY THIS FILE EXISTS.** Seventy files here end their lines the Windows way
+# and two hundred and twenty-two end them the Unix way, and one file
+# (`src/shared/components/table.js`) manages both at once. Nothing said which was
+# right, so every file took whichever ending the editor that last touched it
+# happened to use.
+#
+# **WHAT THAT COSTS, and this project has already paid it twice.** Converting one
+# file as a side effect of a fifteen-line change turned it into a diff of 1,341
+# added and 1,328 removed -- once in `table.js`, once nearly again -- and a
+# reviewer reading that diff can see nothing at all. The register's own rule:
+# *"Read a file as bytes and write it back the way it came. Check `--numstat`
+# after any scripted edit."* This is the other half of that rule: the part a
+# person should not have to remember.
+#
+# **`text=auto` NORMALISES WHAT IS STORED, NOT WHAT IS ON DISK.** Git works out
+# which files are text and stores them with Unix endings; a checkout on Windows
+# still gets Windows endings, so nothing anybody opens changes. It means a file's
+# stored form stops depending on who last saved it.
+#
+# **ADDED ON ITS OWN, and nothing is converted by hand.** The register says so in
+# as many words -- *"Fix it in its own change, with a `.gitattributes`, and never
+# as a side effect"* -- and every file here is normalised the next time it is
+# committed, which for almost all of them is the first time.
+* text=auto
+
+# The two that are read as bytes rather than as lines. Marked so nothing ever
+# rewrites an ending inside them: a spreadsheet is a zip, and a byte changed in
+# one is a file nothing can open.
+*.xlsx binary
+*.xls binary
+*.png binary
