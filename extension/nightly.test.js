@@ -131,7 +131,7 @@ async function said(fn) {
    * over whatever is in the tab now; left out of a past-day sync they would be
    * lost, and they landed on his own run of 6 September. */
   check('and the three tables read off a page are on it, so a past day never reads the page of today',
-    ['me_product_performance', 'me_pricing', 'fk_quality_insights'].every((one) => ONLY_ITS_NEWEST_DAY.includes(one)));
+    ['me_product_performance', 'me_pricing', 'fk_quality_insights', 'az_listings', 'az_fee_preview'].every((one) => ONLY_ITS_NEWEST_DAY.includes(one)));
   check('while a rolling-window report is not on that list',
     !ONLY_ITS_NEWEST_DAY.includes('me_returns') && !ONLY_ITS_NEWEST_DAY.includes('me_claims'));
 }

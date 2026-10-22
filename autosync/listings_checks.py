@@ -123,12 +123,12 @@ ME_ROWS = [ME_HEAD, ME_HELP, me_row(1, "1084835398", "167", "LM-5 (1)"), me_row(
 
 AZ_HEAD = ["item-name", "item-description", "listing-id", "seller-sku", "price", "quantity", "open-date", "image-url",
            "item-is-marketplace", "product-id-type", "item-condition", "asin1", "asin2", "asin3", "product-id", "add-delete",
-           "pending-quantity", "fulfillment-channel", "maximum-retail-price"]
+           "pending-quantity", "fulfillment-channel", "status", "maximum-retail-price"]
 
 
-def az_row(sku, asin, listing="0902HY3BXDT", price="399", quantity="200", mrp="1199.0", name="A title"):
+def az_row(sku, asin, listing="0902HY3BXDT", price="399", quantity="200", mrp="1199.0", name="A title", status="Active"):
     return [name, "a long—description", listing, sku, price, quantity, "2026-09-03 01:05:38 IST", "", "y", "1", "11", asin, "", "",
-            asin, "", "0", "DEFAULT", mrp]
+            asin, "", "0", "DEFAULT", status, mrp]
 
 
 AZ = tsv(AZ_HEAD, az_row("SKU-1", "B0G5QH9F2V"), az_row("SKU-2", "B0AAAAAAAA", listing="0902HY3BXDU", price="250.5", quantity="99"))
@@ -209,6 +209,58 @@ check("but a SKU with a slash is still refused, and so is an ASIN with a space i
 check("an Amazon row with no seller SKU is not read, because it would have no key (D326)",
       "not carry" in (answered(lambda: tool.read_listings(
           tool.AMAZON, table.read(tsv(AZ_HEAD, az_row("", "B0NOSKU000")), header_row=1), "x").not_read[0]) or ""))
+
+# ---- AMAZON'S ALL LISTINGS REPORT (lane 1 job 8): active AND inactive, so the status column says which is live
+all_states = answered(lambda: tool.read_listings(
+    tool.AMAZON, table.read(tsv(AZ_HEAD, az_row("S1", "B0ACTIVE00"), az_row("S2", "B0INACTIV0", status="Inactive"),
+                                az_row("S3", "B0INCOMPL0", status="Incomplete")), header_row=1), "x"))
+check("Amazon's status says which listing is selling: Active is live, Inactive and Incomplete are not",
+      all_states is not None and [r["state"] for r in all_states.records.values()] == ["live", "not_live", "not_live"])
+check("an Amazon row whose status is blank is said and not read, because a blank is not a 'not live' (as Flipkart's)",
+      "blank" in (answered(lambda: tool.read_listings(
+          tool.AMAZON, table.read(tsv(AZ_HEAD, az_row("S1", "B0BLANK000", status="")), header_row=1), "x").not_read[0]) or ""))
+check("a file with no status column is refused in words, naming it, so an Active-only file is not taken for the All one",
+      "status" in why(lambda: tool.read_listings(
+          tool.AMAZON, table.read(tsv([c for c in AZ_HEAD if c != "status"],
+                                      [v for v, c in zip(az_row("S1", "B0NOSTATUS"), AZ_HEAD) if c != "status"]), header_row=1), "x")))
+check("az_listings is read as listings: the walk's text file is read by its columns, no sheet to find",
+      tool.THE_SHAPE_OF.get("az_listings") is tool.AMAZON
+      and list((answered(lambda: tool.read_listing_file("az_listings", AZ, "x")) or tool.WhatListingsSaid({}, (), 0)).records)
+      == ["amazon::B0G5QH9F2V::SKU-1", "amazon::B0AAAAAAAA::SKU-2"])
+check("a web page handed over as the Amazon file is refused, not read as rows",
+      why(lambda: tool.read_listing_file("az_listings", b"<html><body>Sign in</body></html>", "x")) != "")
+
+# ---- AMAZON'S REFERRAL FEE PREVIEW (lane 1 job 8): seller-sku, asin, item-name, price, estimated-referral-fee-per-item
+FEE_HEAD = ["seller-sku", "asin", "item-name", "price", "estimated-referral-fee-per-item"]
+
+
+def fee_rows(*rows):
+    return tool.read_fee_preview(table.read(tsv(FEE_HEAD, *rows), header_row=1), "the fee file")
+
+
+fees = answered(lambda: fee_rows(["SKU-1", "B0G5QH9F2V", "A title", "399.00", "59.85"], ["SKU 2", "B0AAAAAAAA", "B", "250.50", "37.58"]))
+check("the fee file is read into one fee per listing, keyed as the listing is (ASIN::SKU), money as numbers",
+      fees is not None and fees.fees == {"amazon::B0G5QH9F2V::SKU-1": 59.85, "amazon::B0AAAAAAAA::SKU 2": 37.58} and not fees.not_read)
+check("Amazon's '--' means it gave no estimate: that row has no fee and is said, never read as a fee of nothing",
+      (lambda r: r is not None and r.fees == {} and len(r.not_read) == 1 and "no estimate" in r.not_read[0])(
+          answered(lambda: fee_rows(["SKU-1", "B0G5QH9F2V", "A", "399.00", "--"]))))
+check("a fee of 0.00 is a fee Amazon gave and is kept (his real file has 89 of 91 rows so)",
+      (answered(lambda: fee_rows(["SKU-1", "B0G5QH9F2V", "A", "399.00", "0.00"])) or fees).fees == {"amazon::B0G5QH9F2V::SKU-1": 0})
+check("a fee that is words, a negative fee and a row with no ASIN are each said by line and the rest are read",
+      (lambda r: r is not None and list(r.fees) == ["amazon::B0GOODONE0::S4"] and len(r.not_read) == 3)(
+          answered(lambda: fee_rows(["S1", "B0TEXT0000", "A", "1", "free"], ["S2", "B0NEG00000", "A", "1", "-5"],
+                                    ["S3", "", "A", "1", "5"], ["S4", "B0GOODONE0", "A", "1", "5"]))))
+check("a fee file with a column moved away is refused in words naming the column",
+      "estimated-referral-fee-per-item" in why(lambda: tool.read_fee_preview(
+          table.read(tsv(FEE_HEAD[:4], ["S1", "B0G5QH9F2V", "A", "1"]), header_row=1), "x")))
+check("a fee file with headings and no rows is refused, not read as no fees",
+      why(lambda: fee_rows()) != "")
+check("a fee file whose price is moved or missing is still read: price is only context, not needed",
+      (answered(lambda: tool.read_fee_preview(table.read(tsv(["seller-sku", "asin", "estimated-referral-fee-per-item"],
+                                                              ["S1", "B0G5QH9F2V", "5"]), header_row=1), "x")) or fees).fees
+      == {"amazon::B0G5QH9F2V::S1": 5})
+check("az_fee_preview is not a listing file: it is read by its own reader, so listings does not claim it",
+      "az_fee_preview" not in tool.THE_SHAPE_OF)
 
 
 # ---------------------------------------------------------------- a row that cannot be read says which line and why, and the rest are read
@@ -475,11 +527,11 @@ nameless = Night({"me_catalog": [a_file("m3", "catalog.xlsx")]}, {"m3": meesho_f
 check("a file with no day in its name is refused like every other reader's",
       nameless is not None and nameless.read_tonight == () and "no day in its name" in nameless.could_not_read[0])
 check("every report is still read or says why it is not", reading.why_a_report_has_no_decision() == ""
-      and {o.report_id for o in reading.WHAT_LISTINGS_CAN_BE_READ} == {"fk_listings", "me_catalog"}
-      and not ({"fk_listings", "me_catalog"} & set(reading.WHAT_IS_FETCHED_AND_NOT_READ_YET)))
+      and {o.report_id for o in reading.WHAT_LISTINGS_CAN_BE_READ} == {"fk_listings", "me_catalog", "az_listings"}
+      and not ({"fk_listings", "me_catalog", "az_listings"} & set(reading.WHAT_IS_FETCHED_AND_NOT_READ_YET)))
 
 check("nothing above ended by throwing rather than by answering -- " + str(THREW), not THREW)
-EXPECTED = 75
+EXPECTED = 88
 check(f"checks went missing -- {ran + 1} ran, {EXPECTED} expected", ran + 1 == EXPECTED)
 
 if failures:

@@ -311,7 +311,7 @@ check('a report that reads another report\'s file is fetched after it',
   check('a fresh install\'s timed list is the full list',
     Boolean(fresh.timed) && fresh.timed.flipkart === every('flipkart').length
     && fresh.timed.meesho === every('meesho').length && every('meesho').length > 0
-    && fresh.timed.amazon === every('amazon').length && every('amazon').length === 1);
+    && fresh.timed.amazon === every('amazon').length && every('amazon').length === 3);
   check('and the panel says it: "The timed sync will fetch: N reports (Flipkart x, Meesho y, Amazon z)"',
     Boolean(fresh.timed) && fresh.timed.said === `The timed sync will fetch: `
       + `${every('flipkart').length + every('meesho').length + every('amazon').length} reports `
@@ -900,9 +900,9 @@ check('the allowance is twenty, and it is a number a program can read',
     stands.platforms.filter((one) => one.id === 'amazon').length === 1
     && stands.platforms.some((one) => one.id === 'amazon' && one.throughTheBrowser === true
       && one.ready === false && one.lastRun === null));
-  check('and its one walked report, the traffic by child item, is in the list of reports walked in the browser',
-    stands.reports.filter((one) => one.platform === 'amazon').map((one) => one.id).join() === 'az_traffic'
-    && stands.reports.find((one) => one.id === 'az_traffic').canBeFetched === true);
+  check('and its three walked reports, traffic, All Listings and Referral Fee Preview, are in the list of reports walked in the browser',
+    stands.reports.filter((one) => one.platform === 'amazon').map((one) => one.id).sort().join() === 'az_fee_preview,az_listings,az_traffic'
+    && stands.reports.filter((one) => one.platform === 'amazon').every((one) => one.canBeFetched === true));
   check('nothing is set up yet, and both halves are named',
     stands.setUp.done === false && stands.setUp.panel === '' && stands.setUp.driveConnectedAt === 0);
   check('the whole twenty is left', stands.flipkart.leftToday === 20);

@@ -314,6 +314,13 @@ REPORTS: Tuple[Report, ...] = (
     # without API keys).** Business Reports > By ASIN > Detail Page Sales and Traffic by Child Item, one day, Download (.csv). Amazon takes a past day, so it
     # can be asked for again.
     Report("az_traffic", "amazon", "Amazon listing traffic", BROWSER, DAILY, "csv"),
+    # **THE TWO AMAZON FILES MADE ON REQUEST (AutoSync v0.1.21 lane 1 job 8).** Seller Central > Products > Product reports (Inventory Reports): the seller
+    # presses Request Report, Amazon builds a tab-separated text file (up to 45 minutes, a new one at most once in 24 hours) and a row with a Download button
+    # appears. Both are pictures of right now. Amazon's own text says ".txt" and the files are landed as such.
+    # All Listings holds every listing, active AND inactive, with a `status` column.
+    Report("az_listings", "amazon", "Amazon All Listings", BROWSER, EVERY_THREE_DAYS, "txt", cannot_backfill=_SNAPSHOT),
+    # Amazon's own fee estimate per SKU; a row Amazon has no estimate for says `--`.
+    Report("az_fee_preview", "amazon", "Amazon Referral Fee Preview", BROWSER, EVERY_THREE_DAYS, "txt", cannot_backfill=_SNAPSHOT),
 )
 
 

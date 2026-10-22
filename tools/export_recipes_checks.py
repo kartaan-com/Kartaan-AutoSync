@@ -80,8 +80,8 @@ HELD = answered(tool.what_the_extension_reads) or {}
 
 check("every recipe the Python has crosses",
       answered(lambda: set(HELD.get("recipes", {})) == set(book.RECIPES)))
-check("and there are twenty-five of them, three platforms",
-      answered(lambda: len(HELD.get("recipes", {})) == 25))
+check("and there are twenty-seven of them, three platforms (Amazon's listings and fee reports joined, lane 1 job 8)",
+      answered(lambda: len(HELD.get("recipes", {})) == 27))
 check("every meaning of a failure crosses",
       answered(lambda: set(HELD.get("whatItMeans", {})) == set(language.WHAT_IT_MEANS)))
 # **THE WHOLE MAP, not the part the walk happens to use today.** Splitting it is
@@ -727,9 +727,9 @@ def the_python_rows():
 
 check("the JavaScript half can be asked what it makes of a day at all",
       answered(lambda: isinstance(SAID_IN_JAVASCRIPT, dict) and bool(SAID_IN_JAVASCRIPT)))
-check("both portals' wordings cross to the extension",
+check("the three portals' wordings cross to the extension",
       answered(lambda: sorted(HELD["daysInWords"]) == sorted(book.HOW_A_DAY_IS_WRITTEN)
-               == ["flipkart", "meesho"]))
+               == ["amazon", "flipkart", "meesho"]))
 check("and each carries the month names and that portal's own spellings",
       answered(lambda: all(one["months"] == list(book.MONTHS)
                            and len(one["spellings"]) >= 5
@@ -809,7 +809,7 @@ def named_in_words():
 # **ELEVEN SINCE 2026-09-14**: returns left the Reports Centre, and its new route
 # names a row on the taking only.
 check("there are lookups naming a row by the day in words to judge",
-      answered(lambda: len(named_in_words()) == 11))
+      answered(lambda: len(named_in_words()) == 15))
 check("and every one of them says whose wording it means",
       answered(lambda: all(find["dayInWordsIs"] in book.HOW_A_DAY_IS_WRITTEN
                            for _, find in named_in_words())))

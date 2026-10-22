@@ -252,6 +252,12 @@ WHAT_IS_FETCHED_AND_NOT_READ_YET: Dict[str, str] = {
         "that screen is the ERP's"
     ),
 }
+# **LANE 1 JOB 8 (the one line of this file lane 1 touched, because the commit gate refuses a report with neither a reader nor a reason; the reader is lane 2's):**
+# the shape is `listings.read_fee_preview`, built and checked; what is left is the piece that puts `referralFee` and `feeAsOf` on the listing record.
+WHAT_IS_FETCHED_AND_NOT_READ_YET["az_fee_preview"] = (
+    "decided: Amazon's own referral fee estimate per SKU put on each Amazon listing as referralFee and feeAsOf, read by listings.read_fee_preview "
+    "once the piece that writes it onto the listing record is built (lane 2 of v0.1.21)"
+)
 WHAT_IS_FETCHED_AND_NOT_READ_YET["fk_ads_kw"] = (
     "Flipkart has discontinued keyword ads (his word, 12 Oct), so nothing is read and it is no longer fetched: it is off the extension's "
     "timed list (screen.js OFF_THE_TIMED_LIST) and marked as needing a person (reports.py), like fk_keywords (piece 35)"

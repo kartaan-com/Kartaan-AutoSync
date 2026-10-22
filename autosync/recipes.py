@@ -130,6 +130,7 @@ MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun",
 # belongs to are compared without anything translating between them.
 MEESHO_WRITES_IT = "meesho"
 FLIPKART_WRITES_IT = "flipkart"
+AMAZON_WRITES_IT = "amazon"
 
 # **THE FIVE PIECES A SPELLING IS BUILT FROM, and they are the whole of what
 # crosses to the extension.** A spelling is a shape with these in it; both halves
@@ -211,11 +212,25 @@ HOW_FLIPKART_WRITES_A_DAY = (
 MONTHS_IN_FULL = ("January", "February", "March", "April", "May", "June",
                   "July", "August", "September", "October", "November", "December")
 
+# **HOW AMAZON'S INVENTORY REPORTS LIST WRITES THE DAY A REPORT WAS REQUESTED (lane 1 job 8) -- NOT YET SEEN ON A LIVE PAGE.** Seller Central India shows
+# dates as a day, a month name and a year; these are the unambiguous written forms, in the order of likelihood. **NO month-first number form (`10/22/2026`) IS
+# HERE ON PURPOSE:** `05/06/2026` is 5 June to one reader and 6 May to the other, so it could match a different day's row, which a spelling must never do. The
+# day-first one is left out too, for the same reason: Amazon's own sample file names are month-first. If the live row is written otherwise, nothing matches and the walk says so by name -- it never presses a row.
+# Remove this note and add the real spelling after the first live look (DONE_AP8 has the snippet).
+HOW_AMAZON_WRITES_A_DAY = (
+    "{d} {Mon} {yyyy}",       # 22 Oct 2026
+    "{dd} {Mon} {yyyy}",      # 05 Jun 2026
+    "{Mon} {d}, {yyyy}",      # Oct 22, 2026
+    "{Mon} {dd}, {yyyy}",     # Jun 05, 2026
+    "{yyyy}-{mm}-{dd}",       # 2026-10-22
+)
+
 # Whose wording is whose. **Nothing works this out from a report's name** -- a
 # name is a spelling and a spelling is not a fact (D170).
 HOW_A_DAY_IS_WRITTEN = {
     MEESHO_WRITES_IT: HOW_MEESHO_WRITES_A_DAY,
     FLIPKART_WRITES_IT: HOW_FLIPKART_WRITES_A_DAY,
+    AMAZON_WRITES_IT: HOW_AMAZON_WRITES_A_DAY,
 }
 
 
@@ -395,6 +410,9 @@ AMAZON_TRAFFIC = (
     "https://sellercentral.amazon.in/business-reports#/report"
     "?id=102%3ADetailSalesTrafficByChildItem&fromDate={day}&toDate={day}"
 )
+# **AMAZON'S INVENTORY REPORTS PAGE (Seller Central > Products > Product reports, `/listing/reports`, lane 1 job 8).** The address is the brief's. Neither the
+# page nor its row wording has been looked at: see `_amazon_inventory_report`.
+AMAZON_INVENTORY_REPORTS = "https://sellercentral.amazon.in/listing/reports"
 # **THESE THREE WERE WRONG, AND THEY COST A WHOLE NIGHT (2026-09-06).** Nine of
 # ten reports failed within twenty minutes of each other -- seven ads reports
 # looking for "the other reports tab", claims looking for "the claims tab",
@@ -430,6 +448,42 @@ THE_CLAIMS_REACH_IN_DAYS = 30
 # the reference collects from (`content/flipkart.js:2812`), never by clicking it.
 RETURNS = FLIPKART.format(where="dashboard/returnsV2?tab=all_returns&state=all")
 LISTINGS = FLIPKART.format(where="dashboard/listings-management")
+
+
+def _amazon_inventory_report(report_name: str, ready_in_minutes: int) -> Recipe:
+    """One report asked for on Amazon's Inventory Reports page and collected from the same list, two-phase (lane 1 job 8: All Listings, Referral Fee Preview).
+
+    **WHAT IS KNOWN, from his real runs and the brief, and nothing more:** the report is REQUESTED with a Request Report control; Amazon says up to 45
+    minutes and one request in 24 hours; a row then appears that reads In Progress, then Done with a Download button -- and some earlier requests were
+    Cancelled by Amazon. **WHAT IS NOT KNOWN, because the page was not looked at: the exact words and the layout.** The names below are the brief's, so
+    the first live walk has to confirm them (a console snippet of the page's controls and rows is in DONE_AP8); a wrong one fails by name, never presses a
+    neighbour -- the request is the button beside this report's own name (the shape Flipkart's request menu has, which `BY_THE_BUTTON_BESIDE` is for) and the
+    download is narrowed to this report's own row.
+
+    **A CANCELLED OR UNFINISHED ROW IS NEVER PRESSED, because the thing pressed is a Download button and only a Done row has one** (the brief); a cancelled
+    request therefore fails the collect in words naming Cancelled, and the next day's run asks again (Amazon allows one request in 24 hours).
+    **THE ROW IS NARROWED BY THE DAY IT WAS REQUESTED** (this run's own day, as for Flipkart's listings), so an old Done row of the same report is never
+    taken for today's -- that is the repo's rule for every named row. **THE DATE FORMAT AMAZON DRAWS IN THE ROW HAS NOT BEEN SEEN:** `HOW_AMAZON_WRITES_A_DAY`
+    holds the unambiguous written forms and the first live walk must confirm one of them matches; if none does, nothing is pressed and the failure says so.
+    """
+    request = Find(BY_THE_BUTTON_BESIDE, report_name, also_saying="REQUEST REPORT",  # matched without regard to capitals, as Flipkart's is
+                   called=f"the Request Report control beside {report_name}")
+    finished = Find(BY_PRESSABLE_TEXT, "Download", near="{day_in_words}", also_saying=report_name,
+                    day_in_words_is=AMAZON_WRITES_IT, day_in_words_of=THE_DAY_IT_WAS_MADE,
+                    called=f"the Download button on the Done {report_name} row (a Cancelled or In Progress row has none)")
+    return Recipe(
+        ready_in_minutes=ready_in_minutes,
+        to_ask=(
+            Step(GO, address=AMAZON_INVENTORY_REPORTS, patience=60, why=f"opening Inventory Reports to ask for {report_name}"),
+            Step(WAIT_FOR, find=request, patience=90, why="waiting for the Inventory Reports page to draw its Request Report control"),
+            Step(CLICK, find=request, why=f"asking Amazon to build {report_name}"),
+        ),
+        to_take=(
+            Step(GO, address=AMAZON_INVENTORY_REPORTS, patience=60, why=f"coming back to Inventory Reports for {report_name}"),
+            Step(WAIT_FOR, find=finished, patience=90, why=f"waiting for the finished {report_name} row"),
+            Step(TAKE_FILE, find=finished, patience=90, why=f"taking the finished {report_name} file"),
+        ),
+    )
 
 
 def _reports_centre(kind: str, sub_kind: str, why_it_is: str) -> Recipe:
@@ -1326,6 +1380,10 @@ RECIPES: Dict[str, Recipe] = {
                  why="taking the traffic file for the day"),
         ),
     ),
+
+    # ---- Amazon: All Listings and Referral Fee Preview, two-phase from one template (lane 1 job 8).
+    "az_listings": _amazon_inventory_report("All Listings Report", 30),
+    "az_fee_preview": _amazon_inventory_report("Referral Fee Preview Report", 45),
 
     # ---- Flipkart: the traffic report, two-phase and the live selector fix
     "fk_views": Recipe(

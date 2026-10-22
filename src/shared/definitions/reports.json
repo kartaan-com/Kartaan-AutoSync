@@ -8,6 +8,18 @@
   ],
   "reports": [
     {
+      "id": "az_fee_preview",
+      "platform": "amazon",
+      "name": "Amazon Referral Fee Preview",
+      "cannotBeAskedForAgain": "This is a picture of how things stand right now. The platform keeps no history to ask for, so a past day cannot be fetched again -- only the day it was taken."
+    },
+    {
+      "id": "az_listings",
+      "platform": "amazon",
+      "name": "Amazon All Listings",
+      "cannotBeAskedForAgain": "This is a picture of how things stand right now. The platform keeps no history to ask for, so a past day cannot be fetched again -- only the day it was taken."
+    },
+    {
       "id": "az_orders",
       "platform": "amazon",
       "name": "Amazon orders",
