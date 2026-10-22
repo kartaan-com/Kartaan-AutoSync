@@ -337,12 +337,8 @@ class Google:
             # And the likeliest cause is named, because it is documented and it
             # is silent: while the Kartaan app is still in Google's "Testing"
             # state, every refresh token it issues dies after SEVEN DAYS.
-            #
-            # **A PERMISSION THAT HAS GONE IS SAID IN PLAIN WORDS (A90, GK1 follow-up).** Google's own `invalid_grant` code is what a
-            # revoked or expired refresh token answers; only the code is read, never the rest of the body.
-            gone = "Google permission gone -- press Allow Google. " if said and said.get("error") == "invalid_grant" else ""
             raise PermissionError(
-                f"{gone}Google would not give an access token (HTTP {status}). The client id, secret "
+                f"Google would not give an access token (HTTP {status}). The client id, secret "
                 "or refresh token is wrong, has been revoked, or has expired -- a refresh token "
                 "issued while the app is in Testing lasts seven days."
             )
