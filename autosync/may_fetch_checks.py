@@ -26,6 +26,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
+from datetime import date  # noqa: E402
+
 import may_fetch as tool  # noqa: E402
 
 ran = 0
@@ -148,6 +150,45 @@ for none in (None, "", "   ", "\n"):
     check(f"and asks nobody anything ({none!r})", server.asked == [])
 check("the pass is read with its edges trimmed, so a stray newline in a secret cannot make a bad ask",
       run(Server(200, {"fetch": True}), the_pass=f"  {THE_PASS}\n")[2].asked[0][1] == {"pass": THE_PASS})
+
+# ------------------------------------------------------------- no pass: warns before the date, stops from it (v0.1.21 job 5)
+
+check("until Control sets a day, the stop day is not set and the run carries on as it did", tool.NO_PASS_STOPS_FROM is None)
+THE_DAY = date(2026, 11, 20)
+
+
+def no_pass_on(today, stops_from=THE_DAY, the_pass=""):
+    """(what the run does, what it said, the Server) with the stop day set to `stops_from` for the length of the call."""
+    server = Server(200, {"fetch": True})
+    said = []
+    was = tool.NO_PASS_STOPS_FROM
+    tool.NO_PASS_STOPS_FROM = stops_from
+    try:
+        result = tool.the_check(the_pass, server, said.append, today=today)
+    finally:
+        tool.NO_PASS_STOPS_FROM = was
+    EVERYTHING_SAID.extend(said)
+    return result, said, server
+
+
+before_result, before_said, before_server = no_pass_on(date(2026, 11, 17))
+check("BEFORE THE DAY a run with no pass still fetches, and says how many days are left and what to do",
+      before_result is None and len(before_said) == 1 and "3 days left" in before_said[0] and "run pass" in before_said[0]
+      and "Connect GitHub" in before_said[0] and before_server.asked == [])
+check("the last day before it says '1 day left', not '1 days left'", "1 day left" in no_pass_on(date(2026, 11, 19))[1][0]
+      and "1 days" not in no_pass_on(date(2026, 11, 19))[1][0])
+check("a week out says 7 days", "7 days left" in no_pass_on(date(2026, 11, 13))[1][0])
+on_result, on_said, on_server = no_pass_on(THE_DAY)
+check("ON THE DAY a run with no pass does NOT fetch, and exits 0 -- a deliberate stop, as a Server 'no' is",
+      on_result == tool.EXIT_TOLD_NO == 0)
+check("and says why in words, that nothing was fetched and nothing was deleted, and asks nobody",
+      "run pass" in " ".join(on_said) and "Connect GitHub" in " ".join(on_said) and tool.NOTHING_FETCHED in on_said and on_server.asked == [])
+check("AFTER THE DAY it is the same stop", no_pass_on(date(2027, 3, 1))[0] == 0 and tool.NOTHING_FETCHED in no_pass_on(date(2027, 3, 1))[1])
+check("a blank pass is no pass, from the day as before it", no_pass_on(THE_DAY, the_pass="  \n")[0] == 0)
+check("a run WITH a pass is not touched by the day: it asks the Server, and a yes goes",
+      (lambda r: r[0] is None and len(r[2].asked) == 1)(no_pass_on(date(2027, 3, 1), the_pass=THE_PASS)))
+check("a clock that gave no day is never a reason to stop a seller: warned, not stopped",
+      (lambda r: r[0] is None and "run pass" in r[1][0])(no_pass_on(None)))
 
 # ------------------------------------------------------------- the pass is never printed
 
@@ -318,7 +359,38 @@ check("PROOF: an error quoted by its text is caught", broken("ask", _ask_that_qu
 check("PROOF: a run with no pass that stops instead of carrying on is caught",
       broken("the_check", _the_check_that_stops_without_a_pass, no_pass_is_said_loudly))
 
-EXPECTED = 83
+def stops_before_the_day():
+    return no_pass_on(date(2026, 11, 17))[0] is None and no_pass_on(THE_DAY)[0] == 0
+
+
+def _the_check_that_stops_a_no_pass_early(the_pass, post, say, today=None):
+    if not (the_pass or "").strip():
+        say(tool.NO_PASS)
+        say(tool.NOTHING_FETCHED)
+        return 0
+    return REAL_THE_CHECK(the_pass, post, say, today=today)
+
+
+def _the_check_that_never_stops_a_no_pass(the_pass, post, say, today=None):
+    if not (the_pass or "").strip():
+        say("a run pass is missing, 3 days left. Connect GitHub")
+        return None
+    return REAL_THE_CHECK(the_pass, post, say, today=today)
+
+
+REAL_THE_CHECK = tool.the_check
+check("PROOF: a no-pass run that stops before the day is caught", broken("the_check", _the_check_that_stops_a_no_pass_early, stops_before_the_day))
+check("PROOF: a no-pass run that is never stopped, even from the day, is caught",
+      broken("the_check", _the_check_that_never_stops_a_no_pass, stops_before_the_day))
+check("start.main hands the check today's date, so the day can be reached",
+      any(keyword.arg == "today" for node in ast.walk(MAIN) if isinstance(node, ast.Call)
+          and isinstance(node.func, ast.Attribute) and node.func.attr == "the_check" for keyword in node.keywords))
+check("and that day is worked out on HIS clock (clock.his_clock), never the machine's own day",
+      any(keyword.arg == "today" and "his_clock" in ast.dump(keyword.value)
+          for node in ast.walk(MAIN) if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+          and node.func.attr == "the_check" for keyword in node.keywords))
+
+EXPECTED = 97
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

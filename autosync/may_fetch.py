@@ -16,7 +16,7 @@ breaking it. The ONE real-network function, `the_real_post`, is a few lines over
 
 | What the run finds | What it does |
 |---|---|
-| No pass in the environment | CANNOT ask: carries on fetching, and says so loudly (transitional -- see below) |
+| No pass in the environment | CANNOT ask: carries on fetching, and says so loudly (transitional -- see below). **From `NO_PASS_STOPS_FROM`, once Control sets it, it does not fetch and exits 0; before it, it warns with the days left** |
 | Pass, Server says `fetch` true | goes |
 | Pass, Server says `fetch` false (any status) | does NOT fetch; prints the Server's sentence, then that nothing was fetched and nothing was deleted; exits 0 -- a deliberate stop is not a defect |
 | Pass, Server unreachable / timed out / not JSON / an unexpected shape | does NOT fetch; says in words that Kartaan could not be reached and the next run asks again; exits 1 (nothing was asked of anyone, so it is not a deliberate stop) |
@@ -38,6 +38,7 @@ in this file's own words, because it is the part a seller most needs to be told.
 
 import urllib.parse
 from dataclasses import dataclass
+from datetime import date
 from typing import Callable, Dict, Optional, Tuple
 
 # Where the question goes, and the name of the one field it carries.
@@ -58,6 +59,30 @@ NO_PASS = (
     f"{THE_SECRET} is not set), so the run could not ask whether it may fetch. It is fetching anyway. "
     "To be checked, press Connect GitHub on Kartaan's page again; that writes the pass into this repository."
 )
+# **THE DAY A RUN WITH NO PASS STOPS (v0.1.21 job 5). CONTROL SETS IT, NOT THIS FILE'S AUTHOR.** The plan's gate: only once the ERP page
+# that shows the run pass is live and `KARTAAN_RUN_PASS` has been seen in the pipeline repository's secret names, and then with 7 days'
+# warning. `None` is "not set yet": a run with no pass carries on and says so (`NO_PASS`), exactly as before. From a set day it stops
+# (`NO_PASS_STOPPED`, exit 0, like a Server "no"); before it, it carries on and says how many days are left (`no_pass_warning`).
+NO_PASS_STOPS_FROM: Optional[date] = None
+NO_PASS_STOPPED = (
+    "THIS RUN WAS STOPPED: this repository has no run pass (the secret "
+    f"{THE_SECRET} is not set), and a run without one no longer fetches. "
+    "To start fetching again, press Connect GitHub on Kartaan's page again, or copy your run pass from your Kartaan account "
+    "into this repository's secrets; that writes the pass here."
+)
+
+
+def no_pass_warning(days_left: Optional[int]) -> str:
+    """The warning a run with no pass prints before the stop day. `None` when the day could not be worked out."""
+    left = "" if days_left is None else f" {days_left} {'day' if days_left == 1 else 'days'} left."
+    return (
+        "THE CHECK WITH KARTAAN WAS NOT MADE: this repository has no run pass yet (the secret "
+        f"{THE_SECRET} is not set), so the run could not ask whether it may fetch. It is fetching anyway,"
+        f" but runs without a run pass will stop being fetched.{left} "
+        "Copy your run pass now: press Connect GitHub on Kartaan's page again; that writes the pass into this repository."
+    )
+
+
 NOTHING_FETCHED = "Nothing was fetched and nothing was deleted: your records and files are as they were."
 COULD_NOT_REACH = (
     "Kartaan could not be reached, so nothing was fetched; the next run asks again. "
@@ -131,14 +156,23 @@ def the_check(
     the_pass: Optional[str],
     post: Callable[[str, Dict[str, str]], Tuple[int, Optional[Dict]]],
     say: Callable[[str], None],
+    today: Optional[date] = None,
 ) -> Optional[int]:
     """What `start.main` calls first: `None` to carry on fetching, or the number to exit with.
 
-    **EVERYTHING IT HAS TO SAY IS SAID HERE**, through `say`, so a check can read every word.
+    **EVERYTHING IT HAS TO SAY IS SAID HERE**, through `say`, so a check can read every word. `today` is his day; a clock that gave
+    none is never a reason to stop a seller, so with the stop day set and no `today` the run is warned, not stopped.
     """
     held = (the_pass or "").strip()
     if not held:
-        say(NO_PASS)
+        if NO_PASS_STOPS_FROM is None:
+            say(NO_PASS)
+            return None
+        if today is not None and today >= NO_PASS_STOPS_FROM:
+            say(NO_PASS_STOPPED)
+            say(NOTHING_FETCHED)
+            return EXIT_TOLD_NO
+        say(no_pass_warning(None if today is None else (NO_PASS_STOPS_FROM - today).days))
         return None
     decision = ask(held, post)
     for line in decision.lines:

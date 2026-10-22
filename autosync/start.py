@@ -73,7 +73,11 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
     # **ASKED BEFORE ANY CONNECTION IS OPENED (plan job 30).** Whether this run may fetch at all is Kartaan's Server's
     # to say, and the Server notes a "no" in the seller's record itself. **EVERY RULE AND SENTENCE IS IN `may_fetch.py`,
     # WHERE IT IS DRIVEN;** this is the one line that calls it. A stop is exit 0, a question nobody answered is 1.
-    stopped = may_fetch.the_check(os.environ.get(may_fetch.THE_SECRET), may_fetch.the_real_post, print)
+    # `today` is HIS day (the same clock `now()` below uses), so a no-pass stop day is reached on his calendar (v0.1.21 job 5).
+    stopped = may_fetch.the_check(
+        os.environ.get(may_fetch.THE_SECRET), may_fetch.the_real_post, print,
+        today=clock.his_clock(datetime.now(timezone.utc).replace(tzinfo=None)).date(),
+    )
     if stopped is not None:
         return stopped
 
