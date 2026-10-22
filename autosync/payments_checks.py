@@ -658,6 +658,14 @@ _c4 = after(_c_typed, answered(lambda: ledger.plan(_c_typed, [pays("az_settlemen
 check("CLEARING THE FEE KEYS LEAVES WHAT HE TYPED IN THE NOTES", (a_row(_c4, _pn) or {}).get("notes") == "call buyer keep")
 _c_word = sheet_with(replace(_paid_before, notes="fee:waived fee:200 fee:S1:5"))
 _c5 = after(_c_word, answered(lambda: ledger.plan(_c_word, [pays("az_settlements", "2026-09-07", a_payment("amazon", "404-8", "SKU-P", "400", commission="60"))])))
+_c_plan = answered(lambda: ledger.plan(_c1, [pays("az_settlements", "2026-09-07", a_payment("amazon", "404-8", "SKU-P", "400", commission="60"),
+                                                   which="az_settlements2026-09-07")]))
+check("THE CLEARED NOTES CELL IS SENT TO THE SHEET, not only changed in memory (D581 item 3)",
+      _c_plan is not None and any(c == "notes" and v == "" for _, cs in _c_plan.cells for c, v in cs))
+_c_two_fees = after(_c1, answered(lambda: ledger.plan(_c1, [pays("az_settlements", "2026-09-07", replace(a_payment("amazon", "404-8", "", "-1.09", otherServices="1.09"), notes="fee:S2:9"),
+                                                                 which="az_settlements2026-09-07")])))
+check("A SECOND FEE ADDED BESIDE THE FIRST KEEPS BOTH KEYS: adding is not replacing, so nothing is cleared",
+      (a_row(_c_two_fees, _pn) or {}).get("notes") == "fee:S1:5 fee:S2:9")
 check("AND A WORD OF HIS OWN THAT BEGINS 'fee:' IS NOT A KEY AND STAYS", (a_row(_c5, _pn) or {}).get("notes") == "fee:waived fee:200")
 
 # Proving (A90d): every change a mutation could make to the fee code, each with a check that goes red for it.
@@ -1283,7 +1291,7 @@ if failures:
     print(f"{len(failures)} FAILED: {failures}")
     sys.exit(1)
 WITHOUT = ran - real_ran
-if WITHOUT != 95 + 22 + 17 + 8 + 2 + 3 + 5 + 3 + 5 + 14 + 7:  # the 14 are A90d proving, the 7 A90e (D581)
-    print(f"FAIL  checks went missing -- {WITHOUT} ran without his files, 181 expected")
+if WITHOUT != 95 + 22 + 17 + 8 + 2 + 3 + 5 + 3 + 5 + 14 + 9:  # the 14 are A90d proving, the 9 A90e (D581)
+    print(f"FAIL  checks went missing -- {WITHOUT} ran without his files, 183 expected")
     sys.exit(1)
 print(f"all {ran} checks passed" + ("" if real_ran == HIS_FILES_GROUP else f" ({HIS_FILES_GROUP - real_ran} of his real-file checks not run -- the files are elsewhere)"))
