@@ -44,7 +44,7 @@ import {
   A_CAMPAIGN_ID, FAILED, TOO_BIG_TO_CARRY, theDaysOfARangeName, whyTheDayIsRefused, whyTheRangeIsRefused,
 } from './walk.js';
 import {
-  RANGE_FROM_LAST, RECHECK_ALARM, SPENDS_THE_ALLOWANCE, carryTheNightOn, rememberLastCaptured, rememberLastLanded,
+  ASKS_A_RANGE, RANGE_FROM_LAST, RECHECK_ALARM, SPENDS_THE_ALLOWANCE, carryTheNightOn, rememberLastCaptured, rememberLastLanded,
 } from './nightly.js';
 import { theLatestDateInside } from './unzip.js';
 
@@ -149,11 +149,10 @@ export function whyTheseAreNotNames(reportId, fileName) {
   /* **THE THIRD NAME: ONE REQUEST FOR SEVERAL DAYS (P16).** `platform_report_FROM_to_TO.ext`, and
    * narrower than the dated form: the report id in the name has to be the
    * very report this message is about. Both ends real days, FROM before TO, no more days than one
-   * press takes (`whyTheRangeIsRefused`). **AND ONLY FOR THE REPORTS ASKED FOR IN ONE REQUEST** (`SPENDS_THE_ALLOWANCE`; Meesho's
-   * join here when they are built), so a stray range name for any other report never reaches the Drive. **AND IT IS NEVER A PER-CAMPAIGN NAME** -- that shape would
+   * press takes (`whyTheRangeIsRefused`). **AND ONLY FOR THE REPORTS ASKED FOR IN ONE REQUEST** (`ASKS_A_RANGE`: the Flipkart ones and Meesho orders), so a stray range name for any other report never reaches the Drive. **AND IT IS NEVER A PER-CAMPAIGN NAME** -- that shape would
    * read `_to_TO` as a campaign id, so a range-looking name for a report fetched per campaign is
    * refused outright rather than let through under the other shape. */
-  const ranged = !SPENDS_THE_ALLOWANCE.includes(report) ? null : new RegExp('^[a-z0-9]{1,32}_' + report
+  const ranged = !ASKS_A_RANGE.includes(report) ? null : new RegExp('^[a-z0-9]{1,32}_' + report
     + '_(\\d{4}-\\d{2}-\\d{2})_to_(\\d{4}-\\d{2}-\\d{2})\\.[a-z0-9]{1,8}$').exec(called);
   const perCampaign = NAMED_PER_CAMPAIGN.includes(report) && !/_\d{4}-\d{2}-\d{2}_to_\d{4}-\d{2}-\d{2}\./.test(called)
     ? new RegExp('^[a-z0-9]{1,32}_' + report + '_(\\d{4}-\\d{2}-\\d{2})_[A-Za-z0-9_-]{1,64}\\.[a-z0-9]{1,8}$').exec(called)

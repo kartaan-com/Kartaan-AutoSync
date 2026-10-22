@@ -820,7 +820,7 @@ FIFTH_OF_JUNE = date(2026, 6, 5)
 fake = FakeMeesho()
 a_fetch(fake)("me_orders", DAY)
 check("the day a Meesho orders row is ABOUT reaches the page as the plain day",
-      answered(lambda: "2026-08-26" in fake.rows_asked))
+      answered(lambda: "2026-08-26_2026-08-26_" in fake.rows_asked))
 check("and nothing reaches the page still holding a placeholder",
       answered(lambda: all("{" not in one for one in fake.rows_asked)))
 

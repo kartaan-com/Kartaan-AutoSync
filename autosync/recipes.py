@@ -833,7 +833,11 @@ RECIPES: Dict[str, Recipe] = {
             # same picture. The reference closes it and opens it again, six times,
             # thirty seconds apart (`content/meesho.js:860-878`), and that is
             # carried across as it is rather than derived again.
-            Step(TAKE_FILE, find=Find(BY_PRESSABLE_TEXT, "Download", near="{day}"),
+            # **JOB 9: THE ROW IS ASKED FOR BY BOTH ENDS, `<from>_<to>_`, so a typed range finds its own row
+            # and not an earlier one-day export of its last day.** A one-day walk has `{from}` = the day and
+            # asks `D_D_`, exactly how Meesho labels a one-day export. A range's label `<from>_<to>_<made-on>`
+            # is INFERRED from that pattern, not seen: the first live range export must confirm it.
+            Step(TAKE_FILE, find=Find(BY_PRESSABLE_TEXT, "Download", near="{from}_{day}_"),
                  patience=30,
                  look_again=LookAgain(
                      by=Find(BY_PRESSABLE_TEXT, "Download Orders Data", called="the download menu"),

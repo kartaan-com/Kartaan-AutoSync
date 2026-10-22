@@ -339,13 +339,16 @@ def _the_rows_it_could_be(find, data_date, run_day):
     """
     if not find.near:
         return ()
-    if "{day_in_words}" not in find.near:
-        return (find.near.replace("{day}", data_date.isoformat()),)
+    # **`{from}` IS THE FIRST DAY OF A RANGE, AND THIS DOOR ONLY EVER ASKS ONE DAY**, so it is the day --
+    # the same answer `extension/walk.js` gives when it is not told a range.
+    near = find.near.replace("{from}", data_date.isoformat())
+    if "{day_in_words}" not in near:
+        return (near.replace("{day}", data_date.isoformat()),)
     # **WHICH DAY NAMES THE ROW IS THE LOOKUP'S OWN ANSWER**, and there is no
     # default: a lookup that has not said is refused before it gets here.
     named_by = run_day if find.day_in_words_of == pages.THE_DAY_IT_WAS_MADE else data_date
     return tuple(
-        find.near.replace("{day_in_words}", in_words).replace("{day}", data_date.isoformat())
+        near.replace("{day_in_words}", in_words).replace("{day}", data_date.isoformat())
         for in_words in book.the_days_in_words(find.day_in_words_is, named_by)
     )
 

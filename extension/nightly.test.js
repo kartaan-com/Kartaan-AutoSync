@@ -1302,11 +1302,11 @@ check('and three days of trying is the reference\'s own number', GIVE_UP_AFTER_D
   const browser = installFakeChrome();
   const walk = aWalkThat();
   await startTheNight(browser.chrome, {
-    doing: ['me_orders'], at: 1, openAt: 'https://x/', dataDate: '2026-09-14',
+    doing: ['me_returns'], at: 1, openAt: 'https://x/', dataDate: '2026-09-14',
     days: ['2026-09-12', '2026-09-13', '2026-09-14'],
   });
   await carryTheNightOn(browser.chrome, { ...walk, at: 2 });
-  walk.itFinished({ state: 'landed', reportId: 'me_orders', size: 10, dataDate: '2026-09-12' });
+  walk.itFinished({ state: 'landed', reportId: 'me_returns', size: 10, dataDate: '2026-09-12' });
   await carryTheNightOn(browser.chrome, { ...walk, at: 3 });
   check('a sync asked for several days walks the oldest first, then the next',
     walk.started.map((one) => one.dataDate).join() === '2026-09-12,2026-09-13');
@@ -1357,7 +1357,7 @@ check('and three days of trying is the reference\'s own number', GIVE_UP_AFTER_D
   const meesho = installFakeChrome();
   const meeshoWalk = aWalkThat();
   await startTheNight(meesho.chrome, {
-    doing: ['me_orders'], at: 1, openAt: 'https://x/', dataDate: '2026-09-14',
+    doing: ['me_returns'], at: 1, openAt: 'https://x/', dataDate: '2026-09-14',
     days: ['2026-09-12', '2026-09-13', '2026-09-14'],
   });
   await carryTheNightOn(meesho.chrome, { ...meeshoWalk, at: 2 });
@@ -1391,6 +1391,48 @@ check('and three days of trying is the reference\'s own number', GIVE_UP_AFTER_D
     grouped.reportIds.length === 1 && grouped.from === '2026-09-12');
   check('and an ordinary re-check has no range at all',
     theRecheckSync({ a: { reportId: 'fk_claims', dataDate: '2026-09-14' } }).from === undefined);
+}
+
+{
+  /* **JOB 9 (AP7): MEESHO ORDERS AND PAYMENTS ASK A TYPED RANGE IN ONE REQUEST TOO.** They spend none of
+   * Flipkart's twenty, so the range is kept apart from the allowance list: three owed days are ONE walk
+   * carrying the range's first day, and nothing is counted against the twenty. */
+  for (const report of ['me_orders']) {
+    const browser = installFakeChrome();
+    const walk = aWalkThat();
+    await startTheNight(browser.chrome, {
+      doing: [report], mayAskFor: 0, at: 1, openAt: 'https://x/', dataDate: '2026-10-20', panel: 'p',
+      days: ['2026-10-18', '2026-10-19', '2026-10-20'],
+    });
+    await carryTheNightOn(browser.chrome, { ...walk, at: 2 });
+    check(`${report} over three days is walked ONCE, for the last day, from the first, named as a range`,
+      walk.started.length === 1 && walk.started[0].dataDate === '2026-10-20'
+      && walk.started[0].fromDay === '2026-10-18' && walk.started[0].namedAsARange === true);
+    check(`and ${report} spends nothing of the twenty`, (await theNight(browser.chrome)).spent === 0);
+    walk.itFinished({ state: 'landed', reportId: report, size: 10, dataDate: '2026-10-20' });
+    await carryTheNightOn(browser.chrome, { ...walk, at: 3 });
+    check(`and once it has landed ${report} has no second walk for the days inside it`,
+      walk.started.length === 1);
+  }
+  /* me_payments is NOT ranged: Meesho ignores the days, so a range name would claim days the file lacks. */
+  const pay = installFakeChrome();
+  const payWalk = aWalkThat();
+  await startTheNight(pay.chrome, {
+    doing: ['me_payments'], at: 1, openAt: 'https://x/', dataDate: '2026-10-20', panel: 'p',
+    days: ['2026-10-18', '2026-10-19', '2026-10-20'],
+  });
+  await carryTheNightOn(pay.chrome, { ...payWalk, at: 2 });
+  check('me_payments over three days is still walked a day at a time, never named as a range',
+    payWalk.started[0].dataDate === '2026-10-18' && !payWalk.started[0].namedAsARange);
+  const gap = installFakeChrome();
+  const gapWalk = aWalkThat();
+  await startTheNight(gap.chrome, {
+    doing: ['me_orders'], at: 1, openAt: 'https://x/', dataDate: '2026-10-20', panel: 'p',
+    days: ['2026-10-18', '2026-10-20'],
+  });
+  await carryTheNightOn(gap.chrome, { ...gapWalk, at: 2 });
+  check('a Meesho run whose days have a gap is still walked a day at a time',
+    gapWalk.started.length === 1 && gapWalk.started[0].dataDate === '2026-10-18' && !gapWalk.started[0].namedAsARange);
 }
 
 {
@@ -1732,7 +1774,7 @@ async function seedLandedRangeForTest(c, reportId, from, to) {
       && one.say.includes('has not been asked for')).length === 3);
 }
 
-const EXPECTED = 180 + 16;
+const EXPECTED = 180 + 16 + 5;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

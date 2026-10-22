@@ -4201,7 +4201,7 @@
             "what": "Download",
             "exact": true,
             "called": "",
-            "near": "{day}",
+            "near": "{from}_{day}_",
             "alsoSaying": "",
             "dayInWordsIs": "",
             "dayInWordsOf": ""

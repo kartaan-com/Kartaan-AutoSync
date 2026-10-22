@@ -251,8 +251,11 @@ const LATER = '2026-08-27T16:04:00.000Z';
   check('but the same name for a DIFFERENT report is refused', typeof whyTheseAreNotNames('fk_payments', orders) === 'string');
   check('a range is let through for the two reports asked for in one request and for no other',
     whyTheseAreNotNames('fk_payments', 'flipkart_fk_payments_2026-09-29_to_2026-10-03.xlsx') === null
-    && ['me_orders', 'fk_views', 'fk_ads_daily', 'az_orders'].every((one) => typeof whyTheseAreNotNames(
+    && ['me_payments', 'fk_views', 'fk_ads_daily', 'az_orders'].every((one) => typeof whyTheseAreNotNames(
       one, `x_${one}_2026-09-29_to_2026-10-03.csv`) === 'string'));
+  check('JOB 9: a Meesho orders range name reaches the Drive, and a range of Meesho payments does not',
+    whyTheseAreNotNames('me_orders', 'meesho_me_orders_2026-09-29_to_2026-10-03.csv') === null
+    && typeof whyTheseAreNotNames('me_payments', 'meesho_me_payments_2026-09-29_to_2026-10-03.csv') === 'string');
   check('a range the wrong way round is refused', typeof whyTheseAreNotNames('fk_orders', 'flipkart_fk_orders_2026-10-03_to_2026-09-29.xlsx') === 'string');
   check('a range of one day is not a range and is refused',
     typeof whyTheseAreNotNames('fk_orders', 'flipkart_fk_orders_2026-10-03_to_2026-10-03.xlsx') === 'string');
@@ -2258,7 +2261,7 @@ check('the page relay is OFF in what ships, so no script on a portal page can dr
     && theRelayAllows(false, { do: 'run-now' }) === false);
 }
 
-const EXPECTED = 262 + 13;
+const EXPECTED = 262 + 13 + 1;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

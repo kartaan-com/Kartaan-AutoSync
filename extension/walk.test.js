@@ -47,6 +47,7 @@ import {
   theCampaignsIn,
   withEachCampaign,
   theCampaignsFileName,
+  theRowsItCouldBe,
 } from './walk.js';
 import { TOO_BIG } from './catch-blob.js';
 
@@ -2796,7 +2797,21 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
     && whyStepIsRefused({ do: 'go', address: 'https://x.invalid', table: 'meesho-pricing', patience: 30, why: 'x' }) !== null);
 }
 
-const EXPECTED = 349 + 9;
+{
+  /* **JOB 9 (AP7): MEESHO'S EXPORTED FILES LABEL A RANGE `<from>_<to>_<made-on>` (INFERRED, NOT SEEN -- the
+   * first live range export must confirm it).** The row is asked for by BOTH ends, so an earlier one-day
+   * export of the last day cannot be taken for the range, and a one-day walk still asks `D_D_`. */
+  const find = { near: '{from}_{day}_' };
+  check('a range row is asked for by both ends of the range',
+    theRowsItCouldBe(BOOK, find, '2026-10-20', '2026-10-22', '2026-10-18').join() === '2026-10-18_2026-10-20_');
+  check('a one-day walk asks for the same day at both ends, which is how Meesho labels it',
+    theRowsItCouldBe(BOOK, find, '2026-10-19', '2026-10-22').join() === '2026-10-19_2026-10-19_'
+    && theRowsItCouldBe(BOOK, find, '2026-10-19', '2026-10-22', '').join() === '2026-10-19_2026-10-19_');
+  check('a first day that is not before the last is no range, so both ends are the day',
+    theRowsItCouldBe(BOOK, find, '2026-10-19', '2026-10-22', '2026-10-25').join() === '2026-10-19_2026-10-19_');
+}
+
+const EXPECTED = 349 + 9 + 3;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

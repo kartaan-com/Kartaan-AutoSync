@@ -801,7 +801,7 @@ check("and every row named is named by the day, one way or the other",
 # right file when an older day is being fetched, which is exactly when it
 # matters.
 check("the orders file is named by the day it is ABOUT",
-      answered(lambda: any(s.find is not None and s.find.near == "{day}"
+      answered(lambda: any(s.find is not None and s.find.near == "{from}_{day}_"
                            for s in tool.RECIPES["me_orders"].to_take)))
 # A RETURNS row carries no data date at all -- a returns export is always the
 # last two weeks -- so all it has is the day it was made, in the platform's own
