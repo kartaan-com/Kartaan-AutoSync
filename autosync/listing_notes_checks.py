@@ -242,8 +242,36 @@ check("az_suppressed is read now and no longer says it is not",
       reading.why_a_report_has_no_decision() == "" and "az_suppressed" not in reading.WHAT_IS_FETCHED_AND_NOT_READ_YET
       and [o.report_id for o in reading.WHAT_NOTES_CAN_BE_READ] == ["az_suppressed"])
 
+
+# ---------------------------------------------------------------- the fee side (job 2): lane 1's reader is not on this lane, so a stand-in of its documented shape
+
+
+class FeesSaid:
+    """The shape of lane 1's `listings.WhatFeesSaid` (DONE_AP8): fees by listing record id, rows it would not take, rows in the file."""
+
+    def __init__(self, fees, not_read=(), rows_in_file=0):
+        self.fees, self.not_read, self.rows_in_file = fees, not_read, rows_in_file
+
+
+FEES = FeesSaid({RING: 12.5, BANGLE: 0}, ("line 4 (X): Amazon gave no estimate for this one ('--'), so no fee was set",), 3)
+fee_notes = answered(lambda: tool.notes_from_fees(FEES))
+check("each fee becomes a referralFee note on its listing, the 0.00 Amazon gave kept as a figure",
+      fee_notes is not None and fee_notes.notes == {RING: {"referralFee": 12.5}, BANGLE: {"referralFee": 0}})
+check("the rows the fee reader would not take and the rows in the file go through, so the night says them",
+      fee_notes is not None and fee_notes.not_read == FEES.not_read and fee_notes.rows_in_file == 3)
+fee_t = Transport(held={RING: LISTED, BANGLE: LISTED})
+fee_put = answered(lambda: firestore_door.a_listing_notes_sink(fee_t, "p")("az_fee_preview", "2026-10-05", fee_notes.notes))
+check("the sink writes referralFee with feeAsOf, masked to those two fields, on each held record",
+      fee_put == (2, 0) and all(sorted(w["updateMask"]["fieldPaths"]) == ["feeAsOf", "referralFee"] for w in fee_t.commits())
+      and fee_t.commits()[0]["update"]["fields"]["feeAsOf"] == {"stringValue": "2026-10-05"})
+fee_held = {n: {**LISTED, **w["update"]["fields"]} for w, n in zip(fee_t.commits(), (BANGLE, RING))}
+check("the same fees a day later write nothing, and an older file's fee never lands over a newer one",
+      answered(lambda: firestore_door.a_listing_notes_sink(Transport(held=fee_held), "p")("az_fee_preview", "2026-10-06", fee_notes.notes)) == (0, 0)
+      and answered(lambda: firestore_door.a_listing_notes_sink(Transport(held=fee_held), "p")("az_fee_preview", "2026-10-01", {RING: {"referralFee": 99.0}})) == (0, 0))
+check("a fee that changed is written again",
+      answered(lambda: firestore_door.a_listing_notes_sink(Transport(held=fee_held), "p")("az_fee_preview", "2026-10-06", {RING: {"referralFee": 13.0}})) == (1, 0))
 check("nothing above ended by throwing rather than by answering -- " + str(THREW), not THREW)
-EXPECTED = 39
+EXPECTED = 44
 check(f"checks went missing -- {ran + 1} ran, {EXPECTED} expected", ran + 1 == EXPECTED)
 
 if failures:

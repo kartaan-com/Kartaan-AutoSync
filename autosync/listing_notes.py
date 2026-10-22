@@ -86,6 +86,20 @@ def read_suppressed(content: bytes, report_name: str = "this file") -> WhatNotes
     return WhatNotesSaid(notes=notes, not_read=tuple(not_read), rows_in_file=len(rows) + len(rows.refused))
 
 
+def notes_from_fees(fees_said) -> WhatNotesSaid:
+    """Amazon's referral fee per listing (what lane 1's `listings.read_fee_preview` answers) as notes: `referralFee` on each listing's record.
+
+    **WRITTEN AGAINST THE SHAPE LANE 1 DOCUMENTS (DONE_AP8), AS LANE 2'S HALF (AP9):** `fees_said.fees` is `{amazon::ASIN::seller-sku: the fee per item}`, `.not_read`
+    the rows it would not take and `.rows_in_file` the rows in the file. `read_fee_preview` itself is on lane 1 only, so the lane merge joins them (the reader line is in
+    DONE_AP9). **A fee of 0.00 is kept: it is a figure Amazon gave.** `feeAsOf`, the file's day, is added by the sink, as `suppressedOn` is.
+    """
+    return WhatNotesSaid(
+        notes={name: {"referralFee": fee} for name, fee in fees_said.fees.items()},
+        not_read=tuple(fees_said.not_read),
+        rows_in_file=fees_said.rows_in_file,
+    )
+
+
 # Which report's file is read by which reader.
 READERS: Dict[str, Callable[..., WhatNotesSaid]] = {"az_suppressed": read_suppressed}
 

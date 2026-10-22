@@ -642,8 +642,8 @@ def a_listing_write(project: str, listing: Dict, report_id: str, changed_on: str
 # `suppressedOn` and `feeAsOf` are the day of the file the words came from, so a file uploaded late cannot undo a newer one.
 NOTE_TEXT = ("suppressedReason", "fixHint", "suppressedOn", "feeAsOf")
 NOTE_FIELDS = ("suppressed", "referralFee") + NOTE_TEXT
-# The day-field that goes with each side report (`firestore_door.a_listing_notes_sink`). `az_fee_preview` is joined at the lane merge (DONE_AP9).
-NOTE_DAY_FIELD = {"az_suppressed": "suppressedOn"}
+# The day-field that goes with each side report (`firestore_door.a_listing_notes_sink`).
+NOTE_DAY_FIELD = {"az_suppressed": "suppressedOn", "az_fee_preview": "feeAsOf"}
 
 
 def a_listing_note_write(project: str, doc_id: str, notes: Dict) -> Dict:
