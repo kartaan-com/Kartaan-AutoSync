@@ -583,7 +583,7 @@
           "what": "D121 AND D122 COULD NOT HAPPEN AT ALL: `autosync.yml` had no `workflow_call` trigger, so no other repository could call it, and this repository had NO TAGS -- nothing for a seller to point at. So the only way a seller could have run the fetching was to hold a COPY of it, which is frozen the day it is made and is the one thing D121 exists to prevent. Fixed 2026-09-09 (A39): the trigger declares all eight secrets as ones a caller must name (`inherit` is not available across personal accounts, from GitHub's own documentation) and the button as an input a caller can pass on; `pipeline-template/.github/workflows/autosync.yml` is the one file a seller's repository holds, and it names this workflow at a whole version tag; and `v0.1.0` is cut and pushed. `schedule` and `workflow_dispatch` are untouched, and this repository still takes the no-platform branch (D108).",
           "found": "2026-09-09",
           "fixed": true,
-          "proved_by": "autosync/nightly_checks.py: 'AND ANOTHER REPOSITORY CAN CALL IT', 'EVERY SECRET A CALLER MUST DECLARE IS ONE THE WORKFLOW REFUSES TO RUN WITHOUT, AND EVERY ONE IT REFUSES TO RUN WITHOUT IS DECLARED', 'EVERY SECRET THE SELLER'S OWN FILE HANDS OVER IS ONE THE WORKFLOW DECLARES, AND EVERY ONE DECLARED IS HANDED OVER BY IT', and 'AND IT NAMES A WHOLE VERSION TAG, NEVER A BRANCH AND NEVER A MOVING ONE (D122)'. All thirteen faults were put back one at a time and each was caught by a named check."
+          "proved_by": "autosync/nightly_checks.py: 'AND ANOTHER REPOSITORY CAN CALL IT', 'EVERY SECRET A CALLER MUST DECLARE IS ONE THE WORKFLOW REFUSES TO RUN WITHOUT, AND EVERY ONE IT REFUSES TO RUN WITHOUT IS DECLARED', 'EVERY SECRET THE SELLER'S OWN FILE HANDS OVER IS ONE THE WORKFLOW DECLARES, AND EVERY ONE DECLARED IS HANDED OVER BY IT', and 'AND IT NAMES GROUP-1, GROUP-2 OR GROUP-3 -- NEVER A BRANCH OF OURS, NEVER ONE TAG (D426)' (D426 amended the tag rule for the caller line). All thirteen faults were put back one at a time and each was caught by a named check."
         },
         {
           "what": "**EVERY QUESTION ANSWERED WITH A LIST WENT ON THE WIRE AS THE WAY PYTHON PRINTS THAT LIST, AND AMAZON CALLED IT 'Unauthorized'.** `_address()` called `urlencode` without `doseq=True`, so `reportTypes=['GET_V2_SETTLEMENT_REPORT_DATA_FLAT_FILE_V2']` was sent, brackets and quotes and all, instead of the bare report type. Amazon answered HTTP 403, 'Unauthorized', 'Access to requested resource is denied.' **THAT SENTENCE IS THE EXPENSIVE PART: it reads as a missing permission and is nothing of the kind**, and a seller would have been sent to Amazon's console to fix something that was never wrong. Proven against his own account before the fix was written: the same credentials listed settlements perfectly, every parameter `find_query` builds returned 200 when correctly encoded on its own, the exact string `_address` produced returned 403, and the same parameters with `doseq=True` were fine. **A 403 IS NOT EVIDENCE OF A PERMISSION PROBLEM. It is evidence that the server said no.** Only settlements showed it because `az_settlements` is the ONLY report Kartaan LOOKS UP rather than ASKS FOR, so it is the only one whose questions go in the address; every other call sends a JSON body, which never passes through here, so orders and returns were never affected. **AND NOTHING IN THIS REPOSITORY HAD EVER LOOKED AT WHAT GOES ON THE WIRE** -- the stand-in in `transport_checks.py` is handed the questions as a mapping and never builds an address, so every check was green while this was live. Fixed 2026-09-09 (A43). **THE TREE WAS SWEPT FOR THE SAME FAULT AND `find_query` IS THE ONLY PLACE IT LIVES:** every other list in the package is a JSON body (`create_body`'s marketplaceIds, Drive's parents, the ledger's values, the new sheet's tabs) or an internal table, and Drive's and Sheets' questions are all plain words and numbers.",
@@ -2034,6 +2034,23 @@
         "autosync/returns.py",
         "autosync/start.py",
         "autosync/nightly.py"
+      ]
+    },
+    {
+      "id": "group-branches",
+      "name": "Sellers' pipelines follow new versions by themselves through group-1/2/3, moved by one tool that only prints (A88, D392/D424/D426/D515)",
+      "what": "The seller's caller line names group-1, group-2 or group-3 (nightly_checks accepts exactly those); each group only ever points at a released version tag; tools/move_group.py reads GitHub, refuses anything but a published release, and prints the one command that moves a group -- it writes nothing; docs/RELEASING-GROUPS.md says how, in plain words.",
+      "rests_on": [],
+      "files": [
+        "tools/move_group.py",
+        "tools/move_group_checks.py",
+        "docs/RELEASING-GROUPS.md"
+      ],
+      "also_touches": [
+        "autosync/nightly_checks.py",
+        "pipeline-template/.github/workflows/autosync.yml",
+        ".github/workflows/autosync.yml",
+        "README.md"
       ]
     }
   ]

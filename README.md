@@ -18,8 +18,9 @@ fetch.
 **NOTHING IS COPIED INTO A SELLER'S ACCOUNT, AND THIS PARAGRAPH USED TO SAY THE
 OPPOSITE.** A copy is frozen the day it is made: a fix pushed here would never
 reach it. The seller's own repository holds ONE file -- a caller, which says
-`uses:` this repository's nightly workflow **at a version tag**. The code runs
-from here, and a fix reaches every seller who moves to the next tag. That is
+`uses:` this repository's nightly workflow **at a group** (`group-1/2/3`),
+which only ever points at a released version tag. The code runs from here, and a
+fix reaches each seller when Kartaan moves their group to the next release. That is
 D121 and D122, and it is why this repository is **public**.
 
 **IT WAS PRIVATE UNTIL 2026-09-09, AND THE REASON IT WAS IS NOT ANSWERED.**

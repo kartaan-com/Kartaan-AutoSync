@@ -1643,13 +1643,29 @@ check("the seller's own file says which workflow it runs", _USES is not None)
 check("and it is THIS repository's nightly workflow and no other file",
       _USES is not None
       and _USES.group(1) == "kartaan-com/Kartaan-AutoSync/.github/workflows/autosync.yml")
-# **D122, AND IT IS THE WHOLE POINT OF THE TAG.** A seller pinned to a branch
-# gets whatever was pushed that afternoon, so one bad push breaks every seller
-# that night. A moving `v0` is a branch wearing a tag's name and is refused here
-# for the same reason.
-check("AND IT NAMES A WHOLE VERSION TAG, NEVER A BRANCH AND NEVER A MOVING ONE (D122)",
-      _USES is not None
-      and re.fullmatch(r"v\d+\.\d+\.\d+", _USES.group(2)) is not None)
+# **D426 (AMENDING D122 FOR THIS ONE LINE): THE CALLER NAMES A GROUP, AND A GROUP
+# ONLY EVER POINTS AT A RELEASED VERSION TAG.** A seller pinned to `main` or to
+# any branch of ours gets whatever was pushed that afternoon, so one bad push
+# breaks every seller that night -- that is still refused. What changed is that a
+# frozen copy of this file could never pick up a newer version (D392, D424): so
+# the line names `group-1`, `group-2` or `group-3`, which are moved by
+# `tools/move_group.py` and by nothing else, and only onto a released tag. A
+# tag itself still never moves. Everything else is refused, tags included: a
+# seller left on a tag is a seller who stops following releases without knowing.
+_GROUP_LINE = re.compile(r"group-[123]")
+
+
+def _names_a_group(ref):
+    return _GROUP_LINE.fullmatch(ref or "") is not None
+
+
+check("AND IT NAMES GROUP-1, GROUP-2 OR GROUP-3 -- NEVER A BRANCH OF OURS, NEVER ONE TAG (D426)",
+      _USES is not None and _names_a_group(_USES.group(2)))
+check("and only those three names are accepted, nothing nearby (D426)",
+      all(_names_a_group(g) for g in ("group-1", "group-2", "group-3"))
+      and not any(_names_a_group(bad) for bad in
+                  ("v0.1.20", "main", "stable", "v0", "group-0", "group-4", "group-11",
+                   "group-1x", "Group-1", "group-", "group", "xgroup-1", "")))
 
 # **AND IT SETS NO CONCURRENCY GROUP OF ITS OWN.** This workflow already carries
 # `group: autosync`, and the group is worked out in the CALLING repository -- so
@@ -1775,8 +1791,8 @@ check("IT FETCHES THE REPOSITORY THIS WORKFLOW ITSELF LIVES IN, NOT WHOEVER "
       "CALLED IT (A41)",
       FETCHES_REPOSITORY == "${{ job.workflow_repository }}")
 # **AND THE COMMIT, NOT THE REF -- D122.** `job.workflow_ref` ends
-# `@refs/tags/v0.1.1` and a tag can be moved; `job.workflow_sha` is the commit
-# that tag resolved to on the night the seller ran, and nothing moves it after.
+# `@refs/heads/group-1` and a branch is exactly what moves (D426); `job.workflow_sha`
+# is the commit that group resolved to when the run started, and nothing moves it after.
 check("AND AT THE COMMIT THE SELLER'S TAG RESOLVED TO, NEVER A TAG OR A BRANCH (D122)",
       FETCHES_AT == "${{ job.workflow_sha }}")
 # **AND NOT OFF THE `github` CONTEXT ANYWHERE, INCLUDING THE NAME THAT DOES NOT
@@ -2757,7 +2773,7 @@ check("and every builder start.py hands the tick is imported there, so the first
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 394 + 3 + 6
+EXPECTED = 394 + 3 + 6 + 1
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

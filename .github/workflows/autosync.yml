@@ -117,11 +117,12 @@ on:
   #
   # **THE SELLER'S OWN FILE IS A CALLER AND NOTHING ELSE.** It sits in their
   # `kartaan-pipeline` repository, carries the schedule and the button, and says
-  # `uses:` this file **at a version tag** (D122) -- never at a branch, so one
-  # bad push here does not break every seller that night. What that file says is
+  # `uses:` this file at a **group** (`group-1/2/3`, D426) -- never `main`, so one
+  # bad push here does not break every seller that night; a group only ever
+  # points at a released version tag, and the run pins the commit (D122). What that file says is
   # kept in this repository at
   # `pipeline-template/.github/workflows/autosync.yml`, because a change to the
-  # ten names or to the tag is a change to both files.
+  # ten names or to the group is a change to both files.
   #
   # **EVERY SECRET IS DECLARED AND PASSED BY NAME. `inherit` IS NOT AVAILABLE.**
   # From GitHub's own documentation, `secrets: inherit` works only for a called
@@ -255,7 +256,8 @@ jobs:
       #     straight back to the caller -- the same fault, fixed-looking.
       #
       # **IT PINS THE COMMIT, NOT THE TAG, AND THAT IS D122.** `job.workflow_sha`
-      # is the exact commit `v0.1.1` points at on the night the seller runs. A
+      # is the exact commit the seller's group (a branch that only ever
+      # points at a released tag) resolved to on the night the run starts. A
       # seller can never be handed whatever was pushed that afternoon.
       #
       # **AND IT IS READ OUT LOUD HERE RATHER THAN DROPPED STRAIGHT INTO `with:`.**
