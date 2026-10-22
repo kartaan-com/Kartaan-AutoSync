@@ -809,9 +809,10 @@ def _put_each_on_its_row(
             continue  # reported already, as an unreadable row; written to nowhere
         if target is None:
             there = [n for n in rows_of_order.get((sale.platform, sale.order_id), ()) if n not in poisoned]
-            if not sale.sku and len(there) == 1 and sale.platform == "meesho" and "claimsOn" in reading.knows:
-                # **A MEESHO SUB-ORDER IS ONE LINE BY ITS OWN NUMBER, so a CLAIM (which names no SKU) has exactly one row to be on.** Only a
-                # claim: a payment line with no SKU is still said, never placed by guessing.
+            if not sale.sku and len(there) == 1 and sale.platform in ("meesho", "flipkart") and "claimsOn" in reading.knows:
+                # **A MEESHO SUB-ORDER IS ONE LINE BY ITS OWN NUMBER, so a CLAIM (which names no SKU) has exactly one row to be on; A FLIPKART
+                # CLAIM names an order and an item id the ledger does not key on, so it goes on the order's row only when the order has exactly
+                # one (several rows fall to the case below and are said).** Only a claim: a payment line with no SKU is still said, never placed by guessing.
                 target = there[0]
             elif not sale.sku and len(there) == 1 and sale.platform == "amazon":
                 # **A CHARGE AMAZON TOOK WITH NO SKU (a cancellation fee) GOES ON ITS ORDER'S ROW (D554, his words: "if that has been deducted

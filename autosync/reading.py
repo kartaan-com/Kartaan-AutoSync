@@ -191,6 +191,9 @@ WHAT_CAN_BE_READ: Tuple[HowToRead, ...] = (
         header_starts=payments.AMAZON_HEADER_STARTS + "|" + payments.AMAZON_SETTLEMENT_HEADER_STARTS,
         kind="payments",
     ),
+    # **FLIPKART'S CLAIMS (v0.1.21 job 3):** a workbook of two claim sheets, found by name in `claims.flipkart_sheet_names` rather than by
+    # `which_sheet`. Noted on an order's one ledger row only; no record per claim is written (that is Meesho's, D459).
+    HowToRead("fk_claims", WHAT_CLAIMS_KNOW, kind="claims"),
 )
 
 
@@ -250,7 +253,6 @@ WHAT_IS_FETCHED_AND_NOT_READ_YET: Dict[str, str] = {
     "fk_keywords": (
         "switched off by his ruling (piece 49), so it is not fetched at all and has no folder"
     ),
-    "fk_claims": "decided: into the claims columns of the ledger and the ERP's Claims section -- piece 78",
     "me_pricing": (
         "decided: current price, recommended price and Meesho's own label put on each Meesho listing in Products, as piece 43 says; "
         "that screen is the ERP's"
@@ -547,6 +549,9 @@ def a_reading(how: HowToRead, one: whats_new.InTheFolder, body: bytes) -> Tuple[
             "written. Nothing in it was read."
         )
     which = the_report(how.report_id)
+    if how.kind == "claims" and which.platform == "flipkart":
+        rows, extras = _the_flipkart_claim_sheets(body, one.name or one.which)
+        return _a_reading_of_the_rows(how, one, rows, which.platform, when.isoformat(), extras)
     rows = _rows_in(how, body, one.name or one.which)
     extras = _the_other_sheets(how, body, which.platform) if how.kind == "payments" else None
     # **THE FILE'S OWN DAY GOES ONTO EVERY SALE IT PRODUCES (D157).** It is
@@ -617,6 +622,20 @@ def _paid_by_a_file(how: HowToRead, one: whats_new.InTheFolder, body: bytes):
     return day, payments.read_payments(rows, platform, day, None), (rows, platform, day)
 
 
+def _the_flipkart_claim_sheets(body: bytes, called: str):
+    """Flipkart's claims workbook as `(seller claims table or None, {"auto": auto-approved claims table or None})`. `Help` is never read.
+
+    A sheet that will not read is refused, so the file is not marked read with its claims on nothing.
+    """
+    really = landing.what_it_really_is(body)
+    if really != "xlsx":
+        raise table.CannotRead(f"{called} is {really}, which is not something this can read. Flipkart's claims come as a spreadsheet.")
+    seller_name, auto_name = claims.flipkart_sheet_names(sheet.sheets_in(body))
+    seller = sheet.read(body, sheet=seller_name) if seller_name else None
+    auto = sheet.read(body, sheet=auto_name) if auto_name else None
+    return seller, {"auto": auto}
+
+
 def _the_other_sheets(how: HowToRead, body: bytes, platform: str) -> Dict[str, object]:
     """The sheets of a payments workbook besides its orders sheet (job 15 c), each as a table, or as the words saying why it would not read.
 
@@ -652,7 +671,10 @@ def _a_reading_of_the_rows(
             len(paid.not_read),
         )
     if how.kind == "claims":
-        said = claims.read_claims(platform, rows, day)
+        if platform == "flipkart":
+            said = claims.read_flipkart_claims(rows, (extras or {}).get("auto"), day)
+        else:
+            said = claims.read_claims(platform, rows, day)
         return (
             Reading(report=how.report_id, on=day, knows=how.knows, sales=said.sales, which=one.which, only_existing=True),
             len(said.not_read),
@@ -877,7 +899,7 @@ def would_a_file_say_which_day_it_is(how: HowToRead) -> bool:
     if how.kind == "claims":
         try:
             reading = _a_reading_of_the_rows(
-                how, whats_new.InTheFolder(which="asking", name="", size=1), claims.a_table_to_ask_with(),
+                how, whats_new.InTheFolder(which="asking", name="", size=1), claims.a_table_to_ask_with(the_report(how.report_id).platform),
                 the_report(how.report_id).platform, A_DAY_TO_ASK_WITH,
             )[0]
         except Exception:  # noqa: BLE001 - any refusal is an answer of "no"
@@ -1162,7 +1184,7 @@ def read_what_is_new(
                 reading, refused_rows = a_reading(how, one, body)
             if correcting and how.kind == "orders":
                 reading = replace(reading, corrects=True)
-            if how.kind == "claims":
+            if how.kind == "claims" and how.report_id in record_reports.RECORD_REPORTS:
                 # Every claim in its own record first (the day is proved by `a_reading` above); the ledger's note on an order's row follows.
                 _, claims_refused, wrote = write_the_records(how, one, body, reading.on, record_records[how.report_id], listed, bring_it_back, strict=False)
                 # **EACH REFUSED ROW COUNTED ONCE (R20 review):** every row the ledger note refuses (no order, no claim id) the record refuses

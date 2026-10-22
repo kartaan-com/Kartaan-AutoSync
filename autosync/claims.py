@@ -18,11 +18,12 @@ Nothing here opens a file, a clock or a connection.
 import re
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import firestore
 import records as shared
 import returns
+import table
 
 from sales import Sale
 from table import Row, Table
@@ -88,6 +89,108 @@ def read_claims(platform: str, rows: Table, file_day: str) -> WhatClaimsSaid:
     return WhatClaimsSaid(out, tuple(not_read), count)
 
 
+# ---------------------------------------------------------------- FLIPKART (v0.1.21 job 3)
+# **THE SHAPE IS FROM HIS REAL FILE** (`flipkart_claim_report_till_2026-05-27.xlsx`): sheets `Help` (skipped), `Seller Claims` and
+# `Auto-Approved Claims` (his own Help sheet calls them "Seller Raised Claims" and "Auto Approved Claims", so either spelling is found).
+# The seller sheet has an Approved Amount and no Pay/Recovery column; the auto sheet has both, and the real file only shows `PAY`.
+FLIPKART_SELLER_COLUMNS = ("Claim ID", "Order Id", "Order Item ID", "Updated at", "Claim Status", "Approved Amount")
+FLIPKART_AUTO_COLUMNS = ("Claim ID", "Order Id", "Order Item ID", "Claim Processing Date", "Claim Status", "Approved Amount", "Pay/Recovery")
+
+
+def flipkart_sheet_names(names) -> Tuple[Optional[str], Optional[str]]:
+    """`(seller claims sheet, auto-approved claims sheet)` out of a workbook's sheet names, either one absent; neither is refused in words.
+
+    A sheet is told by its name containing `claim` and then `seller` or `auto`: `Help` and every other sheet are never read.
+    """
+    seller = auto = None
+    for name in names:
+        words = re.sub(r"[^a-z]+", " ", name.lower())
+        if "claim" not in words:
+            continue
+        if "auto" in words and auto is None:
+            auto = name
+        elif "seller" in words and seller is None:
+            seller = name
+    if seller is None and auto is None:
+        raise table.CannotRead(
+            "This does not look like Flipkart's claims file. It has no 'Seller Claims' or 'Auto-Approved Claims' sheet. It has: "
+            + ", ".join(repr(n) for n in names) + ". Nothing was read."
+        )
+    return seller, auto
+
+
+def read_flipkart_claims(seller: Optional[Table], auto: Optional[Table], file_day: str) -> WhatClaimsSaid:
+    """One Flipkart claims workbook's claims, one per order, from its two claim sheets (either may be missing; a header with no rows is fine).
+
+    **PAY IS PLUS AND RECOVER IS MINUS (auto sheet only)**; a seller-sheet claim has no Pay/Recovery column, and its Approved Amount is
+    money paid. **Only an `Approved` claim carries rupees** (a Not Approved or In Processing claim's amount is never counted). **ORDER ITEM `NA`
+    IS STOCK FLIPKART HOLDS, with no order to put the claim on: it is kept aside and said, never dropped silently.** A claim id named twice
+    is one claim, the newer line standing. **ONE ORDER WITH SEVERAL CLAIMS:** the newest claim's id and status stand, and the rupees are the
+    net of every approved claim (paid minus recovered). Whether an order has one ledger row to put it on is the ledger's question, not this one's.
+    """
+    if seller is not None:
+        shared.require_columns(seller, FLIPKART_SELLER_COLUMNS, "Flipkart's seller claims sheet")
+    if auto is not None:
+        shared.require_columns(auto, FLIPKART_AUTO_COLUMNS, "Flipkart's auto-approved claims sheet")
+    # claim id -> (newest-first key, order, status, signed rupees or None)
+    found: Dict[str, Tuple[Tuple[str, int], str, str, Optional[Decimal]]] = {}
+    not_read: List[str] = []
+    count = 0
+    for label, rows, when_column in (("seller claims", seller, "Updated at"), ("auto-approved claims", auto, "Claim Processing Date")):
+        if rows is None:
+            continue
+        for row in rows:
+            count += 1
+            order, item, claim = row["Order Id"].strip(), row["Order Item ID"].strip(), row["Claim ID"].strip()
+            where = f"line {row.line} of the {label} sheet"
+            if not claim or not order:
+                not_read.append(f"{where}: no order or claim id, so the claim belongs to nothing")
+                continue
+            if order.upper() == "NA" or item.upper() == "NA":
+                not_read.append(
+                    f"{where}: claim {claim} names order item 'NA' -- stock Flipkart holds, with no order, so it belongs to no order and is kept aside"
+                )
+                continue
+            status = row["Claim Status"].strip()
+            money: Optional[Decimal] = None
+            if status.lower() == "approved":
+                try:
+                    amount = shared.a_figure(row["Approved Amount"])
+                except ValueError as wrong:
+                    not_read.append(f"{where}: claim {claim}'s Approved Amount: {wrong}")
+                    continue
+                if amount is not None:
+                    if rows is auto:
+                        way = row["Pay/Recovery"].strip().upper()
+                        if way == "PAY":
+                            money = amount
+                        elif way.startswith("RECOVER"):
+                            money = -amount
+                        else:
+                            not_read.append(
+                                f"{where}: claim {claim}'s Pay/Recovery says {row['Pay/Recovery'].strip()!r}, which is neither Pay nor Recover, so its rupees are not guessed"
+                            )
+                            continue
+                    else:
+                        money = amount
+            key = (row[when_column].strip(), row.line)
+            held = found.get(claim)
+            if held is None or key >= held[0]:
+                found[claim] = (key, order, status, money)
+    by_order: Dict[str, List[Tuple[str, Tuple[str, int], str, Optional[Decimal]]]] = {}
+    for claim, (key, order, status, money) in found.items():
+        by_order.setdefault(order, []).append((claim, key, status, money))
+    out = []
+    for order, mine in sorted(by_order.items()):
+        newest = max(mine, key=lambda one: (one[1][0], one[0]))
+        paid = [one[3] for one in mine if one[3] is not None]
+        out.append(Sale(
+            platform="flipkart", order_id=order, sku="", claim_id=newest[0], claim_status=newest[2] or None,
+            claim_recovered=str(sum(paid, Decimal(0))) if paid else None, claims_on=file_day,
+        ))
+    return WhatClaimsSaid(tuple(out), tuple(not_read), count)
+
+
 def read_claim_records(report_id: str, platform: str, rows: Table, file_day: str, context=None):
     """`(records, rows refused)`: every claim a file names, as a record each, by record name `<platform>__<claim id>` (D459).
 
@@ -150,12 +253,13 @@ def keeping_what_was_paid(record: Dict[str, object], recovered_before: str, was_
     return kept
 
 
-def a_table_to_ask_with() -> Table:
-    """A one-line claims table built out of the reader's own column names, for driving the reader without a file."""
+def a_table_to_ask_with(platform: str = "meesho") -> Table:
+    """A one-line claims table built out of the reader's own column names, for driving the reader without a file (Flipkart's: its seller sheet)."""
     from table import where_each_column_is  # noqa: PLC0415 - kept beside its one use
 
-    names = THE_COLUMNS
+    names = FLIPKART_SELLER_COLUMNS if platform == "flipkart" else THE_COLUMNS
     where, ambiguous = where_each_column_is(names)
-    said = {"Suborder Number": "asking-whether-a-file-says-which-day-it-is", "Ticket ID": "1", "Ticket Status": "Open"}
+    said = {"Suborder Number": "asking-whether-a-file-says-which-day-it-is", "Ticket ID": "1", "Ticket Status": "Open",
+            "Order Id": "asking-whether-a-file-says-which-day-it-is", "Claim ID": "1", "Order Item ID": "1", "Claim Status": "Open"}
     cells = tuple(said.get(name, "") for name in names)
     return Table(columns=tuple(names), rows=(Row(line=2, cells=cells, _where=where, _ambiguous=ambiguous),))
