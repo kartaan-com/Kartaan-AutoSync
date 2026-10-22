@@ -2052,6 +2052,27 @@
         ".github/workflows/autosync.yml",
         "README.md"
       ]
+    },
+    {
+      "id": "listing-notes",
+      "name": "What a platform's side file says about a listing is put beside that listing's record (v0.1.21 lane 2, AP9): Amazon's suppressed listings first",
+      "what": "autosync/listing_notes.py reads Amazon's Suppressed Listings Report by position into suppressed, suppressedReason and fixHint for each listing (record amazon::ASIN::seller-sku); firestore.a_listing_note_write and firestore_door.a_listing_notes_sink put them on that listing's record with a mask, only where the record already exists. A listing's own write now carries a mask of its four fields so a note survives it.",
+      "rests_on": [
+        "listing-files"
+      ],
+      "files": [
+        "autosync/listing_notes.py",
+        "autosync/listing_notes_checks.py"
+      ],
+      "also_touches": [
+        "autosync/firestore.py",
+        "autosync/firestore_door.py",
+        "autosync/reading.py",
+        "autosync/reading_checks.py",
+        "autosync/nightly.py",
+        "autosync/start.py",
+        "autosync/listings_checks.py"
+      ]
     }
   ]
 }

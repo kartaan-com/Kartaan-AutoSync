@@ -209,6 +209,8 @@ def one_tick(
     record_views: Optional[Callable[[str, dict], int]] = None,
     # **WHERE THE LISTINGS A LISTING FILE NAMES GO (job 41):** report, day and listings in, records written out.
     record_listings: Optional[Callable[[str, str, dict], int]] = None,
+    # **WHERE WHAT A SIDE FILE SAYS ABOUT A LISTING GOES (AP9):** report, day and notes in, records written out.
+    record_notes: Optional[Callable[[str, str, dict], tuple]] = None,
     # **THE CROSS-CHECK FOR THE ERP's DATA TAB (job 19):** every install's own record read back out of Drive, and where the answer goes.
     # Both or neither -- one without the other has nothing to put together or nowhere to put it.
     read_extensions: Optional[Callable[[], Sequence[bytes]]] = None,
@@ -421,6 +423,7 @@ def one_tick(
             record_the_sales=record_the_sales,
             record_views=record_views,
             record_listings=record_listings,
+            record_notes=record_notes,
             record_returns=record_returns,
             record_ads=record_ads,
             record_records=record_records,

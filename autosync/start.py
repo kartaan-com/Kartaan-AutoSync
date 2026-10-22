@@ -65,7 +65,7 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
     import merge
     from drive_door import a_door, the_kartaan_folder
     from firestore_door import (
-        a_board_sink, a_check_sink, a_ledger_sink, a_listings_sink, a_log_sink, a_returns_sheet_held, a_returns_sheet_sink, a_returns_sink, an_ads_month_sink, the_record_sinks,
+        a_board_sink, a_check_sink, a_ledger_sink, a_listing_notes_sink, a_listings_sink, a_log_sink, a_returns_sheet_held, a_returns_sheet_sink, a_returns_sink, an_ads_month_sink, the_record_sinks,
         a_run_sink, a_views_sink, an_ads_sink, both_places, what_they_chose,
     )
     from transport import FirebaseSeller, Google, for_amazon
@@ -253,6 +253,8 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
         record_views=a_views_sink(their_login, their_project, today.isoformat(), views.DAYS_KEPT),
         # **AND THE LISTINGS A LISTING FILE NAMES (job 41):** one record each, for the ERP to put in front of the seller to let in.
         record_listings=a_listings_sink(their_login, their_project),
+        # **AND WHAT THE SIDE FILES SAY ABOUT THEM (AP9):** the suppressed listings, put beside each listing's record.
+        record_notes=a_listing_notes_sink(their_login, their_project),
         # **AND THE RETURNED LINES AND THE ADS (A78):** one record per returned line, and per platform per day of ads.
         record_returns=a_returns_sink(their_login, their_project, today.isoformat()),
         record_ads=an_ads_sink(their_login, their_project, today.isoformat()),

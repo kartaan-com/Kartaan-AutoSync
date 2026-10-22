@@ -606,7 +606,7 @@ def a_listing_write(project: str, listing: Dict, report_id: str, changed_on: str
 
     **THE SHAPE IS THE ERP'S OWN QUEUE RECORD (`reviewRecord`: `{id, listing}`) WITH TWO FIELDS OF THE RUN'S ADDED**, so letting a listing in
     copies `listing` straight across. `changedOn` is the day of the file in which this listing last differed from what was held.
-    **WHOLE, NO MASK**: nothing else writes this record, and a field dropped from a listing must go.
+    **THE LISTING IS ONE FIELD, WRITTEN WHOLE**, so a field dropped from a listing must go; the mask below keeps the fields a note put beside it (`a_listing_note_write`).
     """
     if not A_DAY.match(str(changed_on)):
         raise Refused(f"{changed_on!r} is not a day written year-month-day, so no record was written for it.")
@@ -631,7 +631,50 @@ def a_listing_write(project: str, listing: Dict, report_id: str, changed_on: str
                 "report": a_value(str(report_id)),
                 "changedOn": a_value(str(changed_on)),
             },
-        }
+        },
+        # **A MASK OF ITS OWN FOUR FIELDS (v0.1.21 lane 2):** the record now has fields this write does not own (`a_listing_note_write`), and a write with no
+        # mask replaces the whole record, which would erase them every time the listing changed. A field dropped from `listing` still goes: `listing` is one field.
+        "updateMask": {"fieldPaths": ["changedOn", "id", "listing", "report"]},
+    }
+
+
+# **WHAT A PLATFORM'S SIDE FILE SAYS ABOUT A LISTING, AND NO MORE** (v0.1.21 lane 2): the fields `a_listing_note_write` may put beside a listing's `listing`.
+# `suppressedOn` and `feeAsOf` are the day of the file the words came from, so a file uploaded late cannot undo a newer one.
+NOTE_TEXT = ("suppressedReason", "fixHint", "suppressedOn", "feeAsOf")
+NOTE_FIELDS = ("suppressed", "referralFee") + NOTE_TEXT
+# The day-field that goes with each side report (`firestore_door.a_listing_notes_sink`). `az_fee_preview` is joined at the lane merge (DONE_AP9).
+NOTE_DAY_FIELD = {"az_suppressed": "suppressedOn"}
+
+
+def a_listing_note_write(project: str, doc_id: str, notes: Dict) -> Dict:
+    """What a side file says about one listing, written WITH A MASK naming only those fields, so the listing beside it is never touched.
+
+    Refuses a field outside `NOTE_FIELDS`, a `suppressed` that is not true or false, a fee that is not a figure, and a note with nothing in it.
+    The record must already exist: the caller (`a_listing_notes_sink`) asks first, because a mask-write to a record that is not there makes one
+    with a note and no listing, which the ERP's queue would have to guess at.
+    """
+    if not notes:
+        raise Refused("A note with nothing in it was not written.")
+    strange = sorted(set(notes) - set(NOTE_FIELDS))
+    if strange:
+        raise Refused(f"{strange} are not a field a listing's note can hold.")
+    fields: Dict[str, Dict] = {}
+    for name, held in notes.items():
+        if name == "suppressed":
+            if not isinstance(held, bool):
+                raise Refused(f"suppressed must be true or false, and {held!r} is not.")
+            fields[name] = a_value(held)
+        elif name == "referralFee":
+            fields[name] = _a_number(held)
+        else:
+            if not isinstance(held, str):
+                raise Refused(f"{name} of a listing's note must be text, and {held!r} is not.")
+            if name in ("suppressedOn", "feeAsOf") and not A_DAY.match(held):
+                raise Refused(f"{held!r} is not a day written year-month-day, so no note was written.")
+            fields[name] = a_value(held)
+    return {
+        "update": {"name": where_a_document_lives(project, LISTINGS_SEEN, doc_id), "fields": fields},
+        "updateMask": {"fieldPaths": sorted(fields)},
     }
 
 

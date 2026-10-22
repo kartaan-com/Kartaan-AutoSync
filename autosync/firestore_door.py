@@ -24,7 +24,7 @@ different places, and one message for both is a wasted evening.
 """
 
 from datetime import date, timedelta
-from typing import Callable, Dict, List, Optional, Sequence
+from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 import firestore
 import returns
@@ -415,6 +415,31 @@ def _the_held_records(transport, project: str, collection: str, doc_ids: Sequenc
             if found:
                 held[found["name"].rsplit("/", 1)[-1]] = firestore.plain_deep({"mapValue": {"fields": found.get("fields") or {}}})
     return held
+
+
+def a_listing_notes_sink(transport, project: str) -> Callable[..., int]:
+    """What a side file says about each listing, put beside that listing's record -- ONLY for a listing whose record is held, and only what differs (AP9).
+
+    **THE RECORDS ARE ASKED FOR FIRST.** A listing with no record yet is skipped, not made up: the listing file names it first (a note on its own would be a
+    record with no `listing`). A second file saying the same writes nothing, and **a file of an earlier day never puts older words over newer ones**
+    (the note's own day field, `firestore.NOTE_DAY_FIELD`). **Answers (records written, listings skipped for having no record)** -- the second is said by the night.
+    """
+
+    def sink(report_id: str, day: str, notes: Dict[str, Dict]) -> Tuple[int, int]:
+        day_field = firestore.NOTE_DAY_FIELD[report_id]
+        held = _the_held_records(transport, project, firestore.LISTINGS_SEEN, sorted(notes))
+        writes = []
+        for name, note in sorted(notes.items()):
+            have = held.get(name)
+            if have is None:
+                continue
+            said = {**note, day_field: day}
+            if any(have.get(field) != value for field, value in said.items() if field != day_field) and str(have.get(day_field) or "") <= day:
+                writes.append(firestore.a_listing_note_write(project, name, said))
+        skipped = sum(1 for name in notes if name not in held)
+        return write_them(transport, project, writes, "writing what the side files say about each listing"), skipped
+
+    return sink
 
 
 def _what_is_held_of(transport, project: str, collection: str, doc_ids: Sequence[str], digest_field: str, day_field: str) -> Dict[str, tuple]:

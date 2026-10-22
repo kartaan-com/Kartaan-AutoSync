@@ -318,7 +318,7 @@ check("a whole stock is a whole number, money is a double, and a figure not give
       (inside["stock"], inside["sellingPrice"], inside["mrp"]) == ({"integerValue": "1"}, {"doubleValue": 250.5}, {"nullValue": None}))
 check("it is named by the ERP's own id, in the listings_seen collection",
       write is not None and write["update"]["name"].endswith("/documents/listings_seen/flipkart::SERIAL1"))
-check("it is written whole, with no mask, so a field a listing no longer has does not stay behind", write is not None and "updateMask" not in write)
+check("it is written with a mask of its own four fields, so a note beside it survives and a field a listing no longer has still goes (listing is one field)", write is not None and write.get("updateMask", {}).get("fieldPaths") == ["changedOn", "id", "listing", "report"])
 def refused(work):
     try:
         work()

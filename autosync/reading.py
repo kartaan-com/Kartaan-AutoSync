@@ -86,6 +86,7 @@ from typing import Callable, Dict, List, Optional, Sequence, Tuple
 import landing
 import ads
 import claims
+import listing_notes
 import listings
 import manifest
 import orders
@@ -211,6 +212,12 @@ WHAT_LISTINGS_CAN_BE_READ: Tuple[HowToRead, ...] = tuple(
     HowToRead(report_id, (), kind="listings") for report_id in listings.THE_SHAPE_OF
 )
 
+# **THE SIDE FILES ABOUT A LISTING (v0.1.21 lane 2, AP9):** each says something about a listing the listing file already named, and is written beside
+# that listing's record, never over it (`firestore_door.a_listing_notes_sink`). Their readers are `listing_notes.py`'s.
+WHAT_NOTES_CAN_BE_READ: Tuple[HowToRead, ...] = tuple(
+    HowToRead(report_id, (), kind="notes") for report_id in listing_notes.READERS
+)
+
 # **THE RETURN FILES (A78):** each returned line is recorded in the seller's own database for the ERP's returns screen and top-reasons
 # (`firestore_door.a_returns_sink`). The platform's own reason words are kept. Their shapes are `returns.py`'s.
 WHAT_RETURNS_CAN_BE_READ: Tuple[HowToRead, ...] = tuple(
@@ -246,10 +253,6 @@ WHAT_ADS_CAN_BE_READ: Tuple[HowToRead, ...] = tuple(
 # below is the plan's decision for that report, taken ONE BY ONE, and the piece that builds its
 # reader; when the reader is built the entry moves up and the check refuses it in both places.
 WHAT_IS_FETCHED_AND_NOT_READ_YET: Dict[str, str] = {
-    "az_suppressed": (
-        "decided (v0.1.21 plan 1c): `suppressed`, `suppressedReason`, `fixHint` put on each listing record -- the reader is the piece that comes with "
-        "the first real file (plan sample A5), so the file is kept untouched until then"
-    ),
     "fk_keywords": (
         "switched off by his ruling (piece 49), so it is not fetched at all and has no folder"
     ),
@@ -272,7 +275,7 @@ def why_a_report_has_no_decision() -> str:
     """
     from reports import REPORTS  # noqa: PLC0415 - kept beside its one use
 
-    read = {one.report_id for one in WHAT_CAN_BE_READ + WHAT_VIEWS_CAN_BE_READ + WHAT_LISTINGS_CAN_BE_READ + WHAT_RETURNS_CAN_BE_READ + WHAT_ADS_CAN_BE_READ + WHAT_RECORDS_CAN_BE_READ}
+    read = {one.report_id for one in WHAT_CAN_BE_READ + WHAT_VIEWS_CAN_BE_READ + WHAT_LISTINGS_CAN_BE_READ + WHAT_NOTES_CAN_BE_READ + WHAT_RETURNS_CAN_BE_READ + WHAT_ADS_CAN_BE_READ + WHAT_RECORDS_CAN_BE_READ}
     said = set(WHAT_IS_FETCHED_AND_NOT_READ_YET)
     known = {one.id for one in REPORTS}
     wrong = []
@@ -331,6 +334,11 @@ class WhatTheNightRead:
     # nowhere to write them.
     listings_written: int = 0
     listings_waiting: int = 0
+    # **THE SIDE FILES ABOUT A LISTING (AP9):** listing records a note was written beside tonight, and side files left unread for want of anywhere to write them.
+    notes_written: int = 0
+    notes_waiting: int = 0
+    # Listings a side file named that had no record yet, so nothing was written beside them (the next night's file is the whole list again).
+    notes_skipped: int = 0
     # Why the seller's own database refused a listing record. **OURS, like the ledger refusing**: the usual cause is the ERP's rules
     # (commit 94de631) not yet published to that seller, and a night that says green while every night refuses is the fault kept
     # apart above.
@@ -417,6 +425,18 @@ class WhatTheNightRead:
         if self.listings_waiting:
             said += (
                 f"  {self.listings_waiting} listing file(s) were left unread because the seller's database "
+                "could not be reached for them; they will be read when it can."
+            )
+        if self.notes_written:
+            said += f"  {self.notes_written} listing(s) were marked from the platforms' side files (suppressed, with Amazon's reason)."
+        if self.notes_skipped:
+            said += (
+                f"  {self.notes_skipped} listing(s) named in a side file had no record yet, so nothing was written beside them; "
+                "the next file names them again."
+            )
+        if self.notes_waiting:
+            said += (
+                f"  {self.notes_waiting} side file(s) about listings were left unread because the seller's database "
                 "could not be reached for them; they will be read when it can."
             )
         if self.returns_written:
@@ -734,6 +754,23 @@ def a_listings_reading(how: HowToRead, one: whats_new.InTheFolder, body: bytes) 
     return said, when.isoformat()
 
 
+def a_notes_reading(how: HowToRead, one: whats_new.InTheFolder, body: bytes) -> Tuple[listing_notes.WhatNotesSaid, str]:
+    """One side file turned into the notes it holds, and the day it is about (the day in the file's name, as for a listing file).
+
+    **A FILE WITH ROWS OF WHICH NOT ONE COULD BE READ IS A FILE NOT READ**, not one read for good -- marked, it would never be opened again.
+    """
+    when = landing.data_date_in(one.name)
+    if when is None:
+        raise table.CannotRead(
+            f"{one.name or one.which} has no day in its name, so there is no way to say whether what it holds is newer or older "
+            "than what is already written. Nothing in it was read."
+        )
+    said = listing_notes.read_notes_file(how.report_id, body, one.name or one.which)
+    if not said.notes and said.not_read:
+        raise table.CannotRead(f"no row of {one.name or one.which} could be read; the first was {said.not_read[0]}")
+    return said, when.isoformat()
+
+
 def _the_day_of(one: whats_new.InTheFolder):
     when = landing.data_date_in(one.name)
     if when is None:
@@ -953,6 +990,7 @@ def read_what_is_new(
     record_returns: Optional[Callable[[str, str, Dict], int]] = None,
     record_ads: Optional[Callable[[str, str, str, str, Dict], int]] = None,
     record_records: Optional[Dict[str, Callable[[str, str, Dict], int]]] = None,
+    record_notes: Optional[Callable[[str, str, Dict], Tuple[int, int]]] = None,
     correcting: bool = False,
 ) -> WhatTheNightRead:
     """Read every file in the seller's folders that has not been read before.
@@ -962,6 +1000,8 @@ def read_what_is_new(
     traffic and ads files are not opened and not marked, and the night says how many are waiting.
     `record_listings(report_id, day, listings)` is where a listing file's listings go and answers how many records it wrote; left out, the
     listing files are not opened and not marked, and the night says how many are waiting.
+    `record_notes(report_id, day, notes)` is where what a side file says about listings goes (beside each listing's record) and answers how many records it
+    wrote; left out, those files are not opened and not marked, and the night says how many are waiting.
 
     `correcting` is True only on the night every file is read again because the reading rules changed (A81): the orders it reads
     then put right what the same day's file said before, instead of leaving it as a tie (`ledger.Reading.corrects`).
@@ -978,8 +1018,8 @@ def read_what_is_new(
     """
     if can_be_read is None:
         can_be_read = (
-            WHAT_CAN_BE_READ + WHAT_VIEWS_CAN_BE_READ + WHAT_LISTINGS_CAN_BE_READ + WHAT_RETURNS_CAN_BE_READ + WHAT_ADS_CAN_BE_READ
-            + WHAT_RECORDS_CAN_BE_READ
+            WHAT_CAN_BE_READ + WHAT_VIEWS_CAN_BE_READ + WHAT_LISTINGS_CAN_BE_READ + WHAT_NOTES_CAN_BE_READ + WHAT_RETURNS_CAN_BE_READ
+            + WHAT_ADS_CAN_BE_READ + WHAT_RECORDS_CAN_BE_READ
         )
     remembered = tuple(sorted({
         str(one).strip() for one in (already_read or ()) if str(one).strip()
@@ -1041,6 +1081,9 @@ def read_what_is_new(
     views_waiting = 0
     listings_written = 0
     listings_waiting = 0
+    notes_written = 0
+    notes_waiting = 0
+    notes_skipped = 0
     returns_written = 0
     returns_waiting = 0
     records_written: Dict[str, int] = {}
@@ -1079,6 +1122,33 @@ def read_what_is_new(
             reads.append(manifest.Read(
                 data_date=landing.data_date_in(one.name), report_id=how.report_id, file_name=one.name or one.which,
                 into="listings waiting to be let in", rows_in_file=said.rows_in_file,
+                rows_read=said.rows_in_file - len(said.not_read),
+            ))
+            continue
+        if how.kind == "notes":
+            if record_notes is None:
+                notes_waiting += 1
+                continue
+            try:
+                said, the_day = a_notes_reading(how, one, bring_it_back(one.which))
+                wrote, skipped = record_notes(how.report_id, the_day, said.notes)
+                notes_written += wrote
+                notes_skipped += skipped
+            except TheirDatabaseSaidNo as wrong:
+                the_database_refused.append(f"{one.name or one.which}: {wrong}")
+                continue
+            except Exception as wrong:  # noqa: BLE001 - named, never swallowed
+                could_not_read.append(f"{one.name or one.which}: {wrong}")
+                continue
+            read_tonight.append(one)
+            rows_refused += len(said.not_read)
+            if said.not_read:
+                could_not_read.append(
+                    f"{one.name or one.which}: {len(said.not_read)} row(s) not read, the first being {said.not_read[0]}"
+                )
+            reads.append(manifest.Read(
+                data_date=landing.data_date_in(one.name), report_id=how.report_id, file_name=one.name or one.which,
+                into="notes on listings", rows_in_file=said.rows_in_file,
                 rows_read=said.rows_in_file - len(said.not_read),
             ))
             continue
@@ -1259,6 +1329,9 @@ def read_what_is_new(
         views_waiting=views_waiting,
         listings_written=listings_written,
         listings_waiting=listings_waiting,
+        notes_written=notes_written,
+        notes_waiting=notes_waiting,
+        notes_skipped=notes_skipped,
         returns_written=returns_written,
         returns_waiting=returns_waiting,
         records_written=tuple(sorted(records_written.items())),
