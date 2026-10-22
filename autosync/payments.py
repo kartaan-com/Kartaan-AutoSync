@@ -29,6 +29,7 @@ order is decided in `ledger.plan`, which knows the ledger -- this file does not.
 **NOTHING HERE TOUCHES THE NETWORK, THE DISK OR A CLOCK.**
 """
 
+import hashlib
 from dataclasses import dataclass, replace
 from decimal import Decimal, InvalidOperation
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
@@ -551,6 +552,7 @@ def read_amazon(rows: Table, data_date: str, extras: Optional[Dict[str, object]]
     no_order: Dict[str, int] = {}
     not_yet: Dict[str, int] = {}
     unreadable: List[str] = []
+    seen: Dict[str, int] = {}
     for row in rows:
         kind = _cell(row, kind_at).strip() or "unnamed"
         order_id = _cell(row, order_at).strip()
@@ -568,7 +570,16 @@ def read_amazon(rows: Table, data_date: str, extras: Optional[Dict[str, object]]
         for at in [total_at] + [spot for spots in places.values() for spot in spots]:
             if _cell(row, at).strip() and a_decimal(_cell(row, at)) is None:
                 unreadable.append(f"unreadable charge {order_id}: {_cell(row, at).strip()!r}")
-        lines.put((order_id, _cell(row, sku_at).strip()), a_decimal(_cell(row, total_at)), _taken(row, places))
+        sku = _cell(row, sku_at).strip()
+        fee_key = ""
+        if sku == "":
+            # **A NO-SKU FEE IS KEYED BY THE LINE'S OWN FIELDS (D581 item 2, D575)**, never by its place in the file or the file's name, so the
+            # same file read twice, or downloaded again under another day, gives the same key and the ledger adds the fee once. Two lines
+            # that are identical in every field are two fees, told apart by how many came before.
+            own = "|".join(cell.strip() for cell in row.cells)
+            seen[own] = seen.get(own, 0) + 1
+            fee_key = f"fee:dr:{hashlib.sha1(own.encode('utf-8')).hexdigest()[:12]}:{seen[own]}"
+        lines.put((order_id, sku), a_decimal(_cell(row, total_at)), _taken(row, places), fee_key)
 
     aside: List[str] = list(unreadable)
     for kind, count in sorted(no_order.items()):

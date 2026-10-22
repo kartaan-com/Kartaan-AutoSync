@@ -624,6 +624,42 @@ _dr_bad = answered(lambda: read_as("az_settlements", "amazon_az_settlements_2026
     an_amazon_line("Order", "407-1", "SKU-A", "100", "Released", **{"fba fees": "x?"}))))
 check("THE DATE RANGE READER SAYS AN UNREADABLE CHARGE, with its order and its own text (D575, Rule 29)",
       _dr_bad is not None and any("unreadable charge 407-1" in x and "'x?'" in x for x in _dr_bad[0].set_aside))
+# D581 (2): a Date Range no-SKU fee is SAFE TO RE-READ too, keyed by the line's own fields so a re-download of the file reads the same.
+_dr_fee_line = an_amazon_line("Shipping Services", "404-8", "", "-28.91", **{"date/time": "5 Sep 2026 10:11:12 am UTC", "other transaction fees": "-28.91"})
+_dr_fee_file = lambda day: an_amazon_file(_dr_fee_line)
+_dr_one = answered(lambda: read_as("az_settlements", "amazon_az_settlements_2026-09-05.csv", _dr_fee_file(1)))
+_dr_two = answered(lambda: read_as("az_settlements", "amazon_az_settlements_2026-09-12.csv", _dr_fee_file(2)))
+_dr_s1 = after(_HP, answered(lambda: ledger.plan(_HP, [_dr_one[0]])))
+_dr_s2 = after(_dr_s1, answered(lambda: ledger.plan(_dr_s1, [_dr_one[0]])))
+_dr_s3 = after(_dr_s2, answered(lambda: ledger.plan(_dr_s2, [_dr_two[0]])))
+check("THE SAME DATE RANGE FILE READ TWICE, EVEN RE-DOWNLOADED UNDER ANOTHER DAY, ADDS ITS NO-SKU FEE ONCE (D581 item 2, D575)",
+      (a_row(_dr_s1, _pn) or {}).get("settlement") == "421.09" and (a_row(_dr_s2, _pn) or {}).get("settlement") == "421.09"
+      and (a_row(_dr_s3, _pn) or {}).get("settlement") == "421.09" and (a_row(_dr_s3, _pn) or {}).get("charge_otherServices", "") != "57.82")
+_dr_other = an_amazon_line("Shipping Services", "404-8", "", "-1.09", **{"date/time": "6 Sep 2026 1:00:00 pm UTC", "other transaction fees": "-1.09"})
+_dr_s4 = after(_dr_s3, answered(lambda: ledger.plan(_dr_s3, [read_as("az_settlements", "amazon_az_settlements_2026-09-13.csv",
+                                                                     an_amazon_file(_dr_other))[0]])))
+check("AND A DIFFERENT DATE RANGE LINE (another day or figure) STILL ADDS", (a_row(_dr_s4, _pn) or {}).get("settlement") == "420")
+_dr_same_twice = read_as("az_settlements", "amazon_az_settlements_2026-09-14.csv", an_amazon_file(_dr_fee_line, _dr_fee_line))
+check("TWO IDENTICAL LINES IN ONE FILE ARE TWO FEES, each with its own key",
+      len({k for s in _dr_same_twice[0].sales for k in (s.notes or "").split()}) == 2)
+
+# D581 (3): a SKU line that replaces the row's figure clears the fee keys, so a later re-read of the first fee file ADDS it back correctly.
+_c_fee = replace(a_payment("amazon", "404-8", "", "-28.91", otherServices="28.91"), notes="fee:S1:5")
+_c1 = after(_HP, answered(lambda: ledger.plan(_HP, [pays("az_settlements", "2026-09-05", _c_fee)])))
+_c2 = after(_c1, answered(lambda: ledger.plan(_c1, [pays("az_settlements", "2026-09-07", a_payment("amazon", "404-8", "SKU-P", "400", commission="60"),
+                                                          which="az_settlements2026-09-07")])))
+check("A SKU LINE THAT REPLACES THE ROW'S FIGURE CLEARS THE REPLACED FEE KEYS FROM ITS NOTES (D581 item 3)",
+      (a_row(_c2, _pn) or {}).get("settlement") == "400" and "fee:" not in (a_row(_c2, _pn) or {}).get("notes", ""))
+_c3 = after(_c2, answered(lambda: ledger.plan(_c2, [pays("az_settlements", "2026-09-08", _c_fee, which="az_settlements2026-09-08")])))
+check("AND A LATER RE-READ OF THE FIRST FEE FILE ADDS THE FEE BACK, once (D581 item 3)",
+      (a_row(_c3, _pn) or {}).get("settlement") == "371.09" and "fee:S1:5" in (a_row(_c3, _pn) or {}).get("notes", ""))
+_c_typed = sheet_with(replace(_paid_before, notes="call buyer fee:S1:5 keep"))
+_c4 = after(_c_typed, answered(lambda: ledger.plan(_c_typed, [pays("az_settlements", "2026-09-07", a_payment("amazon", "404-8", "SKU-P", "400", commission="60"))])))
+check("CLEARING THE FEE KEYS LEAVES WHAT HE TYPED IN THE NOTES", (a_row(_c4, _pn) or {}).get("notes") == "call buyer keep")
+_c_word = sheet_with(replace(_paid_before, notes="fee:waived fee:200 fee:S1:5"))
+_c5 = after(_c_word, answered(lambda: ledger.plan(_c_word, [pays("az_settlements", "2026-09-07", a_payment("amazon", "404-8", "SKU-P", "400", commission="60"))])))
+check("AND A WORD OF HIS OWN THAT BEGINS 'fee:' IS NOT A KEY AND STAYS", (a_row(_c5, _pn) or {}).get("notes") == "fee:waived fee:200")
+
 # Proving (A90d): every change a mutation could make to the fee code, each with a check that goes red for it.
 _fee_two = replace(a_payment("amazon", "404-8", "", "-30", otherServices="30"), notes="fee:S1:5 fee:S1:6")
 _held_noted = sheet_with(replace(_paid_before, notes="call buyer fee:S1:5"))
@@ -1247,7 +1283,7 @@ if failures:
     print(f"{len(failures)} FAILED: {failures}")
     sys.exit(1)
 WITHOUT = ran - real_ran
-if WITHOUT != 95 + 22 + 17 + 8 + 2 + 3 + 5 + 3 + 5 + 14:  # the 14 are A90d proving
-    print(f"FAIL  checks went missing -- {WITHOUT} ran without his files, 174 expected")
+if WITHOUT != 95 + 22 + 17 + 8 + 2 + 3 + 5 + 3 + 5 + 14 + 7:  # the 14 are A90d proving, the 7 A90e (D581)
+    print(f"FAIL  checks went missing -- {WITHOUT} ran without his files, 181 expected")
     sys.exit(1)
 print(f"all {ran} checks passed" + ("" if real_ran == HIS_FILES_GROUP else f" ({HIS_FILES_GROUP - real_ran} of his real-file checks not run -- the files are elsewhere)"))

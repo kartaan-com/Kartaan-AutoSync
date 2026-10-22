@@ -84,6 +84,7 @@ that did not happen is a sale in a state that says so, and a row taken out of a
 sheet moves every row under it, so every remembered row number becomes wrong.
 """
 
+import re
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Sequence, Tuple
 
@@ -860,6 +861,10 @@ def _put_each_on_its_row(
     return list(landed.items()), said
 
 
+# A fee key as the readers write it: `fee:<settlement id or dr:hash>:<line or count>`. A word he typed, like `fee:waived`, is not one.
+_FEE_KEY = re.compile(r"^fee:\S+:\d+$")
+
+
 def plan(
     values: Sequence[Sequence[str]],
     readings: Sequence[Reading],
@@ -974,6 +979,7 @@ def plan(
                     also_said=str(says.get("settlement", "")), from_report=reading.report, on=reading.on,
                     kept_from=THE_SHEET_REMEMBERS, also_from=reading.one_statement,
                 ))
+            figure_replaced = False
             for column, value in says.items():
                 if column == "id":
                     continue
@@ -1072,6 +1078,8 @@ def plan(
                             name=name, was=str(was), now=str(value), from_report=reading.report,
                             on=reading.on, from_file=reading.one_statement,
                         ))
+                    if column == "settlement" and str(was) != "" and not added:
+                        figure_replaced = True
                     now[name][column] = value
                     changed[name] = True
                     columns_changed.setdefault(name, set()).add(column)
@@ -1080,6 +1088,12 @@ def plan(
                 # delivered order read blank. A blank is nobody's statement.
                 if str(value) != "" or str(was) != "":
                     decided_on.now_decided(name, column, reading.on, reading.one_statement)
+            if figure_replaced and any(_FEE_KEY.match(k) for k in standing):
+                # **A SKU LINE THAT REPLACED THE ROW'S FIGURE TOOK THE FEES ALONG WITH IT (D581 item 3):** the keys of the fees it replaced
+                # leave the notes, so a later re-read of the first fee file adds that fee back instead of skipping it as "already added".
+                now[name]["notes"] = " ".join(k for k in (now[name].get("notes", "") or "").split() if not _FEE_KEY.match(k))
+                changed[name] = True
+                columns_changed.setdefault(name, set()).add("notes")
             if fee_keys and not fee_seen:
                 # The keys go into the row's notes beside whatever he wrote there, so the next reading of this file knows it was added.
                 now[name]["notes"] = " ".join(filter(None, [now[name].get("notes", "") or "", *sorted(fee_keys)]))
