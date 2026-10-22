@@ -1051,11 +1051,11 @@ check("the rules the read-files list was made under are named, so a change to th
 
 check("every report in REPORTS has a reader or a written reason it is not yet read",
       tool.why_a_report_has_no_decision() == "")
-check("the 29 reports are 25 read (7 into the ledger, 3 into listing records, 2 listing files, 3 returns files, 7 ads files, 1 product performance file, 1 quality file, 1 shop figures file) and 4 with a reason, which is Finding 51 stated as numbers (A78 moved the returns and ads files up)",
-      len(tool.WHAT_CAN_BE_READ) == 7 and len(tool.WHAT_VIEWS_CAN_BE_READ) == 3 and len(tool.WHAT_LISTINGS_CAN_BE_READ) == 2
+check("the 30 reports are 26 read (7 into the ledger, 4 into listing records, 2 listing files, 3 returns files, 7 ads files, 1 product performance file, 1 quality file, 1 shop figures file) and 4 with a reason, which is Finding 51 stated as numbers (A78 moved the returns and ads files up)",
+      len(tool.WHAT_CAN_BE_READ) == 7 and len(tool.WHAT_VIEWS_CAN_BE_READ) == 4 and len(tool.WHAT_LISTINGS_CAN_BE_READ) == 2
       and len(tool.WHAT_RETURNS_CAN_BE_READ) == 3 and len(tool.WHAT_ADS_CAN_BE_READ) == 7 and len(tool.WHAT_RECORDS_CAN_BE_READ) == 3
       and len(tool.WHAT_IS_FETCHED_AND_NOT_READ_YET) == 4
-      and len(reports.REPORTS) == 29)
+      and len(reports.REPORTS) == 30)
 every_reason = list(tool.WHAT_IS_FETCHED_AND_NOT_READ_YET.values())
 check("every reason is words and names the piece that will read it, or says it is off",
       all(len(one) > 30 and ("piece" in one or "pieces" in one or "protection rules" in one) for one in every_reason))

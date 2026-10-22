@@ -310,6 +310,10 @@ REPORTS: Tuple[Report, ...] = (
     # publish one is not a day anybody is owed anything.
     Report("az_settlements", "amazon", "Amazon settlements", API, WHEN_THEY_PUBLISH_IT, "csv"),
     Report("az_returns", "amazon", "Amazon returns", API, DAILY, "csv"),
+    # **THE ONE AMAZON REPORT FETCHED BY WALKING THE PAGE (AutoSync v0.1.21 lane 1 job 7, his preference: the browser walk, so it works for every seller, with or
+    # without API keys).** Business Reports > By ASIN > Detail Page Sales and Traffic by Child Item, one day, Download (.csv). Amazon takes a past day, so it
+    # can be asked for again.
+    Report("az_traffic", "amazon", "Amazon listing traffic", BROWSER, DAILY, "csv"),
 )
 
 

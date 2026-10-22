@@ -199,7 +199,7 @@ WHAT_CAN_BE_READ: Tuple[HowToRead, ...] = (
 # listing in the seller's own database (`firestore_door.a_views_sink`), not into the sheet.
 WHAT_VIEWS_CAN_BE_READ: Tuple[HowToRead, ...] = tuple(
     HowToRead(report_id, (), header_row=views.way_for(report_id).header_row, kind="views")
-    for report_id in ("fk_views", "fk_ads_fsn", "me_ads_catalog")
+    for report_id in ("fk_views", "fk_ads_fsn", "me_ads_catalog", "az_traffic")
 )
 
 # **THE LISTING FILES (job 41):** each is read into the listings it names, recorded for the ERP to put in front of the seller to let in

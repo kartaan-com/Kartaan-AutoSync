@@ -1586,9 +1586,10 @@ const LATER = '2026-08-27T16:04:00.000Z';
     /^[A-Za-z0-9+/=]+$/.test(manifest.key) && !JSON.stringify(manifest).includes('PRIVATE'));
   check('only the ERP page may message the extension',
     JSON.stringify(manifest.externally_connectable) === JSON.stringify({ matches: ['https://erp.kartaan.com/*'] }));
-  check('and Amazon got no page script and no readable files (no walker is built yet)',
-    !JSON.stringify(manifest.content_scripts).includes('amazon')
-    && !JSON.stringify(manifest.web_accessible_resources).includes('amazon'));
+  check('and Amazon got the page script and the readable files for its one walked report, but not the early catcher (that is Flipkart-only)',
+    JSON.stringify(manifest.content_scripts.filter((one) => one.js.includes('content.js'))[0].matches).includes('sellercentral.amazon.in')
+    && JSON.stringify(manifest.web_accessible_resources).includes('sellercentral.amazon.in')
+    && !JSON.stringify(manifest.content_scripts.filter((one) => one.world === 'MAIN')).includes('amazon'));
 }
 
 /* --------------- arming the download cancel, which is one line and load-bearing */

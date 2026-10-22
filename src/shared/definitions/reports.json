@@ -26,6 +26,12 @@
       "cannotBeAskedForAgain": null
     },
     {
+      "id": "az_traffic",
+      "platform": "amazon",
+      "name": "Amazon listing traffic",
+      "cannotBeAskedForAgain": null
+    },
+    {
       "id": "fk_ads_daily",
       "platform": "flipkart",
       "name": "Flipkart ads, by day",

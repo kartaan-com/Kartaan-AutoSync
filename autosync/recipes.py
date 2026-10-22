@@ -387,6 +387,14 @@ TRAFFIC = FLIPKART.format(
 # **PRODUCT QUALITY INSIGHTS**, the page behind "Go to Quality Insights" on Business Health. Read off his own panel by Control on
 # 2026-10-05 (read only): a normal table, drawn late, with a pager and no download that works.
 QUALITY_INSIGHTS = FLIPKART.format(where="dashboard/listings-management/customerFeedbackInsightsDashboard?page=portfolio")
+# **AMAZON SELLER CENTRAL'S BUSINESS REPORTS, the report "Detail Page Sales and Traffic by Child Item" (id `102:DetailSalesTrafficByChildItem`), ONE DAY IN BOTH ENDS
+# OF THE RANGE** (lane 1 job 7). The address is the one Control read off his panel on 22 Oct 2026. **THE DAY IS WRITTEN `{day}`, year-month-day -- THE FORMAT
+# AMAZON'S OWN `fromDate`/`toDate` WANT IS NOT YET SEEN ON A LIVE PAGE**, so the first live walk is the proof; a wrong format would show as a page with no figures,
+# and no file taken.
+AMAZON_TRAFFIC = (
+    "https://sellercentral.amazon.in/business-reports#/report"
+    "?id=102%3ADetailSalesTrafficByChildItem&fromDate={day}&toDate={day}"
+)
 # **THESE THREE WERE WRONG, AND THEY COST A WHOLE NIGHT (2026-09-06).** Nine of
 # ten reports failed within twenty minutes of each other -- seven ads reports
 # looking for "the other reports tab", claims looking for "the claims tab",
@@ -1301,6 +1309,19 @@ RECIPES: Dict[str, Recipe] = {
         ),
     ),
     "fk_payments": _reports_centre("Payment Reports", "Settled Transactions", "payments"),
+
+    # ---- Amazon: the traffic report by child item, one-phase (lane 1 job 7). **The page builds the file for the day in its address at once**, so nothing is asked
+    # ---- for and nothing waited on; the one thing pressed is the button that downloads it, and nothing else on the page is touched.
+    "az_traffic": Recipe(
+        to_take=(
+            Step(GO, address=AMAZON_TRAFFIC, patience=60, why="opening Detail Page Sales and Traffic by Child Item for the day"),
+            # **LOOKED FOR BEFORE ANYTHING IS PRESSED** (the rule every `go` here follows): the report page draws its table late, and the button is only there once it has.
+            Step(WAIT_FOR, find=Find(BY_PRESSABLE_TEXT, "Download (.csv)", called="the Download (.csv) button"), patience=90,
+                 why="waiting for the report page to draw its Download (.csv) button"),
+            Step(TAKE_FILE, find=Find(BY_PRESSABLE_TEXT, "Download (.csv)", called="the Download (.csv) button"), patience=90,
+                 why="taking the traffic file for the day"),
+        ),
+    ),
 
     # ---- Flipkart: the traffic report, two-phase and the live selector fix
     "fk_views": Recipe(

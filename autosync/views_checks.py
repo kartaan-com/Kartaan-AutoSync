@@ -348,19 +348,61 @@ was = nameless.go()
 check("a file with no day in its name is refused like every other reader's",
       was is not None and was.read_tonight == () and "no day in its name" in was.could_not_read[0])
 
+# ------------------------------------------------------------ Amazon traffic by child item (lane 1 job 7)
+
+# **THE COLUMN NAMES ARE HIS REAL SAMPLE'S (BusinessReport-22-10-26.csv, 23 columns, 20 Oct 2026); EVERY FIGURE AND TITLE IS MADE UP.** His own
+# column choice leaves out Buy Box and the units and sales columns, so the only figure in it that fits a listing's day is the page views.
+AZ_HEADER = (
+    "(Parent) ASIN,(Child) ASIN,Title,Sessions - Mobile App,Sessions - Mobile APP - B2B,Sessions - Browser,Sessions - Browser - B2B,"
+    "Sessions - Total,Sessions - Total - B2B,Session Percentage - Mobile App,Session Percentage - Mobile APP - B2B,"
+    "Session Percentage - Browser,Session Percentage - Browser - B2B,Session Percentage - Total,Session Percentage - Total - B2B,"
+    "Page Views - Mobile App,Page Views - Mobile APP - B2B,Page Views - Browser,Page Views - Browser - B2B,Page Views - Total,"
+    "Page Views - Total - B2B,Page Views Percentage - Mobile App,Page Views Percentage - Mobile App - B2B"
+)
+AZ_ROW_A = 'PARENT1,CHILDA,"Gold Plated Jhumka, with Pearl Drops | 4.5 cm",7,0,2,0,9,0,5.93%,0.00%,11.11%,0.00%,6.62%,0.00%,9,0,3,0,12,4,6.16%,0.00%'
+AZ_ROW_B = "PARENT2,CHILDB,Silver Chain,0,0,1,1,1,1,0.00%,0.00%,5.56%,33.33%,0.74%,33.33%,0,0,1,1,1,1,0.00%,0.00%"
+AZ_BOM = b"\xef\xbb\xbf"
+
+az = answered(lambda: read("az_traffic", AZ_BOM + csv(AZ_HEADER, AZ_ROW_A, AZ_ROW_B), day="2026-10-20"))
+check("an Amazon child-item file with the byte-order mark Amazon puts first gives each child ASIN its page views for the day asked",
+      az is not None and az.records == {"CHILDA": {"2026-10-20": {"views": 12}}, "CHILDB": {"2026-10-20": {"views": 1}}})
+check("the views are the TOTAL across mobile app and browser; the B2B part is a part of it, never added on top",
+      az is not None and az.records["CHILDA"]["2026-10-20"]["views"] == 12 and az.rows_in_file == 2 and not az.not_read)
+check("only views are said: sessions, percentages and a title are not made into clicks, sales or revenue",
+      az is not None and set(az.records["CHILDA"]["2026-10-20"]) == {"views"})
+check("it is Amazon's, one record per child ASIN, and the walk's file carries no day inside, so the caller's day is the one used",
+      az is not None and az.platform == "amazon" and tool.way_for("az_traffic").day is None and tool.way_for("az_traffic").header_row == 1)
+
+names_in_order = AZ_HEADER.split(",")
+figures_of_b = dict(zip(names_in_order, AZ_ROW_B.split(",")))
+wanted_first = ["Page Views - Total", "Title", "(Child) ASIN"]
+reordered = wanted_first + [n for n in names_in_order if n not in wanted_first]
+moved = answered(lambda: read("az_traffic", csv(",".join(reordered), ",".join(figures_of_b[n] for n in reordered)), day="2026-10-20"))
+check("MOVED COLUMNS ARE FOUND BY THEIR NAME, so a seller who reorders them in Amazon's column chooser still gets the right figure",
+      moved is not None and moved.records == {"CHILDB": {"2026-10-20": {"views": 1}}})
+
+no_views = AZ_HEADER.replace("Page Views - Total,", "Page Views Sum,")
+check("a file whose page-views column is gone stops in words naming the columns it does have, never a blank put in",
+      refused(lambda: read("az_traffic", csv(no_views, AZ_ROW_A), day="2026-10-20"), table.CannotRead))
+thousands = answered(lambda: read("az_traffic", csv(AZ_HEADER, AZ_ROW_A.replace(",12,4,", ',"1,234",4,')), day="2026-10-20"))
+check("a count Amazon writes with a thousands comma is read whole",
+      thousands is not None and thousands.records["CHILDA"]["2026-10-20"]["views"] == 1234)
+check("and no day to date it by is refused, since the file has none inside",
+      refused(lambda: read("az_traffic", csv(AZ_HEADER, AZ_ROW_A)), table.CannotRead))
+
 # ------------------------------------------------------------ the rule that no report is fetched and dropped
 
 check("every report has a reader or a reason, with the three views readers counted",
       reading.why_a_report_has_no_decision() == "")
-check("the three listing readers are the three reports named",
-      {o.report_id for o in reading.WHAT_VIEWS_CAN_BE_READ} == {"fk_views", "fk_ads_fsn", "me_ads_catalog"})
+check("the four listing readers are the four reports named (the Amazon traffic walk joined with lane 1 job 7)",
+      {o.report_id for o in reading.WHAT_VIEWS_CAN_BE_READ} == {"fk_views", "fk_ads_fsn", "me_ads_catalog", "az_traffic"})
 check("and each is a report that exists", all(o.report_id in reports.BY_ID for o in reading.WHAT_VIEWS_CAN_BE_READ))
-check("none of them is also said to be unread", not ({"fk_views", "fk_ads_fsn", "me_ads_catalog"} & set(reading.WHAT_IS_FETCHED_AND_NOT_READ_YET)))
+check("none of them is also said to be unread", not ({"fk_views", "fk_ads_fsn", "me_ads_catalog", "az_traffic"} & set(reading.WHAT_IS_FETCHED_AND_NOT_READ_YET)))
 check("and they write no ledger column", all(o.knows == () for o in reading.WHAT_VIEWS_CAN_BE_READ))
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 62
+EXPECTED = 70
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

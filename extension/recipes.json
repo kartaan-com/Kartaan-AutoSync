@@ -7,6 +7,79 @@
     "Edit the Python and run the tool again; a check refuses a stale copy."
   ],
   "recipes": {
+    "az_traffic": {
+      "campaignsFrom": null,
+      "readyInMinutes": 0,
+      "toAsk": [],
+      "toTake": [
+        {
+          "do": "go",
+          "find": null,
+          "address": "https://sellercentral.amazon.in/business-reports#/report?id=102%3ADetailSalesTrafficByChildItem&fromDate={day}&toDate={day}",
+          "patience": 60,
+          "why": "opening Detail Page Sales and Traffic by Child Item for the day",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": ""
+        },
+        {
+          "do": "wait-for",
+          "find": {
+            "how": "pressable",
+            "what": "Download (.csv)",
+            "exact": true,
+            "called": "the Download (.csv) button",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 90,
+          "why": "waiting for the report page to draw its Download (.csv) button",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": ""
+        },
+        {
+          "do": "take-file",
+          "find": {
+            "how": "pressable",
+            "what": "Download (.csv)",
+            "exact": true,
+            "called": "the Download (.csv) button",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 90,
+          "why": "taking the traffic file for the day",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": ""
+        }
+      ]
+    },
     "fk_ads_daily": {
       "campaignsFrom": null,
       "readyInMinutes": 0,
@@ -4809,6 +4882,10 @@
     "Start Selling"
   ],
   "fileNames": {
+    "az_traffic": {
+      "platform": "amazon",
+      "extension": "csv"
+    },
     "fk_ads_daily": {
       "platform": "flipkart",
       "extension": "csv"
@@ -4939,6 +5016,12 @@
       "id": "az_settlements",
       "platform": "amazon",
       "name": "Amazon settlements",
+      "cannotBeAskedForAgain": null
+    },
+    {
+      "id": "az_traffic",
+      "platform": "amazon",
+      "name": "Amazon listing traffic",
       "cannotBeAskedForAgain": null
     },
     {
@@ -5098,6 +5181,11 @@
       "cannotBeAskedForAgain": "This is a picture of how things stand right now. The platform keeps no history to ask for, so a past day cannot be fetched again -- only the day it was taken."
     }
   ],
+  "onTheApiDoor": [
+    "az_orders",
+    "az_returns",
+    "az_settlements"
+  ],
   "kartaan": "Kartaan",
   "folders": {
     "az_orders": [
@@ -5114,6 +5202,11 @@
       "Reports",
       "Amazon",
       "Settlements"
+    ],
+    "az_traffic": [
+      "Reports",
+      "Amazon",
+      "Views"
     ],
     "fk_ads_daily": [
       "Reports",

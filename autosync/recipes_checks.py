@@ -671,7 +671,24 @@ check("fifteen Flipkart reports can be fetched by this door -- all of them, sinc
 check("and nine Meesho ones, now that the views card and the ads sweep are built",
       answered(lambda: len(tool.on_the_browser_door_for("meesho")) == 9))
 # **AMAZON NEEDS NONE, and that is the number the others should fall to.**
-check("Amazon needs none at all", answered(lambda: tool.on_the_browser_door_for("amazon") == ()))
+check("Amazon needs the browser for one report only, the traffic by child item (lane 1 job 7)",
+      answered(lambda: tool.on_the_browser_door_for("amazon") == ("az_traffic",)))
+# **THE AMAZON WALK, read against his real sample (BusinessReport-22-10-26.csv, the By Child Item report) and the address Control used.**
+AZ = answered(lambda: tool.RECIPES["az_traffic"])
+AZ_STEPS = AZ.to_take if AZ else ()
+check("the Amazon traffic recipe is a one-phase take: nothing to ask for, the page gives the file for the day at once",
+      AZ is not None and not AZ.two_phase and len(AZ_STEPS) == 3)
+check("it opens Business Reports at Detail Page Sales and Traffic by Child Item, the one day in both ends of the range, written plainly",
+      bool(AZ_STEPS) and AZ_STEPS[0].do == pages.GO
+      and AZ_STEPS[0].address == ("https://sellercentral.amazon.in/business-reports#/report"
+                                  "?id=102%3ADetailSalesTrafficByChildItem&fromDate={day}&toDate={day}")
+      and "{day_in_words}" not in AZ_STEPS[0].address)
+check("it waits for Download (.csv) to be on the page, then takes the file by pressing exactly that, nothing else on the page pressed",
+      len(AZ_STEPS) == 3 and AZ_STEPS[1].do == pages.WAIT_FOR and AZ_STEPS[2].do == pages.TAKE_FILE
+      and AZ_STEPS[1].find == AZ_STEPS[2].find and AZ_STEPS[2].find.what == "Download (.csv)"
+      and AZ_STEPS[2].find.exact and AZ_STEPS[2].find.near == "")
+check("the walk needs no panel name: Amazon's address carries none of the seller's own",
+      answered(lambda: len(tool.steps_for("az_traffic", "")) == 3))
 check("a platform this does not know is refused", answered(lambda: refuses(lambda: tool.on_the_browser_door_for("etsy"))))
 # The prefix is written down, not worked out. `platform[:2]` gives "fl" for
 # Flipkart while every id begins `fk_`, which answered zero -- the opposite of
@@ -1389,7 +1406,7 @@ check("and the panel name was still filled into the addresses on the way",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 324
+EXPECTED = 333
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

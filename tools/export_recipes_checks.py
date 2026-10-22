@@ -80,8 +80,8 @@ HELD = answered(tool.what_the_extension_reads) or {}
 
 check("every recipe the Python has crosses",
       answered(lambda: set(HELD.get("recipes", {})) == set(book.RECIPES)))
-check("and there are twenty-four of them, both platforms",
-      answered(lambda: len(HELD.get("recipes", {})) == 24))
+check("and there are twenty-five of them, three platforms",
+      answered(lambda: len(HELD.get("recipes", {})) == 25))
 check("every meaning of a failure crosses",
       answered(lambda: set(HELD.get("whatItMeans", {})) == set(language.WHAT_IT_MEANS)))
 # **THE WHOLE MAP, not the part the walk happens to use today.** Splitting it is
@@ -551,7 +551,7 @@ check("every reason is about a report the product actually declares",
 # declared, has no recipe and has no reason would vanish from the panel
 # altogether -- neither fetchable nor explained -- which is the silence this
 # whole crossing exists to end.
-THROUGH_THE_BROWSER = {"flipkart", "meesho"}
+THROUGH_THE_BROWSER = {"flipkart", "meesho", "amazon"}
 # **THREE LISTS NOW.** A report is built, or is fetched by a different report's
 # run, or is written down as one this door cannot reach. **The ads sweep asks
 # Meesho for a campaign's day once and writes all three files from the one
@@ -561,7 +561,11 @@ check("no browser report is left out of all three lists",
       answered(lambda: all(one["id"] in HELD["recipes"]
                            or one["id"] in HELD["notYetARecipe"]
                            or one["id"] in HELD["madeByAnother"]
-                           for one in HELD["reports"] if one["platform"] in THROUGH_THE_BROWSER)))
+                           for one in HELD["reports"]
+                           if one["platform"] in THROUGH_THE_BROWSER and one["id"] not in HELD["onTheApiDoor"])))
+check("the reports that come in by the API door are carried, so the panel never calls Amazon's three 'cannot be fetched'",
+      answered(lambda: HELD["onTheApiDoor"] == ["az_orders", "az_returns", "az_settlements"]
+               and not set(HELD["onTheApiDoor"]) & set(HELD["recipes"])))
 # **AND EACH OF THE THIRD LIST NAMES A REPORT THE PRODUCT DECLARES**, the same
 # question already asked of the second. A reason written against a report nobody
 # declares is a sentence nothing will ever show.
@@ -914,7 +918,7 @@ check("and it is the Python's own spelling, so nothing translates on the way",
       answered(lambda: language.BY_THE_CONTROL_BESIDE == "beside"))
 
 
-EXPECTED = 117 + 4 + 1
+EXPECTED = 117 + 4 + 1 + 1
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

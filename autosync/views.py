@@ -87,6 +87,15 @@ WAYS: Dict[str, Way] = {
         },
         header_row=1,
     ),
+    # **AMAZON'S TRAFFIC BY CHILD ITEM (lane 1 job 7), READ AGAINST HIS REAL SAMPLE** (`BusinessReport-22-10-26.csv`, 20 Oct 2026, 23 columns): one row per child
+    # ASIN, **NO DAY INSIDE** (the walk asked for one day and the landed file's name carries it), views = `Page Views - Total`. **THE `- B2B` COLUMNS ARE A PART OF THE
+    # TOTAL, NEVER ADDED TO IT**, and matching is exact so `Page Views - Total - B2B` is not taken for it. His own column choice has no Buy Box, units or sales column,
+    # so none is read; the ERP's record has no field for sessions, so none is invented.
+    "az_traffic": Way(
+        "amazon", _is("(Child) ASIN"), None,
+        {"views": (_is("Page Views - Total"),)},
+        header_row=1,
+    ),
     "fk_ads_fsn": Way(
         "flipkart", _is("Sku Id"), None,
         {
