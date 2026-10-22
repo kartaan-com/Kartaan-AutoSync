@@ -15,6 +15,8 @@ them (his Valmo rule: a grouping is done when the ERP SHOWS them, never by rewri
 | returnType | Return Type | Type of Return | Return type |
 | reason | Return Reason | Return Reason | Return Reason |
 | subReason | Return Sub-reason | Detailed Return Reason | -- |
+| returnAwb | -- | AWB Number (the return's own courier number) | -- |
+| returnSubType | -- | Sub Type (e.g. FIRST_RET) | -- |
 | status | Completion Status | -- | Return request status |
 | startedOn | Return Requested Date | Return Created Date | Return request date |
 | closedOn | Completed Date | Delivered Date | Return delivery date |
@@ -40,7 +42,7 @@ import table
 # What a record's fields are, in the order they are written. A field outside this list is refused by the writer.
 RETURN_FIELDS = (
     "platform", "report", "returnKey", "orderId", "sku", "saleKey", "trackingId", "qty", "returnType", "reason",
-    "subReason", "status", "startedOn", "closedOn", "fileDay", "digest",
+    "subReason", "status", "startedOn", "closedOn", "fileDay", "digest", "returnAwb", "returnSubType",
 )
 
 _MONTHS = {
@@ -104,6 +106,10 @@ WAYS: Dict[str, Way] = {
             "returnKey": "suborder number", "orderId": "suborder number", "sku": "sku", "trackingId": "awb number",
             "qty": "qty", "returnType": "type of return", "reason": "return reason", "subReason": "detailed return reason",
             "startedOn": "return created date", "closedOn": "delivered date",
+            # Meesho's returns file has no return id: the return's own courier number (the same AWB Number column that is the
+            # tracking id) and its Sub Type let the ERP keep two returns of one sub-order apart (v0.1.21 job 2). Not needed:
+            # an older file without a Sub Type is still read.
+            "returnAwb": "awb number", "returnSubType": "sub type",
         },
         needed=("returnKey", "orderId", "reason", "closedOn"),
         # **THE COLUMN NAMES ARE ON LINE 8 TODAY, AFTER A TITLE BLOCK THE PLATFORM MAY LENGTHEN:** found by its first word.
@@ -218,7 +224,7 @@ def read_returns(report_id: str, rows: table.Table, file_day: str) -> WhatReturn
         if sku:
             record["sku"] = sku
         try:
-            for field in ("trackingId", "returnType", "reason", "subReason", "status"):
+            for field in ("trackingId", "returnType", "reason", "subReason", "status", "returnAwb", "returnSubType"):
                 if said(field):
                     record[field] = said(field)
             qty = _a_count(said("qty"))

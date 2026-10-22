@@ -26,6 +26,8 @@ Three collections, all written by the run as the owner (the ERP's rules must let
 | `status` | **platform's own word** | Completion Status | -- | Return request status |
 | `startedOn` | `yyyy-mm-dd` | Return Requested Date | Return Created Date | Return request date |
 | `closedOn` | `yyyy-mm-dd` | Completed Date | Delivered Date | Return delivery date |
+| `returnAwb` | Meesho only: the return's own courier number (same column as `trackingId`); absent on records written before v0.1.21 | -- | AWB Number | -- |
+| `returnSubType` | Meesho only: **platform's own word** (e.g. `FIRST_RET`); absent when blank or on older records | -- | Sub Type | -- |
 | `fileDay` | day of the file that last said this | | | |
 | `digest` | fingerprint of what the record says (not of its day) | | | |
 

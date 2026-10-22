@@ -147,6 +147,27 @@ check("the AWB is the tracking id, and an unfinished return has no close day", m
       and "closedOn" not in m.records["meesho__101_1"] and "trackingId" not in m.records["meesho__101_1"])
 check("Meesho's 'NA' is its own word and is kept, not turned into nothing", m.records["meesho__101_1"].get("reason") == "NA")
 
+# Job 2 (v0.1.21): the return's OWN courier number and Meesho's Sub Type, so the ERP can keep two returns of one sub-order apart.
+ME_RET_HEAD_SUB = ME_RET_HEAD + ',"Sub Type"'
+two_awb = answered(lambda: returns.read_returns("me_returns", me(
+    '"1","SKU-M","1","200_1","2026-10-08","Customer Return","2026-10-09","AWB-FIRST","R","D","FIRST_RET"',
+    '"2","SKU-M","1","200_1","2026-10-11","Customer Return","2026-10-12","AWB-SECOND","R","D","SECOND_RET"',
+    '"3","DJ-2","1","201_1","2026-10-11","Courier Return (RTO)","","","NA","NA",""',
+    head=ME_RET_HEAD_SUB), "2026-10-12"))
+first_ret = (two_awb.records.get("meesho__200_1") or {}) if two_awb else {}
+second_ret = (two_awb.records.get("meesho__200_1~2026-10-11") or {}) if two_awb else {}
+check("two returns of one sub-order with different AWBs keep their own AWB",
+      first_ret.get("returnAwb") == "AWB-FIRST" and second_ret.get("returnAwb") == "AWB-SECOND")
+check("Meesho's Sub Type is kept as written, one per return",
+      first_ret.get("returnSubType") == "FIRST_RET" and second_ret.get("returnSubType") == "SECOND_RET")
+check("a blank AWB or Sub Type is absent, never an empty word",
+      "returnAwb" not in two_awb.records["meesho__201_1"] and "returnSubType" not in two_awb.records["meesho__201_1"])
+check("a Meesho file that has no Sub Type column is still read (the column is wanted, not needed)",
+      "returnSubType" not in mine and "returnAwb" in mine and mine["returnAwb"] == "R-AWB-1")
+check("Flipkart's records have neither", "returnAwb" not in one and "returnSubType" not in one)
+check("the returned line has two more fields than before", len(returns.RETURN_FIELDS) == 18
+      and {"returnAwb", "returnSubType"} <= set(returns.RETURN_FIELDS))
+
 # ------------------------------------------------------------------ Amazon returns
 
 a = answered(lambda: returns.read_returns("az_returns", az(
@@ -161,6 +182,7 @@ check("the request day and delivery day are read from Amazon's day-month-name wa
       and a.records["amazon__RMA2"].get("closedOn") == "2026-10-11" and "closedOn" not in ar)
 check("the sale is the ledger's", ar.get("saleKey") == "amazon::407-1::SKU-Q")
 check("a return with no SKU has no sku field, not an empty one", "sku" not in a.records["amazon__RMA2"] and a.records["amazon__RMA2"]["saleKey"] == "amazon::407-2::")
+check("Amazon's records carry neither the return AWB nor the Sub Type", "returnAwb" not in ar and "returnSubType" not in ar)
 
 # ------------------------------------------------------------------ Flipkart / Meesho ads
 
@@ -656,7 +678,7 @@ check("A LEDGER THAT REFUSES A RETURNS FILE IS SAID AS THE LEDGER'S REFUSAL, the
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 107 + 3 + 2 + 3 + 3
+EXPECTED = 107 + 3 + 2 + 3 + 3 + 7
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
