@@ -688,6 +688,14 @@ _rd_fee2b = after(_rd_fee2, answered(lambda: ledger.plan(_rd_fee2, [pays("az_set
 check("A SKU RE-DOWNLOAD AFTER TWO FEES LEAVES BOTH COUNTED (the first figure is the one remembered)",
       (a_row(_rd_fee2b, _pn) or {}).get("settlement") == "420")
 
+# Proving (A90f): a fee whose own figure equals the remembered one still ADDS; a fee onto a row with no figure remembers nothing.
+_rd_big = after(_rd1, answered(lambda: ledger.plan(_rd1, [pays("az_settlements", "2026-09-06", replace(a_payment("amazon", "404-8", "", "450", otherServices="-450"), notes="fee:S3:1"),
+                                                              which="az_settlements2026-09-06")])))
+check("A NEW FEE WHOSE FIGURE EQUALS THE REMEMBERED ONE IS STILL ADDED, it is not a SKU line (D582)", (a_row(_rd_big, _pn) or {}).get("settlement") == "871.09")
+_blank_row = sheet_with(replace(_paid_before, settlement=""))
+_rd_blank = after(_blank_row, answered(lambda: ledger.plan(_blank_row, [pays("az_settlements", "2026-09-05", _c_fee)])))
+check("A FEE ONTO A ROW WITH NO FIGURE REMEMBERS NO FIGURE (nothing was added to)", "fee-base" not in (a_row(_rd_blank, _pn) or {}).get("notes", ""))
+
 # Proving (A90d): every change a mutation could make to the fee code, each with a check that goes red for it.
 _fee_two = replace(a_payment("amazon", "404-8", "", "-30", otherServices="30"), notes="fee:S1:5 fee:S1:6")
 _held_noted = sheet_with(replace(_paid_before, notes="call buyer fee:S1:5"))
@@ -1311,7 +1319,7 @@ if failures:
     print(f"{len(failures)} FAILED: {failures}")
     sys.exit(1)
 WITHOUT = ran - real_ran
-if WITHOUT != 95 + 22 + 17 + 8 + 2 + 3 + 5 + 3 + 5 + 14 + 9 + 4:  # the 14 are A90d proving, the 9 A90e (D581), the 4 A90f (D582)
-    print(f"FAIL  checks went missing -- {WITHOUT} ran without his files, 187 expected")
+if WITHOUT != 95 + 22 + 17 + 8 + 2 + 3 + 5 + 3 + 5 + 14 + 9 + 4 + 2:  # the 14 are A90d proving, the 9 A90e (D581), the 6 A90f (D582)
+    print(f"FAIL  checks went missing -- {WITHOUT} ran without his files, 189 expected")
     sys.exit(1)
 print(f"all {ran} checks passed" + ("" if real_ran == HIS_FILES_GROUP else f" ({HIS_FILES_GROUP - real_ran} of his real-file checks not run -- the files are elsewhere)"))
