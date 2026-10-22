@@ -665,8 +665,28 @@ check("THE CLEARED NOTES CELL IS SENT TO THE SHEET, not only changed in memory (
 _c_two_fees = after(_c1, answered(lambda: ledger.plan(_c1, [pays("az_settlements", "2026-09-07", replace(a_payment("amazon", "404-8", "", "-1.09", otherServices="1.09"), notes="fee:S2:9"),
                                                                  which="az_settlements2026-09-07")])))
 check("A SECOND FEE ADDED BESIDE THE FIRST KEEPS BOTH KEYS: adding is not replacing, so nothing is cleared",
-      (a_row(_c_two_fees, _pn) or {}).get("notes") == "fee:S1:5 fee:S2:9")
+      (a_row(_c_two_fees, _pn) or {}).get("notes") == "fee:S1:5 fee-base:450 fee:S2:9")
 check("AND A WORD OF HIS OWN THAT BEGINS 'fee:' IS NOT A KEY AND STAYS", (a_row(_c5, _pn) or {}).get("notes") == "fee:waived fee:200")
+
+# D582: a SKU file downloaded AGAIN under a later day with the SAME figure is a re-download, not a replacement: it clears no fee key, and the fee is never lost.
+_rd_sku = a_payment("amazon", "404-8", "SKU-P", "450", commission="50")
+_rd1 = after(_HP, answered(lambda: ledger.plan(_HP, [pays("az_settlements", "2026-09-05", _c_fee)])))
+_rd2 = after(_rd1, answered(lambda: ledger.plan(_rd1, [pays("az_settlements", "2026-09-07", _rd_sku, which="az_settlements2026-09-07")])))
+_rd3 = after(_rd2, answered(lambda: ledger.plan(_rd2, [pays("az_settlements", "2026-09-08", _c_fee, which="az_settlements2026-09-08")])))
+check("A SKU FILE RE-DOWNLOADED UNDER A LATER DAY WITH THE SAME FIGURE LEAVES THE EARLIER FEE COUNTED ONCE (D582, Rule 29)",
+      (a_row(_rd1, _pn) or {}).get("settlement") == "421.09" and (a_row(_rd2, _pn) or {}).get("settlement") == "421.09"
+      and (a_row(_rd2, _pn) or {}).get("charge_otherServices") == "28.91" and "fee:S1:5" in (a_row(_rd2, _pn) or {}).get("notes", ""))
+check("AND RE-READING THE FEE FILE AFTER THAT ADDS NOTHING", (a_row(_rd3, _pn) or {}).get("settlement") == "421.09"
+      and (a_row(_rd3, _pn) or {}).get("charge_otherServices") == "28.91")
+_rd_new = after(_rd1, answered(lambda: ledger.plan(_rd1, [pays("az_settlements", "2026-09-07", a_payment("amazon", "404-8", "SKU-P", "400", commission="60"),
+                                                                which="az_settlements2026-09-07")])))
+check("BUT A SKU LINE THAT CHANGES THE FIGURE STILL REPLACES AND CLEARS THE FEE KEYS AND THE REMEMBERED FIGURE (D582)",
+      (a_row(_rd_new, _pn) or {}).get("settlement") == "400" and (a_row(_rd_new, _pn) or {}).get("notes") == "")
+_rd_fee2 = after(_rd1, answered(lambda: ledger.plan(_rd1, [pays("az_settlements", "2026-09-06", replace(a_payment("amazon", "404-8", "", "-1.09", otherServices="1.09"), notes="fee:S2:9"),
+                                                                which="az_settlements2026-09-06")])))
+_rd_fee2b = after(_rd_fee2, answered(lambda: ledger.plan(_rd_fee2, [pays("az_settlements", "2026-09-07", _rd_sku, which="az_settlements2026-09-07")])))
+check("A SKU RE-DOWNLOAD AFTER TWO FEES LEAVES BOTH COUNTED (the first figure is the one remembered)",
+      (a_row(_rd_fee2b, _pn) or {}).get("settlement") == "420")
 
 # Proving (A90d): every change a mutation could make to the fee code, each with a check that goes red for it.
 _fee_two = replace(a_payment("amazon", "404-8", "", "-30", otherServices="30"), notes="fee:S1:5 fee:S1:6")
@@ -691,7 +711,7 @@ check("A FILE THAT NAMES THE SKU AS WELL AS CARRYING A NO-SKU FEE REPLACES THE R
 _typed = sheet_with(replace(_paid_before, notes="call buyer"))
 _keep = answered(lambda: ledger.plan(_typed, [_fee_reading]))
 check("THE FEE'S KEY GOES BESIDE WHATEVER HE TYPED IN THE ROW'S NOTES, which stays",
-      _keep is not None and (a_row(after(_typed, _keep), _pn) or {}).get("notes") == "call buyer fee:S1:5")
+      _keep is not None and (a_row(after(_typed, _keep), _pn) or {}).get("notes") == "call buyer fee:S1:5 fee-base:450")
 _zero_fee = replace(a_payment("amazon", "404-8", "", "0"), notes="fee:S3:1")
 _zero = answered(lambda: ledger.plan(_HP, [pays("az_settlements", "2026-09-01", replace(_zero_fee, payments_on="2026-09-01"))]))
 check("A FEE THAT CHANGES NO FIGURE STILL WRITES ITS KEY, so the row is updated and the notes cell is sent",
@@ -726,7 +746,7 @@ _fee_b = replace(a_payment("amazon", "404-8", "", "-1.09", otherServices="1.09")
 _two_fees = answered(lambda: ledger.plan(_HP, [pays("az_settlements", "2026-09-05", _fee_a, _fee_b)]))
 _r_two = a_row(after(_HP, _two_fees), _pn) if _two_fees else {}
 check("TWO NO-SKU FEES OF ONE FILE ON ONE ROW ARE ADDED TOGETHER AND BOTH KEYS ARE KEPT (D575)",
-      _r_two is not None and _r_two.get("settlement") == "420" and _r_two.get("notes") == "fee:S1:5 fee:S1:6")
+      _r_two is not None and _r_two.get("settlement") == "420" and _r_two.get("notes") == "fee:S1:5 fee:S1:6 fee-base:450")
 _dr_blank = answered(lambda: read_as("az_settlements", "amazon_az_settlements_2026-09-30.csv", an_amazon_file(
     an_amazon_line("Order", "407-2", "SKU-A", "100", "Released", **{"fba fees": ""}))))
 check("A BLANK CHARGE CELL IN THE DATE RANGE REPORT IS NOT SAID TO BE UNREADABLE (it is a blank)",
@@ -1291,7 +1311,7 @@ if failures:
     print(f"{len(failures)} FAILED: {failures}")
     sys.exit(1)
 WITHOUT = ran - real_ran
-if WITHOUT != 95 + 22 + 17 + 8 + 2 + 3 + 5 + 3 + 5 + 14 + 9:  # the 14 are A90d proving, the 9 A90e (D581)
-    print(f"FAIL  checks went missing -- {WITHOUT} ran without his files, 183 expected")
+if WITHOUT != 95 + 22 + 17 + 8 + 2 + 3 + 5 + 3 + 5 + 14 + 9 + 4:  # the 14 are A90d proving, the 9 A90e (D581), the 4 A90f (D582)
+    print(f"FAIL  checks went missing -- {WITHOUT} ran without his files, 187 expected")
     sys.exit(1)
 print(f"all {ran} checks passed" + ("" if real_ran == HIS_FILES_GROUP else f" ({HIS_FILES_GROUP - real_ran} of his real-file checks not run -- the files are elsewhere)"))

@@ -863,6 +863,8 @@ def _put_each_on_its_row(
 
 # A fee key as the readers write it: `fee:<settlement id or dr:hash>:<line or count>`. A word he typed, like `fee:waived`, is not one.
 _FEE_KEY = re.compile(r"^fee:\S+:\d+$")
+# The figure the SKU line gave the row before any no-SKU fee was added to it, kept beside the fee keys so a SKU file downloaded again can be told from one that changes it.
+_FEE_BASE = "fee-base:"
 
 
 def plan(
@@ -980,10 +982,18 @@ def plan(
                     kept_from=THE_SHEET_REMEMBERS, also_from=reading.one_statement,
                 ))
             figure_replaced = False
+            fee_base_was = ""
+            # **A SKU FILE DOWNLOADED AGAIN WITH THE SAME FIGURE IS NOT A REPLACEMENT (D582, Rule 29):** the row's figure holds the fees added
+            # to it, so a re-download that gives the figure the row had before them changes nothing and clears no key; a fee is never lost.
+            base_kept = next((k[len(_FEE_BASE):] for k in standing if k.startswith(_FEE_BASE)), None)
+            re_download = False
+            if base_kept is not None and name not in only_a_fee:
+                a_base, a_new = a_decimal(base_kept), a_decimal(str(says.get("settlement", "")))
+                re_download = a_base is not None and a_new is not None and a_base == a_new
             for column, value in says.items():
                 if column == "id":
                     continue
-                if fee_seen and (column == "settlement" or column in CHARGE_COLUMNS):
+                if (fee_seen or re_download) and (column == "settlement" or column in CHARGE_COLUMNS):
                     continue
                 was = now[name].get(column, "")
                 added = False
@@ -994,6 +1004,8 @@ def plan(
                     old_figure, fee = a_decimal(str(was)), a_decimal(str(value))
                     if old_figure is not None and fee is not None:
                         value, added = as_text(old_figure + fee), True
+                        if column == "settlement":
+                            fee_base_was = str(was)
 
                 # **SAYING NOTHING IS NOT SAYING "NOTHING". A blank never
                 # overwrites something already there.**
@@ -1091,12 +1103,14 @@ def plan(
             if figure_replaced and any(_FEE_KEY.match(k) for k in standing):
                 # **A SKU LINE THAT REPLACED THE ROW'S FIGURE TOOK THE FEES ALONG WITH IT (D581 item 3):** the keys of the fees it replaced
                 # leave the notes, so a later re-read of the first fee file adds that fee back instead of skipping it as "already added".
-                now[name]["notes"] = " ".join(k for k in (now[name].get("notes", "") or "").split() if not _FEE_KEY.match(k))
+                now[name]["notes"] = " ".join(k for k in (now[name].get("notes", "") or "").split()
+                                              if not _FEE_KEY.match(k) and not k.startswith(_FEE_BASE))
                 changed[name] = True
                 columns_changed.setdefault(name, set()).add("notes")
             if fee_keys and not fee_seen:
                 # The keys go into the row's notes beside whatever he wrote there, so the next reading of this file knows it was added.
-                now[name]["notes"] = " ".join(filter(None, [now[name].get("notes", "") or "", *sorted(fee_keys)]))
+                remembered = [] if fee_base_was == "" or any(k.startswith(_FEE_BASE) for k in standing) else [_FEE_BASE + fee_base_was]
+                now[name]["notes"] = " ".join(filter(None, [now[name].get("notes", "") or "", *sorted(fee_keys), *remembered]))
                 changed[name] = True
                 columns_changed.setdefault(name, set()).add("notes")
 
