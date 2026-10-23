@@ -316,6 +316,17 @@ REPORTS: Tuple[Report, ...] = (
     # cost two rationed requests a night and land nothing. It joins this list with the landing rule once the first real file (plan
     # sample A5) shows the bytes. The door side (`amazon.py`) is ready.
     Report("az_suppressed", "amazon", "Amazon suppressed listings", API, DAILY, "csv", cannot_backfill=_SNAPSHOT),
+    # **THE ONE AMAZON REPORT FETCHED BY WALKING THE PAGE (AutoSync v0.1.21 lane 1 job 7, his preference: the browser walk, so it works for every seller, with or
+    # without API keys).** Business Reports > By ASIN > Detail Page Sales and Traffic by Child Item, one day, Download (.csv). Amazon takes a past day, so it
+    # can be asked for again.
+    Report("az_traffic", "amazon", "Amazon listing traffic", BROWSER, DAILY, "csv"),
+    # **THE TWO AMAZON FILES MADE ON REQUEST (AutoSync v0.1.21 lane 1 job 8).** Seller Central > Products > Product reports (Inventory Reports): the seller
+    # presses Request Report, Amazon builds a tab-separated text file (up to 45 minutes, a new one at most once in 24 hours) and a row with a Download button
+    # appears. Both are pictures of right now. Amazon's own text says ".txt" and the files are landed as such.
+    # All Listings holds every listing, active AND inactive, with a `status` column.
+    Report("az_listings", "amazon", "Amazon All Listings", BROWSER, EVERY_THREE_DAYS, "txt", cannot_backfill=_SNAPSHOT),
+    # Amazon's own fee estimate per SKU; a row Amazon has no estimate for says `--`.
+    Report("az_fee_preview", "amazon", "Amazon Referral Fee Preview", BROWSER, EVERY_THREE_DAYS, "txt", cannot_backfill=_SNAPSHOT),
 )
 
 

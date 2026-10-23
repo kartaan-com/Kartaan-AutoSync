@@ -203,7 +203,7 @@ WHAT_CAN_BE_READ: Tuple[HowToRead, ...] = (
 # listing in the seller's own database (`firestore_door.a_views_sink`), not into the sheet.
 WHAT_VIEWS_CAN_BE_READ: Tuple[HowToRead, ...] = tuple(
     HowToRead(report_id, (), header_row=views.way_for(report_id).header_row, kind="views")
-    for report_id in ("fk_views", "fk_ads_fsn", "me_ads_catalog")
+    for report_id in ("fk_views", "fk_ads_fsn", "me_ads_catalog", "az_traffic")
 )
 
 # **THE LISTING FILES (job 41):** each is read into the listings it names, recorded for the ERP to put in front of the seller to let in
@@ -428,7 +428,7 @@ class WhatTheNightRead:
                 "could not be reached for them; they will be read when it can."
             )
         if self.notes_written:
-            said += f"  {self.notes_written} listing(s) were marked from the platforms' side files (suppressed, with Amazon's reason)."
+            said += f"  {self.notes_written} listing(s) were marked from the platforms' side files (suppressed with Amazon's reason, or Amazon's referral fee)."
         if self.notes_skipped:
             said += (
                 f"  {self.notes_skipped} listing(s) named in a side file had no record yet, so nothing was written beside them; "
@@ -1365,7 +1365,9 @@ def _which_day_it_is_about(pair: Tuple[HowToRead, whats_new.InTheFolder]):
     # is written down as read when it has been applied. Taken in plain day order a catch-up night applies a settlement before the
     # orders it settles, every line finds no row, and the file is read for good with its money on nothing. The two kinds write
     # different columns under different markers, so putting every payments file after every orders file changes no figure.
-    return (how.kind in ("payments", "claims"), when is None, when.isoformat() if when is not None else "", one.which)
+    # **SIDE FILES AFTER LISTING FILES, FOR THE SAME REASON (AP10 review):** a note (a suppression, a fee) lands only on a listing record already held,
+    # so a same-day side file taken before the listings file would find no record and be marked read with nothing written.
+    return (how.kind in ("payments", "claims", "notes"), when is None, when.isoformat() if when is not None else "", one.which)
 
 
 def _oldest_first(

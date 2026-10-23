@@ -55,6 +55,8 @@ class Shape:
     # (column, what it says on the help row) or None for a file with no help row.
     help_text: Optional[Tuple[str, str]]
     columns: Dict[str, str]
+    # The column saying whether a listing is selling, for a shape whose `columns` (pinned to the ERP's) do not name one. None for the others.
+    state_column: Optional[str] = None
 
 
 FLIPKART = Shape(
@@ -99,9 +101,9 @@ MEESHO = Shape(
 # page is built from (`amazon.in/dp/<ASIN>`); Amazon's own `listing-id` is carried beside it, as Flipkart's is. **D326 (his ruling, 13 Oct): THE
 # RECORD'S KEY IS `ASIN::seller-sku`** (`seller-sku` is the `keyAlso` column, as Meesho's variation id is), so two offers of one ASIN each keep their
 # own price and stock; only the buyer's page is built from the ASIN alone. A report that lists one ASIN with one SKU twice says so on the second
-# row instead of dropping it silently. The report lists active listings only, so a row being in it
-# is what says the listing is live -- as for Meesho. **`maximum-retail-price` and `price` are the MRP and the selling price; Amazon's file has
-# no settlement figure.** Not in the ERP's `LISTING_FILES` yet -- that entry is the ERP's to add; this one is the run's until then.
+# row instead of dropping it silently. **The Active Listings file listed active listings only; the file fetched now is the ALL Listings Report (lane 1 job 8), so
+# the `status` column says whether a listing is live (see `state_column` below).** **`maximum-retail-price` and `price` are the MRP and the selling price; Amazon's file has
+# no settlement figure.** The ERP has its own entry now (without `status`); the pin below compares `columns` only.
 AMAZON = Shape(
     id="amazon",
     heading="Amazon listings",
@@ -117,12 +119,16 @@ AMAZON = Shape(
         "mrp": "maximum-retail-price",
         "sellingPrice": "price",
     },
+    # **THE ALL LISTINGS REPORT (lane 1 job 8) LISTS INACTIVE AND INCOMPLETE LISTINGS TOO**, so a row being in it no longer says it is live: its `status` does
+    # (`Active` 88, `Inactive` 6, `Incomplete` 1 in his 17 Oct file). The old Active file had no such column and is not what is fetched any more.
+    # **KEPT OUT OF `columns` ON PURPOSE:** `columns` is pinned to the ERP's entry, which has no `state` for Amazon yet -- the ERP's half is owed (DONE_AP8).
+    state_column="status",
 )
 
 SHAPES: Dict[str, Shape] = {one.id: one for one in (FLIPKART, MEESHO, AMAZON)}
 
 # Which report's file is which platform's listings.
-THE_SHAPE_OF = {"fk_listings": FLIPKART, "me_catalog": MEESHO}
+THE_SHAPE_OF = {"fk_listings": FLIPKART, "me_catalog": MEESHO, "az_listings": AMAZON}
 
 
 @dataclass(frozen=True)
@@ -189,9 +195,13 @@ def _platform_of(shape: Shape, row: table.Row) -> Optional[str]:
     return None if "shopsy" in row[shape.columns["sku"]].strip().lower() else "flipkart"
 
 
+def _state_column(shape: Shape) -> Optional[str]:
+    return shape.columns.get("state") or shape.state_column
+
+
 def _state_of(shape: Shape, row: table.Row) -> Optional[str]:
     """`live`, `not_live`, or None when the platform has the column and left this row's blank (ERP: stateOfRow)."""
-    column = shape.columns.get("state")
+    column = _state_column(shape)
     if not column:
         return "live"
     said = row[column].strip().upper()
@@ -223,6 +233,8 @@ def _required(shape: Shape) -> List[str]:
     named = [name for role, name in shape.columns.items() if role not in CAN_BE_MISSING]
     if shape.help_text:
         named.append(shape.help_text[0])
+    if shape.state_column:
+        named.append(shape.state_column)
     return list(dict.fromkeys(named))
 
 
@@ -315,7 +327,7 @@ def read_listings(shape: Shape, rows: table.Table, report_name: str = "this file
             state = _state_of(shape, row)
             if state is None:
                 not_read.append(
-                    f"line {row.line} ({sku}): {shape.columns['state']} is blank on this row, so the platform has not said whether it "
+                    f"line {row.line} ({sku}): {_state_column(shape)} is blank on this row, so the platform has not said whether it "
                     "is selling. Reading a blank as not live would take a real listing off sale"
                 )
                 continue
@@ -369,4 +381,73 @@ def read_listing_file(report_id: str, content: bytes, report_name: str = "this f
     shape = THE_SHAPE_OF.get(report_id)
     if shape is None:
         raise table.CannotRead(f"Nothing here knows how to read {report_id!r} into listings.")
+    if not shape.find_by:
+        # A plain text file (Amazon's tab-separated report) has no sheets: its one table is read by its column names.
+        return read_listings(shape, table.read(content, header_row=1), report_name)
     return read_listings(shape, _the_sheet(content, shape, report_name), report_name)
+
+
+# **AMAZON'S REFERRAL FEE PREVIEW REPORT (lane 1 job 8), from his real file of 22 Oct (91 rows, tab-separated):** `seller-sku`, `asin`, `item-name`, `price`,
+# `estimated-referral-fee-per-item`. **A fee of `0.00` is on 89 of the 91 rows and is a figure Amazon gave; `--` is on 2 and means no estimate.** The key is the
+# listing's own (`ASIN::seller-sku`, D326), so a fee lands on the listing it is about. `price` is context and not needed.
+FEE_COLUMNS = {"sku": "seller-sku", "asin": "asin", "fee": "estimated-referral-fee-per-item"}
+# What Amazon writes when it has no estimate for a row.
+NO_FEE_ESTIMATE = "--"
+
+
+@dataclass(frozen=True)
+class WhatFeesSaid:
+    """One fee file's fees (listing id -> Amazon's estimated referral fee per item) and every row it would not take.
+
+    **A `--` ROW IS READ, NOT REFUSED (AP10 review):** Amazon saying it has no estimate is an answer, so that row sets no fee and is not a row not read.
+    Counted as one, every real fee file (2 of his 91 rows) would show "landed, not read" for good and the night would say the file could not be read.
+    """
+
+    fees: Dict[str, float]
+    not_read: Tuple[str, ...]
+    rows_in_file: int
+
+
+def read_fee_preview(rows: table.Table, report_name: str = "this file") -> WhatFeesSaid:
+    """Amazon's referral fee per listing, by the listing's own id. The reader the ERP's `referralFee` and `feeAsOf` are filled from (listing_notes.read_fees).
+
+    Refuses the whole file, in words, when a column is missing or no row is under the headings; a row it cannot take is said by line and the rest are read.
+    """
+    missing = [name for name in FEE_COLUMNS.values() if name not in rows.columns]
+    if missing:
+        raise table.CannotRead(
+            f"The Amazon referral fee file {report_name} is missing {'a column' if len(missing) == 1 else 'columns'} Kartaan needs: {', '.join(missing)}. "
+            "Nothing was read. Download the report again; if it still says this, Amazon has changed its file and Kartaan needs to be told."
+        )
+    repeated = [name for name in FEE_COLUMNS.values() if name in rows.ambiguous]
+    if repeated:
+        raise table.CannotRead(
+            f"{report_name} has more than one column called {', '.join(repr(n) for n in repeated)}, so which is meant cannot be decided. Nothing was read."
+        )
+    if not len(rows):
+        raise table.CannotRead(
+            f"The Amazon referral fee file {report_name} has its column headings and not one row under them. Nothing was read; "
+            "an empty file is not the same as a catalogue with no fees."
+        )
+    fees: Dict[str, float] = {}
+    not_read: List[str] = []
+    for row in rows:
+        sku, asin, said = row[FEE_COLUMNS["sku"]].strip(), row[FEE_COLUMNS["asin"]].strip(), row[FEE_COLUMNS["fee"]].strip()
+        if not sku or not asin or not re.match(r"^[A-Za-z0-9]+$", asin) or "/" in sku or len(sku.encode("utf-8")) > _LONGEST_ID:
+            not_read.append(f"line {row.line} ({sku or 'no SKU'}): this row has no ASIN and seller SKU that could name a listing, so the fee could not be put on one")
+            continue
+        if said == NO_FEE_ESTIMATE:
+            continue
+        number, unreadable = _figure(said)
+        if number is None or unreadable or number < 0:
+            not_read.append(f"line {row.line} ({sku}): the fee reads {said!r}, which is not an amount of money. A fee nobody can read is not set")
+            continue
+        name = f"amazon::{asin}::{sku}"
+        if name in fees:
+            not_read.append(f"line {row.line} ({sku}): the same listing is on an earlier line. Only the first was kept")
+            continue
+        fees[name] = number
+    # **A ROW OF THE WRONG WIDTH IS A ROW NOT READ (AP10 review)** (table.read keeps it in `refused`): left out, a torn row's fee would never be set
+    # and the file would read as read in full, so it is never opened again.
+    not_read += [f"line {one.line}: {one.why}" for one in rows.refused]
+    return WhatFeesSaid(fees=fees, not_read=tuple(not_read), rows_in_file=len(rows) + len(rows.refused))

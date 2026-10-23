@@ -71,15 +71,13 @@ const THE_SETUP = 'kartaan-autosync-setup';
  *  later reads this number as authoritative. */
 export const THE_NIGHTS = 'kartaan-autosync-nights';
 
-/* Which platforms this extension WALKS reports for. **Amazon is not one of them YET,
- * and the list stays as it is on purpose (A79, his D317 of 12 Oct 2026).** The
- * extension is now allowed on Amazon Seller Central (manifest host permission) and the
- * platform card below shows it, but no recipe mentions Amazon and no walk can fetch it:
- * Amazon's reports still come in through its own door in the scheduled sync, with the
- * seller's own SP-API credentials. A77 adds the walkers, and Amazon joins this list
- * with the first one. Put in earlier, every Amazon report would show in the report
- * list as one that cannot be fetched. */
-export const THROUGH_THE_BROWSER = Object.freeze(['flipkart', 'meesho']);
+/* Which platforms this extension WALKS reports for. **Amazon joined with its first walker, the
+ * traffic by child item (`az_traffic`, AutoSync v0.1.21 lane 1 job 7).** It was kept out until then
+ * (A79, his D317 of 12 Oct 2026) because, put in earlier, every Amazon report would have shown in
+ * the report list as one that cannot be fetched. Amazon's orders, returns and settlements still
+ * come in through its own door in the scheduled sync with the seller's own SP-API credentials,
+ * and are not in this list's reports: only a report with a recipe is shown. */
+export const THROUGH_THE_BROWSER = Object.freeze(['flipkart', 'meesho', 'amazon']);
 
 /** What each platform is called on screen. Written here because the recipe file
  *  carries ids and a seller does not read ids. */
@@ -684,7 +682,9 @@ export async function howItStands(chrome, { book, now = Date.now(), theClock = n
     if (!byReport[one]) byReport[one] = { state: 'waiting', say: '', size: 0 };
   }
 
-  const declared = book.reports || [];
+  /* **ONLY THE REPORTS THIS DOOR IS MEANT TO FETCH.** Amazon's orders, returns and settlements come in by the API door with the seller's own keys; listed
+   * here they would all read "cannot be fetched" (lane 1 job 7). */
+  const declared = (book.reports || []).filter((one) => !(book.onTheApiDoor || []).includes(one.id));
   /* **A REPORT FETCHED BY ANOTHER REPORT'S RUN IS NOT ONE THIS DOOR CANNOT
    * FETCH.** The Meesho ads sweep asks for a campaign's day once and writes all
    * three files from the one answer, so two real reports have no recipe of their
@@ -738,30 +738,18 @@ export async function howItStands(chrome, { book, now = Date.now(), theClock = n
     paused: await whatIsPaused(chrome),
     /* **WHETHER A RUN PASS IS SAVED AND WHAT KARTAAN LAST SAID -- NEVER THE PASS (plan job 30).** */
     kartaan: await whatKartaanLastSaid(chrome),
-    platforms: [
-      ...THROUGH_THE_BROWSER.map((platform) => ({
-        id: platform,
-        name: CALLED[platform] || platform,
-        throughTheBrowser: true,
-        /* Meesho cannot be walked at all without the seller's own panel name;
-         * Flipkart needs nothing set up. Both need the Drive, or what is fetched
-         * goes nowhere. */
-        ready: Boolean(setUp.driveConnectedAt)
-          && (platform !== 'meesho' || Boolean(setUp.panel)),
-        lastRun: kept.byPlatform[platform] || null,
-      })),
-      {
-        id: 'amazon',
-        name: CALLED.amazon,
-        throughTheBrowser: false,
-        /* **ALLOWED IN THIS BROWSER, NOTHING WALKED YET (A79).** Ready means what it means
-         * for Flipkart: the Drive is connected. Whether the seller is signed in to Seller
-         * Central is found out by a walk, as it is for the other two -- there is no
-         * walk to ask yet. */
-        ready: Boolean(setUp.driveConnectedAt),
-        lastRun: null,
-      },
-    ],
+    platforms: THROUGH_THE_BROWSER.map((platform) => ({
+      id: platform,
+      name: CALLED[platform] || platform,
+      throughTheBrowser: true,
+      /* Meesho cannot be walked at all without the seller's own panel name;
+       * Flipkart and Amazon need nothing set up. All need the Drive, or what is
+       * fetched goes nowhere. Whether the seller is signed in to a portal is found
+       * out by a walk. */
+      ready: Boolean(setUp.driveConnectedAt)
+        && (platform !== 'meesho' || Boolean(setUp.panel)),
+      lastRun: kept.byPlatform[platform] || null,
+    })),
     flipkart: {
       allowedADay: A_DAYS_ALLOWANCE,
       askedForToday: gone,
@@ -801,11 +789,13 @@ export async function howItStands(chrome, { book, now = Date.now(), theClock = n
 function whatTheTimedSyncFetches(book, timed) {
   const flipkart = timed.filter((id) => thePlatformOf(book, id) === 'flipkart').length;
   const meesho = timed.filter((id) => thePlatformOf(book, id) === 'meesho').length;
+  const amazon = timed.filter((id) => thePlatformOf(book, id) === 'amazon').length;
   return {
     flipkart,
     meesho,
+    amazon,
     said: `The timed sync will fetch: ${timed.length} reports `
-      + `(Flipkart ${flipkart}, Meesho ${meesho})`,
+      + `(Flipkart ${flipkart}, Meesho ${meesho}, Amazon ${amazon})`,
   };
 }
 
@@ -1027,7 +1017,7 @@ export async function answerThePanelsQuestion(chrome, parts, asked) {
 export const THE_QUEUE = THE_SCHEDULED_QUEUE;
 /* **FLIPKART FIRST**, so its requests are made at the start of the scheduled sync --
  * Rumee's order (`D:\rumee-auto-sync\config.js:62-64`). */
-export const PLATFORM_ORDER = Object.freeze(['flipkart', 'meesho']);
+export const PLATFORM_ORDER = Object.freeze(['flipkart', 'meesho', 'amazon']);
 
 /**
  * Start the scheduled sync: its own list, one platform after another.
@@ -1747,21 +1737,12 @@ export function showHowItStands(parts, stands) {
   for (const one of stands.platforms) {
     const card = make('div', `${OURS}platform`);
     put(card, make('span', `${OURS}platform-name`, one.name));
-    if (!one.throughTheBrowser) {
-      put(card, make('span', `${OURS}state ${OURS}state--${one.ready ? 'yes' : 'no'}`,
-        one.ready ? 'allowed' : 'not ready'));
-      put(card, make('span', `${OURS}note`,
-        'This browser may open Amazon Seller Central, but no Amazon report is fetched here yet. '
-        + 'Amazon still comes in through its own door in the scheduled sync, with your own '
-        + 'Amazon credentials.'));
-    } else {
-      put(card, make('span', `${OURS}state ${OURS}state--${one.ready ? 'yes' : 'no'}`,
-        one.ready ? 'ready' : 'not ready'));
-      put(card, make('span', `${OURS}note`, one.lastRun
-        ? `Last run ${inWordsWhen(one.lastRun.finishedAt)} -- ${one.lastRun.landed} `
-          + `fetched, ${one.lastRun.failed} failed.`
-        : 'Has never run.'));
-    }
+    put(card, make('span', `${OURS}state ${OURS}state--${one.ready ? 'yes' : 'no'}`,
+      one.ready ? 'ready' : 'not ready'));
+    put(card, make('span', `${OURS}note`, one.lastRun
+      ? `Last run ${inWordsWhen(one.lastRun.finishedAt)} -- ${one.lastRun.landed} `
+        + `fetched, ${one.lastRun.failed} failed.`
+      : 'Has never run.'));
     put(parts.platforms, card);
   }
 

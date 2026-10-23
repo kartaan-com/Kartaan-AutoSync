@@ -85,7 +85,7 @@ EVERY_ID = (
     "me_orders", "me_returns", "me_payments", "me_claims", "me_catalog", "me_views",
     "me_product_performance", "me_pricing",
     "me_ads", "me_ads_summary", "me_ads_catalog",
-    "az_orders", "az_settlements", "az_returns", "az_suppressed",
+    "az_orders", "az_settlements", "az_returns", "az_suppressed", "az_traffic", "az_listings", "az_fee_preview",
 )
 check("the report list is exactly what it is meant to be", answered(lambda: tuple(r.id for r in tool.REPORTS) == EVERY_ID))
 check("there are reports at all", answered(lambda: len(tool.REPORTS) == len(EVERY_ID)))
@@ -227,14 +227,27 @@ check("no report that needs a browser is on it",
 check("every report is on one door or the other",
       answered(lambda: len(api) + len(browser) == len(tool.REPORTS)))
 check("and none is on both", answered(lambda: not set(api) & set(browser)))
-check("every Amazon report is left out of it", answered(lambda: not any(r.platform == "amazon" for r in browser)))
+check("the Amazon reports on it are the three walked ones: traffic, All Listings, Referral Fee Preview (lane 1 jobs 7 and 8)",
+      answered(lambda: [r.id for r in browser if r.platform == "amazon"] == ["az_traffic", "az_listings", "az_fee_preview"]))
 check(
     "every Meesho report is on the browser door, because Meesho has no API",
     answered(lambda: all(r.door == tool.BROWSER for r in tool.REPORTS if r.platform == "meesho")),
 )
 check(
-    "every Amazon report is on the API door, because its API is approved and live",
-    answered(lambda: all(r.door == tool.API for r in tool.REPORTS if r.platform == "amazon")),
+    "every Amazon report but the three walked ones is on the API door, because its API is approved and live",
+    answered(lambda: all(r.door == tool.API for r in tool.REPORTS
+                         if r.platform == "amazon" and r.id not in ("az_traffic", "az_listings", "az_fee_preview"))),
+)
+check(
+    "the Amazon listings and fee reports are text files Amazon builds on request, both snapshots of right now that cannot be fetched for a past day",
+    answered(lambda: all(tool.report(i).door == tool.BROWSER and tool.report(i).extension == "txt"
+                         and tool.report(i).every == tool.EVERY_THREE_DAYS and tool.report(i).cannot_backfill
+                         for i in ("az_listings", "az_fee_preview"))),
+)
+check(
+    "and the traffic report is walked in the browser, one csv a day, and a past day can be asked for",
+    answered(lambda: (tool.report("az_traffic").door, tool.report("az_traffic").every, tool.report("az_traffic").extension)
+            == (tool.BROWSER, tool.DAILY, "csv") and not tool.report("az_traffic").cannot_backfill),
 )
 
 # ---------------------------------------- the ones that cannot be fetched again
@@ -384,7 +397,7 @@ check("and its returns are too",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 89
+EXPECTED = 94  # 88 on the base, lane 2 added 1, lane 1 added 5
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

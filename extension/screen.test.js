@@ -310,11 +310,12 @@ check('a report that reads another report\'s file is fetched after it',
   const fresh = await howItStands(chrome, { book: BOOK, now: Date.UTC(2026, 8, 16, 3, 0) });
   check('a fresh install\'s timed list is the full list',
     Boolean(fresh.timed) && fresh.timed.flipkart === every('flipkart').length
-    && fresh.timed.meesho === every('meesho').length && every('meesho').length > 0);
-  check('and the panel says it: "The timed sync will fetch: N reports (Flipkart x, Meesho y)"',
+    && fresh.timed.meesho === every('meesho').length && every('meesho').length > 0
+    && fresh.timed.amazon === every('amazon').length && every('amazon').length === 3);
+  check('and the panel says it: "The timed sync will fetch: N reports (Flipkart x, Meesho y, Amazon z)"',
     Boolean(fresh.timed) && fresh.timed.said === `The timed sync will fetch: `
-      + `${every('flipkart').length + every('meesho').length} reports `
-      + `(Flipkart ${every('flipkart').length}, Meesho ${every('meesho').length})`);
+      + `${every('flipkart').length + every('meesho').length + every('amazon').length} reports `
+      + `(Flipkart ${every('flipkart').length}, Meesho ${every('meesho').length}, Amazon ${every('amazon').length})`);
   await answerThePanelsQuestion(chrome, parts, { do: 'save-the-ticks', reportIds: ['fk_claims'] });
   const after = await howItStands(chrome, { book: BOOK, now: Date.UTC(2026, 8, 16, 3, 0) });
   check('Run now ticks do not change the timed list',
@@ -553,8 +554,8 @@ check('a report\'s platform comes out of the recipe file, not out of its name',
 check('a report nothing knows about has no platform', thePlatformOf(BOOK, 'nonsense') === '');
 check('a night being walked right now still has a platform -- it is in neither list',
   thePlatformOfTheNight(BOOK, { done: [], doing: 'me_orders', left: [] }) === 'meesho');
-check('Amazon is not fetched through the browser at all',
-  !THROUGH_THE_BROWSER.includes('amazon') && CALLED.amazon === 'Amazon');
+check('Amazon is walked through the browser now, for the traffic report, and is called Amazon',
+  THROUGH_THE_BROWSER.includes('amazon') && CALLED.amazon === 'Amazon' && thePlatformOf(BOOK, 'az_traffic') === 'amazon');
 
 /* ------------------------------------------------------- where a night starts */
 
@@ -895,11 +896,13 @@ check('the allowance is twenty, and it is a number a program can read',
   check('and every platform that goes through the browser says it has never run',
     stands.platforms.filter((one) => one.throughTheBrowser)
       .every((one) => one.lastRun === null));
-  check('Amazon is on the page, allowed in the browser, with no report walked for it yet',
-    stands.platforms.some((one) => one.id === 'amazon' && one.throughTheBrowser === false
+  check('Amazon is on the page as a platform walked through the browser, not ready (no Drive yet) and never run',
+    stands.platforms.filter((one) => one.id === 'amazon').length === 1
+    && stands.platforms.some((one) => one.id === 'amazon' && one.throughTheBrowser === true
       && one.ready === false && one.lastRun === null));
-  check('and no Amazon report is in the list of reports walked in the browser',
-    !stands.reports.some((one) => one.platform === 'amazon'));
+  check('and its three walked reports, traffic, All Listings and Referral Fee Preview, are in the list of reports walked in the browser',
+    stands.reports.filter((one) => one.platform === 'amazon').map((one) => one.id).sort().join() === 'az_fee_preview,az_listings,az_traffic'
+    && stands.reports.filter((one) => one.platform === 'amazon').every((one) => one.canBeFetched === true));
   check('nothing is set up yet, and both halves are named',
     stands.setUp.done === false && stands.setUp.panel === '' && stands.setUp.driveConnectedAt === 0);
   check('the whole twenty is left', stands.flipkart.leftToday === 20);
@@ -926,7 +929,7 @@ check('the allowance is twenty, and it is a number a program can read',
     bySweep.every((one) => one.fetchedBy.length > 40));
   check('and every report that is declared is on the page, fetchable or not',
     stands.reports.length
-      === BOOK.reports.filter((one) => THROUGH_THE_BROWSER.includes(one.platform)).length);
+      === BOOK.reports.filter((one) => THROUGH_THE_BROWSER.includes(one.platform) && !BOOK.onTheApiDoor.includes(one.id)).length);
   /* Two since 2026-09-14: returns left the Reports Centre. */
   check('the two that cost the seller something are marked as costing it',
     stands.reports.filter((one) => one.spends).map((one) => one.id).join(',')
@@ -1373,9 +1376,10 @@ function panelParts(chrome, held = {}) {
 
   /* **A53: THE REPORTS ARE GROUPED BY PLATFORM, EACH GROUP TICKED IN ONE PRESS.** */
   check('the reports are grouped by platform, each group with its own tick-all',
-    parts.platformTicks.size === 2
+    parts.platformTicks.size === 3
     && parts.platformTicks.get('flipkart').textContent === 'Tick all Flipkart'
-    && parts.platformTicks.get('meesho').textContent === 'Tick all Meesho');
+    && parts.platformTicks.get('meesho').textContent === 'Tick all Meesho'
+    && parts.platformTicks.get('amazon').textContent === 'Tick all Amazon');
   parts.platformTicks.get('meesho').click();
   check('and ticking a platform ticks that platform\'s reports and no others',
     whatIsTicked(parts).length > 0
@@ -1708,8 +1712,8 @@ function panelParts(chrome, held = {}) {
   await answerThePanelsQuestion(chrome, { book: BOOK, now: () => Date.now() }, { do: 'check-the-drive' });
   showHowItStands(panel, await howItStands(chrome, { book: BOOK, now: Date.now() }));
   const after = panel.platforms.textContent;
-  check('and allowed once it is, saying no Amazon report is fetched in the browser yet',
-    after.includes('allowed') && after.includes('no Amazon report is fetched here yet'));
+  check('and ready once it is, with no old "allowed, nothing fetched here yet" wording left',
+    !after.includes('allowed') && !after.includes('no Amazon report is fetched here yet') && after.includes('Amazon'));
 }
 
 {

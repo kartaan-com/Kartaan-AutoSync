@@ -534,11 +534,14 @@ export function theDaysInWords(book, whose, dataDate) {
  * what makes "the two halves fill a step the same way" a thing that is measured
  * rather than a thing that is claimed.
  */
-export function theRowsItCouldBe(book, find, dataDate, runDay) {
+export function theRowsItCouldBe(book, find, dataDate, runDay, fromDay = '') {
   const near = String(find.near || '');
   if (!near) return [];
+  /* **`{from}` IS THE FIRST DAY OF A RANGE ASKED IN ONE REQUEST, AND THE DAY ITSELF OTHERWISE (job 9).**
+   * Meesho labels an export `<from>_<to>_<made-on>`, so a one-day export reads `D_D_`. */
+  const from = fromDay && fromDay < dataDate ? fromDay : dataDate;
   if (!near.includes('{day_in_words}')) {
-    return [near.split('{day}').join(dataDate)];
+    return [near.split('{from}').join(from).split('{day}').join(dataDate)];
   }
   /* **WHICH DAY NAMES THE ROW IS THE LOOKUP'S OWN ANSWER, and there is no
    * default here either.** A lookup that has not said is refused by the Python
@@ -546,7 +549,8 @@ export function theRowsItCouldBe(book, find, dataDate, runDay) {
    * the guess the whole field exists to remove. */
   const namedBy = find.dayInWordsOf === THE_DAY_IT_WAS_MADE ? runDay : dataDate;
   return theDaysInWords(book, find.dayInWordsIs, namedBy).map(
-    (inWords) => near.split('{day_in_words}').join(inWords).split('{day}').join(dataDate)
+    (inWords) => near.split('{day_in_words}').join(inWords).split('{from}').join(from)
+      .split('{day}').join(dataDate)
   );
 }
 
@@ -855,7 +859,7 @@ export function theWalk({
    *  carries any of the ways that portal writes a day. A value that is sometimes
    *  one row and sometimes several would be two things wearing one name.
    */
-  function filledIn(step, panel, dataDate, runDay) {
+  function filledIn(step, panel, dataDate, runDay, fromDay = '') {
     /* **EVERY OCCURRENCE, NOT THE FIRST (cycle 46, R6#15).**
      *
      * Filling by name replaces the FIRST one only, so a recipe naming the same
@@ -886,12 +890,12 @@ export function theWalk({
       ...step,
       address: put(step.address),
       find: step.find
-        ? { ...step.find, near: theRowsItCouldBe(book, step.find, dataDate, runDay) }
+        ? { ...step.find, near: theRowsItCouldBe(book, step.find, dataDate, runDay, fromDay) }
         : step.find,
       /* **AND WHAT ELSE A WAIT MAY COUNT INSTEAD, FILLED THE SAME WAY** -- the row
        * Flipkart lists a request under (his ruling, 2026-09-14). */
       orFind: step.orFind
-        ? { ...step.orFind, near: theRowsItCouldBe(book, step.orFind, dataDate, runDay) }
+        ? { ...step.orFind, near: theRowsItCouldBe(book, step.orFind, dataDate, runDay, fromDay) }
         : step.orFind,
     };
   }
@@ -1332,7 +1336,7 @@ export function theWalk({
       const found = stepsFor(reportId, panel, collecting);
       plan = {
         ...found,
-        steps: found.steps.map((one) => filledIn(one, panel, dataDate, theDayOfTheRun())),
+        steps: found.steps.map((one) => filledIn(one, panel, dataDate, theDayOfTheRun(), fromDay)),
         collecting,
       };
     } catch (wrong) {

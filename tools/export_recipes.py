@@ -297,6 +297,9 @@ def what_the_extension_reads():
         "broughtBy": {one: list_of_reports.report(one).depends_on[0]
                       for one in sorted(book.MADE_BY_ANOTHER)},
         "reports": the_report_list(),
+        # **WHICH REPORTS COME IN BY THE API DOOR, NOT THIS ONE (lane 1 job 7).** Amazon is on the extension's list of walked platforms now, and three of its
+        # reports are fetched with the seller's own SP-API keys in the scheduled sync. Without this the panel would list them as reports this door cannot fetch.
+        "onTheApiDoor": sorted(one.id for one in list_of_reports.REPORTS if one.door == list_of_reports.API),
         # **WHERE EVERY REPORT'S FILES GO IN THE SELLER'S DRIVE (job 34).** His layout is
         # `autosync/layout.py`'s, and this is how the extension gets the one list.
         **layout.for_the_extension(),

@@ -240,6 +240,7 @@ class Find:
     #
     #   `{day}`          the day itself, `2026-08-23`
     #   `{day_in_words}` the day as the platform writes it, `25 Aug 2026`
+    #   `{from}`         the first day of a range asked in one request; the day itself otherwise
     #
     # **BOTH ARE NEEDED, AND ON THE SAME PLATFORM.** Read off his own panel on
     # 2026-08-28: an orders row reads

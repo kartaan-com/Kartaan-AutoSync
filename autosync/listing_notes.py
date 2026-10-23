@@ -18,13 +18,14 @@ import re
 from dataclasses import dataclass
 from typing import Callable, Dict, Tuple
 
+import listings
 import table
 
 # The place of each column in the file, counting from nought, as Amazon's page orders them.
 THE_PLACE_OF = {"reason": 1, "sku": 2, "asin": 3, "issue": 7}
 HOW_MANY_COLUMNS = 8
-# The longest a name can be and the same for the record's id: a slash or a longer one cannot be a record's name (as listings.py).
-_LONGEST_ID = 1000
+# The longest a name can be and the same for the record's id: a slash or a longer one cannot be a record's name. listings.py's own, so the two readers agree.
+_LONGEST_ID = listings._LONGEST_ID
 
 
 @dataclass(frozen=True)
@@ -90,8 +91,7 @@ def notes_from_fees(fees_said) -> WhatNotesSaid:
     """Amazon's referral fee per listing (what lane 1's `listings.read_fee_preview` answers) as notes: `referralFee` on each listing's record.
 
     **WRITTEN AGAINST THE SHAPE LANE 1 DOCUMENTS (DONE_AP8), AS LANE 2'S HALF (AP9):** `fees_said.fees` is `{amazon::ASIN::seller-sku: the fee per item}`, `.not_read`
-    the rows it would not take and `.rows_in_file` the rows in the file. `read_fee_preview` itself is on lane 1 only, so the lane merge joins them (the reader line is in
-    DONE_AP9). **A fee of 0.00 is kept: it is a figure Amazon gave.** `feeAsOf`, the file's day, is added by the sink, as `suppressedOn` is.
+    the rows it would not take and `.rows_in_file` the rows in the file. `read_fees` below joins the two (AP10). **A fee of 0.00 is kept: it is a figure Amazon gave.** `feeAsOf`, the file's day, is added by the sink, as `suppressedOn` is.
     """
     return WhatNotesSaid(
         notes={name: {"referralFee": fee} for name, fee in fees_said.fees.items()},
@@ -100,8 +100,13 @@ def notes_from_fees(fees_said) -> WhatNotesSaid:
     )
 
 
+def read_fees(content: bytes, report_name: str = "this file") -> WhatNotesSaid:
+    """Amazon's Referral Fee Preview file's bytes, read by lane 1's `listings.read_fee_preview`, as `referralFee` notes (the two lanes joined at AP10)."""
+    return notes_from_fees(listings.read_fee_preview(table.read(content, header_row=1), report_name))
+
+
 # Which report's file is read by which reader.
-READERS: Dict[str, Callable[..., WhatNotesSaid]] = {"az_suppressed": read_suppressed}
+READERS: Dict[str, Callable[..., WhatNotesSaid]] = {"az_suppressed": read_suppressed, "az_fee_preview": read_fees}
 
 
 def read_notes_file(report_id: str, content: bytes, report_name: str = "this file") -> WhatNotesSaid:

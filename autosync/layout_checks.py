@@ -51,6 +51,11 @@ check("Amazon's three are Orders, Returns and Settlements, as he wrote them",
 check("and the Amazon snapshot has its own folder, Suppressed",
       [tool.where_it_goes(one) for one in ("az_suppressed",)]
       == [("Reports", "Amazon", "Suppressed")])
+check("the walked Amazon traffic report goes to Reports / Amazon / Views, beside Flipkart's and Meesho's Views",
+      tool.where_it_goes("az_traffic") == ("Reports", "Amazon", "Views"))
+check("Amazon's walked listings and referral fee files go to Reports / Amazon / Listings and Reports / Amazon / Fees (lane 1 job 8)",
+      tool.where_it_goes("az_listings") == ("Reports", "Amazon", "Listings")
+      and tool.where_it_goes("az_fee_preview") == ("Reports", "Amazon", "Fees"))
 check("Meesho's three ads folders are ads, catalog and summary",
       sorted(tool.where_it_goes(one)[-1] for one in ("me_ads", "me_ads_catalog", "me_ads_summary"))
       == ["ads", "catalog", "summary"])
@@ -95,7 +100,7 @@ for one in sorted(HERE.glob("*.py")):
 check(f"the run makes a folder in exactly one place, in drive_door.py -- {makes_a_folder_py}",
       len(makes_a_folder_py) == 1 and makes_a_folder_py[0].startswith("drive_door.py:"))
 
-EXPECTED = 17
+EXPECTED = 19  # 16 on the base, lane 2's Suppressed folder, lane 1's Views and Listings/Fees folders
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

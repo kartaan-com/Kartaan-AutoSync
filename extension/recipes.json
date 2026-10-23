@@ -7,6 +7,359 @@
     "Edit the Python and run the tool again; a check refuses a stale copy."
   ],
   "recipes": {
+    "az_fee_preview": {
+      "campaignsFrom": null,
+      "readyInMinutes": 45,
+      "toAsk": [
+        {
+          "do": "go",
+          "find": null,
+          "address": "https://sellercentral.amazon.in/listing/reports",
+          "patience": 60,
+          "why": "opening Inventory Reports to ask for Referral Fee Preview Report",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": ""
+        },
+        {
+          "do": "wait-for",
+          "find": {
+            "how": "button-beside",
+            "what": "Referral Fee Preview Report",
+            "exact": true,
+            "called": "the Request Report control beside Referral Fee Preview Report",
+            "near": "",
+            "alsoSaying": "REQUEST REPORT",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 90,
+          "why": "waiting for the Inventory Reports page to draw its Request Report control",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": ""
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "button-beside",
+            "what": "Referral Fee Preview Report",
+            "exact": true,
+            "called": "the Request Report control beside Referral Fee Preview Report",
+            "near": "",
+            "alsoSaying": "REQUEST REPORT",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "asking Amazon to build Referral Fee Preview Report",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": ""
+        }
+      ],
+      "toTake": [
+        {
+          "do": "go",
+          "find": null,
+          "address": "https://sellercentral.amazon.in/listing/reports",
+          "patience": 60,
+          "why": "coming back to Inventory Reports for Referral Fee Preview Report",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": ""
+        },
+        {
+          "do": "wait-for",
+          "find": {
+            "how": "pressable",
+            "what": "Download",
+            "exact": true,
+            "called": "the Download button on the Done Referral Fee Preview Report row (a Cancelled or In Progress row has none)",
+            "near": "{day_in_words}",
+            "alsoSaying": "Referral Fee Preview Report",
+            "dayInWordsIs": "amazon",
+            "dayInWordsOf": "made"
+          },
+          "address": "",
+          "patience": 90,
+          "why": "waiting for the finished Referral Fee Preview Report row",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": ""
+        },
+        {
+          "do": "take-file",
+          "find": {
+            "how": "pressable",
+            "what": "Download",
+            "exact": true,
+            "called": "the Download button on the Done Referral Fee Preview Report row (a Cancelled or In Progress row has none)",
+            "near": "{day_in_words}",
+            "alsoSaying": "Referral Fee Preview Report",
+            "dayInWordsIs": "amazon",
+            "dayInWordsOf": "made"
+          },
+          "address": "",
+          "patience": 90,
+          "why": "taking the finished Referral Fee Preview Report file",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": ""
+        }
+      ]
+    },
+    "az_listings": {
+      "campaignsFrom": null,
+      "readyInMinutes": 30,
+      "toAsk": [
+        {
+          "do": "go",
+          "find": null,
+          "address": "https://sellercentral.amazon.in/listing/reports",
+          "patience": 60,
+          "why": "opening Inventory Reports to ask for All Listings Report",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": ""
+        },
+        {
+          "do": "wait-for",
+          "find": {
+            "how": "button-beside",
+            "what": "All Listings Report",
+            "exact": true,
+            "called": "the Request Report control beside All Listings Report",
+            "near": "",
+            "alsoSaying": "REQUEST REPORT",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 90,
+          "why": "waiting for the Inventory Reports page to draw its Request Report control",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": ""
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "button-beside",
+            "what": "All Listings Report",
+            "exact": true,
+            "called": "the Request Report control beside All Listings Report",
+            "near": "",
+            "alsoSaying": "REQUEST REPORT",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "asking Amazon to build All Listings Report",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": ""
+        }
+      ],
+      "toTake": [
+        {
+          "do": "go",
+          "find": null,
+          "address": "https://sellercentral.amazon.in/listing/reports",
+          "patience": 60,
+          "why": "coming back to Inventory Reports for All Listings Report",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": ""
+        },
+        {
+          "do": "wait-for",
+          "find": {
+            "how": "pressable",
+            "what": "Download",
+            "exact": true,
+            "called": "the Download button on the Done All Listings Report row (a Cancelled or In Progress row has none)",
+            "near": "{day_in_words}",
+            "alsoSaying": "All Listings Report",
+            "dayInWordsIs": "amazon",
+            "dayInWordsOf": "made"
+          },
+          "address": "",
+          "patience": 90,
+          "why": "waiting for the finished All Listings Report row",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": ""
+        },
+        {
+          "do": "take-file",
+          "find": {
+            "how": "pressable",
+            "what": "Download",
+            "exact": true,
+            "called": "the Download button on the Done All Listings Report row (a Cancelled or In Progress row has none)",
+            "near": "{day_in_words}",
+            "alsoSaying": "All Listings Report",
+            "dayInWordsIs": "amazon",
+            "dayInWordsOf": "made"
+          },
+          "address": "",
+          "patience": 90,
+          "why": "taking the finished All Listings Report file",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": ""
+        }
+      ]
+    },
+    "az_traffic": {
+      "campaignsFrom": null,
+      "readyInMinutes": 0,
+      "toAsk": [],
+      "toTake": [
+        {
+          "do": "go",
+          "find": null,
+          "address": "https://sellercentral.amazon.in/business-reports#/report?id=102%3ADetailSalesTrafficByChildItem&fromDate={day}&toDate={day}",
+          "patience": 60,
+          "why": "opening Detail Page Sales and Traffic by Child Item for the day",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": ""
+        },
+        {
+          "do": "wait-for",
+          "find": {
+            "how": "pressable",
+            "what": "Download (.csv)",
+            "exact": true,
+            "called": "the Download (.csv) button",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 90,
+          "why": "waiting for the report page to draw its Download (.csv) button",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": ""
+        },
+        {
+          "do": "take-file",
+          "find": {
+            "how": "pressable",
+            "what": "Download (.csv)",
+            "exact": true,
+            "called": "the Download (.csv) button",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 90,
+          "why": "taking the traffic file for the day",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": ""
+        }
+      ]
+    },
     "fk_ads_daily": {
       "campaignsFrom": null,
       "readyInMinutes": 0,
@@ -4128,7 +4481,7 @@
             "what": "Download",
             "exact": true,
             "called": "",
-            "near": "{day}",
+            "near": "{from}_{day}_",
             "alsoSaying": "",
             "dayInWordsIs": "",
             "dayInWordsOf": ""
@@ -4718,6 +5071,43 @@
     "fk_returns": "2026-08-22"
   },
   "daysInWords": {
+    "amazon": {
+      "months": [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec"
+      ],
+      "monthsInFull": [
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December"
+      ],
+      "spellings": [
+        "{d} {Mon} {yyyy}",
+        "{dd} {Mon} {yyyy}",
+        "{Mon} {d}, {yyyy}",
+        "{Mon} {dd}, {yyyy}",
+        "{yyyy}-{mm}-{dd}"
+      ]
+    },
     "flipkart": {
       "months": [
         "Jan",
@@ -4809,6 +5199,18 @@
     "Start Selling"
   ],
   "fileNames": {
+    "az_fee_preview": {
+      "platform": "amazon",
+      "extension": "txt"
+    },
+    "az_listings": {
+      "platform": "amazon",
+      "extension": "txt"
+    },
+    "az_traffic": {
+      "platform": "amazon",
+      "extension": "csv"
+    },
     "fk_ads_daily": {
       "platform": "flipkart",
       "extension": "csv"
@@ -4924,6 +5326,18 @@
   },
   "reports": [
     {
+      "id": "az_fee_preview",
+      "platform": "amazon",
+      "name": "Amazon Referral Fee Preview",
+      "cannotBeAskedForAgain": "This is a picture of how things stand right now. The platform keeps no history to ask for, so a past day cannot be fetched again -- only the day it was taken."
+    },
+    {
+      "id": "az_listings",
+      "platform": "amazon",
+      "name": "Amazon All Listings",
+      "cannotBeAskedForAgain": "This is a picture of how things stand right now. The platform keeps no history to ask for, so a past day cannot be fetched again -- only the day it was taken."
+    },
+    {
       "id": "az_orders",
       "platform": "amazon",
       "name": "Amazon orders",
@@ -4946,6 +5360,12 @@
       "platform": "amazon",
       "name": "Amazon suppressed listings",
       "cannotBeAskedForAgain": "This is a picture of how things stand right now. The platform keeps no history to ask for, so a past day cannot be fetched again -- only the day it was taken."
+    },
+    {
+      "id": "az_traffic",
+      "platform": "amazon",
+      "name": "Amazon listing traffic",
+      "cannotBeAskedForAgain": null
     },
     {
       "id": "fk_ads_daily",
@@ -5104,8 +5524,24 @@
       "cannotBeAskedForAgain": "This is a picture of how things stand right now. The platform keeps no history to ask for, so a past day cannot be fetched again -- only the day it was taken."
     }
   ],
+  "onTheApiDoor": [
+    "az_orders",
+    "az_returns",
+    "az_settlements",
+    "az_suppressed"
+  ],
   "kartaan": "Kartaan",
   "folders": {
+    "az_fee_preview": [
+      "Reports",
+      "Amazon",
+      "Fees"
+    ],
+    "az_listings": [
+      "Reports",
+      "Amazon",
+      "Listings"
+    ],
     "az_orders": [
       "Reports",
       "Amazon",
@@ -5125,6 +5561,11 @@
       "Reports",
       "Amazon",
       "Suppressed"
+    ],
+    "az_traffic": [
+      "Reports",
+      "Amazon",
+      "Views"
     ],
     "fk_ads_daily": [
       "Reports",

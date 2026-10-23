@@ -73,6 +73,13 @@ export function theDay(at) {
   return `${when.getFullYear()}-${two(when.getMonth() + 1)}-${two(when.getDate())}`;
 }
 
+/* **THE REPORTS THAT ASK A TYPED RANGE IN ONE REQUEST (P16, job 9).** Every one that spends the twenty,
+ * and Meesho orders, which spends nothing but is asked once for the stretch rather than once a day.
+ * **`me_payments` IS LEFT OUT ON PURPOSE:** Meesho ignores the days and always hands back the current
+ * settlement batch, so a file named for a range would claim days it does not hold. Kept apart from `SPENDS_THE_ALLOWANCE` on purpose: that list is what the allowance is counted
+ * from, and a Meesho report must never be counted against Flipkart's twenty. */
+export const ASKS_A_RANGE = Object.freeze([...SPENDS_THE_ALLOWANCE, 'me_orders']);
+
 /** Does asking for this report cost the seller one of their twenty? */
 export function spendsTheAllowance(reportId) {
   return SPENDS_THE_ALLOWANCE.includes(reportId);
@@ -615,6 +622,7 @@ function theCountGivenBack(night) {
  * each how the page stands today. A sync for a past day would read today's page under that day's name. */
 export const ONLY_ITS_NEWEST_DAY = Object.freeze([
   'me_views', 'me_catalog', 'me_ads', 'me_product_performance', 'me_pricing', 'fk_quality_insights',
+  'az_listings', 'az_fee_preview',
 ]);
 
 /**
@@ -1218,7 +1226,7 @@ async function tellThatItEnded(chrome, ended, tell) {
 
 /** `{ fromDay }` when this walk is the one request for a typed range, else nothing -- what a re-check must remember. */
 function theRangeFromFor(night, reportId, day) {
-  const theRange = spendsTheAllowance(reportId)
+  const theRange = ASKS_A_RANGE.includes(reportId)
     ? theRangeOfTheDays((night.days && night.days.length) ? night.days : [night.dataDate])
     : null;
   return theRange && theRange.to === day ? { fromDay: theRange.from } : {};
@@ -1303,7 +1311,7 @@ async function startTheNextOne(chrome, { startAWalk, at, tellKartaan = null }) {
        * the one entry for the range's last day, walked once with `fromDay` the first day, and any owed day
        * that falls inside the range is covered by that walk and dropped. Owed days outside it are still
        * walked one at a time. */
-      const theRange = spendsTheAllowance(next) ? theRangeOfTheDays(asked) : null;
+      const theRange = ASKS_A_RANGE.includes(next) ? theRangeOfTheDays(asked) : null;
       /* **A REPORT THAT SPENDS THE FLIPKART ALLOWANCE ASKS FOR ITS OWN DAYS FIRST, THEN THE GAPS (review
        * finding, 2026-10-05).** Oldest first meant the gap days used the request cap and yesterday -- the day
        * the sync is for -- was refused first, so with a backlog it was never fetched until the gap was gone. */

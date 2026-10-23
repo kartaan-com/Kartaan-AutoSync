@@ -1052,11 +1052,14 @@ check("the rules the read-files list was made under are named, so a change to th
 
 check("every report in REPORTS has a reader or a written reason it is not yet read",
       tool.why_a_report_has_no_decision() == "")
-check("the 30 reports are 27 read (8 into the ledger, 3 into listing records, 2 listing files, 1 side file about listings (AP9), 3 returns files, 7 ads files, 1 product performance file, 1 quality file, 1 shop figures file) and 3 with a reason, which is Finding 51 stated as numbers (A78 moved the returns and ads files up)",
-      len(tool.WHAT_CAN_BE_READ) == 8 and len(tool.WHAT_VIEWS_CAN_BE_READ) == 3 and len(tool.WHAT_LISTINGS_CAN_BE_READ) == 2 and len(tool.WHAT_NOTES_CAN_BE_READ) == 1
+check("the 33 reports are 30 read (8 into the ledger, 4 into listing records, 3 listing files, 2 side files about listings (AP9 suppressed, and the fee preview joined at AP10), 3 returns files, 7 ads files, 1 product performance file, 1 quality file, 1 shop figures file) and 3 with a reason, which is Finding 51 stated as numbers (A78 moved the returns and ads files up; the two v0.1.21 lanes joined at AP10)",
+      len(tool.WHAT_CAN_BE_READ) == 8 and len(tool.WHAT_VIEWS_CAN_BE_READ) == 4 and len(tool.WHAT_LISTINGS_CAN_BE_READ) == 3 and len(tool.WHAT_NOTES_CAN_BE_READ) == 2
       and len(tool.WHAT_RETURNS_CAN_BE_READ) == 3 and len(tool.WHAT_ADS_CAN_BE_READ) == 7 and len(tool.WHAT_RECORDS_CAN_BE_READ) == 3
       and len(tool.WHAT_IS_FETCHED_AND_NOT_READ_YET) == 3
-      and len(reports.REPORTS) == 30)
+      and len(reports.REPORTS) == 33)
+check("Amazon's referral fee preview is read now, as notes on the listing record, and no longer says it waits; its listings file is read",
+      "az_fee_preview" not in tool.WHAT_IS_FETCHED_AND_NOT_READ_YET and "az_fee_preview" in {o.report_id for o in tool.WHAT_NOTES_CAN_BE_READ}
+      and "az_listings" not in tool.WHAT_IS_FETCHED_AND_NOT_READ_YET)
 every_reason = list(tool.WHAT_IS_FETCHED_AND_NOT_READ_YET.values())
 check("every reason is words and names the piece that will read it, or says it is off",
       all(len(one) > 30 and ("piece" in one or "pieces" in one or "protection rules" in one) for one in every_reason))
@@ -1123,7 +1126,7 @@ check("a range file is recorded as read for every day it holds, not only its las
       and sorted(r.data_date.isoformat() for r in _was_range.reads if r.report_id == "fk_orders")
       == ["2026-09-29", "2026-09-30", "2026-10-01", "2026-10-02", "2026-10-03"])
 
-EXPECTED = 122 + 5 + 1
+EXPECTED = 122 + 5 + 1 + 1
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

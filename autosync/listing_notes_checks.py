@@ -240,20 +240,13 @@ nameless = Night({"az_suppressed": [whats_new.InTheFolder(which="s2", name="supp
 check("a file with no day in its name is refused like every other reader's", nameless is not None and nameless.read_tonight == () and "no day in its name" in nameless.could_not_read[0])
 check("az_suppressed is read now and no longer says it is not",
       reading.why_a_report_has_no_decision() == "" and "az_suppressed" not in reading.WHAT_IS_FETCHED_AND_NOT_READ_YET
-      and [o.report_id for o in reading.WHAT_NOTES_CAN_BE_READ] == ["az_suppressed"])
+      and [o.report_id for o in reading.WHAT_NOTES_CAN_BE_READ] == ["az_suppressed", "az_fee_preview"])
 
 
-# ---------------------------------------------------------------- the fee side (job 2): lane 1's reader is not on this lane, so a stand-in of its documented shape
+# ---------------------------------------------------------------- the fee side (job 2): lane 1's real `listings.WhatFeesSaid`, joined at AP10
 
 
-class FeesSaid:
-    """The shape of lane 1's `listings.WhatFeesSaid` (DONE_AP8): fees by listing record id, rows it would not take, rows in the file."""
-
-    def __init__(self, fees, not_read=(), rows_in_file=0):
-        self.fees, self.not_read, self.rows_in_file = fees, not_read, rows_in_file
-
-
-FEES = FeesSaid({RING: 12.5, BANGLE: 0}, ("line 4 (X): Amazon gave no estimate for this one ('--'), so no fee was set",), 3)
+FEES = listings.WhatFeesSaid({RING: 12.5, BANGLE: 0}, ("line 4 (X): the fee reads 'free', which is not an amount of money. A fee nobody can read is not set",), 3)
 fee_notes = answered(lambda: tool.notes_from_fees(FEES))
 check("each fee becomes a referralFee note on its listing, the 0.00 Amazon gave kept as a figure",
       fee_notes is not None and fee_notes.notes == {RING: {"referralFee": 12.5}, BANGLE: {"referralFee": 0}})
@@ -270,8 +263,39 @@ check("the same fees a day later write nothing, and an older file's fee never la
       and answered(lambda: firestore_door.a_listing_notes_sink(Transport(held=fee_held), "p")("az_fee_preview", "2026-10-01", {RING: {"referralFee": 99.0}})) == (0, 0))
 check("a fee that changed is written again",
       answered(lambda: firestore_door.a_listing_notes_sink(Transport(held=fee_held), "p")("az_fee_preview", "2026-10-06", {RING: {"referralFee": 13.0}})) == (1, 0))
+
+# **THE JOIN (AP10): a real tab-separated fee file, as Amazon makes it, through lane 1's reader and lane 2's notes, on a night.**
+FEE_FILE = ("seller-sku\tasin\titem-name\tprice\testimated-referral-fee-per-item\r\n"
+            "RING-1\tB0AAAAAAA2\tA ring\t399.00\t59.85\r\n"
+            "BANGLE-5 FIVE\tB0AAAAAAA1\tA bangle\t250.00\t0.00\r\n"
+            "NOFEE-1\tB0AAAAAAA3\tNo fee\t100.00\t--\r\n").encode("utf-8")
+fee_read = answered(lambda: tool.read_notes_file("az_fee_preview", FEE_FILE, "the fee file"))
+check("a real fee file is read by its own reader into referralFee notes, 0.00 kept and '--' read as no fee, never as a row not read (AP10 review)",
+      fee_read is not None and fee_read.notes == {RING: {"referralFee": 59.85}, BANGLE: {"referralFee": 0}}
+      and fee_read.not_read == () and fee_read.rows_in_file == 3)
+fee_night = Night({"az_fee_preview": [whats_new.InTheFolder(which="f1", name="amazon_az_fee_preview_2026-10-05.txt", size=100)]}, {"f1": FEE_FILE})
+fee_was = fee_night.go()
+check("a night reads the fee file and hands its referralFee notes over with the file's day",
+      fee_was is not None and fee_was.read_tonight == ("f1",)
+      and [(r, d, n) for r, d, n in fee_night.written] == [("az_fee_preview", "2026-10-05", {RING: {"referralFee": 59.85}, BANGLE: {"referralFee": 0}})])
+check("and a fee file with a '--' row is not said to be unread: read in full, nothing said as not read (AP10 review)",
+      fee_was is not None and not fee_was.could_not_read
+      and [(r.report_id, r.rows_in_file, r.rows_read) for r in fee_was.reads] == [("az_fee_preview", 3, 3)])
+ALL_NO_FEE = ("seller-sku\tasin\titem-name\tprice\testimated-referral-fee-per-item\r\nNOFEE-1\tB0AAAAAAA3\tNo fee\t100.00\t--\r\n").encode("utf-8")
+none_night = Night({"az_fee_preview": [whats_new.InTheFolder(which="f2", name="amazon_az_fee_preview_2026-10-05.txt", size=100)]}, {"f2": ALL_NO_FEE}).go()
+check("a fee file in which Amazon gave no estimate for any row is read, not refused and asked again every night",
+      none_night is not None and none_night.read_tonight == ("f2",) and not none_night.could_not_read)
+# **SIDE FILES AFTER LISTING FILES (AP10 review):** a note lands only on a record already held, so a same-day fee or suppressed file taken before the
+# listings file would find no record, be marked read for good, and write nothing until the next file.
+LISTING_FIRST = reading._oldest_first(
+    {"az_fee_preview": [whats_new.InTheFolder(which="a1", name="amazon_az_fee_preview_2026-10-05.txt", size=1)],
+     "az_suppressed": [whats_new.InTheFolder(which="a2", name="amazon_az_suppressed_2026-10-05.txt", size=1)],
+     "az_listings": [whats_new.InTheFolder(which="z9", name="amazon_az_listings_2026-10-05.txt", size=1)]},
+    reading.WHAT_LISTINGS_CAN_BE_READ + reading.WHAT_NOTES_CAN_BE_READ, ())
+check("a same-day listings file is taken before the side files about its listings, whatever Drive's ids say",
+      [one.which for _, one in LISTING_FIRST][0] == "z9" and len(LISTING_FIRST) == 3)
 check("nothing above ended by throwing rather than by answering -- " + str(THREW), not THREW)
-EXPECTED = 44
+EXPECTED = 49
 check(f"checks went missing -- {ran + 1} ran, {EXPECTED} expected", ran + 1 == EXPECTED)
 
 if failures:
