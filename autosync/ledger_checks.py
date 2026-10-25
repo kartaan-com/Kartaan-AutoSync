@@ -373,6 +373,24 @@ check("and a DIFFERENT DAY is not a tie -- the newer file still wins outright",
                            which="file-two", sales=(a_sale("O1", gmv=200),)),
               tool.WhatTheNightHasDecided())[1])))
 
+
+# **A NEWER FILE SAYING THE SAME FIGURE IS STILL THAT DAY'S WORD (AP11, from the proving run).** So a second file of that same newer day that
+# disagrees is a TIE, reported and left for him -- never a newer file quietly winning over a word already given that day.
+def _a_file(which, gmv, on):
+    return tool.Reading(report="meesho orders", on=on, knows=ORDERS_KNOWS, which=which, sales=(a_sale("O1", gmv=gmv),))
+
+
+def _a_tie_after_the_same_word():
+    memory = tool.WhatTheNightHasDecided()
+    rows = HEADER + [list(r) for r in tool.plan([], [_a_file("file-one", 100, "2026-08-29")], memory).append]
+    tool.plan(rows, [_a_file("file-two", 100, "2026-08-30")], memory)
+    return tool.plan(rows, [_a_file("file-three", 200, "2026-08-30")], memory)
+
+
+check("A NEWER FILE THAT SAYS THE SAME FIGURE STILL DECIDES ITS DAY: a second file of that day saying otherwise is a tie, not a quiet win",
+      (lambda x: x is not None and x.update == () and len(x.disagreements) == 1 and x.disagreements[0].kept_from == "file-two"
+       and x.disagreements[0].also_from == "file-three")(answered(_a_tie_after_the_same_word)))
+
 # ---- D157'S FOUR DATE COLUMNS: NAMED, SO THAT THEIR ABSENCE IS A FACT
 
 check("the four date-marker columns D157 asked for are named in one place",
@@ -787,7 +805,7 @@ for _name, _files in (("orders file first", [_picked_up, _delivered, _requested]
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-WITH_HIS_FILES = 115 + 2 + 2 + 3
+WITH_HIS_FILES = 115 + 2 + 2 + 3 + 1
 EXPECTED = WITH_HIS_FILES - (9 if not_run else 0)
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")

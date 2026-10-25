@@ -325,6 +325,9 @@ check("the account-health body has no dates either",
 check("a dated report still sends its dates", answered(lambda: "dataStartTime" in body and "dataEndTime" in body))
 check("a snapshot is not refused for the length of the range, which it does not send",
       answered(lambda: tool.why_request_is_refused("az_health", DAY("2026-01-01"), DAY("2026-08-26")) is None))
+check("nor for a range the wrong way round, which it does not send either (AP11, from the proving run)",
+      answered(lambda: tool.why_request_is_refused("az_suppressed", DAY("2026-08-26"), DAY("2026-08-01")) is None)
+      and answered(lambda: tool.why_request_is_refused("az_orders", DAY("2026-08-26"), DAY("2026-08-01")) is not None))
 check("a DATED report is still refused over its max_days (orders 30, returns 60)",
       answered(lambda: tool.why_request_is_refused("az_orders", DAY("2026-07-01"), DAY("2026-08-26")) is not None
                and tool.why_request_is_refused("az_returns", DAY("2026-07-01"), DAY("2026-08-30")) is not None))
@@ -383,7 +386,7 @@ check("and it says why nothing was written", answered(lambda: "worse than a miss
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 128
+EXPECTED = 129
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

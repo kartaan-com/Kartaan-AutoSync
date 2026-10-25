@@ -2809,9 +2809,13 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
     && theRowsItCouldBe(BOOK, find, '2026-10-19', '2026-10-22', '').join() === '2026-10-19_2026-10-19_');
   check('a first day that is not before the last is no range, so both ends are the day',
     theRowsItCouldBe(BOOK, find, '2026-10-19', '2026-10-22', '2026-10-25').join() === '2026-10-19_2026-10-19_');
+  /* AP11, from the proving run: a row named in a portal's words AND by the plain day fills both, every spelling. */
+  check('a row named by the day in words and the plain day fills the plain day too, in every spelling',
+    theRowsItCouldBe(BOOK, { near: '{day_in_words} / {day}', dayInWordsIs: 'loud' }, '2026-09-05', '2026-09-07').join('|')
+    === '05 SEPT 2026 / 2026-09-05|SEPT/05 / 2026-09-05');
 }
 
-const EXPECTED = 349 + 9 + 3;
+const EXPECTED = 349 + 9 + 3 + 1;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

@@ -2736,6 +2736,7 @@ check("start.py hands the tick the month builder, built by the real builder",
 _real_read = tool.reading.read_what_is_new
 _seen_by_reading = {}
 _SINKS = {"me_claims": lambda *_a, **_k: 0}
+_NOTES = lambda *_a, **_k: (0, 0)  # noqa: E731 - the notes sink, only to see it handed on (AP11)
 
 
 def _spy_read(**words):
@@ -2750,12 +2751,14 @@ def _read_refused(**_words):
 _months_from_spy, _months_when_refused = [], []
 tool.reading.read_what_is_new = _spy_read
 try:
-    Harness().go(**TheSellersDrive([]).wiring(), record_records=_SINKS, rebuild_ads_months=lambda m: _months_from_spy.append(m) or 0)
+    Harness().go(**TheSellersDrive([]).wiring(), record_records=_SINKS, record_notes=_NOTES, rebuild_ads_months=lambda m: _months_from_spy.append(m) or 0)
     tool.reading.read_what_is_new = _read_refused
     _refused_tick = Harness().go(**TheSellersDrive([]).wiring(), rebuild_ads_months=lambda m: _months_when_refused.append(m) or 0)
 finally:
     tool.reading.read_what_is_new = _real_read
 check("the tick hands the reading the record sinks it was given (R20 proving)", _seen_by_reading.get("record_records") is _SINKS)
+check("and the notes sink it was given, so a side file's notes reach the listings (AP11, from the proving run)",
+      _seen_by_reading.get("record_notes") is _NOTES)
 check("and the months of ads it hands on are the very months the reading touched (R20 proving)",
       _months_from_spy == [(("meesho", "2026-08"),)])
 check("and when the reading itself failed, no month is summed from nothing, and no fault is made up about it (R20 proving)",
@@ -2773,7 +2776,7 @@ check("and every builder start.py hands the tick is imported there, so the first
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 394 + 3 + 6 + 1
+EXPECTED = 394 + 3 + 6 + 1 + 1
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

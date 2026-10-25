@@ -470,8 +470,14 @@ def sheet_with(*rows):
 
 
 def after(values, what):
-    """The sheet as it stands once a plan has been carried out. Row numbers count the header as row 1."""
+    """The sheet as it stands once a plan has been carried out. Row numbers count the header as row 1.
+
+    **A PLAN THAT THREW (`answered` gave None) CHANGES NOTHING HERE**, so the check after it goes red by name; failing here instead ended the whole file
+    with a traceback and no FAIL line, which the proving run reads as a crash, not a catch (AP11).
+    """
     out = [list(r) for r in values]
+    if what is None:
+        return out
     for at, cells in what.update:
         out[at - 1] = list(cells)
     for cells in what.append:
@@ -667,6 +673,11 @@ _c_two_fees = after(_c1, answered(lambda: ledger.plan(_c1, [pays("az_settlements
 check("A SECOND FEE ADDED BESIDE THE FIRST KEEPS BOTH KEYS: adding is not replacing, so nothing is cleared",
       (a_row(_c_two_fees, _pn) or {}).get("notes") == "fee:S1:5 fee-base:450 fee:S2:9")
 check("AND A WORD OF HIS OWN THAT BEGINS 'fee:' IS NOT A KEY AND STAYS", (a_row(_c5, _pn) or {}).get("notes") == "fee:waived fee:200")
+# Proving (AP11): only a SKU line that changes the FIGURE is a replacement -- one that keeps the figure and changes a charge clears no fee key.
+_c_charge = after(_c1, answered(lambda: ledger.plan(_c1, [pays("az_settlements", "2026-09-07", a_payment("amazon", "404-8", "SKU-P", "421.09", commission="70"),
+                                                               which="az_settlements2026-09-07")])))
+check("A SKU LINE THAT LEAVES THE FIGURE AS IT IS AND CHANGES A CHARGE CLEARS NO FEE KEY: the fee is still counted once",
+      (a_row(_c_charge, _pn) or {}).get("settlement") == "421.09" and "fee:S1:5" in (a_row(_c_charge, _pn) or {}).get("notes", ""))
 
 # D582: a SKU file downloaded AGAIN under a later day with the SAME figure is a re-download, not a replacement: it clears no fee key, and the fee is never lost.
 _rd_sku = a_payment("amazon", "404-8", "SKU-P", "450", commission="50")
@@ -1319,7 +1330,7 @@ if failures:
     print(f"{len(failures)} FAILED: {failures}")
     sys.exit(1)
 WITHOUT = ran - real_ran
-if WITHOUT != 95 + 22 + 17 + 8 + 2 + 3 + 5 + 3 + 5 + 14 + 9 + 4 + 2:  # the 14 are A90d proving, the 9 A90e (D581), the 6 A90f (D582)
-    print(f"FAIL  checks went missing -- {WITHOUT} ran without his files, 189 expected")
+if WITHOUT != 95 + 22 + 17 + 8 + 2 + 3 + 5 + 3 + 5 + 14 + 9 + 4 + 2 + 1:  # the 1 is AP11 proving; the 14 are A90d proving, the 9 A90e (D581), the 6 A90f (D582)
+    print(f"FAIL  checks went missing -- {WITHOUT} ran without his files, 190 expected")
     sys.exit(1)
 print(f"all {ran} checks passed" + ("" if real_ran == HIS_FILES_GROUP else f" ({HIS_FILES_GROUP - real_ran} of his real-file checks not run -- the files are elsewhere)"))

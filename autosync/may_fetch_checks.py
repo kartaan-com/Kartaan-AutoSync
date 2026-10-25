@@ -207,6 +207,12 @@ check("the address has no question in it for a pass to ride on", "?" not in tool
 # ------------------------------------------------------------- the small facts
 
 check("the secret is called what the workflow files call it", tool.THE_SECRET == "KARTAAN_RUN_PASS")
+# The two sentences a seller with no pass is shown (AP11, from the proving run): each names the secret and says what is happening.
+check("the stop names the secret that is missing and says fetching has stopped",
+      "KARTAAN_RUN_PASS is not set" in tool.NO_PASS_STOPPED and "no longer fetches" in tool.NO_PASS_STOPPED)
+check("the warning names the secret, says it is fetching anyway, and counts the days left in plain words",
+      "KARTAAN_RUN_PASS is not set" in tool.no_pass_warning(3) and "fetching anyway" in tool.no_pass_warning(3)
+      and "3 days left" in tool.no_pass_warning(3) and "1 day left" in tool.no_pass_warning(1) and "left." not in tool.no_pass_warning(None))
 check("the question has a timeout, and a short one", 0 < tool.HOW_LONG_TO_WAIT <= 60)
 check("a deliberate stop exits 0 and an unanswered question exits 1", (tool.EXIT_TOLD_NO, tool.EXIT_NO_ANSWER) == (0, 1))
 
@@ -390,7 +396,7 @@ check("and that day is worked out on HIS clock (clock.his_clock), never the mach
           for node in ast.walk(MAIN) if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
           and node.func.attr == "the_check" for keyword in node.keywords))
 
-EXPECTED = 97
+EXPECTED = 99
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

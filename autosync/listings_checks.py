@@ -271,6 +271,24 @@ check("a fee file whose price is moved or missing is still read: price is only c
       == {"amazon::B0G5QH9F2V::S1": 5})
 check("az_fee_preview is not a listing file: it is read by its own reader, so listings does not claim it",
       "az_fee_preview" not in tool.THE_SHAPE_OF)
+# ---- the fee reader, one refusal at a time (AP11, from the proving run): each bad row ALONE is refused, so no rule can lean on another
+GOOD_FEE = ["S9", "B0GOODONE9", "A", "1", "5"]
+for bad_row, about in ((["", "B0NOSKU000", "A", "1", "5"], "no seller SKU"), (["S1", "", "A", "1", "5"], "no ASIN"),
+                       (["S1", "B0 SPACE00", "A", "1", "5"], "an ASIN with a space in it"), (["S/1", "B0SLASH000", "A", "1", "5"], "a slash in the SKU"),
+                       (["S" * 1001, "B0LONGSKU0", "A", "1", "5"], "a SKU longer than a record's name can be"),
+                       (["S1", "B0BLANKFEE", "A", "1", ""], "a blank fee"), (["S1", "B0TEXTFEE0", "A", "1", "free"], "a fee in words"),
+                       (["S1", "B0NEGFEE00", "A", "1", "-5"], "a fee below nought")):
+    check(f"a fee row with {about}, and nothing else wrong, is a row not read and the good row beside it is read",
+          (lambda r: r is not None and list(r.fees) == ["amazon::B0GOODONE9::S9"] and len(r.not_read) == 1 and "line 2" in r.not_read[0])(
+              answered(lambda: fee_rows(bad_row, GOOD_FEE))))
+twice = answered(lambda: fee_rows(["S1", "B0TWICE000", "A", "1", "5"], ["S1", "B0TWICE000", "A", "1", "7"]))
+check("the same listing on two lines keeps the first fee and says the second by line",
+      twice is not None and twice.fees == {"amazon::B0TWICE000::S1": 5} and len(twice.not_read) == 1 and "earlier line" in twice.not_read[0])
+check("a fee file with a column twice is refused in words naming it",
+      "'asin'" in why(lambda: tool.read_fee_preview(table.read(tsv(FEE_HEAD + ["asin"], GOOD_FEE + ["B0OTHER000"]), header_row=1), "x")))
+check("a fee file with headings and no rows says so in words naming the file", "not one row" in why(lambda: fee_rows()))
+check("what the fee reader answers cannot be changed after it is read",
+      why(lambda: setattr(fee_rows(GOOD_FEE), "fees", {})) != "")
 
 
 # ---------------------------------------------------------------- a row that cannot be read says which line and why, and the rest are read
@@ -541,7 +559,7 @@ check("every report is still read or says why it is not", reading.why_a_report_h
       and not ({"fk_listings", "me_catalog", "az_listings"} & set(reading.WHAT_IS_FETCHED_AND_NOT_READ_YET)))
 
 check("nothing above ended by throwing rather than by answering -- " + str(THREW), not THREW)
-EXPECTED = 90
+EXPECTED = 102
 check(f"checks went missing -- {ran + 1} ran, {EXPECTED} expected", ran + 1 == EXPECTED)
 
 if failures:

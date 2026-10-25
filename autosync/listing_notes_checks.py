@@ -238,9 +238,42 @@ check("and the night's summary says how many listings were noted", was is not No
 check("a file already read is not read again", (answered(lambda: Night(FILES, {"s1": GOOD}).go(already=("s1",))) or was).read_tonight == ())
 nowhere = Night(FILES, {"s1": GOOD}, record=False).go()
 check("with nowhere to write them the file is not opened and not marked read, and the night says so",
-      nowhere is not None and nowhere.read_tonight == () and not nowhere.files_read and nowhere.notes_waiting == 1 and "left unread" in nowhere.says())
+      nowhere is not None and nowhere.read_tonight == () and not nowhere.files_read and nowhere.notes_waiting == 1 and "left unread" in nowhere.says()
+      and nowhere.could_not_read == ())
 broken = Night(FILES, {"s1": GOOD}, error=RuntimeError("would not take it")).go()
-check("a database that fails leaves the file unread and says why", broken is not None and broken.read_tonight == () and "would not take it" in broken.could_not_read[0])
+check("a database that fails leaves the file unread and says why",
+      broken is not None and broken.read_tonight == () and "would not take it" in " ".join(broken.could_not_read))
+
+
+# ---- AP11, from the proving run: the night's words about notes, the file named by its name, and a listing named twice
+class AllHeld(Night):
+    def write(self, report_id, day, found, complete=False):
+        self.written.append((report_id, day, found))
+        return len(found), 0
+
+
+all_held = answered(lambda: AllHeld(FILES, {"s1": GOOD}).go())
+check("a night where every noted listing had a record says nothing about listings with no record",
+      all_held is not None and all_held.notes_written == 2 and "had no record" not in all_held.says())
+check("what was read is written down under the file's NAME, not Drive's id for it",
+      all_held is not None and [r.file_name for r in all_held.reads] == ["amazon_az_suppressed_2026-10-02.txt"])
+not_amazons = answered(lambda: Night(FILES, {"s1": b"just some words\n"}).go())
+check("a side file that cannot be read is said by its name, not Drive's id for it",
+      not_amazons is not None and any(w.startswith("amazon_az_suppressed_2026-10-02.txt") and "amazon_az_suppressed_2026-10-02.txt" in w[30:]
+                                      for w in not_amazons.could_not_read))
+named_twice = answered(lambda: tool.read_suppressed(a_file([a_row("RING-1", "B0AAAAAAA2", "First"), a_row("RING-1", "B0AAAAAAA2", "Second")])))
+check("a listing named twice keeps the first line's reason and says the second by line",
+      named_twice is not None and named_twice.notes[RING]["suppressedReason"] == "First" and len(named_twice.not_read) == 1
+      and "already names the same listing" in named_twice.not_read[0])
+def _can_be_changed(said):
+    try:
+        said.notes = {}
+        return True
+    except Exception:  # noqa: BLE001 - a frozen answer refuses, which is the point
+        return False
+
+
+check("what the side file reader answers cannot be changed after it is read", named_twice is not None and not _can_be_changed(named_twice))
 refusing = Night(FILES, {"s1": GOOD}, error=firestore_door.TheirDatabaseSaidNo("403")).go()
 check("a database that says no is OUR defect", refusing is not None and refusing.is_a_defect and refusing.read_tonight == ())
 partly = Night(FILES, {"s1": a_file([a_row("", "B0AAAAAAA4"), a_row("OK-2", "B0AAAAAAA6")])}).go()
@@ -357,7 +390,7 @@ check("the night says a file is complete only when every row of it was read",
       CLEAN.complete == [True] and TORN.complete == [False])
 
 check("nothing above ended by throwing rather than by answering -- " + str(THREW), not THREW)
-EXPECTED = 49 + 7
+EXPECTED = 49 + 7 + 5
 check(f"checks went missing -- {ran + 1} ran, {EXPECTED} expected", ran + 1 == EXPECTED)
 
 if failures:

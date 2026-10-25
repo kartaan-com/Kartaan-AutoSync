@@ -523,7 +523,26 @@ check("a delete is built by the same lock, and refuses what a write would",
       and answered(lambda: tool.one_delete(PROJECT, "orders", "x")) is None and bool(THREW))
 THREW.clear()
 
-EXPECTED = 142
+# ---- a note on a listing, and a note taken back (AP9, AP11/D633): asked here, by their own checks file, not only through the sink
+LISTING_AT = f"projects/{PROJECT}/databases/(default)/documents/listings_seen/amazon::B0AAAAAAA2::RING-1"
+note = answered(lambda: tool.a_listing_note_write(PROJECT, "amazon::B0AAAAAAA2::RING-1", {"suppressed": True, "suppressedOn": "2026-10-03"}))
+check("a note is written to the listing's own record, masked to exactly the fields it carries",
+      note == {"update": {"name": LISTING_AT, "fields": {"suppressed": {"booleanValue": True}, "suppressedOn": {"stringValue": "2026-10-03"}}},
+               "updateMask": {"fieldPaths": ["suppressed", "suppressedOn"]}})
+check("a note's day that is not a day is refused",
+      _refused(lambda: tool.a_listing_note_write(PROJECT, "amazon::B0AAAAAAA2::RING-1", {"suppressed": True, "suppressedOn": "3 Oct"})))
+back = answered(lambda: tool.a_listing_note_taken_back(PROJECT, "amazon::B0AAAAAAA2::RING-1", "az_fee_preview", "2026-10-07"))
+check("a fee taken back names the listing's record, keeps only the day, and masks the fee so it is removed",
+      back == {"update": {"name": LISTING_AT, "fields": {"feeAsOf": {"stringValue": "2026-10-07"}}},
+               "updateMask": {"fieldPaths": ["feeAsOf", "referralFee"]}})
+check("a suppression taken back says not suppressed and masks Amazon's words away",
+      answered(lambda: tool.a_listing_note_taken_back(PROJECT, "x", "az_suppressed", "2026-10-07")["updateMask"]["fieldPaths"])
+      == ["fixHint", "suppressed", "suppressedOn", "suppressedReason"])
+check("taking back with a day that is not a day, or for a report that puts no note, is refused",
+      _refused(lambda: tool.a_listing_note_taken_back(PROJECT, "x", "az_fee_preview", "7 Oct"))
+      and _refused(lambda: tool.a_listing_note_taken_back(PROJECT, "x", "az_listings", "2026-10-07")))
+
+EXPECTED = 142 + 5
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

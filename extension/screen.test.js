@@ -1840,6 +1840,30 @@ function panelParts(chrome, held = {}) {
     !said.wrong && started.length === 1 && started[0].doing.join() === 'me_orders');
 }
 
+/* AP11, from the proving run: which platform waits on the panel name, and what the card says of the last run. */
+{
+  installFakeBrowser();
+  const { chrome } = installFakeChrome();
+  const parts = { book: BOOK, now: () => Date.UTC(2026, 8, 16, 3, 0), startTheNight, carryOn: async () => {} };
+  await answerThePanelsQuestion(chrome, parts, { do: 'check-the-drive' });
+  const ready = (stands) => Object.fromEntries(stands.platforms.map((one) => [one.id, one.ready]));
+  const noPanel = ready(await howItStands(chrome, { book: BOOK, now: Date.now() }));
+  check('with the Drive and no panel name only Meesho waits: Flipkart and Amazon are ready',
+    noPanel.meesho === false && noPanel.flipkart === true && noPanel.amazon === true);
+  await answerThePanelsQuestion(chrome, parts, { do: 'save-the-panel-name', panel: 'xuptj' });
+  check('and with the panel name Meesho is ready too', ready(await howItStands(chrome, { book: BOOK, now: Date.now() })).meesho === true);
+  const shown = buildThePanel(document.body, {
+    connectTheDrive: () => {}, saveThePanelName: () => {}, runNow: () => {}, stop: () => {}, setTheHour: () => {},
+  });
+  const stands = await howItStands(chrome, { book: BOOK, now: Date.now() });
+  showHowItStands(shown, {
+    ...stands,
+    platforms: stands.platforms.map((one) => (one.id === 'flipkart' ? { ...one, lastRun: { finishedAt: Date.now(), landed: 3, failed: 2 } } : one)),
+  });
+  check('a platform\'s card says how many reports the last run fetched AND how many failed',
+    shown.platforms.textContent.includes('3 fetched, 2 failed.'));
+}
+
 reachedTheEnd = true;
 console.log(`\n${ran} checks, ${failures} failed.`);
 process.exit(failures ? 1 : 0);

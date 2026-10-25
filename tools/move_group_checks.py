@@ -39,6 +39,14 @@ def says(group, tag, facts=None, rollback=False):
     return mg.refusals(group, tag, facts or world(), rollback)
 
 
+def answered(work):
+    """What the work gives, or None when it throws -- so a throw turns one check red by name instead of stopping the file (AP11)."""
+    try:
+        return work()
+    except Exception:  # noqa: BLE001
+        return None
+
+
 check("a released tag may be given to group-1", says("group-1", "v0.1.20") == [])
 for bad in ("group-4", "group-0", "group-", "group-1.0", "main", "stable", "", "Group-1", "group-11"):
     check(f"group name {bad!r} is refused", says(bad, "v0.1.20") != [])
@@ -72,7 +80,7 @@ check("it prints one command that moves the group to the commit GitHub reported 
       len(cmds) == 1 and "-X PATCH" in cmds[0] and "git/refs/heads/group-1" in cmds[0] and "sha=a20" in cmds[0])
 check("a group that does not exist yet is created, not patched",
       "-X POST" in mg.commands("group-1", "v0.1.20", world())[0] and "ref=refs/heads/group-1" in mg.commands("group-1", "v0.1.20", world())[0])
-back = mg.commands("group-1", "v0.1.19", world(branches={"group-1": "a20"}, **AT20), True)
+back = mg.commands("group-1", "v0.1.19", world(branches={"group-1": "a20"}, **AT20))
 check("a rollback names the older tag's commit", "sha=a19" in back[0])
 check("the printed command names the public repository", "kartaan-com/Kartaan-AutoSync" in cmds[0])
 check("--rollback never lets a group jump FORWARD past the order rule",
@@ -109,8 +117,79 @@ check("branches are listed", got.branches["main"] == "ddd4" and "group-1" in got
 check("releases are read as published, draft or prerelease",
       got.releases == {"v0.1.19": "published", "v0.1.20": "published", "v0.1.21": "draft", "v0.1.22": "prerelease"})
 check("a branch whose name looks like a tag is not counted as a tag", "v0.1.20-fix" not in got.tags)
+check("and only tags are tags: no branch is ever read as one", sorted(got.tags) == ["v0.1.19", "v0.1.20"])
 
-EXPECTED = 48
+# ---- each refusal alone (AP11, from the proving run): no rule may lean on another one to look right
+FRESH = dict(groups={"group-1": None, "group-2": None, "group-3": None})
+check("THE BURNT TAG IS REFUSED FOR BEING BURNT, even for a group that does not exist yet and even with --rollback",
+      all("burnt" in " ".join(answered(lambda: says("group-1", "v0.1.0", world(**FRESH), back)) or []) for back in (False, True)))
+odd = world(tags={**world().tags, "v0.1.20-rc1": "rc"}, releases={**world().releases, "v0.1.20-rc1": "published"})
+check("a tag GitHub really has, published, that is not a whole version is refused as one, never weighed as a version",
+      "whole version" in " ".join(answered(lambda: says("group-1", "v0.1.20-rc1", odd)) or []))
+check("asked with no word about rolling back, a move backwards is refused",
+      "--rollback" in " ".join(answered(lambda: mg.refusals("group-1", "v0.1.19", world(**AT20))) or []))
+
+# ---- reading GitHub: the one place a command is run, and it only reads
+import contextlib  # noqa: E402
+import io  # noqa: E402
+
+
+class Done:
+    def __init__(self, code, out="", err=""):
+        self.returncode, self.stdout, self.stderr = code, out, err
+
+
+def read_with(done):
+    """`_read` with GitHub's answer made up: (what it handed back, or the words it stopped with)."""
+    real = getattr(mg, "subprocess", None)
+    fake = type("FakeSubprocess", (), {"run": staticmethod(lambda args, **kw: (ASKED_WITH.update(kw), done)[1])})
+    try:
+        mg.subprocess = fake
+        return answered(lambda: mg._read("git", "ls-remote")), ""
+    except SystemExit as said:
+        return None, str(said)
+    finally:
+        mg.subprocess = real
+
+
+import subprocess  # noqa: E402
+check("when nothing is made up, the tool reads GitHub through the real subprocess module", getattr(mg, "subprocess", None) is subprocess)
+ASKED_WITH = {}
+read_ok, _ = read_with(Done(0, "answer"))
+check("GitHub is asked with its answer kept, as text, and a refusal left for the tool to say rather than thrown",
+      ASKED_WITH == {"capture_output": True, "text": True, "check": False})
+_, read_bad = read_with(Done(128, "", "not found"))
+check("what GitHub answers is handed back as it came", read_ok == "answer")
+check("a read GitHub refuses stops the tool in words, naming the command and what GitHub said",
+      "could not read from GitHub" in read_bad and "git ls-remote" in read_bad and "not found" in read_bad)
+
+
+def run_main(argv, facts):
+    real = mg.gather
+    mg.gather = lambda: facts
+    out = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(out):
+            code = answered(lambda: mg.main(argv))
+    finally:
+        mg.gather = real
+    return code, out.getvalue()
+
+
+code, said = run_main(["--check"], world(groups={"group-1": "v0.1.19", "group-2": None, "group-3": None}, branches={"group-2": "zz"}))
+check("--check says where each group points, a group off any released tag, and a group not made yet",
+      code == 0 and "group-1: v0.1.19" in said and "group-2: NOT AT A RELEASED TAG" in said and "group-3: does not exist yet" in said)
+code, said = run_main([], world())
+check("asked wrongly it prints how to ask and answers 2", code == 2 and "prints, never pushes" in said)
+code, said = run_main(["group-1", "v0.1.99"], world())
+check("a refused move answers 1 and says REFUSED with the reason", code == 1 and "REFUSED" in said and "v0.1.99" in said)
+code, said = run_main(["group-1", "v0.1.20"], world())
+check("an allowed move answers 0, prints the command, and says it ran nothing",
+      code == 0 and "OK. To point group-1 at v0.1.20" in said and "gh api" in said and "ran nothing" in said)
+code, said = run_main(["group-1", "v0.1.19", "--rollback"], world(**AT20))
+check("--rollback reaches the rule, wherever it is written", code == 0 and "sha=a19" in said)
+
+EXPECTED = 48 + 13
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

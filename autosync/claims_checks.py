@@ -417,6 +417,26 @@ check("a seller sheet missing a column the reader needs is refused in words nami
 _no_sheet = caught(lambda: claims.flipkart_sheet_names(("Help", "Orders")))
 check("a workbook with neither claim sheet is refused in words, not read as having no claims",
       _no_sheet is not None and "Claims" in str(_no_sheet))
+# ---- one rule at a time (AP11, from the proving run): each case alone, so no rule leans on another to look right
+check("the refusal names the sheets the workbook does have", "'Orders'" in str(_no_sheet) and "'Help'" in str(_no_sheet))
+check("a workbook with only the seller sheet is read, and a claims sheet that is neither seller nor auto is never taken for one",
+      answered(lambda: claims.flipkart_sheet_names(("Seller Claims",))) == ("Seller Claims", None)
+      and answered(lambda: claims.flipkart_sheet_names(("Claims Help", "Seller Claims", "Seller Claims 2"))) == ("Seller Claims", None))
+_auto_only = answered(lambda: claims.read_flipkart_claims(None, sheet.read(fk_book(auto=[fk_auto("A1", "OD444", "444", "5", "PAY")]),
+                                                                            sheet="Auto-Approved Claims"), "2026-05-27"))
+check("with no seller sheet the auto sheet alone is read", _auto_only is not None and [s.order_id for s in _auto_only.sales] == ["OD444"])
+_auto_bad = caught(lambda: claims.read_flipkart_claims(None, sheet.read(an_xlsx({"Auto-Approved Claims": [FK_AUTO_HEAD[:-1], ["1", "x", "A1", "OD1", "1",
+                                                                                                                              "d", "Approved", "5"]]}),
+                                                                           sheet="Auto-Approved Claims"), "2026-05-27"))
+check("an auto sheet missing Pay/Recovery is refused before any row is read, in words naming the sheet and the column",
+      _auto_bad is not None and "auto-approved claims sheet" in str(_auto_bad) and "Pay/Recovery" in str(_auto_bad))
+_holes = answered(lambda: fk_read(fk_book(seller=[fk_seller("", "OD1", "1", "Approved", "5"), fk_seller("C2", "", "2", "Approved", "5"),
+                                                  fk_seller("C3", "OD3", "3", "Approved", "five"), fk_seller("C4", "OD4", "4", "Approved", "4")])))
+check("a row with no claim id, a row with no order, and an Approved Amount that is not a figure are each a row not read, by line, and the good row is read",
+      _holes is not None and [s.order_id for s in _holes.sales] == ["OD4"] and len(_holes.not_read) == 3
+      and sum("belongs to nothing" in w for w in _holes.not_read) == 2 and any("C3" in w and "Approved Amount" in w for w in _holes.not_read))
+check("every row of both sheets is counted in the file", _holes is not None and _holes.rows_in_file == 4
+      and (_two is not None and _two.rows_in_file == 3))
 
 # ---- where a Flipkart claim lands in the ledger
 
@@ -457,10 +477,19 @@ _fk_reading = [r for r in _fk_seen if r.report == "fk_claims"]
 check("A NIGHT READS A FLIPKART CLAIMS WORKBOOK: one reading, only on rows that exist, five claims, nothing refused, the file written down as read",
       _fk_night is not None and len(_fk_reading) == 1 and _fk_reading[0].only_existing is True and len(_fk_reading[0].sales) == 5
       and _fk_reading[0].on == "2026-05-27" and _fk_night.rows_refused == 0 and _fk_night.files_read == ("f9",))
+_fk_wrong = answered(lambda: reading.read_what_is_new(
+    already_read=(),
+    what_is_in_the_folder=lambda r: {"fk_claims": [whats_new.InTheFolder(which="f8", name="flipkart_fk_claims_2026-05-28.xlsx", size=900)]}.get(r, []),
+    bring_it_back=lambda w: b"<html><body>Sign in</body></html>",
+    record_the_sales=lambda readings: None,
+    record_records={"me_claims": lambda report_id, day, made: len(made)}))
+check("a Flipkart claims download that is a web page, not a workbook, is said by the file's NAME, never Drive's id for it (AP11, from the proving run)",
+      _fk_wrong is not None and _fk_wrong.files_read == ()
+      and any(": flipkart_fk_claims_2026-05-28.xlsx is " in w for w in _fk_wrong.could_not_read))
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 29 + 2 + 9 + 2 + 17
+EXPECTED = 29 + 2 + 9 + 2 + 17 + 6 + 1
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

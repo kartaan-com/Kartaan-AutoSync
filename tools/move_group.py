@@ -62,7 +62,7 @@ def refusals(group, tag, facts, rollback=False):
     return []
 
 
-def commands(group, tag, facts, rollback=False):
+def commands(group, tag, facts):
     """The one command that makes the move. Printed, not run.
 
     It names the commit GitHub itself reported for the tag, so a stale or missing
@@ -132,7 +132,7 @@ def main(argv):
         print("REFUSED:\n  " + "\n  ".join(wrong))
         return 1
     print(f"OK. To point {group} at {tag}, run:\n")
-    print("\n".join(commands(group, tag, facts, rollback)))
+    print("\n".join(commands(group, tag, facts)))
     print("\n" + farewell())
     return 0
 
