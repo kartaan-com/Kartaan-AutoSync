@@ -556,6 +556,11 @@ check("A CHARGE WITH NO SKU GOES ON ITS ORDER'S ROW WHEN THE ORDER HAS EXACTLY O
       _p5 is not None and len(_p5.update) == 1 and _p5.unmatched == ()
       and (a_row(after(HELD, _p5), _name) or {}).get("charge_shipping") == "20"
       and (a_row(after(HELD, _p5), _name) or {}).get("settlement") == "-20")
+_p5n = answered(lambda: ledger.plan(HELD, [pays("az_settlements", "2026-09-05",
+                                                a_payment("amazon", "408-NOROW", "", "-28.91", otherServices="28.91"))]))
+check("A CHARGE WITH NO SKU FOR AN ORDER THE LEDGER HAS NO ROW FOR IS SAID, never dropped and never put on another order (AU3 #6)",
+      _p5n is not None and _p5n.update == () and _p5n.append == () and len(_p5n.unmatched) == 1
+      and "no row for this order" in str(_p5n.unmatched[0]))
 check("PAYMENTS NAMES NO STATUS BY HAND: it uses the shared names, so a rename can never silently stop matching (A90)",
       '"Delivered"' not in Path(tool.__file__).read_text(encoding="utf-8")
       and '"Came back"' not in Path(tool.__file__).read_text(encoding="utf-8")
@@ -1319,7 +1324,7 @@ if failures:
     print(f"{len(failures)} FAILED: {failures}")
     sys.exit(1)
 WITHOUT = ran - real_ran
-if WITHOUT != 95 + 22 + 17 + 8 + 2 + 3 + 5 + 3 + 5 + 14 + 9 + 4 + 2:  # the 14 are A90d proving, the 9 A90e (D581), the 6 A90f (D582)
-    print(f"FAIL  checks went missing -- {WITHOUT} ran without his files, 189 expected")
+if WITHOUT != 95 + 22 + 17 + 8 + 2 + 3 + 5 + 3 + 5 + 14 + 9 + 4 + 2 + 1:  # the 1 is N018 (AU3 #6), the 14 are A90d proving, the 9 A90e (D581), the 6 A90f (D582)
+    print(f"FAIL  checks went missing -- {WITHOUT} ran without his files, 190 expected")
     sys.exit(1)
 print(f"all {ran} checks passed" + ("" if real_ran == HIS_FILES_GROUP else f" ({HIS_FILES_GROUP - real_ran} of his real-file checks not run -- the files are elsewhere)"))
