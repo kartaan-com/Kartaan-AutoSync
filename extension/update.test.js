@@ -116,7 +116,17 @@ check('and so is another account releases on GitHub, which the banner would lend
     && whyNotToAnnounce('', '0.1.16', '0.1.17') === null);
 }
 
-const EXPECTED = 24;
+/* **THE REPOSITORY'S FRONT PAGE CARRIES THE DOWNLOAD (his ask, 23 Oct; AP11 part A4)**: a seller who lands on GitHub found no
+ * link at all. It is the same always-latest address the release workflow uploads to and the ERP points at, near the top. */
+{
+  const readme = readFileSync(new URL('../README.md', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  const top = readme.split('\n').slice(0, 25).join('\n');
+  check('the README says "Download the latest Kartaan AutoSync" near the top, linked to the always-latest ZIP',
+    top.includes(`[Download the latest Kartaan AutoSync](${THE_ZIP})`));
+  check('and three numbered install lines follow it', /\n1\. .+\n2\. .+\n3\. .+/.test(top));
+}
+
+const EXPECTED = 26;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

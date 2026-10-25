@@ -7,6 +7,14 @@ It is not the ERP. Kartaan itself — the screens, the records, the money — li
 in [kartaan-com/Kartaan](https://github.com/kartaan-com/Kartaan). This is the
 half that runs while nobody is watching.
 
+**[Download the latest Kartaan AutoSync](https://github.com/kartaan-com/Kartaan-AutoSync/releases/latest/download/kartaan-autosync-extension.zip)**
+
+1. Unzip it into a folder you will keep, such as `Documents\Kartaan Auto-sync` (not Downloads: Chrome reads it from there every time).
+2. In Chrome open `chrome://extensions`, switch **Developer mode** on (top right), and press **Load unpacked**.
+3. Choose the folder that holds `manifest.json`. To update later, unzip the new download over the same folder and press the reload arrow on the card.
+
+More detail: [INSTALL-EXTENSION.md](INSTALL-EXTENSION.md).
+
 ---
 
 ## Why this is its own repository
