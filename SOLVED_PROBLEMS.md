@@ -88,6 +88,7 @@ the file where it happened. A reviewer finding something already on this list is
 - A way out of a promotion can be a picture rather than a word: an `<img>` named `cross-grey.svg`, with no label, no role and no pointer cursor, is still the only way to shut it. -- `extension/driver.js` `looksLikeACloseButton`
 - Every file name the walk can build must be checked against the Drive guard, built by the walk's own function: the per-campaign name (`..._<day>_<campaign>.csv`) was refused because the guard wanted the day last. -- `extension/background.js` `whyTheseAreNotNames`, `NAMED_PER_CAMPAIGN`
 - A check that the extension and the reader name a day's file alike must RUN the shipped `walk.js` `theFileName`, never rebuild its formula in Python: the old check stayed green with the writer changed to the undated `meesho_me_views.csv` an older extension really wrote, and 10 Sep - 14 Oct of shop views never reached the database. -- `tools/export_recipes_checks.py` (AP11, 25 Oct)
+- Every reader built on `table.read` adds `rows.refused` to its rows not read and counts them in the file: the listings reader did not, so a listing row torn by a tab vanished and the file read as read in full. -- `autosync/listings.py` `read_listings` (AP11, D632)
 
 ## Runs and records
 

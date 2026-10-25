@@ -229,6 +229,12 @@ check("az_listings is read as listings: the walk's text file is read by its colu
       == ["amazon::B0G5QH9F2V::SKU-1", "amazon::B0AAAAAAAA::SKU-2"])
 check("a web page handed over as the Amazon file is refused, not read as rows",
       why(lambda: tool.read_listing_file("az_listings", b"<html><body>Sign in</body></html>", "x")) != "")
+# **A TORN ROW IS A ROW NOT READ (D632, AP11).** A tab in an item name gives a row of the wrong width; `table.read` keeps it in `refused`, and
+# the listings reader left it there, so the file read as read in full and the listing vanished without a word.
+torn = answered(lambda: tool.read_listing_file("az_listings", tsv(AZ_HEAD, az_row("S1", "B0GOODONE0"), az_row("S2", "B0TORN0000", name="A\ttab")), "x"))
+check("a listing row of the wrong width is a row not read, named by its line and counted in the file, never dropped silently",
+      torn is not None and list(torn.records) == ["amazon::B0GOODONE0::S1"] and len(torn.not_read) == 1 and "line 3" in torn.not_read[0]
+      and torn.rows_in_file == 2)
 
 # ---- AMAZON'S REFERRAL FEE PREVIEW (lane 1 job 8): seller-sku, asin, item-name, price, estimated-referral-fee-per-item
 FEE_HEAD = ["seller-sku", "asin", "item-name", "price", "estimated-referral-fee-per-item"]
@@ -535,7 +541,7 @@ check("every report is still read or says why it is not", reading.why_a_report_h
       and not ({"fk_listings", "me_catalog", "az_listings"} & set(reading.WHAT_IS_FETCHED_AND_NOT_READ_YET)))
 
 check("nothing above ended by throwing rather than by answering -- " + str(THREW), not THREW)
-EXPECTED = 89
+EXPECTED = 90
 check(f"checks went missing -- {ran + 1} ran, {EXPECTED} expected", ran + 1 == EXPECTED)
 
 if failures:

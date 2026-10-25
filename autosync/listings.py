@@ -373,7 +373,9 @@ def read_listings(shape: Shape, rows: table.Table, report_name: str = "this file
             records[name] = listing
         except table.CannotRead as wrong:
             not_read.append(f"line {row.line}: this row could not be read: {wrong}")
-    return WhatListingsSaid(records=records, not_read=tuple(not_read), rows_in_file=rows_seen)
+    # **A ROW OF THE WRONG WIDTH IS A ROW NOT READ** (table.read keeps it in `refused`; D632): left out, the listing vanished and the file read as read in full.
+    not_read += [f"line {one.line}: {one.why}" for one in rows.refused]
+    return WhatListingsSaid(records=records, not_read=tuple(not_read), rows_in_file=rows_seen + len(rows.refused))
 
 
 def read_listing_file(report_id: str, content: bytes, report_name: str = "this file") -> WhatListingsSaid:
