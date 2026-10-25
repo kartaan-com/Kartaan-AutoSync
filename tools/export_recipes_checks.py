@@ -516,6 +516,40 @@ check("and the days Python reads out of the range name are the days of the range
           landing.data_date_in(RANGE_NAMES_IN_JAVASCRIPT[one]) in (A_RANGE_TO, None)
           for one in HELD["fileNames"])))
 
+# ---------------------------------- A DAY'S NAME, ASKED OF THE SHIPPED BUILDER (AP11, part A)
+#
+# **THE DAY-NAME CHECK ABOVE BUILDS THE JAVASCRIPT'S NAME IN PYTHON, SO IT CANNOT SEE `walk.js` DRIFT.**
+# An older extension put Meesho's views in one undated `meesho_me_views.csv` while the reader looks for
+# `meesho_me_views_<day>.csv`, and fifteen days (10 Sep - 14 Oct) never reached the database. That check
+# stays green with `theFileName` changed to write the undated name; these go red. A range of one day is
+# a day file, so the range script is asked with the same day at both ends.
+def the_day_names_in_javascript():
+    try:
+        done = subprocess.run(
+            ["node", "--input-type=module", "-e", ASK_FOR_RANGE_NAMES, A_DAY.isoformat(), A_DAY.isoformat()],
+            cwd=tool.ROOT, capture_output=True, text=True, check=False,
+        )
+    except OSError:
+        return {}
+    if done.returncode != 0:
+        return {}
+    try:
+        return json.loads(done.stdout)
+    except ValueError:
+        return {}
+
+
+DAY_NAMES_IN_JAVASCRIPT = the_day_names_in_javascript()
+check("the JavaScript half can be asked for a day's name at all",
+      answered(lambda: sorted(DAY_NAMES_IN_JAVASCRIPT) == sorted(HELD["fileNames"]) and bool(DAY_NAMES_IN_JAVASCRIPT)))
+check("THE DAY NAME THE SHIPPED walk.js BUILDS IS THE NAME PYTHON BUILDS, REPORT BY REPORT",
+      answered(lambda: all(
+          DAY_NAMES_IN_JAVASCRIPT[one] == landing.file_name_for(reports_list.report(one), A_DAY)
+          for one in HELD["fileNames"])))
+check("and Meesho's views, the one file a row is added to, is named for its day and read back as that day",
+      answered(lambda: DAY_NAMES_IN_JAVASCRIPT["me_views"] == "meesho_me_views_2026-09-05.csv"
+               and landing.data_date_in(DAY_NAMES_IN_JAVASCRIPT["me_views"]) == A_DAY))
+
 # ----------------------------------------- what the panel needs, and only it
 #
 # **EVERY REPORT THAT EXISTS CROSSES, not only the ones this door can fetch.**
@@ -918,7 +952,7 @@ check("and it is the Python's own spelling, so nothing translates on the way",
       answered(lambda: language.BY_THE_CONTROL_BESIDE == "beside"))
 
 
-EXPECTED = 117 + 4 + 1 + 1
+EXPECTED = 117 + 4 + 1 + 1 + 3
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
