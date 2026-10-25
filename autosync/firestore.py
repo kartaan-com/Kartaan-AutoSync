@@ -678,6 +678,38 @@ def a_listing_note_write(project: str, doc_id: str, notes: Dict) -> Dict:
     }
 
 
+# **WHAT IS TAKEN BACK WHEN A LATER COMPLETE FILE NO LONGER NAMES A LISTING (D633, AP11)**, per side report: the fields that go, and what stays written.
+# A suppression becomes `suppressed: false` (said, not left to be guessed from a missing field) and Amazon's reason and hint go. **A fee is taken away,
+# never written as 0: 0.00 is a figure Amazon gives.** The day field is set to the file's day either way, so an older file cannot put the note back.
+NOTE_TAKEN_BACK = {
+    "az_suppressed": (("suppressedReason", "fixHint"), {"suppressed": False}),
+    "az_fee_preview": (("referralFee",), {}),
+}
+# Which held records still carry a report's note -- what the sink asks the database for: a suppression still standing, a fee still there.
+NOTE_STILL_SAID = {
+    "az_suppressed": {"fieldFilter": {"field": {"fieldPath": "suppressed"}, "op": "EQUAL", "value": {"booleanValue": True}}},
+    "az_fee_preview": {"fieldFilter": {"field": {"fieldPath": "referralFee"}, "op": "GREATER_THAN_OR_EQUAL", "value": {"integerValue": "0"}}},
+}
+
+
+def a_listing_note_taken_back(project: str, doc_id: str, report_id: str, day: str) -> Dict:
+    """One side report's note taken off a listing's record, WITH A MASK naming the fields that go, so the listing beside it is never touched.
+
+    A field named in the mask and absent from the write is removed from the record; that is how a fee is taken away rather than written as nought.
+    """
+    if report_id not in NOTE_TAKEN_BACK:
+        raise Refused(f"{report_id!r} puts no note on a listing, so there is nothing of it to take back.")
+    if not A_DAY.match(str(day)):
+        raise Refused(f"{day!r} is not a day written year-month-day, so nothing was taken back.")
+    removed, kept = NOTE_TAKEN_BACK[report_id]
+    fields = {name: a_value(value) for name, value in kept.items()}
+    fields[NOTE_DAY_FIELD[report_id]] = a_value(day)
+    return {
+        "update": {"name": where_a_document_lives(project, LISTINGS_SEEN, doc_id), "fields": fields},
+        "updateMask": {"fieldPaths": sorted(set(fields) | set(removed))},
+    }
+
+
 def listing_day_held(document: Optional[Dict]) -> str:
     """The day (`changedOn`) a record says its listing last differed, or '' when it says none."""
     return plain((document or {}).get("fields") or {}).get("changedOn") or ""

@@ -155,6 +155,17 @@ class Transport:
                 {"found": {"name": n, "fields": self.held[n.rsplit("/", 1)[-1]]}} if n.rsplit("/", 1)[-1] in self.held else {"missing": n}
                 for n in json["documents"]
             ])
+        if url.endswith(":runQuery"):
+            # One field filter, compared as Firestore compares plain values: a record without the field never matches.
+            asked = json["structuredQuery"]["where"]["fieldFilter"]
+            field, op = asked["field"]["fieldPath"], asked["op"]
+            want = firestore.plain({"v": asked["value"]})["v"]
+            compare = {"EQUAL": lambda a: a == want, "GREATER_THAN_OR_EQUAL": lambda a: not isinstance(a, bool) and a >= want}[op]
+            return Reply(200, [
+                {"document": {"name": f"projects/p/databases/(default)/documents/listings_seen/{name}", "fields": fields}}
+                for name, fields in self.held.items()
+                if field in fields and compare(firestore.plain({"v": fields[field]})["v"])
+            ])
         return Reply(self.fail_on or 200, {})
 
     def commits(self):
@@ -195,13 +206,14 @@ except firestore_door.TheirDatabaseSaidNo:
 
 class Night:
     def __init__(self, files, bodies, record=True, error=None):
-        self.files, self.bodies, self.written, self.error = files, bodies, [], error
+        self.files, self.bodies, self.written, self.error, self.complete = files, bodies, [], error, []
         self.record = self.write if record else None
 
-    def write(self, report_id, day, found):
+    def write(self, report_id, day, found, complete=False):
         if self.error:
             raise self.error
         self.written.append((report_id, day, found))
+        self.complete.append(complete)
         return len(found), 1
 
     def go(self, already=()):
@@ -294,8 +306,58 @@ LISTING_FIRST = reading._oldest_first(
     reading.WHAT_LISTINGS_CAN_BE_READ + reading.WHAT_NOTES_CAN_BE_READ, ())
 check("a same-day listings file is taken before the side files about its listings, whatever Drive's ids say",
       [one.which for _, one in LISTING_FIRST][0] == "z9" and len(LISTING_FIRST) == 3)
+
+# ---------------------------------------------------------------- taken back (D633, AP11): a later COMPLETE file no longer naming the listing
+
+# RING suppressed on 3 Oct, BANGLE suppressed on 3 Oct; RING and BANGLE both carry a fee from 5 Oct.
+SUPPRESSED_HELD = {
+    RING: {**LISTED, "suppressed": {"booleanValue": True}, "suppressedReason": {"stringValue": "Missing image"},
+           "fixHint": {"stringValue": "Add one"}, "suppressedOn": {"stringValue": "2026-10-03"}},
+    BANGLE: {**LISTED, "suppressed": {"booleanValue": True}, "suppressedReason": {"stringValue": "Price"},
+             "fixHint": {"stringValue": "Fix it"}, "suppressedOn": {"stringValue": "2026-10-03"}},
+}
+gone = Transport(held=SUPPRESSED_HELD)
+gone_put = answered(lambda: firestore_door.a_listing_notes_sink(gone, "p")(
+    "az_suppressed", "2026-10-06", {BANGLE: dict(firestore.plain({k: SUPPRESSED_HELD[BANGLE][k] for k in ("suppressed", "suppressedReason", "fixHint")}))},
+    complete=True))
+cleared = [w for w in gone.commits() if w["update"]["name"].endswith(RING)]
+check("A SUPPRESSION A LATER COMPLETE FILE NO LONGER NAMES IS TAKEN BACK: not suppressed, Amazon's reason and hint taken away, with the file's day",
+      gone_put == (1, 0) and len(gone.commits()) == 1 and len(cleared) == 1
+      and cleared[0]["update"]["fields"] == {"suppressed": {"booleanValue": False}, "suppressedOn": {"stringValue": "2026-10-06"}}
+      and sorted(cleared[0]["updateMask"]["fieldPaths"]) == ["fixHint", "suppressed", "suppressedOn", "suppressedReason"])
+part = Transport(held=SUPPRESSED_HELD)
+check("a partial suppressed file (a row it could not read) takes nothing back -- the row it lost may be that listing",
+      answered(lambda: firestore_door.a_listing_notes_sink(part, "p")("az_suppressed", "2026-10-06", {}, complete=False)) == (0, 0)
+      and part.commits() == [])
+older = Transport(held=SUPPRESSED_HELD)
+check("an older complete file takes back nothing a newer file said",
+      answered(lambda: firestore_door.a_listing_notes_sink(older, "p")("az_suppressed", "2026-10-01", {}, complete=True)) == (0, 0)
+      and older.commits() == [])
+already = Transport(held={RING: {**LISTED, "suppressed": {"booleanValue": False}, "suppressedOn": {"stringValue": "2026-10-06"}}})
+check("a listing already taken back is not written again every night",
+      answered(lambda: firestore_door.a_listing_notes_sink(already, "p")("az_suppressed", "2026-10-07", {}, complete=True)) == (0, 0)
+      and already.commits() == [])
+FEES_HELD = {RING: {**LISTED, "referralFee": {"doubleValue": 59.85}, "feeAsOf": {"stringValue": "2026-10-05"}},
+             BANGLE: {**LISTED, "referralFee": {"integerValue": "0"}, "feeAsOf": {"stringValue": "2026-10-05"}}}
+fee_gone = Transport(held=FEES_HELD)
+fee_gone_put = answered(lambda: firestore_door.a_listing_notes_sink(fee_gone, "p")("az_fee_preview", "2026-10-07", {BANGLE: {"referralFee": 0}}, complete=True))
+check("A FEE A LATER COMPLETE FILE NO LONGER GIVES IS TAKEN AWAY, never written as nought (0.00 is a figure Amazon gives), with the file's day",
+      fee_gone_put == (1, 0) and [w["update"]["name"].rsplit("/", 1)[-1] for w in fee_gone.commits()] == [RING]
+      and fee_gone.commits()[0]["update"]["fields"] == {"feeAsOf": {"stringValue": "2026-10-07"}}
+      and sorted(fee_gone.commits()[0]["updateMask"]["fieldPaths"]) == ["feeAsOf", "referralFee"])
+fee_part = Transport(held=FEES_HELD)
+check("a partial fee file takes no fee away",
+      answered(lambda: firestore_door.a_listing_notes_sink(fee_part, "p")("az_fee_preview", "2026-10-07", {BANGLE: {"referralFee": 0}})) == (0, 0)
+      and fee_part.commits() == [])
+CLEAN = Night(FILES, {"s1": GOOD})
+CLEAN.go()
+TORN = Night(FILES, {"s1": a_file([a_row("", "B0AAAAAAA4"), a_row("OK-2", "B0AAAAAAA6")])})
+TORN.go()
+check("the night says a file is complete only when every row of it was read",
+      CLEAN.complete == [True] and TORN.complete == [False])
+
 check("nothing above ended by throwing rather than by answering -- " + str(THREW), not THREW)
-EXPECTED = 49
+EXPECTED = 49 + 7
 check(f"checks went missing -- {ran + 1} ran, {EXPECTED} expected", ran + 1 == EXPECTED)
 
 if failures:

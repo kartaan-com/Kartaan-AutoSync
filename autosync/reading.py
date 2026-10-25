@@ -1131,7 +1131,8 @@ def read_what_is_new(
                 continue
             try:
                 said, the_day = a_notes_reading(how, one, bring_it_back(one.which))
-                wrote, skipped = record_notes(how.report_id, the_day, said.notes)
+                # **COMPLETE ONLY WHEN EVERY ROW WAS READ (D633):** only then may a listing it no longer names have its note taken back.
+                wrote, skipped = record_notes(how.report_id, the_day, said.notes, complete=not said.not_read)
                 notes_written += wrote
                 notes_skipped += skipped
             except TheirDatabaseSaidNo as wrong:

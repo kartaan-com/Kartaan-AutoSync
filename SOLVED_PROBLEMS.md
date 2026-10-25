@@ -89,6 +89,7 @@ the file where it happened. A reviewer finding something already on this list is
 - Every file name the walk can build must be checked against the Drive guard, built by the walk's own function: the per-campaign name (`..._<day>_<campaign>.csv`) was refused because the guard wanted the day last. -- `extension/background.js` `whyTheseAreNotNames`, `NAMED_PER_CAMPAIGN`
 - A check that the extension and the reader name a day's file alike must RUN the shipped `walk.js` `theFileName`, never rebuild its formula in Python: the old check stayed green with the writer changed to the undated `meesho_me_views.csv` an older extension really wrote, and 10 Sep - 14 Oct of shop views never reached the database. -- `tools/export_recipes_checks.py` (AP11, 25 Oct)
 - Every reader built on `table.read` adds `rows.refused` to its rows not read and counts them in the file: the listings reader did not, so a listing row torn by a tab vanished and the file read as read in full. -- `autosync/listings.py` `read_listings` (AP11, D632)
+- A note a side file puts on a record (a suppression, a fee) needs a way to be taken back, decided the day the note is added: nothing ever cleared one, so a listing Amazon stopped suppressing stayed suppressed for good. Take it back only on a COMPLETE later file (every row read), never on a partial one, never from an older one, and never write a missing fee as 0. -- `autosync/firestore_door.py` `a_listing_notes_sink`, `autosync/firestore.py` `a_listing_note_taken_back` (AP11, D633)
 
 ## Runs and records
 
