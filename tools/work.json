@@ -2073,6 +2073,16 @@
         "autosync/start.py",
         "autosync/listings_checks.py"
       ]
+    },
+    {
+      "id": "proving",
+      "name": "AutoSync's own proving setup: the ERP's prover pointed at this repository (AP11, plan part B)",
+      "what": "tools/proving.py loads the ERP's tools/prove_checks.py from KARTAAN (never a copy) and changes only what is AutoSync's: where the code is, this repository's layout of sources and checks, COVERED_BY and NOT_PROVEN with reasons, the survivor list tools/proven_survivors.json, a change of line endings alone not counted as a change to prove (the 23 Oct run's 1485 survivors were mostly untouched lines), and a change that survives its own checks put to every other checks file that imports the module (the ledger is checked from claims and payments). Run from a clone with Unix line endings: KARTAAN=D:/Kartaan-ERP python tools/proving.py --against <last release's commit>.",
+      "rests_on": [],
+      "files": [
+        "tools/proving.py",
+        "tools/proving_checks.py"
+      ]
     }
   ]
 }
