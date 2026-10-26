@@ -226,6 +226,48 @@ def read_claim_records(report_id: str, platform: str, rows: Table, file_day: str
     return records, tuple(not_read)
 
 
+AMAZON_SAFET_COLUMNS = ("Order ID", "SAFE-T Claim ID", "Claim Date", "SAFE-T claim state", "Claim Filing Reason", "Total Reimbursement amount")
+
+
+def read_safet_records(report_id: str, platform: str, rows: Table, file_day: str, context=None):
+    """`(records, rows refused)`: every claim Amazon's SAFE-T report names, as a record each, by record name `<platform>__<SAFE-T claim id>` (N018, his ruling D726; D459).
+
+    **THE COLUMNS ARE FROM HIS REAL FILE** (Manage SAFE-T claims > Download the SAFE-T Report, type "SAFE-T Claims", seen 26 Oct 2026: 20 columns, one claim in 60 days).
+    **THE CLAIM'S OWN ID NAMES IT**, so the same claim in many overlapping files is one record and the latest file's state wins in the writer, exactly as for Meesho. It carries the
+    order it is about and is never tied to an order row. **THE RUPEES ARE AMAZON'S OWN `Total Reimbursement amount`, TAKEN ONLY FOR A `Granted` CLAIM**: a claim under
+    investigation or denied has none, and a figure that cannot be read is refused by name rather than guessed.
+    """
+    shared.require_columns(rows, AMAZON_SAFET_COLUMNS, "Amazon's SAFE-T claims report")
+    made: Dict[str, Dict[str, object]] = {}
+    not_read = []
+    for row in rows:
+        order, claim = row["Order ID"].strip(), row["SAFE-T Claim ID"].strip()
+        if not order or not shared.a_safe_name(claim):
+            not_read.append(f"line {row.line}: no order, or a claim id that cannot name a record, so the claim belongs to nothing")
+            continue
+        record: Dict[str, object] = {"platform": platform, "report": report_id, "claimKey": claim, "orderId": order, "fileDay": file_day}
+        status = row["SAFE-T claim state"].strip()
+        if status:
+            record["status"] = status
+        raised = returns.a_day(row["Claim Date"])
+        if raised:
+            record["raisedOn"] = raised
+        issue = row["Claim Filing Reason"].strip()
+        if issue:
+            record["issue"] = issue
+        if status.lower() == "granted":
+            try:
+                paid = shared.a_figure(row["Total Reimbursement amount"])
+            except ValueError as wrong:
+                not_read.append(f"line {row.line}: claim {claim}'s Total Reimbursement amount: {wrong}")
+                continue
+            if paid is not None and paid > 0:
+                record["recovered"] = str(paid)
+        record["digest"] = shared.the_digest(record)
+        made[f"{platform}__{claim}"] = record
+    return made, tuple(not_read)
+
+
 def merge(record: Dict[str, object], held) -> Dict[str, object]:
     """The record with the rupees already held for this claim kept (`held` is the record in the database, or nothing)."""
     held = held or {}

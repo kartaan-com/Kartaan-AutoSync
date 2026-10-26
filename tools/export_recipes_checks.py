@@ -80,8 +80,8 @@ HELD = answered(tool.what_the_extension_reads) or {}
 
 check("every recipe the Python has crosses",
       answered(lambda: set(HELD.get("recipes", {})) == set(book.RECIPES)))
-check("and there are twenty-seven of them, three platforms (Amazon's listings and fee reports joined, lane 1 job 8)",
-      answered(lambda: len(HELD.get("recipes", {})) == 27))
+check("and there are thirty-four of them, three platforms (Amazon's listings and fee reports joined, lane 1 job 8; returns, SAFE-T claims, orders, settlements and account health, N018)",
+      answered(lambda: len(HELD.get("recipes", {})) == 34))
 check("every meaning of a failure crosses",
       answered(lambda: set(HELD.get("whatItMeans", {})) == set(language.WHAT_IT_MEANS)))
 # **THE WHOLE MAP, not the part the walk happens to use today.** Splitting it is
@@ -244,11 +244,12 @@ check("matching the whole phrase is what most steps do",
 PANEL_STEPS = [s for s in STEPS if "{panel}" in s["address"]]
 # Six, not five: there are five Meesho recipes, and orders loads its page twice
 # because Meesho does not show a finished file until the page is loaded again.
+# Eleven since N025: the Meesho product quality page (cataloging) is the eleventh page.
 # Ten, not eight: nine Meesho recipes now (the product performance and pricing tables each go to one page),
 # Eight, not seven: seven Meesho recipes then, and orders loads its page twice
 # because Meesho does not show a finished file until the page is loaded again.
 check("every Meesho page carries the placeholder for the seller's own slug",
-      answered(lambda: len(PANEL_STEPS) == 10))
+      answered(lambda: len(PANEL_STEPS) == 11))
 check("and orders carries it twice, because it loads its page twice",
       answered(lambda: sum(1 for s in HELD["recipes"]["me_orders"]["toTake"]
                            if "{panel}" in s["address"]) == 2))
@@ -597,8 +598,8 @@ check("no browser report is left out of all three lists",
                            or one["id"] in HELD["madeByAnother"]
                            for one in HELD["reports"]
                            if one["platform"] in THROUGH_THE_BROWSER and one["id"] not in HELD["onTheApiDoor"])))
-check("the reports that come in by the API door are carried, so the panel never calls Amazon's four 'cannot be fetched' (lane 2's az_suppressed joined at AP10)",
-      answered(lambda: HELD["onTheApiDoor"] == ["az_orders", "az_returns", "az_settlements", "az_suppressed"]
+check("the reports that come in by the API door are carried, so the panel never calls Amazon's one 'cannot be fetched' (az_suppressed, until its browser page is found; the rest left for the browser, N018)",
+      answered(lambda: HELD["onTheApiDoor"] == ["az_suppressed"]
                and not set(HELD["onTheApiDoor"]) & set(HELD["recipes"])))
 # **AND EACH OF THE THIRD LIST NAMES A REPORT THE PRODUCT DECLARES**, the same
 # question already asked of the second. A reason written against a report nobody
@@ -843,7 +844,7 @@ def named_in_words():
 # **ELEVEN SINCE 2026-09-14**: returns left the Reports Centre, and its new route
 # names a row on the taking only.
 check("there are lookups naming a row by the day in words to judge",
-      answered(lambda: len(named_in_words()) == 15))
+      answered(lambda: len(named_in_words()) == 23))
 check("and every one of them says whose wording it means",
       answered(lambda: all(find["dayInWordsIs"] in book.HOW_A_DAY_IS_WRITTEN
                            for _, find in named_in_words())))

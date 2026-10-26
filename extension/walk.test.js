@@ -534,6 +534,8 @@ function aPortal(how = {}) {
     return how.swept || { lookedAt: 37, running: 0, files: [] };
   };
 
+  /* **WHAT THE SELLER'S DRIVE ALREADY HOLDS FOR A REPORT, by file name (N018)**: `how.held`, or nothing; `how.heldNothing` leaves the walk with no way of asking. */
+  it.whatIsHeld = how.noWayOfAsking ? undefined : async () => how.held || [];
   it.putTheFile = async ({ reportId, fileName, body }) => {
     if (how.driveRefuses) throw new Error(how.driveRefuses);
     it.putAway.push({
@@ -591,8 +593,8 @@ function aPortal(how = {}) {
      * is the page having drawn a label with no number beside it, which is the
      * failure that matters and the one the reference could only report as
      * "selectors need updating". */
-    async read_number(kind, what, exact, patience, near) {
-      it.numbersRead.push({ what, near, patience });
+    async read_number(kind, what, exact, patience, near, alsoSaying, reads) {
+      it.numbersRead.push({ what, near, patience, reads });
       if (how.cardRefuses) throw new Error(how.cardRefuses);
       const cards = how.cards || { Views: 34877, Orders: 6 };
       if (!(what in cards)) {
@@ -659,6 +661,7 @@ function aPortal(how = {}) {
        * check asking whether one spelling reached the page needs them apart. */
       it.rowsAsked.push(...(Array.isArray(near) ? near : [near]));
       it.whatHappened.push(`found ${what}`);
+      if (how.findThrowsFor && what === how.findThrowsFor) throw new Error('the page was torn down while looking');
       /* **A PORTAL DRAWS ITSELF IN PIECES AND TAKES ITS TIME OVER IT** -- 10 to
        * 25 seconds was measured on his own Flipkart account. Every one of those
        * seconds is a moment the page's own scripts are running. */
@@ -672,6 +675,8 @@ function aPortal(how = {}) {
       if (how.chipAfterPresses !== undefined && what === 'Chip') {
         return it.clicked.filter((one) => one === 'Box').length >= how.chipAfterPresses ? 1 : 0;
       }
+      /* **A THING THAT APPEARS ONLY AFTER ANOTHER IS PRESSED (N018: Amazon's saved report appears in the list once its creation is pressed).** */
+      if (how.appearsAfter && what in how.appearsAfter) return it.clicked.includes(how.appearsAfter[what]) ? 1 : 0;
       if (how.matches && what in how.matches) return how.matches[what];
       /* **A PROMOTION HIDES WHAT IS UNDERNEATH IT.** That is what makes a
        * covering worth reporting at all: the lookup fails, and the reason is
@@ -707,6 +712,7 @@ function aPortal(how = {}) {
         throw new Error("Nothing on the page matches 'Download Orders Data'.");
       }
       it.clicked.push(what);
+      (it.clickedNear = it.clickedNear || []).push(near);
       it.whatHappened.push(`clicked ${what}`);
       /* **OPENING A SHUT MENU IS THE ONLY THING THAT REDRAWS ITS LIST.** Pressed
        * while it is already open this counts for nothing at all -- which is
@@ -789,6 +795,11 @@ function aPortal(how = {}) {
     /* **THE WALK-ONLY QUESTION (2026-09-14).** Answered only when a check says
      * where the matches sit; otherwise it answers nothing, which is what a real
      * door with no matches to describe answers. */
+    /* **THE WORDS OF THE ROW EACH MATCHING CONTROL SITS IN (N018): the walk-only question the settlements walk asks.** `how.rows` is what the page lists, in page order. */
+    async row_texts() {
+      it.whatHappened.push('read the rows');
+      return how.rows || [];
+    },
     async where_they_sit() {
       return how.whereTheySit || [];
     },
@@ -842,7 +853,7 @@ function aWalk(portal, book = BOOK) {
       // eslint-disable-next-line no-await-in-loop
       await portal.armTheCatcher();
       const walking = theWalk({
-        door: portal.door, book, say: (line) => SAID.push(line), putTheFile: portal.putTheFile,
+        door: portal.door, book, say: (line) => SAID.push(line), putTheFile: portal.putTheFile, whatIsHeld: portal.whatIsHeld,
         armTheCatcher: portal.armTheCatcher,
         addToTheList: portal.addToTheList,
         sweepTheAds: portal.sweepTheAds,
@@ -1055,6 +1066,183 @@ check('asked to step back by nothing at all, it answers the day itself',
    * built at all would take every other report down with the one that sweeps. */
   const ordinary = await aWalk(aPortal())('me_orders', DAY);
   check('while a report that presses buttons is unaffected', ordinary.state === LANDED);
+}
+
+/* --------------------------- N018: a table read with no row for the day is NOTHING TO FETCH; a table never drawn is a FAILURE
+ * **THE SAME THREE CASES THE PYTHON DOOR'S OWN CHECKS MAKE** (`browser_door_checks.py`), side by side: Amazon publishes a settlement statement weekly, so on six days in seven
+ * the table is drawn and no row ends on the day (Control's ruling, 26 Oct 2026). */
+{
+  const statements = {
+    recipes: {
+      me_orders: {
+        readyInMinutes: 0,
+        toAsk: [],
+        toTake: [
+          step({ do: 'go', address: 'https://supplier.example.invalid/panel/{panel}/statements', why: 'opening the statements' }),
+          step({ do: 'wait-for', find: find('Statement Period', { called: 'the statements table' }), patience: 45,
+            why: 'waiting for the statements table to draw' }),
+          step({ do: 'take-file', find: find('Download Flat File V2'), patience: 5,
+            noRowIsNothingToFetch: 'No statement ended on that day, so there is nothing to fetch.',
+            why: 'taking the statement that ended on the day' }),
+        ],
+      },
+    },
+    whatItMeans: BOOK.whatItMeans,
+    daysInWords: BOOK.daysInWords,
+    fileNames: BOOK.fileNames,
+  };
+  const none = await aWalk(aPortal({ matches: { 'Download Flat File V2': 0 } }), statements)('me_orders', DAY);
+  check('a table that was drawn and has no row for the day is NOTHING TO FETCH, not a failure',
+    none.state === NOTHING_TO_FETCH && none.say.includes('No statement ended on that day'));
+  const never = await aWalk(aPortal({ matches: { 'Statement Period': 0, 'Download Flat File V2': 0 } }), statements)('me_orders', DAY);
+  check('but a table that was never drawn stays a FAILURE, even though the row is missing too', never.state === FAILED);
+  const there = await aWalk(aPortal(), statements)('me_orders', DAY);
+  check('and with the row there the file is taken as before', there.state === LANDED);
+}
+
+/* --------------------------- N018: A STEP THAT IS DONE ONLY WHEN SOMETHING IS NOT THERE (his word D728: AutoSync creates the saved ads report the first time it is missing, and never again)
+ * **THE CHECK IS ASKED OF THE PAGE AT THE MOMENT OF THE STEP**, so a thing the walk has just made counts as there for every step after it, and a page that already has it never has it made twice. */
+{
+  const onlyIfNotThere = {
+    recipes: {
+      me_orders: {
+        readyInMinutes: 0,
+        toAsk: [],
+        toTake: [
+          step({ do: 'go', address: 'https://supplier.example.invalid/panel/{panel}/reports', why: 'opening the list' }),
+          step({ do: 'wait-for', find: find('Create report'), patience: 30, why: 'waiting for the list' }),
+          step({ do: 'click', find: find('Create it'), onlyIfAbsent: find('Saved row'), why: 'creating the saved report, once' }),
+          step({ do: 'click', find: find('Run'), why: 'running it' }),
+          step({ do: 'take-file', find: find('Download'), patience: 30, why: 'taking the file' }),
+        ],
+      },
+    },
+    whatItMeans: BOOK.whatItMeans,
+    daysInWords: BOOK.daysInWords,
+    fileNames: BOOK.fileNames,
+  };
+  const missing = aPortal({ appearsAfter: { 'Saved row': 'Create it' } });
+  const gotMissing = await aWalk(missing, onlyIfNotThere)('me_orders', DAY);
+  check('MISSING -> CREATED ONCE: with the saved row not on the page the creating step is pressed, and the walk goes on to run it',
+    gotMissing.state === LANDED && missing.clicked.filter((one) => one === 'Create it').length === 1 && missing.clicked.includes('Run'));
+  const again = aPortal({ appearsAfter: { 'Saved row': 'Create it' } });
+  again.clicked.push('Create it');
+  const gotAgain = await aWalk(again, onlyIfNotThere)('me_orders', DAY);
+  check('PRESENT -> NOT CREATED AGAIN: with the saved row already there the creating step is not pressed, said, and the walk still runs it',
+    gotAgain.state === LANDED && again.clicked.filter((one) => one === 'Create it').length === 1 && again.clicked.includes('Run')
+    && SAID.some((line) => line.includes('creating the saved report, once') && line.includes('already there')));
+  const twice = aPortal({ appearsAfter: { 'Saved row': 'Create it' } });
+  await aWalk(twice, onlyIfNotThere)('me_orders', DAY);
+  await aWalk(twice, onlyIfNotThere)('me_orders', DAY);
+  check('NOTHING IS CREATED TWICE: two walks on one portal press the creating step once between them', twice.clicked.filter((one) => one === 'Create it').length === 1);
+  /* **A LOOK THAT ERRORS IS NOT "ABSENT"** (the Opus review, 26 Oct 2026): a page torn down mid-look would have been read as a missing report and a SECOND saved report made, after which every later day is refused. */
+  const torn = aPortal({ appearsAfter: { 'Saved row': 'Create it' }, findThrowsFor: 'Saved row' });
+  const gotTorn = await aWalk(torn, onlyIfNotThere)('me_orders', DAY);
+  check('A LOOK THAT FAILS IS A FAILURE, never "not there": nothing is created and the walk says why',
+    gotTorn.state === FAILED && !torn.clicked.includes('Create it'));
+  /* **AND THE FIRST LOOK, on the list a step has just opened, WAITS FOR THE LIST** rather than taking three seconds of an empty page for a missing report. */
+  const opening = {
+    recipes: { me_orders: { readyInMinutes: 0, toAsk: [], toTake: [
+      step({ do: 'go', address: 'https://supplier.example.invalid/panel/{panel}/new', patience: 60, onlyIfAbsent: find('Saved row'), why: 'creating: opening the form' }),
+      step({ do: 'take-file', find: find('Download'), patience: 30, why: 'taking the file' }),
+    ] } },
+    whatItMeans: BOOK.whatItMeans, daysInWords: BOOK.daysInWords, fileNames: BOOK.fileNames,
+  };
+  const waiting = aPortal();
+  await aWalk(waiting, opening)('me_orders', DAY);
+  check('the look at the start of a creating run waits up to twenty seconds, and the looks after it on the form take three',
+    waiting.patienceTold.some(([kind, seconds]) => kind === 'find' && seconds === 20));
+  const refusedStep = whyStepIsRefused(step({ do: 'click', find: find('x'), onlyIfAbsent: { how: 'role' } }));
+  check('a condition with nothing to look for is refused in words, a recipe fault', typeof refusedStep === 'string' && refusedStep.includes('only when'));
+}
+
+/* --------------------------- N018: a step that reads a PERCENTAGE says so to the door; one that does not says nothing */
+{
+  const health = {
+    recipes: {
+      me_views: {
+        readyInMinutes: 0,
+        toAsk: [],
+        toTake: [
+          step({ do: 'go', address: 'https://supplier.example.invalid/panel/{panel}/health', why: 'opening the dashboard' }),
+          step({ do: 'wait-for', find: find('Views'), patience: 60, why: 'waiting for the cards' }),
+          step({ do: 'read-number', find: find('Views', { called: 'Account Health Rating' }), reads: '', patience: 30, why: 'reading the rating' }),
+          step({ do: 'read-number', find: find('Orders', { called: 'Late Dispatch Rate' }), reads: 'percent', patience: 30, why: 'reading the late dispatch rate' }),
+          step({ do: 'add-to-the-list', patience: 30, why: 'writing the day as its own file' }),
+        ],
+      },
+    },
+    whatItMeans: BOOK.whatItMeans,
+    daysInWords: BOOK.daysInWords,
+    fileNames: BOOK.fileNames,
+  };
+  const portal = aPortal({ cards: { Views: 204, Orders: 1.8 } });
+  const got = await aWalk(portal, health)('me_views', DAY);
+  check('a step that reads a percentage asks the door for one, and a plain step asks for nothing special',
+    got.state === LANDED && portal.numbersRead.length === 2 && portal.numbersRead[0].reads === '' && portal.numbersRead[1].reads === 'percent');
+  check('and both figures reach the day\'s row under the names the recipe gives them',
+    portal.rowsAdded.length === 1 && portal.rowsAdded[0].header === 'Date,Account Health Rating,Late Dispatch Rate' && portal.rowsAdded[0].row.endsWith(',204,1.8'));
+}
+
+/* --------------------------- N018: EVERY CLOSED STATEMENT THE DRIVE DOES NOT ALREADY HOLD (Control's ruling of 26 Oct 2026)
+ * **AMAZON'S WEEKLY SETTLEMENT STATEMENTS.** The walk asks the page for the words of every row that has a Download, files each under the day its period ENDED, skips what the Drive already holds, and takes each of
+ * the rest in turn -- so a week closed late or a missed run is picked up next time. It is taken by the row's own period words, never by a day. */
+{
+  const statements = {
+    recipes: {
+      me_orders: {
+        readyInMinutes: 0,
+        toAsk: [],
+        toTake: [
+          step({ do: 'go', address: 'https://supplier.example.invalid/panel/{panel}/statements', why: 'opening the statements' }),
+          step({ do: 'wait-for', find: find('Statement Period', { called: 'the statements table' }), patience: 45, why: 'waiting for the table to draw' }),
+          step({ do: 'take-every-new', find: find('Download Flat File V2'), patience: 20,
+            noRowIsNothingToFetch: 'No closed settlement statement is new, so there is nothing to fetch.',
+            why: 'taking every closed statement the Drive does not hold' }),
+        ],
+      },
+    },
+    whatItMeans: BOOK.whatItMeans,
+    daysInWords: BOOK.daysInWords,
+    fileNames: BOOK.fileNames,
+  };
+  const ROW_20 = '13/10/2026 – 20/10/2026 View summary ₹6,491.00 Download Flat File V2';
+  const ROW_13 = '6/10/2026 – 13/10/2026 View summary ₹4,781.80 Download Flat File V2';
+  const one = aPortal({ rows: [ROW_20, ROW_13], held: [`meesho_me_orders_2026-10-13.csv`] });
+  const gotOne = await aWalk(one, statements)('me_orders', DAY);
+  check('ONE NEW: the statement the Drive does not hold is taken, filed under the day it ENDED, pressed by its own period words',
+    gotOne.state === LANDED && one.putAway.length === 1 && one.putAway[0].fileName === 'meesho_me_orders_2026-10-20.csv'
+    && one.clickedNear.length === 1 && JSON.stringify(one.clickedNear[0]) === JSON.stringify(['13/10/2026 – 20/10/2026']));
+  check('and the one already held is neither pressed nor put again', one.tookFile === 1 && !one.putAway.some((f) => f.fileName.endsWith('2026-10-13.csv')));
+  const two = aPortal({ rows: [ROW_20, ROW_13], held: [] });
+  const gotTwo = await aWalk(two, statements)('me_orders', DAY);
+  check('TWO NEW: both are taken, in the order the page lists them, each under its own end day',
+    gotTwo.state === LANDED && two.putAway.map((f) => f.fileName).join() === 'meesho_me_orders_2026-10-20.csv,meesho_me_orders_2026-10-13.csv' && two.tookFile === 2);
+  check('and the answer names both files', gotTwo.say.includes('2026-10-20') && gotTwo.say.includes('2026-10-13'));
+  const none = aPortal({ rows: [ROW_20, ROW_13], held: ['meesho_me_orders_2026-10-20.csv', 'meesho_me_orders_2026-10-13.csv'] });
+  const gotNone = await aWalk(none, statements)('me_orders', DAY);
+  check('NONE NEW: nothing is pressed or put, and it is NOTHING TO FETCH in the recipe\'s own words, not a failure',
+    gotNone.state === NOTHING_TO_FETCH && gotNone.say.includes('nothing to fetch') && none.putAway.length === 0 && none.tookFile === 0 && none.clicked.length === 0);
+  const open = aPortal({ rows: ['20/10/2026 – Present Download Flat File V2', ROW_20], held: [] });
+  const gotOpen = await aWalk(open, statements)('me_orders', DAY);
+  check('ONE STILL OPEN (a row with no closed period): it is skipped and SAID, and the closed one is still taken',
+    gotOpen.state === LANDED && open.putAway.length === 1 && open.putAway[0].fileName === 'meesho_me_orders_2026-10-20.csv'
+    && SAID.some((line) => line.includes('Present')));
+  const blind = aPortal({ rows: [ROW_20], noWayOfAsking: true });
+  const gotBlind = await aWalk(blind, statements)('me_orders', DAY);
+  check('a walk with no way of asking what the Drive holds FAILS in words rather than taking everything again',
+    gotBlind.state === FAILED && gotBlind.say.includes('holds') && blind.putAway.length === 0);
+  const noRows = aPortal({ rows: [], held: [] });
+  const gotNoRows = await aWalk(noRows, statements)('me_orders', DAY);
+  check('but a page with NO Download control at all is a FAILURE, not "nothing new": rows drawing late or a renamed control would otherwise read as nothing to fetch every week (the Opus review, 26 Oct 2026)',
+    gotNoRows.state === FAILED && gotNoRows.say.includes('Download Flat File V2'));
+  const blank = aPortal({ rows: ['20/10/2026 – Present Download Flat File V2'], held: [] });
+  const gotBlank = await aWalk(blank, statements)('me_orders', DAY);
+  check('while rows that are all still open (no closed period) ARE nothing to fetch', gotBlank.state === NOTHING_TO_FETCH && blank.putAway.length === 0);
+  const unseen = aPortal({ rows: [ROW_20], held: [], matches: { 'Download Flat File V2': 0 } });
+  const gotUnseen = await aWalk(unseen, statements)('me_orders', DAY);
+  check('and the walk WAITS for a control first: none turning up in the step\'s patience is a failure before any row is read',
+    gotUnseen.state === FAILED && unseen.putAway.length === 0);
 }
 
 /* --------------------------- the day that is read off a page, not downloaded */
@@ -1975,6 +2163,12 @@ ${DAY}`) !== null
   check('and the same day reads differently for the two of them',
     theDaysInWords(BOOK, 'loud', '2026-01-01')[0] === '01 JANU 2026'
     && theDaysInWords(BOOK, 'quiet', '2026-01-01')[0] === '1 ja 2026');
+  /* **THE TWO PIECES ADDED FOR AMAZON'S NUMERIC ROW DATES (N018, 26 Oct 2026)**: a two-digit year (`{yy}`) and a month with no nought (`{m}`). Written out by hand, with a stand-in book
+   * so nothing passes by knowing what the real one holds. */
+  const NUMERIC = { daysInWords: { numeric: { months: [], spellings: ['{dd}/{mm}/{yy}', '{d}/{m}/{yyyy}'] } } };
+  check('a day is also written with a two-digit year and a month with no nought (Amazon\'s order and statement rows)',
+    JSON.stringify(theDaysInWords(NUMERIC, 'numeric', '2026-09-06')) === JSON.stringify(['06/09/26', '6/9/2026'])
+    && JSON.stringify(theDaysInWords(NUMERIC, 'numeric', '2026-10-26')) === JSON.stringify(['26/10/26', '26/10/2026']));
   check('the last month of the year is the last one in the list, not one past it',
     theDaysInWords(BOOK, 'quiet', '2026-12-31')[0] === '31 dc 2026');
   /* **SEVERAL SPELLINGS, NOT ONE, and the second one proves the walk reads the
@@ -2815,7 +3009,7 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
     === '05 SEPT 2026 / 2026-09-05|SEPT/05 / 2026-09-05');
 }
 
-const EXPECTED = 349 + 9 + 3 + 1;
+const EXPECTED = 349 + 9 + 3 + 1 + 1 + 3 + 8 + 2 + 4 + 2 + 2;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

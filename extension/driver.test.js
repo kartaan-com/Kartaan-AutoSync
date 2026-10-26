@@ -147,9 +147,9 @@ function everyDateBox(page) {
     JSON.stringify(Object.keys(door).sort())
       === JSON.stringify([...THE_CALLS, ...ASKED_ONLY_BY_THE_WALK].sort()));
   check('and no walk-only question is dressed up as a Python call',
-    ASKED_ONLY_BY_THE_WALK.length === 5
+    ASKED_ONLY_BY_THE_WALK.length === 6
       && ASKED_ONLY_BY_THE_WALK.every((one) => !THE_CALLS.includes(one))
-      && ['where_they_sit', 'banners_seen', 'close_pop_ups', 'type_in', 'try_signing_in']
+      && ['where_they_sit', 'banners_seen', 'close_pop_ups', 'type_in', 'try_signing_in', 'row_texts']
         .every((one) => ASKED_ONLY_BY_THE_WALK.includes(one)));
   check('and there are eleven of them', THE_CALLS.length === 11);
   /* **THE ELEVENTH IS THE ONLY ONE THAT BRINGS A VALUE BACK.** Everything else
@@ -2662,7 +2662,158 @@ for (const [start, end, from, expectedMonth] of [
     (await shutDoor.try_signing_in()) === false);
 }
 
-const EXPECTED = 325;
+/* --------------------------------------------- N018: a component's OPEN shadow root is part of the page
+ * **AMAZON'S PRODUCT REPORTS PAGE DRAWS ITS REPORT-TYPE LIST INSIDE A `kat-dropdown`'S OPEN SHADOW ROOT** (seen 26 Oct 2026: the options -- All Listings Report, Referral Fee Preview Report --
+ * are in `shadowRoot`, none in the light tree). A search that only walks `children` cannot see one of them, so no recipe could ever choose a report type there. */
+{
+  const page = aPage();
+  const door = doorOn();
+  const pressed = [];
+  const dropdown = thing('kat-dropdown', '', { box: BIG });
+  const option = thing('div', 'All Listings Report', { box: BIG });
+  option.style.cursor = 'pointer';
+  option.click = () => pressed.push('the option in the shadow root');
+  /* **A REAL SHADOW ROOT IS A FRAGMENT WITH CHILDREN AND NO BOX**, so it is a plain object here, not a node a size could be asked of. */
+  dropdown.shadowRoot = { children: [option] };
+  page.body.append(dropdown);
+  check('a word that sits only inside a component\'s open shadow root is found',
+    (await door.find(BY_PRESSABLE_TEXT, 'All Listings Report')) === 1);
+  door.click(BY_PRESSABLE_TEXT, 'All Listings Report');
+  check('and it is that option that is pressed',
+    pressed.length === 1 && pressed[0] === 'the option in the shadow root');
+  check('while a word that is nowhere on the page is still nowhere', (await door.find(BY_PRESSABLE_TEXT, 'Cancelled Listings Report', true, 0)) === 0);
+}
+
+/* **AND A ROW IS FOUND THROUGH A SHADOW ROOT TOO (the Opus review of N018's range, finding 4).** Amazon's `Download` controls are `kat-button`s; if the word is drawn inside the button's shadow root, the
+ * climb from it to its row has to step from the root to the HOST (a real root has no parent of its own), or every take narrowed to a day finds nothing. */
+{
+  const page = aPage();
+  const door = doorOn();
+  const row = thing('div', '', { box: BIG });
+  row.append(thing('b', 'All Listings Report 25 October 2026 at 10:31 pm', { box: BIG }));
+  const host = thing('kat-button', '', { box: BIG });
+  const label = thing('span', 'Download', { box: BIG });
+  label.style.cursor = 'pointer';
+  const root = { children: [label], host, parentNode: null };
+  label.parentNode = root;
+  host.shadowRoot = root;
+  row.append(host);
+  page.body.append(row);
+  check('a word inside a component\'s shadow root is narrowed to its row through the host',
+    (await door.find(BY_PRESSABLE_TEXT, 'Download', true, 0, ['25 October 2026'], 'All Listings Report')) === 1);
+  check('and a row that does not name the day still has none of them',
+    (await door.find(BY_PRESSABLE_TEXT, 'Download', true, 0, ['26 October 2026'], 'All Listings Report')) === 0);
+}
+
+/* **AND THE "THIS ALREADY HOLDS ANOTHER MATCH, SO IT IS NOT A ROW" GUARD SEES THROUGH SHADOW ROOTS TOO (the Opus review, finding 3).** `Node.contains` never crosses into a shadow root, so with every Download inside a
+ * `kat-button` the climb never stopped at the row and reached the whole list, whose words name every day: yesterday's Download then counted as today's. */
+{
+  const page = aPage();
+  const door = doorOn();
+  const list = thing('div', '', { box: BIG });
+  const aRow = (heading) => {
+    const row = thing('div', '', { box: BIG });
+    row.append(thing('b', heading, { box: BIG }));
+    const host = thing('kat-button', '', { box: BIG });
+    const label = thing('span', 'Download', { box: BIG });
+    label.style.cursor = 'pointer';
+    const root = { children: [label], host, parentNode: null };
+    label.parentNode = root;
+    host.shadowRoot = root;
+    row.append(host);
+    return row;
+  };
+  list.append(aRow('All Listings Report 24 October 2026 at 10:31 pm'), aRow('All Listings Report 25 October 2026 at 10:31 pm'));
+  page.body.append(list);
+  check('TWO ROWS WITH THEIR DOWNLOAD IN A SHADOW ROOT: narrowed to the day, only that row\'s control matches, not both because the list names both days',
+    (await door.find(BY_PRESSABLE_TEXT, 'Download', true, 0, ['25 October 2026'], 'All Listings Report')) === 1);
+  check('and each row\'s words are its own, from the same climb', JSON.stringify(door.row_texts(BY_PRESSABLE_TEXT, 'Download', true, 'All Listings Report').map((one) => one.includes('24 October') !== one.includes('25 October'))) === '[true,true]');
+}
+
+/* --------------------------------------------- N018: a PERCENTAGE read off a card (Amazon's Account Health, 26 Oct 2026)
+ * **ADDED BESIDE THE PLAIN-NUMBER READ, NEVER IN PLACE OF IT.** A card there reads `Late Dispatch Rate`, `1.8%`, `2 of 111 orders`, `30 days`; the plain read takes whole numbers only and would take
+ * the `2`. A step says it wants a percentage; one that does not says nothing and reads exactly as it always did -- the Meesho views checks above are that proof. */
+{
+  const page = aPage();
+  const door = doorOn();
+  const card = thing('div');
+  card.append(thing('a', 'Late Dispatch Rate'), thing('span', '1.8%'), thing('span', '2 of 111 orders'), thing('span', '30 days'));
+  page.body.append(card);
+  check('a percentage is read as the number it is, with its decimals',
+    (await door.read_number(BY_TEXT, 'Late Dispatch Rate', true, 0, [], '', 'percent')) === 1.8);
+  const whole = thing('div');
+  whole.append(thing('a', 'Valid Tracking Rate'), thing('span', '100%'), thing('span', '64 of 64 shipments'));
+  page.body.append(whole);
+  check('and a whole percentage is read too', (await door.read_number(BY_TEXT, 'Valid Tracking Rate', true, 0, [], '', 'percent')) === 100);
+  let plainSaid = '';
+  try { await door.read_number(BY_TEXT, 'Valid Tracking Rate'); } catch (wrong) { plainSaid = String(wrong.message); }
+  check('the same card read the PLAIN way is still refused as before: no whole number beside it, and it is not handed the percentage or the 64',
+    plainSaid.includes('no plain number'));
+  const plainCard = thing('div');
+  plainCard.append(thing('a', 'Account Health Rating'), thing('span', '204'), thing('span', '0 - 1000'));
+  page.body.append(plainCard);
+  check('while a whole number beside its label is read the plain way exactly as before', (await door.read_number(BY_TEXT, 'Account Health Rating')) === 204);
+  const bare = aPage();
+  const bareCard = thing('div');
+  bareCard.append(thing('a', 'Order Defect Rate'), thing('span', '0 of 128 orders'));
+  bare.body.append(bareCard);
+  let said = '';
+  try { await door.read_number(BY_TEXT, 'Order Defect Rate', true, 0, [], '', 'percent'); } catch (wrong) { said = String(wrong.message); }
+  check('a card with a label and no percentage beside it is refused in words, never filled with another number', said.includes('no plain number') || said.includes('no percentage'));
+}
+
+/* --------------------------------------------- N018: Amazon's own STATUS WORD beside a rate (Control's word 26 Oct 2026: "At Risk", "Healthy", exactly as the page prints it)
+ * **A BLANK IS NOTHING, NEVER A FAILURE:** the word list is from what Amazon is known to print, the page was not seen with every word on it, so a card with no word we know leaves the cell empty and the figures still land. */
+{
+  const page = aPage();
+  const door = doorOn();
+  const risk = thing('div');
+  risk.append(thing('a', 'Late Dispatch Rate'), thing('span', '1.8%'), thing('span', 'At Risk'), thing('span', 'Target: below 4%'));
+  const fine = thing('div');
+  fine.append(thing('a', 'Valid Tracking Rate'), thing('span', '100%'), thing('span', 'Healthy'));
+  const unknown = thing('div');
+  unknown.append(thing('a', 'Order Defect Rate'), thing('span', '0%'), thing('span', 'something Amazon has not shown us'));
+  page.body.append(risk, fine, unknown);
+  check('the status word beside a rate is read exactly as the page prints it', (await door.read_number(BY_TEXT, 'Late Dispatch Rate', true, 0, [], '', 'status')) === 'At Risk');
+  check('and a healthy one too', (await door.read_number(BY_TEXT, 'Valid Tracking Rate', true, 0, [], '', 'status')) === 'Healthy');
+  check('a card with no word this knows gives an empty answer, not a failure and not another card\'s word',
+    (await door.read_number(BY_TEXT, 'Order Defect Rate', true, 0, [], '', 'status')) === '');
+  let said = '';
+  try { await door.read_number(BY_TEXT, 'Not On This Page', true, 0, [], '', 'status'); } catch (wrong) { said = String(wrong.message); }
+  check('a label that is not on the page is still refused in words', said.includes('Nothing on the page matches'));
+}
+
+/* --------------------------------------------- N018: the words of every row that holds a control
+ * **ASKED ONLY BY THE WALK.** Amazon's All Statements page lists a statement per row, each closed one with its own `Download Flat File V2`; the walk has to know WHICH statement each control belongs to
+ * before it presses any of them, so it asks the page for the words of the row each one sits in. The row is the largest ancestor (within six levels) that holds that control and no other. */
+{
+  const page = aPage();
+  const door = doorOn();
+  const aRow = (words, withButton) => {
+    const row = thing('div', '', { box: BIG });
+    row.append(thing('span', words, { box: BIG }));
+    if (withButton) {
+      const button = thing('button', 'Download Flat File V2', { box: BIG });
+      button.style.cursor = 'pointer';
+      row.append(button);
+    } else {
+      row.append(thing('span', 'Available after settlement close', { box: BIG }));
+    }
+    return row;
+  };
+  const table = thing('div', '', { box: BIG });
+  table.append(aRow('20/10/2026 – Present', false), aRow('13/10/2026 – 20/10/2026 View summary', true), aRow('6/10/2026 – 13/10/2026 View summary', true));
+  page.body.append(thing('h1', 'All Statements', { box: BIG }), table);
+  const rows = await door.row_texts(BY_PRESSABLE_TEXT, 'Download Flat File V2', true, '');
+  check('the words of the row each control sits in are handed back, one per control, in page order, never the whole table',
+    Array.isArray(rows) && rows.length === 2 && rows[0].includes('13/10/2026 – 20/10/2026') && rows[1].includes('6/10/2026 – 13/10/2026')
+    && !rows[0].includes('6/10/2026') && !rows[1].includes('13/10/2026 – 20/10/2026'));
+  check('and a row that has no such control is not in the answer', !rows.some((one) => one.includes('Present')));
+  check('and a page with none answers an empty list, not a refusal', (await door.row_texts(BY_PRESSABLE_TEXT, 'Nothing like this', true, '')).length === 0);
+  check('the call is one only the walk asks', ASKED_ONLY_BY_THE_WALK.includes('row_texts') && !THE_CALLS.includes('row_texts'));
+}
+
+const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

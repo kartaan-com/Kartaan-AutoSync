@@ -47,6 +47,7 @@ import {
   theListWith,
   theMetadata,
   whatIsAlreadyThere,
+  whatIsHeldFor,
   theKartaanFolder,
   thePathFor,
   whatToDoAbout,
@@ -802,7 +803,28 @@ check('the same day written again replaces its row, never adds a second (R20 pro
     JSON.stringify(again.days) === '["2026-10-14"]' && there.contents === 'Date,Views,Orders\n2026-10-14,9,2');
 }
 
-const EXPECTED = 88 + 4;
+/* --------------------------------------------- N018: WHICH FILE NAMES A REPORT'S FOLDER ALREADY HOLDS
+ * **ASKED BY THE WALK THAT TAKES EVERY NEW SETTLEMENT STATEMENT**: names only, from the report's own folder, never from another's, and a folder that does not exist yet holds nothing (it is NOT made by
+ * being asked about). */
+{
+  const browser = installFakeChrome();
+  const drive = aDrive({
+    holds: [
+      ...theFoldersFor('me_catalog'),
+      { id: 'a', name: 'meesho_me_catalog_2026-10-13.csv', parents: ['f1'] },
+      { id: 'b', name: 'meesho_me_catalog_2026-10-20.csv', parents: ['f1'] },
+      { id: 'elsewhere', name: 'meesho_me_catalog_2026-10-06.csv', parents: ['not-this-folder'] },
+    ],
+  });
+  const names = await whatIsHeldFor(browser.chrome, drive.ask, { reportId: 'me_catalog', inside: 'kartaan', layout: LAYOUT });
+  check('the names in the report\'s own folder are handed back, and no other folder\'s',
+    JSON.stringify([...names].sort()) === JSON.stringify(['meesho_me_catalog_2026-10-13.csv', 'meesho_me_catalog_2026-10-20.csv']));
+  const empty = aDrive({ holds: [] });
+  const none = await whatIsHeldFor(browser.chrome, empty.ask, { reportId: 'me_catalog', inside: 'kartaan', layout: LAYOUT });
+  check('a report with no folder yet holds nothing, and asking did not make the folder', none.length === 0 && empty.made.length === 0);
+}
+
+const EXPECTED = 88 + 4 + 2;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

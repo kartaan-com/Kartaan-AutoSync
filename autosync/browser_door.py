@@ -159,7 +159,7 @@ def do_the_steps(
     # (2026-09-15). Typing a campaign into Flipkart's search and reading keywords off
     # its pop-ups both need the page itself, so a page opened here would be opened
     # for nothing.
-    if any(s.do in (pages.TYPE_IN, pages.READ_THE_KEYWORDS, pages.READ_THE_TABLE) or s.for_each_campaign for s in steps):
+    if any(s.do in (pages.TYPE_IN, pages.READ_THE_KEYWORDS, pages.READ_THE_TABLE, pages.TAKE_EVERY_NEW) or s.for_each_campaign or s.only_if_absent is not None for s in steps):
         return Fetched(FAILED, report_id, data_date,
                        say="This report needs the page itself -- a campaign typed into Flipkart's "
                            "search, or keywords read off it -- which only the browser extension "
@@ -474,6 +474,9 @@ def _take_the_file(browser, step, report_id, data_date, which):
             browser.click(again.by.how, again.by.what, again.by.exact, again.by.near)
             many = browser.find(step.find.how, step.find.what, step.find.exact, step.patience,
                                 step.find.near)
+        if many == 0 and step.none_means_nothing_to_fetch:
+            # **THE TABLE WAS PROVED BY THE STEP BEFORE, so no row for the day is a day with nothing to take (N018): said, never a failure and never a file.**
+            return Fetched(NOTHING_TO_FETCH, report_id, data_date, say=step.none_means_nothing_to_fetch)
         if many == 0:
             return _gave_up(report_id, data_date, pages.WentWrong(
                 kind=(pages.COVERED_UP if pages.is_covered(browser.overlays()) is not None

@@ -41,6 +41,8 @@
  * each with the check that proves it -- not re-derived.
  */
 
+import { theStatementPeriod } from './tables.js';
+
 /* The same four words, spelt the same. A fifth spelling of "it worked" is a
  * report the runner cannot read. */
 export const LANDED = 'landed';
@@ -139,6 +141,8 @@ export const READ_THE_KEYWORDS = 'read-the-keywords';
 /* **THE ONE THAT READS A NAMED TABLE OFF THE PAGE, EVERY PAGE OF IT** (job 15). `extension/tables.js` says what is on each
  * table; `autosync/browser.py` holds the names a recipe may ask for. */
 export const READ_THE_TABLE = 'read-the-table';
+/* **EVERY CLOSED STATEMENT THE SELLER'S DRIVE DOES NOT ALREADY HOLD (N018, Amazon settlements)**: the page lists them, the Drive says which it has, and each new one is taken in turn. */
+export const TAKE_EVERY_NEW = 'take-every-new';
 /* **THE ONE STEP THAT LOOKS AT NOTHING.** Every other kind of waiting here waits
  * for something to appear. Meesho builds an orders export on its own servers and
  * the page it was asked from does not change at all while it happens, so there
@@ -254,11 +258,11 @@ function anAnswer(state, reportId, dataDate, rest = {}) {
 export function whyStepIsRefused(step) {
   if (!step || typeof step !== 'object') return 'That is not a step.';
   if (![GO, CLICK, WAIT_FOR, PICK_RANGE, TAKE_FILE, WAIT,
-    READ_NUMBER, ADD_TO_THE_LIST, SWEEP_THE_ADS, TYPE_IN, READ_THE_KEYWORDS, READ_THE_TABLE].includes(step.do)) {
+    READ_NUMBER, ADD_TO_THE_LIST, SWEEP_THE_ADS, TYPE_IN, READ_THE_KEYWORDS, READ_THE_TABLE, TAKE_EVERY_NEW].includes(step.do)) {
     return `"${step.do}" is not something this door knows how to do.`;
   }
   if (step.do === GO && !step.address) return 'A step that goes somewhere has to say where.';
-  if ((step.do === CLICK || step.do === WAIT_FOR || step.do === READ_NUMBER || step.do === TYPE_IN)
+  if ((step.do === CLICK || step.do === WAIT_FOR || step.do === READ_NUMBER || step.do === TYPE_IN || step.do === TAKE_EVERY_NEW)
     && !step.find) {
     return `A ${step.do} step has to say what to look for.`;
   }
@@ -294,6 +298,9 @@ export function whyStepIsRefused(step) {
      * time and never look at it, and the recipe would read as though it had
      * waited FOR that thing. */
     return 'A step that only waits has nothing to look for. Waiting for something is a wait-for.';
+  }
+  if (step.onlyIfAbsent && (typeof step.onlyIfAbsent !== 'object' || !step.onlyIfAbsent.how || !step.onlyIfAbsent.what)) {
+    return 'A step that is done only when something is not there has to say what to look for.';
   }
   if (step.orFind && step.do !== WAIT_FOR) {
     /* **SOMETHING ELSE THAT COUNTS IS ONLY FOR A WAIT.** The same sentence the
@@ -517,9 +524,12 @@ export function theDaysInWords(book, whose, dataDate) {
      * the Python half like the short ones; nothing here has an opinion. */
     Month: (rule.monthsInFull || [])[month - 1],
     d: String(day),
+    /* **THE SEVENTH AND EIGHTH PIECES (N018, 26 Oct 2026):** a two-digit year and a month with no nought, for Amazon's numeric row dates. Nothing here has an opinion. */
+    yy: String(year % 100).padStart(2, '0'),
+    m: String(month),
   };
   return rule.spellings.map(
-    (shape) => String(shape).replace(/\{(yyyy|mm|dd|Mon|Month|d)\}/g, (_, piece) => pieces[piece])
+    (shape) => String(shape).replace(/\{(yyyy|mm|dd|Mon|Month|d|yy|m)\}/g, (_, piece) => pieces[piece])
   );
 }
 
@@ -698,6 +708,9 @@ export function theWalk({
    * the seller's report, report LANDED, and put it nowhere -- which is exactly
    * the state this closes, and it would look identical to working. */
   putTheFile,
+  /* **WHAT THE SELLER'S DRIVE ALREADY HOLDS FOR A REPORT, by file name (N018).** Handed in like `putTheFile`, because only the background half can reach the Drive. Needed only by a walk that takes every new
+   * statement; without it that step FAILS in words rather than taking every statement again and putting a second copy of each in the Drive. */
+  whatIsHeld,
   /* **ARMING THE CATCHER FOR THE NEXT FILE THE PAGE BUILDS INSIDE ITSELF (A44).**
    *
    * **HANDED IN LIKE `putTheFile`, AND NOT ON THE DOOR, FOR THE REASON THE DOOR
@@ -897,6 +910,9 @@ export function theWalk({
       orFind: step.orFind
         ? { ...step.orFind, near: theRowsItCouldBe(book, step.orFind, dataDate, runDay, fromDay) }
         : step.orFind,
+      onlyIfAbsent: step.onlyIfAbsent
+        ? { ...step.onlyIfAbsent, near: theRowsItCouldBe(book, step.onlyIfAbsent, dataDate, runDay, fromDay) }
+        : step.onlyIfAbsent,
     };
   }
 
@@ -1153,6 +1169,12 @@ export function theWalk({
         await door.click(again.by.how, again.by.what, again.by.exact, again.by.near);
         many = await door.find(step.find.how, step.find.what, step.find.exact, step.patience,
           step.find.near, step.find.alsoSaying);
+      }
+      /* **A ROW THAT IS NOT THERE MAY BE NOTHING TO FETCH, WHEN THE RECIPE SAYS SO (N018, Control's ruling of 26 Oct 2026).** Amazon's settlement statements come weekly, so on six days in
+       * seven the statements table is drawn and no row ends on the day. **ONLY SAFE BECAUSE THE STEP BEFORE THIS ONE WAITED FOR THE TABLE ITSELF**: a page that never drew, or a table that was
+       * renamed, failed there and this was never reached. The same rule `browser_door.py` holds. */
+      if (many === 0 && step.noRowIsNothingToFetch) {
+        return { nothing: { say: step.noRowIsNothingToFetch } };
       }
       if (many === 0) {
         return { failed: await whyNothingWasFound(step, reportId, dataDate) };
@@ -1506,6 +1528,26 @@ export function theWalk({
        * halves of one walk readable as one walk. */
       say(`${reportId}: step ${at + 1} of ${plan.steps.length}, ${step.why}.`);
 
+      /* **A STEP THAT IS DONE ONLY WHEN SOMETHING IS NOT THERE (N018, his word D728: AutoSync creates the saved ads report the first time it is missing).** Asked of the page AT THE MOMENT OF THE STEP, so what the walk has just made counts as there for every step after it, and a page that already has it never has it made twice. A step skipped is SAID, with its reason. */
+      if (step.onlyIfAbsent) {
+        let there = 0;
+        /* **THE FIRST LOOK WAITS FOR THE LIST (a step that opens a page waits up to twenty seconds); THE LOOKS AFTER IT, on a form that is absent anyway, take three.** And **A LOOK THAT ERRORS IS NOT "ABSENT":**
+         * a page torn down mid-look read as a missing report would make a SECOND saved report, and every later day would then be refused (the Opus review, 26 Oct 2026). */
+        const howLong = step.do === GO ? Math.min(Number(step.patience) || 3, 20) : 3;
+        try {
+          there = await door.find(step.onlyIfAbsent.how, step.onlyIfAbsent.what, step.onlyIfAbsent.exact, howLong, step.onlyIfAbsent.near, step.onlyIfAbsent.alsoSaying);
+        } catch (wrong) {
+          return anAnswer(FAILED, reportId, dataDate, {
+            say: `${step.why}: looking for ${step.onlyIfAbsent.called || step.onlyIfAbsent.what} failed (${(wrong && wrong.message) || wrong}), so nothing was done rather than risk doing it twice.`,
+            pageWas: capture(await door.page_text()),
+          });
+        }
+        if (there > 0) {
+          say(`${reportId}: skipped "${step.why}": ${step.onlyIfAbsent.called || step.onlyIfAbsent.what} is already there.`);
+          continue;
+        }
+      }
+
       if (step.do === GO) {
         /* **GOING SOMEWHERE ENDS THIS PAGE'S TURN, AND THAT IS THE WHOLE OF
          * D200.** The walk runs inside the portal's own page. Telling the
@@ -1802,9 +1844,99 @@ export function theWalk({
         }
       }
 
+      if (step.do === TAKE_EVERY_NEW) {
+        /* **EVERY CLOSED STATEMENT THE DRIVE DOES NOT ALREADY HOLD, EACH FILED UNDER THE DAY ITS PERIOD ENDED (N018; Control's ruling of 26 Oct 2026).** Not named by the run's day: a week closed late, or a
+         * run that never happened, is picked up next time. **IT NEEDS TO KNOW WHAT THE DRIVE HOLDS** -- taking every statement every night would be a download a night per week of the account's life and a
+         * second copy of each in the Drive -- so a walk with no way of asking FAILS in words. **THE STEP BEFORE HAS WAITED FOR THE TABLE ITSELF**, so none new is nothing to fetch and never a failure. */
+        if (typeof whatIsHeld !== 'function') {
+          return anAnswer(FAILED, reportId, dataDate, {
+            say: 'This recipe takes only what the seller\'s Drive does not already hold, and this walk was built with no way of asking what the Drive holds, so nothing was taken '
+              + '(taking every statement again would put a second copy of each in the Drive).',
+          });
+        }
+        let rowsSaid;
+        try {
+          /* **WAIT FOR A CONTROL FIRST, AND NONE AT ALL IS A FAILURE, NEVER "NOTHING NEW"** (the Opus review, 26 Oct 2026): the header proves the table, not its rows, and rows that draw late or a control Amazon has
+           * renamed would otherwise read as nothing to fetch every week. Only rows that are ALL held (or all still open) are nothing to fetch. */
+          const drawn = await door.find(step.find.how, step.find.what, step.find.exact, step.patience, [], step.find.alsoSaying);
+          if (!drawn) {
+            return anAnswer(FAILED, reportId, dataDate, {
+              say: `${step.why}: no ${step.find.called || step.find.what} turned up on the page in ${step.patience} seconds, so what the page holds could not be told apart from a page that never drew its rows.`,
+              pageWas: capture(await door.page_text()),
+            });
+          }
+          rowsSaid = await door.row_texts(step.find.how, step.find.what, step.find.exact, step.find.alsoSaying);
+          if (!rowsSaid || !rowsSaid.length) {
+            return anAnswer(FAILED, reportId, dataDate, {
+              say: `${step.why}: the page has no ${step.find.called || step.find.what} to read a row from, so this is not "nothing new".`,
+              pageWas: capture(await door.page_text()),
+            });
+          }
+        } catch (wrong) {
+          return anAnswer(FAILED, reportId, dataDate, {
+            say: `${step.why}: ${(wrong && wrong.message) || wrong}`,
+            pageWas: capture(await door.page_text()),
+          });
+        }
+        const periods = [];
+        for (const text of rowsSaid || []) {
+          const period = theStatementPeriod(text);
+          if (period) periods.push(period);
+          else say(`${reportId}: skipped a row that has no closed period (an open statement): ${String(text).slice(0, 80)}`);
+        }
+        let held;
+        try {
+          held = await whatIsHeld({ reportId });
+        } catch (wrong) {
+          return anAnswer(FAILED, reportId, dataDate, {
+            say: `What the seller's Drive already holds for ${reportId} could not be looked at, so nothing was taken: ${(wrong && wrong.message) || wrong}`,
+          });
+        }
+        const have = new Set(held || []);
+        const toTake = [];
+        for (const period of periods) {
+          const called = theFileName(book, reportId, period.end);
+          if (!called) {
+            return anAnswer(FAILED, reportId, dataDate, {
+              say: `There is nothing in the recipe file saying what ${reportId}'s file is called, so nothing has been put anywhere.`,
+            });
+          }
+          if (!have.has(called)) toTake.push({ period, called });
+        }
+        if (!toTake.length) {
+          return anAnswer(NOTHING_TO_FETCH, reportId, dataDate, {
+            say: step.noRowIsNothingToFetch || 'Every closed statement the page shows is already held, so there is nothing to fetch.',
+          });
+        }
+        const landedNow = [];
+        for (const one of toTake) {
+          /* Pressed by the row's own period words, narrowed the way every named row is, and taken the way every file is -- the same `takeTheFile` -- so the sign-in-page and empty-file guards apply. */
+          const takeOne = { ...step, do: TAKE_FILE, noRowIsNothingToFetch: '', find: { ...step.find, near: [one.period.period] } };
+          // eslint-disable-next-line no-await-in-loop
+          const got = await takeTheFile(takeOne, reportId, one.period.end);
+          if (got.failed) return got.failed;
+          try {
+            // eslint-disable-next-line no-await-in-loop
+            await putTheFile({ reportId, fileName: one.called, body: got.body });
+          } catch (wrong) {
+            return anAnswer(FAILED, reportId, dataDate, {
+              fileName: one.called,
+              say: `${one.called} could not be put in the seller's Drive: ${(wrong && wrong.message) || wrong}`,
+            });
+          }
+          landedNow.push({ called: one.called, size: got.body.length });
+        }
+        return anAnswer(LANDED, reportId, dataDate, {
+          fileName: landedNow[0].called,
+          size: landedNow.reduce((all, one) => all + one.size, 0),
+          say: `Landed ${landedNow.map((one) => `${one.called} (${one.size} bytes)`).join(', ')} in the seller's Drive: the closed statements it did not already hold.`,
+        });
+      }
+
       if (step.do === TAKE_FILE) {
         const got = await takeTheFile(step, reportId, dataDate);
         if (got.failed) return got.failed;
+        if (got.nothing) return anAnswer(NOTHING_TO_FETCH, reportId, dataDate, { say: got.nothing.say });
         /* **THE NAME IS THE PYTHON'S, NEVER THIS FILE'S.** The nightly run takes
          * the day out of the file NAME and refuses a file that has none, so a
          * name invented here is a file that reaches the seller's Drive and can
@@ -1935,7 +2067,7 @@ export function theWalk({
         try {
           readSoFar.set(column, await door.read_number(
             step.find.how, step.find.what, step.find.exact, step.patience,
-            step.find.near, step.find.alsoSaying,
+            step.find.near, step.find.alsoSaying, step.reads || '',
           ));
         } catch (wrong) {
           /* **ITS OWN FAILURE, WITH THE DOOR'S OWN WORDS.** The door says which

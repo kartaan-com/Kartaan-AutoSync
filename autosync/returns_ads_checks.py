@@ -184,6 +184,20 @@ check("the sale is the ledger's", ar.get("saleKey") == "amazon::407-1::SKU-Q")
 check("a return with no SKU has no sku field, not an empty one", "sku" not in a.records["amazon__RMA2"] and a.records["amazon__RMA2"]["saleKey"] == "amazon::407-2::")
 check("Amazon's records carry neither the return AWB nor the Sub Type", "returnAwb" not in ar and "returnSubType" not in ar)
 
+# **THE FILE SELLER CENTRAL'S RETURN REPORTS PAGE GIVES (N018, seen live 26 Oct 2026: 34 columns, tab-separated, a blank cell is one space).** Moving Amazon returns off the
+# API to the browser (his ruling D726) is only right if the reader takes this file's own header as it is. The header below is the real one; the two rows are made up.
+AZ_LIVE_HEAD = ("Order ID\tOrder date\tReturn request date\tReturn request status\tAmazon RMA ID\tMerchant RMA ID\tLabel type\tLabel cost\tCurrency code\tReturn carrier\t"
+                "Tracking ID\tLabel to be paid by\tA-to-Z Claim\tIs prime\tASIN\tMerchant SKU\tItem Name\tReturn quantity\tReturn Reason\tIn policy\tReturn type\tResolution\t"
+                "Invoice number\tReturn delivery date\tOrder Amount\tOrder quantity\tSafeT Action reason\tSafeT claim id\tSafeT claim state\tSafeT claim creation time\t"
+                "SafeT claim reimbursement amount\tRefunded Amount\tCategory\tOrder Item ID")
+_live = answered(lambda: returns.read_returns("az_returns", az(
+    "405-1\t17-Oct-2026\t24-Oct-2026\tApproved\tRMAL1\t \tAmazonPrePaidLabel\t92.00\tINR\tATS\t5152\tSeller\tN\tY\tB0X\tSKU-L\tItem\t1\tCR-DAMAGED_BY_FC\tY\tC-Returns\tStandardRefund\t \t \t349.00\t1\t \t \t \t \t \t \tJewelry\t42",
+    head=AZ_LIVE_HEAD), "2026-10-24"))
+_lr = (_live.records.get("amazon__RMAL1") or {}) if _live else {}
+check("THE FILE THE RETURN REPORTS PAGE GIVES IS READ BY THE SAME READER, on its own header (N018): the RMA id names the record, the reason and the dates come through",
+      _live is not None and set(_live.records) == {"amazon__RMAL1"} and _lr.get("reason") == "CR-DAMAGED_BY_FC"
+      and _lr.get("startedOn") == "2026-10-24" and _lr.get("saleKey") == "amazon::405-1::SKU-L" and "closedOn" not in _lr)
+
 # ------------------------------------------------------------------ Flipkart / Meesho ads
 
 DAILY_HEAD = "Campaign ID,Campaign Name,Date,Ad Spend,Views,Clicks,Total converted units,Total Revenue (Rs.),ROI"
@@ -481,9 +495,9 @@ check("a file whose columns have moved stops, in words, and is left to be read a
 # ------------------------------------------------------------------ the rule that ties reports to readers
 
 readers = {o.report_id for o in reading.WHAT_RETURNS_CAN_BE_READ + reading.WHAT_ADS_CAN_BE_READ}
-check("the returns and ads readers are the ten reports named",
+check("the returns and ads readers are the eleven reports named (Amazon ads joined, N018)",
       readers == {"fk_returns", "me_returns", "az_returns", "fk_ads_daily", "fk_ads_placements", "fk_ads_overall", "fk_ads_search",
-                  "fk_ads_orders", "me_ads_summary", "me_ads"})
+                  "fk_ads_orders", "me_ads_summary", "me_ads", "az_ads"})
 check("each is a report that exists and none is also said to be unread",
       all(r in reports.BY_ID for r in readers) and not (readers & set(reading.WHAT_IS_FETCHED_AND_NOT_READ_YET)))
 check("and they write no ledger column", all(o.knows == () for o in reading.WHAT_RETURNS_CAN_BE_READ + reading.WHAT_ADS_CAN_BE_READ))
@@ -676,9 +690,73 @@ check("A LEDGER THAT REFUSES A RETURNS FILE IS SAID AS THE LEDGER'S REFUSAL, the
       _refused_night is not None and _refused_night.read_tonight == () and len(_refused_night.the_ledger_refused) == 2
       and "columns have moved" in _refused_night.the_ledger_refused[0])
 
+# ---------------------------------------------------------------- N018: AMAZON'S ADS (Campaign report, Amazon Ads console > Reporting, seen 26 Oct 2026)
+# **THE HEADER AND THE SHAPE OF A ROW ARE HIS REAL FILE'S** (`Campaign - ...csv` for this year: one Sponsored Products campaign over a date range); the figures and ids below are made up. The file has a UTF-8 mark, quotes
+# the ids as `="1234"` (so a spreadsheet does not turn them into 1.2E+14), writes a range as `Oct 25, 2026 - Oct 25, 2026`, and a day with no ads is a header and nothing else.
+AZ_ADS_HEAD = ("Date range,Advertiser account ID,Advertiser account name,Manager accounts,Ad product,Campaign ID,Campaign name,Global Campaign ID,Budget currency,Impressions,Viewable impressions,"
+               "Clicks,CTR,Viewable CTR (vCTR),Total cost,Purchases,Purchases (new to brand),Cost per purchase,Cost per purchase (new to brand),Sales,Long-term sales,ROAS,Long-term ROAS")
+
+
+def az_ads_file(*rows):
+    return table.read(("﻿" + "\n".join([AZ_ADS_HEAD, *rows]) + "\n").encode("utf-8"))
+
+
+_AZ_ROW = ('"Oct 25, 2026 - Oct 25, 2026","=""ACCOUNT-TEST""",RUMEE,,Sponsored Products,"=""100000000000001""",Test Campaign,,INR,1000,0,10,1%,,50.00000,1,,50.00000,,200.50,,4.01,')
+_az = answered(lambda: ads.read_ads("az_ads", az_ads_file(_AZ_ROW), "2026-10-26", None))
+_azc = ((_az.records.get("amazon__2026-10-25") or {}).get("campaigns") or {}).get("100000000000001", {}) if _az else {}
+check("AN AMAZON ADS DAY'S RECORD IS NAMED amazon__<day> and holds each campaign by its id, the quotes and equals sign of the id taken off",
+      _az is not None and set(_az.records) == {"amazon__2026-10-25"} and set(_az.records["amazon__2026-10-25"]["campaigns"]) == {"100000000000001"})
+check("the campaign's name, spend (total cost), views (impressions), clicks, units (purchases) and revenue (sales) are read from Amazon's own columns",
+      _azc.get("campaignName") == "Test Campaign" and _azc.get("spend") == 50.0 and _azc.get("views") == 1000 and _azc.get("clicks") == 10
+      and _azc.get("units") == 1 and _azc.get("revenue") == 200.5)
+_az_none = answered(lambda: ads.read_ads("az_ads", az_ads_file(), "2026-10-26", None))
+check("A FILE WITH A HEADER AND NO ROWS IS NOTHING TO PROCESS, not a failure and not a record (no ad ran)",
+      _az_none is not None and _az_none.records == {} and _az_none.not_read == () and _az_none.rows_in_file == 0)
+_az_range = answered(lambda: ads.read_ads("az_ads", az_ads_file(_AZ_ROW.replace("Oct 25, 2026 - Oct 25, 2026", "Aug 14, 2026 - Aug 21, 2026")), "2026-10-26", None))
+check("a row that covers SEVERAL days is refused by name, never filed under one of them: a range is not a day",
+      _az_range is not None and _az_range.records == {} and len(_az_range.not_read) == 1 and "several days" in _az_range.not_read[0])
+_az_two = answered(lambda: ads.read_ads("az_ads", az_ads_file(_AZ_ROW, _AZ_ROW.replace("100000000000001", "100000000000002").replace("Test Campaign", "Other")), "2026-10-26", None))
+check("two campaigns on one day are one record with two campaigns", _az_two is not None and len(_az_two.records["amazon__2026-10-25"]["campaigns"]) == 2)
+def _caught(work):
+    try:
+        work()
+    except Exception as wrong:  # noqa: BLE001
+        return wrong
+    return None
+
+
+_nz_head = ("﻿" + AZ_ADS_HEAD + "\n").encode("utf-8")
+_nz = Night({"az_ads": [a_file("z1", "amazon_az_ads_2026-10-25.csv")]}, {"z1": _nz_head}).go()
+check("A NIGHT THAT FINDS A HEADER-ONLY AMAZON ADS FILE READS IT AS NOTHING TO PROCESS: the file is read, nothing is refused, nothing is written",
+      _nz is not None and _nz.read_tonight == ("z1",) and _nz.rows_refused == 0)
+_nz_full = Night({"az_ads": [a_file("z2", "amazon_az_ads_2026-10-25.csv")]}, {"z2": ("﻿" + AZ_ADS_HEAD + "\n" + _AZ_ROW + "\n").encode("utf-8")})
+_nz_full.go()
+check("and a file with a campaign row reaches the ads sink as the day's record for Amazon",
+      len(_nz_full.advertised) == 1 and _nz_full.advertised[0][1] == "amazon" and _nz_full.advertised[0][3] == "2026-10-25" and "amazon__2026-10-25" in _nz_full.advertised[0][4])
+# **THE SAME CAMPAIGN REPORT WITH A `Date` COLUMN INSTEAD OF `Date range` (his real per-day file, 26 Oct 2026: asked for the last 90 days, one row per campaign per day, a day with no spend still a row of zeros, rows not in date order).**
+AZ_ADS_HEAD_DAYS = AZ_ADS_HEAD.replace("Date range,", "").replace("Budget currency,", "Budget currency,Date,")
+
+
+def az_ads_days_file(*rows):
+    return table.read(("﻿" + "\n".join([AZ_ADS_HEAD_DAYS, *rows]) + "\n").encode("utf-8"))
+
+
+_AZ_DAY = '"=""ACCOUNT-TEST""",RUMEE,,Sponsored Products,"=""100000000000001""",Test Campaign,,INR,"{day}",{imp},0,{clk},1%,,{cost},{buy},,,,{sales},,1.0,'
+_azd = answered(lambda: ads.read_ads("az_ads", az_ads_days_file(
+    _AZ_DAY.format(day="Aug 16, 2026", imp=1000, clk=10, cost="50.00000", buy=1, sales="200.50"),
+    _AZ_DAY.format(day="Aug 14, 2026", imp=20, clk=1, cost="4.99000", buy=0, sales="0.00"),
+    _AZ_DAY.format(day="Aug 21, 2026", imp=0, clk=0, cost="0.00000", buy=0, sales="0.00")), "2026-10-26", None))
+check("A FILE WITH A Date COLUMN IS ONE RECORD PER DAY IT NAMES, each filed under its own day whatever order the rows come in, a day of zeros included",
+      _azd is not None and set(_azd.records) == {"amazon__2026-08-14", "amazon__2026-08-16", "amazon__2026-08-21"} and _azd.not_read == ()
+      and _azd.records["amazon__2026-08-16"]["campaigns"]["100000000000001"]["spend"] == 50.0 and _azd.records["amazon__2026-08-21"]["campaigns"]["100000000000001"]["views"] == 0)
+_azd_bad = answered(lambda: ads.read_ads("az_ads", az_ads_days_file(_AZ_DAY.format(day="sometime", imp=1, clk=1, cost="1", buy=0, sales="0")), "2026-10-26", None))
+check("a Date cell that is not a day is refused by name and nothing is filed for it", _azd_bad is not None and _azd_bad.records == {} and len(_azd_bad.not_read) == 1)
+_az_wrong = _caught(lambda: ads.read_ads("az_ads", table.read(b"A,B\n1,2\n"), "2026-10-26", None))
+check("a file without the Amazon ads columns is refused in words naming what it has", _az_wrong is not None and "Campaign ID" in str(_az_wrong).title().replace("Id", "ID"))
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 107 + 3 + 2 + 3 + 3 + 7
+EXPECTED = 107 + 3 + 2 + 3 + 3 + 7 + 1 + 6 + 2 + 2
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

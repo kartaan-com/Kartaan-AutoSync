@@ -265,6 +265,9 @@ REPORTS: Tuple[Report, ...] = (
     Report("me_product_performance", "meesho", "Meesho product performance", BROWSER, DAILY, "csv",
            cannot_backfill=_SNAPSHOT),
     Report("me_pricing", "meesho", "Meesho pricing", BROWSER, DAILY, "csv", cannot_backfill=_SNAPSHOT),
+    # **THE MEESHO PRODUCT QUALITY PAGE (N025, his yes: one file a day).** Side menu Quality (`.../cataloging/<slug>/product-optimiser`), no download: the store score (1-2 star ratings over total ratings), the top customer feedback reasons, the three
+    # tab counts and every product of every tab with its band, own percentage and reasons, read off the page. How the page stands today, so a past day cannot be had.
+    Report("me_quality", "meesho", "Meesho product quality", BROWSER, DAILY, "csv", cannot_backfill=_SNAPSHOT),
     # **THREE THINGS COME OUT OF THE ADS SWEEP AND ONLY ONE OF THEM WAS EVER
     # DECLARED.** Measured in the working reference on 2026-09-08, by reading
     # every place a Drive folder is named in its own source: its single ads job
@@ -304,12 +307,20 @@ REPORTS: Tuple[Report, ...] = (
     # ---- browser anywhere near it.** This is the report the whole spine gets
     # ---- proven on, precisely because nothing is built there yet and so nothing
     # ---- can break by being touched.
-    Report("az_orders", "amazon", "Amazon orders", API, DAILY, "csv"),
+    # **BY THE BROWSER SINCE N018 (his ruling D726).** Orders > Order reports > All Orders, by Last Updated date, last day; the same tab-separated order file the reader already reads. A rolling day from the
+    # request, so a past day cannot be asked for again by the run.
+    Report("az_orders", "amazon", "Amazon orders", BROWSER, DAILY, "csv",
+           cannot_backfill="Amazon's All Orders page is asked for the last day only, so a day already gone cannot be fetched again by the run (the page itself offers exact dates, which the walk does not use yet)."),
     # **AMAZON MAKES THIS ONE ITSELF AND THERE IS NO WAY TO ASK FOR IT.** Its own
     # documentation: settlement reports cannot be requested. So a day it did not
     # publish one is not a day anybody is owed anything.
-    Report("az_settlements", "amazon", "Amazon settlements", API, WHEN_THEY_PUBLISH_IT, "csv"),
-    Report("az_returns", "amazon", "Amazon returns", API, DAILY, "csv"),
+    # **BY THE BROWSER SINCE N018 (his ruling D726):** Finance > Manage payments > All Statements, the "Download Flat File V2" of EVERY closed weekly statement the Drive does not already hold, each filed under the day it ended, so a past day is nothing special: whatever is missing is picked up (Control's ruling, 26 Oct 2026).
+    Report("az_settlements", "amazon", "Amazon settlements", BROWSER, WHEN_THEY_PUBLISH_IT, "csv"),
+    # **BY THE BROWSER SINCE N018 (his ruling D726, 25 Oct 2026: Amazon no longer goes through the SP-API).** Seller Central > Orders > Order reports > Seller fulfilled return
+    # reports > All Returns, last day; the file is the same tab-separated return file the reader already reads. The page asks only for "last day" (yesterday), so a past day
+    # cannot be asked for again.
+    Report("az_returns", "amazon", "Amazon returns", BROWSER, DAILY, "csv",
+           cannot_backfill="Amazon's return report page is asked for 'last day' only, so a day already gone cannot be fetched again by the run (the page itself offers Exact dates, which the walk does not use yet)."),
     # **ONE SNAPSHOT BY THE API DOOR (v0.1.21 job 6): what Amazon hides from buyers and why.** A picture of now, asked with no dates, so
     # a past day cannot be fetched again. **`az_health` IS NOT HERE ON PURPOSE:** Amazon's page does not state its file format and
     # `landing.what_it_really_is` refuses any body that starts with `{` as "a message rather than a report", so listed here it would
@@ -320,6 +331,18 @@ REPORTS: Tuple[Report, ...] = (
     # without API keys).** Business Reports > By ASIN > Detail Page Sales and Traffic by Child Item, one day, Download (.csv). Amazon takes a past day, so it
     # can be asked for again.
     Report("az_traffic", "amazon", "Amazon listing traffic", BROWSER, DAILY, "csv"),
+    # **AMAZON'S SAFE-T CLAIMS BY THE BROWSER (N018, his ruling D726).** Seller Central > Orders > Manage claims > Manage SAFE-T claims > Download the SAFE-T Report, type "SAFE-T Claims",
+    # dates Yesterday / last 7, 30, 60 days / Exact dates; Amazon builds it in seconds. The recipe chooses the two dropdown options by pressing their words (no new step), not yet run live;
+    # the reader is `claims.read_safet_records`.
+    Report("az_claims", "amazon", "Amazon SAFE-T claims", BROWSER, DAILY, "csv",
+           cannot_backfill="The page offers Yesterday, the last 7, 30 or 60 days, or exact dates; the run asks for one of the relative ones, so a day already gone cannot be fetched again by the run. "
+                           "Overlapping files are expected and are settled by the SAFE-T claim id."),
+    # **AMAZON'S ACCOUNT HEALTH BY THE BROWSER (N018, his ruling D726; Control's word: he is At Risk on Late Dispatch).** Account health > Manage account health: five figures on the page (the rating and four rates), no download, so they are read off the
+    # page and written as the day's own one-row file, like Meesho's views. How the page stands today, so a past day cannot be had.
+    Report("az_health", "amazon", "Amazon account health", BROWSER, DAILY, "csv", cannot_backfill=_SNAPSHOT),
+    # **AMAZON ADS BY THE BROWSER (N018, his ruling D726; Control's word: build it anyway; D728 refined 26 Oct 2026).** Amazon Ads console (`advertising.amazon.in`) > Reporting: ONE saved Campaign report named `Kartaan campaign by day` (the Date column, the last 30 days, once, CSV) is
+    # created by the walk the first time it is missing; every run takes its latest file, one row per campaign per day of the last 30 days, so a day missed on an earlier run and a first look-back are covered by every run. A day with no ads is no row at all: nothing to process.
+    Report("az_ads", "amazon", "Amazon ads, campaigns by day", BROWSER, DAILY, "csv"),
     # **THE TWO AMAZON FILES MADE ON REQUEST (AutoSync v0.1.21 lane 1 job 8).** Seller Central > Products > Product reports (Inventory Reports): the seller
     # presses Request Report, Amazon builds a tab-separated text file (up to 45 minutes, a new one at most once in 24 hours) and a row with a Download button
     # appears. Both are pictures of right now. Amazon's own text says ".txt" and the files are landed as such.

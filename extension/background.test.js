@@ -544,6 +544,7 @@ const LATER = '2026-08-27T16:04:00.000Z';
       goTo: async (_chrome, where) => { went.push(where); },
       routeInThePage: async (_chrome, where) => { went.push({ ...where, routed: true }); return { arrived: true }; },
       takeTheFile: async () => new Uint8Array([1, 2, 3]),
+      whatIsHeld: async ({ reportId }) => (driveRefuses ? Promise.reject(new Error(driveRefuses)) : (reportId === 'me_orders' ? ['meesho_me_orders_2026-10-13.csv'] : [])),
       landTheFile: async (what) => {
         if (driveRefuses) throw new Error(driveRefuses);
         putAway.push(what);
@@ -689,10 +690,21 @@ const LATER = '2026-08-27T16:04:00.000Z';
     putAway.length === 1 && putAway[0].reportId === 'me_orders'
     && putAway[0].fileName === 'meesho_me_orders_2026-09-05.csv'
     && putAway[0].body instanceof Uint8Array && putAway[0].body.length === 3);
+  /* **WHAT THE SELLER'S DRIVE ALREADY HOLDS FOR A REPORT (N018)** -- asked by the walk that takes every new settlement statement. Names only; a name this product could not have written is refused as
+   * `land-the-file` refuses one, and a Drive that refused comes back as words. */
+  const held = await browser.aPageAsked({ do: 'what-is-held', reportId: 'me_orders' });
+  check('THE BACKGROUND ANSWERS WHICH FILE NAMES THE DRIVE ALREADY HOLDS FOR A REPORT',
+    Boolean(held) && Array.isArray(held.names) && held.names.join() === 'meesho_me_orders_2026-10-13.csv');
+  const heldNothing = await browser.aPageAsked({ do: 'what-is-held', reportId: 'me_claims' });
+  check('and a report with nothing there answers an empty list, not a refusal', Boolean(heldNothing) && Array.isArray(heldNothing.names) && heldNothing.names.length === 0);
+  const heldBadName = await browser.aPageAsked({ do: 'what-is-held', reportId: '../../etc' });
+  check('while a report name that could not be a folder is refused in words', Boolean(heldBadName) && Boolean(heldBadName.wrong) && heldBadName.names === undefined);
   /* **A DRIVE THAT REFUSED COMES BACK AS WORDS, NEVER AS A THROW.** Thrown, it
    * reaches the page as "the message port closed" -- a sentence about the
    * bridge, said instead of the one somebody could act on. */
   driveRefuses = 'the seller has run out of Drive';
+  const heldRefused = await browser.aPageAsked({ do: 'what-is-held', reportId: 'me_orders' });
+  check('and a Drive that refuses to be looked at comes back as words too', Boolean(heldRefused) && Boolean(heldRefused.wrong) && heldRefused.wrong.includes('run out of Drive'));
   /* **A NAME THIS PRODUCT REALLY WRITES.** It used to be `x.csv`, which reached
    * Drive only because nothing on this boundary asked anything of a name -- so
    * this check would go on passing on a name the run could never read a day out
@@ -1561,7 +1573,7 @@ const LATER = '2026-08-27T16:04:00.000Z';
   /* **AND STILL NOT EVERYTHING.** The reference asks for `<all_urls>`; a product
    * copied into every seller's own account asks for the hosts it can name. */
   check('and it still does not ask for every address there is',
-    !hosts.includes('<all_urls>') && hosts.length <= 7);
+    !hosts.includes('<all_urls>') && hosts.length <= 8);
   /* **THE SEVENTH IS THE ONE REPOSITORY FOLDER THE "NEWER VERSION" NOTICE READS (A82)**, read only, and not
    * raw.githubusercontent.com as a whole. */
   check('the version notice may read the files of this repository and no other GitHub address',
@@ -1574,8 +1586,8 @@ const LATER = '2026-08-27T16:04:00.000Z';
   /* **AMAZON IS ALLOWED ON ITS ONE HOST AND NO WIDER (A79, D317).** Chrome's own match-pattern
    * page: a host pattern needs a path that is ignored, `/*` by convention; no `*.` in front means
    * no other Amazon address, and no scheme wildcard means https only. */
-  check('Amazon Seller Central India is allowed on exactly its own address',
-    hosts.filter((one) => one.includes('amazon')).join() === 'https://sellercentral.amazon.in/*');
+  check('Amazon is allowed on exactly two addresses, Seller Central India and the Amazon Ads console, each by name and over https only, never a wildcard (N018, his yes of 26 Oct 2026: every seller is asked once to approve the wider access)',
+    hosts.filter((one) => one.includes('amazon')).sort().join() === 'https://advertising.amazon.in/*,https://sellercentral.amazon.in/*');
   /* **THE ID IS PINNED BY A KEY (his ruling D319, 12 Oct 2026: no Chrome Web Store, sellers install
    * from a ZIP).** Without a `key` the id comes from the folder the seller unzips into, so no two
    * sellers would share one and the ERP could not name the extension. Chrome's rule: the id is the
@@ -1591,6 +1603,8 @@ const LATER = '2026-08-27T16:04:00.000Z';
     JSON.stringify(manifest.externally_connectable) === JSON.stringify({ matches: ['https://erp.kartaan.com/*'] }));
   check('and Amazon got the page script and the readable files for its one walked report, but not the early catcher (that is Flipkart-only)',
     JSON.stringify(manifest.content_scripts.filter((one) => one.js.includes('content.js'))[0].matches).includes('sellercentral.amazon.in')
+    && JSON.stringify(manifest.content_scripts.filter((one) => one.js.includes('content.js'))[0].matches).includes('advertising.amazon.in')
+    && JSON.stringify(manifest.web_accessible_resources).includes('advertising.amazon.in')
     && JSON.stringify(manifest.web_accessible_resources).includes('sellercentral.amazon.in')
     && !JSON.stringify(manifest.content_scripts.filter((one) => one.world === 'MAIN')).includes('amazon'));
 }
@@ -2261,7 +2275,7 @@ check('the page relay is OFF in what ships, so no script on a portal page can dr
     && theRelayAllows(false, { do: 'run-now' }) === false);
 }
 
-const EXPECTED = 262 + 13 + 1;
+const EXPECTED = 262 + 13 + 1 + 4;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

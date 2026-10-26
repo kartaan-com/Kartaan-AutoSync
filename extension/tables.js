@@ -27,7 +27,7 @@
  */
 
 export const THE_TABLES = Object.freeze([
-  'meesho-product-performance', 'meesho-pricing', 'flipkart-quality-insights',
+  'meesho-product-performance', 'meesho-pricing', 'flipkart-quality-insights', 'meesho-quality',
 ]);
 
 /** Elements below `root` with this tag, document order. Walks `children`, so it needs no selector engine. */
@@ -162,6 +162,7 @@ const TABLE_FOR = {
 
 /** The header of the file a table makes. */
 export function theHeaderOf(table) {
+  if (table === 'meesho-quality') return QUALITY_COLUMNS;
   const way = TABLE_FOR[table];
   if (!way) throw new Error(`"${table}" is not a table this knows how to read.`);
   return way.fileHeader;
@@ -198,6 +199,7 @@ const labelled = (page, label) => below(page, 'button').find((one) => one.getAtt
 export async function readTheTable(page, {
   table, patience = 120, rest = (ms) => new Promise((done) => { setTimeout(done, ms); }), say = () => {},
 } = {}) {
+  if (table === 'meesho-quality') return readTheQuality(page, { patience, rest, say });
   const way = TABLE_FOR[table];
   if (!way) throw new Error(`"${table}" is not a table this knows how to read.`);
 
@@ -332,4 +334,137 @@ export async function readTheTable(page, {
     }
   }
   return { csv: theCsv(theHeaderOf(table), rows), rows: rows.length, pages, columns: theHeaderOf(table).length };
+}
+
+/* **AMAZON'S WEEKLY SETTLEMENT STATEMENTS (N018, his All Statements page, seen 26 Oct 2026).** One row per statement, its period written DAY FIRST with no noughts and a dash --
+ * `13/10/2026 – 20/10/2026`, `29/9/2026 – 6/10/2026` -- and the open one `20/10/2026 – Present`, which has no Download. The row's period names the statement, and the day it ENDED is the
+ * day its file is filed under. Pure: a row's words in, its period out, or nothing.
+ *
+ * **NOTHING IS GUESSED:** a period whose day or month is not a real one, or that ends before it starts, is nothing; "Present" is nothing. */
+const A_STATEMENT_PERIOD = /(\d{1,2})\/(\d{1,2})\/(\d{4})\s*[–—-]\s*(\d{1,2})\/(\d{1,2})\/(\d{4})/;
+
+function anIsoDay(day, month, year) {
+  const d = Number(day);
+  const m = Number(month);
+  const y = Number(year);
+  const made = new Date(Date.UTC(y, m - 1, d));
+  if (made.getUTCFullYear() !== y || made.getUTCMonth() !== m - 1 || made.getUTCDate() !== d) return null;
+  return `${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
+export function theStatementPeriod(rowText) {
+  const text = String(rowText ?? '').replace(/\s+/g, ' ').trim();
+  const found = A_STATEMENT_PERIOD.exec(text);
+  if (!found) return null;
+  const start = anIsoDay(found[1], found[2], found[3]);
+  const end = anIsoDay(found[4], found[5], found[6]);
+  if (!start || !end || end < start) return null;
+  return { period: found[0].replace(/\s+/g, ' '), start, end };
+}
+
+/* **MEESHO'S PRODUCT QUALITY PAGE (N025; his panel, seen 26 Oct 2026, side menu Quality, `.../cataloging/<slug>/product-optimiser`, no download).** Read into ONE FILE A DAY (his yes):
+ *   store     the quality score = 1-2 star ratings over total ratings, as a percentage, with the band the page names in brackets (`Good`)
+ *   feedback  each Top Customer Feedback reason with the number of products it is on
+ *   tab       each of `Blocking Soon (n)`, `Action Pending (n)`, `Fixed (n)` with its n
+ *   product   every product of every tab: name, Style ID, band word and its own percentage, and its reasons with their rating counts
+ * The products shown change with the tab, so each tab (`role="tab"`) is pressed in turn and read; **the page's own count on each tab is the last word on whether the whole list was read.**
+ * Nothing but the three tabs is ever pressed (the page has `Save`, `View Products` and others beside them). **A page that is not this one, or has no store score, is refused in words and nothing is put away.** */
+const QUALITY_COLUMNS = ['Kind', 'Tab', 'Name', 'Style ID', 'Band', 'Percent', 'Count', 'Detail'];
+const A_QUALITY_TAB = /^(Blocking Soon|Action Pending|Fixed) \((\d+)\)$/;
+const A_QUALITY_BAND = /^(Green|Yellow|Red|Blocked)$/;
+const A_BAND_PERCENT = /^\((\d+(?:\.\d+)?)%\)$/;
+const A_REASON = /^(.+) \((\d+) ratings?\)$/;
+const A_PRODUCTS_COUNT = /^(\d+) products?$/;
+
+function theQualityStore(leaves) {
+  const next = (label) => {
+    const at = leaves.indexOf(label);
+    return at < 0 ? '' : (leaves[at + 1] || '');
+  };
+  const low = next('1 and 2 star ratings');
+  const total = next('Total Ratings');
+  const atTotal = leaves.indexOf('Total Ratings');
+  const percent = atTotal < 0 ? undefined : leaves.slice(atTotal).find((one) => /^\d+(?:\.\d+)?%$/.test(one));
+  const atPercent = percent === undefined ? -1 : leaves.indexOf(percent, atTotal);
+  const band = atPercent < 0 ? '' : ((leaves.slice(atPercent, atPercent + 4).find((one) => /^\([A-Za-z ]+\)$/.test(one)) || '').slice(1, -1));
+  if (!/^\d+$/.test(low) || !/^\d+$/.test(total) || percent === undefined || !band) return null;
+  return { low, total, percent: percent.slice(0, -1), band };
+}
+
+function theQualityFeedback(leaves) {
+  const from = leaves.indexOf('Top Customer Feedback');
+  const to = leaves.indexOf('Quality Recommendations');
+  if (from < 0 || to < 0 || to < from) return [];
+  const section = leaves.slice(from + 1, to);
+  const out = [];
+  section.forEach((one, at) => {
+    const found = A_PRODUCTS_COUNT.exec(one);
+    if (found && at > 0) out.push({ reason: section[at - 1], count: found[1] });
+  });
+  return out;
+}
+
+function theQualityProducts(leaves) {
+  const out = [];
+  const from = leaves.indexOf('Action');
+  const to = leaves.findIndex((one) => one.startsWith('SAH Shipping Estimate'));
+  const area = leaves.slice(from < 0 ? 0 : from + 1, to < 0 ? leaves.length : to);
+  area.forEach((one, at) => {
+    if (!one.startsWith('Style ID:')) return;
+    const band = area[at + 1] || '';
+    const percent = A_BAND_PERCENT.exec(area[at + 2] || '');
+    const reasons = [];
+    for (let k = at + 3; k < area.length; k += 1) {
+      const found = A_REASON.exec(area[k]);
+      if (!found) break;
+      reasons.push({ said: area[k], count: Number(found[2]) });
+    }
+    out.push({
+      name: area[at - 1] || '', style: one.slice('Style ID:'.length).trim(), band: A_QUALITY_BAND.test(band) ? band : '',
+      percent: percent ? percent[1] : '', reasons,
+    });
+  });
+  return out;
+}
+
+export async function readTheQuality(page, {
+  patience = 120, rest = (ms) => new Promise((done) => { setTimeout(done, ms); }), say = () => {},
+} = {}) {
+  const tabsOn = () => below(page, 'button').filter((one) => (one.getAttribute && one.getAttribute('role')) === 'tab' && A_QUALITY_TAB.test(textOf(one)));
+  /* **THE PAGE IS WAITED FOR**: it draws its tabs a while after it opens. */
+  let tabs = tabsOn();
+  for (let waited = 0; waited < patience * 1000 && tabs.length < 3; waited += 1000) {
+    // eslint-disable-next-line no-await-in-loop
+    await rest(1000);
+    tabs = tabsOn();
+  }
+  if (!leavesOf(page).includes('Product Quality')) {
+    throw new Error('this is not the Product Quality page (its heading "Product Quality" is not on it), so nothing was read.');
+  }
+  if (tabs.length !== 3) {
+    throw new Error(`the three tabs (Blocking Soon, Action Pending, Fixed) were not all on the page (${tabs.length} found), so nothing was read.`);
+  }
+  const store = theQualityStore(leavesOf(page));
+  if (!store) {
+    throw new Error('the store quality score (its low ratings, total ratings, percentage and band) is not on the page, so nothing was read. Nothing was read rather than a file without it.');
+  }
+  const rows = [['store', '', 'Quality score', '', store.band, store.percent, store.total, `${store.low} of ${store.total} ratings were 1 or 2 stars`]];
+  theQualityFeedback(leavesOf(page)).forEach((one) => rows.push(['feedback', '', one.reason, '', '', '', one.count, '']));
+  const counts = tabs.map((one) => ({ name: A_QUALITY_TAB.exec(textOf(one))[1], count: Number(A_QUALITY_TAB.exec(textOf(one))[2]) }));
+  counts.forEach((one) => rows.push(['tab', one.name, '', '', '', '', one.count, '']));
+  for (let at = 0; at < tabs.length; at += 1) {
+    // eslint-disable-next-line no-await-in-loop
+    await rest(500);
+    tabs[at].click();
+    // eslint-disable-next-line no-await-in-loop
+    await rest(1500);
+    const products = theQualityProducts(leavesOf(page));
+    if (products.length !== counts[at].count) {
+      throw new Error(`the ${counts[at].name} tab says ${counts[at].count} and ${products.length} products were read from it, so nothing was put away rather than a part of the list.`);
+    }
+    products.forEach((one) => rows.push(['product', counts[at].name, one.name, one.style, one.band, one.percent,
+      one.reasons.reduce((all, r) => all + r.count, 0), one.reasons.map((r) => r.said).join(' | ')]));
+  }
+  say(`meesho-quality: read the store score, ${counts.length} tabs and ${rows.filter((r) => r[0] === 'product').length} products.`);
+  return { csv: theCsv(QUALITY_COLUMNS, rows), rows: rows.length, pages: tabs.length, columns: QUALITY_COLUMNS.length };
 }

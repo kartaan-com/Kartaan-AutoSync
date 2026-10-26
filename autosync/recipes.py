@@ -44,6 +44,7 @@ from browser import (
     CLICK,
     GO,
     PICK_RANGE,
+    TAKE_EVERY_NEW,
     TAKE_FILE,
     THE_DAY_IT_IS_ABOUT,
     THE_DAY_IT_WAS_MADE,
@@ -140,7 +141,8 @@ AMAZON_WRITES_IT = "amazon"
 #
 #   {yyyy}  2026        {mm}  06        {dd}  05
 #   {Mon}   Jun         {d}   5
-THE_PIECES_OF_A_DAY = ("yyyy", "mm", "dd", "Mon", "Month", "d")
+#   {yy}    26          {m}   6        (the last two are Amazon's alone: N018, 26 Oct 2026)
+THE_PIECES_OF_A_DAY = ("yyyy", "mm", "dd", "Mon", "Month", "d", "yy", "m")
 _A_PIECE = re.compile(r"\{(" + "|".join(THE_PIECES_OF_A_DAY) + r")\}")
 
 # **HOW MEESHO WRITES A DAY. Six spellings, taken one for one from
@@ -223,6 +225,17 @@ HOW_AMAZON_WRITES_A_DAY = (
     "{Mon} {d}, {yyyy}",      # Oct 22, 2026
     "{Mon} {dd}, {yyyy}",     # Jun 05, 2026
     "{yyyy}-{mm}-{dd}",       # 2026-10-22
+    # **SEEN LIVE 26 OCT 2026 (N018) on Product reports and on the returns report list:** a request's own time is written `25 October 2026 at 10:31 pm` -- the whole month name.
+    "{d} {Month} {yyyy}",     # 25 October 2026
+    # **THE ADS CONSOLE (N018, seen 26 Oct 2026) writes a row's last run as `26 Oct, 2026 9:40 AM IST`** -- a comma after the month.
+    "{d} {Mon}, {yyyy}",      # 5 Jun, 2026
+    "{dd} {Mon}, {yyyy}",     # 05 Jun, 2026
+    # **THE MEASURED EXCEPTION TO THE RULE AGAINST PURELY NUMERIC SPELLINGS, FOR AMAZON ALONE (N018, Control's ruling of 26 Oct 2026).** Amazon's India panel writes the DAY FIRST: order report rows
+    # read `26/10/26, 6:36:33 am` and statement rows `13/10/2026 – 20/10/2026`, `6/10/2026 – 13/10/2026`, `29/9/2026 – 6/10/2026` (19/10, 20/10 and 26/10 can only be day-first). A check pins the
+    # two new pieces to this list, so no other portal can lean on a day/month guess.
+    "{dd}/{mm}/{yy}",         # 26/10/26   <- order report rows
+    "{dd}/{mm}/{yyyy}",       # 20/10/2026 <- statement rows (the day and month may carry a nought)
+    "{d}/{m}/{yyyy}",         # 6/10/2026, 29/9/2026 <- statement rows with no noughts
 )
 
 # Whose wording is whose. **Nothing works this out from a report's name** -- a
@@ -254,6 +267,9 @@ def a_day_written(shape: str, day) -> str:
         # **THE SIXTH PIECE, ADDED 2026-09-11 for Flipkart's listings history.**
         "Month": MONTHS_IN_FULL[day.month - 1],
         "d": f"{day.day}",
+        # **THE SEVENTH AND EIGHTH PIECES (N018, 26 Oct 2026), for Amazon's numeric row dates:** a two-digit year and a month with no nought.
+        "yy": f"{day.year % 100:02d}",
+        "m": f"{day.month}",
     }
     return _A_PIECE.sub(lambda found: pieces[found.group(1)], shape)
 
@@ -348,6 +364,8 @@ ADS = "https://supplier.meesho.com/panel/v3/new/ads/{panel}"
 # **MEESHO'S INSIGHTS SECTION** -- the Business Dashboard, whose Product Performance table has no download button. The address and the
 # table's shape were read off his own panel by Control on 2026-10-05 (read only).
 INSIGHTS = "https://supplier.meesho.com/panel/v3/new/insights/{panel}"
+# **MEESHO'S PRODUCT QUALITY PAGE lives under `cataloging`, a fifth prefix (N025, his panel 26 Oct 2026): `.../cataloging/<slug>/product-optimiser`.**
+CATALOGING = "https://supplier.meesho.com/panel/v3/new/cataloging/{panel}"
 
 # **EVERY MENU ITEM ON BOTH PLATFORMS IS ASKED FOR AS A PRESSABLE THING, NOT AS
 # WORDS ON THE PAGE, and that is measured rather than tidy.** Read off his own
@@ -413,6 +431,24 @@ AMAZON_TRAFFIC = (
 # **AMAZON'S INVENTORY REPORTS PAGE (Seller Central > Products > Product reports, `/listing/reports`, lane 1 job 8).** The address is the brief's. Neither the
 # page nor its row wording has been looked at: see `_amazon_inventory_report`.
 AMAZON_INVENTORY_REPORTS = "https://sellercentral.amazon.in/listing/reports"
+# **AMAZON'S RETURN REPORTS PAGE (Orders > Order reports > Seller fulfilled return reports), read off his own Seller Central by N018 on 26 Oct 2026.** It opens on "All Returns"
+# and "last day" (yesterday); a real `<button>` reads `Request`; the list below holds one row per request, each with one `Download` (a TSV) and a Requested On time.
+AMAZON_RETURNS = "https://sellercentral.amazon.in/returns/report"
+# **AMAZON'S SAFE-T REPORT PAGE (Orders > Manage claims > Manage SAFE-T claims > Download the SAFE-T Report), read off his own Seller Central by N018 on 26 Oct 2026.**
+AMAZON_SAFET_REPORT = "https://sellercentral.amazon.in/safet-claims/reports"
+# **AMAZON'S ORDER REPORTS, the All Orders tab, and ITS STATEMENTS PAGE (Finance > Manage payments > All Statements), read off his own Seller Central by N018 on 26 Oct 2026.**
+AMAZON_ALL_ORDERS = "https://sellercentral.amazon.in/order-reports-and-feeds/reports/allOrders"
+AMAZON_STATEMENTS = "https://sellercentral.amazon.in/payments/past-settlements"
+# **AMAZON'S ACCOUNT HEALTH DASHBOARD (Account health > Manage account health), read off his own Seller Central by N018 on 26 Oct 2026.**
+AMAZON_ACCOUNT_HEALTH = "https://sellercentral.amazon.in/performance/dashboard"
+# **AMAZON ADS CONSOLE REPORTING (advertising.amazon.in), read off his own console by N018 on 26 Oct 2026**, and the name of the ONE saved report the seller keeps for the walk to run.
+AMAZON_ADS_REPORTING = "https://advertising.amazon.in/reporting"
+AMAZON_ADS_REPORT_NAME = "Kartaan campaign by day"
+AMAZON_ADS_NEW_CAMPAIGN_REPORT = "https://advertising.amazon.in/reporting/new?templateId=campaign"
+# **THE SAVED REPORT'S ROW IN THE LIST, found by its own name: its Actions menu** -- and the same row when it also shows TODAY (its last run, or the day it was made).
+_ADS_SAVED_ROW = Find(BY_THE_BUTTON_BESIDE, AMAZON_ADS_REPORT_NAME, also_saying="Actions", called=f"the Actions menu of the saved report {AMAZON_ADS_REPORT_NAME}")
+_ADS_SAVED_ROW_TODAY = Find(BY_THE_BUTTON_BESIDE, AMAZON_ADS_REPORT_NAME, also_saying="Actions", near="{day_in_words}", day_in_words_is=AMAZON_WRITES_IT,
+                            day_in_words_of=THE_DAY_IT_WAS_MADE, called=f"the Actions menu of {AMAZON_ADS_REPORT_NAME}, showing today")
 # **THESE THREE WERE WRONG, AND THEY COST A WHOLE NIGHT (2026-09-06).** Nine of
 # ten reports failed within twenty minutes of each other -- seven ads reports
 # looking for "the other reports tab", claims looking for "the claims tab",
@@ -466,8 +502,12 @@ def _amazon_inventory_report(report_name: str, ready_in_minutes: int) -> Recipe:
     taken for today's -- that is the repo's rule for every named row. **THE DATE FORMAT AMAZON DRAWS IN THE ROW HAS NOT BEEN SEEN:** `HOW_AMAZON_WRITES_A_DAY`
     holds the unambiguous written forms and the first live walk must confirm one of them matches; if none does, nothing is pressed and the failure says so.
     """
-    request = Find(BY_THE_BUTTON_BESIDE, report_name, also_saying="REQUEST REPORT",  # matched without regard to capitals, as Flipkart's is
-                   called=f"the Request Report control beside {report_name}")
+    # **CORRECTED AFTER THE PAGE WAS LOOKED AT (N018, 26 Oct 2026, his Chrome): IT IS NOT A REQUEST BUTTON BESIDE EACH REPORT'S NAME.** A `Select Report Type` dropdown (a `kat-dropdown` whose options sit in an
+    # open shadow root, which the driver now walks into) is opened, the report's own words are pressed, and only then does ONE `Request Report` button appear below it. The rows below the dropdown read
+    # `All Listings Report / 25 October 2026 at 10:31 pm / <batch> / Done / Download`. **NOT YET RUN LIVE.**
+    chooser = Find(BY_PRESSABLE_TEXT, "Select Report Type", called="the Select Report Type dropdown")
+    choice = Find(BY_PRESSABLE_TEXT, report_name, called=f"the {report_name} choice in the report type list")
+    request = Find(BY_PRESSABLE_TEXT, "Request Report", called="the Request Report button")
     finished = Find(BY_PRESSABLE_TEXT, "Download", near="{day_in_words}", also_saying=report_name,
                     day_in_words_is=AMAZON_WRITES_IT, day_in_words_of=THE_DAY_IT_WAS_MADE,
                     called=f"the Download button on the Done {report_name} row (a Cancelled or In Progress row has none)")
@@ -475,7 +515,9 @@ def _amazon_inventory_report(report_name: str, ready_in_minutes: int) -> Recipe:
         ready_in_minutes=ready_in_minutes,
         to_ask=(
             Step(GO, address=AMAZON_INVENTORY_REPORTS, patience=60, why=f"opening Inventory Reports to ask for {report_name}"),
-            Step(WAIT_FOR, find=request, patience=90, why="waiting for the Inventory Reports page to draw its Request Report control"),
+            Step(WAIT_FOR, find=chooser, patience=90, why="waiting for the Inventory Reports page to draw its report type dropdown"),
+            Step(CLICK, find=chooser, why="opening the report types"),
+            Step(CLICK, find=choice, why=f"choosing {report_name}"),
             Step(CLICK, find=request, why=f"asking Amazon to build {report_name}"),
         ),
         to_take=(
@@ -1204,6 +1246,13 @@ RECIPES: Dict[str, Recipe] = {
                  why="reading the pricing table, page by page"),
         ),
     ),
+    # **MEESHO'S PRODUCT QUALITY PAGE (N025; his panel read by Control on 26 Oct 2026, side menu Quality).** No download: the page is read, each of its three tabs pressed in turn, into ONE FILE A DAY (his yes). Nothing on the page is pressed but those three tabs.
+    "me_quality": Recipe(
+        to_take=(
+            Step(GO, address=CATALOGING + "/product-optimiser", patience=60, why="opening the product quality page"),
+            Step(READ_THE_TABLE, table="meesho-quality", patience=120, why="reading the store score, the feedback reasons, the tabs and every product"),
+        ),
+    ),
     "fk_quality_insights": Recipe(
         to_take=(
             Step(GO, address=QUALITY_INSIGHTS, patience=60, why="opening product quality insights"),
@@ -1384,6 +1433,157 @@ RECIPES: Dict[str, Recipe] = {
     # ---- Amazon: All Listings and Referral Fee Preview, two-phase from one template (lane 1 job 8).
     "az_listings": _amazon_inventory_report("All Listings Report", 30),
     "az_fee_preview": _amazon_inventory_report("Referral Fee Preview Report", 45),
+
+    # ---- Amazon orders by the browser (N018, his ruling D726). **Asked by LAST UPDATED date (so an order whose status changed, shipped or was cancelled, is in the file; the reader keys a row by the order id and SKU), with the page's own default range (last day, a rolling
+    # ---- 24 hours from the request)**; Amazon builds it in about 40 seconds and the row reads Ready with a Download. Seen on his page 26 Oct 2026; **NOT YET RUN LIVE.**
+    "az_orders": Recipe(
+        ready_in_minutes=2,
+        to_ask=(
+            Step(GO, address=AMAZON_ALL_ORDERS, patience=60, why="opening the All Orders report page to ask for the orders"),
+            Step(WAIT_FOR, find=Find(BY_PRESSABLE_TEXT, "Last Updated Date", called="the Last Updated Date choice"), patience=90,
+                 why="waiting for the All Orders page to draw its report type choice"),
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Last Updated Date", called="the Last Updated Date choice"), why="choosing the orders by last updated date"),
+            Step(CLICK, find=Find(BY_ROLE_AND_TEXT, "Request", called="the Request button"), why="asking Amazon to build the orders for the last day"),
+        ),
+        to_take=(
+            Step(GO, address=AMAZON_ALL_ORDERS, patience=60, why="coming back to the All Orders report page for the orders"),
+            Step(WAIT_FOR, find=Find(BY_PRESSABLE_TEXT, "Download", near="{day_in_words}", also_saying="Last Updated Date",
+                                     day_in_words_is=AMAZON_WRITES_IT, day_in_words_of=THE_DAY_IT_WAS_MADE,
+                                     called="the Download of the Last Updated Date row requested today"),
+                 patience=120, why="waiting for the finished orders row"),
+            Step(TAKE_FILE, find=Find(BY_PRESSABLE_TEXT, "Download", near="{day_in_words}", also_saying="Last Updated Date",
+                                      day_in_words_is=AMAZON_WRITES_IT, day_in_words_of=THE_DAY_IT_WAS_MADE,
+                                      called="the Download of the Last Updated Date row requested today"),
+                 patience=90, why="taking the finished orders file"),
+        ),
+    ),
+
+    # ---- Amazon settlements by the browser (N018, his ruling D726; Control's ruling of 26 Oct 2026). **One-phase: Amazon already made the weekly statements, so nothing is asked for. EVERY CLOSED statement the
+    # ---- list shows that the seller's Drive does not already hold is taken, each filed under the day it ENDED** (not named by the run's day, so a week closed late or a missed run is picked up next time); an
+    # ---- open statement has no Download and is skipped. When none is new there is nothing to fetch -- but ONLY after the step before has waited for the statements table itself, so a page that never drew
+    # ---- still fails. **NOT YET RUN LIVE.**
+    "az_settlements": Recipe(
+        to_take=(
+            Step(GO, address=AMAZON_STATEMENTS, patience=60, why="opening All Statements for the settlements not yet held"),
+            Step(WAIT_FOR, find=Find(BY_TEXT, "Statement Period", called="the statements table"), patience=90,
+                 why="waiting for the statements table itself to draw, so that no new statement is told apart from a page that never drew"),
+            Step(TAKE_EVERY_NEW, find=Find(BY_PRESSABLE_TEXT, "Download Flat File V2", called="the Download Flat File V2 of a closed statement"),
+                 patience=60, why="taking every closed statement that Drive does not already hold",
+                 none_means_nothing_to_fetch="No closed settlement statement is new (Amazon publishes one weekly), so there is nothing to fetch."),
+        ),
+    ),
+
+    # ---- Amazon Account Health by the browser (N018, his ruling D726; Control's word: he is At Risk on Late Dispatch). **Read off the page, because it has no download**: the rating (a whole number beside its label) and four
+    # ---- rates, each read as a PERCENTAGE because the same card also says `2 of 111 orders`. Written as the day's own one-row file, like Meesho's views (his D473). Seen on his page 26 Oct 2026; **NOT YET RUN LIVE.**
+    "az_health": Recipe(
+        to_take=(
+            Step(GO, address=AMAZON_ACCOUNT_HEALTH, patience=60, why="opening the Account Health dashboard"),
+            Step(WAIT_FOR, find=Find(BY_TEXT, "Account Health Rating", called="the Account Health Rating"), patience=90,
+                 why="waiting for the Account Health cards to finish drawing"),
+            Step(READ_NUMBER, find=Find(BY_TEXT, "Account Health Rating", called="Account Health Rating"), patience=30, why="reading the Account Health Rating"),
+            Step(READ_NUMBER, find=Find(BY_TEXT, "Order Defect Rate", called="Order Defect Rate"), reads="percent", patience=30, why="reading the order defect rate"),
+            Step(READ_NUMBER, find=Find(BY_TEXT, "Late Dispatch Rate", called="Late Dispatch Rate"), reads="percent", patience=30, why="reading the late dispatch rate"),
+            Step(READ_NUMBER, find=Find(BY_TEXT, "Pre-fulfilment Cancel Rate", called="Pre-fulfilment Cancel Rate"), reads="percent", patience=30,
+                 why="reading the pre-fulfilment cancel rate"),
+            Step(READ_NUMBER, find=Find(BY_TEXT, "Valid Tracking Rate", called="Valid Tracking Rate"), reads="percent", patience=30, why="reading the valid tracking rate"),
+            # **AMAZON'S OWN WORD beside each, exactly as the page prints it (Control's word 26 Oct 2026)**: an empty answer is not a failure -- the figures still land.
+            Step(READ_NUMBER, find=Find(BY_TEXT, "Account Health Rating", called="Account Health Status"), reads="status", patience=30, why="reading Amazon's word for the Account Health Rating"),
+            Step(READ_NUMBER, find=Find(BY_TEXT, "Order Defect Rate", called="Order Defect Rate Status"), reads="status", patience=30, why="reading Amazon's word for the order defect rate"),
+            Step(READ_NUMBER, find=Find(BY_TEXT, "Late Dispatch Rate", called="Late Dispatch Rate Status"), reads="status", patience=30, why="reading Amazon's word for the late dispatch rate"),
+            Step(READ_NUMBER, find=Find(BY_TEXT, "Pre-fulfilment Cancel Rate", called="Pre-fulfilment Cancel Rate Status"), reads="status", patience=30,
+                 why="reading Amazon's word for the pre-fulfilment cancel rate"),
+            Step(READ_NUMBER, find=Find(BY_TEXT, "Valid Tracking Rate", called="Valid Tracking Rate Status"), reads="status", patience=30, why="reading Amazon's word for the valid tracking rate"),
+            Step(ADD_TO_THE_LIST, patience=30, why="writing the day as its own file"),
+        ),
+    ),
+
+    # ---- (D728 REFINED, 26 Oct 2026: the saved report carries the DATE column and the LAST 30 DAYS, so every run returns each of the last 30 days as its own row -- a missed run and a first look-back are covered by every run, no one-off reports.)
+    # ---- Amazon ads by the browser (N018, his ruling D726; Control's word: build it anyway; his word D728: AutoSync CREATES the saved report itself the first time it is missing). **The one saved report `Kartaan campaign by day` (Campaign
+    # ---- template, Yesterday, once, CSV) is CREATED ONLY WHEN IT IS NOT IN THE LIST** (each creating step is done only when its row is not there), and after that the walk only RUNS it and takes its latest file -- nothing is deleted and no campaign,
+    # ---- budget or spend is touched. Ask: open the list, prove it drew, [if missing: open the template, name it, choose Yesterday, submit -- which runs it once], wait for the row, and unless the row already shows today, open ITS Actions and press
+    # ---- Run. Take: wait for the row to show today as its last run (so yesterday's file is never taken for today's), open ITS Actions, press Download latest. Measured on his console 26 Oct 2026; **NOT YET RUN LIVE.**
+    "az_ads": Recipe(
+        ready_in_minutes=5,
+        to_ask=(
+            Step(GO, address=AMAZON_ADS_REPORTING, patience=60, why="opening the ads reporting list to run the saved campaign report"),
+            Step(WAIT_FOR, find=Find(BY_ROLE_AND_TEXT, "Create report", called="the Create report button"), patience=90,
+                 why="waiting for the ads reporting list to draw, so that a missing saved report is told apart from a page that never drew"),
+            Step(GO, address=AMAZON_ADS_NEW_CAMPAIGN_REPORT, patience=60, only_if_absent=_ADS_SAVED_ROW, why="creating the saved campaign report, once: opening the Campaign template"),
+            Step(WAIT_FOR, find=Find(BY_TEXT, "Report name", called="the Report name label"), patience=90, only_if_absent=_ADS_SAVED_ROW,
+                 why="waiting for the report form to draw"),
+            Step(TYPE_IN, find=Find(BY_THE_CONTROL_BESIDE, "Report name", called="the Report name box"), words=AMAZON_ADS_REPORT_NAME, only_if_absent=_ADS_SAVED_ROW,
+                 why="naming the saved report"),
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Date range", called="the Date range column"), only_if_absent=_ADS_SAVED_ROW,
+                 why="taking the Date range column off the report (Amazon will not offer Date while it is on)"),
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Date", called="the Date column"), only_if_absent=_ADS_SAVED_ROW,
+                 why="putting the Date column on the report, so every day of the period is its own row"),
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Last seven days", called="the report period button"), only_if_absent=_ADS_SAVED_ROW, why="opening the report period"),
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Last 30 days", called="the Last 30 days period"), only_if_absent=_ADS_SAVED_ROW,
+                 why="choosing the last 30 days, so a day missed on an earlier run is in this one"),
+            Step(CLICK, find=Find(BY_ROLE_AND_TEXT, "Submit", called="the Submit button"), only_if_absent=_ADS_SAVED_ROW, why="creating the saved report (which runs it once)"),
+            Step(WAIT_FOR, find=_ADS_SAVED_ROW, patience=120, why=f"waiting for the saved report {AMAZON_ADS_REPORT_NAME} to be in the list"),
+            Step(CLICK, find=_ADS_SAVED_ROW, only_if_absent=_ADS_SAVED_ROW_TODAY, why="opening the saved report's Actions menu"),
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Run", called="Run in the Actions menu"), only_if_absent=_ADS_SAVED_ROW_TODAY, why="running the saved campaign report"),
+        ),
+        to_take=(
+            Step(GO, address=AMAZON_ADS_REPORTING, patience=60, why="coming back to the ads reporting list for the finished campaign report"),
+            Step(WAIT_FOR, find=_ADS_SAVED_ROW_TODAY, patience=120, why="waiting for the saved report's row to show today as its last run"),
+            Step(CLICK, find=_ADS_SAVED_ROW_TODAY, why="opening the saved report's Actions menu"),
+            Step(TAKE_FILE, find=Find(BY_PRESSABLE_TEXT, "Download latest", called="Download latest in the Actions menu"), patience=60,
+                 why="taking the saved report's latest file"),
+        ),
+    ),
+
+    # ---- Amazon SAFE-T claims by the browser (N018, his ruling D726). **The two dropdowns are CHOSEN BY PRESSING THE WORDS** -- the opener (`Choose Report Type`) and then the option's own
+    # ---- words -- because Amazon's option list is drawn as pressable text; no new kind of step is needed. The last 30 days are asked every time, so a claim whose state moved (Under
+    # ---- Investigation, then Granted) is in the next file too and the claim's own id settles the overlap. Built from his page on 26 Oct 2026; **NOT YET RUN LIVE.**
+    "az_claims": Recipe(
+        ready_in_minutes=2,
+        to_ask=(
+            Step(GO, address=AMAZON_SAFET_REPORT, patience=60, why="opening Download the SAFE-T Report to ask for the claims"),
+            Step(WAIT_FOR, find=Find(BY_PRESSABLE_TEXT, "Choose Report Type", called="the report type choice"), patience=90,
+                 why="waiting for the SAFE-T report page to draw its report type choice"),
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Choose Report Type", called="the report type choice"), why="opening the report types"),
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "SAFE-T Claims", called="the SAFE-T Claims report type"), why="choosing the SAFE-T Claims report"),
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Choose Report Dates", called="the report dates choice"), why="opening the report dates"),
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Last 30 days", called="the last 30 days choice"), why="choosing the last 30 days"),
+            Step(CLICK, find=Find(BY_ROLE_AND_TEXT, "Generate Report", called="the Generate Report button"), why="asking Amazon to build the SAFE-T claims"),
+        ),
+        to_take=(
+            Step(GO, address=AMAZON_SAFET_REPORT, patience=60, why="coming back to the SAFE-T report page for the claims"),
+            Step(WAIT_FOR, find=Find(BY_PRESSABLE_TEXT, "Download", near="{day_in_words}", also_saying="SAFE-T Claims Report",
+                                     day_in_words_is=AMAZON_WRITES_IT, day_in_words_of=THE_DAY_IT_WAS_MADE,
+                                     called="the Download of the SAFE-T Claims Report row made today"),
+                 patience=90, why="waiting for the finished SAFE-T claims row"),
+            Step(TAKE_FILE, find=Find(BY_PRESSABLE_TEXT, "Download", near="{day_in_words}", also_saying="SAFE-T Claims Report",
+                                      day_in_words_is=AMAZON_WRITES_IT, day_in_words_of=THE_DAY_IT_WAS_MADE,
+                                      called="the Download of the SAFE-T Claims Report row made today"),
+                 patience=90, why="taking the finished SAFE-T claims file"),
+        ),
+    ),
+
+    # ---- Amazon returns by the browser (N018, his ruling D726: no Amazon API). Two-phase: press Request on the page's own default (All Returns, last day = yesterday),
+    # ---- come back and take that request's row, named by the day it was made. Amazon builds it in seconds, so the minutes are few.
+    "az_returns": Recipe(
+        ready_in_minutes=2,
+        to_ask=(
+            Step(GO, address=AMAZON_RETURNS, patience=60, why="opening Seller fulfilled return reports to ask for the returns"),
+            Step(WAIT_FOR, find=Find(BY_ROLE_AND_TEXT, "Request", called="the Request button"), patience=90,
+                 why="waiting for the return reports page to draw its Request button"),
+            Step(CLICK, find=Find(BY_ROLE_AND_TEXT, "Request", called="the Request button"), why="asking Amazon to build the returns for the last day"),
+        ),
+        to_take=(
+            Step(GO, address=AMAZON_RETURNS, patience=60, why="coming back to Seller fulfilled return reports for the returns"),
+            Step(WAIT_FOR, find=Find(BY_PRESSABLE_TEXT, "Download", near="{day_in_words}", also_saying="All Returns",
+                                     day_in_words_is=AMAZON_WRITES_IT, day_in_words_of=THE_DAY_IT_WAS_MADE,
+                                     called="the Download of the All Returns row requested today"),
+                 patience=90, why="waiting for the finished returns row"),
+            Step(TAKE_FILE, find=Find(BY_PRESSABLE_TEXT, "Download", near="{day_in_words}", also_saying="All Returns",
+                                      day_in_words_is=AMAZON_WRITES_IT, day_in_words_of=THE_DAY_IT_WAS_MADE,
+                                      called="the Download of the All Returns row requested today"),
+                 patience=90, why="taking the finished returns file"),
+        ),
+    ),
 
     # ---- Flipkart: the traffic report, two-phase and the live selector fix
     "fk_views": Recipe(

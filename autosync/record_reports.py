@@ -37,12 +37,26 @@ RECORD_REPORTS: Dict[str, RecordReport] = {
     "me_claims": RecordReport(
         claims.KIND, claims.read_claim_records, "claim(s)", "claims", merge=claims.merge,
     ),
+    # **AMAZON'S SAFE-T CLAIMS (N018, D726): the same kind of record as Meesho's claims, one per SAFE-T claim id**, written to the same claims collection.
+    "az_claims": RecordReport(
+        claims.KIND, claims.read_safet_records, "SAFE-T claim(s)", "SAFE-T claims", merge=claims.merge,
+    ),
     "me_product_performance": RecordReport(
         performance.KIND, performance.read_performance, "product week(s)", "product performance", wants_the_catalog_titles=True,
     ),
     "fk_quality_insights": RecordReport(
         quality.KIND, lambda report_id, platform, rows, day, context: quality.read_quality(report_id, platform, rows, day),
         "listing quality record(s)", "quality", merge=quality.merge,
+    ),
+    # **MEESHO'S PRODUCT QUALITY PAGE (N025): one file a day, a record per product and one for the store**, in the same listing-quality collection as Flipkart's, each with its short history.
+    "me_quality": RecordReport(
+        quality.KIND, lambda report_id, platform, rows, day, context: quality.read_meesho_quality(report_id, platform, rows, day),
+        "quality record(s)", "product quality", merge=quality.merge,
+    ),
+    # **AMAZON'S ACCOUNT HEALTH (N018): a figure for the WHOLE SHOP on a day, the same kind of fact as Meesho's views**, written to the same shop-day collection as `amazon__<day>`.
+    "az_health": RecordReport(
+        shopdays.KIND, lambda report_id, platform, rows, day, context: shopdays.read_health_days(report_id, platform, rows, day),
+        "account health day(s)", "account health",
     ),
     "me_views": RecordReport(
         shopdays.KIND, lambda report_id, platform, rows, day, context: shopdays.read_shop_days(report_id, platform, rows, day),

@@ -74,7 +74,7 @@
  * and went -- and `close_pop_ups` shuts Flipkart's notification panel and any
  * marked close button before a page's first step, the reference's own
  * `dismissFkPopups`. The Python door asks neither. */
-export const ASKED_ONLY_BY_THE_WALK = Object.freeze(['where_they_sit', 'banners_seen', 'close_pop_ups',
+export const ASKED_ONLY_BY_THE_WALK = Object.freeze(['where_they_sit', 'banners_seen', 'close_pop_ups', 'row_texts',
   'try_signing_in',
   /* **AND TYPING (2026-09-15)** -- a campaign id into Flipkart's campaign search box.
    * The Python door refuses a report done once per campaign, so it asks none. */
@@ -185,6 +185,8 @@ const A_NUMBER_SITS_THIS_FAR_ABOVE_ITS_LABEL = 2;
  * shape is the whole of the leaf and nothing else: `34,877` yes, and neither of
  * those two. */
 const A_PLAIN_NUMBER = /^\d{1,3}(?:,\d{3})*$|^\d+$/;
+/* **A PERCENTAGE, FOR THE ONE KIND OF READ THAT ASKS FOR ONE (N018, Amazon's Account Health):** digits, optionally with decimals, then a percent sign. Never used by the plain read. */
+const A_PERCENTAGE = /^\d+(?:\.\d+)?%$/;
 
 /* How often to look again while waiting, and how long to wait after something
  * first appears before answering how many there are. */
@@ -271,9 +273,30 @@ function thePage() {
 }
 
 /** Everything on the page, in the order it is written. */
+/* **THE PARENT OF A NODE, STEPPING OUT OF A SHADOW ROOT TO ITS HOST (N018, the Opus review's finding 4).** A node at the top of an open shadow root has the ROOT as its parent and the root has
+ * none of its own, so a climb to a row stopped there and a word drawn inside a `kat-button` could never be narrowed to its row. The root itself is never returned: it has no box and no text of its own. */
+function theParentOf(node) {
+  const up = node.parentNode;
+  return up && up.host ? up.host : up;
+}
+
+/** Does `outer` hold `inner`, **THROUGH A SHADOW ROOT TOO?** `Node.contains` never crosses into one, so a control inside a component's shadow root was never "held" by the row around the component, and
+ *  the row guards ("this already holds another match, so it is no longer a row") never fired. This climbs from `inner` through `theParentOf`, root to host. (The Opus review of N018's range, finding 3.) */
+function holds(outer, inner) {
+  if (!outer || !inner) return false;
+  for (let at = inner; at; at = theParentOf(at)) {
+    if (at === outer) return true;
+  }
+  return false;
+}
+
 function everything(node, found = []) {
   found.push(node);
   for (const child of node.children || []) everything(child, found);
+  /* **A COMPONENT'S OPEN SHADOW ROOT IS PART OF THE PAGE (N018, 26 Oct 2026).** Amazon's Product reports page draws its report-type list inside a `kat-dropdown`'s open shadow root, and
+   * a search that only walks `children` never sees one option of it. Only an OPEN root has a `shadowRoot` to walk; a closed one answers nothing, as before. */
+  /* **ITS CHILDREN, NOT THE ROOT**: a shadow root is a document fragment with no box of its own, so listing it as a node would crash the first question asked of its size. */
+  if (node.shadowRoot) for (const child of node.shadowRoot.children || []) everything(child, found);
   return found;
 }
 
@@ -392,7 +415,7 @@ function whatMatches(how, what, exact, near = [], alsoSaying = '') {
     (node) => isPainted(node) && looksLike(node, how, what, exact)
   );
   const smallest = labels.filter(
-    (node) => !labels.some((other) => other !== node && node.contains(other))
+    (node) => !labels.some((other) => other !== node && holds(node, other))
   );
   /* **AND FOR ONE WAY OF FINDING, WHAT WAS MATCHED IS NOT WHAT IS WANTED.** The
    * words are a label; the thing to press is the box beside them. Done here, so
@@ -408,7 +431,7 @@ function whatMatches(how, what, exact, near = [], alsoSaying = '') {
    * and its reason in `autosync/browser.py`. */
   if (how === BY_THE_BUTTON_BESIDE) all = theButtonsBeside(smallest, alsoSaid);
   const innermost = asksForWhatIsBeside
-    ? all.filter((node) => !all.some((other) => other !== node && node.contains(other)))
+    ? all.filter((node) => !all.some((other) => other !== node && holds(node, other)))
     : all;
   if (!rows.length) return innermost;
   /* **WHICH ROW IT IS ON.** When a page lists every export ever made, each row
@@ -426,7 +449,7 @@ function whatMatches(how, what, exact, near = [], alsoSaying = '') {
    * into a wrong one -- at worst it removes the right one too, and then the
    * count is nought and the step refuses, which is the safe direction. */
   return innermost.filter((node) => {
-    let up = node.parentNode;
+    let up = theParentOf(node);
     /* **AND IT STOPS CLIMBING, WHICH IT DID NOT UNTIL 2026-09-11.**
      *
      * **WHAT IT COST, MEASURED ON HIS OWN CLAIMS PANEL.** That panel's own
@@ -457,7 +480,7 @@ function whatMatches(how, what, exact, near = [], alsoSaying = '') {
        * of course contains the words being looked for, so every row "matched"
        * and nothing was narrowed at all. That was the first version of this and
        * it read as working. */
-      if (innermost.some((other) => other !== node && up.contains(other))) return false;
+      if (innermost.some((other) => other !== node && holds(up, other))) return false;
       const said = words(up.textContent).toLowerCase();
       /* **AND WHAT ELSE THE SAME ROW HAS TO SAY, ANDed WITH THE DAY.**
        * Flipkart's Reports Centre lists orders, returns and settled
@@ -470,7 +493,7 @@ function whatMatches(how, what, exact, near = [], alsoSaying = '') {
        * are being passed by two different rows. */
       if (rows.some((row) => said.includes(row))
           && (!alsoSaid || said.includes(alsoSaid))) return true;
-      up = up.parentNode;
+      up = theParentOf(up);
     }
     return false;
   });
@@ -806,7 +829,7 @@ function isADateBox(node) {
 /** The smallest matches only -- the same rule `whatMatches` runs on, and for
  *  the same reason: a cell inside a cell is one thing, not two. */
 function innermostOf(nodes) {
-  return nodes.filter((node) => !nodes.some((other) => other !== node && node.contains(other)));
+  return nodes.filter((node) => !nodes.some((other) => other !== node && holds(node, other)));
 }
 
 /** A day written `2026-08-25`, taken apart. Nothing else is a day. */
@@ -953,7 +976,7 @@ function everyCellShowingTheDay({ y, m, d }) {
   for (const heading of onShow.filter((one) => one.key === wanted)) {
     let up = heading.node.parentNode;
     for (let level = 0; level < LEVELS_UP_TO_A_MONTH_PANEL && up; level += 1) {
-      if (onShow.some((one) => one.key !== wanted && up.contains(one.node))) break;
+      if (onShow.some((one) => one.key !== wanted && holds(up, one.node))) break;
       const inside = everything(up).filter(
         (node) => node !== up && isPainted(node) && words(wordsOn(node)) === dayOnItsOwn
       );
@@ -1493,7 +1516,7 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
    * was not enough.
    */
   async function readNumber(how, what, exact = true, patienceSeconds = 0, near = [],
-    alsoSaying = '') {
+    alsoSaying = '', kind = '') {
     refuseAnUnknownWay(how);
     const many = await find(how, what, exact, patienceSeconds, near, alsoSaying);
     if (many === 0) {
@@ -1508,14 +1531,18 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
     const label = whatMatches(how, what, exact, near, alsoSaying)[0];
     let up = label.parentNode;
     for (let k = 0; k < A_NUMBER_SITS_THIS_FAR_ABOVE_ITS_LABEL && up; k += 1) {
-      const found = theFirstPlainNumberIn(up);
+      const found = kind === 'percent' ? theFirstPercentageIn(up)
+        : kind === 'status' ? theFirstStatusWordIn(up) : theFirstPlainNumberIn(up);
       if (found !== null) return found;
       up = up.parentNode;
     }
+    /* **A STATUS WORD THAT IS NOT THERE IS NOTHING, NOT A FAILURE** (Control's word 26 Oct 2026): the list of words is what Amazon is known to print and the page was not seen with every
+     * one, so the figures must still land. An empty answer becomes an empty cell, which the reader leaves out. */
+    if (kind === 'status') return '';
     /* **SAID AS WHAT IT IS.** "Not found" would send somebody looking for a label
      * that is on the page in front of them. What is missing is the number. */
     throw new Error(
-      `"${what}" is on the page and there is no plain number beside it. Either the card `
+      `"${what}" is on the page and there is no ${kind === 'percent' ? 'percentage' : 'plain number'} beside it. Either the card `
       + 'has not finished drawing, or the platform has changed how it is laid out.'
     );
   }
@@ -1909,6 +1936,24 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
     return whatMatches(how, what, exact, near, alsoSaying).slice(0, 4).map(whereItSits);
   }
 
+  /* **THE WORDS OF THE ROW EVERY MATCHING CONTROL SITS IN (N018), ASKED ONLY BY THE WALK.** Amazon's All Statements page lists one statement per row, each closed one with its own
+   * `Download Flat File V2`; the walk has to know WHICH statement each control belongs to before it presses any of them. The row is the LARGEST ancestor, within the same six levels a row is
+   * looked for everywhere else, that holds this control and no other match -- the rule `whatMatches` climbs by, and for the same reason. Page order; an empty list when nothing matches. */
+  function rowTexts(how, what, exact = true, alsoSaying = '') {
+    refuseAnUnknownWay(how);
+    const found = whatMatches(how, what, exact, [], alsoSaying);
+    return found.map((node) => {
+      let row = node;
+      let up = theParentOf(node);
+      for (let howFar = 0; howFar < AS_FAR_UP_AS_A_ROW && up; howFar += 1) {
+        if (found.some((other) => other !== node && holds(up, other))) break;
+        row = up;
+        up = theParentOf(up);
+      }
+      return words(row.textContent);
+    });
+  }
+
   /* **THE WATCH STARTS WITH THE DOOR, WHICH IS AS SOON AS THE PAGE HALF LOADS.**
    * Every change the page makes is looked at as it happens, so a banner drawn
    * and removed within a second is still kept. A browser with nothing to watch
@@ -2026,6 +2071,7 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
     go,
     find,
     where_they_sit: whereTheySit,
+    row_texts: rowTexts,
     banners_seen: () => bannersHere.seen(),
     close_pop_ups: closePopUps,
     try_signing_in: trySigningIn,
@@ -2063,6 +2109,37 @@ function theFirstPlainNumberIn(node) {
     return Number(said.replace(/,/g, ''));
   }
   return null;
+}
+
+/** The first leaf under this that is a PERCENTAGE (`1.8%`, `100%`), as the number before the sign, or nothing. **ASKED ONLY BY A STEP THAT SAYS IT WANTS A PERCENTAGE** (N018): `2 of 111 orders` beside it is
+ *  not one, and the plain read above is untouched. */
+function theFirstPercentageIn(node) {
+  for (const one of everything(node)) {
+    if ((one.children || []).length) continue;
+    if (!isPainted(one)) continue;
+    const said = words(one.textContent || '');
+    if (!A_PERCENTAGE.test(said)) continue;
+    return Number(said.slice(0, -1));
+  }
+  return null;
+}
+
+/** The first leaf under this that is one of the status words Amazon prints beside a rate, **given back exactly as the page prints it** ("At Risk", "Healthy"), or nothing. N018, Control's word 26 Oct 2026. */
+const A_STATUS_WORD = /^(healthy|at risk|critical|good|fair|poor|great|excellent|needs attention|in danger|not at risk)$/i;
+function theFirstStatusWordIn(node) {
+  const found = [];
+  let percentages = 0;
+  for (const one of everything(node)) {
+    if ((one.children || []).length) continue;
+    if (!isPainted(one)) continue;
+    const said = words(one.textContent || '');
+    if (A_PERCENTAGE.test(said)) percentages += 1;
+    if (A_STATUS_WORD.test(said)) found.push(said);
+  }
+  /* **ONE CARD'S WORD, NEVER ANOTHER'S:** once this reaches above the card (it holds more than one percentage, or more than one word) it is looking at several cards, and a word
+   * taken from there could belong to a neighbour. Nothing is what is said then. */
+  if (percentages > 1 || found.length > 1) return '';
+  return found.length ? found[0] : null;
 }
 
 function isSwitchedOff(node) {

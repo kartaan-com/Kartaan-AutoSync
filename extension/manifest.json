@@ -36,6 +36,7 @@
     "https://supplier.meesho.com/*",
     "https://seller.flipkart.com/*",
     "https://sellercentral.amazon.in/*",
+    "https://advertising.amazon.in/*",
     "https://storage.googleapis.com/*",
     "https://www.googleapis.com/*",
     "https://api.kartaan.com/*",
@@ -67,7 +68,8 @@
       "matches": [
         "https://supplier.meesho.com/*",
         "https://seller.flipkart.com/*",
-        "https://sellercentral.amazon.in/*"
+        "https://sellercentral.amazon.in/*",
+        "https://advertising.amazon.in/*"
       ],
       "js": [
         "content.js"
@@ -88,7 +90,8 @@
       "matches": [
         "https://supplier.meesho.com/*",
         "https://seller.flipkart.com/*",
-        "https://sellercentral.amazon.in/*"
+        "https://sellercentral.amazon.in/*",
+        "https://advertising.amazon.in/*"
       ]
     }
   ]

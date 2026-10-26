@@ -7,6 +7,823 @@
     "Edit the Python and run the tool again; a check refuses a stale copy."
   ],
   "recipes": {
+    "az_ads": {
+      "campaignsFrom": null,
+      "readyInMinutes": 5,
+      "toAsk": [
+        {
+          "do": "go",
+          "find": null,
+          "address": "https://advertising.amazon.in/reporting",
+          "patience": 60,
+          "why": "opening the ads reporting list to run the saved campaign report",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "wait-for",
+          "find": {
+            "how": "role",
+            "what": "Create report",
+            "exact": true,
+            "called": "the Create report button",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 90,
+          "why": "waiting for the ads reporting list to draw, so that a missing saved report is told apart from a page that never drew",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "go",
+          "find": null,
+          "address": "https://advertising.amazon.in/reporting/new?templateId=campaign",
+          "patience": 60,
+          "why": "creating the saved campaign report, once: opening the Campaign template",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": {
+            "how": "button-beside",
+            "what": "Kartaan campaign by day",
+            "exact": true,
+            "called": "the Actions menu of the saved report Kartaan campaign by day",
+            "near": "",
+            "alsoSaying": "Actions",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "wait-for",
+          "find": {
+            "how": "text",
+            "what": "Report name",
+            "exact": true,
+            "called": "the Report name label",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 90,
+          "why": "waiting for the report form to draw",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": {
+            "how": "button-beside",
+            "what": "Kartaan campaign by day",
+            "exact": true,
+            "called": "the Actions menu of the saved report Kartaan campaign by day",
+            "near": "",
+            "alsoSaying": "Actions",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "type-in",
+          "find": {
+            "how": "beside",
+            "what": "Report name",
+            "exact": true,
+            "called": "the Report name box",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "naming the saved report",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": {
+            "how": "button-beside",
+            "what": "Kartaan campaign by day",
+            "exact": true,
+            "called": "the Actions menu of the saved report Kartaan campaign by day",
+            "near": "",
+            "alsoSaying": "Actions",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "words": "Kartaan campaign by day",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "pressable",
+            "what": "Date range",
+            "exact": true,
+            "called": "the Date range column",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "taking the Date range column off the report (Amazon will not offer Date while it is on)",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": {
+            "how": "button-beside",
+            "what": "Kartaan campaign by day",
+            "exact": true,
+            "called": "the Actions menu of the saved report Kartaan campaign by day",
+            "near": "",
+            "alsoSaying": "Actions",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "pressable",
+            "what": "Date",
+            "exact": true,
+            "called": "the Date column",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "putting the Date column on the report, so every day of the period is its own row",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": {
+            "how": "button-beside",
+            "what": "Kartaan campaign by day",
+            "exact": true,
+            "called": "the Actions menu of the saved report Kartaan campaign by day",
+            "near": "",
+            "alsoSaying": "Actions",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "pressable",
+            "what": "Last seven days",
+            "exact": true,
+            "called": "the report period button",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "opening the report period",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": {
+            "how": "button-beside",
+            "what": "Kartaan campaign by day",
+            "exact": true,
+            "called": "the Actions menu of the saved report Kartaan campaign by day",
+            "near": "",
+            "alsoSaying": "Actions",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "pressable",
+            "what": "Last 30 days",
+            "exact": true,
+            "called": "the Last 30 days period",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "choosing the last 30 days, so a day missed on an earlier run is in this one",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": {
+            "how": "button-beside",
+            "what": "Kartaan campaign by day",
+            "exact": true,
+            "called": "the Actions menu of the saved report Kartaan campaign by day",
+            "near": "",
+            "alsoSaying": "Actions",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "role",
+            "what": "Submit",
+            "exact": true,
+            "called": "the Submit button",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "creating the saved report (which runs it once)",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": {
+            "how": "button-beside",
+            "what": "Kartaan campaign by day",
+            "exact": true,
+            "called": "the Actions menu of the saved report Kartaan campaign by day",
+            "near": "",
+            "alsoSaying": "Actions",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "wait-for",
+          "find": {
+            "how": "button-beside",
+            "what": "Kartaan campaign by day",
+            "exact": true,
+            "called": "the Actions menu of the saved report Kartaan campaign by day",
+            "near": "",
+            "alsoSaying": "Actions",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 120,
+          "why": "waiting for the saved report Kartaan campaign by day to be in the list",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "button-beside",
+            "what": "Kartaan campaign by day",
+            "exact": true,
+            "called": "the Actions menu of the saved report Kartaan campaign by day",
+            "near": "",
+            "alsoSaying": "Actions",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "opening the saved report's Actions menu",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": {
+            "how": "button-beside",
+            "what": "Kartaan campaign by day",
+            "exact": true,
+            "called": "the Actions menu of Kartaan campaign by day, showing today",
+            "near": "{day_in_words}",
+            "alsoSaying": "Actions",
+            "dayInWordsIs": "amazon",
+            "dayInWordsOf": "made"
+          },
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "pressable",
+            "what": "Run",
+            "exact": true,
+            "called": "Run in the Actions menu",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "running the saved campaign report",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": {
+            "how": "button-beside",
+            "what": "Kartaan campaign by day",
+            "exact": true,
+            "called": "the Actions menu of Kartaan campaign by day, showing today",
+            "near": "{day_in_words}",
+            "alsoSaying": "Actions",
+            "dayInWordsIs": "amazon",
+            "dayInWordsOf": "made"
+          },
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        }
+      ],
+      "toTake": [
+        {
+          "do": "go",
+          "find": null,
+          "address": "https://advertising.amazon.in/reporting",
+          "patience": 60,
+          "why": "coming back to the ads reporting list for the finished campaign report",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "wait-for",
+          "find": {
+            "how": "button-beside",
+            "what": "Kartaan campaign by day",
+            "exact": true,
+            "called": "the Actions menu of Kartaan campaign by day, showing today",
+            "near": "{day_in_words}",
+            "alsoSaying": "Actions",
+            "dayInWordsIs": "amazon",
+            "dayInWordsOf": "made"
+          },
+          "address": "",
+          "patience": 120,
+          "why": "waiting for the saved report's row to show today as its last run",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "button-beside",
+            "what": "Kartaan campaign by day",
+            "exact": true,
+            "called": "the Actions menu of Kartaan campaign by day, showing today",
+            "near": "{day_in_words}",
+            "alsoSaying": "Actions",
+            "dayInWordsIs": "amazon",
+            "dayInWordsOf": "made"
+          },
+          "address": "",
+          "patience": 30,
+          "why": "opening the saved report's Actions menu",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "take-file",
+          "find": {
+            "how": "pressable",
+            "what": "Download latest",
+            "exact": true,
+            "called": "Download latest in the Actions menu",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 60,
+          "why": "taking the saved report's latest file",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        }
+      ]
+    },
+    "az_claims": {
+      "campaignsFrom": null,
+      "readyInMinutes": 2,
+      "toAsk": [
+        {
+          "do": "go",
+          "find": null,
+          "address": "https://sellercentral.amazon.in/safet-claims/reports",
+          "patience": 60,
+          "why": "opening Download the SAFE-T Report to ask for the claims",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "wait-for",
+          "find": {
+            "how": "pressable",
+            "what": "Choose Report Type",
+            "exact": true,
+            "called": "the report type choice",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 90,
+          "why": "waiting for the SAFE-T report page to draw its report type choice",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "pressable",
+            "what": "Choose Report Type",
+            "exact": true,
+            "called": "the report type choice",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "opening the report types",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "pressable",
+            "what": "SAFE-T Claims",
+            "exact": true,
+            "called": "the SAFE-T Claims report type",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "choosing the SAFE-T Claims report",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "pressable",
+            "what": "Choose Report Dates",
+            "exact": true,
+            "called": "the report dates choice",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "opening the report dates",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "pressable",
+            "what": "Last 30 days",
+            "exact": true,
+            "called": "the last 30 days choice",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "choosing the last 30 days",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "role",
+            "what": "Generate Report",
+            "exact": true,
+            "called": "the Generate Report button",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "asking Amazon to build the SAFE-T claims",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        }
+      ],
+      "toTake": [
+        {
+          "do": "go",
+          "find": null,
+          "address": "https://sellercentral.amazon.in/safet-claims/reports",
+          "patience": 60,
+          "why": "coming back to the SAFE-T report page for the claims",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "wait-for",
+          "find": {
+            "how": "pressable",
+            "what": "Download",
+            "exact": true,
+            "called": "the Download of the SAFE-T Claims Report row made today",
+            "near": "{day_in_words}",
+            "alsoSaying": "SAFE-T Claims Report",
+            "dayInWordsIs": "amazon",
+            "dayInWordsOf": "made"
+          },
+          "address": "",
+          "patience": 90,
+          "why": "waiting for the finished SAFE-T claims row",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "take-file",
+          "find": {
+            "how": "pressable",
+            "what": "Download",
+            "exact": true,
+            "called": "the Download of the SAFE-T Claims Report row made today",
+            "near": "{day_in_words}",
+            "alsoSaying": "SAFE-T Claims Report",
+            "dayInWordsIs": "amazon",
+            "dayInWordsOf": "made"
+          },
+          "address": "",
+          "patience": 90,
+          "why": "taking the finished SAFE-T claims file",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        }
+      ]
+    },
     "az_fee_preview": {
       "campaignsFrom": null,
       "readyInMinutes": 45,
@@ -22,45 +839,107 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
           "find": {
-            "how": "button-beside",
-            "what": "Referral Fee Preview Report",
+            "how": "pressable",
+            "what": "Select Report Type",
             "exact": true,
-            "called": "the Request Report control beside Referral Fee Preview Report",
+            "called": "the Select Report Type dropdown",
             "near": "",
-            "alsoSaying": "REQUEST REPORT",
+            "alsoSaying": "",
             "dayInWordsIs": "",
             "dayInWordsOf": ""
           },
           "address": "",
           "patience": 90,
-          "why": "waiting for the Inventory Reports page to draw its Request Report control",
+          "why": "waiting for the Inventory Reports page to draw its report type dropdown",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
           "find": {
-            "how": "button-beside",
+            "how": "pressable",
+            "what": "Select Report Type",
+            "exact": true,
+            "called": "the Select Report Type dropdown",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "opening the report types",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "pressable",
             "what": "Referral Fee Preview Report",
             "exact": true,
-            "called": "the Request Report control beside Referral Fee Preview Report",
+            "called": "the Referral Fee Preview Report choice in the report type list",
             "near": "",
-            "alsoSaying": "REQUEST REPORT",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "choosing Referral Fee Preview Report",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "pressable",
+            "what": "Request Report",
+            "exact": true,
+            "called": "the Request Report button",
+            "near": "",
+            "alsoSaying": "",
             "dayInWordsIs": "",
             "dayInWordsOf": ""
           },
@@ -72,10 +951,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         }
       ],
       "toTake": [
@@ -90,10 +972,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
@@ -115,10 +1000,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "take-file",
@@ -140,10 +1028,366 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        }
+      ]
+    },
+    "az_health": {
+      "campaignsFrom": null,
+      "readyInMinutes": 0,
+      "toAsk": [],
+      "toTake": [
+        {
+          "do": "go",
+          "find": null,
+          "address": "https://sellercentral.amazon.in/performance/dashboard",
+          "patience": 60,
+          "why": "opening the Account Health dashboard",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "wait-for",
+          "find": {
+            "how": "text",
+            "what": "Account Health Rating",
+            "exact": true,
+            "called": "the Account Health Rating",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 90,
+          "why": "waiting for the Account Health cards to finish drawing",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "read-number",
+          "find": {
+            "how": "text",
+            "what": "Account Health Rating",
+            "exact": true,
+            "called": "Account Health Rating",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "reading the Account Health Rating",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "read-number",
+          "find": {
+            "how": "text",
+            "what": "Order Defect Rate",
+            "exact": true,
+            "called": "Order Defect Rate",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "reading the order defect rate",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "percent",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "read-number",
+          "find": {
+            "how": "text",
+            "what": "Late Dispatch Rate",
+            "exact": true,
+            "called": "Late Dispatch Rate",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "reading the late dispatch rate",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "percent",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "read-number",
+          "find": {
+            "how": "text",
+            "what": "Pre-fulfilment Cancel Rate",
+            "exact": true,
+            "called": "Pre-fulfilment Cancel Rate",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "reading the pre-fulfilment cancel rate",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "percent",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "read-number",
+          "find": {
+            "how": "text",
+            "what": "Valid Tracking Rate",
+            "exact": true,
+            "called": "Valid Tracking Rate",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "reading the valid tracking rate",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "percent",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "read-number",
+          "find": {
+            "how": "text",
+            "what": "Account Health Rating",
+            "exact": true,
+            "called": "Account Health Status",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "reading Amazon's word for the Account Health Rating",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "status",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "read-number",
+          "find": {
+            "how": "text",
+            "what": "Order Defect Rate",
+            "exact": true,
+            "called": "Order Defect Rate Status",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "reading Amazon's word for the order defect rate",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "status",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "read-number",
+          "find": {
+            "how": "text",
+            "what": "Late Dispatch Rate",
+            "exact": true,
+            "called": "Late Dispatch Rate Status",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "reading Amazon's word for the late dispatch rate",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "status",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "read-number",
+          "find": {
+            "how": "text",
+            "what": "Pre-fulfilment Cancel Rate",
+            "exact": true,
+            "called": "Pre-fulfilment Cancel Rate Status",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "reading Amazon's word for the pre-fulfilment cancel rate",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "status",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "read-number",
+          "find": {
+            "how": "text",
+            "what": "Valid Tracking Rate",
+            "exact": true,
+            "called": "Valid Tracking Rate Status",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "reading Amazon's word for the valid tracking rate",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "status",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "add-to-the-list",
+          "find": null,
+          "address": "",
+          "patience": 30,
+          "why": "writing the day as its own file",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         }
       ]
     },
@@ -162,45 +1406,107 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
           "find": {
-            "how": "button-beside",
-            "what": "All Listings Report",
+            "how": "pressable",
+            "what": "Select Report Type",
             "exact": true,
-            "called": "the Request Report control beside All Listings Report",
+            "called": "the Select Report Type dropdown",
             "near": "",
-            "alsoSaying": "REQUEST REPORT",
+            "alsoSaying": "",
             "dayInWordsIs": "",
             "dayInWordsOf": ""
           },
           "address": "",
           "patience": 90,
-          "why": "waiting for the Inventory Reports page to draw its Request Report control",
+          "why": "waiting for the Inventory Reports page to draw its report type dropdown",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
           "find": {
-            "how": "button-beside",
+            "how": "pressable",
+            "what": "Select Report Type",
+            "exact": true,
+            "called": "the Select Report Type dropdown",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "opening the report types",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "pressable",
             "what": "All Listings Report",
             "exact": true,
-            "called": "the Request Report control beside All Listings Report",
+            "called": "the All Listings Report choice in the report type list",
             "near": "",
-            "alsoSaying": "REQUEST REPORT",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "choosing All Listings Report",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "pressable",
+            "what": "Request Report",
+            "exact": true,
+            "called": "the Request Report button",
+            "near": "",
+            "alsoSaying": "",
             "dayInWordsIs": "",
             "dayInWordsOf": ""
           },
@@ -212,10 +1518,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         }
       ],
       "toTake": [
@@ -230,10 +1539,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
@@ -255,10 +1567,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "take-file",
@@ -280,10 +1595,439 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        }
+      ]
+    },
+    "az_orders": {
+      "campaignsFrom": null,
+      "readyInMinutes": 2,
+      "toAsk": [
+        {
+          "do": "go",
+          "find": null,
+          "address": "https://sellercentral.amazon.in/order-reports-and-feeds/reports/allOrders",
+          "patience": 60,
+          "why": "opening the All Orders report page to ask for the orders",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "wait-for",
+          "find": {
+            "how": "pressable",
+            "what": "Last Updated Date",
+            "exact": true,
+            "called": "the Last Updated Date choice",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 90,
+          "why": "waiting for the All Orders page to draw its report type choice",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "pressable",
+            "what": "Last Updated Date",
+            "exact": true,
+            "called": "the Last Updated Date choice",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "choosing the orders by last updated date",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "role",
+            "what": "Request",
+            "exact": true,
+            "called": "the Request button",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "asking Amazon to build the orders for the last day",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        }
+      ],
+      "toTake": [
+        {
+          "do": "go",
+          "find": null,
+          "address": "https://sellercentral.amazon.in/order-reports-and-feeds/reports/allOrders",
+          "patience": 60,
+          "why": "coming back to the All Orders report page for the orders",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "wait-for",
+          "find": {
+            "how": "pressable",
+            "what": "Download",
+            "exact": true,
+            "called": "the Download of the Last Updated Date row requested today",
+            "near": "{day_in_words}",
+            "alsoSaying": "Last Updated Date",
+            "dayInWordsIs": "amazon",
+            "dayInWordsOf": "made"
+          },
+          "address": "",
+          "patience": 120,
+          "why": "waiting for the finished orders row",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "take-file",
+          "find": {
+            "how": "pressable",
+            "what": "Download",
+            "exact": true,
+            "called": "the Download of the Last Updated Date row requested today",
+            "near": "{day_in_words}",
+            "alsoSaying": "Last Updated Date",
+            "dayInWordsIs": "amazon",
+            "dayInWordsOf": "made"
+          },
+          "address": "",
+          "patience": 90,
+          "why": "taking the finished orders file",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        }
+      ]
+    },
+    "az_returns": {
+      "campaignsFrom": null,
+      "readyInMinutes": 2,
+      "toAsk": [
+        {
+          "do": "go",
+          "find": null,
+          "address": "https://sellercentral.amazon.in/returns/report",
+          "patience": 60,
+          "why": "opening Seller fulfilled return reports to ask for the returns",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "wait-for",
+          "find": {
+            "how": "role",
+            "what": "Request",
+            "exact": true,
+            "called": "the Request button",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 90,
+          "why": "waiting for the return reports page to draw its Request button",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "role",
+            "what": "Request",
+            "exact": true,
+            "called": "the Request button",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "asking Amazon to build the returns for the last day",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        }
+      ],
+      "toTake": [
+        {
+          "do": "go",
+          "find": null,
+          "address": "https://sellercentral.amazon.in/returns/report",
+          "patience": 60,
+          "why": "coming back to Seller fulfilled return reports for the returns",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "wait-for",
+          "find": {
+            "how": "pressable",
+            "what": "Download",
+            "exact": true,
+            "called": "the Download of the All Returns row requested today",
+            "near": "{day_in_words}",
+            "alsoSaying": "All Returns",
+            "dayInWordsIs": "amazon",
+            "dayInWordsOf": "made"
+          },
+          "address": "",
+          "patience": 90,
+          "why": "waiting for the finished returns row",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "take-file",
+          "find": {
+            "how": "pressable",
+            "what": "Download",
+            "exact": true,
+            "called": "the Download of the All Returns row requested today",
+            "near": "{day_in_words}",
+            "alsoSaying": "All Returns",
+            "dayInWordsIs": "amazon",
+            "dayInWordsOf": "made"
+          },
+          "address": "",
+          "patience": 90,
+          "why": "taking the finished returns file",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        }
+      ]
+    },
+    "az_settlements": {
+      "campaignsFrom": null,
+      "readyInMinutes": 0,
+      "toAsk": [],
+      "toTake": [
+        {
+          "do": "go",
+          "find": null,
+          "address": "https://sellercentral.amazon.in/payments/past-settlements",
+          "patience": 60,
+          "why": "opening All Statements for the settlements not yet held",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "wait-for",
+          "find": {
+            "how": "text",
+            "what": "Statement Period",
+            "exact": true,
+            "called": "the statements table",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 90,
+          "why": "waiting for the statements table itself to draw, so that no new statement is told apart from a page that never drew",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "take-every-new",
+          "find": {
+            "how": "pressable",
+            "what": "Download Flat File V2",
+            "exact": true,
+            "called": "the Download Flat File V2 of a closed statement",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 60,
+          "why": "taking every closed statement that Drive does not already hold",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": "No closed settlement statement is new (Amazon publishes one weekly), so there is nothing to fetch."
         }
       ]
     },
@@ -303,10 +2047,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
@@ -328,10 +2075,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "take-file",
@@ -353,10 +2103,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         }
       ]
     },
@@ -376,10 +2129,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
@@ -401,10 +2157,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -426,10 +2185,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -451,10 +2213,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -476,10 +2241,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -501,10 +2269,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "pick-range",
@@ -517,10 +2288,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -542,10 +2316,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "take-file",
@@ -567,10 +2344,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         }
       ]
     },
@@ -590,10 +2370,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
@@ -615,10 +2398,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -640,10 +2426,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -665,10 +2454,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -690,10 +2482,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -715,10 +2510,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "pick-range",
@@ -731,10 +2529,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -756,10 +2557,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "take-file",
@@ -781,10 +2585,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         }
       ]
     },
@@ -804,10 +2611,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
@@ -829,10 +2639,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -854,10 +2667,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -879,10 +2695,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -904,10 +2723,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -929,10 +2751,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "pick-range",
@@ -945,10 +2770,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -970,10 +2798,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "take-file",
@@ -995,10 +2826,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         }
       ]
     },
@@ -1018,10 +2852,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
@@ -1043,10 +2880,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -1068,10 +2908,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -1093,10 +2936,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -1118,10 +2964,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -1143,10 +2992,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "pick-range",
@@ -1159,10 +3011,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -1184,10 +3039,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "take-file",
@@ -1209,10 +3067,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         }
       ]
     },
@@ -1236,10 +3097,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
@@ -1261,10 +3125,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -1286,10 +3153,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -1311,10 +3181,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -1336,10 +3209,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -1361,10 +3237,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "pick-range",
@@ -1377,10 +3256,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -1402,10 +3284,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -1427,10 +3312,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": true,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "type-in",
@@ -1452,10 +3340,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "{campaign}",
           "forEachCampaign": true,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
@@ -1477,10 +3368,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": true,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -1502,10 +3396,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": true,
           "pressLikeAMouse": true,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
@@ -1527,10 +3424,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": true,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "take-file",
@@ -1552,10 +3452,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": true,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         }
       ]
     },
@@ -1575,10 +3478,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
@@ -1600,10 +3506,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -1625,10 +3534,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -1650,10 +3562,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -1675,10 +3590,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -1700,10 +3618,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "pick-range",
@@ -1716,10 +3637,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -1741,10 +3665,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "take-file",
@@ -1766,10 +3693,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         }
       ]
     },
@@ -1789,10 +3719,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
@@ -1814,10 +3747,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -1839,10 +3775,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -1864,10 +3803,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -1889,10 +3831,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -1914,10 +3859,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "pick-range",
@@ -1930,10 +3878,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -1955,10 +3906,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "take-file",
@@ -1980,10 +3934,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         }
       ]
     },
@@ -2003,10 +3960,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
@@ -2028,10 +3988,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -2053,10 +4016,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -2078,10 +4044,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "pick-range",
@@ -2094,10 +4063,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "take-file",
@@ -2119,10 +4091,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         }
       ]
     },
@@ -2142,10 +4117,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
@@ -2167,10 +4145,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -2192,10 +4173,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
@@ -2217,10 +4201,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -2242,10 +4229,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "read-the-keywords",
@@ -2258,10 +4248,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         }
       ]
     },
@@ -2280,10 +4273,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
@@ -2305,10 +4301,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -2330,10 +4329,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -2355,10 +4357,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         }
       ],
       "toTake": [
@@ -2373,10 +4378,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
@@ -2398,10 +4406,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -2423,10 +4434,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -2448,10 +4462,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "take-file",
@@ -2473,10 +4490,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         }
       ]
     },
@@ -2495,10 +4515,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
@@ -2520,10 +4543,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -2545,10 +4571,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -2570,10 +4599,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -2595,10 +4627,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -2620,10 +4655,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -2658,10 +4696,13 @@
             "times": 4
           },
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "pick-range",
@@ -2687,10 +4728,13 @@
             "times": 1
           },
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -2712,10 +4756,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
@@ -2746,10 +4793,13 @@
             "dayInWordsIs": "flipkart",
             "dayInWordsOf": "about"
           },
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         }
       ],
       "toTake": [
@@ -2764,10 +4814,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
@@ -2789,10 +4842,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -2814,10 +4870,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
@@ -2839,10 +4898,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "take-file",
@@ -2864,10 +4926,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         }
       ]
     },
@@ -2886,10 +4951,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
@@ -2911,10 +4979,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -2936,10 +5007,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -2961,10 +5035,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -2986,10 +5063,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -3011,10 +5091,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -3049,10 +5132,13 @@
             "times": 4
           },
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "pick-range",
@@ -3078,10 +5164,13 @@
             "times": 1
           },
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -3103,10 +5192,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
@@ -3137,10 +5229,13 @@
             "dayInWordsIs": "flipkart",
             "dayInWordsOf": "about"
           },
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         }
       ],
       "toTake": [
@@ -3155,10 +5250,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
@@ -3180,10 +5278,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -3205,10 +5306,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
@@ -3230,10 +5334,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "take-file",
@@ -3255,10 +5362,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         }
       ]
     },
@@ -3278,10 +5388,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
@@ -3303,10 +5416,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -3328,10 +5444,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "read-the-table",
@@ -3344,10 +5463,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": "flipkart-quality-insights"
+          "table": "flipkart-quality-insights",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         }
       ]
     },
@@ -3366,10 +5488,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
@@ -3391,10 +5516,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -3416,10 +5544,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "pick-range",
@@ -3432,10 +5563,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -3457,10 +5591,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -3482,10 +5619,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         }
       ],
       "toTake": [
@@ -3500,10 +5640,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
@@ -3525,10 +5668,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -3550,10 +5696,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "take-file",
@@ -3575,10 +5724,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         }
       ]
     },
@@ -3597,10 +5749,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
@@ -3622,10 +5777,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -3647,10 +5805,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
@@ -3672,10 +5833,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -3697,10 +5861,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "pick-range",
@@ -3713,10 +5880,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -3738,10 +5908,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -3763,10 +5936,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         }
       ],
       "toTake": [
@@ -3781,10 +5957,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
@@ -3806,10 +5985,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -3831,10 +6013,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
@@ -3856,10 +6041,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -3881,10 +6069,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "pick-range",
@@ -3897,10 +6088,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -3922,10 +6116,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
@@ -3947,10 +6144,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "take-file",
@@ -3972,10 +6172,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         }
       ]
     },
@@ -3995,10 +6198,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "sweep-the-ads",
@@ -4011,10 +6217,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         }
       ]
     },
@@ -4034,10 +6243,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
@@ -4059,10 +6271,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -4084,10 +6299,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait",
@@ -4100,10 +6318,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "take-file",
@@ -4125,10 +6346,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         }
       ]
     },
@@ -4148,10 +6372,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
@@ -4173,10 +6400,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -4198,10 +6428,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -4223,10 +6456,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "take-file",
@@ -4248,10 +6484,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         }
       ]
     },
@@ -4271,10 +6510,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
@@ -4296,10 +6538,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -4321,10 +6566,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -4346,10 +6594,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "pick-range",
@@ -4362,10 +6613,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -4387,10 +6641,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait",
@@ -4403,10 +6660,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "go",
@@ -4419,10 +6679,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
@@ -4444,10 +6707,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -4469,10 +6735,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "take-file",
@@ -4507,10 +6776,13 @@
           },
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         }
       ]
     },
@@ -4530,10 +6802,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
@@ -4555,10 +6830,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -4580,10 +6858,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -4605,10 +6886,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -4630,10 +6914,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "pick-range",
@@ -4646,10 +6933,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "take-file",
@@ -4671,10 +6961,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         }
       ]
     },
@@ -4694,10 +6987,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "read-the-table",
@@ -4710,10 +7006,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": "meesho-pricing"
+          "table": "meesho-pricing",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         }
       ]
     },
@@ -4733,10 +7032,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "read-the-table",
@@ -4749,10 +7051,58 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": "meesho-product-performance"
+          "table": "meesho-product-performance",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        }
+      ]
+    },
+    "me_quality": {
+      "campaignsFrom": null,
+      "readyInMinutes": 0,
+      "toAsk": [],
+      "toTake": [
+        {
+          "do": "go",
+          "find": null,
+          "address": "https://supplier.meesho.com/panel/v3/new/cataloging/{panel}/product-optimiser",
+          "patience": 60,
+          "why": "opening the product quality page",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "read-the-table",
+          "find": null,
+          "address": "",
+          "patience": 120,
+          "why": "reading the store score, the feedback reasons, the tabs and every product",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "meesho-quality",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         }
       ]
     },
@@ -4772,10 +7122,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
@@ -4797,10 +7150,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -4822,10 +7178,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -4847,10 +7206,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -4872,10 +7234,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "click",
@@ -4897,10 +7262,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "take-file",
@@ -4935,10 +7303,13 @@
           },
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         }
       ]
     },
@@ -4958,10 +7329,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "wait-for",
@@ -4983,10 +7357,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "read-number",
@@ -5008,10 +7385,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "read-number",
@@ -5033,10 +7413,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         },
         {
           "do": "add-to-the-list",
@@ -5049,10 +7432,13 @@
           "lookAgain": null,
           "pressAgain": null,
           "orFind": null,
+          "onlyIfAbsent": null,
           "words": "",
           "forEachCampaign": false,
           "pressLikeAMouse": false,
-          "table": ""
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
         }
       ]
     }
@@ -5105,7 +7491,13 @@
         "{dd} {Mon} {yyyy}",
         "{Mon} {d}, {yyyy}",
         "{Mon} {dd}, {yyyy}",
-        "{yyyy}-{mm}-{dd}"
+        "{yyyy}-{mm}-{dd}",
+        "{d} {Month} {yyyy}",
+        "{d} {Mon}, {yyyy}",
+        "{dd} {Mon}, {yyyy}",
+        "{dd}/{mm}/{yy}",
+        "{dd}/{mm}/{yyyy}",
+        "{d}/{m}/{yyyy}"
       ]
     },
     "flipkart": {
@@ -5199,13 +7591,37 @@
     "Start Selling"
   ],
   "fileNames": {
+    "az_ads": {
+      "platform": "amazon",
+      "extension": "csv"
+    },
+    "az_claims": {
+      "platform": "amazon",
+      "extension": "csv"
+    },
     "az_fee_preview": {
       "platform": "amazon",
       "extension": "txt"
     },
+    "az_health": {
+      "platform": "amazon",
+      "extension": "csv"
+    },
     "az_listings": {
       "platform": "amazon",
       "extension": "txt"
+    },
+    "az_orders": {
+      "platform": "amazon",
+      "extension": "csv"
+    },
+    "az_returns": {
+      "platform": "amazon",
+      "extension": "csv"
+    },
+    "az_settlements": {
+      "platform": "amazon",
+      "extension": "csv"
     },
     "az_traffic": {
       "platform": "amazon",
@@ -5307,6 +7723,10 @@
       "platform": "meesho",
       "extension": "csv"
     },
+    "me_quality": {
+      "platform": "meesho",
+      "extension": "csv"
+    },
     "me_returns": {
       "platform": "meesho",
       "extension": "csv"
@@ -5326,9 +7746,27 @@
   },
   "reports": [
     {
+      "id": "az_ads",
+      "platform": "amazon",
+      "name": "Amazon ads, campaigns by day",
+      "cannotBeAskedForAgain": null
+    },
+    {
+      "id": "az_claims",
+      "platform": "amazon",
+      "name": "Amazon SAFE-T claims",
+      "cannotBeAskedForAgain": "The page offers Yesterday, the last 7, 30 or 60 days, or exact dates; the run asks for one of the relative ones, so a day already gone cannot be fetched again by the run. Overlapping files are expected and are settled by the SAFE-T claim id."
+    },
+    {
       "id": "az_fee_preview",
       "platform": "amazon",
       "name": "Amazon Referral Fee Preview",
+      "cannotBeAskedForAgain": "This is a picture of how things stand right now. The platform keeps no history to ask for, so a past day cannot be fetched again -- only the day it was taken."
+    },
+    {
+      "id": "az_health",
+      "platform": "amazon",
+      "name": "Amazon account health",
       "cannotBeAskedForAgain": "This is a picture of how things stand right now. The platform keeps no history to ask for, so a past day cannot be fetched again -- only the day it was taken."
     },
     {
@@ -5341,13 +7779,13 @@
       "id": "az_orders",
       "platform": "amazon",
       "name": "Amazon orders",
-      "cannotBeAskedForAgain": null
+      "cannotBeAskedForAgain": "Amazon's All Orders page is asked for the last day only, so a day already gone cannot be fetched again by the run (the page itself offers exact dates, which the walk does not use yet)."
     },
     {
       "id": "az_returns",
       "platform": "amazon",
       "name": "Amazon returns",
-      "cannotBeAskedForAgain": null
+      "cannotBeAskedForAgain": "Amazon's return report page is asked for 'last day' only, so a day already gone cannot be fetched again by the run (the page itself offers Exact dates, which the walk does not use yet)."
     },
     {
       "id": "az_settlements",
@@ -5512,6 +7950,12 @@
       "cannotBeAskedForAgain": "This is a picture of how things stand right now. The platform keeps no history to ask for, so a past day cannot be fetched again -- only the day it was taken."
     },
     {
+      "id": "me_quality",
+      "platform": "meesho",
+      "name": "Meesho product quality",
+      "cannotBeAskedForAgain": "This is a picture of how things stand right now. The platform keeps no history to ask for, so a past day cannot be fetched again -- only the day it was taken."
+    },
+    {
       "id": "me_returns",
       "platform": "meesho",
       "name": "Meesho returns",
@@ -5525,17 +7969,29 @@
     }
   ],
   "onTheApiDoor": [
-    "az_orders",
-    "az_returns",
-    "az_settlements",
     "az_suppressed"
   ],
   "kartaan": "Kartaan",
   "folders": {
+    "az_ads": [
+      "Reports",
+      "Amazon",
+      "Ads"
+    ],
+    "az_claims": [
+      "Reports",
+      "Amazon",
+      "Claims"
+    ],
     "az_fee_preview": [
       "Reports",
       "Amazon",
       "Fees"
+    ],
+    "az_health": [
+      "Reports",
+      "Amazon",
+      "Health"
     ],
     "az_listings": [
       "Reports",
@@ -5691,6 +8147,11 @@
       "Reports",
       "Meesho",
       "Product performance"
+    ],
+    "me_quality": [
+      "Reports",
+      "Meesho",
+      "Quality"
     ],
     "me_returns": [
       "Reports",

@@ -102,7 +102,8 @@ for report_id in tool.every_recipe():
     # traffic report's pop-ups and put away as one file by the reading step itself.
     ENDS_WITH = {"me_views": pages.ADD_TO_THE_LIST, "me_ads": pages.SWEEP_THE_ADS,
                  "fk_keywords": pages.READ_THE_KEYWORDS, "me_product_performance": pages.READ_THE_TABLE,
-                 "me_pricing": pages.READ_THE_TABLE, "fk_quality_insights": pages.READ_THE_TABLE}
+                 "me_pricing": pages.READ_THE_TABLE, "fk_quality_insights": pages.READ_THE_TABLE, "az_settlements": pages.TAKE_EVERY_NEW, "me_quality": pages.READ_THE_TABLE,
+                 "az_health": pages.ADD_TO_THE_LIST}
     check(f"and {report_id} ends by putting the day away",
           answered(lambda: one.to_take[-1].do
                    == ENDS_WITH.get(report_id, pages.TAKE_FILE)))
@@ -231,8 +232,20 @@ SHAPES = {
                     (pages.GO, pages.WAIT_FOR, pages.CLICK, pages.WAIT_FOR, pages.TAKE_FILE)),
     # **AMAZON'S TWO ARE ONE SHAPE (lane 1 job 8):** open Inventory Reports, wait for the Request Report control on the report's row, press it; later open it
     # again, wait for the Done row's Download, take it. No range, no day: both are snapshots.
-    "az_listings": ((pages.GO, pages.WAIT_FOR, pages.CLICK), (pages.GO, pages.WAIT_FOR, pages.TAKE_FILE)),
-    "az_fee_preview": ((pages.GO, pages.WAIT_FOR, pages.CLICK), (pages.GO, pages.WAIT_FOR, pages.TAKE_FILE)),
+    "az_listings": ((pages.GO, pages.WAIT_FOR, pages.CLICK, pages.CLICK, pages.CLICK), (pages.GO, pages.WAIT_FOR, pages.TAKE_FILE)),
+    "az_fee_preview": ((pages.GO, pages.WAIT_FOR, pages.CLICK, pages.CLICK, pages.CLICK), (pages.GO, pages.WAIT_FOR, pages.TAKE_FILE)),
+    # **AMAZON RETURNS BY THE BROWSER (N018, seen live 26 Oct 2026):** open the returns report page, wait for its Request button, press it (the page opens on All Returns
+    # and last day); later open it again, wait for today's row's Download, take it.
+    "az_returns": ((pages.GO, pages.WAIT_FOR, pages.CLICK), (pages.GO, pages.WAIT_FOR, pages.TAKE_FILE)),
+    # **AMAZON SAFE-T CLAIMS (N018):** open the SAFE-T report page, wait for the report-type choice, choose SAFE-T Claims, choose the dates, press Generate Report; later open it again, wait for today's row's Download, take it.
+    "az_claims": ((pages.GO, pages.WAIT_FOR, pages.CLICK, pages.CLICK, pages.CLICK, pages.CLICK, pages.CLICK), (pages.GO, pages.WAIT_FOR, pages.TAKE_FILE)),
+    # **AMAZON ORDERS (N018):** open All Orders, wait for the Last Updated Date choice, choose it, press Request; later take today's row's Download. **AMAZON SETTLEMENTS (N018)** are one-phase: open All Statements, wait for the table, take the statement that ended on the day.
+    "az_orders": ((pages.GO, pages.WAIT_FOR, pages.CLICK, pages.CLICK), (pages.GO, pages.WAIT_FOR, pages.TAKE_FILE)),
+    "az_settlements": ((), (pages.GO, pages.WAIT_FOR, pages.TAKE_EVERY_NEW)),
+    # **AMAZON ACCOUNT HEALTH (N018):** open the dashboard, wait for the rating, read the rating and four rates, write the day as its own one-row file.
+    "az_health": ((), (pages.GO, pages.WAIT_FOR, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.ADD_TO_THE_LIST)),
+    # **AMAZON ADS (N018):** the seller's one saved daily report is RUN (open, wait for its row, open the row's Actions, press Run); later the row that shows today as its last run is opened and its latest file taken.
+    "az_ads": ((pages.GO, pages.WAIT_FOR, pages.GO, pages.WAIT_FOR, pages.TYPE_IN, pages.CLICK, pages.CLICK, pages.CLICK, pages.CLICK, pages.CLICK, pages.WAIT_FOR, pages.CLICK, pages.CLICK), (pages.GO, pages.WAIT_FOR, pages.CLICK, pages.TAKE_FILE)),
 }
 for report_id, (ask, take) in sorted(SHAPES.items()):
     one = tool.recipe(report_id)
@@ -389,7 +402,7 @@ check("so nothing in the collecting half looks for a row it has not named",
 
 two = [r for r in tool.every_recipe() if tool.recipe(r).two_phase]
 check("the reports Flipkart has to go away and build are two-phase",
-      answered(lambda: set(two) == {"fk_orders", "fk_returns", "fk_payments", "fk_views", "fk_listings", "az_listings", "az_fee_preview"}))
+      answered(lambda: set(two) == {"fk_orders", "fk_returns", "fk_payments", "fk_views", "fk_listings", "az_listings", "az_fee_preview", "az_returns", "az_claims", "az_orders", "az_ads"}))
 check("and no Meesho report is", answered(lambda: not any(r.startswith("me_") for r in two)))
 # **A ONE-SHOT REPORT SAYS NOTHING ABOUT HOW LONG IT TAKES TO BE READY**, because
 # nobody is building it -- a number there would be read by nothing.
@@ -672,11 +685,11 @@ for report_id in tool.every_recipe():
 # and the coverage check below is the one that holds the two together.
 check("fifteen Flipkart reports can be fetched by this door -- all of them, since the keywords (2026-09-15)",
       answered(lambda: len(tool.on_the_browser_door_for("flipkart")) == 15))
-check("and nine Meesho ones, now that the views card and the ads sweep are built",
-      answered(lambda: len(tool.on_the_browser_door_for("meesho")) == 9))
+check("and ten Meesho ones, now that the views card, the ads sweep and the quality page are built (N025)",
+      answered(lambda: len(tool.on_the_browser_door_for("meesho")) == 10))
 # **AMAZON NEEDS NONE, and that is the number the others should fall to.**
-check("Amazon needs the browser for three reports: the traffic by child item, All Listings, and Referral Fee Preview (lane 1 jobs 7 and 8)",
-      answered(lambda: tool.on_the_browser_door_for("amazon") == ("az_fee_preview", "az_listings", "az_traffic")))
+check("Amazon needs the browser for nine reports (the ads included): the traffic by child item, All Listings, Referral Fee Preview (lane 1 jobs 7 and 8), and returns, SAFE-T claims, orders, settlements and account health (N018); only the suppressed listings still use the API",
+      answered(lambda: tool.on_the_browser_door_for("amazon") == ("az_ads", "az_claims", "az_fee_preview", "az_health", "az_listings", "az_orders", "az_returns", "az_settlements", "az_traffic")))
 # **THE TWO-PHASE AMAZON WALK (lane 1 job 8): Inventory Reports, Request Report, then Download from the same list.** Amazon builds the file (up to 45 minutes,
 # once in 24 hours) and shows a row that goes In Progress -> Done, or is Cancelled. The page itself has not been looked at: every control name below is
 # the sample's and the brief's, and the first live walk must confirm the page's wording (see DONE_AP8).
@@ -685,23 +698,175 @@ for az_id, az_name, az_minutes in (("az_listings", "All Listings Report", 30), (
     ask = two.to_ask if two else ()
     take = two.to_take if two else ()
     check(f"{az_id} is a two-phase walk: ask, then come back for it, with the minutes Amazon says on the log",
-          two is not None and two.two_phase and len(ask) == 3 and len(take) == 3 and two.ready_in_minutes == az_minutes)
+          two is not None and two.two_phase and len(ask) == 5 and len(take) == 3 and two.ready_in_minutes == az_minutes)
     check(f"{az_id} opens Inventory Reports (Products > Product reports) for both phases, and the address carries nothing of the seller's own",
           bool(ask) and bool(take) and ask[0].do == pages.GO and take[0].do == pages.GO
           and ask[0].address == take[0].address == "https://sellercentral.amazon.in/listing/reports"
-          and answered(lambda: len(tool.steps_for(az_id, "")) == 3))
-    check(f"{az_id} presses only the Request Report button beside the words {az_name}, never another report's button",
-          len(ask) == 3 and ask[2].do == pages.CLICK and ask[2].find.how == pages.BY_THE_BUTTON_BESIDE and ask[2].find.what == az_name
-          and ask[2].find.also_saying == "REQUEST REPORT" and ask[2].find.near == "" and ask[1].do == pages.WAIT_FOR and ask[1].find == ask[2].find)
+          and answered(lambda: len(tool.steps_for(az_id, "")) == 5))
+    # **THE LIVE PAGE (seen 26 Oct 2026, N018) IS NOT "A REQUEST BUTTON BESIDE EACH REPORT'S NAME":** a `Select Report Type` dropdown (a `kat-dropdown`, its options inside an open shadow root) is
+    # opened and the report's own words pressed, and only then does a `Request Report` button appear below it.
+    check(f"{az_id} opens the report type dropdown, presses the words {az_name}, then the one Request Report button -- never another report's button",
+          len(ask) == 5 and [s.do for s in ask[1:]] == [pages.WAIT_FOR, pages.CLICK, pages.CLICK, pages.CLICK]
+          and ask[2].find.what == "Select Report Type" and ask[1].find == ask[2].find
+          and ask[3].find.what == az_name and ask[3].find.how == pages.BY_PRESSABLE_TEXT
+          and ask[4].find.what == "Request Report" and ask[4].find.how == pages.BY_PRESSABLE_TEXT and ask[4].find.near == "")
     check(f"{az_id} takes only the Download button of the {az_name} row requested on the run's own day, so an old finished row is never taken for today's "
           "and a Cancelled or In Progress row, which has no Download button, is never pressed; the failure names Cancelled",
           len(take) == 3 and take[1].do == pages.WAIT_FOR and take[2].do == pages.TAKE_FILE and take[1].find == take[2].find
           and take[2].find.what == "Download" and take[2].find.near == "{day_in_words}" and take[2].find.also_saying == az_name
           and take[2].find.day_in_words_is == "amazon" and take[2].find.day_in_words_of == pages.THE_DAY_IT_WAS_MADE
           and "Cancelled" in take[2].find.called)
-check("Amazon's wording of a day is written down, with no purely numeric day/month form (05/06/2026 is two different days to two readers)",
+check("Amazon's wording of a day is written down, with the measured day-first numeric forms for Amazon alone (N018; 05/06/2026 is two days to two readers, so no other portal may use them)",
       answered(lambda: tool.the_days_in_words("amazon", date(2026, 6, 5))
-               == ("5 Jun 2026", "05 Jun 2026", "Jun 5, 2026", "Jun 05, 2026", "2026-06-05")))
+               == ("5 Jun 2026", "05 Jun 2026", "Jun 5, 2026", "Jun 05, 2026", "2026-06-05", "5 June 2026", "5 Jun, 2026", "05 Jun, 2026", "05/06/26", "05/06/2026", "5/6/2026")))
+# **AMAZON RETURNS THROUGH THE BROWSER (N018, 26 Oct 2026), measured on his own Seller Central:** Orders > Order reports > Seller fulfilled return reports (`/returns/report`)
+# opens on "All Returns" and "last day" (yesterday); the button is a real `<button>` reading `Request`; the finished list is one row per request with ONE `Download` link
+# (a TSV) and a "Requested On" that reads `25 October 2026 at 10:31:17 pm IST`.
+AZR = answered(lambda: tool.RECIPES["az_returns"])
+AZR_ASK = AZR.to_ask if AZR else ()
+AZR_TAKE = AZR.to_take if AZR else ()
+check("az_returns is a two-phase walk of three steps each way",
+      AZR is not None and AZR.two_phase and len(AZR_ASK) == 3 and len(AZR_TAKE) == 3)
+check("az_returns opens the Seller fulfilled return reports page for both phases, the address carrying nothing of the seller's own",
+      bool(AZR_ASK) and bool(AZR_TAKE) and AZR_ASK[0].do == pages.GO and AZR_TAKE[0].do == pages.GO
+      and AZR_ASK[0].address == AZR_TAKE[0].address == "https://sellercentral.amazon.in/returns/report")
+check("az_returns presses only the one real Request button, never a neighbour",
+      len(AZR_ASK) == 3 and AZR_ASK[2].do == pages.CLICK and AZR_ASK[2].find.how == pages.BY_ROLE_AND_TEXT and AZR_ASK[2].find.what == "Request"
+      and AZR_ASK[1].do == pages.WAIT_FOR and AZR_ASK[1].find == AZR_ASK[2].find)
+check("az_returns takes only the Download of the All Returns row requested on the run's own day, so an old row is never taken for today's",
+      len(AZR_TAKE) == 3 and AZR_TAKE[2].do == pages.TAKE_FILE and AZR_TAKE[1].find == AZR_TAKE[2].find
+      and AZR_TAKE[2].find.what == "Download" and AZR_TAKE[2].find.near == "{day_in_words}" and AZR_TAKE[2].find.also_saying == "All Returns"
+      and AZR_TAKE[2].find.day_in_words_is == "amazon" and AZR_TAKE[2].find.day_in_words_of == pages.THE_DAY_IT_WAS_MADE)
+# **AMAZON'S ORDER REPORTS AND SETTLEMENT STATEMENTS DATE A ROW WITH NUMBERS ONLY (N018, seen 26 Oct 2026; Control's ruling of the same day).** Order report rows read
+# `26/10/26, 6:36:33 am India Standard Time`, and statement rows `13/10/2026 – 20/10/2026`, `6/10/2026 – 13/10/2026`, `29/9/2026 – 6/10/2026`: the DAY COMES FIRST (19/10, 20/10, 26/10
+# can only be day-first) and neither the day nor the month carries a nought on the statements. This is the MEASURED EXCEPTION to the rule against purely numeric spellings, for
+# Amazon's India panel only.
+check("Amazon's day-first numeric spellings are written down: dd/mm/yy (orders), dd/mm/yyyy, and d/m/yyyy with no noughts (statements)",
+      answered(lambda: {"06/10/26", "06/10/2026", "6/10/2026"} <= set(tool.the_days_in_words("amazon", date(2026, 10, 6))))
+      and answered(lambda: "29/9/2026" in tool.the_days_in_words("amazon", date(2026, 9, 29))))
+check("THE NUMERIC EXCEPTION IS AMAZON'S ALONE: no other platform's wording uses the two-digit year or the nought-free month, so no other portal's row can be matched on a day/month guess",
+      answered(lambda: all("{yy}" not in shape and "{m}" not in shape
+                           for whose, shapes in tool.HOW_A_DAY_IS_WRITTEN.items() if whose != "amazon" for shape in shapes))
+      and answered(lambda: any("{yy}" in shape for shape in tool.HOW_A_DAY_IS_WRITTEN["amazon"])))
+check("Amazon writes a requested-on day with the whole month name (25 October 2026), and that spelling is one of the day's spellings",
+      answered(lambda: "25 October 2026" in tool.the_days_in_words("amazon", date(2026, 10, 25))))
+# **AMAZON SAFE-T CLAIMS THROUGH THE BROWSER (N018, 26 Oct 2026), measured on his own Seller Central:** Orders > Manage claims > Manage SAFE-T claims > Download the SAFE-T Report
+# (`/safet-claims/reports`). Two dropdowns read `Choose Report Type` (Refund & Replacement, SAFE-T Claims) and `Choose Report Dates` (Yesterday, Last 7 / 30 / 60 days, Exact dates), then a
+# `Generate Report` button; the list below reads `SAFE-T Claims Report | Aug 27, 2026 to Oct 26, 2026 | Oct 26, 2026, 06:45:36 AM GMT+5:30 | Download`. The options are CHOSEN BY PRESSING
+# the words, one press to open and one on the option -- no new kind of step is needed.
+AZC = answered(lambda: tool.RECIPES["az_claims"])
+AZC_ASK = AZC.to_ask if AZC else ()
+AZC_TAKE = AZC.to_take if AZC else ()
+check("az_claims is a two-phase walk: seven steps to ask, three to take",
+      AZC is not None and AZC.two_phase and len(AZC_ASK) == 7 and len(AZC_TAKE) == 3)
+check("az_claims opens the SAFE-T report page for both phases, the address carrying nothing of the seller's own",
+      bool(AZC_ASK) and bool(AZC_TAKE) and AZC_ASK[0].do == pages.GO and AZC_TAKE[0].do == pages.GO
+      and AZC_ASK[0].address == AZC_TAKE[0].address == "https://sellercentral.amazon.in/safet-claims/reports")
+check("az_claims chooses SAFE-T Claims and then the last 30 days, each by opening its dropdown and pressing the option's own words, and presses Generate Report last",
+      len(AZC_ASK) == 7 and [s.do for s in AZC_ASK[2:]] == [pages.CLICK] * 5
+      and [s.find.what for s in AZC_ASK[2:]] == ["Choose Report Type", "SAFE-T Claims", "Choose Report Dates", "Last 30 days", "Generate Report"]
+      and AZC_ASK[1].do == pages.WAIT_FOR and AZC_ASK[1].find == AZC_ASK[2].find)
+check("az_claims takes only the Download of the SAFE-T Claims Report row made on the run's own day, never the Refund & Replacement one or an old one",
+      len(AZC_TAKE) == 3 and AZC_TAKE[2].do == pages.TAKE_FILE and AZC_TAKE[1].find == AZC_TAKE[2].find
+      and AZC_TAKE[2].find.what == "Download" and AZC_TAKE[2].find.near == "{day_in_words}" and AZC_TAKE[2].find.also_saying == "SAFE-T Claims Report"
+      and AZC_TAKE[2].find.day_in_words_is == "amazon" and AZC_TAKE[2].find.day_in_words_of == pages.THE_DAY_IT_WAS_MADE)
+# **AMAZON ORDERS THROUGH THE BROWSER (N018, 26 Oct 2026), measured on his own Seller Central:** Orders > Order reports > All Orders (`/order-reports-and-feeds/reports/allOrders`). A radio reads
+# `Last Updated Date`, the date range opens on `Date range: Last day`, a real button reads `Request`; the list below reads `Last Updated Date | <batch> | 19/10/26, 6:36:33 am ... | 26/10/26,
+# 6:36:33 am India Standard Time | Ready | Download` and takes about 40 seconds. **NOT YET RUN LIVE.**
+AZO = answered(lambda: tool.RECIPES["az_orders"])
+AZO_ASK = AZO.to_ask if AZO else ()
+AZO_TAKE = AZO.to_take if AZO else ()
+check("az_orders is a two-phase walk: four steps to ask, three to take",
+      AZO is not None and AZO.two_phase and len(AZO_ASK) == 4 and len(AZO_TAKE) == 3)
+check("az_orders opens the All Orders report page for both phases, the address carrying nothing of the seller's own",
+      bool(AZO_ASK) and bool(AZO_TAKE) and AZO_ASK[0].do == pages.GO and AZO_TAKE[0].do == pages.GO
+      and AZO_ASK[0].address == AZO_TAKE[0].address == "https://sellercentral.amazon.in/order-reports-and-feeds/reports/allOrders")
+check("az_orders asks for the report by LAST UPDATED date (the way the order reader keys it), the page's own default range, and presses the one real Request button last",
+      len(AZO_ASK) == 4 and [s.do for s in AZO_ASK[1:]] == [pages.WAIT_FOR, pages.CLICK, pages.CLICK]
+      and AZO_ASK[2].find.what == "Last Updated Date" and AZO_ASK[1].find == AZO_ASK[2].find
+      and AZO_ASK[3].find.how == pages.BY_ROLE_AND_TEXT and AZO_ASK[3].find.what == "Request")
+check("az_orders takes only the Download of the Last Updated Date row requested on the run's own day, written Amazon's day-first way, so an old row is never taken for today's",
+      len(AZO_TAKE) == 3 and AZO_TAKE[2].do == pages.TAKE_FILE and AZO_TAKE[1].find == AZO_TAKE[2].find
+      and AZO_TAKE[2].find.what == "Download" and AZO_TAKE[2].find.near == "{day_in_words}" and AZO_TAKE[2].find.also_saying == "Last Updated Date"
+      and AZO_TAKE[2].find.day_in_words_is == "amazon" and AZO_TAKE[2].find.day_in_words_of == pages.THE_DAY_IT_WAS_MADE)
+# **AMAZON SETTLEMENTS THROUGH THE BROWSER (N018, 26 Oct 2026; Control's ruling of the same day):** Finance > Manage payments > All Statements (`/payments/past-settlements`): one row per WEEKLY statement, `13/10/2026 – 20/10/2026`,
+# each closed one with a `Download Flat File V2` button. Nothing is asked for. **EVERY CLOSED STATEMENT THE LIST SHOWS THAT THE SELLER'S DRIVE DOES NOT ALREADY HOLD IS TAKEN (not just the newest, not named by a day)**, each filed under the day it ENDED, so a missed
+# run or a late-closed week is picked up next time; when none is new there is nothing to fetch. **NOT YET RUN LIVE.**
+AZS = answered(lambda: tool.RECIPES["az_settlements"])
+AZS_STEPS = AZS.to_take if AZS else ()
+check("az_settlements is a one-phase take of three steps: nothing to ask for, Amazon already made the statement",
+      AZS is not None and not AZS.two_phase and len(AZS_STEPS) == 3)
+check("az_settlements opens All Statements, waits for the statements table ITSELF (its Statement Period heading), then takes",
+      len(AZS_STEPS) == 3 and AZS_STEPS[0].do == pages.GO and AZS_STEPS[0].address == "https://sellercentral.amazon.in/payments/past-settlements"
+      and AZS_STEPS[1].do == pages.WAIT_FOR and AZS_STEPS[1].find.what == "Statement Period" and AZS_STEPS[1].none_means_nothing_to_fetch == ""
+      and AZS_STEPS[2].do == pages.TAKE_EVERY_NEW)
+check("az_settlements takes EVERY closed statement's Download Flat File V2 that Drive does not already hold, NOT named by any day (a day would skip a week closed late or a missed run)",
+      len(AZS_STEPS) == 3 and AZS_STEPS[2].find.what == "Download Flat File V2" and AZS_STEPS[2].find.how == pages.BY_PRESSABLE_TEXT
+      and AZS_STEPS[2].find.near == "" and AZS_STEPS[2].find.day_in_words_is == "")
+check("and when no closed statement is new that is NOTHING TO FETCH in words, never a failure, only because the table was waited for on the step before",
+      len(AZS_STEPS) == 3 and "nothing to fetch" in AZS_STEPS[2].none_means_nothing_to_fetch and AZS_STEPS[1].find.how == pages.BY_TEXT)
+check("only that one step may say that nothing new is nothing to fetch, across every recipe",
+      answered(lambda: [(r, i) for r in tool.every_recipe() for i, s in enumerate(tool.recipe(r).to_ask + tool.recipe(r).to_take) if s.none_means_nothing_to_fetch] == [("az_settlements", 2)]))
+# **AMAZON'S ACCOUNT HEALTH THROUGH THE BROWSER (N018, his ruling D726), read off his own Seller Central on 26 Oct 2026:** Account health > Manage account health (`/performance/dashboard`) shows the rating (204,
+# a whole number beside its label) and four rates (`1.8%`, with `2 of 111 orders` and `30 days` in the same card, which is why a rate is read as a PERCENTAGE). No download: the day is written as its own one-row file.
+AZH = answered(lambda: tool.RECIPES["az_health"])
+AZH_STEPS = AZH.to_take if AZH else ()
+check("az_health is a one-phase read of thirteen steps: open, wait, five figures, five status words, write the day",
+      AZH is not None and not AZH.two_phase and len(AZH_STEPS) == 13)
+check("az_health opens the Account Health dashboard and waits for the rating label itself before reading anything",
+      len(AZH_STEPS) == 13 and AZH_STEPS[0].do == pages.GO and AZH_STEPS[0].address == "https://sellercentral.amazon.in/performance/dashboard"
+      and AZH_STEPS[1].do == pages.WAIT_FOR and AZH_STEPS[1].find.what == "Account Health Rating")
+check("az_health reads the rating as a whole number and the four rates as percentages, each by its own label, in the order the file's columns are read",
+      len(AZH_STEPS) == 13 and [s.find.what for s in AZH_STEPS[2:7]] == ["Account Health Rating", "Order Defect Rate", "Late Dispatch Rate", "Pre-fulfilment Cancel Rate", "Valid Tracking Rate"]
+      and [s.reads for s in AZH_STEPS[2:7]] == ["", "percent", "percent", "percent", "percent"] and all(s.do == pages.READ_NUMBER for s in AZH_STEPS[2:7]))
+check("and it ends by writing the day as its own file", len(AZH_STEPS) == 13 and AZH_STEPS[12].do == pages.ADD_TO_THE_LIST)
+check("az_health then reads Amazon's own status word beside each of the five, each into a column of its own named for the label and 'Status', and a blank is not a failure",
+      len(AZH_STEPS) == 13 and all(s.do == pages.READ_NUMBER and s.reads == "status" for s in AZH_STEPS[7:12])
+      and [s.find.what for s in AZH_STEPS[7:12]] == ["Account Health Rating", "Order Defect Rate", "Late Dispatch Rate", "Pre-fulfilment Cancel Rate", "Valid Tracking Rate"]
+      and [s.find.called for s in AZH_STEPS[7:12]] == ["Account Health Status", "Order Defect Rate Status", "Late Dispatch Rate Status", "Pre-fulfilment Cancel Rate Status", "Valid Tracking Rate Status"])
+check("only the health recipe asks for a percentage or a status word, across every recipe",
+      answered(lambda: sorted({r for r in tool.every_recipe() for s in (tool.recipe(r).to_ask + tool.recipe(r).to_take) if s.reads}) == ["az_health"]))
+# **AMAZON ADS THROUGH THE BROWSER (N018, his ruling D726, Control's word to build it anyway, and his word D728: AutoSync creates the saved report itself the first time), measured on his own Amazon Ads console on 26 Oct 2026:**
+# advertising.amazon.in/reporting lists his saved reports; a row's `Actions` menu offers Download latest, Run, Edit, Copy, Delete; a run takes about three minutes; the row shows `Last run  26 Oct, 2026  9:40 AM IST`.
+# The Create report form (`/reporting/new?templateId=campaign`) has a `Report name` box, a period button reading `Last seven days` whose presets include `Yesterday`, and `Submit`. **THE WALK CREATES THE ONE SAVED REPORT
+# NAMED `Kartaan campaign by day` (Campaign template, Yesterday, once, CSV) ONLY WHEN IT IS NOT IN THE LIST, then only RUNS it and takes its latest file** -- it deletes nothing and touches no campaign, budget or spend. **NOT YET RUN LIVE.**
+AZA = answered(lambda: tool.RECIPES["az_ads"])
+AZA_ASK = AZA.to_ask if AZA else ()
+AZA_TAKE = AZA.to_take if AZA else ()
+AZA_ROW = pages.Find(pages.BY_THE_BUTTON_BESIDE, "Kartaan campaign by day", also_saying="Actions", called="the Actions menu of the saved report Kartaan campaign by day")
+check("az_ads is a two-phase walk: thirteen steps to ask (open, prove the list, create the saved report only if missing x8, wait for its row, open its Actions, Run), four to take",
+      AZA is not None and AZA.two_phase and len(AZA_ASK) == 13 and len(AZA_TAKE) == 4)
+check("az_ads opens the reporting page for both phases, an address that carries nothing of the seller's own, and proves the list drew (the Create report button) before deciding anything",
+      bool(AZA_ASK) and bool(AZA_TAKE) and AZA_ASK[0].address == AZA_TAKE[0].address == "https://advertising.amazon.in/reporting"
+      and AZA_ASK[1].do == pages.WAIT_FOR and AZA_ASK[1].find.what == "Create report" and AZA_ASK[1].only_if_absent is None)
+_create = AZA_ASK[2:10] if len(AZA_ASK) == 13 else ()
+check("THE CREATING STEPS ARE EACH DONE ONLY WHEN THE SAVED ROW IS NOT THERE: open the template, name it, choose Yesterday, submit -- the row looked for by its own name, nothing else created",
+      len(_create) == 8 and all(s.only_if_absent is not None and s.only_if_absent.how == pages.BY_THE_BUTTON_BESIDE and s.only_if_absent.what == "Kartaan campaign by day"
+                                for s in _create)
+      and [s.do for s in _create] == [pages.GO, pages.WAIT_FOR, pages.TYPE_IN, pages.CLICK, pages.CLICK, pages.CLICK, pages.CLICK, pages.CLICK]
+      and _create[0].address == "https://advertising.amazon.in/reporting/new?templateId=campaign"
+      and _create[2].find.how == pages.BY_THE_CONTROL_BESIDE and _create[2].find.what == "Report name" and _create[2].words == "Kartaan campaign by day"
+      and [s.find.what for s in _create[3:]] == ["Date range", "Date", "Last seven days", "Last 30 days", "Submit"])
+check("then it waits for the saved row (found or just made), and opens ITS Actions and presses Run only when that row does not already show today -- a report just created has run once and is not run again",
+      len(AZA_ASK) == 13 and AZA_ASK[10].do == pages.WAIT_FOR and AZA_ASK[10].find == AZA_ROW and AZA_ASK[10].only_if_absent is None
+      and AZA_ASK[11].do == pages.CLICK and AZA_ASK[11].find == AZA_ROW and AZA_ASK[12].do == pages.CLICK and AZA_ASK[12].find.what == "Run"
+      and all(s.only_if_absent is not None and s.only_if_absent.near == "{day_in_words}" and s.only_if_absent.day_in_words_is == "amazon"
+              and s.only_if_absent.day_in_words_of == pages.THE_DAY_IT_WAS_MADE for s in AZA_ASK[11:]))
+check("only the creating steps and the run steps use a condition, across every recipe",
+      answered(lambda: sorted({r for r in tool.every_recipe() for s in (tool.recipe(r).to_ask + tool.recipe(r).to_take) if s.only_if_absent is not None}) == ["az_ads"]))
+check("and it takes the latest file only from a row whose LAST RUN is today, so yesterday's file is never taken for today's",
+      len(AZA_TAKE) == 4 and AZA_TAKE[1].find.how == pages.BY_THE_BUTTON_BESIDE and AZA_TAKE[1].find.near == "{day_in_words}"
+      and AZA_TAKE[1].find.day_in_words_is == "amazon" and AZA_TAKE[1].find.day_in_words_of == pages.THE_DAY_IT_WAS_MADE and AZA_TAKE[1].find == AZA_TAKE[2].find
+      and AZA_TAKE[3].do == pages.TAKE_FILE and AZA_TAKE[3].find.what == "Download latest")
+check("Amazon's ads console writes a day like `26 Oct, 2026`, and that is one of the day's spellings",
+      answered(lambda: "26 Oct, 2026" in tool.the_days_in_words("amazon", date(2026, 10, 26))))
+# **MEESHO'S PRODUCT QUALITY PAGE (N025), read off his own panel on 26 Oct 2026:** side menu Quality -> `.../cataloging/<slug>/product-optimiser`, no download; the page is read, tab by tab, into ONE FILE A DAY.
+MEQ = answered(lambda: tool.RECIPES["me_quality"])
+MEQ_STEPS = MEQ.to_take if MEQ else ()
+check("me_quality is a one-phase read of two steps: open the quality page, read it",
+      MEQ is not None and not MEQ.two_phase and len(MEQ_STEPS) == 2 and MEQ_STEPS[0].do == pages.GO and MEQ_STEPS[1].do == pages.READ_THE_TABLE)
+check("it opens the cataloging product-optimiser page under the seller's own panel slug, which is never written down",
+      len(MEQ_STEPS) == 2 and MEQ_STEPS[0].address == "https://supplier.meesho.com/panel/v3/new/cataloging/{panel}/product-optimiser" and MEQ_STEPS[1].table == "meesho-quality")
 # **THE AMAZON WALK, read against his real sample (BusinessReport-22-10-26.csv, the By Child Item report) and the address Control used.**
 AZ = answered(lambda: tool.RECIPES["az_traffic"])
 AZ_STEPS = AZ.to_take if AZ else ()
@@ -776,7 +941,7 @@ check("and none of them is called both built and not built",
 # **AND ON 2026-09-15 IT FELL TO NOUGHT.** `fk_keywords` left: the door learned to
 # read the keyword pop-ups off the traffic report, and the part the reference left
 # to a person -- opening the report and choosing the day -- is recipe steps.
-check("there is no report left that this door cannot reach",
+check("there is no report left that this door cannot reach (SAFE-T claims joined the recipes, N018)",
       answered(lambda: set(tool.NOT_YET_A_RECIPE) == set()))
 # **AND THE TWO CHECKS THAT USED TO ASK MORE OF THIS LIST ARE GONE, 2026-10-03,
 # BECAUSE AN EMPTY LIST MADE THEM PASS BY LOOKING AT NOTHING.** They asked that
@@ -945,9 +1110,9 @@ def names_a_row_in_words():
 # **SEVEN SINCE 2026-09-11: `fk_listings` joined them.** Its Downloads History
 # holds four `Listing` rows from four different days, so the word alone finds
 # four and refuses -- the row has to be named by the day the file was MADE.
-check("exactly the nine reports that name a row by the day in words do so (Amazon's listings and fee reports joined, lane 1 job 8)",
+check("exactly the thirteen reports that name a row by the day in words do so (Amazon's listings and fee reports joined, lane 1 job 8; returns, N018)",
       answered(lambda: sorted(set(names_a_row_in_words()))
-               == ["az_fee_preview", "az_listings", "fk_listings", "fk_orders", "fk_payments", "fk_returns",
+               == ["az_ads", "az_claims", "az_fee_preview", "az_listings", "az_orders", "az_returns", "fk_listings", "fk_orders", "fk_payments", "fk_returns",
                    "me_claims", "me_returns", "me_views"]))
 # **AND THE SIXTH NAMES NO ROW AT ALL -- IT NAMES A CARD.** On his dashboard the
 # words `Orders` match twice, the sidebar item and the card, and the card carries
@@ -1248,18 +1413,18 @@ check("every one of them is pressable, a thing beside some words, or that one me
                                      tool.BY_THE_CONTROL_BESIDE, tool.BY_THE_BUTTON_BESIDE,
                                      tool.BY_TEXT)
                            for f in CLICKED)))
-check("and the button-beside way is asked for on the Reports Centre two and Amazon's two request menus (lane 1 job 8), nowhere else",
+check("and the button-beside way is asked for on the Reports Centre two and nowhere else (Amazon's ads console row actions joined, N018)",
       answered(lambda: sorted({r for r in tool.every_recipe()
                                for one in (tool.recipe(r).to_ask + tool.recipe(r).to_take)
                                if one.find is not None
                                and one.find.how == tool.BY_THE_BUTTON_BESIDE})
-               == ["az_fee_preview", "az_listings", "fk_orders", "fk_payments"]))
+               == ["az_ads", "fk_orders", "fk_payments"]))
 # **AND IT SAYS WHAT ELSE THAT ROW SAYS, WHICH IS THE WHOLE OF WHY IT FINDS ONE
 # THING.** `Orders` is a leaf in the dialog's row AND a leaf in the list of
 # reports already requested behind it; both walk up to a button. Without this it
 # finds two and refuses.
 check("and every use of it says what else that row says, or it would find two",
-      answered(lambda: all(one.find.also_saying == "REQUEST REPORT"
+      answered(lambda: all(one.find.also_saying == ("Actions" if r == "az_ads" else "REQUEST REPORT")
                            for r in tool.every_recipe()
                            for one in (tool.recipe(r).to_ask + tool.recipe(r).to_take)
                            if one.find is not None
@@ -1275,12 +1440,12 @@ check("and every use of it says what else that row says, or it would find two",
 # started no download in ninety seconds. The reference presses the button in the
 # Listing row (`content/flipkart.js` `findReadyListingDownloadBtn`), and so does
 # the recipe now, as a control on the row made that day that says `Listing`.
-check("the box-beside way is asked for exactly where Flipkart names a control it does not carry",
+check("the box-beside way is asked for exactly where Flipkart names a control it does not carry, and where Amazon's ads form names its Report name box (N018)",
       answered(lambda: sorted({r for r in tool.every_recipe()
                                for one in (tool.recipe(r).to_ask + tool.recipe(r).to_take)
                                if one.find is not None
                                and one.find.how == tool.BY_THE_CONTROL_BESIDE})
-               == ["fk_ads_daily", "fk_ads_fsn", "fk_ads_kw", "fk_ads_orders",
+               == ["az_ads", "fk_ads_daily", "fk_ads_fsn", "fk_ads_kw", "fk_ads_orders",
                    "fk_ads_overall", "fk_ads_placements", "fk_ads_search",
                    "fk_orders", "fk_payments"]))
 # **WAITING IS DIFFERENT FROM PRESSING.** Waiting for a heading or a status to
@@ -1435,7 +1600,7 @@ check("and the panel name was still filled into the addresses on the way",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 362
+EXPECTED = 456
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

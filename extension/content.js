@@ -364,6 +364,16 @@
      * walk reads: it names the report as failed, the night writes it down and
      * moves on, and the day is fetched again. Answered quietly instead, the
      * walk would report LANDED for a file that is nowhere. */
+    /* **WHICH FILE NAMES THE SELLER'S DRIVE ALREADY HOLDS FOR A REPORT (N018)** -- asked by the walk that takes every closed settlement statement it does not already have. Only the background half can
+     * reach the Drive. **A REFUSAL IS TURNED BACK INTO A THROW HERE**, as `putTheFile` does, so the walk names the report as failed rather than taking everything again. */
+    whatIsHeld: async ({ reportId }) => {
+      const answer = await chrome.runtime.sendMessage({ do: 'what-is-held', reportId });
+      if (!answer) {
+        throw new Error('The browser half said nothing about what the Drive already holds.');
+      }
+      if (answer.wrong) throw new Error(answer.wrong);
+      return answer.names || [];
+    },
     putTheFile: async ({ reportId, fileName, body }) => {
       const answer = await chrome.runtime.sendMessage({
         do: 'land-the-file', reportId, fileName, bytes: [...body],

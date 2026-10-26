@@ -311,7 +311,7 @@ check('a report that reads another report\'s file is fetched after it',
   check('a fresh install\'s timed list is the full list',
     Boolean(fresh.timed) && fresh.timed.flipkart === every('flipkart').length
     && fresh.timed.meesho === every('meesho').length && every('meesho').length > 0
-    && fresh.timed.amazon === every('amazon').length && every('amazon').length === 3);
+    && fresh.timed.amazon === every('amazon').length && every('amazon').length === 9);
   check('and the panel says it: "The timed sync will fetch: N reports (Flipkart x, Meesho y, Amazon z)"',
     Boolean(fresh.timed) && fresh.timed.said === `The timed sync will fetch: `
       + `${every('flipkart').length + every('meesho').length + every('amazon').length} reports `
@@ -900,8 +900,8 @@ check('the allowance is twenty, and it is a number a program can read',
     stands.platforms.filter((one) => one.id === 'amazon').length === 1
     && stands.platforms.some((one) => one.id === 'amazon' && one.throughTheBrowser === true
       && one.ready === false && one.lastRun === null));
-  check('and its three walked reports, traffic, All Listings and Referral Fee Preview, are in the list of reports walked in the browser',
-    stands.reports.filter((one) => one.platform === 'amazon').map((one) => one.id).sort().join() === 'az_fee_preview,az_listings,az_traffic'
+  check('and its walked reports, orders, settlements, returns, SAFE-T claims, account health, ads, traffic, All Listings and Referral Fee Preview, are fetchable and are in the list of reports walked in the browser',
+    stands.reports.filter((one) => one.platform === 'amazon').map((one) => one.id).sort().join() === 'az_ads,az_claims,az_fee_preview,az_health,az_listings,az_orders,az_returns,az_settlements,az_traffic'
     && stands.reports.filter((one) => one.platform === 'amazon').every((one) => one.canBeFetched === true));
   check('nothing is set up yet, and both halves are named',
     stands.setUp.done === false && stands.setUp.panel === '' && stands.setUp.driveConnectedAt === 0);

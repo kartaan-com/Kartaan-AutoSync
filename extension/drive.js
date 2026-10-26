@@ -459,6 +459,28 @@ export async function folderAt(chrome, ask, layout, path, inside) {
   return here;
 }
 
+/** **WHICH FILE NAMES A REPORT'S OWN FOLDER ALREADY HOLDS (N018), without making the folder.** Asked by the walk that takes every closed settlement statement it does not already have: it has to know
+ *  what is there before it presses anything. Each folder on the report's path is only LOOKED FOR -- one that is not there yet means nothing is held, and asking about it never makes it -- and a path with
+ *  two folders of one name is refused as `oneFolder` refuses it, because which one is meant cannot be known. Names only. */
+export async function whatIsHeldFor(chrome, ask, { reportId, inside, layout }) {
+  let here = inside;
+  for (const name of thePathFor(layout, reportId)) {
+    if (!here) return [];
+    const looking = `name = '${asAQuotedValue(name)}' and mimeType = '${FOLDER}' `
+      + `and '${asAQuotedValue(here)}' in parents and trashed = false`;
+    // eslint-disable-next-line no-await-in-loop
+    const found = await everyFile(chrome, ask, looking, `looking for the ${name} folder`);
+    if (found.length > 1) {
+      throw new DriveSaidNo(
+        `There are ${found.length} folders called ${name} in the seller's Drive. Which one holds ${reportId} cannot be known, so nothing was looked at.`
+      );
+    }
+    here = found.length ? found[0].id : null;
+  }
+  if (!here) return [];
+  return (await whatIsAlreadyThere(chrome, ask, here)).map((one) => one.name);
+}
+
 /** What is already in a folder, so that a second copy of one day can be
  *  refused rather than added beside the first. */
 export async function whatIsAlreadyThere(chrome, ask, folderId) {
