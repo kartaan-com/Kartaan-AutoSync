@@ -713,7 +713,33 @@ check("every day inside a range file is verified, and the day before it is missi
       all(ranged_lines.get(date(2026, 9, d)) == tool.VERIFIED for d in (19, 20, 21))
       and ranged_lines.get(date(2026, 9, 18)) == tool.MISSING)
 
-EXPECTED = 66 + 22
+# ------------------------------------------- N018 / N025: EVERY NEW STREAM IS ON THE MANIFEST (his word of 26 Oct 2026: each named with its file, its rows and its outcome)
+# **THE MANIFEST ASKS THE FOLDER, NOT THE RUN** -- so each new stream is covered the moment it is a real report with a folder: a file that landed for the day reads `verified` and names the file and its size, a day with no file
+# reads `missing`. The rows a file held and what became of them come from the reading (`reads`, below), and the outcome words (fetched, nothing to fetch, failed) from the run's own log, one line per stream.
+from reports import report as _the_report  # noqa: E402
+import record_reports as _record_reports  # noqa: E402
+
+THE_NEW_STREAMS = ("az_orders", "az_returns", "az_claims", "az_health", "az_ads", "az_listings", "az_fee_preview", "az_traffic", "me_quality")
+_new = [_the_report(one) for one in THE_NEW_STREAMS]
+_new_there = {one.id: [a_real_file(one, YESTERDAY)] for one in _new}
+_new_lines = {(one.report_id, one.data_date): one for one in tool.lines_for(_new, lambda rid: _new_there.get(rid, []), TODAY, checked_on=TODAY, look_back_days=1)}
+check("EVERY NEW STREAM WITH ITS DAY'S FILE IN THE FOLDER READS VERIFIED, naming the file it found and its size",
+      all((_new_lines.get((rid, YESTERDAY)) is not None and _new_lines[(rid, YESTERDAY)].state == tool.VERIFIED
+           and _new_lines[(rid, YESTERDAY)].file_name == _new_there[rid][0].name and _new_lines[(rid, YESTERDAY)].file_size == 4021) for rid in THE_NEW_STREAMS))
+_new_none = {(one.report_id, one.data_date): one for one in tool.lines_for(_new, lambda rid: [], TODAY, checked_on=TODAY, look_back_days=1)}
+check("and with no file for the day every one of them reads MISSING, naming no file",
+      all((_new_none.get((rid, YESTERDAY)) is not None and _new_none[(rid, YESTERDAY)].state == tool.MISSING and _new_none[(rid, YESTERDAY)].file_name is None) for rid in THE_NEW_STREAMS))
+_weekly = _the_report("az_settlements")
+check("SETTLEMENTS ARE PUBLISHED WEEKLY: a day with no statement is no day owed, so no line and never `missing`, and a statement that landed is verified under the day it ended",
+      [one for one in tool.lines_for([_weekly], lambda rid: [], TODAY, checked_on=TODAY, look_back_days=1)] == []
+      and any(one.state == tool.VERIFIED for one in tool.lines_for([_weekly], lambda rid: [a_real_file(_weekly, YESTERDAY)], TODAY, checked_on=TODAY, look_back_days=1)))
+check("the streams written as records say what they made in the manifest's own words (the reads line): claims, account health, product quality and the ads days",
+      all(one in _record_reports.RECORD_REPORTS and _record_reports.RECORD_REPORTS[one].kind.what for one in ("az_claims", "az_health", "me_quality"))
+      and "az_ads" in {h.report_id for h in __import__("reading").WHAT_ADS_CAN_BE_READ})
+check("and the manifest's two halves still keep each new browser stream to the extension's half, never the nightly job's",
+      all(rid in tool.mine(BROWSER, _new) for rid in THE_NEW_STREAMS) and not set(THE_NEW_STREAMS) & set(tool.mine(API, [_the_report("az_suppressed")])))
+
+EXPECTED = 66 + 22 + 5
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
