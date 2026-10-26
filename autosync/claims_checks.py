@@ -477,33 +477,33 @@ def az_claim(order, claim, claim_date, reason, state, total, paid_on=""):
 
 
 _az_made, _az_refused = answered(lambda: claims.read_safet_records("az_claims", "amazon", az_safet(
-    az_claim("403-1", "44055-43555-0397437", "2026-10-05", "I received damaged/ used item", "Granted", "61.69", "2026-10-06"),
-    az_claim("403-2", "44055-43555-0397438", "2026-10-07", "Item not received", "Under Investigation", "0.0"),
-    az_claim("403-3", "44055-43555-0397439", "2026-10-08", "Item not received", "Denied", "0.0")), "2026-10-26")) or ({}, ())
+    az_claim("403-1", "10000-20000-0000001", "2026-10-05", "I received damaged/ used item", "Granted", "55.50", "2026-10-06"),
+    az_claim("403-2", "10000-20000-0000002", "2026-10-07", "Item not received", "Under Investigation", "0.0"),
+    az_claim("403-3", "10000-20000-0000003", "2026-10-08", "Item not received", "Denied", "0.0")), "2026-10-26")) or ({}, ())
 check("EVERY SAFE-T CLAIM IS A RECORD OF ITS OWN named by Amazon's claim id and carrying its order, and none is tied to an order row",
-      set(_az_made) == {"amazon__44055-43555-0397437", "amazon__44055-43555-0397438", "amazon__44055-43555-0397439"} and _az_refused == ()
-      and _az_made["amazon__44055-43555-0397438"]["orderId"] == "403-2" and _az_made["amazon__44055-43555-0397437"]["raisedOn"] == "2026-10-05")
-_azg = _az_made.get("amazon__44055-43555-0397437", {})
-_azw = {"platform": "amazon", "report": "az_claims", "claimKey": "44055-43555-0397437", "orderId": "403-1", "fileDay": "2026-10-26", "status": "Granted",
-        "raisedOn": "2026-10-05", "issue": "I received damaged/ used item", "recovered": "61.69"}
+      set(_az_made) == {"amazon__10000-20000-0000001", "amazon__10000-20000-0000002", "amazon__10000-20000-0000003"} and _az_refused == ()
+      and _az_made["amazon__10000-20000-0000002"]["orderId"] == "403-2" and _az_made["amazon__10000-20000-0000001"]["raisedOn"] == "2026-10-05")
+_azg = _az_made.get("amazon__10000-20000-0000001", {})
+_azw = {"platform": "amazon", "report": "az_claims", "claimKey": "10000-20000-0000001", "orderId": "403-1", "fileDay": "2026-10-26", "status": "Granted",
+        "raisedOn": "2026-10-05", "issue": "I received damaged/ used item", "recovered": "55.50"}
 check("A GRANTED CLAIM HOLDS EXACTLY ITS OWN FIELDS: the state as Amazon says it, Amazon's own filing reason, the total reimbursement as the rupees recovered, and the fingerprint of all of it",
       _azg == dict(_azw, digest=records.the_digest(_azw)))
 check("a claim still under investigation or denied recovers nothing: no rupees are written for it",
-      all("recovered" not in _az_made.get(f"amazon__44055-43555-039743{n}", {"recovered": 1}) for n in (8, 9)))
+      all("recovered" not in _az_made.get(f"amazon__10000-20000-000000{n}", {"recovered": 1}) for n in (2, 3)))
 check("and every field is one of the claim record's own fields, so the writer accepts it",
       all(set(r) <= set(claims.CLAIM_FIELDS) for r in _az_made.values()))
 _az_bad = caught(lambda: claims.read_safet_records("az_claims", "amazon", table.read(b"A,B\n1,2\n"), "2026-10-26"))
 check("a file without the SAFE-T columns is refused in words naming them, nothing read",
       _az_bad is not None and "Nothing was read" in str(_az_bad) and "SAFE-T Claim ID" in str(_az_bad))
 _, _az_skipped = answered(lambda: claims.read_safet_records("az_claims", "amazon", az_safet(
-    az_claim("", "44055-1", "2026-10-05", "x", "Granted", "1"), az_claim("403-9", "", "2026-10-05", "x", "Granted", "1"),
+    az_claim("", "10000-1", "2026-10-05", "x", "Granted", "1"), az_claim("403-9", "", "2026-10-05", "x", "Granted", "1"),
     az_claim("403-9", "a/b", "2026-10-05", "x", "Granted", "1")), "2026-10-26")) or ({}, ())
 check("a claim with no order, no id or an id that cannot name a record is refused by name", len(_az_skipped) == 3)
 _az_again, _ = answered(lambda: claims.read_safet_records("az_claims", "amazon", az_safet(
-    az_claim("403-1", "44055-43555-0397437", "2026-10-05", "I received damaged/ used item", "Granted", "")), "2026-10-27")) or ({}, ())
-_az_keep = claims.merge(_az_again.get("amazon__44055-43555-0397437", {}), _az_made.get("amazon__44055-43555-0397437"))
+    az_claim("403-1", "10000-20000-0000001", "2026-10-05", "I received damaged/ used item", "Granted", "")), "2026-10-27")) or ({}, ())
+_az_keep = claims.merge(_az_again.get("amazon__10000-20000-0000001", {}), _az_made.get("amazon__10000-20000-0000001"))
 check("A PAID CLAIM NEVER LOSES ITS RUPEES: a later file that gives no amount keeps the amount already recorded",
-      _az_keep.get("recovered") == "61.69")
+      _az_keep.get("recovered") == "55.50")
 check("Amazon's SAFE-T claims are a report that is written as records, like Meesho's claims",
       "az_claims" in record_reports.RECORD_REPORTS and record_reports.RECORD_REPORTS["az_claims"].kind is claims.KIND)
 

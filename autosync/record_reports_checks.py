@@ -70,8 +70,8 @@ SAMPLES = {
         '"Order Date","Order ID","ASIN","Item name","Fulfillment Channel","Return Tracking ID","Return Status","Return Delivery Date","SAFE-T Claim ID","Claim Date",'
         '"Claim Filing Reason","Quantity In Claim","Currency","Claim amount","SAFE-T claim state","Appeal by/ Respond by date","Reimbursement amount (Product value)",'
         '"Reimbursement amount (Others)","Total Reimbursement amount","Date of reimbursement"\n'
-        '"2026-09-23","403-1","B0X","Item","Easy Ship","515","Delivered to seller","2026-10-03","44055-43555-0397437","2026-10-05","I received damaged/ used item",'
-        '"1","INR","246.79","Granted","2026-10-13","61.69","0.0","61.69","2026-10-06"\n'),
+        '"2026-09-23","403-1","B0X","Item","Easy Ship","515","Delivered to seller","2026-10-03","10000-20000-0000001","2026-10-05","I received damaged/ used item",'
+        '"1","INR","246.79","Granted","2026-10-13","55.50","0.0","55.50","2026-10-06"\n'),
 }
 TABLE = record_reports.RECORD_REPORTS
 
