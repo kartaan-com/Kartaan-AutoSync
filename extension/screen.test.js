@@ -311,7 +311,7 @@ check('a report that reads another report\'s file is fetched after it',
   check('a fresh install\'s timed list is the full list',
     Boolean(fresh.timed) && fresh.timed.flipkart === every('flipkart').length
     && fresh.timed.meesho === every('meesho').length && every('meesho').length > 0
-    && fresh.timed.amazon === every('amazon').length && every('amazon').length === 4);
+    && fresh.timed.amazon === every('amazon').length && every('amazon').length === 5);
   check('and the panel says it: "The timed sync will fetch: N reports (Flipkart x, Meesho y, Amazon z)"',
     Boolean(fresh.timed) && fresh.timed.said === `The timed sync will fetch: `
       + `${every('flipkart').length + every('meesho').length + every('amazon').length} reports `
@@ -902,7 +902,7 @@ check('the allowance is twenty, and it is a number a program can read',
       && one.ready === false && one.lastRun === null));
   check('and its walked reports, returns, traffic, All Listings and Referral Fee Preview, are fetchable, SAFE-T claims is listed but waits for its recipe (N018), and all are in the list of reports walked in the browser',
     stands.reports.filter((one) => one.platform === 'amazon').map((one) => one.id).sort().join() === 'az_claims,az_fee_preview,az_listings,az_returns,az_traffic'
-    && stands.reports.filter((one) => one.platform === 'amazon').every((one) => one.canBeFetched === (one.id !== 'az_claims')));
+    && stands.reports.filter((one) => one.platform === 'amazon').every((one) => one.canBeFetched === true));
   check('nothing is set up yet, and both halves are named',
     stands.setUp.done === false && stands.setUp.panel === '' && stands.setUp.driveConnectedAt === 0);
   check('the whole twenty is left', stands.flipkart.leftToday === 20);
@@ -911,14 +911,14 @@ check('the allowance is twenty, and it is a number a program can read',
    * written down in `autosync/recipes.py` as `NOT_YET_A_RECIPE` and until now
    * reached nobody at all. */
   /* **NONE SINCE 2026-09-15** -- the keywords were the last. */
-  check('every report this door cannot fetch is on the page, and the one left is Amazon SAFE-T claims (N018, waits for the choose-an-option step)',
-    stands.cannotBeFetched.map((one) => one.id).join() === 'az_claims');
+  check('every report this door cannot fetch is on the page, and there are none left',
+    stands.cannotBeFetched.length === 0);
   check('and each one carries the reason written down in the Python',
     stands.cannotBeFetched.every((one) => one.why.length > 40));
   check('the reasons are the Python\'s own words, not words invented here',
     stands.cannotBeFetched.every((one) => one.why === BOOK.notYetARecipe[one.id]));
-  check('so every report can be ticked but the two switched off (A84) and SAFE-T claims until its recipe (N018)',
-    stands.reports.filter((one) => !one.canBeFetched).map((one) => one.id).sort().join() === 'az_claims,fk_ads_kw,fk_keywords');
+  check('so every report can be ticked but the two switched off (A84) ',
+    stands.reports.filter((one) => !one.canBeFetched).map((one) => one.id).sort().join() === 'fk_ads_kw,fk_keywords');
   /* **AND THE TWO THE ADS SWEEP BRINGS ARE TICKABLE AND SAY WHO BRINGS THEM.**
    * Listed as unfetchable, a seller would read "cannot be fetched" about two
    * files that arrive in their Drive every night. */

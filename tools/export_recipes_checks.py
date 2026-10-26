@@ -80,8 +80,8 @@ HELD = answered(tool.what_the_extension_reads) or {}
 
 check("every recipe the Python has crosses",
       answered(lambda: set(HELD.get("recipes", {})) == set(book.RECIPES)))
-check("and there are twenty-eight of them, three platforms (Amazon's listings and fee reports joined, lane 1 job 8; returns, N018)",
-      answered(lambda: len(HELD.get("recipes", {})) == 28))
+check("and there are twenty-nine of them, three platforms (Amazon's listings and fee reports joined, lane 1 job 8; returns, N018)",
+      answered(lambda: len(HELD.get("recipes", {})) == 29))
 check("every meaning of a failure crosses",
       answered(lambda: set(HELD.get("whatItMeans", {})) == set(language.WHAT_IT_MEANS)))
 # **THE WHOLE MAP, not the part the walk happens to use today.** Splitting it is
@@ -843,7 +843,7 @@ def named_in_words():
 # **ELEVEN SINCE 2026-09-14**: returns left the Reports Centre, and its new route
 # names a row on the taking only.
 check("there are lookups naming a row by the day in words to judge",
-      answered(lambda: len(named_in_words()) == 17))
+      answered(lambda: len(named_in_words()) == 19))
 check("and every one of them says whose wording it means",
       answered(lambda: all(find["dayInWordsIs"] in book.HOW_A_DAY_IS_WRITTEN
                            for _, find in named_in_words())))

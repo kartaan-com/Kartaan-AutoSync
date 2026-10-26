@@ -236,6 +236,8 @@ SHAPES = {
     # **AMAZON RETURNS BY THE BROWSER (N018, seen live 26 Oct 2026):** open the returns report page, wait for its Request button, press it (the page opens on All Returns
     # and last day); later open it again, wait for today's row's Download, take it.
     "az_returns": ((pages.GO, pages.WAIT_FOR, pages.CLICK), (pages.GO, pages.WAIT_FOR, pages.TAKE_FILE)),
+    # **AMAZON SAFE-T CLAIMS (N018):** open the SAFE-T report page, wait for the report-type choice, choose SAFE-T Claims, choose the dates, press Generate Report; later open it again, wait for today's row's Download, take it.
+    "az_claims": ((pages.GO, pages.WAIT_FOR, pages.CLICK, pages.CLICK, pages.CLICK, pages.CLICK, pages.CLICK), (pages.GO, pages.WAIT_FOR, pages.TAKE_FILE)),
 }
 for report_id, (ask, take) in sorted(SHAPES.items()):
     one = tool.recipe(report_id)
@@ -392,7 +394,7 @@ check("so nothing in the collecting half looks for a row it has not named",
 
 two = [r for r in tool.every_recipe() if tool.recipe(r).two_phase]
 check("the reports Flipkart has to go away and build are two-phase",
-      answered(lambda: set(two) == {"fk_orders", "fk_returns", "fk_payments", "fk_views", "fk_listings", "az_listings", "az_fee_preview", "az_returns"}))
+      answered(lambda: set(two) == {"fk_orders", "fk_returns", "fk_payments", "fk_views", "fk_listings", "az_listings", "az_fee_preview", "az_returns", "az_claims"}))
 check("and no Meesho report is", answered(lambda: not any(r.startswith("me_") for r in two)))
 # **A ONE-SHOT REPORT SAYS NOTHING ABOUT HOW LONG IT TAKES TO BE READY**, because
 # nobody is building it -- a number there would be read by nothing.
@@ -678,8 +680,8 @@ check("fifteen Flipkart reports can be fetched by this door -- all of them, sinc
 check("and nine Meesho ones, now that the views card and the ads sweep are built",
       answered(lambda: len(tool.on_the_browser_door_for("meesho")) == 9))
 # **AMAZON NEEDS NONE, and that is the number the others should fall to.**
-check("Amazon needs the browser for four reports: the traffic by child item, All Listings, Referral Fee Preview (lane 1 jobs 7 and 8) and returns (N018)",
-      answered(lambda: tool.on_the_browser_door_for("amazon") == ("az_fee_preview", "az_listings", "az_returns", "az_traffic")))
+check("Amazon needs the browser for five reports: the traffic by child item, All Listings, Referral Fee Preview (lane 1 jobs 7 and 8), returns and SAFE-T claims (N018)",
+      answered(lambda: tool.on_the_browser_door_for("amazon") == ("az_claims", "az_fee_preview", "az_listings", "az_returns", "az_traffic")))
 # **THE TWO-PHASE AMAZON WALK (lane 1 job 8): Inventory Reports, Request Report, then Download from the same list.** Amazon builds the file (up to 45 minutes,
 # once in 24 hours) and shows a row that goes In Progress -> Done, or is Cancelled. The page itself has not been looked at: every control name below is
 # the sample's and the brief's, and the first live walk must confirm the page's wording (see DONE_AP8).
@@ -725,6 +727,26 @@ check("az_returns takes only the Download of the All Returns row requested on th
       and AZR_TAKE[2].find.day_in_words_is == "amazon" and AZR_TAKE[2].find.day_in_words_of == pages.THE_DAY_IT_WAS_MADE)
 check("Amazon writes a requested-on day with the whole month name (25 October 2026), and that spelling is one of the day's spellings",
       answered(lambda: "25 October 2026" in tool.the_days_in_words("amazon", date(2026, 10, 25))))
+# **AMAZON SAFE-T CLAIMS THROUGH THE BROWSER (N018, 26 Oct 2026), measured on his own Seller Central:** Orders > Manage claims > Manage SAFE-T claims > Download the SAFE-T Report
+# (`/safet-claims/reports`). Two dropdowns read `Choose Report Type` (Refund & Replacement, SAFE-T Claims) and `Choose Report Dates` (Yesterday, Last 7 / 30 / 60 days, Exact dates), then a
+# `Generate Report` button; the list below reads `SAFE-T Claims Report | Aug 27, 2026 to Oct 26, 2026 | Oct 26, 2026, 06:45:36 AM GMT+5:30 | Download`. The options are CHOSEN BY PRESSING
+# the words, one press to open and one on the option -- no new kind of step is needed.
+AZC = answered(lambda: tool.RECIPES["az_claims"])
+AZC_ASK = AZC.to_ask if AZC else ()
+AZC_TAKE = AZC.to_take if AZC else ()
+check("az_claims is a two-phase walk: seven steps to ask, three to take",
+      AZC is not None and AZC.two_phase and len(AZC_ASK) == 7 and len(AZC_TAKE) == 3)
+check("az_claims opens the SAFE-T report page for both phases, the address carrying nothing of the seller's own",
+      bool(AZC_ASK) and bool(AZC_TAKE) and AZC_ASK[0].do == pages.GO and AZC_TAKE[0].do == pages.GO
+      and AZC_ASK[0].address == AZC_TAKE[0].address == "https://sellercentral.amazon.in/safet-claims/reports")
+check("az_claims chooses SAFE-T Claims and then the last 30 days, each by opening its dropdown and pressing the option's own words, and presses Generate Report last",
+      len(AZC_ASK) == 7 and [s.do for s in AZC_ASK[2:]] == [pages.CLICK] * 5
+      and [s.find.what for s in AZC_ASK[2:]] == ["Choose Report Type", "SAFE-T Claims", "Choose Report Dates", "Last 30 days", "Generate Report"]
+      and AZC_ASK[1].do == pages.WAIT_FOR and AZC_ASK[1].find == AZC_ASK[2].find)
+check("az_claims takes only the Download of the SAFE-T Claims Report row made on the run's own day, never the Refund & Replacement one or an old one",
+      len(AZC_TAKE) == 3 and AZC_TAKE[2].do == pages.TAKE_FILE and AZC_TAKE[1].find == AZC_TAKE[2].find
+      and AZC_TAKE[2].find.what == "Download" and AZC_TAKE[2].find.near == "{day_in_words}" and AZC_TAKE[2].find.also_saying == "SAFE-T Claims Report"
+      and AZC_TAKE[2].find.day_in_words_is == "amazon" and AZC_TAKE[2].find.day_in_words_of == pages.THE_DAY_IT_WAS_MADE)
 # **THE AMAZON WALK, read against his real sample (BusinessReport-22-10-26.csv, the By Child Item report) and the address Control used.**
 AZ = answered(lambda: tool.RECIPES["az_traffic"])
 AZ_STEPS = AZ.to_take if AZ else ()
@@ -799,8 +821,8 @@ check("and none of them is called both built and not built",
 # **AND ON 2026-09-15 IT FELL TO NOUGHT.** `fk_keywords` left: the door learned to
 # read the keyword pop-ups off the traffic report, and the part the reference left
 # to a person -- opening the report and choosing the day -- is recipe steps.
-check("the one report this door cannot reach yet is Amazon SAFE-T claims (N018: its recipe waits for a step that chooses an option)",
-      answered(lambda: set(tool.NOT_YET_A_RECIPE) == {"az_claims"}))
+check("there is no report left that this door cannot reach (SAFE-T claims joined the recipes, N018)",
+      answered(lambda: set(tool.NOT_YET_A_RECIPE) == set()))
 # **AND THE TWO CHECKS THAT USED TO ASK MORE OF THIS LIST ARE GONE, 2026-10-03,
 # BECAUSE AN EMPTY LIST MADE THEM PASS BY LOOKING AT NOTHING.** They asked that
 # each entry was a report Kartaan declares, and that each said why in a sentence
@@ -968,9 +990,9 @@ def names_a_row_in_words():
 # **SEVEN SINCE 2026-09-11: `fk_listings` joined them.** Its Downloads History
 # holds four `Listing` rows from four different days, so the word alone finds
 # four and refuses -- the row has to be named by the day the file was MADE.
-check("exactly the ten reports that name a row by the day in words do so (Amazon's listings and fee reports joined, lane 1 job 8; returns, N018)",
+check("exactly the eleven reports that name a row by the day in words do so (Amazon's listings and fee reports joined, lane 1 job 8; returns, N018)",
       answered(lambda: sorted(set(names_a_row_in_words()))
-               == ["az_fee_preview", "az_listings", "az_returns", "fk_listings", "fk_orders", "fk_payments", "fk_returns",
+               == ["az_claims", "az_fee_preview", "az_listings", "az_returns", "fk_listings", "fk_orders", "fk_payments", "fk_returns",
                    "me_claims", "me_returns", "me_views"]))
 # **AND THE SIXTH NAMES NO ROW AT ALL -- IT NAMES A CARD.** On his dashboard the
 # words `Orders` match twice, the sidebar item and the card, and the card carries
@@ -1458,7 +1480,7 @@ check("and the panel name was still filled into the addresses on the way",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 377
+EXPECTED = 391
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

@@ -7,6 +7,246 @@
     "Edit the Python and run the tool again; a check refuses a stale copy."
   ],
   "recipes": {
+    "az_claims": {
+      "campaignsFrom": null,
+      "readyInMinutes": 2,
+      "toAsk": [
+        {
+          "do": "go",
+          "find": null,
+          "address": "https://sellercentral.amazon.in/safet-claims/reports",
+          "patience": 60,
+          "why": "opening Download the SAFE-T Report to ask for the claims",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": ""
+        },
+        {
+          "do": "wait-for",
+          "find": {
+            "how": "pressable",
+            "what": "Choose Report Type",
+            "exact": true,
+            "called": "the report type choice",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 90,
+          "why": "waiting for the SAFE-T report page to draw its report type choice",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": ""
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "pressable",
+            "what": "Choose Report Type",
+            "exact": true,
+            "called": "the report type choice",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "opening the report types",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": ""
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "pressable",
+            "what": "SAFE-T Claims",
+            "exact": true,
+            "called": "the SAFE-T Claims report type",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "choosing the SAFE-T Claims report",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": ""
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "pressable",
+            "what": "Choose Report Dates",
+            "exact": true,
+            "called": "the report dates choice",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "opening the report dates",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": ""
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "pressable",
+            "what": "Last 30 days",
+            "exact": true,
+            "called": "the last 30 days choice",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "choosing the last 30 days",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": ""
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "role",
+            "what": "Generate Report",
+            "exact": true,
+            "called": "the Generate Report button",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "asking Amazon to build the SAFE-T claims",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": ""
+        }
+      ],
+      "toTake": [
+        {
+          "do": "go",
+          "find": null,
+          "address": "https://sellercentral.amazon.in/safet-claims/reports",
+          "patience": 60,
+          "why": "coming back to the SAFE-T report page for the claims",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": ""
+        },
+        {
+          "do": "wait-for",
+          "find": {
+            "how": "pressable",
+            "what": "Download",
+            "exact": true,
+            "called": "the Download of the SAFE-T Claims Report row made today",
+            "near": "{day_in_words}",
+            "alsoSaying": "SAFE-T Claims Report",
+            "dayInWordsIs": "amazon",
+            "dayInWordsOf": "made"
+          },
+          "address": "",
+          "patience": 90,
+          "why": "waiting for the finished SAFE-T claims row",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": ""
+        },
+        {
+          "do": "take-file",
+          "find": {
+            "how": "pressable",
+            "what": "Download",
+            "exact": true,
+            "called": "the Download of the SAFE-T Claims Report row made today",
+            "near": "{day_in_words}",
+            "alsoSaying": "SAFE-T Claims Report",
+            "dayInWordsIs": "amazon",
+            "dayInWordsOf": "made"
+          },
+          "address": "",
+          "patience": 90,
+          "why": "taking the finished SAFE-T claims file",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": ""
+        }
+      ]
+    },
     "az_fee_preview": {
       "campaignsFrom": null,
       "readyInMinutes": 45,
@@ -5340,6 +5580,10 @@
     "Start Selling"
   ],
   "fileNames": {
+    "az_claims": {
+      "platform": "amazon",
+      "extension": "csv"
+    },
     "az_fee_preview": {
       "platform": "amazon",
       "extension": "txt"
@@ -5862,7 +6106,5 @@
       "Logs"
     ]
   },
-  "notYetARecipe": {
-    "az_claims": "Amazon's SAFE-T report page needs a report type and a date range chosen from dropdowns, which the walk cannot do yet."
-  }
+  "notYetARecipe": {}
 }

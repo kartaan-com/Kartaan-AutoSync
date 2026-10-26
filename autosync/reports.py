@@ -325,8 +325,8 @@ REPORTS: Tuple[Report, ...] = (
     # can be asked for again.
     Report("az_traffic", "amazon", "Amazon listing traffic", BROWSER, DAILY, "csv"),
     # **AMAZON'S SAFE-T CLAIMS BY THE BROWSER (N018, his ruling D726).** Seller Central > Orders > Manage claims > Manage SAFE-T claims > Download the SAFE-T Report, type "SAFE-T Claims",
-    # dates Yesterday / last 7, 30, 60 days / Exact dates; Amazon builds it in seconds. The recipe is not written yet (it needs the walk to choose an option in a dropdown), so the board says
-    # "cannot be fetched" until it is; the reader is written (`claims.read_safet_records`).
+    # dates Yesterday / last 7, 30, 60 days / Exact dates; Amazon builds it in seconds. The recipe chooses the two dropdown options by pressing their words (no new step), not yet run live;
+    # the reader is `claims.read_safet_records`.
     Report("az_claims", "amazon", "Amazon SAFE-T claims", BROWSER, DAILY, "csv",
            cannot_backfill="The page offers Yesterday, the last 7, 30 or 60 days, or exact dates; the run asks for one of the relative ones, so a day already gone cannot be fetched again by the run. "
                            "Overlapping files are expected and are settled by the SAFE-T claim id."),

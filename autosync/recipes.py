@@ -418,6 +418,8 @@ AMAZON_INVENTORY_REPORTS = "https://sellercentral.amazon.in/listing/reports"
 # **AMAZON'S RETURN REPORTS PAGE (Orders > Order reports > Seller fulfilled return reports), read off his own Seller Central by N018 on 26 Oct 2026.** It opens on "All Returns"
 # and "last day" (yesterday); a real `<button>` reads `Request`; the list below holds one row per request, each with one `Download` (a TSV) and a Requested On time.
 AMAZON_RETURNS = "https://sellercentral.amazon.in/returns/report"
+# **AMAZON'S SAFE-T REPORT PAGE (Orders > Manage claims > Manage SAFE-T claims > Download the SAFE-T Report), read off his own Seller Central by N018 on 26 Oct 2026.**
+AMAZON_SAFET_REPORT = "https://sellercentral.amazon.in/safet-claims/reports"
 # **THESE THREE WERE WRONG, AND THEY COST A WHOLE NIGHT (2026-09-06).** Nine of
 # ten reports failed within twenty minutes of each other -- seven ads reports
 # looking for "the other reports tab", claims looking for "the claims tab",
@@ -1390,6 +1392,34 @@ RECIPES: Dict[str, Recipe] = {
     "az_listings": _amazon_inventory_report("All Listings Report", 30),
     "az_fee_preview": _amazon_inventory_report("Referral Fee Preview Report", 45),
 
+    # ---- Amazon SAFE-T claims by the browser (N018, his ruling D726). **The two dropdowns are CHOSEN BY PRESSING THE WORDS** -- the opener (`Choose Report Type`) and then the option's own
+    # ---- words -- because Amazon's option list is drawn as pressable text; no new kind of step is needed. The last 30 days are asked every time, so a claim whose state moved (Under
+    # ---- Investigation, then Granted) is in the next file too and the claim's own id settles the overlap. Built from his page on 26 Oct 2026; **NOT YET RUN LIVE.**
+    "az_claims": Recipe(
+        ready_in_minutes=2,
+        to_ask=(
+            Step(GO, address=AMAZON_SAFET_REPORT, patience=60, why="opening Download the SAFE-T Report to ask for the claims"),
+            Step(WAIT_FOR, find=Find(BY_PRESSABLE_TEXT, "Choose Report Type", called="the report type choice"), patience=90,
+                 why="waiting for the SAFE-T report page to draw its report type choice"),
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Choose Report Type", called="the report type choice"), why="opening the report types"),
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "SAFE-T Claims", called="the SAFE-T Claims report type"), why="choosing the SAFE-T Claims report"),
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Choose Report Dates", called="the report dates choice"), why="opening the report dates"),
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Last 30 days", called="the last 30 days choice"), why="choosing the last 30 days"),
+            Step(CLICK, find=Find(BY_ROLE_AND_TEXT, "Generate Report", called="the Generate Report button"), why="asking Amazon to build the SAFE-T claims"),
+        ),
+        to_take=(
+            Step(GO, address=AMAZON_SAFET_REPORT, patience=60, why="coming back to the SAFE-T report page for the claims"),
+            Step(WAIT_FOR, find=Find(BY_PRESSABLE_TEXT, "Download", near="{day_in_words}", also_saying="SAFE-T Claims Report",
+                                     day_in_words_is=AMAZON_WRITES_IT, day_in_words_of=THE_DAY_IT_WAS_MADE,
+                                     called="the Download of the SAFE-T Claims Report row made today"),
+                 patience=90, why="waiting for the finished SAFE-T claims row"),
+            Step(TAKE_FILE, find=Find(BY_PRESSABLE_TEXT, "Download", near="{day_in_words}", also_saying="SAFE-T Claims Report",
+                                      day_in_words_is=AMAZON_WRITES_IT, day_in_words_of=THE_DAY_IT_WAS_MADE,
+                                      called="the Download of the SAFE-T Claims Report row made today"),
+                 patience=90, why="taking the finished SAFE-T claims file"),
+        ),
+    ),
+
     # ---- Amazon returns by the browser (N018, his ruling D726: no Amazon API). Two-phase: press Request on the page's own default (All Returns, last day = yesterday),
     # ---- come back and take that request's row, named by the day it was made. Amazon builds it in seconds, so the minutes are few.
     "az_returns": Recipe(
@@ -1858,11 +1888,7 @@ def every_recipe() -> Tuple[str, ...]:
 # the keyword pop-ups off the traffic report, and the part the reference left to a
 # person -- opening the report and choosing the day -- is the traffic report's own
 # steps.
-NOT_YET_A_RECIPE: Dict[str, str] = {
-    # **AMAZON'S SAFE-T CLAIMS (N018): the page needs two options chosen in dropdowns (the report type and the dates), and this door has no step that chooses an option yet.** The reader is
-    # written and checked against his real file's header; the recipe follows the new step.
-    "az_claims": "Amazon's SAFE-T report page needs a report type and a date range chosen from dropdowns, which the walk cannot do yet.",
-}
+NOT_YET_A_RECIPE: Dict[str, str] = {}
 
 
 # **REPORTS THAT ARE REAL AND ARE FETCHED BY A DIFFERENT REPORT'S RUN.**
