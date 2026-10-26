@@ -252,7 +252,7 @@ nameless = Night({"az_suppressed": [whats_new.InTheFolder(which="s2", name="supp
 check("a file with no day in its name is refused like every other reader's", nameless is not None and nameless.read_tonight == () and "no day in its name" in nameless.could_not_read[0])
 check("az_suppressed is read now and no longer says it is not",
       reading.why_a_report_has_no_decision() == "" and "az_suppressed" not in reading.WHAT_IS_FETCHED_AND_NOT_READ_YET
-      and [o.report_id for o in reading.WHAT_NOTES_CAN_BE_READ] == ["az_suppressed", "az_fee_preview"])
+      and [o.report_id for o in reading.WHAT_NOTES_CAN_BE_READ] == ["az_suppressed", "az_fee_preview", "me_pricing"])
 
 
 # ---------------------------------------------------------------- the fee side (job 2): lane 1's real `listings.WhatFeesSaid`, joined at AP10
@@ -356,8 +356,136 @@ TORN.go()
 check("the night says a file is complete only when every row of it was read",
       CLEAN.complete == [True] and TORN.complete == [False])
 
+# ---------------------------------------------------------------- Meesho pricing (N017, his D726; plan piece 43)
+# **THE FILE IS THE EXTENSION'S OWN (`extension/tables.js` `meesho-pricing`), so its header is the one the walker writes. NO PRICING FILE HAS EVER LANDED IN HIS DRIVE**
+# (the fetch failed every night): the rows below are made up to that header. The text inside a price cell is therefore not known -- only the FIRST piece of a cell is
+# read as the price, and a cell whose first piece is not an amount is a row not read, never a guess.
+RUPEE_SIGN = chr(0x20B9)
+PHEAD = '"Product","Catalog ID","SKU ID","Tab counts","Current Stock","Growth in 30 days","Current Customer Price","Recommended Customer Price","Insights"'
+
+
+def a_price_row(product, catalog, sku, current, recommended, label="Losing Views"):
+    return f'"{product}","{catalog}","{sku}","All Products (6)","5","3%","{current}","{recommended}","{label}"'
+
+
+def a_price_file(*rows, head=PHEAD):
+    return ("\n".join([head, *rows]) + "\n").encode("utf-8")
+
+
+def a_shop_listing(product_id, variation, sku, catalog, title):
+    return {"platform": "meesho", "platformId": f"{product_id}::{variation}", "sku": sku, "catalogId": catalog, "productName": title}
+
+
+SHOP = {one["platform"] + "::" + one["platformId"]: one for one in (
+    a_shop_listing("1001", "1", "DJ-1", "555", "Gold Jhumka"), a_shop_listing("1001", "2", "DJ-1", "555", "Gold Jhumka"),
+    a_shop_listing("2002", "1", "R-9", "777", "Silver Ring"),
+    a_shop_listing("3003", "1", "S 5", "888", "Twin Title"), a_shop_listing("4004", "1", "T-1", "999", "Twin Title"),
+)}
+L_DJ1, L_DJ2, L_RING = "meesho::1001::1", "meesho::1001::2", "meesho::2002::1"
+priced = answered(lambda: tool.read_pricing(a_price_file(
+    a_price_row("Gold Jhumka", "555", "DJ-1", RUPEE_SIGN + "1,199", RUPEE_SIGN + "999", "Losing Views"),
+    a_price_row("Silver Ring", "", "", RUPEE_SIGN + "250.50", "", "Best Priced"),
+), "the pricing file", SHOP))
+check("PRICING: a row matched by its SKU puts the three figures on EVERY listing with that SKU (two variations here), commas read as thousands",
+      priced is not None and priced.notes[L_DJ1] == priced.notes[L_DJ2]
+      == {"currentPrice": 1199, "recommendedPrice": 999, "priceLabel": "Losing Views"} and priced.rows_in_file == 2)
+check("a row with no SKU and no catalogue id is matched by its title when the title belongs to one catalogue; a blank recommended price is null, said as such, never nought",
+      priced is not None and priced.notes[L_RING] == {"currentPrice": 250.5, "recommendedPrice": None, "priceLabel": "Best Priced"} and not priced.not_read)
+by_catalog = answered(lambda: tool.read_pricing(a_price_file(a_price_row("Whatever the page called it", "777", "NOT-A-SKU", RUPEE_SIGN + "300", RUPEE_SIGN + "280")), "f", SHOP))
+check("a SKU nobody has falls back to the catalogue id, and the row is matched",
+      by_catalog is not None and set(by_catalog.notes) == {L_RING} and not by_catalog.not_read)
+parts = answered(lambda: tool.read_pricing(a_price_file(a_price_row("Gold Jhumka", "555", "DJ-1", RUPEE_SIGN + "199 | Margin: " + RUPEE_SIGN + "100", RUPEE_SIGN + "179 | Margin: x")), "f", SHOP))
+check("only the first piece of a price cell is the price, the rest is not read as anything",
+      parts is not None and parts.notes[L_DJ1]["currentPrice"] == 199 and parts.notes[L_DJ1]["recommendedPrice"] == 179)
+bad_rows = answered(lambda: tool.read_pricing(a_price_file(
+    a_price_row("Twin Title", "", "", RUPEE_SIGN + "100", RUPEE_SIGN + "90"),
+    a_price_row("Nobody Sells This", "", "", RUPEE_SIGN + "100", RUPEE_SIGN + "90"),
+    a_price_row("Gold Jhumka", "555", "DJ-1", "", RUPEE_SIGN + "90"),
+    a_price_row("Gold Jhumka", "555", "DJ-1", "price on request", RUPEE_SIGN + "90"),
+    a_price_row("Gold Jhumka", "555", "DJ-1", RUPEE_SIGN + "100", "soon"),
+    a_price_row("Gold Jhumka", "777", "DJ-1", RUPEE_SIGN + "100", RUPEE_SIGN + "90"),
+    a_price_row("Silver Ring", "777", "R-9", RUPEE_SIGN + "260", RUPEE_SIGN + "240"),
+), "f", SHOP))
+check("EVERY ROW THAT CANNOT BE PUT ON A LISTING IS SAID BY LINE AND NEVER DROPPED SILENTLY: a title shared by two catalogues, a title nobody has, no current price, a price that is not an amount, a recommended price that is not one, a SKU and catalogue that disagree",
+      bad_rows is not None and len(bad_rows.not_read) == 6 and all(x.startswith(f"line {n} ") for n, x in zip(range(2, 8), bad_rows.not_read))
+      and set(bad_rows.notes) == {L_RING} and bad_rows.rows_in_file == 7)
+check("and each of them says why: two catalogues, no listing, no current price, not an amount",
+      bad_rows is not None and "2 catalogues" in bad_rows.not_read[0] and "no listing" in bad_rows.not_read[1] and "current price" in bad_rows.not_read[2]
+      and "not an amount" in bad_rows.not_read[3] and "recommended" in bad_rows.not_read[4] and "disagree" in bad_rows.not_read[5])
+twice_priced = answered(lambda: tool.read_pricing(a_price_file(
+    a_price_row("Silver Ring", "777", "R-9", RUPEE_SIGN + "260", RUPEE_SIGN + "240"), a_price_row("Silver Ring", "777", "R-9", RUPEE_SIGN + "999", RUPEE_SIGN + "1")), "f", SHOP))
+check("a listing named by two rows keeps the first and says the second was not used",
+      twice_priced is not None and twice_priced.notes[L_RING]["currentPrice"] == 260 and len(twice_priced.not_read) == 1 and "already" in twice_priced.not_read[0])
+torn_price = answered(lambda: tool.read_pricing(
+    ("\n".join([PHEAD, a_price_row("Silver Ring", "777", "R-9", RUPEE_SIGN + "260", RUPEE_SIGN + "240"), '"Gold Jhumka","555"']) + "\n").encode("utf-8"), "f", SHOP))
+check("PRICING: A TORN ROW (the wrong width) IS A ROW NOT READ AND COUNTED IN THE FILE, so a torn file does not read as read in full",
+      torn_price is not None and len(torn_price.notes) == 1 and len(torn_price.not_read) == 1 and torn_price.not_read[0].startswith("line 3") and torn_price.rows_in_file == 2)
+check("a pricing file missing a column is refused in words naming the columns it has",
+      "Nothing was read" in why(lambda: tool.read_pricing(a_price_file(a_price_row("a", "1", "b", "1", "1"), head='"Product","Catalog ID","SKU ID"'), "f", SHOP)))
+check("without the shop's listings (no catalog file yet) it is refused rather than every row being flagged unmatched for good",
+      "listings" in why(lambda: tool.read_pricing(a_price_file(a_price_row("a", "1", "b", "1", "1")), "f", None)))
+check("a pricing file with its headings and no row is refused, as an empty listing file is",
+      "not one" in why(lambda: tool.read_pricing(a_price_file(), "f", SHOP)))
+check("the reader is found by report id, and gets the shop's listings", tool.read_notes_file("me_pricing", a_price_file(
+    a_price_row("Silver Ring", "777", "R-9", RUPEE_SIGN + "260", RUPEE_SIGN + "240")), "f", SHOP).notes[L_RING]["currentPrice"] == 260)
+
+price_write = answered(lambda: firestore.a_listing_note_write("p", L_RING, {
+    "currentPrice": 260, "recommendedPrice": None, "priceLabel": "Best Priced", "priceAsOf": "2026-10-26"}))
+check("PRICING: the write is masked to the pricing fields only, a missing recommendation goes as null, and the listing beside it is never touched",
+      price_write is not None and price_write["updateMask"]["fieldPaths"] == ["currentPrice", "priceAsOf", "priceLabel", "recommendedPrice"]
+      and price_write["update"]["fields"]["recommendedPrice"] == {"nullValue": None} and "listing" not in price_write["update"]["fields"]
+      and price_write["update"]["fields"]["currentPrice"] == {"integerValue": "260"})
+check("a price that is text, or a price day that is not a day, is refused",
+      refused(lambda: firestore.a_listing_note_write("p", L_RING, {"currentPrice": "260"}))
+      and refused(lambda: firestore.a_listing_note_write("p", L_RING, {"priceAsOf": "yesterday"})))
+price_t = Transport(held={L_RING: LISTED, L_DJ1: LISTED})
+price_put = answered(lambda: firestore_door.a_listing_notes_sink(price_t, "p")("me_pricing", "2026-10-26", {L_RING: priced.notes[L_RING], L_DJ1: priced.notes[L_DJ1], L_DJ2: priced.notes[L_DJ2]}))
+check("the sink writes the pricing on each held record with priceAsOf; the variation with no record yet is skipped, not made up",
+      price_put == (2, 1) and all("priceAsOf" in w["updateMask"]["fieldPaths"] for w in price_t.commits())
+      and price_t.commits()[0]["update"]["fields"]["priceAsOf"] == {"stringValue": "2026-10-26"})
+price_held = {n: {**LISTED, **w["update"]["fields"]} for w, n in zip(price_t.commits(), (L_DJ1, L_RING))}
+check("the same file again writes nothing, an older file's price never lands over a newer one, and a changed price is written again",
+      answered(lambda: firestore_door.a_listing_notes_sink(Transport(held=price_held), "p")("me_pricing", "2026-10-27", {L_RING: priced.notes[L_RING]})) == (0, 0)
+      and answered(lambda: firestore_door.a_listing_notes_sink(Transport(held=price_held), "p")("me_pricing", "2026-10-20", {L_RING: {**priced.notes[L_RING], "currentPrice": 1}})) == (0, 0)
+      and answered(lambda: firestore_door.a_listing_notes_sink(Transport(held=price_held), "p")("me_pricing", "2026-10-27", {L_RING: {**priced.notes[L_RING], "currentPrice": 240}})) == (1, 0))
+price_gone = Transport(held=price_held)
+price_gone_put = answered(lambda: firestore_door.a_listing_notes_sink(price_gone, "p")("me_pricing", "2026-10-28", {L_DJ1: priced.notes[L_DJ1]}, complete=True))
+check("A PRICE A LATER COMPLETE FILE NO LONGER NAMES IS TAKEN OFF THE LISTING (all three figures), with the file's day, and never written as nought",
+      price_gone_put == (1, 0) and [w["update"]["name"].rsplit("/", 1)[-1] for w in price_gone.commits()] == [L_RING]
+      and price_gone.commits()[0]["update"]["fields"] == {"priceAsOf": {"stringValue": "2026-10-28"}}
+      and sorted(price_gone.commits()[0]["updateMask"]["fieldPaths"]) == ["currentPrice", "priceAsOf", "priceLabel", "recommendedPrice"])
+price_part = Transport(held=price_held)
+check("a partial pricing file takes no price away",
+      answered(lambda: firestore_door.a_listing_notes_sink(price_part, "p")("me_pricing", "2026-10-28", {L_DJ1: priced.notes[L_DJ1]})) == (0, 0) and price_part.commits() == [])
+
+
+def _the_shop_file(how, one, body):
+    return type("Said", (), {"records": SHOP})(), "2026-10-20"
+
+
+PRICING_FILES = {"me_pricing": [whats_new.InTheFolder(which="p1", name="meesho_me_pricing_2026-10-26.csv", size=100)],
+                 "me_catalog": [whats_new.InTheFolder(which="c1", name="meesho_me_catalog_2026-10-20.xlsx", size=100)]}
+PRICING_BODY = a_price_file(a_price_row("Silver Ring", "777", "R-9", RUPEE_SIGN + "260", RUPEE_SIGN + "240", "Best Priced"))
+_real_listings_reading = reading.a_listings_reading
+reading.a_listings_reading = _the_shop_file
+try:
+    price_night = Night(PRICING_FILES, {"p1": PRICING_BODY, "c1": b"the catalogue file, made up"})
+    price_was = price_night.go(already=("c1",))
+finally:
+    reading.a_listings_reading = _real_listings_reading
+check("PRICING: a night matches the file against the newest me_catalog file's listings and hands the notes over with the file's day",
+      price_was is not None and price_was.read_tonight == ("p1",)
+      and [(r, d, n) for r, d, n in price_night.written] == [("me_pricing", "2026-10-26", {L_RING: {"currentPrice": 260, "recommendedPrice": 240, "priceLabel": "Best Priced"}})]
+      and [(r.report_id, r.rows_in_file, r.rows_read) for r in price_was.reads] == [("me_pricing", 1, 1)])
+price_none = Night({"me_pricing": PRICING_FILES["me_pricing"]}, {"p1": PRICING_BODY}).go()
+check("with no catalog file in the folder the pricing file is NOT marked read, and the night says why",
+      price_none is not None and price_none.read_tonight == () and any("catalog" in x for x in price_none.could_not_read))
+check("me_pricing is read now and no longer says it is not",
+      "me_pricing" not in reading.WHAT_IS_FETCHED_AND_NOT_READ_YET and "me_pricing" in {o.report_id for o in reading.WHAT_NOTES_CAN_BE_READ}
+      and reading.why_a_report_has_no_decision() == "")
+
 check("nothing above ended by throwing rather than by answering -- " + str(THREW), not THREW)
-EXPECTED = 49 + 7
+EXPECTED = 49 + 7 + 21
 check(f"checks went missing -- {ran + 1} ran, {EXPECTED} expected", ran + 1 == EXPECTED)
 
 if failures:

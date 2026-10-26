@@ -256,10 +256,6 @@ WHAT_IS_FETCHED_AND_NOT_READ_YET: Dict[str, str] = {
     "fk_keywords": (
         "switched off by his ruling (piece 49), so it is not fetched at all and has no folder"
     ),
-    "me_pricing": (
-        "decided: current price, recommended price and Meesho's own label put on each Meesho listing in Products, as piece 43 says; "
-        "that screen is the ERP's"
-    ),
 }
 WHAT_IS_FETCHED_AND_NOT_READ_YET["fk_ads_kw"] = (
     "Flipkart has discontinued keyword ads (his word, 12 Oct), so nothing is read and it is no longer fetched: it is off the extension's "
@@ -754,7 +750,9 @@ def a_listings_reading(how: HowToRead, one: whats_new.InTheFolder, body: bytes) 
     return said, when.isoformat()
 
 
-def a_notes_reading(how: HowToRead, one: whats_new.InTheFolder, body: bytes) -> Tuple[listing_notes.WhatNotesSaid, str]:
+def a_notes_reading(
+    how: HowToRead, one: whats_new.InTheFolder, body: bytes, shop_listings: Optional[Dict[str, Dict]] = None,
+) -> Tuple[listing_notes.WhatNotesSaid, str]:
     """One side file turned into the notes it holds, and the day it is about (the day in the file's name, as for a listing file).
 
     **A FILE WITH ROWS OF WHICH NOT ONE COULD BE READ IS A FILE NOT READ**, not one read for good -- marked, it would never be opened again.
@@ -765,7 +763,7 @@ def a_notes_reading(how: HowToRead, one: whats_new.InTheFolder, body: bytes) -> 
             f"{one.name or one.which} has no day in its name, so there is no way to say whether what it holds is newer or older "
             "than what is already written. Nothing in it was read."
         )
-    said = listing_notes.read_notes_file(how.report_id, body, one.name or one.which)
+    said = listing_notes.read_notes_file(how.report_id, body, one.name or one.which, shop_listings)
     if not said.notes and said.not_read:
         raise table.CannotRead(f"no row of {one.name or one.which} could be read; the first was {said.not_read[0]}")
     return said, when.isoformat()
@@ -854,6 +852,26 @@ def _the_titles_of_the_catalog(listed: Dict[str, List[whats_new.InTheFolder]], b
     except Exception as wrong:  # noqa: BLE001 - said, and the file waits: matched against nothing it would be flagged unmatched for good
         raise table.CannotRead(
             f"the catalog file {newest.name or newest.which} could not be read ({wrong}), so the products cannot be matched to a catalog yet; "
+            "this file is left to be read again"
+        ) from wrong
+
+
+def _the_shops_listings(listed: Dict[str, List[whats_new.InTheFolder]], bring_it_back: Callable[[str], bytes]) -> Dict[str, Dict]:
+    """The seller's own Meesho listings (`meesho::<product>::<variation>` -> listing) from the newest `me_catalog` file in the folder, for a side file that is matched against them.
+
+    **UNLIKE THE TITLES ABOVE, NO CATALOG FILE IS AN ANSWER OF ITS OWN (N017):** matched against nothing, every price would be flagged unmatched and the file marked read for good,
+    so the pricing file waits and says why.
+    """
+    how = next((one for one in WHAT_LISTINGS_CAN_BE_READ if one.report_id == "me_catalog"), None)
+    files = [one for one in listed.get("me_catalog", ()) if landing.data_date_in(one.name) is not None]
+    if how is None or not files:
+        raise table.CannotRead("no catalog file (me_catalog) is in the folder yet, so the pricing cannot be matched to the seller's listings; this file is left to be read again")
+    newest = max(files, key=lambda one: (landing.data_date_in(one.name), one.which))
+    try:
+        return a_listings_reading(how, newest, bring_it_back(newest.which))[0].records
+    except Exception as wrong:  # noqa: BLE001 - said, and the file waits
+        raise table.CannotRead(
+            f"the catalog file {newest.name or newest.which} could not be read ({wrong}), so the pricing cannot be matched to the seller's listings yet; "
             "this file is left to be read again"
         ) from wrong
 
@@ -1130,7 +1148,10 @@ def read_what_is_new(
                 notes_waiting += 1
                 continue
             try:
-                said, the_day = a_notes_reading(how, one, bring_it_back(one.which))
+                said, the_day = a_notes_reading(
+                    how, one, bring_it_back(one.which),
+                    _the_shops_listings(listed, bring_it_back) if how.report_id in listing_notes.NEEDS_THE_SHOP_LISTINGS else None,
+                )
                 # **COMPLETE ONLY WHEN EVERY ROW WAS READ (D633):** only then may a listing it no longer names have its note taken back.
                 wrote, skipped = record_notes(how.report_id, the_day, said.notes, complete=not said.not_read)
                 notes_written += wrote

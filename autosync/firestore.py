@@ -639,11 +639,12 @@ def a_listing_write(project: str, listing: Dict, report_id: str, changed_on: str
 
 
 # **WHAT A PLATFORM'S SIDE FILE SAYS ABOUT A LISTING, AND NO MORE** (v0.1.21 lane 2): the fields `a_listing_note_write` may put beside a listing's `listing`.
-# `suppressedOn` and `feeAsOf` are the day of the file the words came from, so a file uploaded late cannot undo a newer one.
-NOTE_TEXT = ("suppressedReason", "fixHint", "suppressedOn", "feeAsOf")
-NOTE_FIELDS = ("suppressed", "referralFee") + NOTE_TEXT
+# `suppressedOn`, `feeAsOf` and `priceAsOf` are the day of the file the words came from, so a file uploaded late cannot undo a newer one.
+# `currentPrice`, `recommendedPrice` (null when Meesho gave none) and `priceLabel` are what Meesho's pricing table says about a Meesho listing (N017, piece 43).
+NOTE_TEXT = ("suppressedReason", "fixHint", "suppressedOn", "feeAsOf", "priceLabel", "priceAsOf")
+NOTE_FIELDS = ("suppressed", "referralFee", "currentPrice", "recommendedPrice") + NOTE_TEXT
 # The day-field that goes with each side report (`firestore_door.a_listing_notes_sink`).
-NOTE_DAY_FIELD = {"az_suppressed": "suppressedOn", "az_fee_preview": "feeAsOf"}
+NOTE_DAY_FIELD = {"az_suppressed": "suppressedOn", "az_fee_preview": "feeAsOf", "me_pricing": "priceAsOf"}
 
 
 def a_listing_note_write(project: str, doc_id: str, notes: Dict) -> Dict:
@@ -664,12 +665,15 @@ def a_listing_note_write(project: str, doc_id: str, notes: Dict) -> Dict:
             if not isinstance(held, bool):
                 raise Refused(f"suppressed must be true or false, and {held!r} is not.")
             fields[name] = a_value(held)
-        elif name == "referralFee":
+        elif name in ("referralFee", "currentPrice") or (name == "recommendedPrice" and held is not None):
             fields[name] = _a_number(held)
+        elif name == "recommendedPrice":
+            # Meesho gave no recommendation: said as null, so an earlier recommendation does not stay standing beside a newer current price.
+            fields[name] = a_value(None)
         else:
             if not isinstance(held, str):
                 raise Refused(f"{name} of a listing's note must be text, and {held!r} is not.")
-            if name in ("suppressedOn", "feeAsOf") and not A_DAY.match(held):
+            if name in ("suppressedOn", "feeAsOf", "priceAsOf") and not A_DAY.match(held):
                 raise Refused(f"{held!r} is not a day written year-month-day, so no note was written.")
             fields[name] = a_value(held)
     return {
@@ -684,11 +688,14 @@ def a_listing_note_write(project: str, doc_id: str, notes: Dict) -> Dict:
 NOTE_TAKEN_BACK = {
     "az_suppressed": (("suppressedReason", "fixHint"), {"suppressed": False}),
     "az_fee_preview": (("referralFee",), {}),
+    # Meesho pricing: the three figures go; the day stays so an older file cannot put them back.
+    "me_pricing": (("currentPrice", "recommendedPrice", "priceLabel"), {}),
 }
 # Which held records still carry a report's note -- what the sink asks the database for: a suppression still standing, a fee still there.
 NOTE_STILL_SAID = {
     "az_suppressed": {"fieldFilter": {"field": {"fieldPath": "suppressed"}, "op": "EQUAL", "value": {"booleanValue": True}}},
     "az_fee_preview": {"fieldFilter": {"field": {"fieldPath": "referralFee"}, "op": "GREATER_THAN_OR_EQUAL", "value": {"integerValue": "0"}}},
+    "me_pricing": {"fieldFilter": {"field": {"fieldPath": "currentPrice"}, "op": "GREATER_THAN_OR_EQUAL", "value": {"integerValue": "0"}}},
 }
 
 
