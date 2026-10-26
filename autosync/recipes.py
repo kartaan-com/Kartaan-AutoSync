@@ -364,6 +364,8 @@ ADS = "https://supplier.meesho.com/panel/v3/new/ads/{panel}"
 # **MEESHO'S INSIGHTS SECTION** -- the Business Dashboard, whose Product Performance table has no download button. The address and the
 # table's shape were read off his own panel by Control on 2026-10-05 (read only).
 INSIGHTS = "https://supplier.meesho.com/panel/v3/new/insights/{panel}"
+# **MEESHO'S PRODUCT QUALITY PAGE lives under `cataloging`, a fifth prefix (N025, his panel 26 Oct 2026): `.../cataloging/<slug>/product-optimiser`.**
+CATALOGING = "https://supplier.meesho.com/panel/v3/new/cataloging/{panel}"
 
 # **EVERY MENU ITEM ON BOTH PLATFORMS IS ASKED FOR AS A PRESSABLE THING, NOT AS
 # WORDS ON THE PAGE, and that is measured rather than tidy.** Read off his own
@@ -1237,6 +1239,13 @@ RECIPES: Dict[str, Recipe] = {
             Step(GO, address=SERVICES + "/ipp/allproducts", patience=60, why="opening the pricing page"),
             Step(READ_THE_TABLE, table="meesho-pricing", patience=120,
                  why="reading the pricing table, page by page"),
+        ),
+    ),
+    # **MEESHO'S PRODUCT QUALITY PAGE (N025; his panel read by Control on 26 Oct 2026, side menu Quality).** No download: the page is read, each of its three tabs pressed in turn, into ONE FILE A DAY (his yes). Nothing on the page is pressed but those three tabs.
+    "me_quality": Recipe(
+        to_take=(
+            Step(GO, address=CATALOGING + "/product-optimiser", patience=60, why="opening the product quality page"),
+            Step(READ_THE_TABLE, table="meesho-quality", patience=120, why="reading the store score, the feedback reasons, the tabs and every product"),
         ),
     ),
     "fk_quality_insights": Recipe(

@@ -108,7 +108,7 @@ check('or in the piece after it', afterTheLabel(['SKU ID:', 'ABC'], 'SKU ID:') =
 check('and a label that is not there gives nothing', afterTheLabel(['x'], 'SKU ID:') === '');
 check('a file quotes every cell and doubles a quote inside one',
   theCsv(['a', 'b'], [['x "y"', '2']]) === '"a","b"\n"x ""y""","2"');
-check('the three tables are named', THE_TABLES.length === 3 && THE_TABLES.every((one) => theHeaderOf(one).length > 5));
+check('the four tables are named', THE_TABLES.length === 4 && THE_TABLES.every((one) => theHeaderOf(one).length > 5));
 
 /* ---------------------------------------------------------------- Meesho product performance */
 
@@ -426,6 +426,77 @@ check('and the file carries the guard', theCsv(['a'], [['=1+1']]).split('\n')[1]
   check('and any other word in that cell is still refused', why.includes('not the ones expected') && why.includes('SomethingElseIcon'));
 }
 
+/* ---------------------------------------------------------------- Meesho's QUALITY page (N025, his Product Quality page, seen 26 Oct 2026; every figure here is made up)
+ * **THE PAGE'S SHAPE IS FROM HIS OWN PANEL:** a store block (`Quality Score`, `1 and 2 star ratings` and a number, `Total Ratings` and a number, a percentage and a band in brackets), `Top Customer Feedback` reasons each with
+ * `N products`, three tab buttons (`role="tab"`) `Blocking Soon (n)`, `Action Pending (n)`, `Fixed (n)`, and, for the chosen tab, one block per product: its name, `Style ID: ...`, a band word, `(19.7%)` and reasons
+ * `Color is not good (5 ratings)`. The products shown change with the tab, so each tab is pressed and read. */
+function aQualityPage({ tabs, products, store = true, reasons = true }) {
+  const state = { tab: 0 };
+  const list = el('div', '');
+  const draw = () => {
+    list.children = (products[tabs[state.tab].name] || []).flatMap((one) => [
+      el('p', one.name), el('p', `Style ID: ${one.style}`), el('h5', one.band), el('h5', `(${one.pct}%)`),
+      ...(one.reasons || []).map((r) => el('p', r)), el('p', 'View all customer feedback'), el('p', 'No listing improvements needed.'), el('button', 'Save'),
+    ]);
+  };
+  draw();
+  const buttons = tabs.map((one, at) => {
+    const b = el('button', `${one.name} (${one.count})`, [], { role: 'tab' });
+    b.onClick = () => { state.tab = at; draw(); };
+    return b;
+  });
+  const top = [el('h1', 'Product Quality'), el('p', 'Quality Score')];
+  if (store) top.push(el('p', '1 and 2 star ratings'), el('p', '46'), el('p', 'Total Ratings'), el('p', '307'), el('p', '15.0%'), el('p', '15.0%'), el('p', '(Good)'));
+  top.push(el('p', 'Top Customer Feedback'));
+  if (reasons) top.push(el('p', 'Color is not good'), el('p', '2 products'), el('p', 'View Products'), el('p', 'Design is not good'), el('p', '1 product'), el('p', 'View Products'));
+  const page = el('div', '', [...top, el('p', 'Quality Recommendations'), ...buttons,
+    el('p', 'Product Details and Quality Score'), el('p', 'Top Customer Feedback'), el('p', 'Product Listing Improvements'), el('p', 'Action'), list, el('p', 'SAH Shipping Estimate')]);
+  return { page, state };
+}
+const THE_QUALITY_TABS = [{ name: 'Blocking Soon', count: 0 }, { name: 'Action Pending', count: 2 }, { name: 'Fixed', count: 1 }];
+const THE_QUALITY_PRODUCTS = {
+  'Action Pending': [
+    { name: 'Traditional Jhumka Earrings ...', style: 'DJ-5 Test Five', band: 'Yellow', pct: '19.7', reasons: ['Color is not good (5 ratings)', 'Size is not proper (4 ratings)'] },
+    { name: '=Ethnic Drops ...', style: 'DJ-6 Test Six', band: 'Green', pct: '12', reasons: ['Size is not proper (5 ratings)'] },
+  ],
+  Fixed: [{ name: 'Gold Hoops ...', style: 'DJ-7 Test Seven', band: 'Green', pct: '3.5', reasons: [] }],
+};
+{
+  const { page } = aQualityPage({ tabs: THE_QUALITY_TABS, products: THE_QUALITY_PRODUCTS });
+  const got = await readTheTable(page, { table: 'meesho-quality', patience: 1, rest: noWaiting });
+  const lines = got.csv.split('\n');
+  check('THE QUALITY PAGE IS READ INTO ONE FILE: its header is kind, tab, name, style id, band, percent, count and detail',
+    lines[0] === '"Kind","Tab","Name","Style ID","Band","Percent","Count","Detail"');
+  check('the store line carries the score as a percentage, its band, the total ratings and the low ratings in words',
+    lines.includes('"store","","Quality score","","Good","15.0","307","46 of 307 ratings were 1 or 2 stars"'));
+  check('every top customer feedback reason is a line with its number of products',
+    lines.includes('"feedback","","Color is not good","","","","2",""') && lines.includes('"feedback","","Design is not good","","","","1",""'));
+  check('each tab is a line with its count, including the one with none',
+    lines.includes('"tab","Blocking Soon","","","","","0",""') && lines.includes('"tab","Action Pending","","","","","2",""') && lines.includes('"tab","Fixed","","","","","1",""'));
+  check('EVERY PRODUCT OF EVERY TAB IS A LINE with its tab, name, style id, band, percent and its reasons with their counts, the tabs pressed one after another',
+    lines.includes('"product","Action Pending","Traditional Jhumka Earrings ...","DJ-5 Test Five","Yellow","19.7","9","Color is not good (5 ratings) | Size is not proper (4 ratings)"')
+    && lines.includes('"product","Action Pending","\'=Ethnic Drops ...","DJ-6 Test Six","Green","12","5","Size is not proper (5 ratings)"')
+    && lines.includes('"product","Fixed","Gold Hoops ...","DJ-7 Test Seven","Green","3.5","0",""'));
+  check('and a title that begins like a formula is made plain text', !lines.some((one) => one.includes('"=Ethnic')));
+  check('the answer says how many lines it holds', got.rows === lines.length - 1 && got.rows === 1 + 2 + 3 + 3);
+}
+{
+  const { page } = aQualityPage({ tabs: THE_QUALITY_TABS, products: THE_QUALITY_PRODUCTS, store: false });
+  const why = await thrown(() => readTheTable(page, { table: 'meesho-quality', patience: 1, rest: noWaiting }));
+  check('a page with no store score is refused in words, nothing put away', why.includes('store') && why.includes('Nothing was read'));
+}
+{
+  const { page } = aQualityPage({ tabs: [{ name: 'Blocking Soon', count: 0 }, { name: 'Action Pending', count: 3 }, { name: 'Fixed', count: 1 }], products: THE_QUALITY_PRODUCTS });
+  const why = await thrown(() => readTheTable(page, { table: 'meesho-quality', patience: 1, rest: noWaiting }));
+  check('A TAB THAT SAYS THREE AND SHOWS TWO IS REFUSED: the page\'s own count is the last word on whether the whole list was read',
+    why.includes('Action Pending') && why.includes('nothing was put away'));
+}
+{
+  const bare = el('div', '', [el('p', 'Welcome')]);
+  const why = await thrown(() => readTheTable(bare, { table: 'meesho-quality', patience: 1, rest: noWaiting }));
+  check('a page that is not the quality page never gets a file made of it', why.includes('Product Quality') && why.includes('nothing was read'));
+}
+
 /* ---------------------------------------------------------------- Amazon's settlement statements (N018)
  * **THE ROW WORDS ARE FROM HIS OWN ALL STATEMENTS PAGE, 26 Oct 2026** (the figures here are made up): one row per weekly statement, the period written day first with no noughts and an en dash --
  * `13/10/2026 – 20/10/2026`, `6/10/2026 – 13/10/2026`, `29/9/2026 – 6/10/2026` -- and the open one `20/10/2026 – Present`, which has no Download. */
@@ -444,7 +515,7 @@ check('and the file carries the guard', theCsv(['a'], [['=1+1']]).split('\n')[1]
 }
 
 console.log(failures ? `\n${failures} FAILED (${ran} checks)` : `\nall ${ran} checks passed`);
-const EXPECTED = 52 + 1 + 5;
+const EXPECTED = 52 + 1 + 5 + 10;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   process.exit(1);

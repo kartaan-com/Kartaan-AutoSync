@@ -574,7 +574,7 @@ finally:
     book.RECIPES.clear()
     book.RECIPES.update(was)
 
-check("and the real recipes are back afterwards", answered(lambda: len(book.every_recipe()) == 33))
+check("and the real recipes are back afterwards", answered(lambda: len(book.every_recipe()) == 34))
 
 # ------------------------------------------------------------ the record
 

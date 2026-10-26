@@ -330,7 +330,7 @@ STEP_KINDS = (GO, CLICK, WAIT_FOR, PICK_RANGE, TAKE_FILE, WAIT,
 # **THE TABLES THE EXTENSION KNOWS HOW TO READ (plan jobs 43 and 44, and Flipkart's Product Quality Insights).** Each is a table
 # on a page with no download button, read page by page. What is on each -- its column names, where a page's buttons are -- is
 # written once in `extension/tables.js`; this is only the list of names a recipe may ask for, and a check holds the two together.
-THE_TABLES = ("meesho-product-performance", "meesho-pricing", "flipkart-quality-insights")
+THE_TABLES = ("meesho-product-performance", "meesho-pricing", "flipkart-quality-insights", "meesho-quality")
 
 # **THE ELEVENTH READS FLIPKART'S TOP SEARCH KEYWORDS OFF THE TRAFFIC REPORT
 # (2026-09-15).** Named for exactly what it does, like the ads sweep: every listing

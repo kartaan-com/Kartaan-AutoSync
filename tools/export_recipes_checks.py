@@ -80,8 +80,8 @@ HELD = answered(tool.what_the_extension_reads) or {}
 
 check("every recipe the Python has crosses",
       answered(lambda: set(HELD.get("recipes", {})) == set(book.RECIPES)))
-check("and there are thirty-three of them, three platforms (Amazon's listings and fee reports joined, lane 1 job 8; returns, SAFE-T claims, orders, settlements and account health, N018)",
-      answered(lambda: len(HELD.get("recipes", {})) == 33))
+check("and there are thirty-four of them, three platforms (Amazon's listings and fee reports joined, lane 1 job 8; returns, SAFE-T claims, orders, settlements and account health, N018)",
+      answered(lambda: len(HELD.get("recipes", {})) == 34))
 check("every meaning of a failure crosses",
       answered(lambda: set(HELD.get("whatItMeans", {})) == set(language.WHAT_IT_MEANS)))
 # **THE WHOLE MAP, not the part the walk happens to use today.** Splitting it is
@@ -244,11 +244,12 @@ check("matching the whole phrase is what most steps do",
 PANEL_STEPS = [s for s in STEPS if "{panel}" in s["address"]]
 # Six, not five: there are five Meesho recipes, and orders loads its page twice
 # because Meesho does not show a finished file until the page is loaded again.
+# Eleven since N025: the Meesho product quality page (cataloging) is the eleventh page.
 # Ten, not eight: nine Meesho recipes now (the product performance and pricing tables each go to one page),
 # Eight, not seven: seven Meesho recipes then, and orders loads its page twice
 # because Meesho does not show a finished file until the page is loaded again.
 check("every Meesho page carries the placeholder for the seller's own slug",
-      answered(lambda: len(PANEL_STEPS) == 10))
+      answered(lambda: len(PANEL_STEPS) == 11))
 check("and orders carries it twice, because it loads its page twice",
       answered(lambda: sum(1 for s in HELD["recipes"]["me_orders"]["toTake"]
                            if "{panel}" in s["address"]) == 2))

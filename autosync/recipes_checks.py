@@ -102,7 +102,7 @@ for report_id in tool.every_recipe():
     # traffic report's pop-ups and put away as one file by the reading step itself.
     ENDS_WITH = {"me_views": pages.ADD_TO_THE_LIST, "me_ads": pages.SWEEP_THE_ADS,
                  "fk_keywords": pages.READ_THE_KEYWORDS, "me_product_performance": pages.READ_THE_TABLE,
-                 "me_pricing": pages.READ_THE_TABLE, "fk_quality_insights": pages.READ_THE_TABLE, "az_settlements": pages.TAKE_EVERY_NEW,
+                 "me_pricing": pages.READ_THE_TABLE, "fk_quality_insights": pages.READ_THE_TABLE, "az_settlements": pages.TAKE_EVERY_NEW, "me_quality": pages.READ_THE_TABLE,
                  "az_health": pages.ADD_TO_THE_LIST}
     check(f"and {report_id} ends by putting the day away",
           answered(lambda: one.to_take[-1].do
@@ -685,8 +685,8 @@ for report_id in tool.every_recipe():
 # and the coverage check below is the one that holds the two together.
 check("fifteen Flipkart reports can be fetched by this door -- all of them, since the keywords (2026-09-15)",
       answered(lambda: len(tool.on_the_browser_door_for("flipkart")) == 15))
-check("and nine Meesho ones, now that the views card and the ads sweep are built",
-      answered(lambda: len(tool.on_the_browser_door_for("meesho")) == 9))
+check("and ten Meesho ones, now that the views card, the ads sweep and the quality page are built (N025)",
+      answered(lambda: len(tool.on_the_browser_door_for("meesho")) == 10))
 # **AMAZON NEEDS NONE, and that is the number the others should fall to.**
 check("Amazon needs the browser for nine reports (the ads included): the traffic by child item, All Listings, Referral Fee Preview (lane 1 jobs 7 and 8), and returns, SAFE-T claims, orders, settlements and account health (N018); only the suppressed listings still use the API",
       answered(lambda: tool.on_the_browser_door_for("amazon") == ("az_ads", "az_claims", "az_fee_preview", "az_health", "az_listings", "az_orders", "az_returns", "az_settlements", "az_traffic")))
@@ -842,6 +842,13 @@ check("and it takes the latest file only from a row whose LAST RUN is today, so 
       and AZA_TAKE[3].do == pages.TAKE_FILE and AZA_TAKE[3].find.what == "Download latest")
 check("Amazon's ads console writes a day like `26 Oct, 2026`, and that is one of the day's spellings",
       answered(lambda: "26 Oct, 2026" in tool.the_days_in_words("amazon", date(2026, 10, 26))))
+# **MEESHO'S PRODUCT QUALITY PAGE (N025), read off his own panel on 26 Oct 2026:** side menu Quality -> `.../cataloging/<slug>/product-optimiser`, no download; the page is read, tab by tab, into ONE FILE A DAY.
+MEQ = answered(lambda: tool.RECIPES["me_quality"])
+MEQ_STEPS = MEQ.to_take if MEQ else ()
+check("me_quality is a one-phase read of two steps: open the quality page, read it",
+      MEQ is not None and not MEQ.two_phase and len(MEQ_STEPS) == 2 and MEQ_STEPS[0].do == pages.GO and MEQ_STEPS[1].do == pages.READ_THE_TABLE)
+check("it opens the cataloging product-optimiser page under the seller's own panel slug, which is never written down",
+      len(MEQ_STEPS) == 2 and MEQ_STEPS[0].address == "https://supplier.meesho.com/panel/v3/new/cataloging/{panel}/product-optimiser" and MEQ_STEPS[1].table == "meesho-quality")
 # **THE AMAZON WALK, read against his real sample (BusinessReport-22-10-26.csv, the By Child Item report) and the address Control used.**
 AZ = answered(lambda: tool.RECIPES["az_traffic"])
 AZ_STEPS = AZ.to_take if AZ else ()
@@ -1575,7 +1582,7 @@ check("and the panel name was still filled into the addresses on the way",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 446
+EXPECTED = 453
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

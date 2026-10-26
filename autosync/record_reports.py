@@ -48,6 +48,11 @@ RECORD_REPORTS: Dict[str, RecordReport] = {
         quality.KIND, lambda report_id, platform, rows, day, context: quality.read_quality(report_id, platform, rows, day),
         "listing quality record(s)", "quality", merge=quality.merge,
     ),
+    # **MEESHO'S PRODUCT QUALITY PAGE (N025): one file a day, a record per product and one for the store**, in the same listing-quality collection as Flipkart's, each with its short history.
+    "me_quality": RecordReport(
+        quality.KIND, lambda report_id, platform, rows, day, context: quality.read_meesho_quality(report_id, platform, rows, day),
+        "quality record(s)", "product quality", merge=quality.merge,
+    ),
     # **AMAZON'S ACCOUNT HEALTH (N018): a figure for the WHOLE SHOP on a day, the same kind of fact as Meesho's views**, written to the same shop-day collection as `amazon__<day>`.
     "az_health": RecordReport(
         shopdays.KIND, lambda report_id, platform, rows, day, context: shopdays.read_health_days(report_id, platform, rows, day),

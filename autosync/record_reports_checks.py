@@ -64,6 +64,13 @@ SAMPLES = {
         '"Product","SKU ID","Yearly Sales","1Y Ratings Trend","5M Returns Trend","FA badge","Suppression Risk","Issue Details"\n'
         '"Rumee Jhumki","DJ-5 Bahubali","₹6.32L","4.2","17.6%","Yes","No Risk","Quality"\n'),
     "me_views": ("meesho_me_views_2026-10-20.csv", "Date,Views,Orders\n2026-10-14,52750,23\n"),
+    # Meesho's Product Quality day file (N025): the store line, a feedback reason, a tab count and a product, every figure made up.
+    "me_quality": (
+        "meesho_me_quality_2026-10-26.csv",
+        '"Kind","Tab","Name","Style ID","Band","Percent","Count","Detail"\n'
+        '"store","","Quality score","","Good","15.0","307","46 of 307 ratings were 1 or 2 stars"\n'
+        '"tab","Action Pending","","","","","1",""\n'
+        '"product","Action Pending","Test Jhumka ...","DJ-5 Test Five","Yellow","19.7","5","Color is not good (5 ratings)"\n'),
     # Amazon's Account Health day file (N018): the five labels the walk reads, the figures seen on his page on 26 Oct 2026.
     "az_health": (
         "amazon_az_health_2026-10-26.csv",
@@ -175,7 +182,7 @@ for report_id in TABLE:
     handed = []
     night = a_night(report_id, {report_id: lambda rid, day, made, handed=handed: handed.append((rid, day, sorted(made))) or len(made)})
     check(f"{report_id}: THE NIGHT READS ITS FILE, hands its records to its sink under the file's day, counts them, and the file is read",
-          night is not None and night.read_tonight == ("f1",) and night.wrote(report_id) == 1 and len(handed) == 1 and handed[0][1] == SAMPLES[report_id][0][-14:-4])
+          night is not None and night.read_tonight == ("f1",) and night.wrote(report_id) == (2 if report_id == "me_quality" else 1) and len(handed) == 1 and handed[0][1] == SAMPLES[report_id][0][-14:-4])
     nowhere = a_night(report_id, None)
     check(f"{report_id}: with nowhere to write its records the file is left unread, not lost",
           nowhere is not None and nowhere.read_tonight == () and nowhere.waiting(report_id) == 1 and "left unread" in nowhere.says())

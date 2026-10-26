@@ -6343,6 +6343,49 @@
         }
       ]
     },
+    "me_quality": {
+      "campaignsFrom": null,
+      "readyInMinutes": 0,
+      "toAsk": [],
+      "toTake": [
+        {
+          "do": "go",
+          "find": null,
+          "address": "https://supplier.meesho.com/panel/v3/new/cataloging/{panel}/product-optimiser",
+          "patience": 60,
+          "why": "opening the product quality page",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "read-the-table",
+          "find": null,
+          "address": "",
+          "patience": 120,
+          "why": "reading the store score, the feedback reasons, the tabs and every product",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "meesho-quality",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        }
+      ]
+    },
     "me_returns": {
       "campaignsFrom": null,
       "readyInMinutes": 0,
@@ -6948,6 +6991,10 @@
       "platform": "meesho",
       "extension": "csv"
     },
+    "me_quality": {
+      "platform": "meesho",
+      "extension": "csv"
+    },
     "me_returns": {
       "platform": "meesho",
       "extension": "csv"
@@ -7171,6 +7218,12 @@
       "cannotBeAskedForAgain": "This is a picture of how things stand right now. The platform keeps no history to ask for, so a past day cannot be fetched again -- only the day it was taken."
     },
     {
+      "id": "me_quality",
+      "platform": "meesho",
+      "name": "Meesho product quality",
+      "cannotBeAskedForAgain": "This is a picture of how things stand right now. The platform keeps no history to ask for, so a past day cannot be fetched again -- only the day it was taken."
+    },
+    {
       "id": "me_returns",
       "platform": "meesho",
       "name": "Meesho returns",
@@ -7362,6 +7415,11 @@
       "Reports",
       "Meesho",
       "Product performance"
+    ],
+    "me_quality": [
+      "Reports",
+      "Meesho",
+      "Quality"
     ],
     "me_returns": [
       "Reports",

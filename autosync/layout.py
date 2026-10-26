@@ -81,6 +81,7 @@ BELOW_REPORTS: Dict[str, Tuple[str, ...]] = {
     "me_views": (MEESHO, "Views"),
     "me_product_performance": (MEESHO, "Product performance"),
     "me_pricing": (MEESHO, "Price"),
+    "me_quality": (MEESHO, "Quality"),
     "me_ads": (MEESHO, ADS, "ads"),
     "me_ads_catalog": (MEESHO, ADS, "catalog"),
     "me_ads_summary": (MEESHO, ADS, "summary"),

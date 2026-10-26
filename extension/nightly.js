@@ -621,7 +621,7 @@ function theCountGivenBack(night) {
 /* **AND THE THREE TABLES READ OFF A PAGE (job 15)**: Meesho's product performance and pricing, and Flipkart's quality insights, are
  * each how the page stands today. A sync for a past day would read today's page under that day's name. */
 export const ONLY_ITS_NEWEST_DAY = Object.freeze([
-  'me_views', 'me_catalog', 'me_ads', 'me_product_performance', 'me_pricing', 'fk_quality_insights',
+  'me_views', 'me_catalog', 'me_ads', 'me_product_performance', 'me_pricing', 'me_quality', 'fk_quality_insights',
   'az_listings', 'az_fee_preview', 'az_returns', 'az_claims', 'az_orders', 'az_health', 'az_ads',
 ]);
 

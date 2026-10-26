@@ -265,6 +265,9 @@ REPORTS: Tuple[Report, ...] = (
     Report("me_product_performance", "meesho", "Meesho product performance", BROWSER, DAILY, "csv",
            cannot_backfill=_SNAPSHOT),
     Report("me_pricing", "meesho", "Meesho pricing", BROWSER, DAILY, "csv", cannot_backfill=_SNAPSHOT),
+    # **THE MEESHO PRODUCT QUALITY PAGE (N025, his yes: one file a day).** Side menu Quality (`.../cataloging/<slug>/product-optimiser`), no download: the store score (1-2 star ratings over total ratings), the top customer feedback reasons, the three
+    # tab counts and every product of every tab with its band, own percentage and reasons, read off the page. How the page stands today, so a past day cannot be had.
+    Report("me_quality", "meesho", "Meesho product quality", BROWSER, DAILY, "csv", cannot_backfill=_SNAPSHOT),
     # **THREE THINGS COME OUT OF THE ADS SWEEP AND ONLY ONE OF THEM WAS EVER
     # DECLARED.** Measured in the working reference on 2026-09-08, by reading
     # every place a Drive folder is named in its own source: its single ads job

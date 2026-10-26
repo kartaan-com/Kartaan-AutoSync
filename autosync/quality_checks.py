@@ -143,9 +143,53 @@ for _gone in ("FA badge", "Issue Details"):
           "Nothing was read" in str(caught(lambda g=_gone: quality.read_quality("fk_quality", "flipkart", table.read(
               (HEAD.replace(f'"{g}"', '"X"') + "\n").encode("utf-8")), "2026-10-19"))))
 
+# ---------------------------------------------------------------- N025: MEESHO'S PRODUCT QUALITY PAGE, one file a day
+# **THE FILE IS WHAT THE WALK WRITES FROM HIS PAGE (seen 26 Oct 2026; every figure here is made up):** `Kind` is store / feedback / tab / product; the products carry their tab, name, Style ID, band, own percentage and reasons.
+MQ_HEAD = '"Kind","Tab","Name","Style ID","Band","Percent","Count","Detail"'
+
+
+def mq_file(*lines):
+    return table.read(("\n".join([MQ_HEAD, *lines]) + "\n").encode("utf-8"))
+
+
+_MQ = (
+    '"store","","Quality score","","Good","15.0","307","46 of 307 ratings were 1 or 2 stars"',
+    '"feedback","","Color is not good","","","","2",""',
+    '"feedback","","Design is not good","","","","1",""',
+    '"tab","Blocking Soon","","","","","0",""', '"tab","Action Pending","","","","","2",""', '"tab","Fixed","","","","","1",""',
+    '"product","Action Pending","Traditional Jhumka ...","DJ-5 Test Five","Yellow","19.7","9","Color is not good (5 ratings) | Size is not proper (4 ratings)"',
+    '"product","Action Pending","Ethnic Drops ...","DJ-6 Test Six","Green","12","5","Size is not proper (5 ratings)"',
+    '"product","Fixed","Gold Hoops ...","DJ-7 Test Seven","Green","3.5","0",""',
+)
+_mq, _mq_bad = answered(lambda: quality.read_meesho_quality("me_quality", "meesho", mq_file(*_MQ), "2026-10-26")) or ({}, ())
+_mq_store = _mq.get("meesho__store", {})
+_mq_want = {"platform": "meesho", "report": "me_quality", "kind": "store", "percent": 15.0, "band": "Good", "lowRatings": 46, "totalRatings": 307,
+            "blockingSoon": 0, "actionPending": 2, "fixed": 1,
+            "topFeedback": [{"reason": "Color is not good", "products": 2}, {"reason": "Design is not good", "products": 1}], "fileDay": "2026-10-26"}
+check("THE STORE IS ONE RECORD, meesho__store: its score as a percentage, band, low and total ratings, the three tab counts and the top feedback reasons with their product counts, and the fingerprint of all of it",
+      _mq_store == dict(_mq_want, digest=records.the_digest(_mq_want)) and _mq_bad == ())
+_mq_p = _mq.get("meesho__DJ-5 Test Five", {})
+_mq_pwant = {"platform": "meesho", "report": "me_quality", "kind": "product", "styleId": "DJ-5 Test Five", "product": "Traditional Jhumka ...", "tab": "Action Pending", "band": "Yellow",
+             "percent": 19.7, "reasons": [{"reason": "Color is not good", "ratings": 5}, {"reason": "Size is not proper", "ratings": 4}], "fileDay": "2026-10-26"}
+check("EVERY PRODUCT IS A RECORD OF ITS OWN named by its Style ID, with its tab, band, own percentage and its reasons as reason and number of ratings",
+      {k: v for k, v in _mq_p.items() if k not in ("digest", "history")} == _mq_pwant and set(_mq) == {"meesho__store", "meesho__DJ-5 Test Five", "meesho__DJ-6 Test Six", "meesho__DJ-7 Test Seven"})
+check("a product with no reasons has an empty list, and a tab with none of its products is only a count on the store",
+      _mq["meesho__DJ-7 Test Seven"]["reasons"] == [] and _mq_store["blockingSoon"] == 0)
+check("every field of every record is one the quality record kind accepts", all(set(r) <= set(quality.QUALITY_FIELDS) for r in _mq.values()))
+_mq_dup, _mq_dup_said = answered(lambda: quality.read_meesho_quality("me_quality", "meesho", mq_file(*_MQ, '"product","Fixed","Gold Hoops ...","DJ-7 Test Seven","Green","3.5","0",""'), "2026-10-26")) or ({}, ())
+check("a product named twice (it is on two tabs) is one record, the later line standing, and it is said", len(_mq_dup_said) == 1 and _mq_dup["meesho__DJ-7 Test Seven"]["tab"] == "Fixed")
+_mq_nostore = answered(lambda: quality.read_meesho_quality("me_quality", "meesho", mq_file(*_MQ[1:]), "2026-10-26")) or ({}, ())
+check("a file with no store line is refused by name, the products still read", len(_mq_nostore[1]) == 1 and "store" in _mq_nostore[1][0] and "meesho__DJ-5 Test Five" in _mq_nostore[0])
+_mq_badpct = answered(lambda: quality.read_meesho_quality("me_quality", "meesho", mq_file(_MQ[0], '"product","Fixed","X","DJ-9 Test Nine","Green","lots","0",""', '"product","Fixed","Y","DJ-8 / Bad","Green","3","0",""'), "2026-10-26")) or ({}, ())
+check("a product with an unreadable percentage, or a Style ID that cannot name a record, is refused by name and the rest read", len(_mq_badpct[1]) == 2)
+check("a file without the quality columns is refused in words naming what it has", "Nothing was read" in str(caught(lambda: quality.read_meesho_quality("me_quality", "meesho", table.read(b"A,B\n1,2\n"), "2026-10-26"))))
+_held_mq = {"history": [{"day": "2026-10-25", "percent": 20.0}]}
+check("a product's percentage goes into its short history the way a listing's stars do, one point a day",
+      [p.get("percent") for p in quality.merge(_mq_p, _held_mq)["history"]] == [20.0, 19.7])
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 14 + 6 + 1
+EXPECTED = 14 + 6 + 1 + 9
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

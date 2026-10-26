@@ -83,7 +83,7 @@ EVERY_ID = (
     "fk_quality_insights", "fk_listings", "fk_ads_daily", "fk_ads_fsn", "fk_ads_placements", "fk_ads_overall",
     "fk_ads_search", "fk_ads_orders", "fk_ads_kw",
     "me_orders", "me_returns", "me_payments", "me_claims", "me_catalog", "me_views",
-    "me_product_performance", "me_pricing",
+    "me_product_performance", "me_pricing", "me_quality",
     "me_ads", "me_ads_summary", "me_ads_catalog",
     "az_orders", "az_settlements", "az_returns", "az_suppressed", "az_traffic", "az_claims", "az_health", "az_ads", "az_listings", "az_fee_preview",
 )
@@ -397,7 +397,7 @@ check("and its returns are too",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 97  # 88 on the base, lane 2 added 1, lane 1 added 5
+EXPECTED = 98  # 88 on the base, lane 2 added 1, lane 1 added 5
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

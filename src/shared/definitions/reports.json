@@ -212,6 +212,12 @@
       "cannotBeAskedForAgain": "This is a picture of how things stand right now. The platform keeps no history to ask for, so a past day cannot be fetched again -- only the day it was taken."
     },
     {
+      "id": "me_quality",
+      "platform": "meesho",
+      "name": "Meesho product quality",
+      "cannotBeAskedForAgain": "This is a picture of how things stand right now. The platform keeps no history to ask for, so a past day cannot be fetched again -- only the day it was taken."
+    },
+    {
       "id": "me_returns",
       "platform": "meesho",
       "name": "Meesho returns",
