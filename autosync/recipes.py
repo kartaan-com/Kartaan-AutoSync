@@ -227,6 +227,9 @@ HOW_AMAZON_WRITES_A_DAY = (
     "{yyyy}-{mm}-{dd}",       # 2026-10-22
     # **SEEN LIVE 26 OCT 2026 (N018) on Product reports and on the returns report list:** a request's own time is written `25 October 2026 at 10:31 pm` -- the whole month name.
     "{d} {Month} {yyyy}",     # 25 October 2026
+    # **THE ADS CONSOLE (N018, seen 26 Oct 2026) writes a row's last run as `26 Oct, 2026 9:40 AM IST`** -- a comma after the month.
+    "{d} {Mon}, {yyyy}",      # 5 Jun, 2026
+    "{dd} {Mon}, {yyyy}",     # 05 Jun, 2026
     # **THE MEASURED EXCEPTION TO THE RULE AGAINST PURELY NUMERIC SPELLINGS, FOR AMAZON ALONE (N018, Control's ruling of 26 Oct 2026).** Amazon's India panel writes the DAY FIRST: order report rows
     # read `26/10/26, 6:36:33 am` and statement rows `13/10/2026 – 20/10/2026`, `6/10/2026 – 13/10/2026`, `29/9/2026 – 6/10/2026` (19/10, 20/10 and 26/10 can only be day-first). A check pins the
     # two new pieces to this list, so no other portal can lean on a day/month guess.
@@ -436,6 +439,9 @@ AMAZON_ALL_ORDERS = "https://sellercentral.amazon.in/order-reports-and-feeds/rep
 AMAZON_STATEMENTS = "https://sellercentral.amazon.in/payments/past-settlements"
 # **AMAZON'S ACCOUNT HEALTH DASHBOARD (Account health > Manage account health), read off his own Seller Central by N018 on 26 Oct 2026.**
 AMAZON_ACCOUNT_HEALTH = "https://sellercentral.amazon.in/performance/dashboard"
+# **AMAZON ADS CONSOLE REPORTING (advertising.amazon.in), read off his own console by N018 on 26 Oct 2026**, and the name of the ONE saved report the seller keeps for the walk to run.
+AMAZON_ADS_REPORTING = "https://advertising.amazon.in/reporting"
+AMAZON_ADS_REPORT_NAME = "Kartaan campaign by day"
 # **THESE THREE WERE WRONG, AND THEY COST A WHOLE NIGHT (2026-09-06).** Nine of
 # ten reports failed within twenty minutes of each other -- seven ads reports
 # looking for "the other reports tab", claims looking for "the claims tab",
@@ -1467,6 +1473,34 @@ RECIPES: Dict[str, Recipe] = {
                  why="reading the pre-fulfilment cancel rate"),
             Step(READ_NUMBER, find=Find(BY_TEXT, "Valid Tracking Rate", called="Valid Tracking Rate"), reads="percent", patience=30, why="reading the valid tracking rate"),
             Step(ADD_TO_THE_LIST, patience=30, why="writing the day as its own file"),
+        ),
+    ),
+
+    # ---- Amazon ads by the browser (N018, his ruling D726; Control's word: build it anyway). **The seller keeps ONE saved report, `Kartaan campaign by day` (Campaign template, Yesterday, once, CSV), and the walk only RUNS it and takes
+    # ---- its latest file** -- nothing is created or deleted in his ads console and no campaign or spend is touched. Ask: open the reporting list, wait for that row, open ITS Actions menu, press Run. Take: come back, wait for that
+    # ---- row to show today as its last run (so yesterday's file is never taken for today's), open ITS Actions, press Download latest. Measured on his console 26 Oct 2026 (a run takes about three minutes); **NOT YET RUN LIVE.**
+    "az_ads": Recipe(
+        ready_in_minutes=5,
+        to_ask=(
+            Step(GO, address=AMAZON_ADS_REPORTING, patience=60, why="opening the ads reporting list to run the saved campaign report"),
+            Step(WAIT_FOR, find=Find(BY_THE_BUTTON_BESIDE, AMAZON_ADS_REPORT_NAME, also_saying="Actions",
+                                     called=f"the Actions menu of the saved report {AMAZON_ADS_REPORT_NAME}"), patience=90,
+                 why=f"waiting for the saved report {AMAZON_ADS_REPORT_NAME} to be in the list"),
+            Step(CLICK, find=Find(BY_THE_BUTTON_BESIDE, AMAZON_ADS_REPORT_NAME, also_saying="Actions",
+                                  called=f"the Actions menu of the saved report {AMAZON_ADS_REPORT_NAME}"), why="opening the saved report's Actions menu"),
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Run", called="Run in the Actions menu"), why="running the saved campaign report"),
+        ),
+        to_take=(
+            Step(GO, address=AMAZON_ADS_REPORTING, patience=60, why="coming back to the ads reporting list for the finished campaign report"),
+            Step(WAIT_FOR, find=Find(BY_THE_BUTTON_BESIDE, AMAZON_ADS_REPORT_NAME, also_saying="Actions", near="{day_in_words}",
+                                     day_in_words_is=AMAZON_WRITES_IT, day_in_words_of=THE_DAY_IT_WAS_MADE,
+                                     called=f"the Actions menu of {AMAZON_ADS_REPORT_NAME}, last run today"), patience=120,
+                 why="waiting for the saved report's row to show today as its last run"),
+            Step(CLICK, find=Find(BY_THE_BUTTON_BESIDE, AMAZON_ADS_REPORT_NAME, also_saying="Actions", near="{day_in_words}",
+                                  day_in_words_is=AMAZON_WRITES_IT, day_in_words_of=THE_DAY_IT_WAS_MADE,
+                                  called=f"the Actions menu of {AMAZON_ADS_REPORT_NAME}, last run today"), why="opening the saved report's Actions menu"),
+            Step(TAKE_FILE, find=Find(BY_PRESSABLE_TEXT, "Download latest", called="Download latest in the Actions menu"), patience=60,
+                 why="taking the saved report's latest file"),
         ),
     ),
 

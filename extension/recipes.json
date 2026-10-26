@@ -7,6 +7,212 @@
     "Edit the Python and run the tool again; a check refuses a stale copy."
   ],
   "recipes": {
+    "az_ads": {
+      "campaignsFrom": null,
+      "readyInMinutes": 5,
+      "toAsk": [
+        {
+          "do": "go",
+          "find": null,
+          "address": "https://advertising.amazon.in/reporting",
+          "patience": 60,
+          "why": "opening the ads reporting list to run the saved campaign report",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "wait-for",
+          "find": {
+            "how": "button-beside",
+            "what": "Kartaan campaign by day",
+            "exact": true,
+            "called": "the Actions menu of the saved report Kartaan campaign by day",
+            "near": "",
+            "alsoSaying": "Actions",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 90,
+          "why": "waiting for the saved report Kartaan campaign by day to be in the list",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "button-beside",
+            "what": "Kartaan campaign by day",
+            "exact": true,
+            "called": "the Actions menu of the saved report Kartaan campaign by day",
+            "near": "",
+            "alsoSaying": "Actions",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "opening the saved report's Actions menu",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "pressable",
+            "what": "Run",
+            "exact": true,
+            "called": "Run in the Actions menu",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "running the saved campaign report",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        }
+      ],
+      "toTake": [
+        {
+          "do": "go",
+          "find": null,
+          "address": "https://advertising.amazon.in/reporting",
+          "patience": 60,
+          "why": "coming back to the ads reporting list for the finished campaign report",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "wait-for",
+          "find": {
+            "how": "button-beside",
+            "what": "Kartaan campaign by day",
+            "exact": true,
+            "called": "the Actions menu of Kartaan campaign by day, last run today",
+            "near": "{day_in_words}",
+            "alsoSaying": "Actions",
+            "dayInWordsIs": "amazon",
+            "dayInWordsOf": "made"
+          },
+          "address": "",
+          "patience": 120,
+          "why": "waiting for the saved report's row to show today as its last run",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "button-beside",
+            "what": "Kartaan campaign by day",
+            "exact": true,
+            "called": "the Actions menu of Kartaan campaign by day, last run today",
+            "near": "{day_in_words}",
+            "alsoSaying": "Actions",
+            "dayInWordsIs": "amazon",
+            "dayInWordsOf": "made"
+          },
+          "address": "",
+          "patience": 30,
+          "why": "opening the saved report's Actions menu",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "take-file",
+          "find": {
+            "how": "pressable",
+            "what": "Download latest",
+            "exact": true,
+            "called": "Download latest in the Actions menu",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 60,
+          "why": "taking the saved report's latest file",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        }
+      ]
+    },
     "az_claims": {
       "campaignsFrom": null,
       "readyInMinutes": 2,
@@ -6512,6 +6718,8 @@
         "{Mon} {dd}, {yyyy}",
         "{yyyy}-{mm}-{dd}",
         "{d} {Month} {yyyy}",
+        "{d} {Mon}, {yyyy}",
+        "{dd} {Mon}, {yyyy}",
         "{dd}/{mm}/{yy}",
         "{dd}/{mm}/{yyyy}",
         "{d}/{m}/{yyyy}"
@@ -6608,6 +6816,10 @@
     "Start Selling"
   ],
   "fileNames": {
+    "az_ads": {
+      "platform": "amazon",
+      "extension": "csv"
+    },
     "az_claims": {
       "platform": "amazon",
       "extension": "csv"
@@ -6754,6 +6966,12 @@
     "me_ads_summary": "me_ads"
   },
   "reports": [
+    {
+      "id": "az_ads",
+      "platform": "amazon",
+      "name": "Amazon ads, campaigns by day",
+      "cannotBeAskedForAgain": "The saved report is run for Yesterday only, so a day already gone cannot be fetched again by the run."
+    },
     {
       "id": "az_claims",
       "platform": "amazon",
@@ -6970,6 +7188,11 @@
   ],
   "kartaan": "Kartaan",
   "folders": {
+    "az_ads": [
+      "Reports",
+      "Amazon",
+      "Ads"
+    ],
     "az_claims": [
       "Reports",
       "Amazon",

@@ -495,9 +495,9 @@ check("a file whose columns have moved stops, in words, and is left to be read a
 # ------------------------------------------------------------------ the rule that ties reports to readers
 
 readers = {o.report_id for o in reading.WHAT_RETURNS_CAN_BE_READ + reading.WHAT_ADS_CAN_BE_READ}
-check("the returns and ads readers are the ten reports named",
+check("the returns and ads readers are the eleven reports named (Amazon ads joined, N018)",
       readers == {"fk_returns", "me_returns", "az_returns", "fk_ads_daily", "fk_ads_placements", "fk_ads_overall", "fk_ads_search",
-                  "fk_ads_orders", "me_ads_summary", "me_ads"})
+                  "fk_ads_orders", "me_ads_summary", "me_ads", "az_ads"})
 check("each is a report that exists and none is also said to be unread",
       all(r in reports.BY_ID for r in readers) and not (readers & set(reading.WHAT_IS_FETCHED_AND_NOT_READ_YET)))
 check("and they write no ledger column", all(o.knows == () for o in reading.WHAT_RETURNS_CAN_BE_READ + reading.WHAT_ADS_CAN_BE_READ))
@@ -690,9 +690,55 @@ check("A LEDGER THAT REFUSES A RETURNS FILE IS SAID AS THE LEDGER'S REFUSAL, the
       _refused_night is not None and _refused_night.read_tonight == () and len(_refused_night.the_ledger_refused) == 2
       and "columns have moved" in _refused_night.the_ledger_refused[0])
 
+# ---------------------------------------------------------------- N018: AMAZON'S ADS (Campaign report, Amazon Ads console > Reporting, seen 26 Oct 2026)
+# **THE HEADER AND THE SHAPE OF A ROW ARE HIS REAL FILE'S** (`Campaign - ...csv` for this year: one Sponsored Products campaign over a date range); the figures and ids below are made up. The file has a UTF-8 mark, quotes
+# the ids as `="1234"` (so a spreadsheet does not turn them into 1.2E+14), writes a range as `Oct 25, 2026 - Oct 25, 2026`, and a day with no ads is a header and nothing else.
+AZ_ADS_HEAD = ("Date range,Advertiser account ID,Advertiser account name,Manager accounts,Ad product,Campaign ID,Campaign name,Global Campaign ID,Budget currency,Impressions,Viewable impressions,"
+               "Clicks,CTR,Viewable CTR (vCTR),Total cost,Purchases,Purchases (new to brand),Cost per purchase,Cost per purchase (new to brand),Sales,Long-term sales,ROAS,Long-term ROAS")
+
+
+def az_ads_file(*rows):
+    return table.read(("﻿" + "\n".join([AZ_ADS_HEAD, *rows]) + "\n").encode("utf-8"))
+
+
+_AZ_ROW = ('"Oct 25, 2026 - Oct 25, 2026","=""ACCOUNT-TEST""",RUMEE,,Sponsored Products,"=""100000000000001""",Test Campaign,,INR,1000,0,10,1%,,50.00000,1,,50.00000,,200.50,,4.01,')
+_az = answered(lambda: ads.read_ads("az_ads", az_ads_file(_AZ_ROW), "2026-10-26", None))
+_azc = ((_az.records.get("amazon__2026-10-25") or {}).get("campaigns") or {}).get("100000000000001", {}) if _az else {}
+check("AN AMAZON ADS DAY'S RECORD IS NAMED amazon__<day> and holds each campaign by its id, the quotes and equals sign of the id taken off",
+      _az is not None and set(_az.records) == {"amazon__2026-10-25"} and set(_az.records["amazon__2026-10-25"]["campaigns"]) == {"100000000000001"})
+check("the campaign's name, spend (total cost), views (impressions), clicks, units (purchases) and revenue (sales) are read from Amazon's own columns",
+      _azc.get("campaignName") == "Test Campaign" and _azc.get("spend") == 50.0 and _azc.get("views") == 1000 and _azc.get("clicks") == 10
+      and _azc.get("units") == 1 and _azc.get("revenue") == 200.5)
+_az_none = answered(lambda: ads.read_ads("az_ads", az_ads_file(), "2026-10-26", None))
+check("A FILE WITH A HEADER AND NO ROWS IS NOTHING TO PROCESS, not a failure and not a record (no ad ran)",
+      _az_none is not None and _az_none.records == {} and _az_none.not_read == () and _az_none.rows_in_file == 0)
+_az_range = answered(lambda: ads.read_ads("az_ads", az_ads_file(_AZ_ROW.replace("Oct 25, 2026 - Oct 25, 2026", "Aug 14, 2026 - Aug 21, 2026")), "2026-10-26", None))
+check("a row that covers SEVERAL days is refused by name, never filed under one of them: a range is not a day",
+      _az_range is not None and _az_range.records == {} and len(_az_range.not_read) == 1 and "several days" in _az_range.not_read[0])
+_az_two = answered(lambda: ads.read_ads("az_ads", az_ads_file(_AZ_ROW, _AZ_ROW.replace("100000000000001", "100000000000002").replace("Test Campaign", "Other")), "2026-10-26", None))
+check("two campaigns on one day are one record with two campaigns", _az_two is not None and len(_az_two.records["amazon__2026-10-25"]["campaigns"]) == 2)
+def _caught(work):
+    try:
+        work()
+    except Exception as wrong:  # noqa: BLE001
+        return wrong
+    return None
+
+
+_nz_head = ("﻿" + AZ_ADS_HEAD + "\n").encode("utf-8")
+_nz = Night({"az_ads": [a_file("z1", "amazon_az_ads_2026-10-25.csv")]}, {"z1": _nz_head}).go()
+check("A NIGHT THAT FINDS A HEADER-ONLY AMAZON ADS FILE READS IT AS NOTHING TO PROCESS: the file is read, nothing is refused, nothing is written",
+      _nz is not None and _nz.read_tonight == ("z1",) and _nz.rows_refused == 0)
+_nz_full = Night({"az_ads": [a_file("z2", "amazon_az_ads_2026-10-25.csv")]}, {"z2": ("﻿" + AZ_ADS_HEAD + "\n" + _AZ_ROW + "\n").encode("utf-8")})
+_nz_full.go()
+check("and a file with a campaign row reaches the ads sink as the day's record for Amazon",
+      len(_nz_full.advertised) == 1 and _nz_full.advertised[0][1] == "amazon" and _nz_full.advertised[0][3] == "2026-10-25" and "amazon__2026-10-25" in _nz_full.advertised[0][4])
+_az_wrong = _caught(lambda: ads.read_ads("az_ads", table.read(b"A,B\n1,2\n"), "2026-10-26", None))
+check("a file without the Amazon ads columns is refused in words naming what it has", _az_wrong is not None and "Campaign ID" in str(_az_wrong).title().replace("Id", "ID"))
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 107 + 3 + 2 + 3 + 3 + 7 + 1
+EXPECTED = 107 + 3 + 2 + 3 + 3 + 7 + 1 + 6 + 2
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

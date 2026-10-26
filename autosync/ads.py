@@ -23,6 +23,7 @@ Nothing here opens a file, a clock or a connection.
 """
 
 import json
+import re
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Callable, Dict, List, Optional, Tuple
@@ -55,6 +56,8 @@ class Way:
     needed: Tuple[str, ...]
     header_row: int
     day_column: Optional[str] = None
+    # **THE DAY COLUMN HOLDS A RANGE (Amazon's `Oct 25, 2026 - Oct 25, 2026`)**: a row whose two ends are one day is that day, and a row that spans several is refused by name -- never filed under one of them (N018).
+    day_is_a_range: bool = False
 
 
 WAYS: Dict[str, Way] = {
@@ -84,6 +87,17 @@ WAYS: Dict[str, Way] = {
             "spend": ("ad spend",), "revenue": ("revenue",), "units": ("orders",), "views": ("views",), "clicks": ("clicks",),
         },
         needed=("campaignId", "spend"), header_row=1, day_column="date",
+    ),
+    # **AMAZON'S CAMPAIGN REPORT (N018; his real file, Amazon Ads console > Reporting > Campaign template, seen 26 Oct 2026).** One Sponsored Products row per campaign over the report's date range; asked for one day at a time the range is that
+    # one day (`Oct 25, 2026 - Oct 25, 2026`) and a day with no ads is a header and nothing else, which is nothing to process. The campaign id is quoted for spreadsheets as `="177..."` and is taken out of that; spend is `Total cost`,
+    # views are `Impressions`, units are `Purchases` and revenue is `Sales`.
+    "az_ads": Way(
+        "amazon", "days",
+        {
+            "campaignId": ("campaign id",), "campaignName": ("campaign name",), "spend": ("total cost",), "views": ("impressions",),
+            "clicks": ("clicks",), "units": ("purchases",), "revenue": ("sales",),
+        },
+        needed=("campaignId", "spend"), header_row=1, day_column="date range", day_is_a_range=True,
     ),
     "fk_ads_placements": Way(
         "flipkart", "placements",
@@ -215,6 +229,33 @@ def _the_columns(columns: Tuple[str, ...], wanted: Tuple[str, ...], field: str, 
     return out
 
 
+def _unwrapped(cell: str) -> str:
+    """A cell's text, with the `="1234"` a spreadsheet-safe export wraps an id in taken off (N018: Amazon's campaign ids)."""
+    text = (cell or "").strip()
+    if text.startswith('="') and text.endswith('"') and len(text) >= 3:
+        return text[2:-1].strip()
+    return text
+
+
+_A_RANGE_DAY = re.compile(r"^([A-Za-z]{3,9}) (\d{1,2}), (\d{4})$")
+
+
+def _the_day_of_a_range(cell: str, not_read: List[str], line: int) -> Optional[str]:
+    """`Oct 25, 2026 - Oct 25, 2026` is the day 2026-10-25; a range of several days is refused by name and answers nothing (N018)."""
+    ends = [one.strip() for one in re.split(r"\s+-\s+", (cell or "").strip())]
+    days = []
+    for end in ends:
+        found = _A_RANGE_DAY.match(end)
+        day = returns.a_day(f"{found.group(2)} {found.group(1)} {found.group(3)}") if found else None
+        days.append(day)
+    if len(ends) != 2 or None in days:
+        return None
+    if days[0] != days[1]:
+        not_read.append(f"line {line}: {cell!r} covers several days, so it is filed under none of them (a range is not a day)")
+        return "several"
+    return days[0]
+
+
 def _a_figure(said: str, field: str):
     text = (said or "").strip().replace(",", "")
     if not text:
@@ -277,7 +318,7 @@ def read_ads(report_id: str, rows: table.Table, file_day: str, header_day: Optio
                     if stated:
                         said[field] = sum(stated)
                 else:
-                    text = row[cols[0]].strip() if cols else ""
+                    text = _unwrapped(row[cols[0]]) if cols else ""
                     if text:
                         said[field] = text
         except ValueError as wrong:
@@ -290,7 +331,9 @@ def read_ads(report_id: str, rows: table.Table, file_day: str, header_day: Optio
             not_read.append(f"line {row.line}: {said['campaignId']!r} cannot be the name of a campaign in a record (a slash)")
             continue
         if day_column:
-            day = returns.a_day(row[day_column])
+            day = _the_day_of_a_range(row[day_column], not_read, row.line) if way.day_is_a_range else returns.a_day(row[day_column])
+            if day == "several":
+                continue
             if day is None:
                 not_read.append(f"line {row.line}: {row[day_column]!r} is not a day this can read")
                 continue
