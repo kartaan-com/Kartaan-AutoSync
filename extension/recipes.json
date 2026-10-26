@@ -26,6 +26,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -52,6 +53,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -78,6 +80,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -104,6 +107,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -130,6 +134,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -156,6 +161,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -182,6 +188,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         }
       ],
@@ -201,6 +208,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -227,6 +235,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -253,6 +262,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         }
       ]
@@ -276,6 +286,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -302,6 +313,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -328,6 +340,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -354,6 +367,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -380,6 +394,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         }
       ],
@@ -399,6 +414,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -425,6 +441,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -451,6 +468,212 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        }
+      ]
+    },
+    "az_health": {
+      "campaignsFrom": null,
+      "readyInMinutes": 0,
+      "toAsk": [],
+      "toTake": [
+        {
+          "do": "go",
+          "find": null,
+          "address": "https://sellercentral.amazon.in/performance/dashboard",
+          "patience": 60,
+          "why": "opening the Account Health dashboard",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "wait-for",
+          "find": {
+            "how": "text",
+            "what": "Account Health Rating",
+            "exact": true,
+            "called": "the Account Health Rating",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 90,
+          "why": "waiting for the Account Health cards to finish drawing",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "read-number",
+          "find": {
+            "how": "text",
+            "what": "Account Health Rating",
+            "exact": true,
+            "called": "Account Health Rating",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "reading the Account Health Rating",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "read-number",
+          "find": {
+            "how": "text",
+            "what": "Order Defect Rate",
+            "exact": true,
+            "called": "Order Defect Rate",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "reading the order defect rate",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "percent",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "read-number",
+          "find": {
+            "how": "text",
+            "what": "Late Dispatch Rate",
+            "exact": true,
+            "called": "Late Dispatch Rate",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "reading the late dispatch rate",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "percent",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "read-number",
+          "find": {
+            "how": "text",
+            "what": "Pre-fulfilment Cancel Rate",
+            "exact": true,
+            "called": "Pre-fulfilment Cancel Rate",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "reading the pre-fulfilment cancel rate",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "percent",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "read-number",
+          "find": {
+            "how": "text",
+            "what": "Valid Tracking Rate",
+            "exact": true,
+            "called": "Valid Tracking Rate",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "reading the valid tracking rate",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "percent",
+          "noRowIsNothingToFetch": ""
+        },
+        {
+          "do": "add-to-the-list",
+          "find": null,
+          "address": "",
+          "patience": 30,
+          "why": "writing the day as its own file",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         }
       ]
@@ -474,6 +697,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -500,6 +724,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -526,6 +751,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -552,6 +778,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -578,6 +805,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         }
       ],
@@ -597,6 +825,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -623,6 +852,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -649,6 +879,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         }
       ]
@@ -672,6 +903,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -698,6 +930,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -724,6 +957,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -750,6 +984,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         }
       ],
@@ -769,6 +1004,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -795,6 +1031,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -821,6 +1058,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         }
       ]
@@ -844,6 +1082,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -870,6 +1109,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -896,6 +1136,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         }
       ],
@@ -915,6 +1156,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -941,6 +1183,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -967,6 +1210,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         }
       ]
@@ -991,6 +1235,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -1017,6 +1262,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -1043,6 +1289,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": "No closed settlement statement is new (Amazon publishes one weekly), so there is nothing to fetch."
         }
       ]
@@ -1067,6 +1314,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -1093,6 +1341,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -1119,6 +1368,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         }
       ]
@@ -1143,6 +1393,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -1169,6 +1420,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -1195,6 +1447,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -1221,6 +1474,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -1247,6 +1501,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -1273,6 +1528,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -1290,6 +1546,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -1316,6 +1573,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -1342,6 +1600,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         }
       ]
@@ -1366,6 +1625,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -1392,6 +1652,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -1418,6 +1679,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -1444,6 +1706,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -1470,6 +1733,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -1496,6 +1760,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -1513,6 +1778,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -1539,6 +1805,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -1565,6 +1832,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         }
       ]
@@ -1589,6 +1857,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -1615,6 +1884,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -1641,6 +1911,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -1667,6 +1938,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -1693,6 +1965,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -1719,6 +1992,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -1736,6 +2010,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -1762,6 +2037,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -1788,6 +2064,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         }
       ]
@@ -1812,6 +2089,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -1838,6 +2116,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -1864,6 +2143,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -1890,6 +2170,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -1916,6 +2197,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -1942,6 +2224,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -1959,6 +2242,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -1985,6 +2269,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -2011,6 +2296,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         }
       ]
@@ -2039,6 +2325,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -2065,6 +2352,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -2091,6 +2379,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -2117,6 +2406,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -2143,6 +2433,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -2169,6 +2460,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -2186,6 +2478,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -2212,6 +2505,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -2238,6 +2532,7 @@
           "forEachCampaign": true,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -2264,6 +2559,7 @@
           "forEachCampaign": true,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -2290,6 +2586,7 @@
           "forEachCampaign": true,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -2316,6 +2613,7 @@
           "forEachCampaign": true,
           "pressLikeAMouse": true,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -2342,6 +2640,7 @@
           "forEachCampaign": true,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -2368,6 +2667,7 @@
           "forEachCampaign": true,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         }
       ]
@@ -2392,6 +2692,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -2418,6 +2719,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -2444,6 +2746,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -2470,6 +2773,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -2496,6 +2800,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -2522,6 +2827,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -2539,6 +2845,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -2565,6 +2872,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -2591,6 +2899,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         }
       ]
@@ -2615,6 +2924,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -2641,6 +2951,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -2667,6 +2978,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -2693,6 +3005,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -2719,6 +3032,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -2745,6 +3059,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -2762,6 +3077,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -2788,6 +3104,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -2814,6 +3131,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         }
       ]
@@ -2838,6 +3156,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -2864,6 +3183,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -2890,6 +3210,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -2916,6 +3237,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -2933,6 +3255,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -2959,6 +3282,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         }
       ]
@@ -2983,6 +3307,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -3009,6 +3334,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -3035,6 +3361,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -3061,6 +3388,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -3087,6 +3415,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -3104,6 +3433,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         }
       ]
@@ -3127,6 +3457,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -3153,6 +3484,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -3179,6 +3511,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -3205,6 +3538,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         }
       ],
@@ -3224,6 +3558,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -3250,6 +3585,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -3276,6 +3612,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -3302,6 +3639,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -3328,6 +3666,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         }
       ]
@@ -3351,6 +3690,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -3377,6 +3717,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -3403,6 +3744,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -3429,6 +3771,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -3455,6 +3798,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -3481,6 +3825,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -3520,6 +3865,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -3550,6 +3896,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -3576,6 +3923,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -3611,6 +3959,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         }
       ],
@@ -3630,6 +3979,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -3656,6 +4006,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -3682,6 +4033,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -3708,6 +4060,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -3734,6 +4087,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         }
       ]
@@ -3757,6 +4111,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -3783,6 +4138,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -3809,6 +4165,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -3835,6 +4192,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -3861,6 +4219,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -3887,6 +4246,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -3926,6 +4286,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -3956,6 +4317,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -3982,6 +4344,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -4017,6 +4380,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         }
       ],
@@ -4036,6 +4400,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -4062,6 +4427,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -4088,6 +4454,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -4114,6 +4481,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -4140,6 +4508,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         }
       ]
@@ -4164,6 +4533,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -4190,6 +4560,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -4216,6 +4587,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -4233,6 +4605,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "flipkart-quality-insights",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         }
       ]
@@ -4256,6 +4629,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -4282,6 +4656,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -4308,6 +4683,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -4325,6 +4701,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -4351,6 +4728,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -4377,6 +4755,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         }
       ],
@@ -4396,6 +4775,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -4422,6 +4802,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -4448,6 +4829,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -4474,6 +4856,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         }
       ]
@@ -4497,6 +4880,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -4523,6 +4907,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -4549,6 +4934,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -4575,6 +4961,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -4601,6 +4988,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -4618,6 +5006,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -4644,6 +5033,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -4670,6 +5060,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         }
       ],
@@ -4689,6 +5080,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -4715,6 +5107,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -4741,6 +5134,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -4767,6 +5161,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -4793,6 +5188,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -4810,6 +5206,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -4836,6 +5233,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -4862,6 +5260,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -4888,6 +5287,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         }
       ]
@@ -4912,6 +5312,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -4929,6 +5330,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         }
       ]
@@ -4953,6 +5355,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -4979,6 +5382,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -5005,6 +5409,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -5022,6 +5427,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -5048,6 +5454,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         }
       ]
@@ -5072,6 +5479,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -5098,6 +5506,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -5124,6 +5533,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -5150,6 +5560,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -5176,6 +5587,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         }
       ]
@@ -5200,6 +5612,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -5226,6 +5639,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -5252,6 +5666,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -5278,6 +5693,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -5295,6 +5711,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -5321,6 +5738,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -5338,6 +5756,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -5355,6 +5774,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -5381,6 +5801,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -5407,6 +5828,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -5446,6 +5868,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         }
       ]
@@ -5470,6 +5893,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -5496,6 +5920,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -5522,6 +5947,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -5548,6 +5974,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -5574,6 +6001,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -5591,6 +6019,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -5617,6 +6046,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         }
       ]
@@ -5641,6 +6071,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -5658,6 +6089,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "meesho-pricing",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         }
       ]
@@ -5682,6 +6114,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -5699,6 +6132,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "meesho-product-performance",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         }
       ]
@@ -5723,6 +6157,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -5749,6 +6184,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -5775,6 +6211,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -5801,6 +6238,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -5827,6 +6265,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -5853,6 +6292,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -5892,6 +6332,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         }
       ]
@@ -5916,6 +6357,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -5942,6 +6384,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -5968,6 +6411,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -5994,6 +6438,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         },
         {
@@ -6011,6 +6456,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
+          "reads": "",
           "noRowIsNothingToFetch": ""
         }
       ]
@@ -6170,6 +6616,10 @@
       "platform": "amazon",
       "extension": "txt"
     },
+    "az_health": {
+      "platform": "amazon",
+      "extension": "csv"
+    },
     "az_listings": {
       "platform": "amazon",
       "extension": "txt"
@@ -6314,6 +6764,12 @@
       "id": "az_fee_preview",
       "platform": "amazon",
       "name": "Amazon Referral Fee Preview",
+      "cannotBeAskedForAgain": "This is a picture of how things stand right now. The platform keeps no history to ask for, so a past day cannot be fetched again -- only the day it was taken."
+    },
+    {
+      "id": "az_health",
+      "platform": "amazon",
+      "name": "Amazon account health",
       "cannotBeAskedForAgain": "This is a picture of how things stand right now. The platform keeps no history to ask for, so a past day cannot be fetched again -- only the day it was taken."
     },
     {
@@ -6523,6 +6979,11 @@
       "Reports",
       "Amazon",
       "Fees"
+    ],
+    "az_health": [
+      "Reports",
+      "Amazon",
+      "Health"
     ],
     "az_listings": [
       "Reports",

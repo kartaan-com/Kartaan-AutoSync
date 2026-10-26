@@ -79,9 +79,26 @@ _no_orders = (answered(lambda: shopdays.read_shop_days("me_views", "meesho", fil
 check("a blank Orders cell is nothing, not nought (R20 proving)", "orders" not in _no_orders.get("meesho__2026-10-06", {"orders": 0}))
 check("a file without the Orders column is refused in words (R20 proving)",
       "Nothing was read" in str(caught(lambda: shopdays.read_shop_days("me_views", "meesho", file_of("Date,Views\n2026-10-06,1\n"), "2026-10-20"))))
+# ---------------------------------------------------------------- N018: AMAZON'S ACCOUNT HEALTH, one record per day
+# **THE FIGURES ARE FROM HIS OWN ACCOUNT HEALTH PAGE (26 Oct 2026); the file is the one-row-per-day file the walk writes** (`Date`, then the five labels the recipe reads). A rate is a percentage with decimals,
+# the rating a whole number; a blank is nothing, never nought (a late dispatch rate of 0 is a good day, a blank is a page that did not draw).
+HEALTH_HEAD = "Date,Account Health Rating,Order Defect Rate,Late Dispatch Rate,Pre-fulfilment Cancel Rate,Valid Tracking Rate"
+_hd = (answered(lambda: shopdays.read_health_days("az_health", "amazon", file_of(HEALTH_HEAD + "\n2026-10-26,204,0,1.8,0,100\n"), "2026-10-26")) or ({}, ()))
+_hwant = {"platform": "amazon", "report": "az_health", "day": "2026-10-26", "healthRating": 204, "orderDefectRate": 0.0, "lateDispatchRate": 1.8,
+          "cancelRate": 0.0, "validTrackingRate": 100.0, "fileDay": "2026-10-26"}
+check("AN ACCOUNT HEALTH DAY'S RECORD HOLDS EXACTLY its day, the rating, the four rates (as numbers) and the file's day, named platform__day",
+      _hd[0].get("amazon__2026-10-26") == dict(_hwant, digest=records.the_digest(_hwant)) and _hd[1] == ())
+_hnone = (answered(lambda: shopdays.read_health_days("az_health", "amazon", file_of(HEALTH_HEAD + "\n2026-10-26,204,,1.8,,100\n"), "2026-10-26")) or ({}, ()))[0]
+check("a blank figure is nothing, not nought: a late dispatch rate of 0 is kept as 0 and a blank is left out",
+      "orderDefectRate" not in _hnone.get("amazon__2026-10-26", {"orderDefectRate": 0}) and _hnone["amazon__2026-10-26"]["lateDispatchRate"] == 1.8)
+_, _hbad = answered(lambda: shopdays.read_health_days("az_health", "amazon", file_of(HEALTH_HEAD + "\nsoon,204,0,1.8,0,100\n2026-10-27,x,0,1.8,0,100\n2026-10-28,204,0,-1,0,100\n2026-10-29,204,0,150,0,100\n"), "2026-10-29")) or ({}, ())
+check("a day, a rating or a rate this cannot read (not a number, below nought, over a hundred percent) is refused by name and the rest are read", len(_hbad) == 4)
+check("a file without the Account Health columns is refused in words naming what it has",
+      "Nothing was read" in str(caught(lambda: shopdays.read_health_days("az_health", "amazon", file_of("Date,Views,Orders\n2026-10-06,1,1\n"), "2026-10-26"))))
+check("every field a health record carries is one the shop-day record kind accepts", all(set(r) <= set(shopdays.SHOP_FIELDS) for r in _hd[0].values()))
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 7 + 4
+EXPECTED = 7 + 4 + 5
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

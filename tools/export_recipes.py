@@ -186,6 +186,8 @@ def a_step(step):
         AS_JAVASCRIPT_SPELLS_IT["press_like_a_mouse"]: step.press_like_a_mouse,
         # **WHICH TABLE A READ-THE-TABLE STEP READS.** Empty on every other step.
         "table": step.table,
+        # **WHAT KIND OF FIGURE A READ-NUMBER STEP READS** (N018): empty for the whole number, `percent` for a percentage. Empty on every other step.
+        "reads": step.reads,
         # **A TAKE-FILE STEP WHOSE MISSING ROW IS NOTHING TO FETCH, with the reason** (N018). Empty on every other step.
         AS_JAVASCRIPT_SPELLS_IT["none_means_nothing_to_fetch"]: step.none_means_nothing_to_fetch,
     }

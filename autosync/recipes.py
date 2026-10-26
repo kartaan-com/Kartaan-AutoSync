@@ -434,6 +434,8 @@ AMAZON_SAFET_REPORT = "https://sellercentral.amazon.in/safet-claims/reports"
 # **AMAZON'S ORDER REPORTS, the All Orders tab, and ITS STATEMENTS PAGE (Finance > Manage payments > All Statements), read off his own Seller Central by N018 on 26 Oct 2026.**
 AMAZON_ALL_ORDERS = "https://sellercentral.amazon.in/order-reports-and-feeds/reports/allOrders"
 AMAZON_STATEMENTS = "https://sellercentral.amazon.in/payments/past-settlements"
+# **AMAZON'S ACCOUNT HEALTH DASHBOARD (Account health > Manage account health), read off his own Seller Central by N018 on 26 Oct 2026.**
+AMAZON_ACCOUNT_HEALTH = "https://sellercentral.amazon.in/performance/dashboard"
 # **THESE THREE WERE WRONG, AND THEY COST A WHOLE NIGHT (2026-09-06).** Nine of
 # ten reports failed within twenty minutes of each other -- seven ads reports
 # looking for "the other reports tab", claims looking for "the claims tab",
@@ -1448,6 +1450,23 @@ RECIPES: Dict[str, Recipe] = {
             Step(TAKE_EVERY_NEW, find=Find(BY_PRESSABLE_TEXT, "Download Flat File V2", called="the Download Flat File V2 of a closed statement"),
                  patience=60, why="taking every closed statement that Drive does not already hold",
                  none_means_nothing_to_fetch="No closed settlement statement is new (Amazon publishes one weekly), so there is nothing to fetch."),
+        ),
+    ),
+
+    # ---- Amazon Account Health by the browser (N018, his ruling D726; Control's word: he is At Risk on Late Dispatch). **Read off the page, because it has no download**: the rating (a whole number beside its label) and four
+    # ---- rates, each read as a PERCENTAGE because the same card also says `2 of 111 orders`. Written as the day's own one-row file, like Meesho's views (his D473). Seen on his page 26 Oct 2026; **NOT YET RUN LIVE.**
+    "az_health": Recipe(
+        to_take=(
+            Step(GO, address=AMAZON_ACCOUNT_HEALTH, patience=60, why="opening the Account Health dashboard"),
+            Step(WAIT_FOR, find=Find(BY_TEXT, "Account Health Rating", called="the Account Health Rating"), patience=90,
+                 why="waiting for the Account Health cards to finish drawing"),
+            Step(READ_NUMBER, find=Find(BY_TEXT, "Account Health Rating", called="Account Health Rating"), patience=30, why="reading the Account Health Rating"),
+            Step(READ_NUMBER, find=Find(BY_TEXT, "Order Defect Rate", called="Order Defect Rate"), reads="percent", patience=30, why="reading the order defect rate"),
+            Step(READ_NUMBER, find=Find(BY_TEXT, "Late Dispatch Rate", called="Late Dispatch Rate"), reads="percent", patience=30, why="reading the late dispatch rate"),
+            Step(READ_NUMBER, find=Find(BY_TEXT, "Pre-fulfilment Cancel Rate", called="Pre-fulfilment Cancel Rate"), reads="percent", patience=30,
+                 why="reading the pre-fulfilment cancel rate"),
+            Step(READ_NUMBER, find=Find(BY_TEXT, "Valid Tracking Rate", called="Valid Tracking Rate"), reads="percent", patience=30, why="reading the valid tracking rate"),
+            Step(ADD_TO_THE_LIST, patience=30, why="writing the day as its own file"),
         ),
     ),
 

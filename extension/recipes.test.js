@@ -59,7 +59,7 @@ const PANEL = 'growth/some-panel';
 check('the recipe file is there and can be read', typeof BOOK === 'object' && BOOK !== null);
 check('and it says plainly that it is generated',
   Array.isArray(BOOK._generated) && BOOK._generated.join(' ').includes('DO NOT EDIT'));
-check('it carries the recipes', Object.keys(BOOK.recipes).length === 31);
+check('it carries the recipes', Object.keys(BOOK.recipes).length === 32);
 check('and both platforms are in it',
   Object.keys(BOOK.recipes).some((one) => one.startsWith('me_'))
   && Object.keys(BOOK.recipes).some((one) => one.startsWith('fk_')));
@@ -113,8 +113,8 @@ check('and the words each failure means', Object.keys(BOOK.whatItMeans).length >
     .filter(([, r]) => r.toTake.length
       && r.toTake[r.toTake.length - 1].do === 'add-to-the-list')
     .map(([name]) => name);
-  check('and the only one that ends with a row is the views card',
-    JSON.stringify(byARow) === JSON.stringify(['me_views']));
+  check('and the only ones that end with a row are the Meesho views card and the Amazon account health (N018)',
+    JSON.stringify(byARow) === JSON.stringify(['az_health', 'me_views']));
 
   /* A two-phase recipe says how long the platform takes, because the log says so
    * to whoever reads it. A one-shot one is not built by anybody and says nothing

@@ -593,8 +593,8 @@ function aPortal(how = {}) {
      * is the page having drawn a label with no number beside it, which is the
      * failure that matters and the one the reference could only report as
      * "selectors need updating". */
-    async read_number(kind, what, exact, patience, near) {
-      it.numbersRead.push({ what, near, patience });
+    async read_number(kind, what, exact, patience, near, alsoSaying, reads) {
+      it.numbersRead.push({ what, near, patience, reads });
       if (how.cardRefuses) throw new Error(how.cardRefuses);
       const cards = how.cards || { Views: 34877, Orders: 6 };
       if (!(what in cards)) {
@@ -1095,6 +1095,34 @@ check('asked to step back by nothing at all, it answers the day itself',
   check('but a table that was never drawn stays a FAILURE, even though the row is missing too', never.state === FAILED);
   const there = await aWalk(aPortal(), statements)('me_orders', DAY);
   check('and with the row there the file is taken as before', there.state === LANDED);
+}
+
+/* --------------------------- N018: a step that reads a PERCENTAGE says so to the door; one that does not says nothing */
+{
+  const health = {
+    recipes: {
+      me_views: {
+        readyInMinutes: 0,
+        toAsk: [],
+        toTake: [
+          step({ do: 'go', address: 'https://supplier.example.invalid/panel/{panel}/health', why: 'opening the dashboard' }),
+          step({ do: 'wait-for', find: find('Views'), patience: 60, why: 'waiting for the cards' }),
+          step({ do: 'read-number', find: find('Views', { called: 'Account Health Rating' }), reads: '', patience: 30, why: 'reading the rating' }),
+          step({ do: 'read-number', find: find('Orders', { called: 'Late Dispatch Rate' }), reads: 'percent', patience: 30, why: 'reading the late dispatch rate' }),
+          step({ do: 'add-to-the-list', patience: 30, why: 'writing the day as its own file' }),
+        ],
+      },
+    },
+    whatItMeans: BOOK.whatItMeans,
+    daysInWords: BOOK.daysInWords,
+    fileNames: BOOK.fileNames,
+  };
+  const portal = aPortal({ cards: { Views: 204, Orders: 1.8 } });
+  const got = await aWalk(portal, health)('me_views', DAY);
+  check('a step that reads a percentage asks the door for one, and a plain step asks for nothing special',
+    got.state === LANDED && portal.numbersRead.length === 2 && portal.numbersRead[0].reads === '' && portal.numbersRead[1].reads === 'percent');
+  check('and both figures reach the day\'s row under the names the recipe gives them',
+    portal.rowsAdded.length === 1 && portal.rowsAdded[0].header === 'Date,Account Health Rating,Late Dispatch Rate' && portal.rowsAdded[0].row.endsWith(',204,1.8'));
 }
 
 /* --------------------------- N018: EVERY CLOSED STATEMENT THE DRIVE DOES NOT ALREADY HOLD (Control's ruling of 26 Oct 2026)
@@ -2910,7 +2938,7 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
     theRowsItCouldBe(BOOK, find, '2026-10-19', '2026-10-22', '2026-10-25').join() === '2026-10-19_2026-10-19_');
 }
 
-const EXPECTED = 349 + 9 + 3 + 1 + 3 + 8;
+const EXPECTED = 349 + 9 + 3 + 1 + 3 + 8 + 2;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

@@ -135,6 +135,15 @@ check("only a step that presses something may say to press it like a mouse",
           and tool.why_step_is_refused(
               tool.Step(tool.CLICK, find=tool.Find(tool.BY_TEXT, "x"), press_like_a_mouse=True, why="y"))
           is None))
+check("a number is read as a percentage only when the step says so, and only a step that reads a number may say it (N018)",
+      answered(lambda: tool.why_step_is_refused(
+          tool.Step(tool.READ_NUMBER, find=tool.Find(tool.BY_TEXT, "Late Dispatch Rate"), reads="percent", why="y")) is None
+          and tool.why_step_is_refused(
+              tool.Step(tool.READ_NUMBER, find=tool.Find(tool.BY_TEXT, "Views"), why="y")) is None
+          and tool.why_step_is_refused(
+              tool.Step(tool.CLICK, find=tool.Find(tool.BY_TEXT, "x"), reads="percent", why="y")) is not None
+          and tool.why_step_is_refused(
+              tool.Step(tool.READ_NUMBER, find=tool.Find(tool.BY_TEXT, "x"), reads="hex", why="y")) is not None))
 check("while typing the campaign, once per campaign, is fine",
       answered(lambda: tool.why_step_is_refused(
           tool.Step(tool.TYPE_IN, find=tool.Find(tool.BY_TEXT, "box"), words="{campaign}",
@@ -603,7 +612,7 @@ check("nor a failure once it has happened",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 123
+EXPECTED = 124
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

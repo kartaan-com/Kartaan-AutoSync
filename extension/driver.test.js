@@ -2705,6 +2705,38 @@ for (const [start, end, from, expectedMonth] of [
     (await door.find(BY_PRESSABLE_TEXT, 'Download', true, 0, ['26 October 2026'], 'All Listings Report')) === 0);
 }
 
+/* --------------------------------------------- N018: a PERCENTAGE read off a card (Amazon's Account Health, 26 Oct 2026)
+ * **ADDED BESIDE THE PLAIN-NUMBER READ, NEVER IN PLACE OF IT.** A card there reads `Late Dispatch Rate`, `1.8%`, `2 of 111 orders`, `30 days`; the plain read takes whole numbers only and would take
+ * the `2`. A step says it wants a percentage; one that does not says nothing and reads exactly as it always did -- the Meesho views checks above are that proof. */
+{
+  const page = aPage();
+  const door = doorOn();
+  const card = thing('div');
+  card.append(thing('a', 'Late Dispatch Rate'), thing('span', '1.8%'), thing('span', '2 of 111 orders'), thing('span', '30 days'));
+  page.body.append(card);
+  check('a percentage is read as the number it is, with its decimals',
+    (await door.read_number(BY_TEXT, 'Late Dispatch Rate', true, 0, [], '', 'percent')) === 1.8);
+  const whole = thing('div');
+  whole.append(thing('a', 'Valid Tracking Rate'), thing('span', '100%'), thing('span', '64 of 64 shipments'));
+  page.body.append(whole);
+  check('and a whole percentage is read too', (await door.read_number(BY_TEXT, 'Valid Tracking Rate', true, 0, [], '', 'percent')) === 100);
+  let plainSaid = '';
+  try { await door.read_number(BY_TEXT, 'Valid Tracking Rate'); } catch (wrong) { plainSaid = String(wrong.message); }
+  check('the same card read the PLAIN way is still refused as before: no whole number beside it, and it is not handed the percentage or the 64',
+    plainSaid.includes('no plain number'));
+  const plainCard = thing('div');
+  plainCard.append(thing('a', 'Account Health Rating'), thing('span', '204'), thing('span', '0 - 1000'));
+  page.body.append(plainCard);
+  check('while a whole number beside its label is read the plain way exactly as before', (await door.read_number(BY_TEXT, 'Account Health Rating')) === 204);
+  const bare = aPage();
+  const bareCard = thing('div');
+  bareCard.append(thing('a', 'Order Defect Rate'), thing('span', '0 of 128 orders'));
+  bare.body.append(bareCard);
+  let said = '';
+  try { await door.read_number(BY_TEXT, 'Order Defect Rate', true, 0, [], '', 'percent'); } catch (wrong) { said = String(wrong.message); }
+  check('a card with a label and no percentage beside it is refused in words, never filled with another number', said.includes('no plain number') || said.includes('no percentage'));
+}
+
 /* --------------------------------------------- N018: the words of every row that holds a control
  * **ASKED ONLY BY THE WALK.** Amazon's All Statements page lists a statement per row, each closed one with its own `Download Flat File V2`; the walk has to know WHICH statement each control belongs to
  * before it presses any of them, so it asks the page for the words of the row each one sits in. The row is the largest ancestor (within six levels) that holds that control and no other. */
@@ -2735,7 +2767,7 @@ for (const [start, end, from, expectedMonth] of [
   check('the call is one only the walk asks', ASKED_ONLY_BY_THE_WALK.includes('row_texts') && !THE_CALLS.includes('row_texts'));
 }
 
-const EXPECTED = 325 + 3 + 2 + 4;
+const EXPECTED = 325 + 3 + 2 + 4 + 5;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

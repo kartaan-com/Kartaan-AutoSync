@@ -102,7 +102,8 @@ for report_id in tool.every_recipe():
     # traffic report's pop-ups and put away as one file by the reading step itself.
     ENDS_WITH = {"me_views": pages.ADD_TO_THE_LIST, "me_ads": pages.SWEEP_THE_ADS,
                  "fk_keywords": pages.READ_THE_KEYWORDS, "me_product_performance": pages.READ_THE_TABLE,
-                 "me_pricing": pages.READ_THE_TABLE, "fk_quality_insights": pages.READ_THE_TABLE, "az_settlements": pages.TAKE_EVERY_NEW}
+                 "me_pricing": pages.READ_THE_TABLE, "fk_quality_insights": pages.READ_THE_TABLE, "az_settlements": pages.TAKE_EVERY_NEW,
+                 "az_health": pages.ADD_TO_THE_LIST}
     check(f"and {report_id} ends by putting the day away",
           answered(lambda: one.to_take[-1].do
                    == ENDS_WITH.get(report_id, pages.TAKE_FILE)))
@@ -241,6 +242,8 @@ SHAPES = {
     # **AMAZON ORDERS (N018):** open All Orders, wait for the Last Updated Date choice, choose it, press Request; later take today's row's Download. **AMAZON SETTLEMENTS (N018)** are one-phase: open All Statements, wait for the table, take the statement that ended on the day.
     "az_orders": ((pages.GO, pages.WAIT_FOR, pages.CLICK, pages.CLICK), (pages.GO, pages.WAIT_FOR, pages.TAKE_FILE)),
     "az_settlements": ((), (pages.GO, pages.WAIT_FOR, pages.TAKE_EVERY_NEW)),
+    # **AMAZON ACCOUNT HEALTH (N018):** open the dashboard, wait for the rating, read the rating and four rates, write the day as its own one-row file.
+    "az_health": ((), (pages.GO, pages.WAIT_FOR, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.ADD_TO_THE_LIST)),
 }
 for report_id, (ask, take) in sorted(SHAPES.items()):
     one = tool.recipe(report_id)
@@ -683,8 +686,8 @@ check("fifteen Flipkart reports can be fetched by this door -- all of them, sinc
 check("and nine Meesho ones, now that the views card and the ads sweep are built",
       answered(lambda: len(tool.on_the_browser_door_for("meesho")) == 9))
 # **AMAZON NEEDS NONE, and that is the number the others should fall to.**
-check("Amazon needs the browser for seven reports: the traffic by child item, All Listings, Referral Fee Preview (lane 1 jobs 7 and 8), and returns, SAFE-T claims, orders and settlements (N018); only the suppressed listings still use the API",
-      answered(lambda: tool.on_the_browser_door_for("amazon") == ("az_claims", "az_fee_preview", "az_listings", "az_orders", "az_returns", "az_settlements", "az_traffic")))
+check("Amazon needs the browser for eight reports: the traffic by child item, All Listings, Referral Fee Preview (lane 1 jobs 7 and 8), and returns, SAFE-T claims, orders, settlements and account health (N018); only the suppressed listings still use the API",
+      answered(lambda: tool.on_the_browser_door_for("amazon") == ("az_claims", "az_fee_preview", "az_health", "az_listings", "az_orders", "az_returns", "az_settlements", "az_traffic")))
 # **THE TWO-PHASE AMAZON WALK (lane 1 job 8): Inventory Reports, Request Report, then Download from the same list.** Amazon builds the file (up to 45 minutes,
 # once in 24 hours) and shows a row that goes In Progress -> Done, or is Cancelled. The page itself has not been looked at: every control name below is
 # the sample's and the brief's, and the first live walk must confirm the page's wording (see DONE_AP8).
@@ -802,6 +805,21 @@ check("and when no closed statement is new that is NOTHING TO FETCH in words, ne
       len(AZS_STEPS) == 3 and "nothing to fetch" in AZS_STEPS[2].none_means_nothing_to_fetch and AZS_STEPS[1].find.how == pages.BY_TEXT)
 check("only that one step may say that nothing new is nothing to fetch, across every recipe",
       answered(lambda: [(r, i) for r in tool.every_recipe() for i, s in enumerate(tool.recipe(r).to_ask + tool.recipe(r).to_take) if s.none_means_nothing_to_fetch] == [("az_settlements", 2)]))
+# **AMAZON'S ACCOUNT HEALTH THROUGH THE BROWSER (N018, his ruling D726), read off his own Seller Central on 26 Oct 2026:** Account health > Manage account health (`/performance/dashboard`) shows the rating (204,
+# a whole number beside its label) and four rates (`1.8%`, with `2 of 111 orders` and `30 days` in the same card, which is why a rate is read as a PERCENTAGE). No download: the day is written as its own one-row file.
+AZH = answered(lambda: tool.RECIPES["az_health"])
+AZH_STEPS = AZH.to_take if AZH else ()
+check("az_health is a one-phase read of eight steps: open, wait, five figures, write the day",
+      AZH is not None and not AZH.two_phase and len(AZH_STEPS) == 8)
+check("az_health opens the Account Health dashboard and waits for the rating label itself before reading anything",
+      len(AZH_STEPS) == 8 and AZH_STEPS[0].do == pages.GO and AZH_STEPS[0].address == "https://sellercentral.amazon.in/performance/dashboard"
+      and AZH_STEPS[1].do == pages.WAIT_FOR and AZH_STEPS[1].find.what == "Account Health Rating")
+check("az_health reads the rating as a whole number and the four rates as percentages, each by its own label, in the order the file's columns are read",
+      len(AZH_STEPS) == 8 and [s.find.what for s in AZH_STEPS[2:7]] == ["Account Health Rating", "Order Defect Rate", "Late Dispatch Rate", "Pre-fulfilment Cancel Rate", "Valid Tracking Rate"]
+      and [s.reads for s in AZH_STEPS[2:7]] == ["", "percent", "percent", "percent", "percent"] and all(s.do == pages.READ_NUMBER for s in AZH_STEPS[2:7]))
+check("and it ends by writing the day as its own file", len(AZH_STEPS) == 8 and AZH_STEPS[7].do == pages.ADD_TO_THE_LIST)
+check("only the health recipe asks for a percentage, across every recipe",
+      answered(lambda: sorted({r for r in tool.every_recipe() for s in (tool.recipe(r).to_ask + tool.recipe(r).to_take) if s.reads}) == ["az_health"]))
 # **THE AMAZON WALK, read against his real sample (BusinessReport-22-10-26.csv, the By Child Item report) and the address Control used.**
 AZ = answered(lambda: tool.RECIPES["az_traffic"])
 AZ_STEPS = AZ.to_take if AZ else ()
@@ -1535,7 +1553,7 @@ check("and the panel name was still filled into the addresses on the way",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 419
+EXPECTED = 431
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

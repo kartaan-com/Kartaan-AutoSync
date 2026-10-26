@@ -80,8 +80,8 @@ HELD = answered(tool.what_the_extension_reads) or {}
 
 check("every recipe the Python has crosses",
       answered(lambda: set(HELD.get("recipes", {})) == set(book.RECIPES)))
-check("and there are thirty-one of them, three platforms (Amazon's listings and fee reports joined, lane 1 job 8; returns, SAFE-T claims, orders and settlements, N018)",
-      answered(lambda: len(HELD.get("recipes", {})) == 31))
+check("and there are thirty-two of them, three platforms (Amazon's listings and fee reports joined, lane 1 job 8; returns, SAFE-T claims, orders, settlements and account health, N018)",
+      answered(lambda: len(HELD.get("recipes", {})) == 32))
 check("every meaning of a failure crosses",
       answered(lambda: set(HELD.get("whatItMeans", {})) == set(language.WHAT_IT_MEANS)))
 # **THE WHOLE MAP, not the part the walk happens to use today.** Splitting it is

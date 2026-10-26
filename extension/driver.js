@@ -185,6 +185,8 @@ const A_NUMBER_SITS_THIS_FAR_ABOVE_ITS_LABEL = 2;
  * shape is the whole of the leaf and nothing else: `34,877` yes, and neither of
  * those two. */
 const A_PLAIN_NUMBER = /^\d{1,3}(?:,\d{3})*$|^\d+$/;
+/* **A PERCENTAGE, FOR THE ONE KIND OF READ THAT ASKS FOR ONE (N018, Amazon's Account Health):** digits, optionally with decimals, then a percent sign. Never used by the plain read. */
+const A_PERCENTAGE = /^\d+(?:\.\d+)?%$/;
 
 /* How often to look again while waiting, and how long to wait after something
  * first appears before answering how many there are. */
@@ -1504,7 +1506,7 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
    * was not enough.
    */
   async function readNumber(how, what, exact = true, patienceSeconds = 0, near = [],
-    alsoSaying = '') {
+    alsoSaying = '', kind = '') {
     refuseAnUnknownWay(how);
     const many = await find(how, what, exact, patienceSeconds, near, alsoSaying);
     if (many === 0) {
@@ -1519,14 +1521,14 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
     const label = whatMatches(how, what, exact, near, alsoSaying)[0];
     let up = label.parentNode;
     for (let k = 0; k < A_NUMBER_SITS_THIS_FAR_ABOVE_ITS_LABEL && up; k += 1) {
-      const found = theFirstPlainNumberIn(up);
+      const found = kind === 'percent' ? theFirstPercentageIn(up) : theFirstPlainNumberIn(up);
       if (found !== null) return found;
       up = up.parentNode;
     }
     /* **SAID AS WHAT IT IS.** "Not found" would send somebody looking for a label
      * that is on the page in front of them. What is missing is the number. */
     throw new Error(
-      `"${what}" is on the page and there is no plain number beside it. Either the card `
+      `"${what}" is on the page and there is no ${kind === 'percent' ? 'percentage' : 'plain number'} beside it. Either the card `
       + 'has not finished drawing, or the platform has changed how it is laid out.'
     );
   }
@@ -2091,6 +2093,19 @@ function theFirstPlainNumberIn(node) {
     const said = words(one.textContent || '');
     if (!A_PLAIN_NUMBER.test(said)) continue;
     return Number(said.replace(/,/g, ''));
+  }
+  return null;
+}
+
+/** The first leaf under this that is a PERCENTAGE (`1.8%`, `100%`), as the number before the sign, or nothing. **ASKED ONLY BY A STEP THAT SAYS IT WANTS A PERCENTAGE** (N018): `2 of 111 orders` beside it is
+ *  not one, and the plain read above is untouched. */
+function theFirstPercentageIn(node) {
+  for (const one of everything(node)) {
+    if ((one.children || []).length) continue;
+    if (!isPainted(one)) continue;
+    const said = words(one.textContent || '');
+    if (!A_PERCENTAGE.test(said)) continue;
+    return Number(said.slice(0, -1));
   }
   return null;
 }

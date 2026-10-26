@@ -2026,7 +2026,7 @@ export function theWalk({
         try {
           readSoFar.set(column, await door.read_number(
             step.find.how, step.find.what, step.find.exact, step.patience,
-            step.find.near, step.find.alsoSaying,
+            step.find.near, step.find.alsoSaying, step.reads || '',
           ));
         } catch (wrong) {
           /* **ITS OWN FAILURE, WITH THE DOOR'S OWN WORDS.** The door says which

@@ -64,6 +64,10 @@ SAMPLES = {
         '"Product","SKU ID","Yearly Sales","1Y Ratings Trend","5M Returns Trend","FA badge","Suppression Risk","Issue Details"\n'
         '"Rumee Jhumki","DJ-5 Bahubali","₹6.32L","4.2","17.6%","Yes","No Risk","Quality"\n'),
     "me_views": ("meesho_me_views_2026-10-20.csv", "Date,Views,Orders\n2026-10-14,52750,23\n"),
+    # Amazon's Account Health day file (N018): the five labels the walk reads, the figures seen on his page on 26 Oct 2026.
+    "az_health": (
+        "amazon_az_health_2026-10-26.csv",
+        "Date,Account Health Rating,Order Defect Rate,Late Dispatch Rate,Pre-fulfilment Cancel Rate,Valid Tracking Rate\n2026-10-26,204,0,1.8,0,100\n"),
     # Amazon's SAFE-T claims report (N018): the real header, one made-up row.
     "az_claims": (
         "amazon_az_claims_2026-10-26.csv",
@@ -135,7 +139,7 @@ check("a database that says no stops the sink with that said in words",
 def made_from_sample(report_id):
     name, body = SAMPLES[report_id]
     import table
-    return TABLE[report_id].read(report_id, {"fk_quality_insights": "flipkart", "az_claims": "amazon"}.get(report_id, "meesho"), table.read(body.encode("utf-8")), name[-14:-4], None)[0]
+    return TABLE[report_id].read(report_id, {"fk_quality_insights": "flipkart", "az_claims": "amazon", "az_health": "amazon"}.get(report_id, "meesho"), table.read(body.encode("utf-8")), name[-14:-4], None)[0]
 
 
 def paid_claim_held():

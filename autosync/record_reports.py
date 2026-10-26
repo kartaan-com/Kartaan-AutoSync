@@ -48,6 +48,11 @@ RECORD_REPORTS: Dict[str, RecordReport] = {
         quality.KIND, lambda report_id, platform, rows, day, context: quality.read_quality(report_id, platform, rows, day),
         "listing quality record(s)", "quality", merge=quality.merge,
     ),
+    # **AMAZON'S ACCOUNT HEALTH (N018): a figure for the WHOLE SHOP on a day, the same kind of fact as Meesho's views**, written to the same shop-day collection as `amazon__<day>`.
+    "az_health": RecordReport(
+        shopdays.KIND, lambda report_id, platform, rows, day, context: shopdays.read_health_days(report_id, platform, rows, day),
+        "account health day(s)", "account health",
+    ),
     "me_views": RecordReport(
         shopdays.KIND, lambda report_id, platform, rows, day, context: shopdays.read_shop_days(report_id, platform, rows, day),
         "shop day(s)", "shop figures",

@@ -20,6 +20,12 @@
       "cannotBeAskedForAgain": "This is a picture of how things stand right now. The platform keeps no history to ask for, so a past day cannot be fetched again -- only the day it was taken."
     },
     {
+      "id": "az_health",
+      "platform": "amazon",
+      "name": "Amazon account health",
+      "cannotBeAskedForAgain": "This is a picture of how things stand right now. The platform keeps no history to ask for, so a past day cannot be fetched again -- only the day it was taken."
+    },
+    {
       "id": "az_listings",
       "platform": "amazon",
       "name": "Amazon All Listings",

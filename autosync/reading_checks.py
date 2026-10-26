@@ -1052,11 +1052,11 @@ check("the rules the read-files list was made under are named, so a change to th
 
 check("every report in REPORTS has a reader or a written reason it is not yet read",
       tool.why_a_report_has_no_decision() == "")
-check("the 34 reports are 31 read (8 into the ledger, 4 into listing records, 3 listing files, 2 side files about listings (AP9 suppressed, and the fee preview joined at AP10), 3 returns files, 7 ads files, 1 product performance file, 1 quality file, 1 shop figures file, 1 Amazon SAFE-T claims file, N018) and 3 with a reason, which is Finding 51 stated as numbers (A78 moved the returns and ads files up; the two v0.1.21 lanes joined at AP10)",
+check("the 35 reports are 32 read (8 into the ledger, 4 into listing records, 3 listing files, 2 side files about listings (AP9 suppressed, and the fee preview joined at AP10), 3 returns files, 7 ads files, 1 product performance file, 1 quality file, 1 shop figures file, 1 Amazon SAFE-T claims file, 1 Amazon account health file, N018) and 3 with a reason, which is Finding 51 stated as numbers (A78 moved the returns and ads files up; the two v0.1.21 lanes joined at AP10)",
       len(tool.WHAT_CAN_BE_READ) == 8 and len(tool.WHAT_VIEWS_CAN_BE_READ) == 4 and len(tool.WHAT_LISTINGS_CAN_BE_READ) == 3 and len(tool.WHAT_NOTES_CAN_BE_READ) == 2
-      and len(tool.WHAT_RETURNS_CAN_BE_READ) == 3 and len(tool.WHAT_ADS_CAN_BE_READ) == 7 and len(tool.WHAT_RECORDS_CAN_BE_READ) == 4
+      and len(tool.WHAT_RETURNS_CAN_BE_READ) == 3 and len(tool.WHAT_ADS_CAN_BE_READ) == 7 and len(tool.WHAT_RECORDS_CAN_BE_READ) == 5
       and len(tool.WHAT_IS_FETCHED_AND_NOT_READ_YET) == 3
-      and len(reports.REPORTS) == 34)
+      and len(reports.REPORTS) == 35)
 check("Amazon's referral fee preview is read now, as notes on the listing record, and no longer says it waits; its listings file is read",
       "az_fee_preview" not in tool.WHAT_IS_FETCHED_AND_NOT_READ_YET and "az_fee_preview" in {o.report_id for o in tool.WHAT_NOTES_CAN_BE_READ}
       and "az_listings" not in tool.WHAT_IS_FETCHED_AND_NOT_READ_YET)
