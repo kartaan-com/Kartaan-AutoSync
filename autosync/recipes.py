@@ -486,8 +486,12 @@ def _amazon_inventory_report(report_name: str, ready_in_minutes: int) -> Recipe:
     taken for today's -- that is the repo's rule for every named row. **THE DATE FORMAT AMAZON DRAWS IN THE ROW HAS NOT BEEN SEEN:** `HOW_AMAZON_WRITES_A_DAY`
     holds the unambiguous written forms and the first live walk must confirm one of them matches; if none does, nothing is pressed and the failure says so.
     """
-    request = Find(BY_THE_BUTTON_BESIDE, report_name, also_saying="REQUEST REPORT",  # matched without regard to capitals, as Flipkart's is
-                   called=f"the Request Report control beside {report_name}")
+    # **CORRECTED AFTER THE PAGE WAS LOOKED AT (N018, 26 Oct 2026, his Chrome): IT IS NOT A REQUEST BUTTON BESIDE EACH REPORT'S NAME.** A `Select Report Type` dropdown (a `kat-dropdown` whose options sit in an
+    # open shadow root, which the driver now walks into) is opened, the report's own words are pressed, and only then does ONE `Request Report` button appear below it. The rows below the dropdown read
+    # `All Listings Report / 25 October 2026 at 10:31 pm / <batch> / Done / Download`. **NOT YET RUN LIVE.**
+    chooser = Find(BY_PRESSABLE_TEXT, "Select Report Type", called="the Select Report Type dropdown")
+    choice = Find(BY_PRESSABLE_TEXT, report_name, called=f"the {report_name} choice in the report type list")
+    request = Find(BY_PRESSABLE_TEXT, "Request Report", called="the Request Report button")
     finished = Find(BY_PRESSABLE_TEXT, "Download", near="{day_in_words}", also_saying=report_name,
                     day_in_words_is=AMAZON_WRITES_IT, day_in_words_of=THE_DAY_IT_WAS_MADE,
                     called=f"the Download button on the Done {report_name} row (a Cancelled or In Progress row has none)")
@@ -495,7 +499,9 @@ def _amazon_inventory_report(report_name: str, ready_in_minutes: int) -> Recipe:
         ready_in_minutes=ready_in_minutes,
         to_ask=(
             Step(GO, address=AMAZON_INVENTORY_REPORTS, patience=60, why=f"opening Inventory Reports to ask for {report_name}"),
-            Step(WAIT_FOR, find=request, patience=90, why="waiting for the Inventory Reports page to draw its Request Report control"),
+            Step(WAIT_FOR, find=chooser, patience=90, why="waiting for the Inventory Reports page to draw its report type dropdown"),
+            Step(CLICK, find=chooser, why="opening the report types"),
+            Step(CLICK, find=choice, why=f"choosing {report_name}"),
             Step(CLICK, find=request, why=f"asking Amazon to build {report_name}"),
         ),
         to_take=(

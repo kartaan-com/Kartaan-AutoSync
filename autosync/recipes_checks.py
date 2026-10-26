@@ -231,8 +231,8 @@ SHAPES = {
                     (pages.GO, pages.WAIT_FOR, pages.CLICK, pages.WAIT_FOR, pages.TAKE_FILE)),
     # **AMAZON'S TWO ARE ONE SHAPE (lane 1 job 8):** open Inventory Reports, wait for the Request Report control on the report's row, press it; later open it
     # again, wait for the Done row's Download, take it. No range, no day: both are snapshots.
-    "az_listings": ((pages.GO, pages.WAIT_FOR, pages.CLICK), (pages.GO, pages.WAIT_FOR, pages.TAKE_FILE)),
-    "az_fee_preview": ((pages.GO, pages.WAIT_FOR, pages.CLICK), (pages.GO, pages.WAIT_FOR, pages.TAKE_FILE)),
+    "az_listings": ((pages.GO, pages.WAIT_FOR, pages.CLICK, pages.CLICK, pages.CLICK), (pages.GO, pages.WAIT_FOR, pages.TAKE_FILE)),
+    "az_fee_preview": ((pages.GO, pages.WAIT_FOR, pages.CLICK, pages.CLICK, pages.CLICK), (pages.GO, pages.WAIT_FOR, pages.TAKE_FILE)),
     # **AMAZON RETURNS BY THE BROWSER (N018, seen live 26 Oct 2026):** open the returns report page, wait for its Request button, press it (the page opens on All Returns
     # and last day); later open it again, wait for today's row's Download, take it.
     "az_returns": ((pages.GO, pages.WAIT_FOR, pages.CLICK), (pages.GO, pages.WAIT_FOR, pages.TAKE_FILE)),
@@ -693,14 +693,18 @@ for az_id, az_name, az_minutes in (("az_listings", "All Listings Report", 30), (
     ask = two.to_ask if two else ()
     take = two.to_take if two else ()
     check(f"{az_id} is a two-phase walk: ask, then come back for it, with the minutes Amazon says on the log",
-          two is not None and two.two_phase and len(ask) == 3 and len(take) == 3 and two.ready_in_minutes == az_minutes)
+          two is not None and two.two_phase and len(ask) == 5 and len(take) == 3 and two.ready_in_minutes == az_minutes)
     check(f"{az_id} opens Inventory Reports (Products > Product reports) for both phases, and the address carries nothing of the seller's own",
           bool(ask) and bool(take) and ask[0].do == pages.GO and take[0].do == pages.GO
           and ask[0].address == take[0].address == "https://sellercentral.amazon.in/listing/reports"
-          and answered(lambda: len(tool.steps_for(az_id, "")) == 3))
-    check(f"{az_id} presses only the Request Report button beside the words {az_name}, never another report's button",
-          len(ask) == 3 and ask[2].do == pages.CLICK and ask[2].find.how == pages.BY_THE_BUTTON_BESIDE and ask[2].find.what == az_name
-          and ask[2].find.also_saying == "REQUEST REPORT" and ask[2].find.near == "" and ask[1].do == pages.WAIT_FOR and ask[1].find == ask[2].find)
+          and answered(lambda: len(tool.steps_for(az_id, "")) == 5))
+    # **THE LIVE PAGE (seen 26 Oct 2026, N018) IS NOT "A REQUEST BUTTON BESIDE EACH REPORT'S NAME":** a `Select Report Type` dropdown (a `kat-dropdown`, its options inside an open shadow root) is
+    # opened and the report's own words pressed, and only then does a `Request Report` button appear below it.
+    check(f"{az_id} opens the report type dropdown, presses the words {az_name}, then the one Request Report button -- never another report's button",
+          len(ask) == 5 and [s.do for s in ask[1:]] == [pages.WAIT_FOR, pages.CLICK, pages.CLICK, pages.CLICK]
+          and ask[2].find.what == "Select Report Type" and ask[1].find == ask[2].find
+          and ask[3].find.what == az_name and ask[3].find.how == pages.BY_PRESSABLE_TEXT
+          and ask[4].find.what == "Request Report" and ask[4].find.how == pages.BY_PRESSABLE_TEXT and ask[4].find.near == "")
     check(f"{az_id} takes only the Download button of the {az_name} row requested on the run's own day, so an old finished row is never taken for today's "
           "and a Cancelled or In Progress row, which has no Download button, is never pressed; the failure names Cancelled",
           len(take) == 3 and take[1].do == pages.WAIT_FOR and take[2].do == pages.TAKE_FILE and take[1].find == take[2].find
@@ -1344,12 +1348,12 @@ check("every one of them is pressable, a thing beside some words, or that one me
                                      tool.BY_THE_CONTROL_BESIDE, tool.BY_THE_BUTTON_BESIDE,
                                      tool.BY_TEXT)
                            for f in CLICKED)))
-check("and the button-beside way is asked for on the Reports Centre two and Amazon's two request menus (lane 1 job 8), nowhere else",
+check("and the button-beside way is asked for on the Reports Centre two and nowhere else (Amazon's two moved to a dropdown that Amazon's live page really has, N018)",
       answered(lambda: sorted({r for r in tool.every_recipe()
                                for one in (tool.recipe(r).to_ask + tool.recipe(r).to_take)
                                if one.find is not None
                                and one.find.how == tool.BY_THE_BUTTON_BESIDE})
-               == ["az_fee_preview", "az_listings", "fk_orders", "fk_payments"]))
+               == ["fk_orders", "fk_payments"]))
 # **AND IT SAYS WHAT ELSE THAT ROW SAYS, WHICH IS THE WHOLE OF WHY IT FINDS ONE
 # THING.** `Orders` is a leaf in the dialog's row AND a leaf in the list of
 # reports already requested behind it; both walk up to a button. Without this it

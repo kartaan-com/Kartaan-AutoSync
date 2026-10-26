@@ -2662,7 +2662,29 @@ for (const [start, end, from, expectedMonth] of [
     (await shutDoor.try_signing_in()) === false);
 }
 
-const EXPECTED = 325;
+/* --------------------------------------------- N018: a component's OPEN shadow root is part of the page
+ * **AMAZON'S PRODUCT REPORTS PAGE DRAWS ITS REPORT-TYPE LIST INSIDE A `kat-dropdown`'S OPEN SHADOW ROOT** (seen 26 Oct 2026: the options -- All Listings Report, Referral Fee Preview Report --
+ * are in `shadowRoot`, none in the light tree). A search that only walks `children` cannot see one of them, so no recipe could ever choose a report type there. */
+{
+  const page = aPage();
+  const door = doorOn();
+  const pressed = [];
+  const dropdown = thing('kat-dropdown', '', { box: BIG });
+  const option = thing('div', 'All Listings Report', { box: BIG });
+  option.style.cursor = 'pointer';
+  option.click = () => pressed.push('the option in the shadow root');
+  /* **A REAL SHADOW ROOT IS A FRAGMENT WITH CHILDREN AND NO BOX**, so it is a plain object here, not a node a size could be asked of. */
+  dropdown.shadowRoot = { children: [option] };
+  page.body.append(dropdown);
+  check('a word that sits only inside a component\'s open shadow root is found',
+    (await door.find(BY_PRESSABLE_TEXT, 'All Listings Report')) === 1);
+  door.click(BY_PRESSABLE_TEXT, 'All Listings Report');
+  check('and it is that option that is pressed',
+    pressed.length === 1 && pressed[0] === 'the option in the shadow root');
+  check('while a word that is nowhere on the page is still nowhere', (await door.find(BY_PRESSABLE_TEXT, 'Cancelled Listings Report', true, 0)) === 0);
+}
+
+const EXPECTED = 325 + 3;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

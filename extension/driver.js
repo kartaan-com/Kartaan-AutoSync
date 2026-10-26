@@ -274,6 +274,10 @@ function thePage() {
 function everything(node, found = []) {
   found.push(node);
   for (const child of node.children || []) everything(child, found);
+  /* **A COMPONENT'S OPEN SHADOW ROOT IS PART OF THE PAGE (N018, 26 Oct 2026).** Amazon's Product reports page draws its report-type list inside a `kat-dropdown`'s open shadow root, and
+   * a search that only walks `children` never sees one option of it. Only an OPEN root has a `shadowRoot` to walk; a closed one answers nothing, as before. */
+  /* **ITS CHILDREN, NOT THE ROOT**: a shadow root is a document fragment with no box of its own, so listing it as a node would crash the first question asked of its size. */
+  if (node.shadowRoot) for (const child of node.shadowRoot.children || []) everything(child, found);
   return found;
 }
 
