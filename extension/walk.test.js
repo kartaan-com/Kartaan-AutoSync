@@ -535,7 +535,10 @@ function aPortal(how = {}) {
   };
 
   /* **WHAT THE SELLER'S DRIVE ALREADY HOLDS FOR A REPORT, by file name (N018)**: `how.held`, or nothing; `how.heldNothing` leaves the walk with no way of asking. */
-  it.whatIsHeld = how.noWayOfAsking ? undefined : async () => how.held || [];
+  it.whatIsHeld = how.noWayOfAsking ? undefined : async () => {
+    if (how.heldRefuses) throw new Error(how.heldRefuses);
+    return how.held || [];
+  };
   it.putTheFile = async ({ reportId, fileName, body }) => {
     if (how.driveRefuses) throw new Error(how.driveRefuses);
     it.putAway.push({
@@ -1140,6 +1143,8 @@ check('asked to step back by nothing at all, it answers the day itself',
   const gotTorn = await aWalk(torn, onlyIfNotThere)('me_orders', DAY);
   check('A LOOK THAT FAILS IS A FAILURE, never "not there": nothing is created and the walk says why',
     gotTorn.state === FAILED && !torn.clicked.includes('Create it'));
+  check('and what it says is the step, the thing looked for, what went wrong, and that nothing was done rather than risk doing it twice; with the page the walk saw',
+    gotTorn.say.includes('looking for Saved row failed (the page was torn down while looking)') && gotTorn.say.includes('rather than risk doing it twice') && gotTorn.pageWas.length > 0);
   /* **AND THE FIRST LOOK, on the list a step has just opened, WAITS FOR THE LIST** rather than taking three seconds of an empty page for a missing report. */
   const opening = {
     recipes: { me_orders: { readyInMinutes: 0, toAsk: [], toTake: [
@@ -1154,6 +1159,11 @@ check('asked to step back by nothing at all, it answers the day itself',
     waiting.patienceTold.some(([kind, seconds]) => kind === 'find' && seconds === 20));
   const refusedStep = whyStepIsRefused(step({ do: 'click', find: find('x'), onlyIfAbsent: { how: 'role' } }));
   check('a condition with nothing to look for is refused in words, a recipe fault', typeof refusedStep === 'string' && refusedStep.includes('only when'));
+  check('and so is one that names what to look for but not how',
+    String(whyStepIsRefused(step({ do: 'click', find: find('x'), onlyIfAbsent: { what: 'x' } }))).includes('only when'));
+  check('while one that says both is let through', whyStepIsRefused(step({ do: 'click', find: find('x'), onlyIfAbsent: { how: 'role', what: 'x' } })) === null);
+  check('EVERY STEP THAT LOOKS FOR SOMETHING IS REFUSED WITHOUT SAYING WHAT, one by one',
+    ['click', 'wait-for', 'read-number', 'type-in', 'take-every-new'].every((kind) => String(whyStepIsRefused(step({ do: kind }))).includes('has to say what to look for')));
 }
 
 /* --------------------------- N018: a step that reads a PERCENTAGE says so to the door; one that does not says nothing */
@@ -1244,6 +1254,38 @@ const odd = aPortal({ rows: ['Oct 13 to Oct 20 Download Flat File V2', ROW_20], 
   const gotUnseen = await aWalk(unseen, statements)('me_orders', DAY);
   check('and the walk WAITS for a control first: none turning up in the step\'s patience is a failure before any row is read',
     gotUnseen.state === FAILED && unseen.putAway.length === 0);
+  /* ---- the proving run's survivors: what each answer SAYS and CARRIES, not only its state. A seller reads these words, and what the page really showed travels with a failure. */
+  check('the failure for no control turning up says which control and how long it waited, and carries the page',
+    gotUnseen.say.includes('no Download Flat File V2 turned up on the page in 20 seconds') && gotUnseen.pageWas.length > 0);
+  check('and the failure for no row at all carries the page too', gotNoRows.pageWas.length > 0);
+  check('and the failure for a walk with no way of asking says why: a second copy of each statement would be put in the Drive', gotBlind.say.includes('second copy of each'));
+  check('and a recipe that says nothing of its own for "none new" is answered in the walk\'s own words, not an empty one',
+    gotNone.say === 'No closed settlement statement is new, so there is nothing to fetch.'
+    && (await aWalk(aPortal({ rows: [ROW_20], held: ['meesho_me_orders_2026-10-20.csv'] }), {
+      ...statements, recipes: { me_orders: { ...statements.recipes.me_orders, toTake: statements.recipes.me_orders.toTake.map((one) => (one.do === 'take-every-new' ? { ...one, noRowIsNothingToFetch: undefined } : one)) } },
+    })('me_orders', DAY)).say === 'Every closed statement the page shows is already held, so there is nothing to fetch.');
+  const torn = aPortal({ rows: [ROW_20], held: [], findThrowsFor: 'Download Flat File V2' });
+  const gotTorn = await aWalk(torn, statements)('me_orders', DAY);
+  check('a page that fails while it is looked at fails the step in its own words, with the page it showed',
+    gotTorn.state === FAILED && gotTorn.say.startsWith('taking every closed statement the Drive does not hold: ') && gotTorn.say.includes('torn down while looking') && gotTorn.pageWas.length > 0 && torn.putAway.length === 0);
+  const noDrive = aPortal({ rows: [ROW_20], heldRefuses: 'the Drive said no' });
+  const gotNoDrive = await aWalk(noDrive, statements)('me_orders', DAY);
+  check('a Drive that cannot be looked at fails in words, and nothing is taken',
+    gotNoDrive.state === FAILED && gotNoDrive.say.includes('could not be looked at') && gotNoDrive.say.includes('the Drive said no') && noDrive.tookFile === 0);
+  const unnamed = await aWalk(aPortal({ rows: [ROW_20], held: [] }), { ...statements, fileNames: {} })('me_orders', DAY);
+  check('a recipe file that does not say what the report\'s file is called fails in words, and nothing is put anywhere',
+    unnamed.state === FAILED && unnamed.say.includes('saying what me_orders\'s file is called'));
+  const signIn = aPortal({ rows: [ROW_20, ROW_13], held: [], signInPage: true });
+  const gotSignIn = await aWalk(signIn, statements)('me_orders', DAY);
+  check('a statement that comes back as a sign-in page is the failure the take reports, and nothing is put away after it',
+    gotSignIn.state === FAILED && signIn.putAway.length === 0 && signIn.tookFile === 1);
+  const full = aPortal({ rows: [ROW_20, ROW_13], held: [], driveRefuses: 'the seller has run out of Drive' });
+  const gotFull = await aWalk(full, statements)('me_orders', DAY);
+  check('a statement the Drive refused fails naming the file it was for and what the Drive said',
+    gotFull.state === FAILED && gotFull.fileName === 'meesho_me_orders_2026-10-20.csv'
+    && gotFull.say.startsWith('meesho_me_orders_2026-10-20.csv could not be put in the seller\'s Drive: ') && gotFull.say.includes('run out of Drive'));
+  check('and what was landed names the first file and carries the bytes of all of them',
+    gotTwo.fileName === 'meesho_me_orders_2026-10-20.csv' && gotTwo.size === 10);
 }
 
 /* --------------------------- the day that is read off a page, not downloaded */
@@ -3010,7 +3052,7 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
     === '05 SEPT 2026 / 2026-09-05|SEPT/05 / 2026-09-05');
 }
 
-const EXPECTED = 349 + 9 + 3 + 1 + 1 + 3 + 8 + 2 + 4 + 2 + 2 + 1;
+const EXPECTED = 349 + 9 + 3 + 1 + 1 + 3 + 8 + 2 + 4 + 2 + 2 + 1 + 14;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

@@ -187,9 +187,37 @@ _held_mq = {"history": [{"day": "2026-10-25", "percent": 20.0}]}
 check("a product's percentage goes into its short history the way a listing's stars do, one point a day",
       [p.get("percent") for p in quality.merge(_mq_p, _held_mq)["history"]] == [20.0, 19.7])
 
+# ---------------------------------------------------------------- PROVING SURVIVORS (AJ2): what a Meesho quality line may and may not be
+_STORE = '"store","","Quality score","","Good","15.0","307","46 of 307 ratings were 1 or 2 stars"'
+_whole = answered(lambda: quality.read_meesho_quality("me_quality", "meesho", mq_file(_STORE.replace('"307"', '"307.5"'), '"feedback","","Color","","","","2.5",""',
+                                                                                    '"tab","Fixed","","","","","1.5",""'), "2026-10-26")) or ({}, ("no answer",))
+check("a count that is not a whole number (the store's total, a feedback reason's products, a tab's count) is refused by name and never rounded down",
+      "meesho__store" not in _whole[0] and len(_whole[1]) == 4 and sum("whole count" in x for x in _whole[1]) == 3)
+_blanks = answered(lambda: quality.read_meesho_quality("me_quality", "meesho", mq_file(
+    _STORE, '"feedback","","","","","","3",""', '"feedback","","Color is not good","","","","",""', '"tab","Other Tab","","","","","5",""', '"tab","Fixed","","","","","",""'),
+    "2026-10-26")) or ({}, ("no answer",))
+check("a feedback line needs both a reason and a count, and a tab line both a tab this knows and a count: a half-said line is skipped, not recorded",
+      _blanks[1] == () and _blanks[0]["meesho__store"]["topFeedback"] == [] and "fixed" not in _blanks[0]["meesho__store"] and "other" not in str(_blanks[0]["meesho__store"]).lower())
+_halves = [answered(lambda s=s: quality.read_meesho_quality("me_quality", "meesho", mq_file(s), "2026-10-26")) or ({}, ())
+           for s in (_STORE.replace('"15.0"', '""'), _STORE.replace('"307","46', '"","46'), _STORE.replace("46 of 307 ratings were 1 or 2 stars", "no ratings"))]
+check("a store line missing its percentage, its total or its low ratings is refused by name (and the file then says it has no store), never half-recorded",
+      all(not r[0] and len(r[1]) == 2 and "store line has no readable" in r[1][0] for r in _halves))
+_nameless = answered(lambda: quality.read_meesho_quality("me_quality", "meesho", mq_file(
+    _STORE, '"product","Fixed","Z","DJ-8 / Bad","Green","3","0",""', '"product","Fixed","","","Green","3","0",""'), "2026-10-26")) or ({}, ())
+check("a product whose Style ID cannot name a record is refused and no record is made under that name", set(_nameless[0]) == {"meesho__store"} and len(_nameless[1]) == 2)
+_sparse = answered(lambda: quality.read_meesho_quality("me_quality", "meesho", mq_file(
+    _STORE, '"product","Fixed","Named","S-NAMED","","","0",""', '"product","Fixed","","S-BAND","Green","","0",""', '"product","Fixed","","S-PCT","","4.5","0",""'),
+    "2026-10-26")) or ({}, ())
+check("a product line says only what it has: a name without a band has no band, a band without a name or a percentage has neither of those, a percentage without a band has its percentage",
+      [{k: v for k, v in _sparse[0].get(f"meesho__{s}", {"missing": 1}).items() if k in ("product", "band", "percent", "missing")} for s in ("S-NAMED", "S-BAND", "S-PCT")]
+      == [{"product": "Named"}, {"band": "Green"}, {"percent": 4.5}])
+check("a product's fingerprint is the fingerprint of what it says, without the day it was read",
+      _mq_p.get("digest") == records.the_digest(_mq_pwant, leave_out=quality.NOT_IN_THE_DIGEST)
+      == records.the_digest(dict(_mq_pwant, fileDay="2026-10-27"), leave_out=quality.NOT_IN_THE_DIGEST))
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 14 + 6 + 1 + 9
+EXPECTED = 14 + 6 + 1 + 9 + 6
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

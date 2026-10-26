@@ -116,9 +116,15 @@ _PUBLIC_TEXT = " ".join((_HERE / one).read_text(encoding="utf-8") for one in ("s
 check("no seller's own account-health figures, standing or brand name in the sources and checks N018 added",
       not any(one in _PUBLIC_TEXT for one in ("rating 187", "1.4% against", "At Risk on Late", "RUMEE,")))
 
+# **PROVING SURVIVORS (AJ2): a health row with a day that is not a day makes no record, and a rating is a whole number.**
+_hrows, _hrows_said = answered(lambda: shopdays.read_health_days("az_health", "amazon", file_of(
+    HEALTH_HEAD + "\nsoon,187,0,1.4,0,100\n2026-10-27,187.5,0,1.4,0,100\n2026-10-28,187,0,1.4,0,100\n"), "2026-10-28")) or ({}, ())
+check("a health row whose day is not a day, or whose rating is not a whole number, is refused by line and makes no record: only the good day is written",
+      set(_hrows) == {"amazon__2026-10-28"} and len(_hrows_said) == 2 and _hrows_said[0].startswith("line 2") and "whole" in _hrows_said[1])
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 7 + 4 + 5 + 3 + 1
+EXPECTED = 7 + 4 + 5 + 3 + 1 + 1
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

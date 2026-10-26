@@ -536,9 +536,21 @@ check("A PAID CLAIM NEVER LOSES ITS RUPEES: a later file that gives no amount ke
 check("Amazon's SAFE-T claims are a report that is written as records, like Meesho's claims",
       "az_claims" in record_reports.RECORD_REPORTS and record_reports.RECORD_REPORTS["az_claims"].kind is claims.KIND)
 
+# **PROVING SURVIVORS (AJ2): what a refused SAFE-T row leaves behind, and which states pay.**
+_az_none, _ = answered(lambda: claims.read_safet_records("az_claims", "amazon", az_safet(
+    az_claim("", "10000-1", "2026-10-05", "x", "Granted", "1"), az_claim("403-9", "a/b", "2026-10-05", "x", "Granted", "1")), "2026-10-26")) or ({}, ())
+check("a SAFE-T row refused for no order or an id that cannot name a record leaves no record behind", _az_none == {})
+_az_pay, _az_pay_not = answered(lambda: claims.read_safet_records("az_claims", "amazon", az_safet(
+    az_claim("403-4", "10000-4", "2026-10-05", "Item not received", "Denied", "5.00"), az_claim("403-5", "10000-5", "2026-10-05", "", "Granted", "7.25"),
+    az_claim("403-6", "10000-6", "2026-10-05", "x", "Granted", "abc")), "2026-10-26")) or ({}, ())
+check("only a Granted claim recovers rupees, whatever the others carry in the amount column, and a Granted one with no filing reason still does",
+      "recovered" not in _az_pay.get("amazon__10000-4", {"recovered": 1}) and _az_pay.get("amazon__10000-5", {}).get("recovered") == "7.25")
+check("a Granted claim whose amount is not a figure is refused by name, with the amount column and the reason, and no record is made for it",
+      "amazon__10000-6" not in _az_pay and len(_az_pay_not) == 1 and "Total Reimbursement amount" in _az_pay_not[0] and "claim 10000-6" in _az_pay_not[0])
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 29 + 2 + 9 + 2 + 17 + 6 + 1 + 8
+EXPECTED = 29 + 2 + 9 + 2 + 17 + 6 + 1 + 8 + 3
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

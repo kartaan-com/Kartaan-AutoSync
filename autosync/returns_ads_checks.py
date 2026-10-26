@@ -754,9 +754,18 @@ check("a Date cell that is not a day is refused by name and nothing is filed for
 _az_wrong = _caught(lambda: ads.read_ads("az_ads", table.read(b"A,B\n1,2\n"), "2026-10-26", None))
 check("a file without the Amazon ads columns is refused in words naming what it has", _az_wrong is not None and "Campaign ID" in str(_az_wrong).title().replace("Id", "ID"))
 
+# **PROVING SURVIVORS (AJ2): a file with no day column, and the two ways a cell is read as an id or a day.**
+_no_day = _caught(lambda: ads.read_ads("fk_ads_daily", table.read(csv(*TITLES, "Campaign ID,Campaign Name,Ad Spend", "C1,N,1"), header_row=3), "2026-10-11", "2026-10-11"))
+check("a daily ads file with no Date column is refused in words, not by an index error", isinstance(_no_day, table.CannotRead) and "the day" in str(_no_day))
+check("a cell wrapped as =\"id\" is unwrapped, and a cell that only starts or only ends like one is left exactly as it is",
+      ads._unwrapped('="123"') == "123" and ads._unwrapped('="123') == '="123' and ads._unwrapped('abc"') == 'abc"' and ads._unwrapped('="') == '="')
+check("a range of two days with one that is not a day, or of three days, is no day at all",
+      ads._the_day_of_a_range("Oct 25, 2026 - nonsense", [], 1) is None and ads._the_day_of_a_range("Oct 25, 2026 - Oct 26, 2026 - Oct 27, 2026", [], 1) is None
+      and ads._the_day_of_a_range("Oct 25, 2026 - Oct 25, 2026", [], 1) == "2026-10-25")
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 107 + 3 + 2 + 3 + 3 + 7 + 1 + 6 + 2 + 2
+EXPECTED = 107 + 3 + 2 + 3 + 3 + 7 + 1 + 6 + 2 + 2 + 3
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

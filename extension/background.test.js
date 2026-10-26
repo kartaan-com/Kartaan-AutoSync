@@ -705,6 +705,7 @@ const LATER = '2026-08-27T16:04:00.000Z';
   driveRefuses = 'the seller has run out of Drive';
   const heldRefused = await browser.aPageAsked({ do: 'what-is-held', reportId: 'me_orders' });
   check('and a Drive that refuses to be looked at comes back as words too', Boolean(heldRefused) && Boolean(heldRefused.wrong) && heldRefused.wrong.includes('run out of Drive'));
+  check('and it is the Drive\'s own words, not the error dressed up with its class name', heldRefused.wrong === driveRefuses);
   /* **A NAME THIS PRODUCT REALLY WRITES.** It used to be `x.csv`, which reached
    * Drive only because nothing on this boundary asked anything of a name -- so
    * this check would go on passing on a name the run could never read a day out
@@ -887,6 +888,9 @@ const LATER = '2026-08-27T16:04:00.000Z';
   });
   check('a background with no way to reach the Drive says so rather than saying nothing',
     String(noDrive && noDrive.wrong).includes('no way of putting a file in the Drive'));
+  const noLooking = await broken.aPageAsked({ do: 'what-is-held', reportId: 'me_orders' });
+  check('and one wired with no way to look at what the Drive holds says so too, never an empty list that reads as nothing held',
+    Boolean(noLooking) && String(noLooking.wrong).includes('no way of looking at what the Drive holds') && noLooking.names === undefined);
 }
 
 /* ------------- the ERP's page asks whether the extension is installed (A79, E82's job 16) */
@@ -2275,7 +2279,7 @@ check('the page relay is OFF in what ships, so no script on a portal page can dr
     && theRelayAllows(false, { do: 'run-now' }) === false);
 }
 
-const EXPECTED = 262 + 13 + 1 + 4;
+const EXPECTED = 262 + 13 + 1 + 4 + 2;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

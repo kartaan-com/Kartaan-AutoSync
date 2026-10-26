@@ -577,8 +577,22 @@ check("me_pricing is read now and no longer says it is not",
       "me_pricing" not in reading.WHAT_IS_FETCHED_AND_NOT_READ_YET and "me_pricing" in {o.report_id for o in reading.WHAT_NOTES_CAN_BE_READ}
       and reading.why_a_report_has_no_decision() == "")
 
+# **PROVING SURVIVORS (AJ2): which way of matching a pricing row is tried, and what a listing that has no SKU or catalogue id is not.**
+unfound = answered(lambda: tool.read_pricing(a_price_file(
+    a_price_row("Nobody Sells This", "404", "NOT-A-SKU", RUPEE_SIGN + "300", RUPEE_SIGN + "280"),
+    a_price_row("Silver Ring", "", "NOT-A-SKU", RUPEE_SIGN + "300", RUPEE_SIGN + "280"),
+    a_price_row("Silver Ring", "404", "", RUPEE_SIGN + "300", RUPEE_SIGN + "280"),
+), "f", SHOP))
+check("A ROW WHOSE CATALOGUE ID NOBODY HAS, OR WHOSE SKU NOBODY HAS BUT WHOSE TITLE IS A LISTING'S, IS NOT MATCHED: the title is tried only when the row names neither a SKU nor a catalogue",
+      unfound is not None and not unfound.notes and len(unfound.not_read) == 3 and all("no listing" in x for x in unfound.not_read))
+SHOP_BARE = {"meesho::8001::1": {"platform": "meesho", "platformId": "8001::1", "sku": None, "catalogId": None, "productName": "Bare Ring"}}
+bare = answered(lambda: tool.read_pricing(a_price_file(
+    a_price_row("x", "", "None", RUPEE_SIGN + "300", RUPEE_SIGN + "280"), a_price_row("x", "None", "", RUPEE_SIGN + "300", RUPEE_SIGN + "280")), "f", SHOP_BARE))
+check("a listing with no SKU and no catalogue id is not found by a row that says the word None",
+      bare is not None and not bare.notes and len(bare.not_read) == 2)
+
 check("nothing above ended by throwing rather than by answering -- " + str(THREW), not THREW)
-EXPECTED = 49 + 7 + 5 + 4 + 1 + 25
+EXPECTED = 49 + 7 + 5 + 4 + 1 + 25 + 2
 check(f"checks went missing -- {ran + 1} ran, {EXPECTED} expected", ran + 1 == EXPECTED)
 
 if failures:

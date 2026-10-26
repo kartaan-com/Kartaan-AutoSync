@@ -28,6 +28,48 @@
       "line": "continue",
       "occurrence": 9,
       "why": "The `continue` after an unreadable Amazon settlement amount only saves work: without it the line falls through with no amount, its charge is not computed (it needs an amount), it is not counted as a no-order line (that needs an amount too), and _Lines.put returns at once for a line with no settlement and no charge. The unreadable text is already set aside by name above. No sale, charge, key or aside comes out different."
+    },
+    {
+      "file": "extension/driver.js",
+      "operator": "logic",
+      "line": "if (!outer || !inner) return false;",
+      "occurrence": 0,
+      "why": "`holds` returns false for a missing outer or inner node whether the guard says `||` or `&&`: with outer missing the climb from inner ends at the top without ever meeting it, and with inner missing the loop never starts, so both give false; no state differs."
+    },
+    {
+      "file": "extension/driver.js",
+      "operator": "boolean",
+      "line": "if (!outer || !inner) return false;",
+      "occurrence": 0,
+      "why": "The guard only ever sees a missing node if a caller passes one, and none can: every caller (driver.js whatMatches, innermostOf, the row climbs, the month-heading climb) passes a node taken from a list of real nodes or an `up` that its own loop condition has just required to be present. Returning true instead of false for a missing node is therefore never reached."
+    },
+    {
+      "file": "extension/driver.js",
+      "operator": "line",
+      "line": "if (!outer || !inner) return false;",
+      "occurrence": 0,
+      "why": "Without the guard line a missing outer node makes the climb from inner run to the top of the page and give false, and a missing inner node skips the loop and gives false, which is exactly what the line returned; and no caller passes a missing node at all."
+    },
+    {
+      "file": "extension/driver.js",
+      "operator": "line",
+      "line": "return false;",
+      "occurrence": 0,
+      "why": "This is the last line of `holds` after the loop that returns true on a meeting; without it the function answers undefined instead of false, and every caller only asks whether the answer is truthy (inside `some` and `!`), so nothing written, stored or said changes."
+    },
+    {
+      "file": "extension/tables.js",
+      "operator": "logic",
+      "line": "if (made.getUTCFullYear() !== y || made.getUTCMonth() !== m - 1 || made.getUTCDate() !== d) return null;",
+      "occurrence": 1,
+      "why": "`new Date(Date.UTC(y, m - 1, d))` that does not give the same day back always moves the year (a year below 100, or a month past twelve or below one) or moves the month and the day together (a day past the month's end or below one); a change of the month alone or of the day alone cannot happen. So `month !== m - 1 && day !== d` is true whenever `month !== m - 1 || day !== d` is, and the year test in front of it answers first for the rest."
+    },
+    {
+      "file": "extension/tables.js",
+      "operator": "logic",
+      "line": "if (from < 0 || to < 0 || to < from) return [];",
+      "occurrence": 1,
+      "why": "When the Quality Recommendations heading is missing (`to < 0`) and the feedback heading is there, `to < from` is true as well, and when the feedback heading is later than the recommendations the section sliced between them is empty whether or not this guard returns first; so `from < 0 || (to < 0 && to < from)` and the original give an empty list for every page."
     }
   ],
   "cannot_load": {

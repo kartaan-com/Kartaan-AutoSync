@@ -156,6 +156,11 @@ check("a step done only when something is NOT on the page has to say what to loo
               tool.Step(tool.CLICK, find=tool.Find(tool.BY_TEXT, "Create it"), only_if_absent="Saved row", why="y")) is not None
           and tool.why_step_is_refused(
               tool.Step(tool.CLICK, find=tool.Find("telepathy", "Saved row"), only_if_absent=tool.Find("telepathy", "x"), why="y")) is not None))
+check("a step done only when something is NOT on the page is refused for a way of finding this door does not know, and for one that names nothing, on their own (AJ2)",
+      answered(lambda: tool.why_step_is_refused(
+          tool.Step(tool.CLICK, find=tool.Find(tool.BY_TEXT, "Create it"), only_if_absent=tool.Find("telepathy", "Saved row"), why="y")) is not None
+          and tool.why_step_is_refused(
+              tool.Step(tool.CLICK, find=tool.Find(tool.BY_TEXT, "Create it"), only_if_absent=tool.Find(tool.BY_TEXT, ""), why="y")) is not None))
 check("while typing the campaign, once per campaign, is fine",
       answered(lambda: tool.why_step_is_refused(
           tool.Step(tool.TYPE_IN, find=tool.Find(tool.BY_TEXT, "box"), words="{campaign}",
@@ -624,7 +629,7 @@ check("nor a failure once it has happened",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 126
+EXPECTED = 126 + 1
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

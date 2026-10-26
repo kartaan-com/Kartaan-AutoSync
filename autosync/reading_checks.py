@@ -1126,7 +1126,35 @@ check("a range file is recorded as read for every day it holds, not only its las
       and sorted(r.data_date.isoformat() for r in _was_range.reads if r.report_id == "fk_orders")
       == ["2026-09-29", "2026-09-30", "2026-10-01", "2026-10-02", "2026-10-03"])
 
-EXPECTED = 122 + 5 + 1 + 1
+# **PROVING SURVIVORS (AJ2): the seller's own listings for the pricing file come from the catalog file's reader, and a catalog that will not read says so in words.**
+_asked_how = []
+_catalog_in_folder = {"me_catalog": [whats_new.InTheFolder(which="c1", name="meesho_me_catalog_2026-10-20.xlsx", size=100)]}
+
+
+def _a_catalog_that_reads(how, one, body):
+    _asked_how.append(how.report_id)
+    return type("Said", (), {"records": {"meesho::1::1": {"sku": "A"}}})(), "2026-10-20"
+
+
+def _a_catalog_that_is_torn(how, one, body):
+    raise ValueError("the sheet is torn")
+
+
+_real_listings_reader = tool.a_listings_reading
+try:
+    tool.a_listings_reading = _a_catalog_that_reads
+    _shop_listings = answered(lambda: tool._the_shops_listings(_catalog_in_folder, lambda which: b"x"))
+    tool.a_listings_reading = _a_catalog_that_is_torn
+    _torn_catalog = refused(lambda: tool._the_shops_listings(_catalog_in_folder, lambda which: b"x"))
+finally:
+    tool.a_listings_reading = _real_listings_reader
+check("THE PRICING FILE IS MATCHED AGAINST THE LISTINGS THE me_catalog READER FINDS, and no other reader is asked",
+      _shop_listings == {"meesho::1::1": {"sku": "A"}} and _asked_how == ["me_catalog"])
+check("a catalog file that will not read stops the pricing file in words naming the file, what went wrong, and that the pricing waits",
+      _torn_catalog is not None and "meesho_me_catalog_2026-10-20.xlsx" in str(_torn_catalog) and "the sheet is torn" in str(_torn_catalog)
+      and "pricing" in str(_torn_catalog) and "read again" in str(_torn_catalog))
+
+EXPECTED = 122 + 5 + 1 + 1 + 2
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

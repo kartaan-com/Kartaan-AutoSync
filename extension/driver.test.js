@@ -2830,7 +2830,135 @@ for (const [start, end, from, expectedMonth] of [
   check('the call is one only the walk asks', ASKED_ONLY_BY_THE_WALK.includes('row_texts') && !THE_CALLS.includes('row_texts'));
 }
 
-const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1;
+/* --------------------------------------------- proving survivors closed: the figure readers look at LEAVES only, only PAINTED ones, and the status word never borrows a neighbour's
+ * **EACH CHECK BELOW IS WRITTEN AGAINST A DELIBERATE CHANGE NO EARLIER CHECK NOTICED** (the proving run on the AJ2 join): a reader that took a wrapper for a leaf, took a hidden leaf, stopped counting percentages, or
+ * threw where it should have answered nothing. */
+{
+  /* A FIGURE SPLIT ACROSS TWO LEAVES IS NOT ONE FIGURE: only a LEAF is read, never a wrapper whose words happen to add up to one. */
+  const page = aPage();
+  const door = doorOn();
+  const split = thing('div');
+  const wrapper = thing('span');
+  wrapper.append(thing('b', '1'), thing('b', '.4%'));
+  split.append(thing('a', 'Late Dispatch Rate'), wrapper);
+  page.body.append(split);
+  let said = '';
+  try { await door.read_number(BY_TEXT, 'Late Dispatch Rate', true, 0, [], '', 'percent'); } catch (wrong) { said = String(wrong.message); }
+  check('a percentage written across two leaves is not read off the wrapper around them', said.includes('no percentage'));
+  const splitStatus = aPage();
+  const card = thing('div');
+  const risk = thing('span');
+  risk.append(thing('b', 'At '), thing('b', 'Risk'));
+  card.append(thing('a', 'Late Dispatch Rate'), risk);
+  splitStatus.body.append(card);
+  check('and a status word written across two leaves is not read off the wrapper either: nothing is the answer',
+    (await door.read_number(BY_TEXT, 'Late Dispatch Rate', true, 0, [], '', 'status')) === '');
+}
+
+{
+  /* A LEAF DRAWN WITH NO SIZE IS NOT ON THE PAGE, whatever it says. */
+  const page = aPage();
+  const door = doorOn();
+  const card = thing('div');
+  card.append(thing('a', 'Late Dispatch Rate'), thing('span', '9%', { box: NOT_PAINTED }), thing('span', '1.4%'));
+  page.body.append(card);
+  check('a percentage kept in the page with no size is not the one read', (await door.read_number(BY_TEXT, 'Late Dispatch Rate', true, 0, [], '', 'percent')) === 1.4);
+  const other = aPage();
+  const statuses = thing('div');
+  statuses.append(thing('a', 'Late Dispatch Rate'), thing('span', '1.4%'), thing('span', 'At Risk', { box: NOT_PAINTED }), thing('span', 'Healthy'));
+  other.body.append(statuses);
+  check('and a status word kept in the page with no size is not counted, so the painted one is the answer',
+    (await door.read_number(BY_TEXT, 'Late Dispatch Rate', true, 0, [], '', 'status')) === 'Healthy');
+}
+
+{
+  /* ONE CARD'S WORD, NEVER ANOTHER'S: reaching above the card, where there are two percentages or two words, is nothing. */
+  const page = aPage();
+  const door = doorOn();
+  const both = thing('div');
+  const mine = thing('div');
+  mine.append(thing('a', 'Late Dispatch Rate'), thing('span', '1.4%'));
+  const theirs = thing('div');
+  theirs.append(thing('a', 'Valid Tracking Rate'), thing('span', '100%'), thing('span', 'Healthy'));
+  both.append(mine, theirs);
+  page.body.append(both);
+  check('a card with no word of its own is not given the neighbouring card\'s (two percentages above it, one word)',
+    (await door.read_number(BY_TEXT, 'Late Dispatch Rate', true, 0, [], '', 'status')) === '');
+  const crowded = aPage();
+  const one = thing('div');
+  one.append(thing('a', 'Late Dispatch Rate'), thing('span', '1.4%'), thing('span', 'At Risk'), thing('span', 'Healthy'));
+  crowded.body.append(one);
+  check('and two words under one percentage are nothing too: which of them is meant cannot be known',
+    (await door.read_number(BY_TEXT, 'Late Dispatch Rate', true, 0, [], '', 'status')) === '');
+}
+
+{
+  /* A CARD ALONE ON THE PAGE, WITH NO WORD WE KNOW, ANSWERS NOTHING AT EVERY LEVEL OF THE CLIMB AND STILL DOES NOT FAIL. */
+  const page = aPage();
+  const door = doorOn();
+  const lone = thing('div');
+  lone.append(thing('a', 'Order Defect Rate'), thing('span', '0%'), thing('span', 'something Amazon has not shown us'));
+  page.body.append(lone);
+  let thrown = '';
+  let got = null;
+  try { got = await door.read_number(BY_TEXT, 'Order Defect Rate', true, 0, [], '', 'status'); } catch (wrong) { thrown = String(wrong.message); }
+  check('the only card on the page with no known status word gives an empty answer, never a refusal', got === '' && thrown === '');
+}
+
+{
+  /* THE ROW CLIMB ENDS AT THE TOP OF THE PAGE: a control with nothing above it but the body is read, not climbed past. */
+  const page = aPage();
+  const door = doorOn();
+  const button = thing('button', 'Download Flat File V2', { box: BIG });
+  button.style.cursor = 'pointer';
+  page.body.append(button);
+  let thrown = '';
+  let rows = null;
+  try { rows = door.row_texts(BY_PRESSABLE_TEXT, 'Download Flat File V2', true, ''); } catch (wrong) { thrown = String(wrong.message); }
+  check('a control with nothing above it but the page itself still has its row read', thrown === '' && Array.isArray(rows) && rows.length === 1);
+}
+
+{
+  /* THE WORDS ARE MATCHED WHOLE UNLESS THE CALLER SAYS OTHERWISE, and a way nobody knows is refused, as everywhere else in this door. */
+  const page = aPage();
+  const door = doorOn();
+  const aRow = (name) => {
+    const row = thing('div', '', { box: BIG });
+    const button = thing('button', name, { box: BIG });
+    button.style.cursor = 'pointer';
+    row.append(thing('span', name, { box: BIG, className: '' }), button);
+    return row;
+  };
+  const table = thing('div', '', { box: BIG });
+  table.append(aRow('Download Flat File V2'), aRow('Download Flat File V2 archive'));
+  page.body.append(table);
+  check('a row asked for with no say on exactness is asked for whole: the control that only STARTS with the words is not a second match',
+    door.row_texts(BY_PRESSABLE_TEXT, 'Download Flat File V2').length === 1);
+  check('and a way of finding this door does not know is refused in words, never answered with an empty list',
+    said(() => door.row_texts('xpath', '//button')).includes('not a way of finding something'));
+}
+
+{
+  /* A CALENDAR WHOSE HEADINGS SIT TOGETHER, APART FROM THEIR DAYS: climbing from a heading, the first level that takes in the OTHER month's heading is given up, never searched. */
+  const page = aPage();
+  const door = doorOn();
+  const august = aMonthPanel(2026, 8, { days: 31 });
+  const september = aMonthPanel(2026, 9, { days: 30 });
+  const headings = thing('div');
+  headings.append(thing('div', 'August 2026'), thing('div', 'September 2026'));
+  const grids = thing('div');
+  grids.append(august.children[1], september.children[1]);
+  const pressedInAugust = watchTheDays(grids.children[0], 2026, 8);
+  const pressedInSeptember = watchTheDays(grids.children[1], 2026, 9);
+  const holder = thing('div');
+  holder.append(headings, grids);
+  page.body.append(holder);
+  const refused = await saidAfterWaiting(() => door.pick_range('2026-08-25', '2026-08-25'));
+  check('headings in a row of their own, days in grids below: a day that could be either month\'s is not pressed in either, and the pick is refused in words',
+    refused.includes('is not on the calendar') && pressedInAugust.length === 0 && pressedInSeptember.length === 0);
+}
+
+const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

@@ -822,9 +822,19 @@ check('the same day written again replaces its row, never adds a second (R20 pro
   const empty = aDrive({ holds: [] });
   const none = await whatIsHeldFor(browser.chrome, empty.ask, { reportId: 'me_catalog', inside: 'kartaan', layout: LAYOUT });
   check('a report with no folder yet holds nothing, and asking did not make the folder', none.length === 0 && empty.made.length === 0);
+  /* **A FOLDER THAT IS NOT THERE ENDS THE LOOKING AT ONCE, never a search "inside nothing".** Each question is a request to the seller's Drive, and one asked of a folder that does not exist
+   * is a question with no answer that could be right. */
+  check('and a missing first folder is ONE question to the Drive, not one per folder on the path', empty.asked.length === 1);
+  const noStart = aDrive({ holds: [] });
+  const fromNowhere = await whatIsHeldFor(browser.chrome, noStart.ask, { reportId: 'me_catalog', inside: null, layout: LAYOUT });
+  check('and a place to start that does not exist asks nothing at all', fromNowhere.length === 0 && noStart.asked.length === 0);
+  const almost = aDrive({ holds: theFoldersFor('me_catalog').slice(0, -1) });
+  const notThere = await whatIsHeldFor(browser.chrome, almost.ask, { reportId: 'me_catalog', inside: 'kartaan', layout: LAYOUT });
+  check('and a last folder that is missing holds nothing without the Drive being asked what is inside it: one question per folder on the path and no more',
+    notThere.length === 0 && almost.asked.length === thePathFor(LAYOUT, 'me_catalog').length);
 }
 
-const EXPECTED = 88 + 4 + 2;
+const EXPECTED = 88 + 4 + 2 + 3;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

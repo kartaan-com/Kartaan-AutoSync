@@ -394,10 +394,15 @@ check("Amazon's orders are still fetched every day",
 check("and its returns are too",
       answered(lambda: tool.report("az_returns").every) == tool.DAILY)
 
+# **PROVING SURVIVORS (AJ2): the SAFE-T claims report says why a day gone cannot be fetched again, and still owes the previous day.**
+check("Amazon's SAFE-T claims report says in words why a day already gone cannot be fetched again, and that overlapping files are settled by the claim id",
+      answered(lambda: tool.report("az_claims").owes_previous_day is True and "a day already gone cannot be fetched again" in tool.report("az_claims").cannot_backfill
+               and "settled by the SAFE-T claim id" in tool.report("az_claims").cannot_backfill))
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 98  # 88 on the base, lane 2 added 1, lane 1 added 5
+EXPECTED = 98 + 1  # 88 on the base, lane 2 added 1, lane 1 added 5, AJ2 proving added 1
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

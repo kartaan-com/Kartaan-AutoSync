@@ -531,6 +531,11 @@ check("a note is written to the listing's own record, masked to exactly the fiel
                "updateMask": {"fieldPaths": ["suppressed", "suppressedOn"]}})
 check("a note's day that is not a day is refused",
       _refused(lambda: tool.a_listing_note_write(PROJECT, "amazon::B0AAAAAAA2::RING-1", {"suppressed": True, "suppressedOn": "3 Oct"})))
+figures = answered(lambda: tool.a_listing_note_write(PROJECT, "x", {"referralFee": 12.5, "currentPrice": 260, "recommendedPrice": None, "priceLabel": "Rs 260"}))
+check("a fee and a current price are written as numbers, a recommendation Meesho did not give is written as null, and a label as text (AJ2)",
+      figures is not None and figures["update"]["fields"] == {"referralFee": {"doubleValue": 12.5}, "currentPrice": {"integerValue": "260"},
+                                                              "recommendedPrice": {"nullValue": None}, "priceLabel": {"stringValue": "Rs 260"}}
+      and answered(lambda: tool.a_listing_note_write(PROJECT, "x", {"recommendedPrice": 240.5}))["update"]["fields"] == {"recommendedPrice": {"doubleValue": 240.5}})
 back = answered(lambda: tool.a_listing_note_taken_back(PROJECT, "amazon::B0AAAAAAA2::RING-1", "az_fee_preview", "2026-10-07"))
 check("a fee taken back names the listing's record, keeps only the day, and masks the fee so it is removed",
       back == {"update": {"name": LISTING_AT, "fields": {"feeAsOf": {"stringValue": "2026-10-07"}}},
@@ -542,7 +547,7 @@ check("taking back with a day that is not a day, or for a report that puts no no
       _refused(lambda: tool.a_listing_note_taken_back(PROJECT, "x", "az_fee_preview", "7 Oct"))
       and _refused(lambda: tool.a_listing_note_taken_back(PROJECT, "x", "az_listings", "2026-10-07")))
 
-EXPECTED = 142 + 5
+EXPECTED = 142 + 5 + 1
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

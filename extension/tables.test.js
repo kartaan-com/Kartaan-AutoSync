@@ -536,8 +536,97 @@ const THE_QUALITY_PRODUCTS = {
     theStatementPeriod('View summary') === null && theStatementPeriod('31/2/2026 – 6/3/2026') === null && theStatementPeriod('20/10/2026 – 13/10/2026') === null);
 }
 
+/* ---------------------------------------------------------------- Meesho product quality (the proving survivors of the AJ2 join)
+ * **A PAGE MADE OF ITS WORDS, AS THE REAL ONE IS READ:** the heading, the store score, the customer feedback, three tabs (drawn a while after the page opens), and under the tab pressed, the products with their
+ * band and reasons. Every word and figure is made up. What is checked is what the read does with a page that is wrong in one small way. */
+/* A read that throws is a FAILED check here, never a crash of the whole file. */
+const orNothing = (work) => work().catch(() => ({ csv: '', rows: 0, pages: 0 }));
+const QUALITY_HEADER = '"Kind","Tab","Name","Style ID","Band","Percent","Count","Detail"';
+/* A year written with four figures that is really a year of the last century to a Date (0026 is 1926) is not a real day: nothing is guessed. */
+check('a statement whose year is one a date would quietly move is nothing, not a day filed under a made-up year',
+  theStatementPeriod('1/1/0026 – 2/1/0026') === null);
+const aMeeshoQualityPage = ({
+  tabs = [{ name: 'Blocking Soon', products: ['a', 'b'] }, { name: 'Action Pending', products: ['c'] }, { name: 'Fixed', products: [] }],
+  store = ['1 and 2 star ratings', '12', 'Total Ratings', '400', '3%', '(Good)', 'Something else'],
+  feedback = ['Top Customer Feedback', 'Poor fit', '5 products', 'Colour differs', '2 products', 'Quality Recommendations'],
+  withRoles = true, extraButtons = [], drawnAfter = 0,
+} = {}) => {
+  const state = { at: -1, drawn: drawnAfter === 0 };
+  const page = el('div', '');
+  const buttons = tabs.map((one, at) => {
+    const b = el('button', `${one.name} (${one.products.length})`, [], withRoles ? { role: 'tab' } : {});
+    b.onClick = () => { state.at = at; redraw(); };
+    return b;
+  });
+  const productLeaves = (name) => [p(`Product ${name}`), p(`Style ID: S-${name}`), p('Red'), p('(12.5%)'), p('Poor fit (4 ratings)'), p('Torn (1 rating)')];
+  function redraw() {
+    const shown = state.at < 0 ? [] : tabs[state.at].products.flatMap(productLeaves);
+    page.children = [
+      p('Product Quality'), ...store.map(p), ...feedback.map(p),
+      ...(state.drawn ? buttons : []), ...extraButtons,
+      p('Action'), ...shown, p('SAH Shipping Estimate'),
+    ];
+  }
+  redraw();
+  const draw = () => { state.drawn = true; redraw(); };
+  return { page, draw, buttons };
+};
+
+{
+  const built = aMeeshoQualityPage({ drawnAfter: 2 });
+  const slept = [];
+  const said = [];
+  let calls = 0;
+  const rest = async (ms) => { slept.push(ms); calls += 1; if (calls === 2) built.draw(); };
+  const got = await orNothing(() => readTheTable(built.page, { table: 'meesho-quality', rest, say: (line) => said.push(line) }));
+  const lines = got.csv.split('\n');
+  check('QUALITY: a page whose tabs draw late is waited for a second at a time, and then every tab is pressed after a half-second and read after a second and a half',
+    JSON.stringify(slept) === JSON.stringify([1000, 1000, 500, 1500, 500, 1500, 500, 1500]));
+  check('and the store score, the feedback, the three tabs and their products are all in the file',
+    got.pages === 3 && got.rows === 1 + 2 + 3 + 3 && lines[0] === QUALITY_HEADER && lines[1].includes('"store"') && lines[1].includes('"Good","3","400"')
+    && lines.filter((one) => one.startsWith('"feedback"')).length === 2 && lines.filter((one) => one.startsWith('"product"')).length === 3
+    && lines.some((one) => one.startsWith('"product","Blocking Soon","Product a","S-a","Red","12.5","5","Poor fit (4 ratings) | Torn (1 rating)"')));
+  check('and it says how much it read', said.length === 1 && said[0] === 'meesho-quality: read the store score, 3 tabs and 3 products.');
+}
+
+{
+  const two = aMeeshoQualityPage({ tabs: [{ name: 'Blocking Soon', products: [] }, { name: 'Fixed', products: [] }] });
+  const why = await thrown(() => readTheTable(two.page, { table: 'meesho-quality', rest: noWaiting, patience: 1 }));
+  check('QUALITY: a page with only two of the three tabs is refused in words, never read as the whole', why.includes('were not all on the page (2 found)') && why.includes('nothing was read'));
+  const crowded = aMeeshoQualityPage({
+    extraButtons: [el('button', 'Fixed (3)'), el('button', 'Somewhere else', [], { role: 'tab' })],
+  });
+  const got = await orNothing(() => readTheTable(crowded.page, { table: 'meesho-quality', rest: noWaiting, patience: 1 }));
+  check('and a button that says a tab\'s words without being a tab, or is a tab with other words, is not counted as one', got.pages === 3);
+}
+
+{
+  const refused = async (store) => thrown(() => readTheTable(aMeeshoQualityPage({ store }).page, { table: 'meesho-quality', rest: noWaiting, patience: 1 }));
+  const NOT_THERE = 'the store quality score';
+  check('QUALITY: no low-ratings count beside its label is refused, the rest of the score being there',
+    (await refused(['1 and 2 star ratings', 'n/a', 'Total Ratings', '400', '3%', '(Good)'])).includes(NOT_THERE));
+  check('and no total beside its label is refused, the rest being there',
+    (await refused(['1 and 2 star ratings', '12', 'Total Ratings', 'n/a', '3%', '(Good)'])).includes(NOT_THERE));
+  check('and a percentage with no band beside it is refused too',
+    (await refused(['1 and 2 star ratings', '12', 'Total Ratings', '400', '3%'])).includes(NOT_THERE));
+  check('while the whole score is read', (await refused(['1 and 2 star ratings', '12', 'Total Ratings', '400', '3%', '(Good)'])) === '');
+}
+
+{
+  const feedbackRows = async (feedback, around = []) => {
+    const built = aMeeshoQualityPage({ feedback, tabs: [{ name: 'Blocking Soon', products: [] }, { name: 'Action Pending', products: [] }, { name: 'Fixed', products: [] }] });
+    built.page.children = [...around.map(p), ...built.page.children];
+    const got = await orNothing(() => readTheTable(built.page, { table: 'meesho-quality', rest: noWaiting, patience: 1 }));
+    return got.csv.split('\n').filter((one) => one.startsWith('"feedback"'));
+  };
+  check('QUALITY: feedback is each reason with its count of products', (await feedbackRows(['Top Customer Feedback', 'Poor fit', '5 products', 'Quality Recommendations'])).length === 1);
+  check('and with no feedback heading nothing before the recommendations is taken for feedback, even a count of products',
+    (await feedbackRows(['Quality Recommendations'], ['Stray reason', '7 products'])).length === 0);
+  check('and with no recommendations heading nothing after the feedback heading is taken for feedback',
+    (await feedbackRows(['Top Customer Feedback', 'Poor fit', '5 products', 'Colour differs', '2 products'])).length === 0);}
+
 console.log(failures ? `\n${failures} FAILED (${ran} checks)` : `\nall ${ran} checks passed`);
-const EXPECTED = 52 + 1 + 4 + 5 + 10 + 1;
+const EXPECTED = 52 + 1 + 4 + 5 + 10 + 1 + 3 + 2 + 4 + 3 + 1;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   process.exit(1);
