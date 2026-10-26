@@ -280,6 +280,16 @@ function theParentOf(node) {
   return up && up.host ? up.host : up;
 }
 
+/** Does `outer` hold `inner`, **THROUGH A SHADOW ROOT TOO?** `Node.contains` never crosses into one, so a control inside a component's shadow root was never "held" by the row around the component, and
+ *  the row guards ("this already holds another match, so it is no longer a row") never fired. This climbs from `inner` through `theParentOf`, root to host. (The Opus review of N018's range, finding 3.) */
+function holds(outer, inner) {
+  if (!outer || !inner) return false;
+  for (let at = inner; at; at = theParentOf(at)) {
+    if (at === outer) return true;
+  }
+  return false;
+}
+
 function everything(node, found = []) {
   found.push(node);
   for (const child of node.children || []) everything(child, found);
@@ -405,7 +415,7 @@ function whatMatches(how, what, exact, near = [], alsoSaying = '') {
     (node) => isPainted(node) && looksLike(node, how, what, exact)
   );
   const smallest = labels.filter(
-    (node) => !labels.some((other) => other !== node && node.contains(other))
+    (node) => !labels.some((other) => other !== node && holds(node, other))
   );
   /* **AND FOR ONE WAY OF FINDING, WHAT WAS MATCHED IS NOT WHAT IS WANTED.** The
    * words are a label; the thing to press is the box beside them. Done here, so
@@ -421,7 +431,7 @@ function whatMatches(how, what, exact, near = [], alsoSaying = '') {
    * and its reason in `autosync/browser.py`. */
   if (how === BY_THE_BUTTON_BESIDE) all = theButtonsBeside(smallest, alsoSaid);
   const innermost = asksForWhatIsBeside
-    ? all.filter((node) => !all.some((other) => other !== node && node.contains(other)))
+    ? all.filter((node) => !all.some((other) => other !== node && holds(node, other)))
     : all;
   if (!rows.length) return innermost;
   /* **WHICH ROW IT IS ON.** When a page lists every export ever made, each row
@@ -470,7 +480,7 @@ function whatMatches(how, what, exact, near = [], alsoSaying = '') {
        * of course contains the words being looked for, so every row "matched"
        * and nothing was narrowed at all. That was the first version of this and
        * it read as working. */
-      if (innermost.some((other) => other !== node && up.contains(other))) return false;
+      if (innermost.some((other) => other !== node && holds(up, other))) return false;
       const said = words(up.textContent).toLowerCase();
       /* **AND WHAT ELSE THE SAME ROW HAS TO SAY, ANDed WITH THE DAY.**
        * Flipkart's Reports Centre lists orders, returns and settled
@@ -819,7 +829,7 @@ function isADateBox(node) {
 /** The smallest matches only -- the same rule `whatMatches` runs on, and for
  *  the same reason: a cell inside a cell is one thing, not two. */
 function innermostOf(nodes) {
-  return nodes.filter((node) => !nodes.some((other) => other !== node && node.contains(other)));
+  return nodes.filter((node) => !nodes.some((other) => other !== node && holds(node, other)));
 }
 
 /** A day written `2026-08-25`, taken apart. Nothing else is a day. */
@@ -966,7 +976,7 @@ function everyCellShowingTheDay({ y, m, d }) {
   for (const heading of onShow.filter((one) => one.key === wanted)) {
     let up = heading.node.parentNode;
     for (let level = 0; level < LEVELS_UP_TO_A_MONTH_PANEL && up; level += 1) {
-      if (onShow.some((one) => one.key !== wanted && up.contains(one.node))) break;
+      if (onShow.some((one) => one.key !== wanted && holds(up, one.node))) break;
       const inside = everything(up).filter(
         (node) => node !== up && isPainted(node) && words(wordsOn(node)) === dayOnItsOwn
       );
@@ -1936,7 +1946,7 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
       let row = node;
       let up = theParentOf(node);
       for (let howFar = 0; howFar < AS_FAR_UP_AS_A_ROW && up; howFar += 1) {
-        if (found.some((other) => other !== node && up.contains && up.contains(other))) break;
+        if (found.some((other) => other !== node && holds(up, other))) break;
         row = up;
         up = theParentOf(up);
       }

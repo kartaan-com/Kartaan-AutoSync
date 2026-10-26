@@ -1531,10 +1531,16 @@ export function theWalk({
       /* **A STEP THAT IS DONE ONLY WHEN SOMETHING IS NOT THERE (N018, his word D728: AutoSync creates the saved ads report the first time it is missing).** Asked of the page AT THE MOMENT OF THE STEP, so what the walk has just made counts as there for every step after it, and a page that already has it never has it made twice. A step skipped is SAID, with its reason. */
       if (step.onlyIfAbsent) {
         let there = 0;
+        /* **THE FIRST LOOK WAITS FOR THE LIST (a step that opens a page waits up to twenty seconds); THE LOOKS AFTER IT, on a form that is absent anyway, take three.** And **A LOOK THAT ERRORS IS NOT "ABSENT":**
+         * a page torn down mid-look read as a missing report would make a SECOND saved report, and every later day would then be refused (the Opus review, 26 Oct 2026). */
+        const howLong = step.do === GO ? Math.min(Number(step.patience) || 3, 20) : 3;
         try {
-          there = await door.find(step.onlyIfAbsent.how, step.onlyIfAbsent.what, step.onlyIfAbsent.exact, 3, step.onlyIfAbsent.near, step.onlyIfAbsent.alsoSaying);
+          there = await door.find(step.onlyIfAbsent.how, step.onlyIfAbsent.what, step.onlyIfAbsent.exact, howLong, step.onlyIfAbsent.near, step.onlyIfAbsent.alsoSaying);
         } catch (wrong) {
-          there = 0;
+          return anAnswer(FAILED, reportId, dataDate, {
+            say: `${step.why}: looking for ${step.onlyIfAbsent.called || step.onlyIfAbsent.what} failed (${(wrong && wrong.message) || wrong}), so nothing was done rather than risk doing it twice.`,
+            pageWas: capture(await door.page_text()),
+          });
         }
         if (there > 0) {
           say(`${reportId}: skipped "${step.why}": ${step.onlyIfAbsent.called || step.onlyIfAbsent.what} is already there.`);
@@ -1850,7 +1856,22 @@ export function theWalk({
         }
         let rowsSaid;
         try {
+          /* **WAIT FOR A CONTROL FIRST, AND NONE AT ALL IS A FAILURE, NEVER "NOTHING NEW"** (the Opus review, 26 Oct 2026): the header proves the table, not its rows, and rows that draw late or a control Amazon has
+           * renamed would otherwise read as nothing to fetch every week. Only rows that are ALL held (or all still open) are nothing to fetch. */
+          const drawn = await door.find(step.find.how, step.find.what, step.find.exact, step.patience, [], step.find.alsoSaying);
+          if (!drawn) {
+            return anAnswer(FAILED, reportId, dataDate, {
+              say: `${step.why}: no ${step.find.called || step.find.what} turned up on the page in ${step.patience} seconds, so what the page holds could not be told apart from a page that never drew its rows.`,
+              pageWas: capture(await door.page_text()),
+            });
+          }
           rowsSaid = await door.row_texts(step.find.how, step.find.what, step.find.exact, step.find.alsoSaying);
+          if (!rowsSaid || !rowsSaid.length) {
+            return anAnswer(FAILED, reportId, dataDate, {
+              say: `${step.why}: the page has no ${step.find.called || step.find.what} to read a row from, so this is not "nothing new".`,
+              pageWas: capture(await door.page_text()),
+            });
+          }
         } catch (wrong) {
           return anAnswer(FAILED, reportId, dataDate, {
             say: `${step.why}: ${(wrong && wrong.message) || wrong}`,

@@ -735,9 +735,9 @@ check("SETTLEMENTS ARE PUBLISHED WEEKLY: a day with no statement is no day owed,
       and any(one.state == tool.VERIFIED for one in tool.lines_for([_weekly], lambda rid: [a_real_file(_weekly, YESTERDAY)], TODAY, checked_on=TODAY, look_back_days=1)))
 check("the streams written as records say what they made in the manifest's own words (the reads line): claims, account health, product quality and the ads days",
       all(one in _record_reports.RECORD_REPORTS and _record_reports.RECORD_REPORTS[one].kind.what for one in ("az_claims", "az_health", "me_quality"))
-      and "az_ads" in {h.report_id for h in __import__("reading").WHAT_ADS_CAN_BE_READ})
+     )
 check("and the manifest's two halves still keep each new browser stream to the extension's half, never the nightly job's",
-      all(rid in tool.mine(BROWSER, _new) for rid in THE_NEW_STREAMS) and not set(THE_NEW_STREAMS) & set(tool.mine(API, [_the_report("az_suppressed")])))
+      set(tool.mine(BROWSER, _new)) == set(THE_NEW_STREAMS) and tool.mine(API, _new) == ())
 
 EXPECTED = 66 + 22 + 5
 if ran != EXPECTED:

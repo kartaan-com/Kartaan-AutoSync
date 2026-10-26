@@ -2705,6 +2705,31 @@ for (const [start, end, from, expectedMonth] of [
     (await door.find(BY_PRESSABLE_TEXT, 'Download', true, 0, ['26 October 2026'], 'All Listings Report')) === 0);
 }
 
+/* **AND THE "THIS ALREADY HOLDS ANOTHER MATCH, SO IT IS NOT A ROW" GUARD SEES THROUGH SHADOW ROOTS TOO (the Opus review, finding 3).** `Node.contains` never crosses into a shadow root, so with every Download inside a
+ * `kat-button` the climb never stopped at the row and reached the whole list, whose words name every day: yesterday's Download then counted as today's. */
+{
+  const page = aPage();
+  const door = doorOn();
+  const list = thing('div', '', { box: BIG });
+  const aRow = (heading) => {
+    const row = thing('div', '', { box: BIG });
+    row.append(thing('b', heading, { box: BIG }));
+    const host = thing('kat-button', '', { box: BIG });
+    const label = thing('span', 'Download', { box: BIG });
+    label.style.cursor = 'pointer';
+    const root = { children: [label], host, parentNode: null };
+    label.parentNode = root;
+    host.shadowRoot = root;
+    row.append(host);
+    return row;
+  };
+  list.append(aRow('All Listings Report 24 October 2026 at 10:31 pm'), aRow('All Listings Report 25 October 2026 at 10:31 pm'));
+  page.body.append(list);
+  check('TWO ROWS WITH THEIR DOWNLOAD IN A SHADOW ROOT: narrowed to the day, only that row\'s control matches, not both because the list names both days',
+    (await door.find(BY_PRESSABLE_TEXT, 'Download', true, 0, ['25 October 2026'], 'All Listings Report')) === 1);
+  check('and each row\'s words are its own, from the same climb', JSON.stringify(door.row_texts(BY_PRESSABLE_TEXT, 'Download', true, 'All Listings Report').map((one) => one.includes('24 October') !== one.includes('25 October'))) === '[true,true]');
+}
+
 /* --------------------------------------------- N018: a PERCENTAGE read off a card (Amazon's Account Health, 26 Oct 2026)
  * **ADDED BESIDE THE PLAIN-NUMBER READ, NEVER IN PLACE OF IT.** A card there reads `Late Dispatch Rate`, `1.8%`, `2 of 111 orders`, `30 days`; the plain read takes whole numbers only and would take
  * the `2`. A step says it wants a percentage; one that does not says nothing and reads exactly as it always did -- the Meesho views checks above are that proof. */
@@ -2788,7 +2813,7 @@ for (const [start, end, from, expectedMonth] of [
   check('the call is one only the walk asks', ASKED_ONLY_BY_THE_WALK.includes('row_texts') && !THE_CALLS.includes('row_texts'));
 }
 
-const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4;
+const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

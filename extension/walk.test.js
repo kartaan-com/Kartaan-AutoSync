@@ -661,6 +661,7 @@ function aPortal(how = {}) {
        * check asking whether one spelling reached the page needs them apart. */
       it.rowsAsked.push(...(Array.isArray(near) ? near : [near]));
       it.whatHappened.push(`found ${what}`);
+      if (how.findThrowsFor && what === how.findThrowsFor) throw new Error('the page was torn down while looking');
       /* **A PORTAL DRAWS ITSELF IN PIECES AND TAKES ITS TIME OVER IT** -- 10 to
        * 25 seconds was measured on his own Flipkart account. Every one of those
        * seconds is a moment the page's own scripts are running. */
@@ -1134,6 +1135,23 @@ check('asked to step back by nothing at all, it answers the day itself',
   await aWalk(twice, onlyIfNotThere)('me_orders', DAY);
   await aWalk(twice, onlyIfNotThere)('me_orders', DAY);
   check('NOTHING IS CREATED TWICE: two walks on one portal press the creating step once between them', twice.clicked.filter((one) => one === 'Create it').length === 1);
+  /* **A LOOK THAT ERRORS IS NOT "ABSENT"** (the Opus review, 26 Oct 2026): a page torn down mid-look would have been read as a missing report and a SECOND saved report made, after which every later day is refused. */
+  const torn = aPortal({ appearsAfter: { 'Saved row': 'Create it' }, findThrowsFor: 'Saved row' });
+  const gotTorn = await aWalk(torn, onlyIfNotThere)('me_orders', DAY);
+  check('A LOOK THAT FAILS IS A FAILURE, never "not there": nothing is created and the walk says why',
+    gotTorn.state === FAILED && !torn.clicked.includes('Create it'));
+  /* **AND THE FIRST LOOK, on the list a step has just opened, WAITS FOR THE LIST** rather than taking three seconds of an empty page for a missing report. */
+  const opening = {
+    recipes: { me_orders: { readyInMinutes: 0, toAsk: [], toTake: [
+      step({ do: 'go', address: 'https://supplier.example.invalid/panel/{panel}/new', patience: 60, onlyIfAbsent: find('Saved row'), why: 'creating: opening the form' }),
+      step({ do: 'take-file', find: find('Download'), patience: 30, why: 'taking the file' }),
+    ] } },
+    whatItMeans: BOOK.whatItMeans, daysInWords: BOOK.daysInWords, fileNames: BOOK.fileNames,
+  };
+  const waiting = aPortal();
+  await aWalk(waiting, opening)('me_orders', DAY);
+  check('the look at the start of a creating run waits up to twenty seconds, and the looks after it on the form take three',
+    waiting.patienceTold.some(([kind, seconds]) => kind === 'find' && seconds === 20));
   const refusedStep = whyStepIsRefused(step({ do: 'click', find: find('x'), onlyIfAbsent: { how: 'role' } }));
   check('a condition with nothing to look for is refused in words, a recipe fault', typeof refusedStep === 'string' && refusedStep.includes('only when'));
 }
@@ -1216,7 +1234,15 @@ check('asked to step back by nothing at all, it answers the day itself',
     gotBlind.state === FAILED && gotBlind.say.includes('holds') && blind.putAway.length === 0);
   const noRows = aPortal({ rows: [], held: [] });
   const gotNoRows = await aWalk(noRows, statements)('me_orders', DAY);
-  check('and a table drawn with no closed statement at all is nothing to fetch too', gotNoRows.state === NOTHING_TO_FETCH);
+  check('but a page with NO Download control at all is a FAILURE, not "nothing new": rows drawing late or a renamed control would otherwise read as nothing to fetch every week (the Opus review, 26 Oct 2026)',
+    gotNoRows.state === FAILED && gotNoRows.say.includes('Download Flat File V2'));
+  const blank = aPortal({ rows: ['20/10/2026 – Present Download Flat File V2'], held: [] });
+  const gotBlank = await aWalk(blank, statements)('me_orders', DAY);
+  check('while rows that are all still open (no closed period) ARE nothing to fetch', gotBlank.state === NOTHING_TO_FETCH && blank.putAway.length === 0);
+  const unseen = aPortal({ rows: [ROW_20], held: [], matches: { 'Download Flat File V2': 0 } });
+  const gotUnseen = await aWalk(unseen, statements)('me_orders', DAY);
+  check('and the walk WAITS for a control first: none turning up in the step\'s patience is a failure before any row is read',
+    gotUnseen.state === FAILED && unseen.putAway.length === 0);
 }
 
 /* --------------------------- the day that is read off a page, not downloaded */
@@ -2979,7 +3005,7 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
     theRowsItCouldBe(BOOK, find, '2026-10-19', '2026-10-22', '2026-10-25').join() === '2026-10-19_2026-10-19_');
 }
 
-const EXPECTED = 349 + 9 + 3 + 1 + 3 + 8 + 2 + 4;
+const EXPECTED = 349 + 9 + 3 + 1 + 3 + 8 + 2 + 4 + 2 + 2;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;
