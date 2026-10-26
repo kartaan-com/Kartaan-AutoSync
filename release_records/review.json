@@ -19,5 +19,6 @@
     "Second pass (8c8b6c1): findings 2-10 all fixed, none fixed wrongly; new items low only: a '--' listing with no record was counted as 'had no record' (fixed in this record's commit, check red first), the sink's type note was wrong (fixed here), and the notes and take-backs are two commits, safe to repeat if the second fails."
   ],
   "per_landing_evidence": "Every part was committed separately through the repository's commit gate with its own review_pass.json and a check that failed first: 60fecd8 (A), ea2361d (A2), a4c3602 (A3), 1c603ab (A4), 5fc8eed (B setup), b33ad3e (B survivors), 8c8b6c1 (review fixes).",
-  "per_landing_note": "The per-commit review_pass records before 8c8b6c1 were the author's own (independent: false, said so in each); this whole-range read by a fresh agent is the independent one."
+  "per_landing_note": "The per-commit review_pass records before 8c8b6c1 were the author's own (independent: false, said so in each); this whole-range read by a fresh agent is the independent one.",
+  "version_only_change_note": "The commit after 27db1b1 changes only the version number in extension/manifest.json from 0.1.20 to 0.1.21 (no logic change), so this record still stands for the release commit."
 }

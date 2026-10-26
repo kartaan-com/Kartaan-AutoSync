@@ -23,5 +23,6 @@
     "77 changes noticed only by the checks file failing to load (deleted imports, constants, function heads, first assignments of a name), 36 of them in tools/move_group.py: reasons per file in tools/proven_survivors.json. They say nothing about whether the checks are good, only that the change was noticed.",
     "Observed while proving ledger.py, not changed (older code, outside this job): a file of a day between two files that said the same figure, read last, still writes its older figure."
   ],
-  "unproved_files": "NOT_PROVEN in tools/proving.py, each with its reason: autosync/fake_firestore.py, autosync/start.py, extension/content.js, extension/panel.js, extension/worker.js, test/fake-browser.js, test/fake-chrome.js."
+  "unproved_files": "NOT_PROVEN in tools/proving.py, each with its reason: autosync/fake_firestore.py, autosync/start.py, extension/content.js, extension/panel.js, extension/worker.js, test/fake-browser.js, test/fake-chrome.js.",
+  "version_only_change_note": "The commit after 27db1b1 changes only the version number in extension/manifest.json from 0.1.20 to 0.1.21 (no logic change), so this record still stands for the release commit."
 }

@@ -15,5 +15,6 @@
     "tools/proving.py runs only when started directly; the seller's nightly workflow runs start.py and never reaches it; tools/proving_checks.py imports it as a module, so the loader never runs in CI; an unset KARTAAN now stops in words rather than loading from the current folder.",
     "Git: tools/proving_checks.py strips git's pointer variables, sets GIT_CEILING_DIRECTORIES to the temp folder's parent, stops if git init fails, and removes only its own mkdtemp folder (after the 26 Oct incident in which the first version set bare = true on the real repository from the commit hook; put back within three minutes).",
     "Noted below the bar, correctness not security: a take-back write has no 'record must still exist' precondition, so a record deleted between the query and the write would come back as a stub holding only the note fields; and if the take-back call fails after the notes call, the notes stand and the file is left unread to be tried again. Both inside the seller's own data; the first is listed for Kartaan Control."
-  ]
+  ],
+  "version_only_change_note": "The commit after 27db1b1 changes only the version number in extension/manifest.json from 0.1.20 to 0.1.21 (no logic change), so this record still stands for the release commit."
 }
