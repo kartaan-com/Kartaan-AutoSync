@@ -58,6 +58,8 @@ class Way:
     day_column: Optional[str] = None
     # **THE DAY COLUMN HOLDS A RANGE (Amazon's `Oct 25, 2026 - Oct 25, 2026`)**: a row whose two ends are one day is that day, and a row that spans several is refused by name -- never filed under one of them (N018).
     day_is_a_range: bool = False
+    # **THE SAME COLUMN UNDER ANOTHER NAME (N018, Amazon):** a report asked with `Date range` has that column, one asked with `Date` has per-day rows in `Date`; whichever the file has is the day column.
+    day_column_alt: Optional[str] = None
 
 
 WAYS: Dict[str, Way] = {
@@ -97,7 +99,7 @@ WAYS: Dict[str, Way] = {
             "campaignId": ("campaign id",), "campaignName": ("campaign name",), "spend": ("total cost",), "views": ("impressions",),
             "clicks": ("clicks",), "units": ("purchases",), "revenue": ("sales",),
         },
-        needed=("campaignId", "spend"), header_row=1, day_column="date range", day_is_a_range=True,
+        needed=("campaignId", "spend"), header_row=1, day_column="date range", day_is_a_range=True, day_column_alt="date",
     ),
     "fk_ads_placements": Way(
         "flipkart", "placements",
@@ -248,6 +250,8 @@ def _the_day_of_a_range(cell: str, not_read: List[str], line: int) -> Optional[s
         found = _A_RANGE_DAY.match(end)
         day = returns.a_day(f"{found.group(2)} {found.group(1)} {found.group(3)}") if found else None
         days.append(day)
+    if len(ends) == 1 and days[0]:
+        return days[0]  # a plain `Aug 16, 2026` (the Date column of a per-day report)
     if len(ends) != 2 or None in days:
         return None
     if days[0] != days[1]:
@@ -301,7 +305,10 @@ def read_ads(report_id: str, rows: table.Table, file_day: str, header_day: Optio
     way = way_for(report_id)
     columns = tuple(rows.columns)
     where = {f: _the_columns(columns, names, f, f in way.needed) for f, names in way.columns.items()}
-    day_column = _the_columns(columns, (way.day_column,), "the day", True)[0] if way.day_column else None
+    the_day_name = way.day_column
+    if way.day_column_alt and way.day_column and not any(c.strip().lower() == way.day_column for c in columns):
+        the_day_name = way.day_column_alt
+    day_column = _the_columns(columns, (the_day_name,), "the day", True)[0] if way.day_column else None
     own_day = header_day or file_day
 
     parsed: List[Tuple[str, Dict[str, object]]] = []

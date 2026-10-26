@@ -11,7 +11,7 @@
       "id": "az_ads",
       "platform": "amazon",
       "name": "Amazon ads, campaigns by day",
-      "cannotBeAskedForAgain": "The saved report is run for Yesterday only, so a day already gone cannot be fetched again by the run."
+      "cannotBeAskedForAgain": null
     },
     {
       "id": "az_claims",

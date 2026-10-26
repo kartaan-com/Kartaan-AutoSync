@@ -245,7 +245,7 @@ SHAPES = {
     # **AMAZON ACCOUNT HEALTH (N018):** open the dashboard, wait for the rating, read the rating and four rates, write the day as its own one-row file.
     "az_health": ((), (pages.GO, pages.WAIT_FOR, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.ADD_TO_THE_LIST)),
     # **AMAZON ADS (N018):** the seller's one saved daily report is RUN (open, wait for its row, open the row's Actions, press Run); later the row that shows today as its last run is opened and its latest file taken.
-    "az_ads": ((pages.GO, pages.WAIT_FOR, pages.GO, pages.WAIT_FOR, pages.TYPE_IN, pages.CLICK, pages.CLICK, pages.CLICK, pages.WAIT_FOR, pages.CLICK, pages.CLICK), (pages.GO, pages.WAIT_FOR, pages.CLICK, pages.TAKE_FILE)),
+    "az_ads": ((pages.GO, pages.WAIT_FOR, pages.GO, pages.WAIT_FOR, pages.TYPE_IN, pages.CLICK, pages.CLICK, pages.CLICK, pages.CLICK, pages.CLICK, pages.WAIT_FOR, pages.CLICK, pages.CLICK), (pages.GO, pages.WAIT_FOR, pages.CLICK, pages.TAKE_FILE)),
 }
 for report_id, (ask, take) in sorted(SHAPES.items()):
     one = tool.recipe(report_id)
@@ -830,24 +830,24 @@ AZA = answered(lambda: tool.RECIPES["az_ads"])
 AZA_ASK = AZA.to_ask if AZA else ()
 AZA_TAKE = AZA.to_take if AZA else ()
 AZA_ROW = pages.Find(pages.BY_THE_BUTTON_BESIDE, "Kartaan campaign by day", also_saying="Actions", called="the Actions menu of the saved report Kartaan campaign by day")
-check("az_ads is a two-phase walk: eleven steps to ask (open, prove the list, create the saved report only if missing x6, wait for its row, open its Actions, Run), four to take",
-      AZA is not None and AZA.two_phase and len(AZA_ASK) == 11 and len(AZA_TAKE) == 4)
+check("az_ads is a two-phase walk: thirteen steps to ask (open, prove the list, create the saved report only if missing x8, wait for its row, open its Actions, Run), four to take",
+      AZA is not None and AZA.two_phase and len(AZA_ASK) == 13 and len(AZA_TAKE) == 4)
 check("az_ads opens the reporting page for both phases, an address that carries nothing of the seller's own, and proves the list drew (the Create report button) before deciding anything",
       bool(AZA_ASK) and bool(AZA_TAKE) and AZA_ASK[0].address == AZA_TAKE[0].address == "https://advertising.amazon.in/reporting"
       and AZA_ASK[1].do == pages.WAIT_FOR and AZA_ASK[1].find.what == "Create report" and AZA_ASK[1].only_if_absent is None)
-_create = AZA_ASK[2:8] if len(AZA_ASK) == 11 else ()
+_create = AZA_ASK[2:10] if len(AZA_ASK) == 13 else ()
 check("THE CREATING STEPS ARE EACH DONE ONLY WHEN THE SAVED ROW IS NOT THERE: open the template, name it, choose Yesterday, submit -- the row looked for by its own name, nothing else created",
-      len(_create) == 6 and all(s.only_if_absent is not None and s.only_if_absent.how == pages.BY_THE_BUTTON_BESIDE and s.only_if_absent.what == "Kartaan campaign by day"
+      len(_create) == 8 and all(s.only_if_absent is not None and s.only_if_absent.how == pages.BY_THE_BUTTON_BESIDE and s.only_if_absent.what == "Kartaan campaign by day"
                                 for s in _create)
-      and [s.do for s in _create] == [pages.GO, pages.WAIT_FOR, pages.TYPE_IN, pages.CLICK, pages.CLICK, pages.CLICK]
+      and [s.do for s in _create] == [pages.GO, pages.WAIT_FOR, pages.TYPE_IN, pages.CLICK, pages.CLICK, pages.CLICK, pages.CLICK, pages.CLICK]
       and _create[0].address == "https://advertising.amazon.in/reporting/new?templateId=campaign"
       and _create[2].find.how == pages.BY_THE_CONTROL_BESIDE and _create[2].find.what == "Report name" and _create[2].words == "Kartaan campaign by day"
-      and [s.find.what for s in _create[3:]] == ["Last seven days", "Yesterday", "Submit"])
+      and [s.find.what for s in _create[3:]] == ["Date range", "Date", "Last seven days", "Last 30 days", "Submit"])
 check("then it waits for the saved row (found or just made), and opens ITS Actions and presses Run only when that row does not already show today -- a report just created has run once and is not run again",
-      len(AZA_ASK) == 11 and AZA_ASK[8].do == pages.WAIT_FOR and AZA_ASK[8].find == AZA_ROW and AZA_ASK[8].only_if_absent is None
-      and AZA_ASK[9].do == pages.CLICK and AZA_ASK[9].find == AZA_ROW and AZA_ASK[10].do == pages.CLICK and AZA_ASK[10].find.what == "Run"
+      len(AZA_ASK) == 13 and AZA_ASK[10].do == pages.WAIT_FOR and AZA_ASK[10].find == AZA_ROW and AZA_ASK[10].only_if_absent is None
+      and AZA_ASK[11].do == pages.CLICK and AZA_ASK[11].find == AZA_ROW and AZA_ASK[12].do == pages.CLICK and AZA_ASK[12].find.what == "Run"
       and all(s.only_if_absent is not None and s.only_if_absent.near == "{day_in_words}" and s.only_if_absent.day_in_words_is == "amazon"
-              and s.only_if_absent.day_in_words_of == pages.THE_DAY_IT_WAS_MADE for s in AZA_ASK[9:]))
+              and s.only_if_absent.day_in_words_of == pages.THE_DAY_IT_WAS_MADE for s in AZA_ASK[11:]))
 check("only the creating steps and the run steps use a condition, across every recipe",
       answered(lambda: sorted({r for r in tool.every_recipe() for s in (tool.recipe(r).to_ask + tool.recipe(r).to_take) if s.only_if_absent is not None}) == ["az_ads"]))
 check("and it takes the latest file only from a row whose LAST RUN is today, so yesterday's file is never taken for today's",

@@ -1490,6 +1490,7 @@ RECIPES: Dict[str, Recipe] = {
         ),
     ),
 
+    # ---- (D728 REFINED, 26 Oct 2026: the saved report carries the DATE column and the LAST 30 DAYS, so every run returns each of the last 30 days as its own row -- a missed run and a first look-back are covered by every run, no one-off reports.)
     # ---- Amazon ads by the browser (N018, his ruling D726; Control's word: build it anyway; his word D728: AutoSync CREATES the saved report itself the first time it is missing). **The one saved report `Kartaan campaign by day` (Campaign
     # ---- template, Yesterday, once, CSV) is CREATED ONLY WHEN IT IS NOT IN THE LIST** (each creating step is done only when its row is not there), and after that the walk only RUNS it and takes its latest file -- nothing is deleted and no campaign,
     # ---- budget or spend is touched. Ask: open the list, prove it drew, [if missing: open the template, name it, choose Yesterday, submit -- which runs it once], wait for the row, and unless the row already shows today, open ITS Actions and press
@@ -1505,8 +1506,13 @@ RECIPES: Dict[str, Recipe] = {
                  why="waiting for the report form to draw"),
             Step(TYPE_IN, find=Find(BY_THE_CONTROL_BESIDE, "Report name", called="the Report name box"), words=AMAZON_ADS_REPORT_NAME, only_if_absent=_ADS_SAVED_ROW,
                  why="naming the saved report"),
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Date range", called="the Date range column"), only_if_absent=_ADS_SAVED_ROW,
+                 why="taking the Date range column off the report (Amazon will not offer Date while it is on)"),
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Date", called="the Date column"), only_if_absent=_ADS_SAVED_ROW,
+                 why="putting the Date column on the report, so every day of the period is its own row"),
             Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Last seven days", called="the report period button"), only_if_absent=_ADS_SAVED_ROW, why="opening the report period"),
-            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Yesterday", called="the Yesterday period"), only_if_absent=_ADS_SAVED_ROW, why="choosing Yesterday"),
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Last 30 days", called="the Last 30 days period"), only_if_absent=_ADS_SAVED_ROW,
+                 why="choosing the last 30 days, so a day missed on an earlier run is in this one"),
             Step(CLICK, find=Find(BY_ROLE_AND_TEXT, "Submit", called="the Submit button"), only_if_absent=_ADS_SAVED_ROW, why="creating the saved report (which runs it once)"),
             Step(WAIT_FOR, find=_ADS_SAVED_ROW, patience=120, why=f"waiting for the saved report {AMAZON_ADS_REPORT_NAME} to be in the list"),
             Step(CLICK, find=_ADS_SAVED_ROW, only_if_absent=_ADS_SAVED_ROW_TODAY, why="opening the saved report's Actions menu"),

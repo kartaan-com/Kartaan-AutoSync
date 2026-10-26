@@ -340,10 +340,9 @@ REPORTS: Tuple[Report, ...] = (
     # **AMAZON'S ACCOUNT HEALTH BY THE BROWSER (N018, his ruling D726; Control's word: he is At Risk on Late Dispatch).** Account health > Manage account health: five figures on the page (the rating and four rates), no download, so they are read off the
     # page and written as the day's own one-row file, like Meesho's views. How the page stands today, so a past day cannot be had.
     Report("az_health", "amazon", "Amazon account health", BROWSER, DAILY, "csv", cannot_backfill=_SNAPSHOT),
-    # **AMAZON ADS BY THE BROWSER (N018, his ruling D726; Control's word: build it anyway).** Amazon Ads console (`advertising.amazon.in`) > Reporting: the seller keeps ONE saved Campaign report named `Kartaan campaign by day` (period Yesterday,
-    # once, CSV); the walk RUNS it and takes its latest file, one day's campaigns. A day with no ads is a header and nothing else: nothing to process. A picture of one day it was run for, so a past day cannot be asked for.
-    Report("az_ads", "amazon", "Amazon ads, campaigns by day", BROWSER, DAILY, "csv",
-           cannot_backfill="The saved report is run for Yesterday only, so a day already gone cannot be fetched again by the run."),
+    # **AMAZON ADS BY THE BROWSER (N018, his ruling D726; Control's word: build it anyway; D728 refined 26 Oct 2026).** Amazon Ads console (`advertising.amazon.in`) > Reporting: ONE saved Campaign report named `Kartaan campaign by day` (the Date column, the last 30 days, once, CSV) is
+    # created by the walk the first time it is missing; every run takes its latest file, one row per campaign per day of the last 30 days, so a day missed on an earlier run and a first look-back are covered by every run. A day with no ads is no row at all: nothing to process.
+    Report("az_ads", "amazon", "Amazon ads, campaigns by day", BROWSER, DAILY, "csv"),
     # **THE TWO AMAZON FILES MADE ON REQUEST (AutoSync v0.1.21 lane 1 job 8).** Seller Central > Products > Product reports (Inventory Reports): the seller
     # presses Request Report, Amazon builds a tab-separated text file (up to 45 minutes, a new one at most once in 24 hours) and a row with a Download button
     # appears. Both are pictures of right now. Amazon's own text says ".txt" and the files are landed as such.

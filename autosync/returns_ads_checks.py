@@ -733,12 +733,30 @@ _nz_full = Night({"az_ads": [a_file("z2", "amazon_az_ads_2026-10-25.csv")]}, {"z
 _nz_full.go()
 check("and a file with a campaign row reaches the ads sink as the day's record for Amazon",
       len(_nz_full.advertised) == 1 and _nz_full.advertised[0][1] == "amazon" and _nz_full.advertised[0][3] == "2026-10-25" and "amazon__2026-10-25" in _nz_full.advertised[0][4])
+# **THE SAME CAMPAIGN REPORT WITH A `Date` COLUMN INSTEAD OF `Date range` (his real per-day file, 26 Oct 2026: asked for the last 90 days, one row per campaign per day, a day with no spend still a row of zeros, rows not in date order).**
+AZ_ADS_HEAD_DAYS = AZ_ADS_HEAD.replace("Date range,", "").replace("Budget currency,", "Budget currency,Date,")
+
+
+def az_ads_days_file(*rows):
+    return table.read(("﻿" + "\n".join([AZ_ADS_HEAD_DAYS, *rows]) + "\n").encode("utf-8"))
+
+
+_AZ_DAY = '"=""ACCOUNT-TEST""",RUMEE,,Sponsored Products,"=""100000000000001""",Test Campaign,,INR,"{day}",{imp},0,{clk},1%,,{cost},{buy},,,,{sales},,1.0,'
+_azd = answered(lambda: ads.read_ads("az_ads", az_ads_days_file(
+    _AZ_DAY.format(day="Aug 16, 2026", imp=1000, clk=10, cost="50.00000", buy=1, sales="200.50"),
+    _AZ_DAY.format(day="Aug 14, 2026", imp=20, clk=1, cost="4.99000", buy=0, sales="0.00"),
+    _AZ_DAY.format(day="Aug 21, 2026", imp=0, clk=0, cost="0.00000", buy=0, sales="0.00")), "2026-10-26", None))
+check("A FILE WITH A Date COLUMN IS ONE RECORD PER DAY IT NAMES, each filed under its own day whatever order the rows come in, a day of zeros included",
+      _azd is not None and set(_azd.records) == {"amazon__2026-08-14", "amazon__2026-08-16", "amazon__2026-08-21"} and _azd.not_read == ()
+      and _azd.records["amazon__2026-08-16"]["campaigns"]["100000000000001"]["spend"] == 50.0 and _azd.records["amazon__2026-08-21"]["campaigns"]["100000000000001"]["views"] == 0)
+_azd_bad = answered(lambda: ads.read_ads("az_ads", az_ads_days_file(_AZ_DAY.format(day="sometime", imp=1, clk=1, cost="1", buy=0, sales="0")), "2026-10-26", None))
+check("a Date cell that is not a day is refused by name and nothing is filed for it", _azd_bad is not None and _azd_bad.records == {} and len(_azd_bad.not_read) == 1)
 _az_wrong = _caught(lambda: ads.read_ads("az_ads", table.read(b"A,B\n1,2\n"), "2026-10-26", None))
 check("a file without the Amazon ads columns is refused in words naming what it has", _az_wrong is not None and "Campaign ID" in str(_az_wrong).title().replace("Id", "ID"))
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 107 + 3 + 2 + 3 + 3 + 7 + 1 + 6 + 2
+EXPECTED = 107 + 3 + 2 + 3 + 3 + 7 + 1 + 6 + 2 + 2
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
