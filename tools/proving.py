@@ -29,14 +29,24 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent.parent
-_THE_ERPS = Path(os.environ.get("KARTAAN", "")) / "tools" / "prove_checks.py"
 # **A NAME OF ITS OWN IN `sys.modules`.** The prover's workers are new processes; each loads this file again as the
 # main module before it is handed a change, and finds the ERP's prover under this name, set up the same way.
 NAME = "kartaan_erp_prove_checks"
+# Every name of the ERP's prover this file replaces or calls. **A NAME THE ERP RENAMES MUST STOP THIS IN WORDS** (AP11 review): assigning over
+# a name the module no longer has adds an attribute nothing reads, and the run would quietly measure the ERP's own files its own way.
+THE_ERPS_NAMES = ("ROOT", "SURVIVORS_FILE", "COVERED_BY", "NOT_PROVEN", "sources", "_diff_args", "_try_one", "baseline_passes", "stage",
+                  "runner_for", "away_from_the_real_repository", "TIMEOUT_SECONDS", "main")
 
 
-def the_erps_prover(where: Path = _THE_ERPS):
-    """The ERP's prover module, loaded from its own file. Stops in words when `KARTAAN` does not lead to it."""
+def the_erps_prover(where: Path = None):
+    """The ERP's prover module, loaded from its own file. Stops in words when `KARTAAN` is not set or does not lead to it."""
+    if where is None:
+        named = os.environ.get("KARTAAN", "").strip()
+        if not named:
+            # **NOT SET IS NOT "HERE"** (AP11 review): an empty KARTAAN read as the current folder would load whatever
+            # tools/prove_checks.py sits there -- an old ERP worktree's, say -- the very drift this file exists to stop.
+            raise SystemExit("proving: KARTAAN is not set. Set it to the Kartaan-ERP checkout (KARTAAN=D:/Kartaan-ERP).")
+        where = Path(named) / "tools" / "prove_checks.py"
     if not where.is_file():
         raise SystemExit(
             f"proving: the ERP's prover is not at {where}. Set KARTAAN to the Kartaan-ERP checkout "
@@ -170,16 +180,24 @@ def _try_one(job):
                 )
             except subprocess.TimeoutExpired:
                 return {"id": ident, "verdict": "caught", "timed_out": True, "line_number": line_number}
-            said = (finished.stdout or b"") + (finished.stderr or b"")
-            if finished.returncode != 0 and re.search(rb"^FAIL", said, re.M):
+            if a_check_went_red(finished.returncode, (finished.stdout or b"") + (finished.stderr or b"")):
                 return {"id": ident, "verdict": "caught", "timed_out": False, "line_number": line_number}
     finally:
         prover.stage(prover._TREE, relpath, original)
     return first
 
 
+def a_check_went_red(returncode: int, said: bytes) -> bool:
+    """Caught means the run failed AND a check said FAIL -- the ERP prover's own rule. A run that failed with no FAIL line fell over; it caught nothing."""
+    return returncode != 0 and re.search(rb"^FAIL", said, re.M) is not None
+
+
 def set_up(prover):
-    """Point the ERP's prover at this repository. Answers the same module, changed."""
+    """Point the ERP's prover at this repository. Answers the same module, changed. Stops in words if the ERP's prover lacks a name this replaces or calls."""
+    missing = [name for name in THE_ERPS_NAMES if not hasattr(prover, name)]
+    if missing:
+        raise SystemExit(f"proving: the ERP's prover no longer has {', '.join(missing)}, which this file replaces or calls. "
+                         "tools/proving.py must be brought up to date with it before anything is proved.")
     prover.ROOT = HERE
     prover.SURVIVORS_FILE = HERE / "tools" / "proven_survivors.json"
     prover.COVERED_BY = COVERED_BY

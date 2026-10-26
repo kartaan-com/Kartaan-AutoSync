@@ -422,14 +422,17 @@ def a_listing_notes_sink(transport, project: str) -> Callable[..., int]:
 
     **THE RECORDS ARE ASKED FOR FIRST.** A listing with no record yet is skipped, not made up: the listing file names it first (a note on its own would be a
     record with no `listing`). A second file saying the same writes nothing, and **a file of an earlier day never puts older words over newer ones**
-    (the note's own day field, `firestore.NOTE_DAY_FIELD`). **Answers (records written, listings skipped for having no record)** -- the second is said by the night.
+    (the note's own day field, `firestore.NOTE_DAY_FIELD`). **Answers (records written, listings skipped for having no record, notes taken back)** -- the
+    night says the second and the third in their own words, never counting a note taken back as a listing marked.
 
     **A NOTE A LATER COMPLETE FILE NO LONGER NAMES IS TAKEN BACK (D633, AP11)**, and only then: `complete` is true when every row of the file was read.
-    A file with a row it could not read takes nothing back -- the row it lost may be the very listing -- and a file older than the note takes back nothing.
-    The database is asked only for the records still carrying the note (`firestore.NOTE_STILL_SAID`), so a listing already taken back is not written again.
+    A file with a row it could not read takes nothing back -- the row it lost may be the very listing -- and a file older than the note takes back nothing;
+    one of the same day does, as a same-day file's note also replaces. A listing the file names with nothing to say (a fee row of `--`) is in `notes` with
+    an empty note, so it is named and keeps what it has. The database is asked only for the records still carrying the note
+    (`firestore.NOTE_STILL_SAID`), so a listing already taken back is not written again.
     """
 
-    def sink(report_id: str, day: str, notes: Dict[str, Dict], complete: bool = False) -> Tuple[int, int]:
+    def sink(report_id: str, day: str, notes: Dict[str, Dict], complete: bool = False) -> Tuple[int, int, int]:
         day_field = firestore.NOTE_DAY_FIELD[report_id]
         held = _the_held_records(transport, project, firestore.LISTINGS_SEEN, sorted(notes))
         writes = []
@@ -440,16 +443,18 @@ def a_listing_notes_sink(transport, project: str) -> Callable[..., int]:
             said = {**note, day_field: day}
             if any(have.get(field) != value for field, value in said.items() if field != day_field) and str(have.get(day_field) or "") <= day:
                 writes.append(firestore.a_listing_note_write(project, name, said))
+        taken_back = []
         if complete:
             still = _the_documents_of(transport, project, firestore.LISTINGS_SEEN, firestore.NOTE_STILL_SAID[report_id], (day_field,),
                                       "asking which listings still carry what an earlier side file said")
-            writes += [
+            taken_back = [
                 firestore.a_listing_note_taken_back(project, name, report_id, day)
                 for name, record in still
                 if name not in notes and str(record.get(day_field) or "") <= day
             ]
         skipped = sum(1 for name in notes if name not in held)
-        return write_them(transport, project, writes, "writing what the side files say about each listing"), skipped
+        written = write_them(transport, project, writes, "writing what the side files say about each listing")
+        return written, skipped, write_them(transport, project, taken_back, "taking back what an earlier side file said about a listing")
 
     return sink
 

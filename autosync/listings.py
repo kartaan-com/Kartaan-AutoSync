@@ -408,6 +408,8 @@ class WhatFeesSaid:
     fees: Dict[str, float]
     not_read: Tuple[str, ...]
     rows_in_file: int
+    # The listings a `--` row names: named by the file, with no fee given, so a fee already held is not taken back for them (D633, AP11 review).
+    no_estimate: Tuple[str, ...] = ()
 
 
 def read_fee_preview(rows: table.Table, report_name: str = "this file") -> WhatFeesSaid:
@@ -433,12 +435,14 @@ def read_fee_preview(rows: table.Table, report_name: str = "this file") -> WhatF
         )
     fees: Dict[str, float] = {}
     not_read: List[str] = []
+    no_estimate: List[str] = []
     for row in rows:
         sku, asin, said = row[FEE_COLUMNS["sku"]].strip(), row[FEE_COLUMNS["asin"]].strip(), row[FEE_COLUMNS["fee"]].strip()
         if not sku or not asin or not re.match(r"^[A-Za-z0-9]+$", asin) or "/" in sku or len(sku.encode("utf-8")) > _LONGEST_ID:
             not_read.append(f"line {row.line} ({sku or 'no SKU'}): this row has no ASIN and seller SKU that could name a listing, so the fee could not be put on one")
             continue
         if said == NO_FEE_ESTIMATE:
+            no_estimate.append(f"amazon::{asin}::{sku}")
             continue
         number, unreadable = _figure(said)
         if number is None or unreadable or number < 0:
@@ -452,4 +456,4 @@ def read_fee_preview(rows: table.Table, report_name: str = "this file") -> WhatF
     # **A ROW OF THE WRONG WIDTH IS A ROW NOT READ (AP10 review)** (table.read keeps it in `refused`): left out, a torn row's fee would never be set
     # and the file would read as read in full, so it is never opened again.
     not_read += [f"line {one.line}: {one.why}" for one in rows.refused]
-    return WhatFeesSaid(fees=fees, not_read=tuple(not_read), rows_in_file=len(rows) + len(rows.refused))
+    return WhatFeesSaid(fees=fees, not_read=tuple(not_read), rows_in_file=len(rows) + len(rows.refused), no_estimate=tuple(no_estimate))

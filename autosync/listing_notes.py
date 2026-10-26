@@ -92,9 +92,10 @@ def notes_from_fees(fees_said) -> WhatNotesSaid:
 
     **WRITTEN AGAINST THE SHAPE LANE 1 DOCUMENTS (DONE_AP8), AS LANE 2'S HALF (AP9):** `fees_said.fees` is `{amazon::ASIN::seller-sku: the fee per item}`, `.not_read`
     the rows it would not take and `.rows_in_file` the rows in the file. `read_fees` below joins the two (AP10). **A fee of 0.00 is kept: it is a figure Amazon gave.** `feeAsOf`, the file's day, is added by the sink, as `suppressedOn` is.
+    **A `--` ROW NAMES ITS LISTING WITH AN EMPTY NOTE (AP11 review):** the file still names it, so a fee already held is not taken back, and nothing is written.
     """
     return WhatNotesSaid(
-        notes={name: {"referralFee": fee} for name, fee in fees_said.fees.items()},
+        notes={**{name: {} for name in fees_said.no_estimate}, **{name: {"referralFee": fee} for name, fee in fees_said.fees.items()}},
         not_read=tuple(fees_said.not_read),
         rows_in_file=fees_said.rows_in_file,
     )

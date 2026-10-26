@@ -521,12 +521,12 @@ check("and the days Python reads out of the range name are the days of the range
 # **THE DAY-NAME CHECK ABOVE BUILDS THE JAVASCRIPT'S NAME IN PYTHON, SO IT CANNOT SEE `walk.js` DRIFT.**
 # An older extension put Meesho's views in one undated `meesho_me_views.csv` while the reader looks for
 # `meesho_me_views_<day>.csv`, and fifteen days (10 Sep - 14 Oct) never reached the database. That check
-# stays green with `theFileName` changed to write the undated name; these go red. A range of one day is
-# a day file, so the range script is asked with the same day at both ends.
+# stays green with `theFileName` changed to write the undated name; these go red. The range script is handed
+# the day alone, so `theFileName` is called with three arguments, exactly as the walk names a day's file.
 def the_day_names_in_javascript():
     try:
         done = subprocess.run(
-            ["node", "--input-type=module", "-e", ASK_FOR_RANGE_NAMES, A_DAY.isoformat(), A_DAY.isoformat()],
+            ["node", "--input-type=module", "-e", ASK_FOR_RANGE_NAMES, A_DAY.isoformat()],
             cwd=tool.ROOT, capture_output=True, text=True, check=False,
         )
     except OSError:

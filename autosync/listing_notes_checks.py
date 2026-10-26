@@ -157,6 +157,10 @@ class Transport:
             ])
         if url.endswith(":runQuery"):
             # One field filter, compared as Firestore compares plain values: a record without the field never matches.
+            # **The records held are listings_seen's, so a query of any other collection finds nothing** (SOLVED: a stand-in that ignores the
+            # collection lets a wrong one pass every check; the AP11 review caught this one doing it).
+            if json["structuredQuery"].get("from") != [{"collectionId": "listings_seen"}]:
+                return Reply(200, [])
             asked = json["structuredQuery"]["where"]["fieldFilter"]
             field, op = asked["field"]["fieldPath"], asked["op"]
             want = firestore.plain({"v": asked["value"]})["v"]
@@ -178,18 +182,18 @@ notes = said.notes if said else {}
 t = Transport(held={RING: LISTED})
 put = answered(lambda: firestore_door.a_listing_notes_sink(t, "p")("az_suppressed", "2026-10-03", notes))
 check("only a listing whose record is already held gets its note: one is written, the one with no record is not made up",
-      put == (1, 1) and [w["update"]["name"].rsplit("/", 1)[-1] for w in t.commits()] == [RING])
+      put == (1, 1, 0) and [w["update"]["name"].rsplit("/", 1)[-1] for w in t.commits()] == [RING])
 check("the note carries the day of the file it came from, as suppressedOn",
       t.commits() and t.commits()[0]["update"]["fields"]["suppressedOn"] == {"stringValue": "2026-10-03"})
 now_held = {RING: {**LISTED, **t.commits()[0]["update"]["fields"]}} if t.commits() else {}
 again = Transport(held=now_held)
-check("the same file again writes nothing", answered(lambda: firestore_door.a_listing_notes_sink(again, "p")("az_suppressed", "2026-10-03", notes)) == (0, 1) and again.commits() == [])
+check("the same file again writes nothing", answered(lambda: firestore_door.a_listing_notes_sink(again, "p")("az_suppressed", "2026-10-03", notes)) == (0, 1, 0) and again.commits() == [])
 changed = Transport(held=now_held)
 check("a new reason is written again",
-      answered(lambda: firestore_door.a_listing_notes_sink(changed, "p")("az_suppressed", "2026-10-04", {RING: {**notes[RING], "suppressedReason": "New"}})) == (1, 0))
+      answered(lambda: firestore_door.a_listing_notes_sink(changed, "p")("az_suppressed", "2026-10-04", {RING: {**notes[RING], "suppressedReason": "New"}})) == (1, 0, 0))
 late = Transport(held=now_held)
 check("a file of an earlier day never puts older words over newer ones",
-      answered(lambda: firestore_door.a_listing_notes_sink(late, "p")("az_suppressed", "2026-10-01", {RING: {**notes[RING], "suppressedReason": "Old"}})) == (0, 0))
+      answered(lambda: firestore_door.a_listing_notes_sink(late, "p")("az_suppressed", "2026-10-01", {RING: {**notes[RING], "suppressedReason": "Old"}})) == (0, 0, 0))
 try:
     firestore_door.a_listing_notes_sink(Transport(held={RING: LISTED}, fail_on=403), "p")("az_suppressed", "2026-10-03", notes)
     check("a database that says no raises, so the file is not marked read", False)
@@ -214,7 +218,7 @@ class Night:
             raise self.error
         self.written.append((report_id, day, found))
         self.complete.append(complete)
-        return len(found), 1
+        return len(found), 1, 0
 
     def go(self, already=()):
         return answered(lambda: reading.read_what_is_new(
@@ -249,7 +253,7 @@ check("a database that fails leaves the file unread and says why",
 class AllHeld(Night):
     def write(self, report_id, day, found, complete=False):
         self.written.append((report_id, day, found))
-        return len(found), 0
+        return len(found), 0, 0
 
 
 all_held = answered(lambda: AllHeld(FILES, {"s1": GOOD}).go())
@@ -300,14 +304,14 @@ check("the rows the fee reader would not take and the rows in the file go throug
 fee_t = Transport(held={RING: LISTED, BANGLE: LISTED})
 fee_put = answered(lambda: firestore_door.a_listing_notes_sink(fee_t, "p")("az_fee_preview", "2026-10-05", fee_notes.notes))
 check("the sink writes referralFee with feeAsOf, masked to those two fields, on each held record",
-      fee_put == (2, 0) and all(sorted(w["updateMask"]["fieldPaths"]) == ["feeAsOf", "referralFee"] for w in fee_t.commits())
+      fee_put == (2, 0, 0) and all(sorted(w["updateMask"]["fieldPaths"]) == ["feeAsOf", "referralFee"] for w in fee_t.commits())
       and fee_t.commits()[0]["update"]["fields"]["feeAsOf"] == {"stringValue": "2026-10-05"})
 fee_held = {n: {**LISTED, **w["update"]["fields"]} for w, n in zip(fee_t.commits(), (BANGLE, RING))}
 check("the same fees a day later write nothing, and an older file's fee never lands over a newer one",
-      answered(lambda: firestore_door.a_listing_notes_sink(Transport(held=fee_held), "p")("az_fee_preview", "2026-10-06", fee_notes.notes)) == (0, 0)
-      and answered(lambda: firestore_door.a_listing_notes_sink(Transport(held=fee_held), "p")("az_fee_preview", "2026-10-01", {RING: {"referralFee": 99.0}})) == (0, 0))
+      answered(lambda: firestore_door.a_listing_notes_sink(Transport(held=fee_held), "p")("az_fee_preview", "2026-10-06", fee_notes.notes)) == (0, 0, 0)
+      and answered(lambda: firestore_door.a_listing_notes_sink(Transport(held=fee_held), "p")("az_fee_preview", "2026-10-01", {RING: {"referralFee": 99.0}})) == (0, 0, 0))
 check("a fee that changed is written again",
-      answered(lambda: firestore_door.a_listing_notes_sink(Transport(held=fee_held), "p")("az_fee_preview", "2026-10-06", {RING: {"referralFee": 13.0}})) == (1, 0))
+      answered(lambda: firestore_door.a_listing_notes_sink(Transport(held=fee_held), "p")("az_fee_preview", "2026-10-06", {RING: {"referralFee": 13.0}})) == (1, 0, 0))
 
 # **THE JOIN (AP10): a real tab-separated fee file, as Amazon makes it, through lane 1's reader and lane 2's notes, on a night.**
 FEE_FILE = ("seller-sku\tasin\titem-name\tprice\testimated-referral-fee-per-item\r\n"
@@ -316,13 +320,13 @@ FEE_FILE = ("seller-sku\tasin\titem-name\tprice\testimated-referral-fee-per-item
             "NOFEE-1\tB0AAAAAAA3\tNo fee\t100.00\t--\r\n").encode("utf-8")
 fee_read = answered(lambda: tool.read_notes_file("az_fee_preview", FEE_FILE, "the fee file"))
 check("a real fee file is read by its own reader into referralFee notes, 0.00 kept and '--' read as no fee, never as a row not read (AP10 review)",
-      fee_read is not None and fee_read.notes == {RING: {"referralFee": 59.85}, BANGLE: {"referralFee": 0}}
+      fee_read is not None and fee_read.notes == {RING: {"referralFee": 59.85}, BANGLE: {"referralFee": 0}, "amazon::B0AAAAAAA3::NOFEE-1": {}}
       and fee_read.not_read == () and fee_read.rows_in_file == 3)
 fee_night = Night({"az_fee_preview": [whats_new.InTheFolder(which="f1", name="amazon_az_fee_preview_2026-10-05.txt", size=100)]}, {"f1": FEE_FILE})
 fee_was = fee_night.go()
 check("a night reads the fee file and hands its referralFee notes over with the file's day",
       fee_was is not None and fee_was.read_tonight == ("f1",)
-      and [(r, d, n) for r, d, n in fee_night.written] == [("az_fee_preview", "2026-10-05", {RING: {"referralFee": 59.85}, BANGLE: {"referralFee": 0}})])
+      and [(r, d, n) for r, d, n in fee_night.written] == [("az_fee_preview", "2026-10-05", {RING: {"referralFee": 59.85}, BANGLE: {"referralFee": 0}, "amazon::B0AAAAAAA3::NOFEE-1": {}})])
 check("and a fee file with a '--' row is not said to be unread: read in full, nothing said as not read (AP10 review)",
       fee_was is not None and not fee_was.could_not_read
       and [(r.report_id, r.rows_in_file, r.rows_read) for r in fee_was.reads] == [("az_fee_preview", 3, 3)])
@@ -353,34 +357,57 @@ gone = Transport(held=SUPPRESSED_HELD)
 gone_put = answered(lambda: firestore_door.a_listing_notes_sink(gone, "p")(
     "az_suppressed", "2026-10-06", {BANGLE: dict(firestore.plain({k: SUPPRESSED_HELD[BANGLE][k] for k in ("suppressed", "suppressedReason", "fixHint")}))},
     complete=True))
-cleared = [w for w in gone.commits() if w["update"]["name"].endswith(RING)]
+cleared = answered(lambda: [w for w in gone.commits() if w["update"]["name"].endswith(RING)]) or []
 check("A SUPPRESSION A LATER COMPLETE FILE NO LONGER NAMES IS TAKEN BACK: not suppressed, Amazon's reason and hint taken away, with the file's day",
-      gone_put == (1, 0) and len(gone.commits()) == 1 and len(cleared) == 1
+      gone_put == (0, 0, 1) and len(gone.commits()) == 1 and len(cleared) == 1
       and cleared[0]["update"]["fields"] == {"suppressed": {"booleanValue": False}, "suppressedOn": {"stringValue": "2026-10-06"}}
       and sorted(cleared[0]["updateMask"]["fieldPaths"]) == ["fixHint", "suppressed", "suppressedOn", "suppressedReason"])
 part = Transport(held=SUPPRESSED_HELD)
 check("a partial suppressed file (a row it could not read) takes nothing back -- the row it lost may be that listing",
-      answered(lambda: firestore_door.a_listing_notes_sink(part, "p")("az_suppressed", "2026-10-06", {}, complete=False)) == (0, 0)
+      answered(lambda: firestore_door.a_listing_notes_sink(part, "p")("az_suppressed", "2026-10-06", {}, complete=False)) == (0, 0, 0)
       and part.commits() == [])
 older = Transport(held=SUPPRESSED_HELD)
 check("an older complete file takes back nothing a newer file said",
-      answered(lambda: firestore_door.a_listing_notes_sink(older, "p")("az_suppressed", "2026-10-01", {}, complete=True)) == (0, 0)
+      answered(lambda: firestore_door.a_listing_notes_sink(older, "p")("az_suppressed", "2026-10-01", {}, complete=True)) == (0, 0, 0)
       and older.commits() == [])
 already = Transport(held={RING: {**LISTED, "suppressed": {"booleanValue": False}, "suppressedOn": {"stringValue": "2026-10-06"}}})
 check("a listing already taken back is not written again every night",
-      answered(lambda: firestore_door.a_listing_notes_sink(already, "p")("az_suppressed", "2026-10-07", {}, complete=True)) == (0, 0)
+      answered(lambda: firestore_door.a_listing_notes_sink(already, "p")("az_suppressed", "2026-10-07", {}, complete=True)) == (0, 0, 0)
       and already.commits() == [])
 FEES_HELD = {RING: {**LISTED, "referralFee": {"doubleValue": 59.85}, "feeAsOf": {"stringValue": "2026-10-05"}},
              BANGLE: {**LISTED, "referralFee": {"integerValue": "0"}, "feeAsOf": {"stringValue": "2026-10-05"}}}
 fee_gone = Transport(held=FEES_HELD)
 fee_gone_put = answered(lambda: firestore_door.a_listing_notes_sink(fee_gone, "p")("az_fee_preview", "2026-10-07", {BANGLE: {"referralFee": 0}}, complete=True))
 check("A FEE A LATER COMPLETE FILE NO LONGER GIVES IS TAKEN AWAY, never written as nought (0.00 is a figure Amazon gives), with the file's day",
-      fee_gone_put == (1, 0) and [w["update"]["name"].rsplit("/", 1)[-1] for w in fee_gone.commits()] == [RING]
-      and fee_gone.commits()[0]["update"]["fields"] == {"feeAsOf": {"stringValue": "2026-10-07"}}
-      and sorted(fee_gone.commits()[0]["updateMask"]["fieldPaths"]) == ["feeAsOf", "referralFee"])
+      fee_gone_put == (0, 0, 1)
+      and answered(lambda: [w["update"]["name"].rsplit("/", 1)[-1] for w in fee_gone.commits()]) == [RING]
+      and answered(lambda: fee_gone.commits()[0]["update"]["fields"]) == {"feeAsOf": {"stringValue": "2026-10-07"}}
+      and answered(lambda: sorted(fee_gone.commits()[0]["updateMask"]["fieldPaths"])) == ["feeAsOf", "referralFee"])
+dashes = Transport(held=FEES_HELD)
+check("A COMPLETE FEE FILE THAT NAMES A LISTING WITH '--' (no estimate) TAKES NOTHING BACK FROM IT: the file still names it (AP11 review)",
+      answered(lambda: firestore_door.a_listing_notes_sink(dashes, "p")("az_fee_preview", "2026-10-07", {RING: {}, BANGLE: {"referralFee": 0}},
+                                                                     complete=True)) == (0, 0, 0)
+      and dashes.commits() == [])
+check("and the real fee reader names a '--' row's listing that way",
+      answered(lambda: tool.read_fees(FEE_FILE, "x").notes["amazon::B0AAAAAAA3::NOFEE-1"]) == {})
+same_day = Transport(held=SUPPRESSED_HELD)
+check("a complete file of the SAME day as a note takes it back, as a same-day file's note also replaces one",
+      answered(lambda: firestore_door.a_listing_notes_sink(same_day, "p")("az_suppressed", "2026-10-03", {}, complete=True)) == (0, 0, 2))
+
+
+class TakesBack(Night):
+    def write(self, report_id, day, found, complete=False):
+        self.written.append((report_id, day, found))
+        return 0, 0, 2
+
+
+taking = answered(lambda: TakesBack(FILES, {"s1": GOOD}).go())
+check("THE NIGHT SAYS NOTES TAKEN BACK IN THEIR OWN WORDS, never as listings marked suppressed (AP11 review)",
+      taking is not None and taking.notes_taken_back == 2 and "2 listing(s) Amazon's latest complete side file no longer names" in taking.says()
+      and "were marked" not in taking.says())
 fee_part = Transport(held=FEES_HELD)
 check("a partial fee file takes no fee away",
-      answered(lambda: firestore_door.a_listing_notes_sink(fee_part, "p")("az_fee_preview", "2026-10-07", {BANGLE: {"referralFee": 0}})) == (0, 0)
+      answered(lambda: firestore_door.a_listing_notes_sink(fee_part, "p")("az_fee_preview", "2026-10-07", {BANGLE: {"referralFee": 0}})) == (0, 0, 0)
       and fee_part.commits() == [])
 CLEAN = Night(FILES, {"s1": GOOD})
 CLEAN.go()
@@ -390,7 +417,7 @@ check("the night says a file is complete only when every row of it was read",
       CLEAN.complete == [True] and TORN.complete == [False])
 
 check("nothing above ended by throwing rather than by answering -- " + str(THREW), not THREW)
-EXPECTED = 49 + 7 + 5
+EXPECTED = 49 + 7 + 5 + 4
 check(f"checks went missing -- {ran + 1} ran, {EXPECTED} expected", ran + 1 == EXPECTED)
 
 if failures:

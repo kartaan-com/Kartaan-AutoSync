@@ -339,6 +339,8 @@ class WhatTheNightRead:
     notes_waiting: int = 0
     # Listings a side file named that had no record yet, so nothing was written beside them (the next night's file is the whole list again).
     notes_skipped: int = 0
+    # Notes taken back because a later complete side file no longer names the listing (D633, AP11): said apart, never counted as marked.
+    notes_taken_back: int = 0
     # Why the seller's own database refused a listing record. **OURS, like the ledger refusing**: the usual cause is the ERP's rules
     # (commit 94de631) not yet published to that seller, and a night that says green while every night refuses is the fault kept
     # apart above.
@@ -433,6 +435,11 @@ class WhatTheNightRead:
             said += (
                 f"  {self.notes_skipped} listing(s) named in a side file had no record yet, so nothing was written beside them; "
                 "the next file names them again."
+            )
+        if self.notes_taken_back:
+            said += (
+                f"  {self.notes_taken_back} listing(s) Amazon's latest complete side file no longer names had that note taken back "
+                "(no longer suppressed, or no referral fee given)."
             )
         if self.notes_waiting:
             said += (
@@ -990,7 +997,7 @@ def read_what_is_new(
     record_returns: Optional[Callable[[str, str, Dict], int]] = None,
     record_ads: Optional[Callable[[str, str, str, str, Dict], int]] = None,
     record_records: Optional[Dict[str, Callable[[str, str, Dict], int]]] = None,
-    record_notes: Optional[Callable[[str, str, Dict], Tuple[int, int]]] = None,
+    record_notes: Optional[Callable[[str, str, Dict], Tuple[int, int, int]]] = None,
     correcting: bool = False,
 ) -> WhatTheNightRead:
     """Read every file in the seller's folders that has not been read before.
@@ -1000,8 +1007,8 @@ def read_what_is_new(
     traffic and ads files are not opened and not marked, and the night says how many are waiting.
     `record_listings(report_id, day, listings)` is where a listing file's listings go and answers how many records it wrote; left out, the
     listing files are not opened and not marked, and the night says how many are waiting.
-    `record_notes(report_id, day, notes)` is where what a side file says about listings goes (beside each listing's record) and answers how many records it
-    wrote; left out, those files are not opened and not marked, and the night says how many are waiting.
+    `record_notes(report_id, day, notes, complete=)` is where what a side file says about listings goes (beside each listing's record) and answers how many records it
+    wrote, how many listings it named had no record, and how many notes it took back; left out, those files are not opened and not marked, and the night says how many are waiting.
 
     `correcting` is True only on the night every file is read again because the reading rules changed (A81): the orders it reads
     then put right what the same day's file said before, instead of leaving it as a tie (`ledger.Reading.corrects`).
@@ -1084,6 +1091,7 @@ def read_what_is_new(
     notes_written = 0
     notes_waiting = 0
     notes_skipped = 0
+    notes_taken_back = 0
     returns_written = 0
     returns_waiting = 0
     records_written: Dict[str, int] = {}
@@ -1132,9 +1140,10 @@ def read_what_is_new(
             try:
                 said, the_day = a_notes_reading(how, one, bring_it_back(one.which))
                 # **COMPLETE ONLY WHEN EVERY ROW WAS READ (D633):** only then may a listing it no longer names have its note taken back.
-                wrote, skipped = record_notes(how.report_id, the_day, said.notes, complete=not said.not_read)
+                wrote, skipped, taken_back = record_notes(how.report_id, the_day, said.notes, complete=not said.not_read)
                 notes_written += wrote
                 notes_skipped += skipped
+                notes_taken_back += taken_back
             except TheirDatabaseSaidNo as wrong:
                 the_database_refused.append(f"{one.name or one.which}: {wrong}")
                 continue
@@ -1333,6 +1342,7 @@ def read_what_is_new(
         notes_written=notes_written,
         notes_waiting=notes_waiting,
         notes_skipped=notes_skipped,
+        notes_taken_back=notes_taken_back,
         returns_written=returns_written,
         returns_waiting=returns_waiting,
         records_written=tuple(sorted(records_written.items())),

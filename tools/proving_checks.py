@@ -5,6 +5,8 @@ written down as unproven, and that a change of line endings alone is not a chang
 ERP's and is held by the ERP's own checks. Nothing here needs the ERP checkout.
 """
 import os
+import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -70,8 +72,12 @@ def a_repository_with_a_line_ending_change():
     """A two-commit repository: one file whose line endings changed, one with one line really changed."""
     where = Path(tempfile.mkdtemp(prefix="prove-checks-checks-"))
     env = away_from_the_real_repository()
+    # **AND GIT MAY NOT CLIMB OUT OF THE FOLDER** (AP11 review): if `git init` here ever failed, the commands after it would find whatever
+    # repository sits above the temp folder.
+    env["GIT_CEILING_DIRECTORIES"] = str(where.parent)
     git = lambda *a: subprocess.run(["git", "-c", "core.autocrlf=false", *a], cwd=where, capture_output=True, text=True, env=env)
-    git("init", "-q")
+    if git("init", "-q").returncode != 0:
+        raise SystemExit(f"proving_checks: git init failed in {where}; nothing else was run there.")
     (where / "endings.py").write_bytes(b"a = 1\r\nb = 2\r\n")
     (where / "real.py").write_bytes(b"a = 1\nb = 2\n")
     git("add", "-A")
@@ -98,7 +104,37 @@ except SystemExit as said:
     stopped = str(said)
 check("a missing ERP checkout stops in words naming KARTAAN, never a copy of the prover", "KARTAAN" in stopped)
 
-EXPECTED = 14
+
+def stops_with(work):
+    try:
+        work()
+        return ""
+    except SystemExit as said:
+        return str(said)
+
+
+_kartaan = os.environ.pop("KARTAAN", None)
+try:
+    check("KARTAAN not set stops in words, never read as this folder (an old worktree's prover could sit here)",
+          "KARTAAN is not set" in stops_with(lambda: pc.the_erps_prover()))
+finally:
+    if _kartaan is not None:
+        os.environ["KARTAAN"] = _kartaan
+an_older_prover = type(sys)("an_older_prover")
+for _name in pc.THE_ERPS_NAMES:
+    setattr(an_older_prover, _name, None)
+del an_older_prover._diff_args
+check("an ERP prover that has renamed a name this file replaces stops it in words naming the name, before anything is measured",
+      "_diff_args" in stops_with(lambda: pc.set_up(an_older_prover)) and an_older_prover.ROOT is None)
+check("A CHECKS FILE THAT FELL OVER (failed with no FAIL line) CATCHES NOTHING; only a failed run with a FAIL line is caught",
+      pc.a_check_went_red(1, b"PASS  a\nFAIL  b\n") and not pc.a_check_went_red(1, b"Traceback (most recent call last):\n")
+      and not pc.a_check_went_red(0, b"FAIL  printed but passed\n") and not pc.a_check_went_red(1, b"PASS  FAIL in the middle\n"))
+
+# The scratch repository is taken away again, read-only object files included (git marks them so on Windows; the ERP prover's `scrub`).
+shutil.rmtree(where, onerror=lambda remove, name, _: (os.chmod(name, stat.S_IWRITE), remove(name)))
+check("and the scratch repository is gone again", not where.exists())
+
+EXPECTED = 14 + 4
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
