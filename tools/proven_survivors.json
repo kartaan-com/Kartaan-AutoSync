@@ -1,0 +1,49 @@
+{
+  "_what_this_is": [
+    "AutoSync's own survivor list for tools/proving.py (the ERP's prover pointed at this repository, AP11).",
+    "A survivor is a deliberate change no check noticed. Each one here has the reason no check can ever notice it;",
+    "a survivor not listed here is a failure, and an entry that no longer survives is a failure too (the prover says STALE).",
+    "The question every reason answers: is there any state a check could reach in which what is written, what is",
+    "stored, or what the seller is told comes out different? `cannot_load` names, per file, the changes that stop the",
+    "checks file loading at all -- noticed, but by the file failing to load rather than by a check going red."
+  ],
+  "accepted": [
+    {
+      "file": "autosync/ledger.py",
+      "operator": "line",
+      "line": "if column == \"settlement\" and str(was) != \"\" and not added:",
+      "occurrence": 0,
+      "why": "Deleting this line puts the line under it (figure_replaced = True) inside the block above, whose condition is this one with `reading.only_existing` added. Only a payments reading carries a settlement, and every payments reading is only_existing, so for every reading this package makes the two conditions are the same and nothing written, stored or said changes. Checked by payments_checks 'A SKU LINE THAT LEAVES THE FIGURE AS IT IS AND CHANGES A CHARGE CLEARS NO FEE KEY' (AP11), which passes either way for that reason."
+    },
+    {
+      "file": "autosync/ledger.py",
+      "operator": "line",
+      "line": "changed[name] = True",
+      "occurrence": 2,
+      "why": "This is inside `if figure_replaced and ...`, and figure_replaced is only ever set on a line right after `changed[name] = True` has already run for the same row in the same pass. Deleting this one leaves changed[name] True all the same, so the row is written exactly as before; there is no state in which it differs."
+    },
+    {
+      "file": "autosync/payments.py",
+      "operator": "line",
+      "line": "continue",
+      "occurrence": 9,
+      "why": "The `continue` after an unreadable Amazon settlement amount only saves work: without it the line falls through with no amount, its charge is not computed (it needs an amount), it is not counted as a no-order line (that needs an amount too), and _Lines.put returns at once for a line with no settlement and no charge. The unreadable text is already set aside by name above. No sale, charge, key or aside comes out different."
+    }
+  ],
+  "cannot_load": {
+    "tools/move_group.py": "Deleting an import (json, re, dataclass), a constant (REPO, GROUPS, BURNT, TAG), a field of Facts, a function's own head line, or a line that first sets a name a later line reads (why, state, now, going_back, ahead, sha, url, refs, tags, name, branches, releases, groups) leaves that name undefined, so the module will not import or the function throws a NameError the moment the checks call it, before any check prints. Read off the prover's verdicts at AP11 (36 such changes, none surviving); every other change to this file went red by name.",
+    "autosync/listing_notes.py": "Deleting an import (dataclass, typing, listings), a function's head line (read_fees), the READERS table, or the line that sets `reader` or returns from it leaves a name the module or its checks need undefined, so listing_notes_checks.py stops before or while its first notes are read; deleting the line that remembers where a listing was first seen (seen_at) or says the repeat makes the repeat check reach into a list that is empty. Noticed by the file failing to load, not by a check going red. Read off the prover's verdicts at AP11 (9 changes, none surviving).",
+    "autosync/amazon.py": "Deleting the `snapshot` field's line from AmazonReport, or one line of the two snapshot reports' entries (az_suppressed, az_health: their id, Amazon's report type, or how it is asked for), leaves the table of reports unable to be built, so the module does not import and amazon_checks.py dies before its first check. Noticed by the load, not by a red check. Read off the prover's verdicts at AP11 (7 changes, none surviving).",
+    "autosync/recipes.py": "Deleting AMAZON_WRITES_IT or AMAZON_INVENTORY_REPORTS, which later recipes are built from, or one of the two Amazon inventory recipe lines (az_listings, az_fee_preview) that every recipe check walks, stops the module building its recipe table at import, so recipes_checks.py cannot load. Read off the prover's verdicts at AP11 (4 changes, none surviving).",
+    "autosync/may_fetch.py": "Deleting `from datetime import date` or a line whose annotation or body needs it (NO_PASS_STOPS_FROM, today's parameter) leaves `date` undefined at import, and deleting the line that sets `left` leaves the warning reading a name that is not there; each stops may_fetch_checks.py before or while it runs. Read off the prover's verdicts at AP11 (4 changes, none surviving).",
+    "autosync/views.py": "Deleting one line of the Amazon traffic view's entry (its ASIN column, its Page Views column, or its header row) leaves the table of views that the module builds at import with a call that cannot be made, so views_checks.py cannot load. Read off the prover's verdicts at AP11 (3 changes, none surviving).",
+    "autosync/reading.py": "Deleting `import listing_notes`, or a line of the module-level lists that say which reports are read (the views list, the set of everything read), stops the module building what it decides at import, so reading_checks.py cannot load. Read off the prover's verdicts at AP11 (3 changes, none surviving).",
+    "autosync/payments.py": "Deleting the import line from orders, the head line of shared_by_value, or the first line of the figures it builds leaves a name undefined or a body standing alone, so the module will not import and payments_checks.py dies before its first check. Read off the prover's verdicts at AP11 (3 changes, none surviving).",
+    "autosync/listings.py": "Deleting the `state_column` field's line from the Shape every listing file is described by, or THE_SHAPE_OF, which every reader looks a report up in, stops the module building its shapes at import, so listings_checks.py cannot load. Read off the prover's verdicts at AP11 (2 changes, none surviving).",
+    "autosync/ledger.py": "Deleting `import re` or the import line from sales leaves names the module uses at import (the fee-key pattern, the columns) undefined, so ledger_checks.py cannot load. Read off the prover's verdicts at AP11 (2 changes, none surviving).",
+    "extension/screen.js": "Deleting THROUGH_THE_BROWSER, which screen.js exports and screen.test.js imports by name, stops the test file importing at all. Noticed by the load, not by a red check. Read off the prover's verdicts at AP11 (1 change).",
+    "autosync/firestore_door.py": "Deleting the typing import leaves the annotations the module is written with undefined at import, so firestore_door_checks.py cannot load. Read off the prover's verdicts at AP11 (1 change).",
+    "autosync/firestore.py": "Deleting NOTE_TEXT, which NOTE_FIELDS is built from on the next line, stops the module at import, so firestore_checks.py cannot load. Read off the prover's verdicts at AP11 (1 change).",
+    "autosync/claims.py": "Deleting the typing import leaves the annotations the module is written with undefined at import, so claims_checks.py cannot load. Read off the prover's verdicts at AP11 (1 change)."
+  }
+}

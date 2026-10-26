@@ -388,6 +388,8 @@ check("A COMPLETE FEE FILE THAT NAMES A LISTING WITH '--' (no estimate) TAKES NO
       answered(lambda: firestore_door.a_listing_notes_sink(dashes, "p")("az_fee_preview", "2026-10-07", {RING: {}, BANGLE: {"referralFee": 0}},
                                                                      complete=True)) == (0, 0, 0)
       and dashes.commits() == [])
+check("and a '--' listing with no record yet is not said to the seller as one that had no record: it had nothing to write",
+      answered(lambda: firestore_door.a_listing_notes_sink(Transport(held={}), "p")("az_fee_preview", "2026-10-07", {RING: {}})) == (0, 0, 0))
 check("and the real fee reader names a '--' row's listing that way",
       answered(lambda: tool.read_fees(FEE_FILE, "x").notes["amazon::B0AAAAAAA3::NOFEE-1"]) == {})
 same_day = Transport(held=SUPPRESSED_HELD)
@@ -417,7 +419,7 @@ check("the night says a file is complete only when every row of it was read",
       CLEAN.complete == [True] and TORN.complete == [False])
 
 check("nothing above ended by throwing rather than by answering -- " + str(THREW), not THREW)
-EXPECTED = 49 + 7 + 5 + 4
+EXPECTED = 49 + 7 + 5 + 4 + 1
 check(f"checks went missing -- {ran + 1} ran, {EXPECTED} expected", ran + 1 == EXPECTED)
 
 if failures:

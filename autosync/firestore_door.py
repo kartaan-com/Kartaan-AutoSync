@@ -417,7 +417,7 @@ def _the_held_records(transport, project: str, collection: str, doc_ids: Sequenc
     return held
 
 
-def a_listing_notes_sink(transport, project: str) -> Callable[..., int]:
+def a_listing_notes_sink(transport, project: str) -> Callable[..., Tuple[int, int, int]]:
     """What a side file says about each listing, put beside that listing's record -- ONLY for a listing whose record is held, and only what differs (AP9).
 
     **THE RECORDS ARE ASKED FOR FIRST.** A listing with no record yet is skipped, not made up: the listing file names it first (a note on its own would be a
@@ -452,7 +452,8 @@ def a_listing_notes_sink(transport, project: str) -> Callable[..., int]:
                 for name, record in still
                 if name not in notes and str(record.get(day_field) or "") <= day
             ]
-        skipped = sum(1 for name in notes if name not in held)
+        # A listing named with nothing to say (a `--` fee row) had nothing to write, so it is never counted as "had no record".
+        skipped = sum(1 for name, note in notes.items() if note and name not in held)
         written = write_them(transport, project, writes, "writing what the side files say about each listing")
         return written, skipped, write_them(transport, project, taken_back, "taking back what an earlier side file said about a listing")
 

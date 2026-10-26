@@ -1,0 +1,23 @@
+{
+  "record": "review",
+  "commit": "The commit carrying this record on autosync-join (after 8c8b6c1); its only code change beyond 8c8b6c1 is the two low fixes the second pass suggested (firestore_door.py skipped count and type note), with a check that went red first.",
+  "run_at": "First pass over 77705cd..b33ad3e and second pass over 8c8b6c1, 2026-10-26 between about 04:00 and 07:20 IST (session times).",
+  "tool": "A fresh Opus 5.5 reviewer sub-agent with no stake in the code, handed SOLVED_PROBLEMS.md, read-only git reads and the repository's own checks files run read-only (KARTAAN=D:/Kartaan-ERP for those that need the ERP).",
+  "invoked_as": "git log / show / diff / grep over 77705cd..b33ad3e, then `git show 8c8b6c1`; checks files run: listing_notes, firestore, listings, payments, ledger, claims, export_recipes, move_group, update.test.js, screen.test.js, reading, nightly, proving_checks (the last only on the second pass, after its git fence was in place).",
+  "ran_by": "A fresh Opus 5.5 sub-agent of AP11 (worker for Kartaan Control); it wrote none of the code. The author (AP11) made every fix.",
+  "scope": "77705cd (AP10's join) to the record's commit on autosync-join: parts A, A2, A3, A4 and B of BRIEF-AP11 and the review fixes. 24 files in the first pass.",
+  "found": [
+    "SOLVED_PROBLEMS loop: two findings repeated rules already on the list (a stand-in database ignoring the collection; reaching into an answer outside answered), and the A2 fix itself repeated a rule written one release earlier for the fee reader. Said here as the loop failing; a line for the new kind went into SOLVED_PROBLEMS.md.",
+    "1 (medium): tools/proven_survivors.json was not committed, so a fresh clone would report the three accepted survivors as failures. Closed by this commit.",
+    "2 (medium): notes taken back were counted and said as listings 'marked ... suppressed'. Fixed in 8c8b6c1: the sink answers (written, skipped, taken back) and the night says take-backs in their own sentence.",
+    "3 (medium): a '--' fee row names its listing but was left out of the notes, so a complete file took back the fee of a listing it still named. Fixed in 8c8b6c1 (no_estimate; an empty note names the listing).",
+    "4 (medium): the new runQuery stand-in ignored the collection. Fixed in 8c8b6c1.",
+    "5 (medium): tools/proving.py assigned over ERP names without checking they exist, and its 'other checks files' verdict had no check. Fixed in 8c8b6c1 (THE_ERPS_NAMES refusal; a_check_went_red with its own check). Still unchecked, said plainly: the loop over the other checks files inside _try_one and the __mp_main__ start; both are exercised by every proving run, not by a check.",
+    "6 (low): an unset KARTAAN resolved against the current folder. Fixed in 8c8b6c1.",
+    "7, 8, 9, 10 (low): reaches outside answered; the same-day take-back unpinned; the scratch repository unfenced and left behind; the day name asked with a fourth argument. All fixed in 8c8b6c1; same-day is now decided (a same-day complete file takes the note back, as a same-day note also replaces).",
+    "11: of the three accepted survivors, payments.py 662 and ledger.py 1109 are truly equivalent; ledger.py 1094 is equivalent for every reading this package makes but not for a made-up one (Reading.only_existing defaults to False). The reviewer suggests merging the two conditions and deleting the 1109 line as dead code. Both change older ledger code that handles money, so they are not made here and go to Kartaan Control.",
+    "Second pass (8c8b6c1): findings 2-10 all fixed, none fixed wrongly; new items low only: a '--' listing with no record was counted as 'had no record' (fixed in this record's commit, check red first), the sink's type note was wrong (fixed here), and the notes and take-backs are two commits, safe to repeat if the second fails."
+  ],
+  "per_landing_evidence": "Every part was committed separately through the repository's commit gate with its own review_pass.json and a check that failed first: 60fecd8 (A), ea2361d (A2), a4c3602 (A3), 1c603ab (A4), 5fc8eed (B setup), b33ad3e (B survivors), 8c8b6c1 (review fixes).",
+  "per_landing_note": "The per-commit review_pass records before 8c8b6c1 were the author's own (independent: false, said so in each); this whole-range read by a fresh agent is the independent one."
+}

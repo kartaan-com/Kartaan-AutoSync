@@ -1,0 +1,19 @@
+{
+  "record": "security",
+  "commit": "8c8b6c1 (autosync-join); the records commit after it adds only release_records/*.json and tools/proven_survivors.json",
+  "run_at": "First pass over 77705cd..b33ad3e, then a second pass over the review-fix commit 8c8b6c1, both on 2026-10-26 between about 04:00 and 07:10 IST (session times; not read from `date` by the reviewer).",
+  "tool": "cso skill (Chief Security Officer mode), diff mode, 8/10 confidence bar, run by a fresh Opus 5.5 sub-agent with read-only git commands. The skill loaded; its interactive preamble, phase-file loading, independent verifiers and report-saving step were not run (see phases_not_run). The second pass was by hand under the skill's rules.",
+  "invoked_as": "Skill \"cso\" with args \"--diff 77705cd..b33ad3e\" for the first pass; the second pass by hand over `git show 8c8b6c1`. Only git log / show / diff / grep and file reads; nothing edited, staged or run.",
+  "ran_by": "A fresh Opus 5.5 sub-agent of AP11 (worker for Kartaan Control); it wrote none of the code.",
+  "scope": "77705cd..8c8b6c1 on autosync-join: README download link; the take-back of a suppression or fee (a new runQuery on the seller's own listings_seen and masked writes that remove note fields); a '--' fee row naming its listing; tools/proving.py (a developer tool that loads the ERP's prover from KARTAAN) and tools/proving_checks.py (git in a fenced temp folder); tools/move_group.py (an unused parameter removed); many checks files.",
+  "phases_not_run": "Full git-history secrets search (the diff only); dependency and supply-chain audit (no dependency files changed); workflow review (no workflow file changed; read only to see what runs where); infrastructure, outside integrations beyond the Firestore calls, AI/LLM and skill supply-chain phases; independent verifiers (self-checked); saving the report file (read-only run); web search.",
+  "found": [
+    "Nothing at or above the 8/10 bar, on either pass.",
+    "Secrets and seller data: none added. Every ASIN added is a stand-in (B0AAAAAAA2, B0GOODONE0, B0AAAAAAA3, ...). B0G5QH9F2V appears only on two existing checks lines that were edited, the same open question earlier reviews raised; not new exposure.",
+    "Firestore: the new query names the seller's own project and only listings_seen, filtered on suppressed == true or referralFee >= 0, and fetches only the day field; each take-back write names exactly its note fields and the day, and refuses an unknown report or a day not written year-month-day.",
+    "Nothing sends data anywhere new; the README link is this repository's own always-latest release ZIP (github.com/kartaan-com/Kartaan-AutoSync), the name .github/workflows/extension-zip.yml attaches.",
+    "tools/proving.py runs only when started directly; the seller's nightly workflow runs start.py and never reaches it; tools/proving_checks.py imports it as a module, so the loader never runs in CI; an unset KARTAAN now stops in words rather than loading from the current folder.",
+    "Git: tools/proving_checks.py strips git's pointer variables, sets GIT_CEILING_DIRECTORIES to the temp folder's parent, stops if git init fails, and removes only its own mkdtemp folder (after the 26 Oct incident in which the first version set bare = true on the real repository from the commit hook; put back within three minutes).",
+    "Noted below the bar, correctness not security: a take-back write has no 'record must still exist' precondition, so a record deleted between the query and the write would come back as a stub holding only the note fields; and if the take-back call fails after the notes call, the notes stand and the file is left unread to be tried again. Both inside the seller's own data; the first is listed for Kartaan Control."
+  ]
+}
