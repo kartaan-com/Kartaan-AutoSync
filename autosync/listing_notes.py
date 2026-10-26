@@ -118,6 +118,10 @@ def read_fees(content: bytes, report_name: str = "this file") -> WhatNotesSaid:
 # against the listing's catalogue id; a row with neither is matched by its title when the title belongs to exactly one catalogue (the way product performance is matched, D459).**
 # A row whose SKU and catalogue id point at different catalogues is not matched: which is meant cannot be said. One row's figures go on EVERY listing it finds (the page
 # prices a product; its sizes are listings of it). Meesho's `Catalog ID` was BLANK on every row of the product performance file, so the SKU and the title carry the match.
+_AN_AMOUNT = re.compile("^₹?\\s*(\\d{1,3}(,\\d{3})+|\\d+)(\\.\\d{1,2})?$")
+_MOST_A_PRICE = 10_000_000
+# A label longer than this is cut (the database refuses a record past about a megabyte; a label is a few words).
+_LONGEST_LABEL = 200
 PRICING_COLUMNS = ("Product", "Catalog ID", "SKU ID", "Current Customer Price", "Recommended Customer Price", "Insights")
 
 
@@ -126,12 +130,12 @@ def _first_piece_amount(said: str, what: str) -> Optional[object]:
     first = (said or "").split("|")[0].strip()
     if not first:
         return None
-    try:
-        value = shared.a_figure(first)
-    except ValueError:
-        raise ValueError(f"the {what} reads {first!r}, which is not an amount") from None
+    # **PLAINLY AN AMOUNT AND NOTHING ELSE**: an optional rupee sign, digits (commas as thousands), at most two decimals, below ten million -- so no percentage, no exponent, no words.
+    if not _AN_AMOUNT.match(first):
+        raise ValueError(f"the {what} reads {first[:40]!r}, which is not an amount")
+    value = shared.a_figure(first, most=_MOST_A_PRICE)
     if value is None:
-        raise ValueError(f"the {what} reads {first!r}, which is not an amount")
+        raise ValueError(f"the {what} reads {first[:40]!r}, which is not an amount")
     return int(value) if value == value.to_integral_value() else float(round(value, 2))
 
 
@@ -176,15 +180,27 @@ def read_pricing(content: bytes, report_name: str = "this file", shop_listings: 
             not_read.append(f"{who}: this row has no current price, so there is no price to put on a listing")
             continue
         found = None
-        for layer, index, key in (("SKU", by_sku, sku), ("catalogue id", by_catalog, catalog)):
-            if key and key in index:
-                found = (layer, index[key])
-                break
-        if found and found[0] == "SKU" and catalog and all(
-            str(shop_listings[n].get("catalogId") or "").strip() not in ("", catalog) for n in found[1]
-        ):
-            not_read.append(f"{who}: its SKU and its catalogue id disagree -- the listings with that SKU are in another catalogue -- so which listing is meant cannot be said")
-            continue
+        catalog_of = lambda n: str(shop_listings[n].get("catalogId") or "").strip()  # noqa: E731
+        if sku and sku in by_sku:
+            names = by_sku[sku]
+            if catalog:
+                narrowed = [n for n in names if catalog_of(n) == catalog]
+                if narrowed:
+                    names = narrowed
+                elif any(catalog_of(n) for n in names):
+                    not_read.append(f"{who}: its SKU and its catalogue id disagree -- the listings with that SKU are in another catalogue -- so which listing is meant cannot be said")
+                    continue
+            elif len({catalog_of(n) for n in names if catalog_of(n)}) > 1:
+                not_read.append(f"{who}: the SKU is in {len({catalog_of(n) for n in names})} catalogues and the row names none, so which listing is meant cannot be said")
+                continue
+            found = ("SKU", names)
+        elif catalog and catalog in by_catalog:
+            # **A CATALOGUE HOLDS SEVERAL PRODUCTS**: one row's price goes on a catalogue's listings only when they are one product (one SKU) in several sizes.
+            names = by_catalog[catalog]
+            if len({str(shop_listings[n].get("sku") or "").strip() for n in names}) > 1:
+                not_read.append(f"{who}: the catalogue holds more than one product and the SKU matched none, so which listing is meant cannot be said")
+                continue
+            found = ("catalogue id", names)
         if found is None and title and not sku and not catalog:
             names = by_title.get(title.lower(), [])
             catalogs = {str(shop_listings[n].get("catalogId") or "") for n in names}
@@ -196,7 +212,7 @@ def read_pricing(content: bytes, report_name: str = "this file", shop_listings: 
         if found is None:
             not_read.append(f"{who}: no listing of the seller's has this SKU, catalogue id or title, so the price could not be put on one")
             continue
-        label = row["Insights"].strip()
+        label = row["Insights"].strip()[:_LONGEST_LABEL]
         for name in found[1]:
             if name in seen_at:
                 not_read.append(f"{who}: line {seen_at[name]} already put a price on {name}. Only the first was kept")

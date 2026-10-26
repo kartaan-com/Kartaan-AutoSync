@@ -1,0 +1,20 @@
+{
+  "record": "review",
+  "commit": "The commit carrying this record on claude/n017-meesho-pricing-d6a37d (after 6e1d295); its code changes beyond 6e1d295 are the review fixes below, each with a check that went red first.",
+  "run_at": "2026-10-26 (session time), one pass over 5fc8eed..6e1d295.",
+  "tool": "A fresh Opus 5.5 sub-agent with no stake in the code, handed SOLVED_PROBLEMS.md, read-only git reads and the repository's own checks files run read-only (KARTAAN=D:/Kartaan-ERP).",
+  "invoked_as": "git diff 5fc8eed..HEAD; node extension/tables.test.js; python autosync/listing_notes_checks.py, reading_checks.py, firestore_checks.py, listings_checks.py; a scratch probe script proving the two wrong-listing faults.",
+  "ran_by": "A fresh Opus 5.5 sub-agent of N017 (worker for Kartaan Control); it wrote none of the code. The author (N017, Sonnet 5.5) made every fix.",
+  "scope": "5fc8eed to 6e1d295: extension/tables.js (short pager rule), autosync/listing_notes.py read_pricing, firestore.py note fields, reading.py wiring and their checks.",
+  "found": [
+    "HIGH, FIXED: a SKU shared by two catalogues got one catalogue's price on both and the other row was lost every night (the 'disagree' guard used all(), not narrowing). Now the row's catalogue id narrows the SKU's listings; a row naming none for a SKU in several catalogues is not read. Check went red first.",
+    "HIGH, FIXED: the catalogue-id fallback spread one product's price over every product in the catalogue. Now it matches only when the catalogue's listings are one SKU (sizes of one product); otherwise the row is not read, by line. Check went red first.",
+    "LOW, FIXED: a price cell was read loosely ('12%' read as 12). Now plainly an amount (optional rupee sign, digits, commas, two decimals, below ten million) or the row is not read.",
+    "MEDIUM, NOT FIXED, SAID: the shared note writer (firestore_door.a_listing_notes_sink, also used for Amazon fees) writes only when a figure changed, so a newer file confirming the same price leaves priceAsOf on the older day and a late older file could then overwrite it. Files are read oldest first and pricing cannot be fetched for past days, so a late older file is rare; changing the shared writer is outside this job. Named for the owner of the sink.",
+    "LOW, NOT FIXED, SAID: tables.js neutralises a leading = + - @ in cells with a quote, so a SKU or title starting that way will not match exactly (falls to the next match layer or is reported unmatched).",
+    "LOW, NOT FIXED, SAID: with a short pager plus a torn row, the error blames the pager count instead of the torn row (read still refused, nothing saved).",
+    "Checked and sound: the short-pager rule accepts only when the page's own count equals the rows read, product performance gets the same rule under the same equality, missing/unreadable catalogue leaves the pricing file unread, side files are taken after listing files, a partial file takes nothing back, masked writes never touch the listing, blank recommended is null, take-back removes all three figures."
+  ],
+  "per_landing_evidence": "listing_notes_checks.py 81/81, tables.test.js 57/57, reading_checks.py 129/129, firestore_checks.py 142/142, listings_checks.py 90/90 on the reviewed range; 81/81 after the fixes.",
+  "per_landing_note": "No real pricing file exists, so the match layer real rows will use (SKU, catalogue id or title) and the text inside a price cell are unproven."
+}

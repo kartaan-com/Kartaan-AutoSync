@@ -1,0 +1,18 @@
+{
+  "record": "security",
+  "commit": "The commit carrying this record on claude/n017-meesho-pricing-d6a37d (after 6e1d295).",
+  "run_at": "2026-10-26 (session time), one pass over 5fc8eed..6e1d295.",
+  "tool": "A fresh Opus 5.5 security sub-agent, read-only.",
+  "invoked_as": "git diff 5fc8eed..HEAD read in full with the surrounding code; one measured probe of the amount parser.",
+  "ran_by": "A fresh Opus 5.5 sub-agent of N017 (worker for Kartaan Control); it wrote none of the code.",
+  "scope": "5fc8eed to 6e1d295: tables.js short-pager rule; listing_notes.read_pricing; firestore note fields and take-back; reading.py wiring.",
+  "phases_not_run": ["How the ERP reads, shows or exports priceLabel/currentPrice/recommendedPrice (other repository)", "Any live extension or browser test", "Real Meesho pricing-page text (no file has ever landed)"],
+  "found": [
+    "No injection path, secret, new host or permission. Record names come only from the seller's own catalogue file, never page text; field names are fixed constants; the mask cannot reach listing, id, report or changedOn.",
+    "MEDIUM-LOW, FIXED: a price cell written as a huge exponent ('1e3000000') hung the run (int of a huge Decimal). Now an amount must match a plain pattern and be below ten million; checked red first.",
+    "LOW, FIXED: a price above int64 would make every pricing write for that file fail, every run. Same cap closes it.",
+    "NOTE, FIXED: the label had no length limit; now cut to 200 characters.",
+    "NOTE, SAID: priceLabel and CSV cells keep text starting like a spreadsheet formula; nothing in AutoSync writes it to a sheet, but any ERP screen or export that does must neutralise it (ERP repo not reviewed).",
+    "NOTE, SAID: the page's own count is now trusted to call a table whole, and a whole file takes back prices on listings it no longer names; needs control of Meesho's page, negligible."
+  ]
+}

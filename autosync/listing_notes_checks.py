@@ -422,6 +422,37 @@ check("PRICING: A TORN ROW (the wrong width) IS A ROW NOT READ AND COUNTED IN TH
       torn_price is not None and len(torn_price.notes) == 1 and len(torn_price.not_read) == 1 and torn_price.not_read[0].startswith("line 3") and torn_price.rows_in_file == 2)
 check("a pricing file missing a column is refused in words naming the columns it has",
       "Nothing was read" in why(lambda: tool.read_pricing(a_price_file(a_price_row("a", "1", "b", "1", "1"), head='"Product","Catalog ID","SKU ID"'), "f", SHOP)))
+SHOP2 = {one["platform"] + "::" + one["platformId"]: one for one in (
+    a_shop_listing("5001", "1", "X", "A", "Ring A"), a_shop_listing("5002", "1", "X", "B", "Ring B"),
+    a_shop_listing("6001", "1", "RING", "C", "Ring C"), a_shop_listing("6002", "1", "NECK", "C", "Necklace C"),
+    a_shop_listing("7001", "1", "S1", "D", "Sized D"), a_shop_listing("7001", "2", "S1", "D", "Sized D"),
+)}
+two_cat = answered(lambda: tool.read_pricing(a_price_file(
+    a_price_row("Ring B", "B", "X", RUPEE_SIGN + "500", RUPEE_SIGN + "450"),
+    a_price_row("Ring A or B", "", "X", RUPEE_SIGN + "100", RUPEE_SIGN + "90"),
+), "f", SHOP2))
+check("N017 REVIEW: A SKU SHARED BY TWO CATALOGUES GETS ONLY THE CATALOGUE THE ROW NAMES, and a row that names none is not matched (which is meant cannot be said)",
+      two_cat is not None and two_cat.notes == {"meesho::5002::1": {"currentPrice": 500, "recommendedPrice": 450, "priceLabel": "Losing Views"}}
+      and len(two_cat.not_read) == 1 and "2 catalogues" in two_cat.not_read[0])
+cat_fallback = answered(lambda: tool.read_pricing(a_price_file(
+    a_price_row("x", "C", "UNKNOWN-SKU", RUPEE_SIGN + "100", RUPEE_SIGN + "90"),
+    a_price_row("x", "D", "UNKNOWN-2", RUPEE_SIGN + "70", RUPEE_SIGN + "60"),
+), "f", SHOP2))
+check("N017 REVIEW: THE CATALOGUE-ID FALLBACK NEVER SPREADS ONE PRICE OVER SEVERAL PRODUCTS: a catalogue of two SKUs is not matched, a catalogue of one SKU in two sizes is",
+      cat_fallback is not None and set(cat_fallback.notes) == {"meesho::7001::1", "meesho::7001::2"}
+      and len(cat_fallback.not_read) == 1 and "more than one product" in cat_fallback.not_read[0])
+loose = answered(lambda: tool.read_pricing(a_price_file(
+    a_price_row("Ring C", "C", "RING", "12%", RUPEE_SIGN + "90"), a_price_row("Necklace C", "C", "NECK", "Rs 100", RUPEE_SIGN + "90"),
+), "f", SHOP2))
+check("N017 REVIEW: A PRICE CELL THAT IS NOT PLAINLY AN AMOUNT (a percentage, words) IS A ROW NOT READ, not a price",
+      loose is not None and not loose.notes and len(loose.not_read) == 2 and all("not an amount" in x for x in loose.not_read))
+huge = answered(lambda: tool.read_pricing(a_price_file(
+    a_price_row("Ring C", "C", "RING", "1e3000000", RUPEE_SIGN + "90"), a_price_row("Necklace C", "C", "NECK", RUPEE_SIGN + "99999999999", RUPEE_SIGN + "90"),
+    a_price_row("Sized D", "D", "S1", RUPEE_SIGN + "1,250.5", RUPEE_SIGN + "90", "x" * 5000),
+), "f", SHOP2))
+check("N017 SECURITY: AN EXPONENT OR A PRICE PAST TEN MILLION IS A ROW NOT READ (never a hang or a write the database refuses), and a label is cut to 200 characters",
+      huge is not None and len(huge.not_read) == 2 and huge.notes["meesho::7001::1"]["currentPrice"] == 1250.5
+      and len(huge.notes["meesho::7001::1"]["priceLabel"]) == 200)
 check("without the shop's listings (no catalog file yet) it is refused rather than every row being flagged unmatched for good",
       "listings" in why(lambda: tool.read_pricing(a_price_file(a_price_row("a", "1", "b", "1", "1")), "f", None)))
 check("a pricing file with its headings and no row is refused, as an empty listing file is",
@@ -485,7 +516,7 @@ check("me_pricing is read now and no longer says it is not",
       and reading.why_a_report_has_no_decision() == "")
 
 check("nothing above ended by throwing rather than by answering -- " + str(THREW), not THREW)
-EXPECTED = 49 + 7 + 21
+EXPECTED = 49 + 7 + 25
 check(f"checks went missing -- {ran + 1} ran, {EXPECTED} expected", ran + 1 == EXPECTED)
 
 if failures:
