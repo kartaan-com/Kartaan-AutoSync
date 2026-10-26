@@ -474,6 +474,9 @@ def _take_the_file(browser, step, report_id, data_date, which):
             browser.click(again.by.how, again.by.what, again.by.exact, again.by.near)
             many = browser.find(step.find.how, step.find.what, step.find.exact, step.patience,
                                 step.find.near)
+        if many == 0 and step.none_means_nothing_to_fetch:
+            # **THE TABLE WAS PROVED BY THE STEP BEFORE, so no row for the day is a day with nothing to take (N018): said, never a failure and never a file.**
+            return Fetched(NOTHING_TO_FETCH, report_id, data_date, say=step.none_means_nothing_to_fetch)
         if many == 0:
             return _gave_up(report_id, data_date, pages.WentWrong(
                 kind=(pages.COVERED_UP if pages.is_covered(browser.overlays()) is not None

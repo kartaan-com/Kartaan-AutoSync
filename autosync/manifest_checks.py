@@ -397,8 +397,8 @@ check(
 ONLY_THE_NIGHTLY = answered(lambda: tool.merge(
     (), tool.lines_for(API_HALF, WHOLE_FOLDER, TODAY, checked_on=TODAY, look_back_days=1)))
 check(
-    "a night when only the nightly job ran writes lines for its own reports",
-    answered(lambda: tool.is_it_there(ONLY_THE_NIGHTLY, "az_orders", YESTERDAY) == tool.VERIFIED),
+    "a night when only the nightly job ran writes lines for its own reports (the suppressed listings; the orders report left the API door for the browser, N018)",
+    answered(lambda: tool.is_it_there(ONLY_THE_NIGHTLY, "az_suppressed", YESTERDAY) == tool.VERIFIED),
 )
 # **AND THIS IS THE TIMING BUG ARRIVING BY THE OTHER DOOR, SHUT.** The extension
 # never opened, so there is no line about its reports -- and no line is NOT

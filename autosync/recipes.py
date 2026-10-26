@@ -140,7 +140,8 @@ AMAZON_WRITES_IT = "amazon"
 #
 #   {yyyy}  2026        {mm}  06        {dd}  05
 #   {Mon}   Jun         {d}   5
-THE_PIECES_OF_A_DAY = ("yyyy", "mm", "dd", "Mon", "Month", "d")
+#   {yy}    26          {m}   6        (the last two are Amazon's alone: N018, 26 Oct 2026)
+THE_PIECES_OF_A_DAY = ("yyyy", "mm", "dd", "Mon", "Month", "d", "yy", "m")
 _A_PIECE = re.compile(r"\{(" + "|".join(THE_PIECES_OF_A_DAY) + r")\}")
 
 # **HOW MEESHO WRITES A DAY. Six spellings, taken one for one from
@@ -225,6 +226,12 @@ HOW_AMAZON_WRITES_A_DAY = (
     "{yyyy}-{mm}-{dd}",       # 2026-10-22
     # **SEEN LIVE 26 OCT 2026 (N018) on Product reports and on the returns report list:** a request's own time is written `25 October 2026 at 10:31 pm` -- the whole month name.
     "{d} {Month} {yyyy}",     # 25 October 2026
+    # **THE MEASURED EXCEPTION TO THE RULE AGAINST PURELY NUMERIC SPELLINGS, FOR AMAZON ALONE (N018, Control's ruling of 26 Oct 2026).** Amazon's India panel writes the DAY FIRST: order report rows
+    # read `26/10/26, 6:36:33 am` and statement rows `13/10/2026 – 20/10/2026`, `6/10/2026 – 13/10/2026`, `29/9/2026 – 6/10/2026` (19/10, 20/10 and 26/10 can only be day-first). A check pins the
+    # two new pieces to this list, so no other portal can lean on a day/month guess.
+    "{dd}/{mm}/{yy}",         # 26/10/26   <- order report rows
+    "{dd}/{mm}/{yyyy}",       # 20/10/2026 <- statement rows (the day and month may carry a nought)
+    "{d}/{m}/{yyyy}",         # 6/10/2026, 29/9/2026 <- statement rows with no noughts
 )
 
 # Whose wording is whose. **Nothing works this out from a report's name** -- a
@@ -256,6 +263,9 @@ def a_day_written(shape: str, day) -> str:
         # **THE SIXTH PIECE, ADDED 2026-09-11 for Flipkart's listings history.**
         "Month": MONTHS_IN_FULL[day.month - 1],
         "d": f"{day.day}",
+        # **THE SEVENTH AND EIGHTH PIECES (N018, 26 Oct 2026), for Amazon's numeric row dates:** a two-digit year and a month with no nought.
+        "yy": f"{day.year % 100:02d}",
+        "m": f"{day.month}",
     }
     return _A_PIECE.sub(lambda found: pieces[found.group(1)], shape)
 
@@ -420,6 +430,9 @@ AMAZON_INVENTORY_REPORTS = "https://sellercentral.amazon.in/listing/reports"
 AMAZON_RETURNS = "https://sellercentral.amazon.in/returns/report"
 # **AMAZON'S SAFE-T REPORT PAGE (Orders > Manage claims > Manage SAFE-T claims > Download the SAFE-T Report), read off his own Seller Central by N018 on 26 Oct 2026.**
 AMAZON_SAFET_REPORT = "https://sellercentral.amazon.in/safet-claims/reports"
+# **AMAZON'S ORDER REPORTS, the All Orders tab, and ITS STATEMENTS PAGE (Finance > Manage payments > All Statements), read off his own Seller Central by N018 on 26 Oct 2026.**
+AMAZON_ALL_ORDERS = "https://sellercentral.amazon.in/order-reports-and-feeds/reports/allOrders"
+AMAZON_STATEMENTS = "https://sellercentral.amazon.in/payments/past-settlements"
 # **THESE THREE WERE WRONG, AND THEY COST A WHOLE NIGHT (2026-09-06).** Nine of
 # ten reports failed within twenty minutes of each other -- seven ads reports
 # looking for "the other reports tab", claims looking for "the claims tab",
@@ -1391,6 +1404,46 @@ RECIPES: Dict[str, Recipe] = {
     # ---- Amazon: All Listings and Referral Fee Preview, two-phase from one template (lane 1 job 8).
     "az_listings": _amazon_inventory_report("All Listings Report", 30),
     "az_fee_preview": _amazon_inventory_report("Referral Fee Preview Report", 45),
+
+    # ---- Amazon orders by the browser (N018, his ruling D726). **Asked by LAST UPDATED date, which is how the order reader keys a row, with the page's own default range (last day, a rolling
+    # ---- 24 hours from the request)**; Amazon builds it in about 40 seconds and the row reads Ready with a Download. Seen on his page 26 Oct 2026; **NOT YET RUN LIVE.**
+    "az_orders": Recipe(
+        ready_in_minutes=2,
+        to_ask=(
+            Step(GO, address=AMAZON_ALL_ORDERS, patience=60, why="opening the All Orders report page to ask for the orders"),
+            Step(WAIT_FOR, find=Find(BY_PRESSABLE_TEXT, "Last Updated Date", called="the Last Updated Date choice"), patience=90,
+                 why="waiting for the All Orders page to draw its report type choice"),
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Last Updated Date", called="the Last Updated Date choice"), why="choosing the orders by last updated date"),
+            Step(CLICK, find=Find(BY_ROLE_AND_TEXT, "Request", called="the Request button"), why="asking Amazon to build the orders for the last day"),
+        ),
+        to_take=(
+            Step(GO, address=AMAZON_ALL_ORDERS, patience=60, why="coming back to the All Orders report page for the orders"),
+            Step(WAIT_FOR, find=Find(BY_PRESSABLE_TEXT, "Download", near="{day_in_words}", also_saying="Last Updated Date",
+                                     day_in_words_is=AMAZON_WRITES_IT, day_in_words_of=THE_DAY_IT_WAS_MADE,
+                                     called="the Download of the Last Updated Date row requested today"),
+                 patience=120, why="waiting for the finished orders row"),
+            Step(TAKE_FILE, find=Find(BY_PRESSABLE_TEXT, "Download", near="{day_in_words}", also_saying="Last Updated Date",
+                                      day_in_words_is=AMAZON_WRITES_IT, day_in_words_of=THE_DAY_IT_WAS_MADE,
+                                      called="the Download of the Last Updated Date row requested today"),
+                 patience=90, why="taking the finished orders file"),
+        ),
+    ),
+
+    # ---- Amazon settlements by the browser (N018, his ruling D726). **One-phase: Amazon already made the weekly statement, so nothing is asked for.** The statement that ENDED on the data day is the day's
+    # ---- (a run for the 20th takes `13/10/2026 – 20/10/2026`); on the six days in seven when none ended, the table is drawn and there is nothing to fetch (Control's ruling, 26 Oct 2026) -- but ONLY
+    # ---- after the step before has waited for the statements table itself, so a page that never drew still fails. **NOT YET RUN LIVE.**
+    "az_settlements": Recipe(
+        to_take=(
+            Step(GO, address=AMAZON_STATEMENTS, patience=60, why="opening All Statements for the settlement that ended on the day"),
+            Step(WAIT_FOR, find=Find(BY_TEXT, "Statement Period", called="the statements table"), patience=90,
+                 why="waiting for the statements table itself to draw, so that a day with no statement is told apart from a page that never drew"),
+            Step(TAKE_FILE, find=Find(BY_PRESSABLE_TEXT, "Download Flat File V2", near="{day_in_words}",
+                                      day_in_words_is=AMAZON_WRITES_IT, day_in_words_of=THE_DAY_IT_IS_ABOUT,
+                                      called="the Download Flat File V2 of the statement that ended on the day"),
+                 patience=30, why="taking the statement that ended on the day",
+                 none_means_nothing_to_fetch="No settlement statement ended on that day (Amazon publishes one weekly), so there is nothing to fetch."),
+        ),
+    ),
 
     # ---- Amazon SAFE-T claims by the browser (N018, his ruling D726). **The two dropdowns are CHOSEN BY PRESSING THE WORDS** -- the opener (`Choose Report Type`) and then the option's own
     # ---- words -- because Amazon's option list is drawn as pressable text; no new kind of step is needed. The last 30 days are asked every time, so a claim whose state moved (Under

@@ -227,16 +227,16 @@ check("no report that needs a browser is on it",
 check("every report is on one door or the other",
       answered(lambda: len(api) + len(browser) == len(tool.REPORTS)))
 check("and none is on both", answered(lambda: not set(api) & set(browser)))
-check("the Amazon reports on it are the five on it: returns and SAFE-T claims (N018), traffic, All Listings, Referral Fee Preview (lane 1 jobs 7 and 8)",
-      answered(lambda: [r.id for r in browser if r.platform == "amazon"] == ["az_returns", "az_traffic", "az_claims", "az_listings", "az_fee_preview"]))
+check("the Amazon reports on it are the seven on it: orders, settlements, returns and SAFE-T claims (N018), traffic, All Listings, Referral Fee Preview (lane 1 jobs 7 and 8)",
+      answered(lambda: [r.id for r in browser if r.platform == "amazon"] == ["az_orders", "az_settlements", "az_returns", "az_traffic", "az_claims", "az_listings", "az_fee_preview"]))
 check(
     "every Meesho report is on the browser door, because Meesho has no API",
     answered(lambda: all(r.door == tool.BROWSER for r in tool.REPORTS if r.platform == "meesho")),
 )
 check(
-    "every Amazon report but the four walked ones is on the API door until it is moved (his ruling D726 moves them one by one)",
+    "every Amazon report but the seven walked ones is on the API door until it is moved (his ruling D726 moves them one by one): the suppressed listings",
     answered(lambda: all(r.door == tool.API for r in tool.REPORTS
-                         if r.platform == "amazon" and r.id not in ("az_returns", "az_traffic", "az_claims", "az_listings", "az_fee_preview"))),
+                         if r.platform == "amazon" and r.id not in ("az_orders", "az_settlements", "az_returns", "az_traffic", "az_claims", "az_listings", "az_fee_preview"))),
 )
 check(
     "the Amazon listings and fee reports are text files Amazon builds on request, both snapshots of right now that cannot be fetched for a past day",
@@ -282,7 +282,7 @@ check(
     "and every report that can genuinely be fetched again says nothing",
     answered(lambda: all(
         tool.report(rid).cannot_backfill is None
-        for rid in ("me_orders", "me_payments", "fk_orders", "fk_payments", "fk_views", "az_orders")
+        for rid in ("me_orders", "me_payments", "fk_orders", "fk_payments", "fk_views")
     )),
 )
 # The default matters: almost every report is fetching yesterday.

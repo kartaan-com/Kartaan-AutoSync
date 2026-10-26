@@ -77,6 +77,7 @@ AS_JAVASCRIPT_SPELLS_IT = {
     "id_column": "idColumn",
     "day_column": "dayColumn",
     "press_like_a_mouse": "pressLikeAMouse",
+    "none_means_nothing_to_fetch": "noRowIsNothingToFetch",
 }
 
 
@@ -185,6 +186,8 @@ def a_step(step):
         AS_JAVASCRIPT_SPELLS_IT["press_like_a_mouse"]: step.press_like_a_mouse,
         # **WHICH TABLE A READ-THE-TABLE STEP READS.** Empty on every other step.
         "table": step.table,
+        # **A TAKE-FILE STEP WHOSE MISSING ROW IS NOTHING TO FETCH, with the reason** (N018). Empty on every other step.
+        AS_JAVASCRIPT_SPELLS_IT["none_means_nothing_to_fetch"]: step.none_means_nothing_to_fetch,
     }
 
 

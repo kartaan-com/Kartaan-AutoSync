@@ -474,7 +474,7 @@ check("and nothing was driven at all", answered(lambda: quiet_fake.went == []))
 # **AND AN AMAZON REPORT IS NOT DRIVEN THROUGH A BROWSER EITHER.** It has an API
 # door; reaching it through this one would be fetching the same thing twice.
 check("an Amazon report is refused by the browser door",
-      answered(lambda: a_fetch(FakeMeesho())("az_orders", DAY).state == tool.FAILED))
+      answered(lambda: a_fetch(FakeMeesho())("az_suppressed", DAY).state == tool.FAILED))
 
 # **A BAD RECIPE IS A FAULT IN THE PRODUCT, and says so** -- rather than reading
 # as the platform having changed, which would send somebody to look at Meesho.
@@ -574,7 +574,7 @@ finally:
     book.RECIPES.clear()
     book.RECIPES.update(was)
 
-check("and the real recipes are back afterwards", answered(lambda: len(book.every_recipe()) == 29))
+check("and the real recipes are back afterwards", answered(lambda: len(book.every_recipe()) == 31))
 
 # ------------------------------------------------------------ the record
 
@@ -957,12 +957,41 @@ check("and the book was put back exactly as it was found, again",
 # records of one fact, and the tally counted the same assurance twice.
 
 # **AND NOTHING ABOVE ENDED BY THROWING RATHER THAN BY ANSWERING.** Answering
+# ------------------------------------ N018: a table that was read and has no row for the day is NOTHING TO FETCH; a table never drawn is a FAILURE
+
+# **AMAZON'S STATEMENTS COME WEEKLY, SO SIX DAYS IN SEVEN THE TABLE IS THERE AND NO ROW ENDS ON THE DAY (Control's ruling, 26 Oct 2026).** That is not a fault and must not be counted as
+# one -- but ONLY when the table itself was found: a page that never drew, or a table that was renamed, stays a failure.
+was = dict(book.RECIPES)
+try:
+    book.RECIPES["me_orders"] = book.Recipe(to_take=(
+        pages.Step(pages.GO, address=book.FULFILMENT + "/orders/", why="opening the statements"),
+        pages.Step(pages.WAIT_FOR, find=pages.Find(pages.BY_TEXT, "Statement Period"), why="waiting for the statements table to draw"),
+        pages.Step(pages.TAKE_FILE, find=pages.Find(pages.BY_PRESSABLE_TEXT, "Download Flat File V2"), patience=5,
+                   none_means_nothing_to_fetch="No statement ended on that day, so there is nothing to fetch.",
+                   why="taking the statement that ended on the day"),
+    ))
+    got = a_fetch(FakeMeesho(matches={"Download Flat File V2": 0}))("me_orders", DAY)
+    check("a table that was drawn and has no row for the day is NOTHING TO FETCH, not a failure",
+          answered(lambda: got.state == tool.NOTHING_TO_FETCH and "No statement ended on that day" in got.say))
+    got = a_fetch(FakeMeesho(matches={"Statement Period": 0, "Download Flat File V2": 0}))("me_orders", DAY)
+    check("but a table that was never drawn stays a FAILURE, however the row is missing too",
+          answered(lambda: got.state == tool.FAILED))
+    got = a_fetch(FakeMeesho())("me_orders", DAY)
+    check("and with the row there the file is taken as before", answered(lambda: got.state == tool.LANDED))
+finally:
+    book.RECIPES.clear()
+    book.RECIPES.update(was)
+    # a reason on any step but a take-file one is refused, so a wait that finds nothing cannot read as nothing to fetch
+check("a reason for 'no row means nothing to fetch' on a step that is not a take-file is refused",
+      answered(lambda: "take-file" in (pages.why_step_is_refused(pages.Step(
+          pages.WAIT_FOR, find=pages.Find(pages.BY_TEXT, "x"), none_means_nothing_to_fetch="r", why="y")) or "")))
+
 # with nothing keeps the run alive; this is what stops a check phrased as "this
 # word is NOT in what it said" going green because there was nothing to look in.
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 131
+EXPECTED = 135
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

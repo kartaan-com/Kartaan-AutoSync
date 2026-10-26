@@ -1057,6 +1057,38 @@ check('asked to step back by nothing at all, it answers the day itself',
   check('while a report that presses buttons is unaffected', ordinary.state === LANDED);
 }
 
+/* --------------------------- N018: a table read with no row for the day is NOTHING TO FETCH; a table never drawn is a FAILURE
+ * **THE SAME THREE CASES THE PYTHON DOOR'S OWN CHECKS MAKE** (`browser_door_checks.py`), side by side: Amazon publishes a settlement statement weekly, so on six days in seven
+ * the table is drawn and no row ends on the day (Control's ruling, 26 Oct 2026). */
+{
+  const statements = {
+    recipes: {
+      me_orders: {
+        readyInMinutes: 0,
+        toAsk: [],
+        toTake: [
+          step({ do: 'go', address: 'https://supplier.example.invalid/panel/{panel}/statements', why: 'opening the statements' }),
+          step({ do: 'wait-for', find: find('Statement Period', { called: 'the statements table' }), patience: 45,
+            why: 'waiting for the statements table to draw' }),
+          step({ do: 'take-file', find: find('Download Flat File V2'), patience: 5,
+            noRowIsNothingToFetch: 'No statement ended on that day, so there is nothing to fetch.',
+            why: 'taking the statement that ended on the day' }),
+        ],
+      },
+    },
+    whatItMeans: BOOK.whatItMeans,
+    daysInWords: BOOK.daysInWords,
+    fileNames: BOOK.fileNames,
+  };
+  const none = await aWalk(aPortal({ matches: { 'Download Flat File V2': 0 } }), statements)('me_orders', DAY);
+  check('a table that was drawn and has no row for the day is NOTHING TO FETCH, not a failure',
+    none.state === NOTHING_TO_FETCH && none.say.includes('No statement ended on that day'));
+  const never = await aWalk(aPortal({ matches: { 'Statement Period': 0, 'Download Flat File V2': 0 } }), statements)('me_orders', DAY);
+  check('but a table that was never drawn stays a FAILURE, even though the row is missing too', never.state === FAILED);
+  const there = await aWalk(aPortal(), statements)('me_orders', DAY);
+  check('and with the row there the file is taken as before', there.state === LANDED);
+}
+
 /* --------------------------- the day that is read off a page, not downloaded */
 
 {
@@ -1975,6 +2007,12 @@ ${DAY}`) !== null
   check('and the same day reads differently for the two of them',
     theDaysInWords(BOOK, 'loud', '2026-01-01')[0] === '01 JANU 2026'
     && theDaysInWords(BOOK, 'quiet', '2026-01-01')[0] === '1 ja 2026');
+  /* **THE TWO PIECES ADDED FOR AMAZON'S NUMERIC ROW DATES (N018, 26 Oct 2026)**: a two-digit year (`{yy}`) and a month with no nought (`{m}`). Written out by hand, with a stand-in book
+   * so nothing passes by knowing what the real one holds. */
+  const NUMERIC = { daysInWords: { numeric: { months: [], spellings: ['{dd}/{mm}/{yy}', '{d}/{m}/{yyyy}'] } } };
+  check('a day is also written with a two-digit year and a month with no nought (Amazon\'s order and statement rows)',
+    JSON.stringify(theDaysInWords(NUMERIC, 'numeric', '2026-09-06')) === JSON.stringify(['06/09/26', '6/9/2026'])
+    && JSON.stringify(theDaysInWords(NUMERIC, 'numeric', '2026-10-26')) === JSON.stringify(['26/10/26', '26/10/2026']));
   check('the last month of the year is the last one in the list, not one past it',
     theDaysInWords(BOOK, 'quiet', '2026-12-31')[0] === '31 dc 2026');
   /* **SEVERAL SPELLINGS, NOT ONE, and the second one proves the walk reads the
@@ -2811,7 +2849,7 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
     theRowsItCouldBe(BOOK, find, '2026-10-19', '2026-10-22', '2026-10-25').join() === '2026-10-19_2026-10-19_');
 }
 
-const EXPECTED = 349 + 9 + 3;
+const EXPECTED = 349 + 9 + 3 + 1 + 3;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

@@ -29,7 +29,7 @@
       "id": "az_orders",
       "platform": "amazon",
       "name": "Amazon orders",
-      "cannotBeAskedForAgain": null
+      "cannotBeAskedForAgain": "Amazon's All Orders page is asked for the last day only, so a day already gone cannot be fetched again by the run (the page itself offers exact dates, which the walk does not use yet)."
     },
     {
       "id": "az_returns",
@@ -41,7 +41,7 @@
       "id": "az_settlements",
       "platform": "amazon",
       "name": "Amazon settlements",
-      "cannotBeAskedForAgain": null
+      "cannotBeAskedForAgain": "Only the statement that ended on the day being fetched can be taken; the page lists older weeks but a run for an old day could take the wrong week, so a past day is left to be fetched by hand."
     },
     {
       "id": "az_suppressed",

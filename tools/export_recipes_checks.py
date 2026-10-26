@@ -80,8 +80,8 @@ HELD = answered(tool.what_the_extension_reads) or {}
 
 check("every recipe the Python has crosses",
       answered(lambda: set(HELD.get("recipes", {})) == set(book.RECIPES)))
-check("and there are twenty-nine of them, three platforms (Amazon's listings and fee reports joined, lane 1 job 8; returns, N018)",
-      answered(lambda: len(HELD.get("recipes", {})) == 29))
+check("and there are thirty-one of them, three platforms (Amazon's listings and fee reports joined, lane 1 job 8; returns, SAFE-T claims, orders and settlements, N018)",
+      answered(lambda: len(HELD.get("recipes", {})) == 31))
 check("every meaning of a failure crosses",
       answered(lambda: set(HELD.get("whatItMeans", {})) == set(language.WHAT_IT_MEANS)))
 # **THE WHOLE MAP, not the part the walk happens to use today.** Splitting it is
@@ -597,8 +597,8 @@ check("no browser report is left out of all three lists",
                            or one["id"] in HELD["madeByAnother"]
                            for one in HELD["reports"]
                            if one["platform"] in THROUGH_THE_BROWSER and one["id"] not in HELD["onTheApiDoor"])))
-check("the reports that come in by the API door are carried, so the panel never calls Amazon's three 'cannot be fetched' (lane 2's az_suppressed joined at AP10; returns left for the browser, N018)",
-      answered(lambda: HELD["onTheApiDoor"] == ["az_orders", "az_settlements", "az_suppressed"]
+check("the reports that come in by the API door are carried, so the panel never calls Amazon's one 'cannot be fetched' (az_suppressed, until its browser page is found; the rest left for the browser, N018)",
+      answered(lambda: HELD["onTheApiDoor"] == ["az_suppressed"]
                and not set(HELD["onTheApiDoor"]) & set(HELD["recipes"])))
 # **AND EACH OF THE THIRD LIST NAMES A REPORT THE PRODUCT DECLARES**, the same
 # question already asked of the second. A reason written against a report nobody
@@ -843,7 +843,7 @@ def named_in_words():
 # **ELEVEN SINCE 2026-09-14**: returns left the Reports Centre, and its new route
 # names a row on the taking only.
 check("there are lookups naming a row by the day in words to judge",
-      answered(lambda: len(named_in_words()) == 19))
+      answered(lambda: len(named_in_words()) == 22))
 check("and every one of them says whose wording it means",
       answered(lambda: all(find["dayInWordsIs"] in book.HOW_A_DAY_IS_WRITTEN
                            for _, find in named_in_words())))

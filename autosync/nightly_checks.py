@@ -64,7 +64,9 @@ AT = datetime(2026, 8, 29, 18, 0)
 HIS_DAY = date(2026, 8, 29)
 YESTERDAY = date(2026, 8, 28)
 
-ONE_REPORT = [report("az_orders")]
+# **THE NIGHT'S OWN HALF IS THE API DOOR'S, and the real Amazon orders report left it for the browser (N018, his ruling D726). These checks are about how a night treats ONE report it fetches, so the report is
+# the orders report with the API door written on it, for these checks only.
+ONE_REPORT = [dataclasses.replace(report("az_orders"), door="api")]
 
 
 class Harness:
@@ -353,7 +355,7 @@ check("what has been said is written down, so the next run knows",
 default = Harness()
 default.go(reports=None)
 check("left to itself it fetches only what can be fetched with nobody present",
-      {r for r, _, _ in default.fetched} == {"az_orders", "az_settlements", "az_suppressed"})
+      {r for r, _, _ in default.fetched} == {"az_suppressed"})
 
 # ------------------------------------------- what a tick says it was
 

@@ -517,9 +517,12 @@ export function theDaysInWords(book, whose, dataDate) {
      * the Python half like the short ones; nothing here has an opinion. */
     Month: (rule.monthsInFull || [])[month - 1],
     d: String(day),
+    /* **THE SEVENTH AND EIGHTH PIECES (N018, 26 Oct 2026):** a two-digit year and a month with no nought, for Amazon's numeric row dates. Nothing here has an opinion. */
+    yy: String(year % 100).padStart(2, '0'),
+    m: String(month),
   };
   return rule.spellings.map(
-    (shape) => String(shape).replace(/\{(yyyy|mm|dd|Mon|Month|d)\}/g, (_, piece) => pieces[piece])
+    (shape) => String(shape).replace(/\{(yyyy|mm|dd|Mon|Month|d|yy|m)\}/g, (_, piece) => pieces[piece])
   );
 }
 
@@ -1153,6 +1156,12 @@ export function theWalk({
         await door.click(again.by.how, again.by.what, again.by.exact, again.by.near);
         many = await door.find(step.find.how, step.find.what, step.find.exact, step.patience,
           step.find.near, step.find.alsoSaying);
+      }
+      /* **A ROW THAT IS NOT THERE MAY BE NOTHING TO FETCH, WHEN THE RECIPE SAYS SO (N018, Control's ruling of 26 Oct 2026).** Amazon's settlement statements come weekly, so on six days in
+       * seven the statements table is drawn and no row ends on the day. **ONLY SAFE BECAUSE THE STEP BEFORE THIS ONE WAITED FOR THE TABLE ITSELF**: a page that never drew, or a table that was
+       * renamed, failed there and this was never reached. The same rule `browser_door.py` holds. */
+      if (many === 0 && step.noRowIsNothingToFetch) {
+        return { nothing: { say: step.noRowIsNothingToFetch } };
       }
       if (many === 0) {
         return { failed: await whyNothingWasFound(step, reportId, dataDate) };
@@ -1805,6 +1814,7 @@ export function theWalk({
       if (step.do === TAKE_FILE) {
         const got = await takeTheFile(step, reportId, dataDate);
         if (got.failed) return got.failed;
+        if (got.nothing) return anAnswer(NOTHING_TO_FETCH, reportId, dataDate, { say: got.nothing.say });
         /* **THE NAME IS THE PYTHON'S, NEVER THIS FILE'S.** The nightly run takes
          * the day out of the file NAME and refuses a file that has none, so a
          * name invented here is a file that reaches the seller's Drive and can

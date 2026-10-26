@@ -551,6 +551,10 @@ class Step:
     press_like_a_mouse: bool = False
     # **WHICH TABLE A READ-THE-TABLE STEP READS**, one of `THE_TABLES`. Empty on every other step.
     table: str = ""
+    # **ON A TAKE-FILE STEP ONLY: WHEN THE ROW IT NAMES IS NOT THERE, THAT IS NOTHING TO FETCH AND NOT A FAILURE, and this is the reason in words (N018, Control's ruling of 26 Oct 2026).**
+    # Amazon publishes a settlement statement weekly, so on six days in seven the statements table is drawn and no row ends on the day. **ONLY SAFE BECAUSE THE STEP BEFORE IT WAITS FOR
+    # THE TABLE ITSELF:** a page that never drew, or a table that was renamed, fails there as it always did, and the rest of the walk is never reached. Empty on every other step.
+    none_means_nothing_to_fetch: str = ""
 
 
 def why_step_is_refused(step: Step) -> Optional[str]:
@@ -765,6 +769,9 @@ def why_step_is_refused(step: Step) -> Optional[str]:
             return "Something else a wait may count has to say what to look for."
     if step.press_like_a_mouse and step.do != CLICK:
         return "Only a step that presses something can say how to press it."
+    if step.none_means_nothing_to_fetch and (step.do != TAKE_FILE or step.find is None):
+        # **A WAIT OR A PRESS THAT FINDS NOTHING IS A FAULT, EVERY TIME.** Only the take-file step that names the row can say "no such row today", and only after a step before it has proved the table.
+        return "Only a take-file step that names a row can say that no such row means there is nothing to fetch."
     if step.do == TYPE_IN and not step.words:
         return "A step that types has to say what to type."
     if step.do != TYPE_IN and step.words:
