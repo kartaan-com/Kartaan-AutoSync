@@ -1882,7 +1882,13 @@ export function theWalk({
         for (const text of rowsSaid || []) {
           const period = theStatementPeriod(text);
           if (period) periods.push(period);
-          else say(`${reportId}: skipped a row that has no closed period (an open statement): ${String(text).slice(0, 80)}`);
+          else if (!/present/i.test(String(text))) {
+            /* A row with a Download and no period and no "Present" is a date Amazon wrote another way, never an open statement: skipped, every row of a week could read as nothing to fetch for good. */
+            return anAnswer(FAILED, reportId, dataDate, {
+              say: `${step.why}: a statement row has a ${step.find.called || step.find.what} but no period this walk can read, so nothing was taken: ${String(text).slice(0, 80)}`,
+              pageWas: capture(await door.page_text()),
+            });
+          } else say(`${reportId}: skipped a row that has no closed period (an open statement): ${String(text).slice(0, 80)}`);
         }
         let held;
         try {

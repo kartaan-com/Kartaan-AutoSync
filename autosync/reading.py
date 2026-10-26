@@ -841,7 +841,10 @@ def write_the_records(
     """
     report = record_reports.RECORD_REPORTS[how.report_id]
     titles = _the_titles_of_the_catalog(listed, bring_it_back) if report.wants_the_catalog_titles else None
-    made, not_read = report.read(how.report_id, the_report(how.report_id).platform, _rows_in(how, body, one.name or one.which), day, titles)
+    rows = _rows_in(how, body, one.name or one.which)
+    made, not_read = report.read(how.report_id, the_report(how.report_id).platform, rows, day, titles)
+    # **A TORN ROW (the wrong width) IS A ROW NOT READ, said by its line**, never dropped by the table and lost from a file marked read in full (the Opus review of the AJ2 join).
+    not_read = [*not_read, *(str(torn) for torn in getattr(rows, "refused", ()))]
     if strict and not made and not_read:
         raise table.CannotRead(f"no row of {one.name or one.which} could be read; the first was {not_read[0]}")
     return made, not_read, sink(how.report_id, day, made)

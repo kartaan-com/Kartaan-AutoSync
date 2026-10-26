@@ -277,7 +277,8 @@ function thePage() {
  * none of its own, so a climb to a row stopped there and a word drawn inside a `kat-button` could never be narrowed to its row. The root itself is never returned: it has no box and no text of its own. */
 function theParentOf(node) {
   const up = node.parentNode;
-  return up && up.host ? up.host : up;
+  // Only a real shadow root (a document fragment, nodeType 11) steps to its host: a link also has a `host`, as text.
+  return up && up.nodeType === 11 && up.host ? up.host : up;
 }
 
 /** Does `outer` hold `inner`, **THROUGH A SHADOW ROOT TOO?** `Node.contains` never crosses into one, so a control inside a component's shadow root was never "held" by the row around the component, and

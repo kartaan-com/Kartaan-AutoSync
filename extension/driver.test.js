@@ -2694,7 +2694,7 @@ for (const [start, end, from, expectedMonth] of [
   const host = thing('kat-button', '', { box: BIG });
   const label = thing('span', 'Download', { box: BIG });
   label.style.cursor = 'pointer';
-  const root = { children: [label], host, parentNode: null };
+  const root = { children: [label], host, parentNode: null, nodeType: 11 };
   label.parentNode = root;
   host.shadowRoot = root;
   row.append(host);
@@ -2717,7 +2717,7 @@ for (const [start, end, from, expectedMonth] of [
     const host = thing('kat-button', '', { box: BIG });
     const label = thing('span', 'Download', { box: BIG });
     label.style.cursor = 'pointer';
-    const root = { children: [label], host, parentNode: null };
+    const root = { children: [label], host, parentNode: null, nodeType: 11 };
     label.parentNode = root;
     host.shadowRoot = root;
     row.append(host);
@@ -2728,6 +2728,23 @@ for (const [start, end, from, expectedMonth] of [
   check('TWO ROWS WITH THEIR DOWNLOAD IN A SHADOW ROOT: narrowed to the day, only that row\'s control matches, not both because the list names both days',
     (await door.find(BY_PRESSABLE_TEXT, 'Download', true, 0, ['25 October 2026'], 'All Listings Report')) === 1);
   check('and each row\'s words are its own, from the same climb', JSON.stringify(door.row_texts(BY_PRESSABLE_TEXT, 'Download', true, 'All Listings Report').map((one) => one.includes('24 October') !== one.includes('25 October'))) === '[true,true]');
+
+/* **A LINK HAS A `host` TOO (the Opus review of the AJ2 join, finding 1, HIGH):** in a real browser `<a href>` carries `.host`, the page's address as TEXT, so a climb that took any parent with a `host` for a shadow root's host stepped
+ * onto a string and every control inside a link matched twice or not at all, on every portal. Only a real shadow root (a document fragment) steps to its host. */
+{
+  const page = aPage();
+  const door = doorOn();
+  const row = thing('div', '', { box: BIG });
+  row.append(thing('b', 'All Listings Report 25 October 2026 at 10:31 pm', { box: BIG }));
+  const link = thing('a', '', { box: BIG, host: 'sellercentral.amazon.in' });
+  const word = thing('span', 'Download', { box: BIG });
+  word.style.cursor = 'pointer';
+  link.append(word);
+  row.append(link);
+  page.body.append(row);
+  check('A CONTROL INSIDE A LINK THAT CARRIES A TEXT `host` IS ONE MATCH, and narrowed to its day it is still found',
+    (await door.find(BY_PRESSABLE_TEXT, 'Download', true, 0, [], '') === 1 && (await door.find(BY_PRESSABLE_TEXT, 'Download', true, 0, ['25 October 2026'], 'All Listings Report')) === 1));
+}
 }
 
 /* --------------------------------------------- N018: a PERCENTAGE read off a card (Amazon's Account Health, 26 Oct 2026)
@@ -2813,7 +2830,7 @@ for (const [start, end, from, expectedMonth] of [
   check('the call is one only the walk asks', ASKED_ONLY_BY_THE_WALK.includes('row_texts') && !THE_CALLS.includes('row_texts'));
 }
 
-const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2;
+const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

@@ -287,9 +287,17 @@ _claims_key = reading._which_day_it_is_about((next(h for h in reading.WHAT_CAN_B
                                               whats_new.InTheFolder(which="c", name="meesho_me_claims_2026-10-01.csv", size=9)))
 check("a claims file is read after every orders file, whatever day each is about (R20 proving)", _claims_key > _orders_key)
 
+# **A TORN ROW (THE WRONG WIDTH) OF A RECORDS FILE IS A ROW NOT READ, SAID BY LINE, never dropped (the Opus review of the AJ2 join, MEDIUM)**
+_torn = answered(lambda: reading.write_the_records(
+    next(h for h in reading.WHAT_RECORDS_CAN_BE_READ if h.report_id == "az_health"),
+    whats_new.InTheFolder(which="h", name="amazon_az_health_2026-10-26.csv", size=9), (SAMPLES["az_health"][1] + "2026-10-27,5\n").encode("utf-8"),
+    "2026-10-26", lambda rid, day, made: len(made), {}, lambda w: b""))
+check("a torn row in a records file is counted among the rows not read, by its line, and the good row is still read",
+      _torn is not None and len(_torn[0]) == 1 and len(_torn[1]) == 1 and str(_torn[1][0]).startswith("line 3"))
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 17 + 3 * len(TABLE) + 7 + 4 + 9 + 1
+EXPECTED = 17 + 3 * len(TABLE) + 7 + 4 + 9 + 1 + 1
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
