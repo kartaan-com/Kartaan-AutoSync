@@ -18,7 +18,8 @@ import returns
 import table
 
 THE_COLUMNS = ("Date", "Views", "Orders")
-SHOP_FIELDS = ("platform", "report", "day", "views", "orders", "healthRating", "orderDefectRate", "lateDispatchRate", "cancelRate", "validTrackingRate", "fileDay", "digest")
+SHOP_FIELDS = ("platform", "report", "day", "views", "orders", "healthRating", "orderDefectRate", "lateDispatchRate", "cancelRate", "validTrackingRate",
+               "healthStatus", "orderDefectRateStatus", "lateDispatchRateStatus", "cancelRateStatus", "validTrackingRateStatus", "fileDay", "digest")
 KIND = shared.RecordKind(firestore.SHOP_DAYS, SHOP_FIELDS, "shop day", required_days=("day", "fileDay"))
 
 
@@ -56,6 +57,9 @@ def read_shop_days(report_id: str, platform: str, rows: table.Table, file_day: s
 HEALTH_COLUMNS = ("Date", "Account Health Rating", "Order Defect Rate", "Late Dispatch Rate", "Pre-fulfilment Cancel Rate", "Valid Tracking Rate")
 _HEALTH_RATES = (("Order Defect Rate", "orderDefectRate"), ("Late Dispatch Rate", "lateDispatchRate"),
                  ("Pre-fulfilment Cancel Rate", "cancelRate"), ("Valid Tracking Rate", "validTrackingRate"))
+# **AMAZON'S OWN WORD, kept as text exactly as the page prints it ("At Risk", "Healthy")** -- optional columns, a blank is left out.
+_HEALTH_WORDS = (("Account Health Status", "healthStatus"), ("Order Defect Rate Status", "orderDefectRateStatus"), ("Late Dispatch Rate Status", "lateDispatchRateStatus"),
+                 ("Pre-fulfilment Cancel Rate Status", "cancelRateStatus"), ("Valid Tracking Rate Status", "validTrackingRateStatus"))
 
 
 def read_health_days(report_id: str, platform: str, rows: table.Table, file_day: str) -> Tuple[Dict[str, Dict[str, object]], Tuple[str, ...]]:
@@ -80,6 +84,10 @@ def read_health_days(report_id: str, platform: str, rows: table.Table, file_day:
         for field, value in rates:
             if value is not None:
                 record[field] = float(value)
+        for name, field in _HEALTH_WORDS:
+            word = " ".join(str(row[name] if name in rows.columns else "").split())
+            if word:
+                record[field] = word
         record["digest"] = shared.the_digest(record)
         if f"{platform}__{day}" in records:
             not_read.append(f"line {row.line}: {day} is named twice in this file, so the later line stands")

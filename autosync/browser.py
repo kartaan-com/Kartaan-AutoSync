@@ -778,8 +778,9 @@ def why_step_is_refused(step: Step) -> Optional[str]:
         return "Only a step that presses something can say how to press it."
     if step.only_if_absent is not None and (not isinstance(step.only_if_absent, Find) or step.only_if_absent.how not in WAYS_OF_FINDING or not step.only_if_absent.what):
         return "A step that is done only when something is not there has to say what to look for, in a way of finding this door knows."
-    if step.reads and (step.do != READ_NUMBER or step.reads not in ("percent",)):
-        return "Only a step that reads a number may say what kind of figure it is, and the only kind there is, besides the plain whole number, is a percent."
+    if step.reads and (step.do != READ_NUMBER or step.reads not in ("percent", "status")):
+        return ("Only a step that reads a number may say what kind of figure it is, and the only kinds there are, besides the plain whole number, are a percent "
+                "and a status word (Amazon's own \"At Risk\" or \"Healthy\", as the page prints it).")
     if step.none_means_nothing_to_fetch and (step.do not in (TAKE_FILE, TAKE_EVERY_NEW) or step.find is None):
         # **A WAIT OR A PRESS THAT FINDS NOTHING IS A FAULT, EVERY TIME.** Only the take-file step that names the row can say "no such row today", and only after a step before it has proved the table.
         return "Only a take-file or take-every-new step that names what to take can say that finding none means there is nothing to fetch."

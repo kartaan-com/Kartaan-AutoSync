@@ -2737,6 +2737,27 @@ for (const [start, end, from, expectedMonth] of [
   check('a card with a label and no percentage beside it is refused in words, never filled with another number', said.includes('no plain number') || said.includes('no percentage'));
 }
 
+/* --------------------------------------------- N018: Amazon's own STATUS WORD beside a rate (Control's word 26 Oct 2026: "At Risk", "Healthy", exactly as the page prints it)
+ * **A BLANK IS NOTHING, NEVER A FAILURE:** the word list is from what Amazon is known to print, the page was not seen with every word on it, so a card with no word we know leaves the cell empty and the figures still land. */
+{
+  const page = aPage();
+  const door = doorOn();
+  const risk = thing('div');
+  risk.append(thing('a', 'Late Dispatch Rate'), thing('span', '1.8%'), thing('span', 'At Risk'), thing('span', 'Target: below 4%'));
+  const fine = thing('div');
+  fine.append(thing('a', 'Valid Tracking Rate'), thing('span', '100%'), thing('span', 'Healthy'));
+  const unknown = thing('div');
+  unknown.append(thing('a', 'Order Defect Rate'), thing('span', '0%'), thing('span', 'something Amazon has not shown us'));
+  page.body.append(risk, fine, unknown);
+  check('the status word beside a rate is read exactly as the page prints it', (await door.read_number(BY_TEXT, 'Late Dispatch Rate', true, 0, [], '', 'status')) === 'At Risk');
+  check('and a healthy one too', (await door.read_number(BY_TEXT, 'Valid Tracking Rate', true, 0, [], '', 'status')) === 'Healthy');
+  check('a card with no word this knows gives an empty answer, not a failure and not another card\'s word',
+    (await door.read_number(BY_TEXT, 'Order Defect Rate', true, 0, [], '', 'status')) === '');
+  let said = '';
+  try { await door.read_number(BY_TEXT, 'Not On This Page', true, 0, [], '', 'status'); } catch (wrong) { said = String(wrong.message); }
+  check('a label that is not on the page is still refused in words', said.includes('Nothing on the page matches'));
+}
+
 /* --------------------------------------------- N018: the words of every row that holds a control
  * **ASKED ONLY BY THE WALK.** Amazon's All Statements page lists a statement per row, each closed one with its own `Download Flat File V2`; the walk has to know WHICH statement each control belongs to
  * before it presses any of them, so it asks the page for the words of the row each one sits in. The row is the largest ancestor (within six levels) that holds that control and no other. */
@@ -2767,7 +2788,7 @@ for (const [start, end, from, expectedMonth] of [
   check('the call is one only the walk asks', ASKED_ONLY_BY_THE_WALK.includes('row_texts') && !THE_CALLS.includes('row_texts'));
 }
 
-const EXPECTED = 325 + 3 + 2 + 4 + 5;
+const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

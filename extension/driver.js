@@ -1521,10 +1521,14 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
     const label = whatMatches(how, what, exact, near, alsoSaying)[0];
     let up = label.parentNode;
     for (let k = 0; k < A_NUMBER_SITS_THIS_FAR_ABOVE_ITS_LABEL && up; k += 1) {
-      const found = kind === 'percent' ? theFirstPercentageIn(up) : theFirstPlainNumberIn(up);
+      const found = kind === 'percent' ? theFirstPercentageIn(up)
+        : kind === 'status' ? theFirstStatusWordIn(up) : theFirstPlainNumberIn(up);
       if (found !== null) return found;
       up = up.parentNode;
     }
+    /* **A STATUS WORD THAT IS NOT THERE IS NOTHING, NOT A FAILURE** (Control's word 26 Oct 2026): the list of words is what Amazon is known to print and the page was not seen with every
+     * one, so the figures must still land. An empty answer becomes an empty cell, which the reader leaves out. */
+    if (kind === 'status') return '';
     /* **SAID AS WHAT IT IS.** "Not found" would send somebody looking for a label
      * that is on the page in front of them. What is missing is the number. */
     throw new Error(
@@ -2108,6 +2112,24 @@ function theFirstPercentageIn(node) {
     return Number(said.slice(0, -1));
   }
   return null;
+}
+
+/** The first leaf under this that is one of the status words Amazon prints beside a rate, **given back exactly as the page prints it** ("At Risk", "Healthy"), or nothing. N018, Control's word 26 Oct 2026. */
+const A_STATUS_WORD = /^(healthy|at risk|critical|good|fair|poor|great|excellent|needs attention|in danger|not at risk)$/i;
+function theFirstStatusWordIn(node) {
+  const found = [];
+  let percentages = 0;
+  for (const one of everything(node)) {
+    if ((one.children || []).length) continue;
+    if (!isPainted(one)) continue;
+    const said = words(one.textContent || '');
+    if (A_PERCENTAGE.test(said)) percentages += 1;
+    if (A_STATUS_WORD.test(said)) found.push(said);
+  }
+  /* **ONE CARD'S WORD, NEVER ANOTHER'S:** once this reaches above the card (it holds more than one percentage, or more than one word) it is looking at several cards, and a word
+   * taken from there could belong to a neighbour. Nothing is what is said then. */
+  if (percentages > 1 || found.length > 1) return '';
+  return found.length ? found[0] : null;
 }
 
 function isSwitchedOff(node) {

@@ -1486,6 +1486,13 @@ RECIPES: Dict[str, Recipe] = {
             Step(READ_NUMBER, find=Find(BY_TEXT, "Pre-fulfilment Cancel Rate", called="Pre-fulfilment Cancel Rate"), reads="percent", patience=30,
                  why="reading the pre-fulfilment cancel rate"),
             Step(READ_NUMBER, find=Find(BY_TEXT, "Valid Tracking Rate", called="Valid Tracking Rate"), reads="percent", patience=30, why="reading the valid tracking rate"),
+            # **AMAZON'S OWN WORD beside each, exactly as the page prints it (Control's word 26 Oct 2026)**: an empty answer is not a failure -- the figures still land.
+            Step(READ_NUMBER, find=Find(BY_TEXT, "Account Health Rating", called="Account Health Status"), reads="status", patience=30, why="reading Amazon's word for the Account Health Rating"),
+            Step(READ_NUMBER, find=Find(BY_TEXT, "Order Defect Rate", called="Order Defect Rate Status"), reads="status", patience=30, why="reading Amazon's word for the order defect rate"),
+            Step(READ_NUMBER, find=Find(BY_TEXT, "Late Dispatch Rate", called="Late Dispatch Rate Status"), reads="status", patience=30, why="reading Amazon's word for the late dispatch rate"),
+            Step(READ_NUMBER, find=Find(BY_TEXT, "Pre-fulfilment Cancel Rate", called="Pre-fulfilment Cancel Rate Status"), reads="status", patience=30,
+                 why="reading Amazon's word for the pre-fulfilment cancel rate"),
+            Step(READ_NUMBER, find=Find(BY_TEXT, "Valid Tracking Rate", called="Valid Tracking Rate Status"), reads="status", patience=30, why="reading Amazon's word for the valid tracking rate"),
             Step(ADD_TO_THE_LIST, patience=30, why="writing the day as its own file"),
         ),
     ),

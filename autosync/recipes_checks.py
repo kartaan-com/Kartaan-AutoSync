@@ -243,7 +243,7 @@ SHAPES = {
     "az_orders": ((pages.GO, pages.WAIT_FOR, pages.CLICK, pages.CLICK), (pages.GO, pages.WAIT_FOR, pages.TAKE_FILE)),
     "az_settlements": ((), (pages.GO, pages.WAIT_FOR, pages.TAKE_EVERY_NEW)),
     # **AMAZON ACCOUNT HEALTH (N018):** open the dashboard, wait for the rating, read the rating and four rates, write the day as its own one-row file.
-    "az_health": ((), (pages.GO, pages.WAIT_FOR, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.ADD_TO_THE_LIST)),
+    "az_health": ((), (pages.GO, pages.WAIT_FOR, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.ADD_TO_THE_LIST)),
     # **AMAZON ADS (N018):** the seller's one saved daily report is RUN (open, wait for its row, open the row's Actions, press Run); later the row that shows today as its last run is opened and its latest file taken.
     "az_ads": ((pages.GO, pages.WAIT_FOR, pages.GO, pages.WAIT_FOR, pages.TYPE_IN, pages.CLICK, pages.CLICK, pages.CLICK, pages.CLICK, pages.CLICK, pages.WAIT_FOR, pages.CLICK, pages.CLICK), (pages.GO, pages.WAIT_FOR, pages.CLICK, pages.TAKE_FILE)),
 }
@@ -811,16 +811,20 @@ check("only that one step may say that nothing new is nothing to fetch, across e
 # a whole number beside its label) and four rates (`1.8%`, with `2 of 111 orders` and `30 days` in the same card, which is why a rate is read as a PERCENTAGE). No download: the day is written as its own one-row file.
 AZH = answered(lambda: tool.RECIPES["az_health"])
 AZH_STEPS = AZH.to_take if AZH else ()
-check("az_health is a one-phase read of eight steps: open, wait, five figures, write the day",
-      AZH is not None and not AZH.two_phase and len(AZH_STEPS) == 8)
+check("az_health is a one-phase read of thirteen steps: open, wait, five figures, five status words, write the day",
+      AZH is not None and not AZH.two_phase and len(AZH_STEPS) == 13)
 check("az_health opens the Account Health dashboard and waits for the rating label itself before reading anything",
-      len(AZH_STEPS) == 8 and AZH_STEPS[0].do == pages.GO and AZH_STEPS[0].address == "https://sellercentral.amazon.in/performance/dashboard"
+      len(AZH_STEPS) == 13 and AZH_STEPS[0].do == pages.GO and AZH_STEPS[0].address == "https://sellercentral.amazon.in/performance/dashboard"
       and AZH_STEPS[1].do == pages.WAIT_FOR and AZH_STEPS[1].find.what == "Account Health Rating")
 check("az_health reads the rating as a whole number and the four rates as percentages, each by its own label, in the order the file's columns are read",
-      len(AZH_STEPS) == 8 and [s.find.what for s in AZH_STEPS[2:7]] == ["Account Health Rating", "Order Defect Rate", "Late Dispatch Rate", "Pre-fulfilment Cancel Rate", "Valid Tracking Rate"]
+      len(AZH_STEPS) == 13 and [s.find.what for s in AZH_STEPS[2:7]] == ["Account Health Rating", "Order Defect Rate", "Late Dispatch Rate", "Pre-fulfilment Cancel Rate", "Valid Tracking Rate"]
       and [s.reads for s in AZH_STEPS[2:7]] == ["", "percent", "percent", "percent", "percent"] and all(s.do == pages.READ_NUMBER for s in AZH_STEPS[2:7]))
-check("and it ends by writing the day as its own file", len(AZH_STEPS) == 8 and AZH_STEPS[7].do == pages.ADD_TO_THE_LIST)
-check("only the health recipe asks for a percentage, across every recipe",
+check("and it ends by writing the day as its own file", len(AZH_STEPS) == 13 and AZH_STEPS[12].do == pages.ADD_TO_THE_LIST)
+check("az_health then reads Amazon's own status word beside each of the five, each into a column of its own named for the label and 'Status', and a blank is not a failure",
+      len(AZH_STEPS) == 13 and all(s.do == pages.READ_NUMBER and s.reads == "status" for s in AZH_STEPS[7:12])
+      and [s.find.what for s in AZH_STEPS[7:12]] == ["Account Health Rating", "Order Defect Rate", "Late Dispatch Rate", "Pre-fulfilment Cancel Rate", "Valid Tracking Rate"]
+      and [s.find.called for s in AZH_STEPS[7:12]] == ["Account Health Status", "Order Defect Rate Status", "Late Dispatch Rate Status", "Pre-fulfilment Cancel Rate Status", "Valid Tracking Rate Status"])
+check("only the health recipe asks for a percentage or a status word, across every recipe",
       answered(lambda: sorted({r for r in tool.every_recipe() for s in (tool.recipe(r).to_ask + tool.recipe(r).to_take) if s.reads}) == ["az_health"]))
 # **AMAZON ADS THROUGH THE BROWSER (N018, his ruling D726, Control's word to build it anyway, and his word D728: AutoSync creates the saved report itself the first time), measured on his own Amazon Ads console on 26 Oct 2026:**
 # advertising.amazon.in/reporting lists his saved reports; a row's `Actions` menu offers Download latest, Run, Edit, Copy, Delete; a run takes about three minutes; the row shows `Last run  26 Oct, 2026  9:40 AM IST`.
@@ -1596,7 +1600,7 @@ check("and the panel name was still filled into the addresses on the way",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 455
+EXPECTED = 456
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

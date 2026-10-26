@@ -96,9 +96,22 @@ check("a day, a rating or a rate this cannot read (not a number, below nought, o
 check("a file without the Account Health columns is refused in words naming what it has",
       "Nothing was read" in str(caught(lambda: shopdays.read_health_days("az_health", "amazon", file_of("Date,Views,Orders\n2026-10-06,1,1\n"), "2026-10-26"))))
 check("every field a health record carries is one the shop-day record kind accepts", all(set(r) <= set(shopdays.SHOP_FIELDS) for r in _hd[0].values()))
+# **AMAZON'S OWN STATUS WORD (Control's word 26 Oct 2026): one text field per rate EXACTLY as the page prints it, and the overall one if the page shows it.** Optional columns: a file without them (older, or a page with no word) still reads.
+STATUS_HEAD = HEALTH_HEAD + ",Account Health Status,Order Defect Rate Status,Late Dispatch Rate Status,Pre-fulfilment Cancel Rate Status,Valid Tracking Rate Status"
+_hs = (answered(lambda: shopdays.read_health_days("az_health", "amazon", file_of(STATUS_HEAD + "\n2026-10-26,204,0,1.8,0,100,Healthy,Healthy,At Risk,Healthy,Healthy\n"), "2026-10-26")) or ({}, ()))
+_hs_rec = _hs[0].get("amazon__2026-10-26", {})
+check("EVERY RATE'S STATUS WORD IS KEPT AS TEXT EXACTLY AS AMAZON PRINTS IT, and the overall status too, in fields of their own",
+      (_hs_rec.get("healthStatus"), _hs_rec.get("orderDefectRateStatus"), _hs_rec.get("lateDispatchRateStatus"), _hs_rec.get("cancelRateStatus"), _hs_rec.get("validTrackingRateStatus"))
+      == ("Healthy", "Healthy", "At Risk", "Healthy", "Healthy") and _hs[1] == () and _hs_rec.get("lateDispatchRate") == 1.8)
+_hsb = (answered(lambda: shopdays.read_health_days("az_health", "amazon", file_of(STATUS_HEAD + "\n2026-10-26,204,0,1.8,0,100,,,At Risk,,\n"), "2026-10-26")) or ({}, ()))[0].get("amazon__2026-10-26", {})
+check("a blank status word is left out, never written as an empty text, and the figures still land",
+      "healthStatus" not in _hsb and "orderDefectRateStatus" not in _hsb and _hsb.get("lateDispatchRateStatus") == "At Risk" and _hsb.get("orderDefectRate") == 0.0)
+check("a status word is part of the record's digest, so a rate that turns At Risk is a changed record",
+      _hs_rec.get("digest") != _hd[0]["amazon__2026-10-26"]["digest"])
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 7 + 4 + 5
+EXPECTED = 7 + 4 + 5 + 3
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
