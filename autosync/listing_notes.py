@@ -16,9 +16,10 @@ name (SKU, ASIN) are cross-checked -- if the header carries either of those word
 
 import re
 from dataclasses import dataclass
-from typing import Callable, Dict, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 import listings
+import records as shared
 import table
 
 # The place of each column in the file, counting from nought, as Amazon's page orders them.
@@ -106,13 +107,135 @@ def read_fees(content: bytes, report_name: str = "this file") -> WhatNotesSaid:
     return notes_from_fees(listings.read_fee_preview(table.read(content, header_row=1), report_name))
 
 
+# **MEESHO'S PRICING TABLE (N017, his D726; plan piece 43): current customer price, recommended customer price and Meesho's own label, on each Meesho listing.**
+#
+# **THE FILE IS THE EXTENSION'S OWN** -- `extension/tables.js` reads Meesho's pricing page page by page and writes `Product`, `Catalog ID`, `SKU ID`, `Tab counts`,
+# `Current Stock`, `Growth in 30 days`, `Current Customer Price`, `Recommended Customer Price`, `Insights`. **NO PRICING FILE HAS EVER LANDED IN HIS DRIVE** (the fetch
+# failed every night from 5 Oct to 25 Oct), so what a cell holds beyond its first piece is not known. Therefore: **only the FIRST piece of a price cell (before a ` | `) is
+# read, as an amount, and a cell whose first piece is not an amount makes its row a row not read -- never a guess.** The label is the `Insights` cell as the page wrote it.
+# `Tab counts` (the page's chips, the same on every row) and the stock and growth cells are not read.
+#
+# **HOW A ROW FINDS ITS LISTINGS: by `SKU ID` against the listing's SKU (the catalogue file's `STYLE ID`); a row whose SKU no listing has falls back to its `Catalog ID`
+# against the listing's catalogue id; a row with neither is matched by its title when the title belongs to exactly one catalogue (the way product performance is matched, D459).**
+# A row whose SKU and catalogue id point at different catalogues is not matched: which is meant cannot be said. One row's figures go on EVERY listing it finds (the page
+# prices a product; its sizes are listings of it). Meesho's `Catalog ID` was BLANK on every row of the product performance file, so the SKU and the title carry the match.
+_AN_AMOUNT = re.compile("^₹?\\s*(\\d{1,3}(,\\d{3})+|\\d+)(\\.\\d{1,2})?$")
+_MOST_A_PRICE = 10_000_000
+# A label longer than this is cut (the database refuses a record past about a megabyte; a label is a few words).
+_LONGEST_LABEL = 200
+PRICING_COLUMNS = ("Product", "Catalog ID", "SKU ID", "Current Customer Price", "Recommended Customer Price", "Insights")
+
+
+def _first_piece_amount(said: str, what: str) -> Optional[object]:
+    """The amount in the first piece of a price cell, or None for a blank cell. Raises ValueError saying what it read when that is not an amount."""
+    first = (said or "").split("|")[0].strip()
+    if not first:
+        return None
+    # **PLAINLY AN AMOUNT AND NOTHING ELSE**: an optional rupee sign, digits (commas as thousands), at most two decimals, below ten million -- so no percentage, no exponent, no words.
+    if not _AN_AMOUNT.match(first):
+        raise ValueError(f"the {what} reads {first[:40]!r}, which is not an amount")
+    value = shared.a_figure(first, most=_MOST_A_PRICE)
+    if value is None:
+        raise ValueError(f"the {what} reads {first[:40]!r}, which is not an amount")
+    return int(value) if value == value.to_integral_value() else float(round(value, 2))
+
+
+def read_pricing(content: bytes, report_name: str = "this file", shop_listings: Optional[Dict[str, Dict]] = None) -> WhatNotesSaid:
+    """Meesho's pricing file as notes: `currentPrice`, `recommendedPrice` (null when Meesho gave none) and `priceLabel` on each listing it finds.
+
+    `shop_listings` is the seller's own Meesho listings as `listings.py` reads them (`meesho::<product>::<variation>` -> the listing). **None is refused, not read as
+    "nothing sells": a file matched against nothing would flag every row unmatched for good.** A listing named by two rows keeps the first row's figures and says so.
+    """
+    if shop_listings is None:
+        raise table.CannotRead(
+            f"The Meesho pricing file {report_name} cannot be matched to the seller's listings yet: the catalogue file holding the listings has not been read. "
+            "Nothing was read; this file is left to be read again."
+        )
+    rows = table.read(content, header_row=1)
+    shared.require_columns(rows, PRICING_COLUMNS, "a Meesho pricing file")
+    if not len(rows) and not rows.refused:
+        raise table.CannotRead(
+            f"The Meesho pricing file {report_name} has its column headings and not one product under them. Nothing was read; "
+            "an empty file is not the same as a shop with nothing to price."
+        )
+    by_sku: Dict[str, List[str]] = {}
+    by_catalog: Dict[str, List[str]] = {}
+    by_title: Dict[str, List[str]] = {}
+    for name, one in sorted(shop_listings.items()):
+        for index, key in ((by_sku, one.get("sku")), (by_catalog, one.get("catalogId")), (by_title, str(one.get("productName") or "").strip().lower())):
+            if key:
+                index.setdefault(str(key).strip(), []).append(name)
+    notes: Dict[str, Dict] = {}
+    not_read: List[str] = []
+    seen_at: Dict[str, int] = {}
+    for row in rows:
+        title, catalog, sku = row["Product"].strip(), row["Catalog ID"].strip(), row["SKU ID"].strip()
+        who = f"line {row.line} ({sku or catalog or title or 'no name'})"
+        try:
+            current = _first_piece_amount(row["Current Customer Price"], "current price") if row["Current Customer Price"].strip() else None
+            recommended = _first_piece_amount(row["Recommended Customer Price"], "recommended price") if row["Recommended Customer Price"].strip() else None
+        except ValueError as wrong:
+            not_read.append(f"{who}: {wrong}, so no price was put on a listing")
+            continue
+        if current is None:
+            not_read.append(f"{who}: this row has no current price, so there is no price to put on a listing")
+            continue
+        found = None
+        catalog_of = lambda n: str(shop_listings[n].get("catalogId") or "").strip()  # noqa: E731
+        if sku and sku in by_sku:
+            names = by_sku[sku]
+            if catalog:
+                narrowed = [n for n in names if catalog_of(n) == catalog]
+                if narrowed:
+                    names = narrowed
+                elif any(catalog_of(n) for n in names):
+                    not_read.append(f"{who}: its SKU and its catalogue id disagree -- the listings with that SKU are in another catalogue -- so which listing is meant cannot be said")
+                    continue
+            elif len({catalog_of(n) for n in names if catalog_of(n)}) > 1:
+                not_read.append(f"{who}: the SKU is in {len({catalog_of(n) for n in names})} catalogues and the row names none, so which listing is meant cannot be said")
+                continue
+            found = ("SKU", names)
+        elif catalog and catalog in by_catalog:
+            # **A CATALOGUE HOLDS SEVERAL PRODUCTS**: one row's price goes on a catalogue's listings only when they are one product (one SKU) in several sizes.
+            names = by_catalog[catalog]
+            if len({str(shop_listings[n].get("sku") or "").strip() for n in names}) > 1:
+                not_read.append(f"{who}: the catalogue holds more than one product and the SKU matched none, so which listing is meant cannot be said")
+                continue
+            found = ("catalogue id", names)
+        if found is None and title and not sku and not catalog:
+            names = by_title.get(title.lower(), [])
+            catalogs = {str(shop_listings[n].get("catalogId") or "") for n in names}
+            if len(catalogs) > 1:
+                not_read.append(f"{who}: the title belongs to {len(catalogs)} catalogues, so which one is meant cannot be said")
+                continue
+            if names:
+                found = ("title", names)
+        if found is None:
+            not_read.append(f"{who}: no listing of the seller's has this SKU, catalogue id or title, so the price could not be put on one")
+            continue
+        label = row["Insights"].strip()[:_LONGEST_LABEL]
+        for name in found[1]:
+            if name in seen_at:
+                not_read.append(f"{who}: line {seen_at[name]} already put a price on {name}. Only the first was kept")
+                continue
+            seen_at[name] = row.line
+            notes[name] = {"currentPrice": current, "recommendedPrice": recommended, "priceLabel": label}
+    # **A ROW OF THE WRONG WIDTH IS A ROW NOT READ** (table.read keeps it in `refused`): left out, a torn file would read as read in full.
+    not_read += [f"line {one.line}: {one.why}" for one in rows.refused]
+    return WhatNotesSaid(notes=notes, not_read=tuple(not_read), rows_in_file=len(rows) + len(rows.refused))
+
+
 # Which report's file is read by which reader.
-READERS: Dict[str, Callable[..., WhatNotesSaid]] = {"az_suppressed": read_suppressed, "az_fee_preview": read_fees}
+READERS: Dict[str, Callable[..., WhatNotesSaid]] = {"az_suppressed": read_suppressed, "az_fee_preview": read_fees, "me_pricing": read_pricing}
+# The readers that match a file against the seller's own listings, and so are handed them.
+NEEDS_THE_SHOP_LISTINGS = frozenset({"me_pricing"})
 
 
-def read_notes_file(report_id: str, content: bytes, report_name: str = "this file") -> WhatNotesSaid:
-    """A fetched side file's bytes, as the notes it holds."""
+def read_notes_file(report_id: str, content: bytes, report_name: str = "this file", shop_listings: Optional[Dict[str, Dict]] = None) -> WhatNotesSaid:
+    """A fetched side file's bytes, as the notes it holds. `shop_listings` goes only to a reader that matches against them."""
     reader = READERS.get(report_id)
     if reader is None:
         raise table.CannotRead(f"Nothing here knows how to read {report_id!r} into notes on listings.")
+    if report_id in NEEDS_THE_SHOP_LISTINGS:
+        return reader(content, report_name, shop_listings)
     return reader(content, report_name)

@@ -426,8 +426,29 @@ check('and the file carries the guard', theCsv(['a'], [['=1+1']]).split('\n')[1]
   check('and any other word in that cell is still refused', why.includes('not the ones expected') && why.includes('SomethingElseIcon'));
 }
 
+{
+  /* **N017 (his D726; the run logs of 22-25 Oct): "the pager lists 7 pages and 6 were read" EVERY NIGHT.** The pager names a page the table does not have
+   * (or whose button is switched off), and the page's own count of everything is the last word on whether the table is whole. */
+  const short = (count) => aPage({
+    headers: PRICE_HEADERS, pages: [[priceRow('A', '1', 'S-1', 'Losing Views')], [priceRow('B', '2', 'S-2', 'Best Priced')]],
+    extra: [p(`All Products (${count})`), p('Losing Orders (0)')], pager: PAGER(3),
+  });
+  const said = [];
+  const got = await readTheTable(short(2).page, { table: 'meesho-pricing', rest: noWaiting, say: (line) => said.push(line) });
+  check('N017: A PAGER THAT NAMES ONE PAGE TOO MANY IS WHOLE WHEN THE PAGE\'S OWN COUNT EQUALS THE ROWS READ', got.rows === 2 && got.pages === 2);
+  check('and the run says the pager named more pages than there were', said.some((line) => line.includes('lists 3 pages') && line.includes('2 in all')));
+  const why = await thrown(() => readTheTable(short(3).page, { table: 'meesho-pricing', rest: noWaiting }));
+  check('N017: BUT A COUNT THE ROWS DO NOT REACH STILL REFUSES THE READ, saying the rows each page gave and the count',
+    why.includes('lists 3 pages and 2 were read') && why.includes('1, 1') && why.includes('counts 3 in all'));
+  const noCount = aPage({
+    headers: PRICE_HEADERS, pages: [[priceRow('A', '1', 'S-1', 'x')], [priceRow('B', '2', 'S-2', 'y')]], extra: [p('Losing Orders (0)')], pager: PAGER(3),
+  });
+  const why2 = await thrown(() => readTheTable(noCount.page, { table: 'meesho-pricing', rest: noWaiting }));
+  check('N017: A PAGE THAT PRINTS NO COUNT CANNOT EXCUSE A SHORT PAGER', why2.includes('lists 3 pages and 2 were read') && why2.includes('prints no count'));
+}
+
 console.log(failures ? `\n${failures} FAILED (${ran} checks)` : `\nall ${ran} checks passed`);
-const EXPECTED = 52 + 1;
+const EXPECTED = 52 + 1 + 4;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   process.exit(1);
