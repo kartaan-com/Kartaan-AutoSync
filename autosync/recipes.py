@@ -444,6 +444,11 @@ AMAZON_ACCOUNT_HEALTH = "https://sellercentral.amazon.in/performance/dashboard"
 # **AMAZON ADS CONSOLE REPORTING (advertising.amazon.in), read off his own console by N018 on 26 Oct 2026**, and the name of the ONE saved report the seller keeps for the walk to run.
 AMAZON_ADS_REPORTING = "https://advertising.amazon.in/reporting"
 AMAZON_ADS_REPORT_NAME = "Kartaan campaign by day"
+AMAZON_ADS_NEW_CAMPAIGN_REPORT = "https://advertising.amazon.in/reporting/new?templateId=campaign"
+# **THE SAVED REPORT'S ROW IN THE LIST, found by its own name: its Actions menu** -- and the same row when it also shows TODAY (its last run, or the day it was made).
+_ADS_SAVED_ROW = Find(BY_THE_BUTTON_BESIDE, AMAZON_ADS_REPORT_NAME, also_saying="Actions", called=f"the Actions menu of the saved report {AMAZON_ADS_REPORT_NAME}")
+_ADS_SAVED_ROW_TODAY = Find(BY_THE_BUTTON_BESIDE, AMAZON_ADS_REPORT_NAME, also_saying="Actions", near="{day_in_words}", day_in_words_is=AMAZON_WRITES_IT,
+                            day_in_words_of=THE_DAY_IT_WAS_MADE, called=f"the Actions menu of {AMAZON_ADS_REPORT_NAME}, showing today")
 # **THESE THREE WERE WRONG, AND THEY COST A WHOLE NIGHT (2026-09-06).** Nine of
 # ten reports failed within twenty minutes of each other -- seven ads reports
 # looking for "the other reports tab", claims looking for "the claims tab",
@@ -1485,29 +1490,32 @@ RECIPES: Dict[str, Recipe] = {
         ),
     ),
 
-    # ---- Amazon ads by the browser (N018, his ruling D726; Control's word: build it anyway). **The seller keeps ONE saved report, `Kartaan campaign by day` (Campaign template, Yesterday, once, CSV), and the walk only RUNS it and takes
-    # ---- its latest file** -- nothing is created or deleted in his ads console and no campaign or spend is touched. Ask: open the reporting list, wait for that row, open ITS Actions menu, press Run. Take: come back, wait for that
-    # ---- row to show today as its last run (so yesterday's file is never taken for today's), open ITS Actions, press Download latest. Measured on his console 26 Oct 2026 (a run takes about three minutes); **NOT YET RUN LIVE.**
+    # ---- Amazon ads by the browser (N018, his ruling D726; Control's word: build it anyway; his word D728: AutoSync CREATES the saved report itself the first time it is missing). **The one saved report `Kartaan campaign by day` (Campaign
+    # ---- template, Yesterday, once, CSV) is CREATED ONLY WHEN IT IS NOT IN THE LIST** (each creating step is done only when its row is not there), and after that the walk only RUNS it and takes its latest file -- nothing is deleted and no campaign,
+    # ---- budget or spend is touched. Ask: open the list, prove it drew, [if missing: open the template, name it, choose Yesterday, submit -- which runs it once], wait for the row, and unless the row already shows today, open ITS Actions and press
+    # ---- Run. Take: wait for the row to show today as its last run (so yesterday's file is never taken for today's), open ITS Actions, press Download latest. Measured on his console 26 Oct 2026; **NOT YET RUN LIVE.**
     "az_ads": Recipe(
         ready_in_minutes=5,
         to_ask=(
             Step(GO, address=AMAZON_ADS_REPORTING, patience=60, why="opening the ads reporting list to run the saved campaign report"),
-            Step(WAIT_FOR, find=Find(BY_THE_BUTTON_BESIDE, AMAZON_ADS_REPORT_NAME, also_saying="Actions",
-                                     called=f"the Actions menu of the saved report {AMAZON_ADS_REPORT_NAME}"), patience=90,
-                 why=f"waiting for the saved report {AMAZON_ADS_REPORT_NAME} to be in the list"),
-            Step(CLICK, find=Find(BY_THE_BUTTON_BESIDE, AMAZON_ADS_REPORT_NAME, also_saying="Actions",
-                                  called=f"the Actions menu of the saved report {AMAZON_ADS_REPORT_NAME}"), why="opening the saved report's Actions menu"),
-            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Run", called="Run in the Actions menu"), why="running the saved campaign report"),
+            Step(WAIT_FOR, find=Find(BY_ROLE_AND_TEXT, "Create report", called="the Create report button"), patience=90,
+                 why="waiting for the ads reporting list to draw, so that a missing saved report is told apart from a page that never drew"),
+            Step(GO, address=AMAZON_ADS_NEW_CAMPAIGN_REPORT, patience=60, only_if_absent=_ADS_SAVED_ROW, why="creating the saved campaign report, once: opening the Campaign template"),
+            Step(WAIT_FOR, find=Find(BY_TEXT, "Report name", called="the Report name label"), patience=90, only_if_absent=_ADS_SAVED_ROW,
+                 why="waiting for the report form to draw"),
+            Step(TYPE_IN, find=Find(BY_THE_CONTROL_BESIDE, "Report name", called="the Report name box"), words=AMAZON_ADS_REPORT_NAME, only_if_absent=_ADS_SAVED_ROW,
+                 why="naming the saved report"),
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Last seven days", called="the report period button"), only_if_absent=_ADS_SAVED_ROW, why="opening the report period"),
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Yesterday", called="the Yesterday period"), only_if_absent=_ADS_SAVED_ROW, why="choosing Yesterday"),
+            Step(CLICK, find=Find(BY_ROLE_AND_TEXT, "Submit", called="the Submit button"), only_if_absent=_ADS_SAVED_ROW, why="creating the saved report (which runs it once)"),
+            Step(WAIT_FOR, find=_ADS_SAVED_ROW, patience=120, why=f"waiting for the saved report {AMAZON_ADS_REPORT_NAME} to be in the list"),
+            Step(CLICK, find=_ADS_SAVED_ROW, only_if_absent=_ADS_SAVED_ROW_TODAY, why="opening the saved report's Actions menu"),
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Run", called="Run in the Actions menu"), only_if_absent=_ADS_SAVED_ROW_TODAY, why="running the saved campaign report"),
         ),
         to_take=(
             Step(GO, address=AMAZON_ADS_REPORTING, patience=60, why="coming back to the ads reporting list for the finished campaign report"),
-            Step(WAIT_FOR, find=Find(BY_THE_BUTTON_BESIDE, AMAZON_ADS_REPORT_NAME, also_saying="Actions", near="{day_in_words}",
-                                     day_in_words_is=AMAZON_WRITES_IT, day_in_words_of=THE_DAY_IT_WAS_MADE,
-                                     called=f"the Actions menu of {AMAZON_ADS_REPORT_NAME}, last run today"), patience=120,
-                 why="waiting for the saved report's row to show today as its last run"),
-            Step(CLICK, find=Find(BY_THE_BUTTON_BESIDE, AMAZON_ADS_REPORT_NAME, also_saying="Actions", near="{day_in_words}",
-                                  day_in_words_is=AMAZON_WRITES_IT, day_in_words_of=THE_DAY_IT_WAS_MADE,
-                                  called=f"the Actions menu of {AMAZON_ADS_REPORT_NAME}, last run today"), why="opening the saved report's Actions menu"),
+            Step(WAIT_FOR, find=_ADS_SAVED_ROW_TODAY, patience=120, why="waiting for the saved report's row to show today as its last run"),
+            Step(CLICK, find=_ADS_SAVED_ROW_TODAY, why="opening the saved report's Actions menu"),
             Step(TAKE_FILE, find=Find(BY_PRESSABLE_TEXT, "Download latest", called="Download latest in the Actions menu"), patience=60,
                  why="taking the saved report's latest file"),
         ),

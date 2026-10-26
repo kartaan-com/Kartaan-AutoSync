@@ -144,6 +144,13 @@ check("a number is read as a percentage only when the step says so, and only a s
               tool.Step(tool.CLICK, find=tool.Find(tool.BY_TEXT, "x"), reads="percent", why="y")) is not None
           and tool.why_step_is_refused(
               tool.Step(tool.READ_NUMBER, find=tool.Find(tool.BY_TEXT, "x"), reads="hex", why="y")) is not None))
+check("a step done only when something is NOT on the page has to say what to look for, in a way of finding this door knows (N018, D728)",
+      answered(lambda: tool.why_step_is_refused(
+          tool.Step(tool.CLICK, find=tool.Find(tool.BY_TEXT, "Create it"), only_if_absent=tool.Find(tool.BY_TEXT, "Saved row"), why="y")) is None
+          and tool.why_step_is_refused(
+              tool.Step(tool.CLICK, find=tool.Find(tool.BY_TEXT, "Create it"), only_if_absent="Saved row", why="y")) is not None
+          and tool.why_step_is_refused(
+              tool.Step(tool.CLICK, find=tool.Find("telepathy", "Saved row"), only_if_absent=tool.Find("telepathy", "x"), why="y")) is not None))
 check("while typing the campaign, once per campaign, is fine",
       answered(lambda: tool.why_step_is_refused(
           tool.Step(tool.TYPE_IN, find=tool.Find(tool.BY_TEXT, "box"), words="{campaign}",
@@ -612,7 +619,7 @@ check("nor a failure once it has happened",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 124
+EXPECTED = 125
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

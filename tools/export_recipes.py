@@ -66,6 +66,7 @@ AS_JAVASCRIPT_SPELLS_IT = {
     "day_in_words_of": "dayInWordsOf",
     "press_again": "pressAgain",
     "or_find": "orFind",
+    "only_if_absent": "onlyIfAbsent",
     "range_days": "rangeDays",
     "switched_off_days_change_the_cursor": "switchedOffDaysChangeTheCursor",
     "ready_in_minutes": "readyInMinutes",
@@ -177,6 +178,8 @@ def a_step(step):
         # **SOMETHING ELSE A WAIT MAY COUNT** (his ruling, 2026-09-14). Null on
         # every step but the Reports Centre's confirmation.
         AS_JAVASCRIPT_SPELLS_IT["or_find"]: a_find(step.or_find),
+        # **A STEP DONE ONLY WHEN SOMETHING IS NOT THERE** (N018, D728). Null on every step but the ads saved-report creation.
+        AS_JAVASCRIPT_SPELLS_IT["only_if_absent"]: a_find(step.only_if_absent),
         # **WHAT A TYPING STEP TYPES, AND WHETHER A STEP IS DONE ONCE PER CAMPAIGN**
         # (2026-09-15). Empty and false on every step but Flipkart's overall report.
         "words": step.words,

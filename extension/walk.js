@@ -299,6 +299,9 @@ export function whyStepIsRefused(step) {
      * waited FOR that thing. */
     return 'A step that only waits has nothing to look for. Waiting for something is a wait-for.';
   }
+  if (step.onlyIfAbsent && (typeof step.onlyIfAbsent !== 'object' || !step.onlyIfAbsent.how || !step.onlyIfAbsent.what)) {
+    return 'A step that is done only when something is not there has to say what to look for.';
+  }
   if (step.orFind && step.do !== WAIT_FOR) {
     /* **SOMETHING ELSE THAT COUNTS IS ONLY FOR A WAIT.** The same sentence the
      * Python refuses with. */
@@ -907,6 +910,9 @@ export function theWalk({
       orFind: step.orFind
         ? { ...step.orFind, near: theRowsItCouldBe(book, step.orFind, dataDate, runDay, fromDay) }
         : step.orFind,
+      onlyIfAbsent: step.onlyIfAbsent
+        ? { ...step.onlyIfAbsent, near: theRowsItCouldBe(book, step.onlyIfAbsent, dataDate, runDay, fromDay) }
+        : step.onlyIfAbsent,
     };
   }
 
@@ -1521,6 +1527,20 @@ export function theWalk({
        * number after a page is torn down, and "step 4 of 10" is what makes two
        * halves of one walk readable as one walk. */
       say(`${reportId}: step ${at + 1} of ${plan.steps.length}, ${step.why}.`);
+
+      /* **A STEP THAT IS DONE ONLY WHEN SOMETHING IS NOT THERE (N018, his word D728: AutoSync creates the saved ads report the first time it is missing).** Asked of the page AT THE MOMENT OF THE STEP, so what the walk has just made counts as there for every step after it, and a page that already has it never has it made twice. A step skipped is SAID, with its reason. */
+      if (step.onlyIfAbsent) {
+        let there = 0;
+        try {
+          there = await door.find(step.onlyIfAbsent.how, step.onlyIfAbsent.what, step.onlyIfAbsent.exact, 3, step.onlyIfAbsent.near, step.onlyIfAbsent.alsoSaying);
+        } catch (wrong) {
+          there = 0;
+        }
+        if (there > 0) {
+          say(`${reportId}: skipped "${step.why}": ${step.onlyIfAbsent.called || step.onlyIfAbsent.what} is already there.`);
+          continue;
+        }
+      }
 
       if (step.do === GO) {
         /* **GOING SOMEWHERE ENDS THIS PAGE'S TURN, AND THAT IS THE WHOLE OF

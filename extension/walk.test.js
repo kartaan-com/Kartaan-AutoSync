@@ -674,6 +674,8 @@ function aPortal(how = {}) {
       if (how.chipAfterPresses !== undefined && what === 'Chip') {
         return it.clicked.filter((one) => one === 'Box').length >= how.chipAfterPresses ? 1 : 0;
       }
+      /* **A THING THAT APPEARS ONLY AFTER ANOTHER IS PRESSED (N018: Amazon's saved report appears in the list once its creation is pressed).** */
+      if (how.appearsAfter && what in how.appearsAfter) return it.clicked.includes(how.appearsAfter[what]) ? 1 : 0;
       if (how.matches && what in how.matches) return how.matches[what];
       /* **A PROMOTION HIDES WHAT IS UNDERNEATH IT.** That is what makes a
        * covering worth reporting at all: the lookup fails, and the reason is
@@ -1095,6 +1097,45 @@ check('asked to step back by nothing at all, it answers the day itself',
   check('but a table that was never drawn stays a FAILURE, even though the row is missing too', never.state === FAILED);
   const there = await aWalk(aPortal(), statements)('me_orders', DAY);
   check('and with the row there the file is taken as before', there.state === LANDED);
+}
+
+/* --------------------------- N018: A STEP THAT IS DONE ONLY WHEN SOMETHING IS NOT THERE (his word D728: AutoSync creates the saved ads report the first time it is missing, and never again)
+ * **THE CHECK IS ASKED OF THE PAGE AT THE MOMENT OF THE STEP**, so a thing the walk has just made counts as there for every step after it, and a page that already has it never has it made twice. */
+{
+  const onlyIfNotThere = {
+    recipes: {
+      me_orders: {
+        readyInMinutes: 0,
+        toAsk: [],
+        toTake: [
+          step({ do: 'go', address: 'https://supplier.example.invalid/panel/{panel}/reports', why: 'opening the list' }),
+          step({ do: 'wait-for', find: find('Create report'), patience: 30, why: 'waiting for the list' }),
+          step({ do: 'click', find: find('Create it'), onlyIfAbsent: find('Saved row'), why: 'creating the saved report, once' }),
+          step({ do: 'click', find: find('Run'), why: 'running it' }),
+          step({ do: 'take-file', find: find('Download'), patience: 30, why: 'taking the file' }),
+        ],
+      },
+    },
+    whatItMeans: BOOK.whatItMeans,
+    daysInWords: BOOK.daysInWords,
+    fileNames: BOOK.fileNames,
+  };
+  const missing = aPortal({ appearsAfter: { 'Saved row': 'Create it' } });
+  const gotMissing = await aWalk(missing, onlyIfNotThere)('me_orders', DAY);
+  check('MISSING -> CREATED ONCE: with the saved row not on the page the creating step is pressed, and the walk goes on to run it',
+    gotMissing.state === LANDED && missing.clicked.filter((one) => one === 'Create it').length === 1 && missing.clicked.includes('Run'));
+  const again = aPortal({ appearsAfter: { 'Saved row': 'Create it' } });
+  again.clicked.push('Create it');
+  const gotAgain = await aWalk(again, onlyIfNotThere)('me_orders', DAY);
+  check('PRESENT -> NOT CREATED AGAIN: with the saved row already there the creating step is not pressed, said, and the walk still runs it',
+    gotAgain.state === LANDED && again.clicked.filter((one) => one === 'Create it').length === 1 && again.clicked.includes('Run')
+    && SAID.some((line) => line.includes('creating the saved report, once') && line.includes('already there')));
+  const twice = aPortal({ appearsAfter: { 'Saved row': 'Create it' } });
+  await aWalk(twice, onlyIfNotThere)('me_orders', DAY);
+  await aWalk(twice, onlyIfNotThere)('me_orders', DAY);
+  check('NOTHING IS CREATED TWICE: two walks on one portal press the creating step once between them', twice.clicked.filter((one) => one === 'Create it').length === 1);
+  const refusedStep = whyStepIsRefused(step({ do: 'click', find: find('x'), onlyIfAbsent: { how: 'role' } }));
+  check('a condition with nothing to look for is refused in words, a recipe fault', typeof refusedStep === 'string' && refusedStep.includes('only when'));
 }
 
 /* --------------------------- N018: a step that reads a PERCENTAGE says so to the door; one that does not says nothing */
@@ -2938,7 +2979,7 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
     theRowsItCouldBe(BOOK, find, '2026-10-19', '2026-10-22', '2026-10-25').join() === '2026-10-19_2026-10-19_');
 }
 
-const EXPECTED = 349 + 9 + 3 + 1 + 3 + 8 + 2;
+const EXPECTED = 349 + 9 + 3 + 1 + 3 + 8 + 2 + 4;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

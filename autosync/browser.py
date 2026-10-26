@@ -559,6 +559,9 @@ class Step:
     # **ON A READ-NUMBER STEP ONLY: WHAT KIND OF FIGURE IS READ BESIDE THE LABEL (N018, Amazon's Account Health).** Empty is the whole number every read has always taken; `percent` is a figure with a percent
     # sign and perhaps decimals (`1.8%`), because a card there also carries `2 of 111 orders` that the plain read would otherwise take for it. Empty on every other step.
     reads: str = ""
+    # **A STEP DONE ONLY WHEN THIS IS NOT ON THE PAGE (N018, his word D728: AutoSync creates the saved ads report the first time it is missing, and never again).** Asked of the page at the moment of the step, so what an
+    # earlier step has just made counts as there for every step after it, and a page that already has it never has it made twice. The skipped step is said, with its reason. None on every other step.
+    only_if_absent: Optional[Find] = None
 
 
 def why_step_is_refused(step: Step) -> Optional[str]:
@@ -773,6 +776,8 @@ def why_step_is_refused(step: Step) -> Optional[str]:
             return "Something else a wait may count has to say what to look for."
     if step.press_like_a_mouse and step.do != CLICK:
         return "Only a step that presses something can say how to press it."
+    if step.only_if_absent is not None and (not isinstance(step.only_if_absent, Find) or step.only_if_absent.how not in WAYS_OF_FINDING or not step.only_if_absent.what):
+        return "A step that is done only when something is not there has to say what to look for, in a way of finding this door knows."
     if step.reads and (step.do != READ_NUMBER or step.reads not in ("percent",)):
         return "Only a step that reads a number may say what kind of figure it is, and the only kind there is, besides the plain whole number, is a percent."
     if step.none_means_nothing_to_fetch and (step.do not in (TAKE_FILE, TAKE_EVERY_NEW) or step.find is None):

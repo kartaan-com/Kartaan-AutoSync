@@ -92,6 +92,8 @@ check("THE TABLE HAS A SAMPLE FILE FOR EVERY REPORT IT NAMES, so no report in it
       set(SAMPLES) == set(TABLE))
 check("each report's records go in a collection the run may write, and every kind lists the fields every record has",
       all(one.kind.collection in firestore.WHAT_IT_MAY_WRITE and {"platform", "fileDay", "digest"} <= set(one.kind.fields) for one in TABLE.values()))
+check("MEESHO QUALITY WRITES TO platform_quality, the name the ERP's database rules allow, never another name a rule would refuse (N025)",
+      record_reports.RECORD_REPORTS["me_quality"].kind.collection == "platform_quality" and firestore.QUALITY == "platform_quality")
 check("and no two KINDS of record write one collection (Meesho's and Amazon's claims are one kind, in one collection, by design, D459)",
       len({one.kind.collection for one in TABLE.values()}) == len({id(one.kind) for one in TABLE.values()}))
 check("every report is read, by the ledger branch (claims) or by the one records branch, and none is also said to be waiting",
@@ -287,7 +289,7 @@ check("a claims file is read after every orders file, whatever day each is about
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 17 + 3 * len(TABLE) + 7 + 4 + 9
+EXPECTED = 17 + 3 * len(TABLE) + 7 + 4 + 9 + 1
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

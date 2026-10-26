@@ -245,7 +245,7 @@ SHAPES = {
     # **AMAZON ACCOUNT HEALTH (N018):** open the dashboard, wait for the rating, read the rating and four rates, write the day as its own one-row file.
     "az_health": ((), (pages.GO, pages.WAIT_FOR, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.ADD_TO_THE_LIST)),
     # **AMAZON ADS (N018):** the seller's one saved daily report is RUN (open, wait for its row, open the row's Actions, press Run); later the row that shows today as its last run is opened and its latest file taken.
-    "az_ads": ((pages.GO, pages.WAIT_FOR, pages.CLICK, pages.CLICK), (pages.GO, pages.WAIT_FOR, pages.CLICK, pages.TAKE_FILE)),
+    "az_ads": ((pages.GO, pages.WAIT_FOR, pages.GO, pages.WAIT_FOR, pages.TYPE_IN, pages.CLICK, pages.CLICK, pages.CLICK, pages.WAIT_FOR, pages.CLICK, pages.CLICK), (pages.GO, pages.WAIT_FOR, pages.CLICK, pages.TAKE_FILE)),
 }
 for report_id, (ask, take) in sorted(SHAPES.items()):
     one = tool.recipe(report_id)
@@ -822,20 +822,34 @@ check("az_health reads the rating as a whole number and the four rates as percen
 check("and it ends by writing the day as its own file", len(AZH_STEPS) == 8 and AZH_STEPS[7].do == pages.ADD_TO_THE_LIST)
 check("only the health recipe asks for a percentage, across every recipe",
       answered(lambda: sorted({r for r in tool.every_recipe() for s in (tool.recipe(r).to_ask + tool.recipe(r).to_take) if s.reads}) == ["az_health"]))
-# **AMAZON ADS THROUGH THE BROWSER (N018, his ruling D726 and Control's word to build it anyway), measured on his own Amazon Ads console on 26 Oct 2026:** advertising.amazon.in/reporting lists his saved reports; a row's
-# `Actions` menu offers Download latest, Run, Edit, Copy, Delete; a run takes about three minutes; the row shows `Last run  26 Oct, 2026  9:40 AM IST`. **THE SELLER KEEPS ONE SAVED REPORT NAMED `Kartaan campaign by day`
-# (the Campaign template, period Yesterday, once, CSV) and the walk only RUNS it and takes its latest file** -- it creates nothing and deletes nothing in his console. **NOT YET RUN LIVE.**
+# **AMAZON ADS THROUGH THE BROWSER (N018, his ruling D726, Control's word to build it anyway, and his word D728: AutoSync creates the saved report itself the first time), measured on his own Amazon Ads console on 26 Oct 2026:**
+# advertising.amazon.in/reporting lists his saved reports; a row's `Actions` menu offers Download latest, Run, Edit, Copy, Delete; a run takes about three minutes; the row shows `Last run  26 Oct, 2026  9:40 AM IST`.
+# The Create report form (`/reporting/new?templateId=campaign`) has a `Report name` box, a period button reading `Last seven days` whose presets include `Yesterday`, and `Submit`. **THE WALK CREATES THE ONE SAVED REPORT
+# NAMED `Kartaan campaign by day` (Campaign template, Yesterday, once, CSV) ONLY WHEN IT IS NOT IN THE LIST, then only RUNS it and takes its latest file** -- it deletes nothing and touches no campaign, budget or spend. **NOT YET RUN LIVE.**
 AZA = answered(lambda: tool.RECIPES["az_ads"])
 AZA_ASK = AZA.to_ask if AZA else ()
 AZA_TAKE = AZA.to_take if AZA else ()
-check("az_ads is a two-phase walk: four steps to ask (open, wait for its row, open the row's Actions, Run), four to take",
-      AZA is not None and AZA.two_phase and len(AZA_ASK) == 4 and len(AZA_TAKE) == 4)
-check("az_ads opens the new reporting page for both phases, an address that carries nothing of the seller's own",
-      bool(AZA_ASK) and bool(AZA_TAKE) and AZA_ASK[0].address == AZA_TAKE[0].address == "https://advertising.amazon.in/reporting")
-check("az_ads opens the Actions of the row NAMED Kartaan campaign by day, never another report's, and presses Run",
-      len(AZA_ASK) == 4 and AZA_ASK[2].find.how == pages.BY_THE_BUTTON_BESIDE and AZA_ASK[2].find.what == "Kartaan campaign by day"
-      and AZA_ASK[2].find.also_saying == "Actions" and AZA_ASK[1].find == AZA_ASK[2].find
-      and AZA_ASK[3].do == pages.CLICK and AZA_ASK[3].find.what == "Run")
+AZA_ROW = pages.Find(pages.BY_THE_BUTTON_BESIDE, "Kartaan campaign by day", also_saying="Actions", called="the Actions menu of the saved report Kartaan campaign by day")
+check("az_ads is a two-phase walk: eleven steps to ask (open, prove the list, create the saved report only if missing x6, wait for its row, open its Actions, Run), four to take",
+      AZA is not None and AZA.two_phase and len(AZA_ASK) == 11 and len(AZA_TAKE) == 4)
+check("az_ads opens the reporting page for both phases, an address that carries nothing of the seller's own, and proves the list drew (the Create report button) before deciding anything",
+      bool(AZA_ASK) and bool(AZA_TAKE) and AZA_ASK[0].address == AZA_TAKE[0].address == "https://advertising.amazon.in/reporting"
+      and AZA_ASK[1].do == pages.WAIT_FOR and AZA_ASK[1].find.what == "Create report" and AZA_ASK[1].only_if_absent is None)
+_create = AZA_ASK[2:8] if len(AZA_ASK) == 11 else ()
+check("THE CREATING STEPS ARE EACH DONE ONLY WHEN THE SAVED ROW IS NOT THERE: open the template, name it, choose Yesterday, submit -- the row looked for by its own name, nothing else created",
+      len(_create) == 6 and all(s.only_if_absent is not None and s.only_if_absent.how == pages.BY_THE_BUTTON_BESIDE and s.only_if_absent.what == "Kartaan campaign by day"
+                                for s in _create)
+      and [s.do for s in _create] == [pages.GO, pages.WAIT_FOR, pages.TYPE_IN, pages.CLICK, pages.CLICK, pages.CLICK]
+      and _create[0].address == "https://advertising.amazon.in/reporting/new?templateId=campaign"
+      and _create[2].find.how == pages.BY_THE_CONTROL_BESIDE and _create[2].find.what == "Report name" and _create[2].words == "Kartaan campaign by day"
+      and [s.find.what for s in _create[3:]] == ["Last seven days", "Yesterday", "Submit"])
+check("then it waits for the saved row (found or just made), and opens ITS Actions and presses Run only when that row does not already show today -- a report just created has run once and is not run again",
+      len(AZA_ASK) == 11 and AZA_ASK[8].do == pages.WAIT_FOR and AZA_ASK[8].find == AZA_ROW and AZA_ASK[8].only_if_absent is None
+      and AZA_ASK[9].do == pages.CLICK and AZA_ASK[9].find == AZA_ROW and AZA_ASK[10].do == pages.CLICK and AZA_ASK[10].find.what == "Run"
+      and all(s.only_if_absent is not None and s.only_if_absent.near == "{day_in_words}" and s.only_if_absent.day_in_words_is == "amazon"
+              and s.only_if_absent.day_in_words_of == pages.THE_DAY_IT_WAS_MADE for s in AZA_ASK[9:]))
+check("only the creating steps and the run steps use a condition, across every recipe",
+      answered(lambda: sorted({r for r in tool.every_recipe() for s in (tool.recipe(r).to_ask + tool.recipe(r).to_take) if s.only_if_absent is not None}) == ["az_ads"]))
 check("and it takes the latest file only from a row whose LAST RUN is today, so yesterday's file is never taken for today's",
       len(AZA_TAKE) == 4 and AZA_TAKE[1].find.how == pages.BY_THE_BUTTON_BESIDE and AZA_TAKE[1].find.near == "{day_in_words}"
       and AZA_TAKE[1].find.day_in_words_is == "amazon" and AZA_TAKE[1].find.day_in_words_of == pages.THE_DAY_IT_WAS_MADE and AZA_TAKE[1].find == AZA_TAKE[2].find
@@ -1422,12 +1436,12 @@ check("and every use of it says what else that row says, or it would find two",
 # started no download in ninety seconds. The reference presses the button in the
 # Listing row (`content/flipkart.js` `findReadyListingDownloadBtn`), and so does
 # the recipe now, as a control on the row made that day that says `Listing`.
-check("the box-beside way is asked for exactly where Flipkart names a control it does not carry",
+check("the box-beside way is asked for exactly where Flipkart names a control it does not carry, and where Amazon's ads form names its Report name box (N018)",
       answered(lambda: sorted({r for r in tool.every_recipe()
                                for one in (tool.recipe(r).to_ask + tool.recipe(r).to_take)
                                if one.find is not None
                                and one.find.how == tool.BY_THE_CONTROL_BESIDE})
-               == ["fk_ads_daily", "fk_ads_fsn", "fk_ads_kw", "fk_ads_orders",
+               == ["az_ads", "fk_ads_daily", "fk_ads_fsn", "fk_ads_kw", "fk_ads_orders",
                    "fk_ads_overall", "fk_ads_placements", "fk_ads_search",
                    "fk_orders", "fk_payments"]))
 # **WAITING IS DIFFERENT FROM PRESSING.** Waiting for a heading or a status to
@@ -1582,7 +1596,7 @@ check("and the panel name was still filled into the addresses on the way",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 453
+EXPECTED = 455
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

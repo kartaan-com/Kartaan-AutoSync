@@ -1001,12 +1001,28 @@ finally:
     book.RECIPES.clear()
     book.RECIPES.update(was)
 
+# **A STEP DONE ONLY WHEN SOMETHING IS NOT THERE NEEDS THE PAGE ITSELF TO LOOK (N018, D728)**, so this door refuses a recipe that has one before driving anything.
+was = dict(book.RECIPES)
+try:
+    book.RECIPES["me_orders"] = book.Recipe(to_take=(
+        pages.Step(pages.GO, address=book.FULFILMENT + "/orders/", why="opening the page"),
+        pages.Step(pages.CLICK, find=pages.Find(pages.BY_TEXT, "Create it"), only_if_absent=pages.Find(pages.BY_TEXT, "Saved row"), why="creating it once"),
+        pages.Step(pages.TAKE_FILE, why="taking whatever came"),
+    ))
+    quiet = FakeMeesho()
+    got = a_fetch(quiet)("me_orders", DAY)
+    check("a recipe with a step done only when something is not there is refused by the Python door, before any page is opened",
+          answered(lambda: got.state == tool.FAILED and "only the browser extension" in got.say and quiet.went == []))
+finally:
+    book.RECIPES.clear()
+    book.RECIPES.update(was)
+
 # with nothing keeps the run alive; this is what stops a check phrased as "this
 # word is NOT in what it said" going green because there was nothing to look in.
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 136
+EXPECTED = 137
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
