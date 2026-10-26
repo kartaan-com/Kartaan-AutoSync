@@ -1573,7 +1573,7 @@ const LATER = '2026-08-27T16:04:00.000Z';
   /* **AND STILL NOT EVERYTHING.** The reference asks for `<all_urls>`; a product
    * copied into every seller's own account asks for the hosts it can name. */
   check('and it still does not ask for every address there is',
-    !hosts.includes('<all_urls>') && hosts.length <= 7);
+    !hosts.includes('<all_urls>') && hosts.length <= 8);
   /* **THE SEVENTH IS THE ONE REPOSITORY FOLDER THE "NEWER VERSION" NOTICE READS (A82)**, read only, and not
    * raw.githubusercontent.com as a whole. */
   check('the version notice may read the files of this repository and no other GitHub address',
@@ -1586,8 +1586,8 @@ const LATER = '2026-08-27T16:04:00.000Z';
   /* **AMAZON IS ALLOWED ON ITS ONE HOST AND NO WIDER (A79, D317).** Chrome's own match-pattern
    * page: a host pattern needs a path that is ignored, `/*` by convention; no `*.` in front means
    * no other Amazon address, and no scheme wildcard means https only. */
-  check('Amazon Seller Central India is allowed on exactly its own address',
-    hosts.filter((one) => one.includes('amazon')).join() === 'https://sellercentral.amazon.in/*');
+  check('Amazon is allowed on exactly two addresses, Seller Central India and the Amazon Ads console, each by name and over https only, never a wildcard (N018, his yes of 26 Oct 2026: every seller is asked once to approve the wider access)',
+    hosts.filter((one) => one.includes('amazon')).sort().join() === 'https://advertising.amazon.in/*,https://sellercentral.amazon.in/*');
   /* **THE ID IS PINNED BY A KEY (his ruling D319, 12 Oct 2026: no Chrome Web Store, sellers install
    * from a ZIP).** Without a `key` the id comes from the folder the seller unzips into, so no two
    * sellers would share one and the ERP could not name the extension. Chrome's rule: the id is the
@@ -1603,6 +1603,8 @@ const LATER = '2026-08-27T16:04:00.000Z';
     JSON.stringify(manifest.externally_connectable) === JSON.stringify({ matches: ['https://erp.kartaan.com/*'] }));
   check('and Amazon got the page script and the readable files for its one walked report, but not the early catcher (that is Flipkart-only)',
     JSON.stringify(manifest.content_scripts.filter((one) => one.js.includes('content.js'))[0].matches).includes('sellercentral.amazon.in')
+    && JSON.stringify(manifest.content_scripts.filter((one) => one.js.includes('content.js'))[0].matches).includes('advertising.amazon.in')
+    && JSON.stringify(manifest.web_accessible_resources).includes('advertising.amazon.in')
     && JSON.stringify(manifest.web_accessible_resources).includes('sellercentral.amazon.in')
     && !JSON.stringify(manifest.content_scripts.filter((one) => one.world === 'MAIN')).includes('amazon'));
 }
