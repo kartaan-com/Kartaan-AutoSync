@@ -23,7 +23,7 @@ import {
 } from './nightly.js';
 import { goTo, routeInThePage, takeTheFile, watchForDownloads } from './doors.js';
 import {
-  aDriveToken, aWayOfAsking, addARowTo, landTheFile, recordWhatLanded, theKartaanFolder,
+  aDriveToken, aWayOfAsking, addARowTo, landTheFile, recordWhatLanded, theKartaanFolder, whatIsHeldFor,
 } from './drive.js';
 import { tellFinished } from './kartaan.js';
 import { VERSION_URL } from './update.js';
@@ -332,6 +332,15 @@ const addOneRow = async ({ reportId, fileName, header, row, forTheDay }) => {
   return added;
 };
 
+/* **WHICH FILE NAMES THE SELLER'S DRIVE ALREADY HOLDS FOR A REPORT (N018)** -- asked by the walk that takes every closed settlement statement it does not already have. Same door, same folder, same quiet
+ * permission as landing a file, and it only LOOKS: a folder that is not there yet holds nothing and is not made by being asked about. */
+const heldOnes = async ({ reportId }) => {
+  const ask = aWayOfAsking(chrome, { fetch: (...args) => fetch(...args) });
+  const layout = await theLayout();
+  const inside = await theKartaanFolder(chrome, ask, layout);
+  return whatIsHeldFor(chrome, ask, { reportId, inside, layout });
+};
+
 /* **THE RECIPE BOOK, READ OUT OF THE EXTENSION'S OWN FILE.** The page half
  * already reads it exactly this way. It is read again on every wake rather than
  * held, because Chrome shuts this worker down after thirty seconds of quiet and
@@ -463,6 +472,7 @@ wireUp(chrome, {
     takeTheFile,
     landTheFile: putOneFileAway,
     addARow: addOneRow,
+    whatIsHeld: heldOnes,
     watching,
     /* Where a line said in the page ends up. **Written down rather than left as
      * an empty function** -- the run's own record is the next piece, and until

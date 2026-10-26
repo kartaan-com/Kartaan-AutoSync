@@ -322,3 +322,29 @@ export async function readTheTable(page, {
   }
   return { csv: theCsv(theHeaderOf(table), rows), rows: rows.length, pages, columns: theHeaderOf(table).length };
 }
+
+/* **AMAZON'S WEEKLY SETTLEMENT STATEMENTS (N018, his All Statements page, seen 26 Oct 2026).** One row per statement, its period written DAY FIRST with no noughts and a dash --
+ * `13/10/2026 – 20/10/2026`, `29/9/2026 – 6/10/2026` -- and the open one `20/10/2026 – Present`, which has no Download. The row's period names the statement, and the day it ENDED is the
+ * day its file is filed under. Pure: a row's words in, its period out, or nothing.
+ *
+ * **NOTHING IS GUESSED:** a period whose day or month is not a real one, or that ends before it starts, is nothing; "Present" is nothing. */
+const A_STATEMENT_PERIOD = /(\d{1,2})\/(\d{1,2})\/(\d{4})\s*[–—-]\s*(\d{1,2})\/(\d{1,2})\/(\d{4})/;
+
+function anIsoDay(day, month, year) {
+  const d = Number(day);
+  const m = Number(month);
+  const y = Number(year);
+  const made = new Date(Date.UTC(y, m - 1, d));
+  if (made.getUTCFullYear() !== y || made.getUTCMonth() !== m - 1 || made.getUTCDate() !== d) return null;
+  return `${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
+export function theStatementPeriod(rowText) {
+  const text = String(rowText ?? '').replace(/\s+/g, ' ').trim();
+  const found = A_STATEMENT_PERIOD.exec(text);
+  if (!found) return null;
+  const start = anIsoDay(found[1], found[2], found[3]);
+  const end = anIsoDay(found[4], found[5], found[6]);
+  if (!start || !end || end < start) return null;
+  return { period: found[0].replace(/\s+/g, ' '), start, end };
+}

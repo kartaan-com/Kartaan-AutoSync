@@ -9,7 +9,7 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { THE_TABLES, afterTheLabel, leavesOf, plain, readTheTable, theCsv, theHeaderOf } from './tables.js';
+import { THE_TABLES, afterTheLabel, leavesOf, plain, readTheTable, theCsv, theHeaderOf, theStatementPeriod } from './tables.js';
 
 let ran = 0;
 let failures = 0;
@@ -426,8 +426,25 @@ check('and the file carries the guard', theCsv(['a'], [['=1+1']]).split('\n')[1]
   check('and any other word in that cell is still refused', why.includes('not the ones expected') && why.includes('SomethingElseIcon'));
 }
 
+/* ---------------------------------------------------------------- Amazon's settlement statements (N018)
+ * **THE ROW WORDS ARE FROM HIS OWN ALL STATEMENTS PAGE, 26 Oct 2026** (the figures here are made up): one row per weekly statement, the period written day first with no noughts and an en dash --
+ * `13/10/2026 – 20/10/2026`, `6/10/2026 – 13/10/2026`, `29/9/2026 – 6/10/2026` -- and the open one `20/10/2026 – Present`, which has no Download. */
+{
+  const closed = theStatementPeriod('13/10/2026 – 20/10/2026 View summary ₹0.00 ₹6,491.00 -₹1,110.95 Download Flat File V2');
+  check('a closed statement row gives its period as written and the day it ENDED, in ISO',
+    closed !== null && closed.period === '13/10/2026 – 20/10/2026' && closed.start === '2026-10-13' && closed.end === '2026-10-20');
+  const crossing = theStatementPeriod('29/9/2026 – 6/10/2026 View summary');
+  check('a period with no noughts, crossing a month, reads the same way',
+    crossing !== null && crossing.start === '2026-09-29' && crossing.end === '2026-10-06');
+  check('a period written with a hyphen or spaces broken by the page is still read, and the words are kept as the page spaces them',
+    theStatementPeriod('6/10/2026\n -  13/10/2026').end === '2026-10-13' && theStatementPeriod('6/10/2026\n -  13/10/2026').period === '6/10/2026 - 13/10/2026');
+  check('the open statement, which runs to "Present", is not a period at all', theStatementPeriod('20/10/2026 – Present Available after settlement close') === null);
+  check('a row with no period, an impossible day, or an end before its start is nothing',
+    theStatementPeriod('View summary') === null && theStatementPeriod('31/2/2026 – 6/3/2026') === null && theStatementPeriod('20/10/2026 – 13/10/2026') === null);
+}
+
 console.log(failures ? `\n${failures} FAILED (${ran} checks)` : `\nall ${ran} checks passed`);
-const EXPECTED = 52 + 1;
+const EXPECTED = 52 + 1 + 5;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   process.exit(1);

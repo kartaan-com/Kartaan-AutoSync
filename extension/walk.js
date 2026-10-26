@@ -41,6 +41,8 @@
  * each with the check that proves it -- not re-derived.
  */
 
+import { theStatementPeriod } from './tables.js';
+
 /* The same four words, spelt the same. A fifth spelling of "it worked" is a
  * report the runner cannot read. */
 export const LANDED = 'landed';
@@ -139,6 +141,8 @@ export const READ_THE_KEYWORDS = 'read-the-keywords';
 /* **THE ONE THAT READS A NAMED TABLE OFF THE PAGE, EVERY PAGE OF IT** (job 15). `extension/tables.js` says what is on each
  * table; `autosync/browser.py` holds the names a recipe may ask for. */
 export const READ_THE_TABLE = 'read-the-table';
+/* **EVERY CLOSED STATEMENT THE SELLER'S DRIVE DOES NOT ALREADY HOLD (N018, Amazon settlements)**: the page lists them, the Drive says which it has, and each new one is taken in turn. */
+export const TAKE_EVERY_NEW = 'take-every-new';
 /* **THE ONE STEP THAT LOOKS AT NOTHING.** Every other kind of waiting here waits
  * for something to appear. Meesho builds an orders export on its own servers and
  * the page it was asked from does not change at all while it happens, so there
@@ -254,11 +258,11 @@ function anAnswer(state, reportId, dataDate, rest = {}) {
 export function whyStepIsRefused(step) {
   if (!step || typeof step !== 'object') return 'That is not a step.';
   if (![GO, CLICK, WAIT_FOR, PICK_RANGE, TAKE_FILE, WAIT,
-    READ_NUMBER, ADD_TO_THE_LIST, SWEEP_THE_ADS, TYPE_IN, READ_THE_KEYWORDS, READ_THE_TABLE].includes(step.do)) {
+    READ_NUMBER, ADD_TO_THE_LIST, SWEEP_THE_ADS, TYPE_IN, READ_THE_KEYWORDS, READ_THE_TABLE, TAKE_EVERY_NEW].includes(step.do)) {
     return `"${step.do}" is not something this door knows how to do.`;
   }
   if (step.do === GO && !step.address) return 'A step that goes somewhere has to say where.';
-  if ((step.do === CLICK || step.do === WAIT_FOR || step.do === READ_NUMBER || step.do === TYPE_IN)
+  if ((step.do === CLICK || step.do === WAIT_FOR || step.do === READ_NUMBER || step.do === TYPE_IN || step.do === TAKE_EVERY_NEW)
     && !step.find) {
     return `A ${step.do} step has to say what to look for.`;
   }
@@ -701,6 +705,9 @@ export function theWalk({
    * the seller's report, report LANDED, and put it nowhere -- which is exactly
    * the state this closes, and it would look identical to working. */
   putTheFile,
+  /* **WHAT THE SELLER'S DRIVE ALREADY HOLDS FOR A REPORT, by file name (N018).** Handed in like `putTheFile`, because only the background half can reach the Drive. Needed only by a walk that takes every new
+   * statement; without it that step FAILS in words rather than taking every statement again and putting a second copy of each in the Drive. */
+  whatIsHeld,
   /* **ARMING THE CATCHER FOR THE NEXT FILE THE PAGE BUILDS INSIDE ITSELF (A44).**
    *
    * **HANDED IN LIKE `putTheFile`, AND NOT ON THE DOOR, FOR THE REASON THE DOOR
@@ -1809,6 +1816,80 @@ export function theWalk({
               + `${(wrong && wrong.message) || wrong}`,
           });
         }
+      }
+
+      if (step.do === TAKE_EVERY_NEW) {
+        /* **EVERY CLOSED STATEMENT THE DRIVE DOES NOT ALREADY HOLD, EACH FILED UNDER THE DAY ITS PERIOD ENDED (N018; Control's ruling of 26 Oct 2026).** Not named by the run's day: a week closed late, or a
+         * run that never happened, is picked up next time. **IT NEEDS TO KNOW WHAT THE DRIVE HOLDS** -- taking every statement every night would be a download a night per week of the account's life and a
+         * second copy of each in the Drive -- so a walk with no way of asking FAILS in words. **THE STEP BEFORE HAS WAITED FOR THE TABLE ITSELF**, so none new is nothing to fetch and never a failure. */
+        if (typeof whatIsHeld !== 'function') {
+          return anAnswer(FAILED, reportId, dataDate, {
+            say: 'This recipe takes only what the seller\'s Drive does not already hold, and this walk was built with no way of asking what the Drive holds, so nothing was taken '
+              + '(taking every statement again would put a second copy of each in the Drive).',
+          });
+        }
+        let rowsSaid;
+        try {
+          rowsSaid = await door.row_texts(step.find.how, step.find.what, step.find.exact, step.find.alsoSaying);
+        } catch (wrong) {
+          return anAnswer(FAILED, reportId, dataDate, {
+            say: `${step.why}: ${(wrong && wrong.message) || wrong}`,
+            pageWas: capture(await door.page_text()),
+          });
+        }
+        const periods = [];
+        for (const text of rowsSaid || []) {
+          const period = theStatementPeriod(text);
+          if (period) periods.push(period);
+          else say(`${reportId}: skipped a row that has no closed period (an open statement): ${String(text).slice(0, 80)}`);
+        }
+        let held;
+        try {
+          held = await whatIsHeld({ reportId });
+        } catch (wrong) {
+          return anAnswer(FAILED, reportId, dataDate, {
+            say: `What the seller's Drive already holds for ${reportId} could not be looked at, so nothing was taken: ${(wrong && wrong.message) || wrong}`,
+          });
+        }
+        const have = new Set(held || []);
+        const toTake = [];
+        for (const period of periods) {
+          const called = theFileName(book, reportId, period.end);
+          if (!called) {
+            return anAnswer(FAILED, reportId, dataDate, {
+              say: `There is nothing in the recipe file saying what ${reportId}'s file is called, so nothing has been put anywhere.`,
+            });
+          }
+          if (!have.has(called)) toTake.push({ period, called });
+        }
+        if (!toTake.length) {
+          return anAnswer(NOTHING_TO_FETCH, reportId, dataDate, {
+            say: step.noRowIsNothingToFetch || 'Every closed statement the page shows is already held, so there is nothing to fetch.',
+          });
+        }
+        const landedNow = [];
+        for (const one of toTake) {
+          /* Pressed by the row's own period words, narrowed the way every named row is, and taken the way every file is -- the same `takeTheFile` -- so the sign-in-page and empty-file guards apply. */
+          const takeOne = { ...step, do: TAKE_FILE, noRowIsNothingToFetch: '', find: { ...step.find, near: [one.period.period] } };
+          // eslint-disable-next-line no-await-in-loop
+          const got = await takeTheFile(takeOne, reportId, one.period.end);
+          if (got.failed) return got.failed;
+          try {
+            // eslint-disable-next-line no-await-in-loop
+            await putTheFile({ reportId, fileName: one.called, body: got.body });
+          } catch (wrong) {
+            return anAnswer(FAILED, reportId, dataDate, {
+              fileName: one.called,
+              say: `${one.called} could not be put in the seller's Drive: ${(wrong && wrong.message) || wrong}`,
+            });
+          }
+          landedNow.push({ called: one.called, size: got.body.length });
+        }
+        return anAnswer(LANDED, reportId, dataDate, {
+          fileName: landedNow[0].called,
+          size: landedNow.reduce((all, one) => all + one.size, 0),
+          say: `Landed ${landedNow.map((one) => `${one.called} (${one.size} bytes)`).join(', ')} in the seller's Drive: the closed statements it did not already hold.`,
+        });
       }
 
       if (step.do === TAKE_FILE) {

@@ -981,7 +981,7 @@
           "find": null,
           "address": "https://sellercentral.amazon.in/payments/past-settlements",
           "patience": 60,
-          "why": "opening All Statements for the settlement that ended on the day",
+          "why": "opening All Statements for the settlements not yet held",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null,
@@ -1007,7 +1007,7 @@
           },
           "address": "",
           "patience": 90,
-          "why": "waiting for the statements table itself to draw, so that a day with no statement is told apart from a page that never drew",
+          "why": "waiting for the statements table itself to draw, so that no new statement is told apart from a page that never drew",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null,
@@ -1020,20 +1020,20 @@
           "noRowIsNothingToFetch": ""
         },
         {
-          "do": "take-file",
+          "do": "take-every-new",
           "find": {
             "how": "pressable",
             "what": "Download Flat File V2",
             "exact": true,
-            "called": "the Download Flat File V2 of the statement that ended on the day",
-            "near": "{day_in_words}",
+            "called": "the Download Flat File V2 of a closed statement",
+            "near": "",
             "alsoSaying": "",
-            "dayInWordsIs": "amazon",
-            "dayInWordsOf": "about"
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
           },
           "address": "",
-          "patience": 30,
-          "why": "taking the statement that ended on the day",
+          "patience": 60,
+          "why": "taking every closed statement that Drive does not already hold",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null,
@@ -1043,7 +1043,7 @@
           "forEachCampaign": false,
           "pressLikeAMouse": false,
           "table": "",
-          "noRowIsNothingToFetch": "No settlement statement ended on that day (Amazon publishes one weekly), so there is nothing to fetch."
+          "noRowIsNothingToFetch": "No closed settlement statement is new (Amazon publishes one weekly), so there is nothing to fetch."
         }
       ]
     },
@@ -6338,7 +6338,7 @@
       "id": "az_settlements",
       "platform": "amazon",
       "name": "Amazon settlements",
-      "cannotBeAskedForAgain": "Only the statement that ended on the day being fetched can be taken; the page lists older weeks but a run for an old day could take the wrong week, so a past day is left to be fetched by hand."
+      "cannotBeAskedForAgain": null
     },
     {
       "id": "az_suppressed",

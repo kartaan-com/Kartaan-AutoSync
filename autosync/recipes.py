@@ -44,6 +44,7 @@ from browser import (
     CLICK,
     GO,
     PICK_RANGE,
+    TAKE_EVERY_NEW,
     TAKE_FILE,
     THE_DAY_IT_IS_ABOUT,
     THE_DAY_IT_WAS_MADE,
@@ -1435,19 +1436,18 @@ RECIPES: Dict[str, Recipe] = {
         ),
     ),
 
-    # ---- Amazon settlements by the browser (N018, his ruling D726). **One-phase: Amazon already made the weekly statement, so nothing is asked for.** The statement that ENDED on the data day is the day's
-    # ---- (a run for the 20th takes `13/10/2026 – 20/10/2026`); on the six days in seven when none ended, the table is drawn and there is nothing to fetch (Control's ruling, 26 Oct 2026) -- but ONLY
-    # ---- after the step before has waited for the statements table itself, so a page that never drew still fails. **NOT YET RUN LIVE.**
+    # ---- Amazon settlements by the browser (N018, his ruling D726; Control's ruling of 26 Oct 2026). **One-phase: Amazon already made the weekly statements, so nothing is asked for. EVERY CLOSED statement the
+    # ---- list shows that the seller's Drive does not already hold is taken, each filed under the day it ENDED** (not named by the run's day, so a week closed late or a missed run is picked up next time); an
+    # ---- open statement has no Download and is skipped. When none is new there is nothing to fetch -- but ONLY after the step before has waited for the statements table itself, so a page that never drew
+    # ---- still fails. **NOT YET RUN LIVE.**
     "az_settlements": Recipe(
         to_take=(
-            Step(GO, address=AMAZON_STATEMENTS, patience=60, why="opening All Statements for the settlement that ended on the day"),
+            Step(GO, address=AMAZON_STATEMENTS, patience=60, why="opening All Statements for the settlements not yet held"),
             Step(WAIT_FOR, find=Find(BY_TEXT, "Statement Period", called="the statements table"), patience=90,
-                 why="waiting for the statements table itself to draw, so that a day with no statement is told apart from a page that never drew"),
-            Step(TAKE_FILE, find=Find(BY_PRESSABLE_TEXT, "Download Flat File V2", near="{day_in_words}",
-                                      day_in_words_is=AMAZON_WRITES_IT, day_in_words_of=THE_DAY_IT_IS_ABOUT,
-                                      called="the Download Flat File V2 of the statement that ended on the day"),
-                 patience=30, why="taking the statement that ended on the day",
-                 none_means_nothing_to_fetch="No settlement statement ended on that day (Amazon publishes one weekly), so there is nothing to fetch."),
+                 why="waiting for the statements table itself to draw, so that no new statement is told apart from a page that never drew"),
+            Step(TAKE_EVERY_NEW, find=Find(BY_PRESSABLE_TEXT, "Download Flat File V2", called="the Download Flat File V2 of a closed statement"),
+                 patience=60, why="taking every closed statement that Drive does not already hold",
+                 none_means_nothing_to_fetch="No closed settlement statement is new (Amazon publishes one weekly), so there is nothing to fetch."),
         ),
     ),
 

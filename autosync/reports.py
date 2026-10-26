@@ -311,9 +311,8 @@ REPORTS: Tuple[Report, ...] = (
     # **AMAZON MAKES THIS ONE ITSELF AND THERE IS NO WAY TO ASK FOR IT.** Its own
     # documentation: settlement reports cannot be requested. So a day it did not
     # publish one is not a day anybody is owed anything.
-    # **BY THE BROWSER SINCE N018 (his ruling D726):** Finance > Manage payments > All Statements, the "Download Flat File V2" of the weekly statement that ended on the day; on the other six days there is nothing to fetch.
-    Report("az_settlements", "amazon", "Amazon settlements", BROWSER, WHEN_THEY_PUBLISH_IT, "csv",
-           cannot_backfill="Only the statement that ended on the day being fetched can be taken; the page lists older weeks but a run for an old day could take the wrong week, so a past day is left to be fetched by hand."),
+    # **BY THE BROWSER SINCE N018 (his ruling D726):** Finance > Manage payments > All Statements, the "Download Flat File V2" of EVERY closed weekly statement the Drive does not already hold, each filed under the day it ended, so a past day is nothing special: whatever is missing is picked up (Control's ruling, 26 Oct 2026).
+    Report("az_settlements", "amazon", "Amazon settlements", BROWSER, WHEN_THEY_PUBLISH_IT, "csv"),
     # **BY THE BROWSER SINCE N018 (his ruling D726, 25 Oct 2026: Amazon no longer goes through the SP-API).** Seller Central > Orders > Order reports > Seller fulfilled return
     # reports > All Returns, last day; the file is the same tab-separated return file the reader already reads. The page asks only for "last day" (yesterday), so a past day
     # cannot be asked for again.

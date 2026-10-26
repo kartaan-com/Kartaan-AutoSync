@@ -986,12 +986,27 @@ check("a reason for 'no row means nothing to fetch' on a step that is not a take
       answered(lambda: "take-file" in (pages.why_step_is_refused(pages.Step(
           pages.WAIT_FOR, find=pages.Find(pages.BY_TEXT, "x"), none_means_nothing_to_fetch="r", why="y")) or "")))
 
+# **A WALK THAT TAKES EVERY NEW STATEMENT NEEDS TO ASK THE SELLER'S DRIVE WHAT IT HOLDS (N018)**, which only the extension can do, so this door refuses it before driving anything.
+was = dict(book.RECIPES)
+try:
+    book.RECIPES["me_orders"] = book.Recipe(to_take=(
+        pages.Step(pages.GO, address=book.FULFILMENT + "/orders/", why="opening the statements"),
+        pages.Step(pages.TAKE_EVERY_NEW, find=pages.Find(pages.BY_PRESSABLE_TEXT, "Download Flat File V2"), why="taking every new statement"),
+    ))
+    quiet = FakeMeesho()
+    got = a_fetch(quiet)("me_orders", DAY)
+    check("a walk that takes every new statement is refused by the Python door, before any page is opened",
+          answered(lambda: got.state == tool.FAILED and "only the browser extension" in got.say and quiet.went == []))
+finally:
+    book.RECIPES.clear()
+    book.RECIPES.update(was)
+
 # with nothing keeps the run alive; this is what stops a check phrased as "this
 # word is NOT in what it said" going green because there was nothing to look in.
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 135
+EXPECTED = 136
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

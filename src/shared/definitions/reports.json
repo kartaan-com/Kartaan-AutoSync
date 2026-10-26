@@ -41,7 +41,7 @@
       "id": "az_settlements",
       "platform": "amazon",
       "name": "Amazon settlements",
-      "cannotBeAskedForAgain": "Only the statement that ended on the day being fetched can be taken; the page lists older weeks but a run for an old day could take the wrong week, so a past day is left to be fetched by hand."
+      "cannotBeAskedForAgain": null
     },
     {
       "id": "az_suppressed",

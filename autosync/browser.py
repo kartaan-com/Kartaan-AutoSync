@@ -323,8 +323,9 @@ SWEEP_THE_ADS = "sweep-the-ads"    # ask the platform's own ads addresses, from 
 TYPE_IN = "type-in"                # words into the one box that matches
 READ_THE_KEYWORDS = "read-the-keywords"  # every listing's top search keywords, off the page
 READ_THE_TABLE = "read-the-table"  # one named table off the page, every page of it, made into one file (job 15 walkers)
+TAKE_EVERY_NEW = "take-every-new"  # every closed statement the list shows that the Drive does not already hold, one file each (N018, Amazon settlements)
 STEP_KINDS = (GO, CLICK, WAIT_FOR, PICK_RANGE, TAKE_FILE, WAIT,
-              READ_NUMBER, ADD_TO_THE_LIST, SWEEP_THE_ADS, TYPE_IN, READ_THE_KEYWORDS, READ_THE_TABLE)
+              READ_NUMBER, ADD_TO_THE_LIST, SWEEP_THE_ADS, TYPE_IN, READ_THE_KEYWORDS, READ_THE_TABLE, TAKE_EVERY_NEW)
 
 # **THE TABLES THE EXTENSION KNOWS HOW TO READ (plan jobs 43 and 44, and Flipkart's Product Quality Insights).** Each is a table
 # on a page with no download button, read page by page. What is on each -- its column names, where a page's buttons are -- is
@@ -565,7 +566,7 @@ def why_step_is_refused(step: Step) -> Optional[str]:
         return f"{step.do!r} is not something this door knows how to do."
     if step.do == GO and not step.address:
         return "A step that goes somewhere has to say where."
-    if step.do in (CLICK, WAIT_FOR, READ_NUMBER, TYPE_IN) and step.find is None:
+    if step.do in (CLICK, WAIT_FOR, READ_NUMBER, TYPE_IN, TAKE_EVERY_NEW) and step.find is None:
         return f"A {step.do} step has to say what to look for."
     # **A NUMBER IS READ BY THE LABEL BESIDE IT, so the label is what names the
     # column it lands in.** Unnamed, two cards on one page would both write into
@@ -769,9 +770,9 @@ def why_step_is_refused(step: Step) -> Optional[str]:
             return "Something else a wait may count has to say what to look for."
     if step.press_like_a_mouse and step.do != CLICK:
         return "Only a step that presses something can say how to press it."
-    if step.none_means_nothing_to_fetch and (step.do != TAKE_FILE or step.find is None):
+    if step.none_means_nothing_to_fetch and (step.do not in (TAKE_FILE, TAKE_EVERY_NEW) or step.find is None):
         # **A WAIT OR A PRESS THAT FINDS NOTHING IS A FAULT, EVERY TIME.** Only the take-file step that names the row can say "no such row today", and only after a step before it has proved the table.
-        return "Only a take-file step that names a row can say that no such row means there is nothing to fetch."
+        return "Only a take-file or take-every-new step that names what to take can say that finding none means there is nothing to fetch."
     if step.do == TYPE_IN and not step.words:
         return "A step that types has to say what to type."
     if step.do != TYPE_IN and step.words:

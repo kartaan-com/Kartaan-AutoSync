@@ -93,7 +93,7 @@ check('and the words each failure means', Object.keys(BOOK.whatItMeans).length >
    * one-row file for the day. What this check is really about is unchanged: a recipe that
    * clicks about and ends on neither of them runs perfectly and produces nothing. */
   const PUTS_THE_DAY_AWAY = ['take-file', 'add-to-the-list', 'sweep-the-ads', 'read-the-keywords',
-    'read-the-table'];
+    'read-the-table', 'take-every-new'];
   const missing = Object.entries(BOOK.recipes)
     .filter(([, r]) => !r.toTake.length
       || !PUTS_THE_DAY_AWAY.includes(r.toTake[r.toTake.length - 1].do))

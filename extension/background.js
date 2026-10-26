@@ -785,7 +785,7 @@ export function answerThePage(chrome, parts) {
 
 /** What the page half may ask for. Written once, so refusing an unknown message
  *  and carrying out a known one cannot disagree about which is which. */
-export const KNOWN = ['go', 'arm-the-catcher', 'take-file', 'fetch-this', 'land-the-file', 'say',
+export const KNOWN = ['go', 'arm-the-catcher', 'take-file', 'fetch-this', 'land-the-file', 'what-is-held', 'say',
   'resume?', 'walk-done', 'add-to-the-list', 'keep-the-campaigns', 'the-campaigns', 'route-to',
   'tried-signing-in'];
 
@@ -898,7 +898,7 @@ export function answerThePanel(chrome, parts) {
 }
 
 async function carryOut(chrome, parts, asked, tabId, pageAddress = '') {
-  const { goTo, takeTheFile, landTheFile, addARow, watching, say, secret } = parts;
+  const { goTo, takeTheFile, landTheFile, addARow, whatIsHeld, watching, say, secret } = parts;
   if (asked.do === 'resume?') {
     /* **EVERY PORTAL PAGE THE SELLER OPENS ASKS THIS**, because the page half is
      * a manifest content script and runs on all of them. Almost every answer is
@@ -1059,6 +1059,21 @@ async function carryOut(chrome, parts, asked, tabId, pageAddress = '') {
        * the only number the walk can report is the zip's own -- which is what
        * the run log said for `me_payments` while Drive held the unzipped size. */
       return { put: (put && put.id) || true, size: Number(put && put.size) || 0 };
+    } catch (wrong) {
+      return { wrong: (wrong && wrong.message) || String(wrong) };
+    }
+  }
+  if (asked.do === 'what-is-held') {
+    /* **WHICH FILE NAMES THE SELLER'S DRIVE ALREADY HOLDS FOR A REPORT (N018)** -- asked by the walk that takes every closed settlement statement it does not already have. Names only, nothing about what is
+     * inside them. **ASKED THE SAME QUESTION OF THE REPORT'S NAME THAT `land-the-file` ASKS**, because it becomes a folder name in a Drive search; and a Drive that refused is answered as words, never thrown. */
+    if (typeof whatIsHeld !== 'function') {
+      return { wrong: 'This browser half has no way of looking at what the Drive holds.' };
+    }
+    const wrongReport = whyTheseAreNotNames(asked.reportId, '');
+    if (wrongReport && wrongReport.includes('is not the name of a report')) return { wrong: wrongReport };
+    try {
+      const names = await whatIsHeld({ reportId: asked.reportId });
+      return { names: (names || []).map((one) => String(one)) };
     } catch (wrong) {
       return { wrong: (wrong && wrong.message) || String(wrong) };
     }

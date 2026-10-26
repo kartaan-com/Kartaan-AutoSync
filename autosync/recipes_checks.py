@@ -102,7 +102,7 @@ for report_id in tool.every_recipe():
     # traffic report's pop-ups and put away as one file by the reading step itself.
     ENDS_WITH = {"me_views": pages.ADD_TO_THE_LIST, "me_ads": pages.SWEEP_THE_ADS,
                  "fk_keywords": pages.READ_THE_KEYWORDS, "me_product_performance": pages.READ_THE_TABLE,
-                 "me_pricing": pages.READ_THE_TABLE, "fk_quality_insights": pages.READ_THE_TABLE}
+                 "me_pricing": pages.READ_THE_TABLE, "fk_quality_insights": pages.READ_THE_TABLE, "az_settlements": pages.TAKE_EVERY_NEW}
     check(f"and {report_id} ends by putting the day away",
           answered(lambda: one.to_take[-1].do
                    == ENDS_WITH.get(report_id, pages.TAKE_FILE)))
@@ -240,7 +240,7 @@ SHAPES = {
     "az_claims": ((pages.GO, pages.WAIT_FOR, pages.CLICK, pages.CLICK, pages.CLICK, pages.CLICK, pages.CLICK), (pages.GO, pages.WAIT_FOR, pages.TAKE_FILE)),
     # **AMAZON ORDERS (N018):** open All Orders, wait for the Last Updated Date choice, choose it, press Request; later take today's row's Download. **AMAZON SETTLEMENTS (N018)** are one-phase: open All Statements, wait for the table, take the statement that ended on the day.
     "az_orders": ((pages.GO, pages.WAIT_FOR, pages.CLICK, pages.CLICK), (pages.GO, pages.WAIT_FOR, pages.TAKE_FILE)),
-    "az_settlements": ((), (pages.GO, pages.WAIT_FOR, pages.TAKE_FILE)),
+    "az_settlements": ((), (pages.GO, pages.WAIT_FOR, pages.TAKE_EVERY_NEW)),
 }
 for report_id, (ask, take) in sorted(SHAPES.items()):
     one = tool.recipe(report_id)
@@ -784,9 +784,9 @@ check("az_orders takes only the Download of the Last Updated Date row requested 
       len(AZO_TAKE) == 3 and AZO_TAKE[2].do == pages.TAKE_FILE and AZO_TAKE[1].find == AZO_TAKE[2].find
       and AZO_TAKE[2].find.what == "Download" and AZO_TAKE[2].find.near == "{day_in_words}" and AZO_TAKE[2].find.also_saying == "Last Updated Date"
       and AZO_TAKE[2].find.day_in_words_is == "amazon" and AZO_TAKE[2].find.day_in_words_of == pages.THE_DAY_IT_WAS_MADE)
-# **AMAZON SETTLEMENTS THROUGH THE BROWSER (N018, 26 Oct 2026):** Finance > Manage payments > All Statements (`/payments/past-settlements`): one row per WEEKLY statement, `13/10/2026 – 20/10/2026`,
-# each closed one with a `Download Flat File V2` button. Nothing is asked for: the file is taken. **THE STATEMENT THAT ENDED ON THE DAY IS THE DAY'S** (a run for the 20th takes the row ending 20/10/2026),
-# and on the six days in seven when none ended the table is drawn and there is simply nothing to fetch. **NOT YET RUN LIVE.**
+# **AMAZON SETTLEMENTS THROUGH THE BROWSER (N018, 26 Oct 2026; Control's ruling of the same day):** Finance > Manage payments > All Statements (`/payments/past-settlements`): one row per WEEKLY statement, `13/10/2026 – 20/10/2026`,
+# each closed one with a `Download Flat File V2` button. Nothing is asked for. **EVERY CLOSED STATEMENT THE LIST SHOWS THAT THE SELLER'S DRIVE DOES NOT ALREADY HOLD IS TAKEN (not just the newest, not named by a day)**, each filed under the day it ENDED, so a missed
+# run or a late-closed week is picked up next time; when none is new there is nothing to fetch. **NOT YET RUN LIVE.**
 AZS = answered(lambda: tool.RECIPES["az_settlements"])
 AZS_STEPS = AZS.to_take if AZS else ()
 check("az_settlements is a one-phase take of three steps: nothing to ask for, Amazon already made the statement",
@@ -794,13 +794,13 @@ check("az_settlements is a one-phase take of three steps: nothing to ask for, Am
 check("az_settlements opens All Statements, waits for the statements table ITSELF (its Statement Period heading), then takes",
       len(AZS_STEPS) == 3 and AZS_STEPS[0].do == pages.GO and AZS_STEPS[0].address == "https://sellercentral.amazon.in/payments/past-settlements"
       and AZS_STEPS[1].do == pages.WAIT_FOR and AZS_STEPS[1].find.what == "Statement Period" and AZS_STEPS[1].none_means_nothing_to_fetch == ""
-      and AZS_STEPS[2].do == pages.TAKE_FILE)
-check("az_settlements takes only the Download Flat File V2 of the statement that ENDED on the data day, so an older week is never taken for today's",
-      len(AZS_STEPS) == 3 and AZS_STEPS[2].find.what == "Download Flat File V2" and AZS_STEPS[2].find.near == "{day_in_words}"
-      and AZS_STEPS[2].find.day_in_words_is == "amazon" and AZS_STEPS[2].find.day_in_words_of == pages.THE_DAY_IT_IS_ABOUT)
-check("and a day with no statement ending on it is NOTHING TO FETCH in words, never a failure, only because the table was waited for on the step before",
+      and AZS_STEPS[2].do == pages.TAKE_EVERY_NEW)
+check("az_settlements takes EVERY closed statement's Download Flat File V2 that Drive does not already hold, NOT named by any day (a day would skip a week closed late or a missed run)",
+      len(AZS_STEPS) == 3 and AZS_STEPS[2].find.what == "Download Flat File V2" and AZS_STEPS[2].find.how == pages.BY_PRESSABLE_TEXT
+      and AZS_STEPS[2].find.near == "" and AZS_STEPS[2].find.day_in_words_is == "")
+check("and when no closed statement is new that is NOTHING TO FETCH in words, never a failure, only because the table was waited for on the step before",
       len(AZS_STEPS) == 3 and "nothing to fetch" in AZS_STEPS[2].none_means_nothing_to_fetch and AZS_STEPS[1].find.how == pages.BY_TEXT)
-check("only that one step may say a missing row is nothing to fetch, across every recipe",
+check("only that one step may say that nothing new is nothing to fetch, across every recipe",
       answered(lambda: [(r, i) for r in tool.every_recipe() for i, s in enumerate(tool.recipe(r).to_ask + tool.recipe(r).to_take) if s.none_means_nothing_to_fetch] == [("az_settlements", 2)]))
 # **THE AMAZON WALK, read against his real sample (BusinessReport-22-10-26.csv, the By Child Item report) and the address Control used.**
 AZ = answered(lambda: tool.RECIPES["az_traffic"])
@@ -1045,9 +1045,9 @@ def names_a_row_in_words():
 # **SEVEN SINCE 2026-09-11: `fk_listings` joined them.** Its Downloads History
 # holds four `Listing` rows from four different days, so the word alone finds
 # four and refuses -- the row has to be named by the day the file was MADE.
-check("exactly the thirteen reports that name a row by the day in words do so (Amazon's listings and fee reports joined, lane 1 job 8; returns, N018)",
+check("exactly the twelve reports that name a row by the day in words do so (Amazon's listings and fee reports joined, lane 1 job 8; returns, N018)",
       answered(lambda: sorted(set(names_a_row_in_words()))
-               == ["az_claims", "az_fee_preview", "az_listings", "az_orders", "az_returns", "az_settlements", "fk_listings", "fk_orders", "fk_payments", "fk_returns",
+               == ["az_claims", "az_fee_preview", "az_listings", "az_orders", "az_returns", "fk_listings", "fk_orders", "fk_payments", "fk_returns",
                    "me_claims", "me_returns", "me_views"]))
 # **AND THE SIXTH NAMES NO ROW AT ALL -- IT NAMES A CARD.** On his dashboard the
 # words `Orders` match twice, the sidebar item and the card, and the card carries

@@ -74,7 +74,7 @@
  * and went -- and `close_pop_ups` shuts Flipkart's notification panel and any
  * marked close button before a page's first step, the reference's own
  * `dismissFkPopups`. The Python door asks neither. */
-export const ASKED_ONLY_BY_THE_WALK = Object.freeze(['where_they_sit', 'banners_seen', 'close_pop_ups',
+export const ASKED_ONLY_BY_THE_WALK = Object.freeze(['where_they_sit', 'banners_seen', 'close_pop_ups', 'row_texts',
   'try_signing_in',
   /* **AND TYPING (2026-09-15)** -- a campaign id into Flipkart's campaign search box.
    * The Python door refuses a report done once per campaign, so it asks none. */
@@ -1920,6 +1920,24 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
     return whatMatches(how, what, exact, near, alsoSaying).slice(0, 4).map(whereItSits);
   }
 
+  /* **THE WORDS OF THE ROW EVERY MATCHING CONTROL SITS IN (N018), ASKED ONLY BY THE WALK.** Amazon's All Statements page lists one statement per row, each closed one with its own
+   * `Download Flat File V2`; the walk has to know WHICH statement each control belongs to before it presses any of them. The row is the LARGEST ancestor, within the same six levels a row is
+   * looked for everywhere else, that holds this control and no other match -- the rule `whatMatches` climbs by, and for the same reason. Page order; an empty list when nothing matches. */
+  function rowTexts(how, what, exact = true, alsoSaying = '') {
+    refuseAnUnknownWay(how);
+    const found = whatMatches(how, what, exact, [], alsoSaying);
+    return found.map((node) => {
+      let row = node;
+      let up = theParentOf(node);
+      for (let howFar = 0; howFar < AS_FAR_UP_AS_A_ROW && up; howFar += 1) {
+        if (found.some((other) => other !== node && up.contains && up.contains(other))) break;
+        row = up;
+        up = theParentOf(up);
+      }
+      return words(row.textContent);
+    });
+  }
+
   /* **THE WATCH STARTS WITH THE DOOR, WHICH IS AS SOON AS THE PAGE HALF LOADS.**
    * Every change the page makes is looked at as it happens, so a banner drawn
    * and removed within a second is still kept. A browser with nothing to watch
@@ -2037,6 +2055,7 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
     go,
     find,
     where_they_sit: whereTheySit,
+    row_texts: rowTexts,
     banners_seen: () => bannersHere.seen(),
     close_pop_ups: closePopUps,
     try_signing_in: trySigningIn,

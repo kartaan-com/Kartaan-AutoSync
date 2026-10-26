@@ -147,9 +147,9 @@ function everyDateBox(page) {
     JSON.stringify(Object.keys(door).sort())
       === JSON.stringify([...THE_CALLS, ...ASKED_ONLY_BY_THE_WALK].sort()));
   check('and no walk-only question is dressed up as a Python call',
-    ASKED_ONLY_BY_THE_WALK.length === 5
+    ASKED_ONLY_BY_THE_WALK.length === 6
       && ASKED_ONLY_BY_THE_WALK.every((one) => !THE_CALLS.includes(one))
-      && ['where_they_sit', 'banners_seen', 'close_pop_ups', 'type_in', 'try_signing_in']
+      && ['where_they_sit', 'banners_seen', 'close_pop_ups', 'type_in', 'try_signing_in', 'row_texts']
         .every((one) => ASKED_ONLY_BY_THE_WALK.includes(one)));
   check('and there are eleven of them', THE_CALLS.length === 11);
   /* **THE ELEVENTH IS THE ONLY ONE THAT BRINGS A VALUE BACK.** Everything else
@@ -2705,7 +2705,37 @@ for (const [start, end, from, expectedMonth] of [
     (await door.find(BY_PRESSABLE_TEXT, 'Download', true, 0, ['26 October 2026'], 'All Listings Report')) === 0);
 }
 
-const EXPECTED = 325 + 3 + 2;
+/* --------------------------------------------- N018: the words of every row that holds a control
+ * **ASKED ONLY BY THE WALK.** Amazon's All Statements page lists a statement per row, each closed one with its own `Download Flat File V2`; the walk has to know WHICH statement each control belongs to
+ * before it presses any of them, so it asks the page for the words of the row each one sits in. The row is the largest ancestor (within six levels) that holds that control and no other. */
+{
+  const page = aPage();
+  const door = doorOn();
+  const aRow = (words, withButton) => {
+    const row = thing('div', '', { box: BIG });
+    row.append(thing('span', words, { box: BIG }));
+    if (withButton) {
+      const button = thing('button', 'Download Flat File V2', { box: BIG });
+      button.style.cursor = 'pointer';
+      row.append(button);
+    } else {
+      row.append(thing('span', 'Available after settlement close', { box: BIG }));
+    }
+    return row;
+  };
+  const table = thing('div', '', { box: BIG });
+  table.append(aRow('20/10/2026 – Present', false), aRow('13/10/2026 – 20/10/2026 View summary', true), aRow('6/10/2026 – 13/10/2026 View summary', true));
+  page.body.append(thing('h1', 'All Statements', { box: BIG }), table);
+  const rows = await door.row_texts(BY_PRESSABLE_TEXT, 'Download Flat File V2', true, '');
+  check('the words of the row each control sits in are handed back, one per control, in page order, never the whole table',
+    Array.isArray(rows) && rows.length === 2 && rows[0].includes('13/10/2026 – 20/10/2026') && rows[1].includes('6/10/2026 – 13/10/2026')
+    && !rows[0].includes('6/10/2026') && !rows[1].includes('13/10/2026 – 20/10/2026'));
+  check('and a row that has no such control is not in the answer', !rows.some((one) => one.includes('Present')));
+  check('and a page with none answers an empty list, not a refusal', (await door.row_texts(BY_PRESSABLE_TEXT, 'Nothing like this', true, '')).length === 0);
+  check('the call is one only the walk asks', ASKED_ONLY_BY_THE_WALK.includes('row_texts') && !THE_CALLS.includes('row_texts'));
+}
+
+const EXPECTED = 325 + 3 + 2 + 4;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

@@ -843,7 +843,7 @@ def named_in_words():
 # **ELEVEN SINCE 2026-09-14**: returns left the Reports Centre, and its new route
 # names a row on the taking only.
 check("there are lookups naming a row by the day in words to judge",
-      answered(lambda: len(named_in_words()) == 22))
+      answered(lambda: len(named_in_words()) == 21))
 check("and every one of them says whose wording it means",
       answered(lambda: all(find["dayInWordsIs"] in book.HOW_A_DAY_IS_WRITTEN
                            for _, find in named_in_words())))
