@@ -221,6 +221,7 @@ export async function readTheTable(page, {
 
   const meta = way.meta(page);
   const rows = [];
+  const perPage = [];
   const refused = [];
   const seen = new Set();
   let pages = 0;
@@ -259,6 +260,7 @@ export async function readTheTable(page, {
       }
       rows.push(way.row(cells, by, meta));
     }
+    perPage.push(here.length);
     say(`${table}: page ${pages}, ${here.length} rows.`);
 
     /* **A PAGER THAT NAMES ITS PAGES IS FINISHED WHEN THE LAST NAMED PAGE IS READ**, whatever its next button then looks like. */
@@ -303,8 +305,17 @@ export async function readTheTable(page, {
     if (!moved) throw new Error(`page ${pages + 1} did not draw after the pager was pressed, so nothing was put away.`);
   }
 
+  /* **THE PAGE'S OWN COUNT OF EVERYTHING IS THE LAST WORD (N017, his D726; the run logs of 22-25 Oct: "the pager lists 7 pages and 6 were read" every
+   * night).** A pager that names a page the table does not have is not a part of the table when the rows read are exactly the count the page prints;
+   * with no count printed, or a count the rows do not reach, the read still fails, and now says what each page gave and what the pager showed. */
+  const countOnPage = way.all ? leavesOf(page).map((one) => way.all.exec(one)).find(Boolean) : null;
   if (declared && pages !== declared) {
-    throw new Error(`the pager lists ${declared} pages and ${pages} were read, so nothing was put away rather than a part of the table.`);
+    if (countOnPage && Number(countOnPage[1]) === rows.length) {
+      say(`${table}: the pager lists ${declared} pages and ${pages} were read, and the page counts ${countOnPage[1]} in all, which is every row read, so the table is whole.`);
+    } else {
+      throw new Error(`the pager lists ${declared} pages and ${pages} were read, so nothing was put away rather than a part of the table `
+        + `(rows on each page: ${perPage.join(', ')}; ${countOnPage ? `the page counts ${countOnPage[1]} in all` : 'the page prints no count of everything'}).`);
+    }
   }
   if (refused.length) {
     throw new Error(`${refused.length} row(s) were not the shape of the table (${refused.slice(0, 3).join('; ')}), so nothing was put away.`);
