@@ -1,11 +1,11 @@
 {
   "record": "review",
-  "commit": "Code tip 2de5ca1 on autosync-join-022; the commit carrying this record adds only release_records/*.json and tools/proven_survivors.json reasons.",
+  "commit": "a8f2f765b3709bedc28925fe78cd0e680bcccb4c",
   "run_at": "2026-10-26 evening to 2026-10-27 02:30 IST (session times). The fresh Opus read was of a52f545..6621e51; the fixes after it were checked by two whole proving runs.",
   "tool": "A fresh Opus 5.5 reviewer sub-agent with no stake in the code, handed SOLVED_PROBLEMS.md, read-only git reads, and every checks file run on a clean git-archive export of 6621e51 (KARTAAN=D:/Kartaan-ERP).",
   "invoked_as": "git log / show / diff over a52f545..6621e51; checks run: driver, walk, tables, background, drive, nightly (node); listing_notes, reading, claims, payments, shopdays, quality, returns_ads, record_reports, recipes, manifest (python). All passed on the export.",
   "ran_by": "A fresh Opus 5.5 sub-agent of AJ2 (Sonnet 5.5, worker for Kartaan Control); it wrote none of the code. AJ2 made every fix.",
-  "scope": "a52f545 (v0.1.21) to the tip: N017 (Meesho pricing read and download fault), N018 (Amazon reports read by the browser) and the join's fixes.",
+  "scope": "a52f545 (v0.1.21) to the tip: N017 (Meesho pricing read and download fault), N018 (Amazon reports read by the browser) and the join's fixes. Run against code tip 2de5ca1; a8f2f76 is that code plus release_records/*.json and the written reasons in tools/proven_survivors.json only (no code change).",
   "found": [
     "1 (HIGH): driver.js theParentOf stepped to .host of any parent, and a link has a .host (its address's host), so every climb stopped at a string: every click inside a link refused as two matches or found nothing, and the settlements walk read every row as having no period. FIXED in d3f315f: it steps out only from a real shadow root (nodeType 11); a check with a link that has a host went red first.",
     "2 (MEDIUM): a settlements row with a Download and no readable period was counted as open, so a changed date spelling read as nothing to fetch for good. FIXED in d3f315f: it fails in words with the page; check red first (its page carried, in 2de5ca1).",

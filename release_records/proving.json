@@ -1,11 +1,11 @@
 {
   "record": "proving",
-  "commit": "Code tip 2de5ca1 on autosync-join-022. The commit carrying this record adds only release_records/*.json and the written reasons in tools/proven_survivors.json (cannot_load, for ads.py, browser.py, quality.py, record_reports.py); no code changes after 2de5ca1.",
+  "commit": "a8f2f765b3709bedc28925fe78cd0e680bcccb4c",
   "run_at": "Whole run against v0.1.21 (a52f545) on 2de5ca1 ended 2026-10-27 about 02:20 IST (session times). Earlier whole runs the same night, on 6621e51 and on 1feeeb2, found the survivors listed in found, each closed before the next run.",
   "tool": "tools/proving.py (AutoSync's own setup, AP11) loading the ERP's tools/prove_checks.py from D:/Kartaan-ERP, 4 workers. Line-ending-only changes are not counted; a change that survives its own checks file is put to every other checks file importing the module.",
   "invoked_as": "git clone -c core.autocrlf=false -c core.eol=lf --branch autosync-join-022 <the repository> <scratch>/prove3, then in it: KARTAAN=D:/Kartaan-ERP python tools/proving.py --against a52f545. The last run's final line read '0 change(s) no check noticed, 13 that stopped the checks file loading with no reason recorded, 0 stale, 0 coverage problem(s)'; the 13 reasons are written in this record's commit.",
   "ran_by": "AJ2 (Sonnet 5.5), worker for Kartaan Control, with two helper agents that wrote the survivor-closing checks.",
-  "scope": "Every line changed since v0.1.21 (a52f545), i.e. N017, N018 and the join's own fixes, in autosync/*.py, tools/*.py, extension/*.js, test/*.js.",
+  "scope": "Every line changed since v0.1.21 (a52f545), i.e. N017, N018 and the join's own fixes, in autosync/*.py, tools/*.py, extension/*.js, test/*.js. Run against code tip 2de5ca1; a8f2f76 is that code plus release_records/*.json and the written reasons in tools/proven_survivors.json only (no code change).",
   "found": [
     "First whole run on the merged tip: 85 survivors. 30 Python (29 closed by new checks; 1 was already caught by listing_notes_checks and also got a check in firestore_checks) and 55 JavaScript (49 closed by new checks, 6 accepted with reasons).",
     "Second whole run: 2 survivors, both on lines the fixes touched (reading.py write_the_records: the file's name in the 'not a report' refusal; walk.js: the page carried by the no-period statement failure). Closed by checks in record_reports_checks.py and walk.test.js, each shown red first.",
@@ -13,10 +13,26 @@
     "Final run on 2de5ca1: 0 survivors, 0 stale entries, 0 coverage problems. 13 changes stop a checks file loading (5 ads.py, 1 browser.py, 2 quality.py, 5 record_reports.py), each file's reason now written in tools/proven_survivors.json cannot_load."
   ],
   "survivors": [
-    {"file": "extension/driver.js", "line": "if (!outer || !inner) return false;  (and the final return false of holds)", "why": "holds: a missing outer or inner node gives false whether the guard says || or && or is gone, and no caller passes a missing node; the last return false only turns false into undefined and every caller asks only for truthiness (four changes accepted)."},
-    {"file": "extension/tables.js", "line": "if (made.getUTCFullYear() !== y || made.getUTCMonth() !== m - 1 || made.getUTCDate() !== d) return null;", "why": "anIsoDay: a date that rolls over always moves the year, or the month and the day together; || to && on the last pair changes nothing."},
-    {"file": "extension/tables.js", "line": "if (from < 0 || to < 0 || to < from) return [];", "why": "theQualityFeedback: when the recommendations heading is missing and the feedback heading is there, to < from is true as well; the result is an empty list in every state."},
-    {"file": "autosync/ledger.py, autosync/payments.py", "line": "(AP11's own three survivors, unchanged)", "why": "Already accepted with reasons in tools/proven_survivors.json before this join."}
+    {
+      "file": "extension/driver.js",
+      "line": "if (!outer || !inner) return false;  (and the final return false of holds)",
+      "why": "holds: a missing outer or inner node gives false whether the guard says || or && or is gone, and no caller passes a missing node; the last return false only turns false into undefined and every caller asks only for truthiness (four changes accepted)."
+    },
+    {
+      "file": "extension/tables.js",
+      "line": "if (made.getUTCFullYear() !== y || made.getUTCMonth() !== m - 1 || made.getUTCDate() !== d) return null;",
+      "why": "anIsoDay: a date that rolls over always moves the year, or the month and the day together; || to && on the last pair changes nothing."
+    },
+    {
+      "file": "extension/tables.js",
+      "line": "if (from < 0 || to < 0 || to < from) return [];",
+      "why": "theQualityFeedback: when the recommendations heading is missing and the feedback heading is there, to < from is true as well; the result is an empty list in every state."
+    },
+    {
+      "file": "autosync/ledger.py, autosync/payments.py",
+      "line": "(AP11's own three survivors, unchanged)",
+      "why": "Already accepted with reasons in tools/proven_survivors.json before this join."
+    }
   ],
   "named_gaps": [
     "Changes noticed only by a checks file failing to load say nothing about whether the checks are good, only that the change was noticed; per-file reasons are in tools/proven_survivors.json.",

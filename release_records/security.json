@@ -1,11 +1,11 @@
 {
   "record": "security",
-  "commit": "Code tip 2de5ca1 on autosync-join-022; the commit carrying this record adds only release_records/*.json and tools/proven_survivors.json reasons.",
+  "commit": "a8f2f765b3709bedc28925fe78cd0e680bcccb4c",
   "run_at": "2026-10-26 evening IST (session times) over a52f545..6621e51; the fixes after it (00d2803 and later) were read by AJ2 and checked by two whole proving runs.",
   "tool": "cso skill (Chief Security Officer mode), run by a fresh Opus 5.5 sub-agent with read-only git commands, 8/10 confidence bar. The skill has no commit-range option, so its method was applied by hand to the range.",
   "invoked_as": "Skill \"cso\" with args \"--diff\", then by hand over `git diff a52f545..6621e51` (49 files, about 5,100 lines added). Only git read commands; nothing edited or run against any seller panel or live service.",
   "ran_by": "A fresh Opus 5.5 sub-agent of AJ2 (Sonnet 5.5, worker for Kartaan Control); it wrote none of the code.",
-  "scope": "a52f545..6621e51: the Meesho pricing read, the Amazon reports read by the browser, shadow-root walking in driver.js, the settlements take-every-new walk, the what-is-held message, the new Amazon ads host permission.",
+  "scope": "a52f545..6621e51: the Meesho pricing read, the Amazon reports read by the browser, shadow-root walking in driver.js, the settlements take-every-new walk, the what-is-held message, the new Amazon ads host permission. Run against code tip 2de5ca1; a8f2f76 is that code plus release_records/*.json and the written reasons in tools/proven_survivors.json only (no code change).",
   "phases_not_run": "CI phase (no workflow changed), dependency phase (no dependency change), skill-scan phase, saving the report file (read-only), independent verifiers (self-checked).",
   "found": [
     "No HIGH or MEDIUM finding. Three LOW.",
