@@ -1,28 +1,26 @@
 {
   "record": "proving",
-  "commit": "The commit carrying this record on autosync-join. Whole run against v0.1.20 on b33ad3e plus tools/proven_survivors.json; the two later commits' changed lines proved against their parents (see found).",
-  "run_at": "Whole run ended 2026-10-26 06:46 IST (205 min wall clock on a machine shared with EP1's ERP proving and two review agents; 2 changes hung past the limit and were counted as caught). Earlier whole runs the same night, each on the same scratch clone as checks were added: first about 01:00 (9 min), then two more. Delta runs: against b33ad3e for 8c8b6c1 (about 07:05, 1 min) and against 8c8b6c1 for the record's commit (about 07:20, 25 s).",
+  "commit": "Code tip 2de5ca1 on autosync-join-022. The commit carrying this record adds only release_records/*.json and the written reasons in tools/proven_survivors.json (cannot_load, for ads.py, browser.py, quality.py, record_reports.py); no code changes after 2de5ca1.",
+  "run_at": "Whole run against v0.1.21 (a52f545) on 2de5ca1 ended 2026-10-27 about 02:20 IST (session times). Earlier whole runs the same night, on 6621e51 and on 1feeeb2, found the survivors listed in found, each closed before the next run.",
   "tool": "tools/proving.py (AutoSync's own setup, AP11) loading the ERP's tools/prove_checks.py from D:/Kartaan-ERP, 4 workers. Line-ending-only changes are not counted; a change that survives its own checks file is put to every other checks file importing the module.",
-  "invoked_as": "git clone -c core.autocrlf=false -c core.eol=lf --branch autosync-join D:/Kartaan-AutoSync-join <scratch>/prove1, then in it: KARTAAN=D:/Kartaan-ERP PYTHONUTF8=1 python tools/proving.py --against 49d8deb --workers 4 --json <scratch>/prove4-survivors.json (exit 0). Log: D:/Control/worker-handovers/ap11-proving-b33ad3e.log. The clone's files were checked equal to b33ad3e plus tools/proven_survivors.json, line endings aside, except extension/update.test.js (part A4's README check, which proves no source file).",
-  "ran_by": "AP11 (Opus 5.5), worker for Kartaan Control.",
-  "scope": "Every line changed since v0.1.20 (49d8deb) in the sources AutoSync measures: autosync/*.py, tools/*.py, extension/*.js, test/*.js. 30 files, 973 deliberate changes, 685 run (288 would not parse and are discarded, never counted as caught).",
+  "invoked_as": "git clone -c core.autocrlf=false -c core.eol=lf --branch autosync-join-022 <the repository> <scratch>/prove3, then in it: KARTAAN=D:/Kartaan-ERP python tools/proving.py --against a52f545. The last run's final line read '0 change(s) no check noticed, 13 that stopped the checks file loading with no reason recorded, 0 stale, 0 coverage problem(s)'; the 13 reasons are written in this record's commit.",
+  "ran_by": "AJ2 (Sonnet 5.5), worker for Kartaan Control, with two helper agents that wrote the survivor-closing checks.",
+  "scope": "Every line changed since v0.1.21 (a52f545), i.e. N017, N018 and the join's own fixes, in autosync/*.py, tools/*.py, extension/*.js, test/*.js.",
   "found": [
-    "Control's 23 Oct run with the ERP's prover as it stands (1485 survivors, 800 load crashes, 16 coverage gaps on 77705cd) was mostly the prover not fitting AutoSync: 5 files that changed only their line endings had every line tried (walk.js, screen.js, background.js, drive.js, xls.py), only sibling checks ran, and AutoSync had no COVERED_BY, NOT_PROVEN or survivor list. With tools/proving.py: 0 coverage gaps.",
-    "First run with the setup: 282 survivors; with callers' checks counted: 82.",
-    "79 of the 82 closed with new checks, each watched to survive without the check and go red with it, by deleting or flipping the line in the scratch clone (commit b33ad3e lists them by file).",
-    "Final whole run: 605 caught by a named check, 2 hung and counted as caught, 77 stopped the checks file loading (each file's reason in tools/proven_survivors.json cannot_load), 3 survived and are accepted with reasons. Exit 0: 'every deliberate change was either caught or recorded with a reason'.",
-    "Review fixes 8c8b6c1, proved with `python tools/proving.py --against b33ad3e`: 22 changes in 6 files, 18 run, 18 caught, 0 survived, exit 0.",
-    "The record's commit (two low fixes in firestore_door.py), proved with `python tools/proving.py --against 8c8b6c1`: 3 changes, 3 caught, exit 0."
+    "First whole run on the merged tip: 85 survivors. 30 Python (29 closed by new checks; 1 was already caught by listing_notes_checks and also got a check in firestore_checks) and 55 JavaScript (49 closed by new checks, 6 accepted with reasons).",
+    "Second whole run: 2 survivors, both on lines the fixes touched (reading.py write_the_records: the file's name in the 'not a report' refusal; walk.js: the page carried by the no-period statement failure). Closed by checks in record_reports_checks.py and walk.test.js, each shown red first.",
+    "extension/tables.js had 76 changes noticed only by the checks file crashing, because the Meesho quality reader had no check of its own; tables.test.js now has a made-up quality page and prints a failure when a change makes it throw, so those count as caught.",
+    "Final run on 2de5ca1: 0 survivors, 0 stale entries, 0 coverage problems. 13 changes stop a checks file loading (5 ads.py, 1 browser.py, 2 quality.py, 5 record_reports.py), each file's reason now written in tools/proven_survivors.json cannot_load."
   ],
   "survivors": [
-    {"file": "autosync/ledger.py", "line": "if column == \"settlement\" and str(was) != \"\" and not added:", "why": "Deleted, the next line falls under the block above with the same condition plus only_existing; only payments readings carry a settlement and all are only_existing."},
-    {"file": "autosync/ledger.py", "line": "changed[name] = True", "why": "figure_replaced is only set right after changed[name] = True for the same row, so this line repeats a fact already set."},
-    {"file": "autosync/payments.py", "line": "continue", "why": "After an unreadable amount the line has no amount, so no charge, no no-order count, and _Lines.put drops it anyway."}
+    {"file": "extension/driver.js", "line": "if (!outer || !inner) return false;  (and the final return false of holds)", "why": "holds: a missing outer or inner node gives false whether the guard says || or && or is gone, and no caller passes a missing node; the last return false only turns false into undefined and every caller asks only for truthiness (four changes accepted)."},
+    {"file": "extension/tables.js", "line": "if (made.getUTCFullYear() !== y || made.getUTCMonth() !== m - 1 || made.getUTCDate() !== d) return null;", "why": "anIsoDay: a date that rolls over always moves the year, or the month and the day together; || to && on the last pair changes nothing."},
+    {"file": "extension/tables.js", "line": "if (from < 0 || to < 0 || to < from) return [];", "why": "theQualityFeedback: when the recommendations heading is missing and the feedback heading is there, to < from is true as well; the result is an empty list in every state."},
+    {"file": "autosync/ledger.py, autosync/payments.py", "line": "(AP11's own three survivors, unchanged)", "why": "Already accepted with reasons in tools/proven_survivors.json before this join."}
   ],
   "named_gaps": [
-    "77 changes noticed only by the checks file failing to load (deleted imports, constants, function heads, first assignments of a name), 36 of them in tools/move_group.py: reasons per file in tools/proven_survivors.json. They say nothing about whether the checks are good, only that the change was noticed.",
-    "Observed while proving ledger.py, not changed (older code, outside this job): a file of a day between two files that said the same figure, read last, still writes its older figure."
+    "Changes noticed only by a checks file failing to load say nothing about whether the checks are good, only that the change was noticed; per-file reasons are in tools/proven_survivors.json.",
+    "The az_ads reader (ads.read_ads) still has its own torn-row path that does not count rows.refused (named in review.json)."
   ],
-  "unproved_files": "NOT_PROVEN in tools/proving.py, each with its reason: autosync/fake_firestore.py, autosync/start.py, extension/content.js, extension/panel.js, extension/worker.js, test/fake-browser.js, test/fake-chrome.js.",
-  "version_only_change_note": "The commit after 27db1b1 changes only the version number in extension/manifest.json from 0.1.20 to 0.1.21 (no logic change), so this record still stands for the release commit."
+  "unproved_files": "NOT_PROVEN in tools/proving.py, each with its reason: autosync/fake_firestore.py, autosync/start.py, extension/content.js, extension/panel.js, extension/worker.js, test/fake-browser.js, test/fake-chrome.js."
 }
