@@ -8,6 +8,12 @@
   ],
   "reports": [
     {
+      "id": "az_claims",
+      "platform": "amazon",
+      "name": "Amazon SAFE-T claims",
+      "cannotBeAskedForAgain": "The page offers Yesterday, the last 7, 30 or 60 days, or exact dates; the run asks for one of the relative ones, so a day already gone cannot be fetched again by the run. Overlapping files are expected and are settled by the SAFE-T claim id."
+    },
+    {
       "id": "az_fee_preview",
       "platform": "amazon",
       "name": "Amazon Referral Fee Preview",
@@ -29,7 +35,7 @@
       "id": "az_returns",
       "platform": "amazon",
       "name": "Amazon returns",
-      "cannotBeAskedForAgain": null
+      "cannotBeAskedForAgain": "Amazon's return report page is asked for 'last day' only, so a day already gone cannot be fetched again by the run (the page itself offers Exact dates, which the walk does not use yet)."
     },
     {
       "id": "az_settlements",

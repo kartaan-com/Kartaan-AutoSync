@@ -37,6 +37,10 @@ RECORD_REPORTS: Dict[str, RecordReport] = {
     "me_claims": RecordReport(
         claims.KIND, claims.read_claim_records, "claim(s)", "claims", merge=claims.merge,
     ),
+    # **AMAZON'S SAFE-T CLAIMS (N018, D726): the same kind of record as Meesho's claims, one per SAFE-T claim id**, written to the same claims collection.
+    "az_claims": RecordReport(
+        claims.KIND, claims.read_safet_records, "SAFE-T claim(s)", "SAFE-T claims", merge=claims.merge,
+    ),
     "me_product_performance": RecordReport(
         performance.KIND, performance.read_performance, "product week(s)", "product performance", wants_the_catalog_titles=True,
     ),

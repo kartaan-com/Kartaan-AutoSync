@@ -64,6 +64,14 @@ SAMPLES = {
         '"Product","SKU ID","Yearly Sales","1Y Ratings Trend","5M Returns Trend","FA badge","Suppression Risk","Issue Details"\n'
         '"Rumee Jhumki","DJ-5 Bahubali","₹6.32L","4.2","17.6%","Yes","No Risk","Quality"\n'),
     "me_views": ("meesho_me_views_2026-10-20.csv", "Date,Views,Orders\n2026-10-14,52750,23\n"),
+    # Amazon's SAFE-T claims report (N018): the real header, one made-up row.
+    "az_claims": (
+        "amazon_az_claims_2026-10-26.csv",
+        '"Order Date","Order ID","ASIN","Item name","Fulfillment Channel","Return Tracking ID","Return Status","Return Delivery Date","SAFE-T Claim ID","Claim Date",'
+        '"Claim Filing Reason","Quantity In Claim","Currency","Claim amount","SAFE-T claim state","Appeal by/ Respond by date","Reimbursement amount (Product value)",'
+        '"Reimbursement amount (Others)","Total Reimbursement amount","Date of reimbursement"\n'
+        '"2026-09-23","403-1","B0X","Item","Easy Ship","515","Delivered to seller","2026-10-03","44055-43555-0397437","2026-10-05","I received damaged/ used item",'
+        '"1","INR","246.79","Granted","2026-10-13","61.69","0.0","61.69","2026-10-06"\n'),
 }
 TABLE = record_reports.RECORD_REPORTS
 
@@ -73,7 +81,8 @@ check("THE TABLE HAS A SAMPLE FILE FOR EVERY REPORT IT NAMES, so no report in it
       set(SAMPLES) == set(TABLE))
 check("each report's records go in a collection the run may write, and every kind lists the fields every record has",
       all(one.kind.collection in firestore.WHAT_IT_MAY_WRITE and {"platform", "fileDay", "digest"} <= set(one.kind.fields) for one in TABLE.values()))
-check("and no two reports write one collection", len({one.kind.collection for one in TABLE.values()}) == len(TABLE))
+check("and no two KINDS of record write one collection (Meesho's and Amazon's claims are one kind, in one collection, by design, D459)",
+      len({one.kind.collection for one in TABLE.values()}) == len({id(one.kind) for one in TABLE.values()}))
 check("every report is read, by the ledger branch (claims) or by the one records branch, and none is also said to be waiting",
       all(rid in reading.what_this_can_read() or rid in {h.report_id for h in reading.WHAT_RECORDS_CAN_BE_READ} for rid in TABLE)
       and not set(TABLE) & set(reading.WHAT_IS_FETCHED_AND_NOT_READ_YET) and reading.why_a_report_has_no_decision() == "")
@@ -126,7 +135,7 @@ check("a database that says no stops the sink with that said in words",
 def made_from_sample(report_id):
     name, body = SAMPLES[report_id]
     import table
-    return TABLE[report_id].read(report_id, "meesho" if report_id != "fk_quality_insights" else "flipkart", table.read(body.encode("utf-8")), name[-14:-4], None)[0]
+    return TABLE[report_id].read(report_id, {"fk_quality_insights": "flipkart", "az_claims": "amazon"}.get(report_id, "meesho"), table.read(body.encode("utf-8")), name[-14:-4], None)[0]
 
 
 def paid_claim_held():

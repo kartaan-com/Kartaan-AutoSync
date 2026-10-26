@@ -287,6 +287,146 @@
         }
       ]
     },
+    "az_returns": {
+      "campaignsFrom": null,
+      "readyInMinutes": 2,
+      "toAsk": [
+        {
+          "do": "go",
+          "find": null,
+          "address": "https://sellercentral.amazon.in/returns/report",
+          "patience": 60,
+          "why": "opening Seller fulfilled return reports to ask for the returns",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": ""
+        },
+        {
+          "do": "wait-for",
+          "find": {
+            "how": "role",
+            "what": "Request",
+            "exact": true,
+            "called": "the Request button",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 90,
+          "why": "waiting for the return reports page to draw its Request button",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": ""
+        },
+        {
+          "do": "click",
+          "find": {
+            "how": "role",
+            "what": "Request",
+            "exact": true,
+            "called": "the Request button",
+            "near": "",
+            "alsoSaying": "",
+            "dayInWordsIs": "",
+            "dayInWordsOf": ""
+          },
+          "address": "",
+          "patience": 30,
+          "why": "asking Amazon to build the returns for the last day",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": ""
+        }
+      ],
+      "toTake": [
+        {
+          "do": "go",
+          "find": null,
+          "address": "https://sellercentral.amazon.in/returns/report",
+          "patience": 60,
+          "why": "coming back to Seller fulfilled return reports for the returns",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": ""
+        },
+        {
+          "do": "wait-for",
+          "find": {
+            "how": "pressable",
+            "what": "Download",
+            "exact": true,
+            "called": "the Download of the All Returns row requested today",
+            "near": "{day_in_words}",
+            "alsoSaying": "All Returns",
+            "dayInWordsIs": "amazon",
+            "dayInWordsOf": "made"
+          },
+          "address": "",
+          "patience": 90,
+          "why": "waiting for the finished returns row",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": ""
+        },
+        {
+          "do": "take-file",
+          "find": {
+            "how": "pressable",
+            "what": "Download",
+            "exact": true,
+            "called": "the Download of the All Returns row requested today",
+            "near": "{day_in_words}",
+            "alsoSaying": "All Returns",
+            "dayInWordsIs": "amazon",
+            "dayInWordsOf": "made"
+          },
+          "address": "",
+          "patience": 90,
+          "why": "taking the finished returns file",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": ""
+        }
+      ]
+    },
     "az_traffic": {
       "campaignsFrom": null,
       "readyInMinutes": 0,
@@ -5105,7 +5245,8 @@
         "{dd} {Mon} {yyyy}",
         "{Mon} {d}, {yyyy}",
         "{Mon} {dd}, {yyyy}",
-        "{yyyy}-{mm}-{dd}"
+        "{yyyy}-{mm}-{dd}",
+        "{d} {Month} {yyyy}"
       ]
     },
     "flipkart": {
@@ -5206,6 +5347,10 @@
     "az_listings": {
       "platform": "amazon",
       "extension": "txt"
+    },
+    "az_returns": {
+      "platform": "amazon",
+      "extension": "csv"
     },
     "az_traffic": {
       "platform": "amazon",
@@ -5326,6 +5471,12 @@
   },
   "reports": [
     {
+      "id": "az_claims",
+      "platform": "amazon",
+      "name": "Amazon SAFE-T claims",
+      "cannotBeAskedForAgain": "The page offers Yesterday, the last 7, 30 or 60 days, or exact dates; the run asks for one of the relative ones, so a day already gone cannot be fetched again by the run. Overlapping files are expected and are settled by the SAFE-T claim id."
+    },
+    {
       "id": "az_fee_preview",
       "platform": "amazon",
       "name": "Amazon Referral Fee Preview",
@@ -5347,7 +5498,7 @@
       "id": "az_returns",
       "platform": "amazon",
       "name": "Amazon returns",
-      "cannotBeAskedForAgain": null
+      "cannotBeAskedForAgain": "Amazon's return report page is asked for 'last day' only, so a day already gone cannot be fetched again by the run (the page itself offers Exact dates, which the walk does not use yet)."
     },
     {
       "id": "az_settlements",
@@ -5526,12 +5677,16 @@
   ],
   "onTheApiDoor": [
     "az_orders",
-    "az_returns",
     "az_settlements",
     "az_suppressed"
   ],
   "kartaan": "Kartaan",
   "folders": {
+    "az_claims": [
+      "Reports",
+      "Amazon",
+      "Claims"
+    ],
     "az_fee_preview": [
       "Reports",
       "Amazon",
@@ -5707,5 +5862,7 @@
       "Logs"
     ]
   },
-  "notYetARecipe": {}
+  "notYetARecipe": {
+    "az_claims": "Amazon's SAFE-T report page needs a report type and a date range chosen from dropdowns, which the walk cannot do yet."
+  }
 }

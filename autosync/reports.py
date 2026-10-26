@@ -309,7 +309,11 @@ REPORTS: Tuple[Report, ...] = (
     # documentation: settlement reports cannot be requested. So a day it did not
     # publish one is not a day anybody is owed anything.
     Report("az_settlements", "amazon", "Amazon settlements", API, WHEN_THEY_PUBLISH_IT, "csv"),
-    Report("az_returns", "amazon", "Amazon returns", API, DAILY, "csv"),
+    # **BY THE BROWSER SINCE N018 (his ruling D726, 25 Oct 2026: Amazon no longer goes through the SP-API).** Seller Central > Orders > Order reports > Seller fulfilled return
+    # reports > All Returns, last day; the file is the same tab-separated return file the reader already reads. The page asks only for "last day" (yesterday), so a past day
+    # cannot be asked for again.
+    Report("az_returns", "amazon", "Amazon returns", BROWSER, DAILY, "csv",
+           cannot_backfill="Amazon's return report page is asked for 'last day' only, so a day already gone cannot be fetched again by the run (the page itself offers Exact dates, which the walk does not use yet)."),
     # **ONE SNAPSHOT BY THE API DOOR (v0.1.21 job 6): what Amazon hides from buyers and why.** A picture of now, asked with no dates, so
     # a past day cannot be fetched again. **`az_health` IS NOT HERE ON PURPOSE:** Amazon's page does not state its file format and
     # `landing.what_it_really_is` refuses any body that starts with `{` as "a message rather than a report", so listed here it would
@@ -320,6 +324,12 @@ REPORTS: Tuple[Report, ...] = (
     # without API keys).** Business Reports > By ASIN > Detail Page Sales and Traffic by Child Item, one day, Download (.csv). Amazon takes a past day, so it
     # can be asked for again.
     Report("az_traffic", "amazon", "Amazon listing traffic", BROWSER, DAILY, "csv"),
+    # **AMAZON'S SAFE-T CLAIMS BY THE BROWSER (N018, his ruling D726).** Seller Central > Orders > Manage claims > Manage SAFE-T claims > Download the SAFE-T Report, type "SAFE-T Claims",
+    # dates Yesterday / last 7, 30, 60 days / Exact dates; Amazon builds it in seconds. The recipe is not written yet (it needs the walk to choose an option in a dropdown), so the board says
+    # "cannot be fetched" until it is; the reader is written (`claims.read_safet_records`).
+    Report("az_claims", "amazon", "Amazon SAFE-T claims", BROWSER, DAILY, "csv",
+           cannot_backfill="The page offers Yesterday, the last 7, 30 or 60 days, or exact dates; the run asks for one of the relative ones, so a day already gone cannot be fetched again by the run. "
+                           "Overlapping files are expected and are settled by the SAFE-T claim id."),
     # **THE TWO AMAZON FILES MADE ON REQUEST (AutoSync v0.1.21 lane 1 job 8).** Seller Central > Products > Product reports (Inventory Reports): the seller
     # presses Request Report, Amazon builds a tab-separated text file (up to 45 minutes, a new one at most once in 24 hours) and a row with a Download button
     # appears. Both are pictures of right now. Amazon's own text says ".txt" and the files are landed as such.

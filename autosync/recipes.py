@@ -223,6 +223,8 @@ HOW_AMAZON_WRITES_A_DAY = (
     "{Mon} {d}, {yyyy}",      # Oct 22, 2026
     "{Mon} {dd}, {yyyy}",     # Jun 05, 2026
     "{yyyy}-{mm}-{dd}",       # 2026-10-22
+    # **SEEN LIVE 26 OCT 2026 (N018) on Product reports and on the returns report list:** a request's own time is written `25 October 2026 at 10:31 pm` -- the whole month name.
+    "{d} {Month} {yyyy}",     # 25 October 2026
 )
 
 # Whose wording is whose. **Nothing works this out from a report's name** -- a
@@ -413,6 +415,9 @@ AMAZON_TRAFFIC = (
 # **AMAZON'S INVENTORY REPORTS PAGE (Seller Central > Products > Product reports, `/listing/reports`, lane 1 job 8).** The address is the brief's. Neither the
 # page nor its row wording has been looked at: see `_amazon_inventory_report`.
 AMAZON_INVENTORY_REPORTS = "https://sellercentral.amazon.in/listing/reports"
+# **AMAZON'S RETURN REPORTS PAGE (Orders > Order reports > Seller fulfilled return reports), read off his own Seller Central by N018 on 26 Oct 2026.** It opens on "All Returns"
+# and "last day" (yesterday); a real `<button>` reads `Request`; the list below holds one row per request, each with one `Download` (a TSV) and a Requested On time.
+AMAZON_RETURNS = "https://sellercentral.amazon.in/returns/report"
 # **THESE THREE WERE WRONG, AND THEY COST A WHOLE NIGHT (2026-09-06).** Nine of
 # ten reports failed within twenty minutes of each other -- seven ads reports
 # looking for "the other reports tab", claims looking for "the claims tab",
@@ -1385,6 +1390,29 @@ RECIPES: Dict[str, Recipe] = {
     "az_listings": _amazon_inventory_report("All Listings Report", 30),
     "az_fee_preview": _amazon_inventory_report("Referral Fee Preview Report", 45),
 
+    # ---- Amazon returns by the browser (N018, his ruling D726: no Amazon API). Two-phase: press Request on the page's own default (All Returns, last day = yesterday),
+    # ---- come back and take that request's row, named by the day it was made. Amazon builds it in seconds, so the minutes are few.
+    "az_returns": Recipe(
+        ready_in_minutes=2,
+        to_ask=(
+            Step(GO, address=AMAZON_RETURNS, patience=60, why="opening Seller fulfilled return reports to ask for the returns"),
+            Step(WAIT_FOR, find=Find(BY_ROLE_AND_TEXT, "Request", called="the Request button"), patience=90,
+                 why="waiting for the return reports page to draw its Request button"),
+            Step(CLICK, find=Find(BY_ROLE_AND_TEXT, "Request", called="the Request button"), why="asking Amazon to build the returns for the last day"),
+        ),
+        to_take=(
+            Step(GO, address=AMAZON_RETURNS, patience=60, why="coming back to Seller fulfilled return reports for the returns"),
+            Step(WAIT_FOR, find=Find(BY_PRESSABLE_TEXT, "Download", near="{day_in_words}", also_saying="All Returns",
+                                     day_in_words_is=AMAZON_WRITES_IT, day_in_words_of=THE_DAY_IT_WAS_MADE,
+                                     called="the Download of the All Returns row requested today"),
+                 patience=90, why="waiting for the finished returns row"),
+            Step(TAKE_FILE, find=Find(BY_PRESSABLE_TEXT, "Download", near="{day_in_words}", also_saying="All Returns",
+                                      day_in_words_is=AMAZON_WRITES_IT, day_in_words_of=THE_DAY_IT_WAS_MADE,
+                                      called="the Download of the All Returns row requested today"),
+                 patience=90, why="taking the finished returns file"),
+        ),
+    ),
+
     # ---- Flipkart: the traffic report, two-phase and the live selector fix
     "fk_views": Recipe(
         ready_in_minutes=30,
@@ -1830,7 +1858,11 @@ def every_recipe() -> Tuple[str, ...]:
 # the keyword pop-ups off the traffic report, and the part the reference left to a
 # person -- opening the report and choosing the day -- is the traffic report's own
 # steps.
-NOT_YET_A_RECIPE: Dict[str, str] = {}
+NOT_YET_A_RECIPE: Dict[str, str] = {
+    # **AMAZON'S SAFE-T CLAIMS (N018): the page needs two options chosen in dropdowns (the report type and the dates), and this door has no step that chooses an option yet.** The reader is
+    # written and checked against his real file's header; the recipe follows the new step.
+    "az_claims": "Amazon's SAFE-T report page needs a report type and a date range chosen from dropdowns, which the walk cannot do yet.",
+}
 
 
 # **REPORTS THAT ARE REAL AND ARE FETCHED BY A DIFFERENT REPORT'S RUN.**

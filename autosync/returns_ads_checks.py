@@ -184,6 +184,20 @@ check("the sale is the ledger's", ar.get("saleKey") == "amazon::407-1::SKU-Q")
 check("a return with no SKU has no sku field, not an empty one", "sku" not in a.records["amazon__RMA2"] and a.records["amazon__RMA2"]["saleKey"] == "amazon::407-2::")
 check("Amazon's records carry neither the return AWB nor the Sub Type", "returnAwb" not in ar and "returnSubType" not in ar)
 
+# **THE FILE SELLER CENTRAL'S RETURN REPORTS PAGE GIVES (N018, seen live 26 Oct 2026: 34 columns, tab-separated, a blank cell is one space).** Moving Amazon returns off the
+# API to the browser (his ruling D726) is only right if the reader takes this file's own header as it is. The header below is the real one; the two rows are made up.
+AZ_LIVE_HEAD = ("Order ID\tOrder date\tReturn request date\tReturn request status\tAmazon RMA ID\tMerchant RMA ID\tLabel type\tLabel cost\tCurrency code\tReturn carrier\t"
+                "Tracking ID\tLabel to be paid by\tA-to-Z Claim\tIs prime\tASIN\tMerchant SKU\tItem Name\tReturn quantity\tReturn Reason\tIn policy\tReturn type\tResolution\t"
+                "Invoice number\tReturn delivery date\tOrder Amount\tOrder quantity\tSafeT Action reason\tSafeT claim id\tSafeT claim state\tSafeT claim creation time\t"
+                "SafeT claim reimbursement amount\tRefunded Amount\tCategory\tOrder Item ID")
+_live = answered(lambda: returns.read_returns("az_returns", az(
+    "405-1\t17-Oct-2026\t24-Oct-2026\tApproved\tRMAL1\t \tAmazonPrePaidLabel\t92.00\tINR\tATS\t5152\tSeller\tN\tY\tB0X\tSKU-L\tItem\t1\tCR-DAMAGED_BY_FC\tY\tC-Returns\tStandardRefund\t \t \t349.00\t1\t \t \t \t \t \t \tJewelry\t42",
+    head=AZ_LIVE_HEAD), "2026-10-24"))
+_lr = (_live.records.get("amazon__RMAL1") or {}) if _live else {}
+check("THE FILE THE RETURN REPORTS PAGE GIVES IS READ BY THE SAME READER, on its own header (N018): the RMA id names the record, the reason and the dates come through",
+      _live is not None and set(_live.records) == {"amazon__RMAL1"} and _lr.get("reason") == "CR-DAMAGED_BY_FC"
+      and _lr.get("startedOn") == "2026-10-24" and _lr.get("saleKey") == "amazon::405-1::SKU-L" and "closedOn" not in _lr)
+
 # ------------------------------------------------------------------ Flipkart / Meesho ads
 
 DAILY_HEAD = "Campaign ID,Campaign Name,Date,Ad Spend,Views,Clicks,Total converted units,Total Revenue (Rs.),ROI"
@@ -678,7 +692,7 @@ check("A LEDGER THAT REFUSES A RETURNS FILE IS SAID AS THE LEDGER'S REFUSAL, the
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 107 + 3 + 2 + 3 + 3 + 7
+EXPECTED = 107 + 3 + 2 + 3 + 3 + 7 + 1
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
