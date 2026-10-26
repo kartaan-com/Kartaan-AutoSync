@@ -295,9 +295,17 @@ _torn = answered(lambda: reading.write_the_records(
 check("a torn row in a records file is counted among the rows not read, by its line, and the good row is still read",
       _torn is not None and len(_torn[0]) == 1 and len(_torn[1]) == 1 and str(_torn[1][0]).startswith("line 3"))
 
+# **A SIGN-IN PAGE LANDED AS A RECORDS FILE IS REFUSED BY THE FILE'S NAME, not by its Drive id (AJ2 proving)**
+_page = caught(lambda: reading.write_the_records(
+    next(h for h in reading.WHAT_RECORDS_CAN_BE_READ if h.report_id == "az_health"),
+    whats_new.InTheFolder(which="drive-id-7", name="amazon_az_health_2026-10-26.csv", size=9), b"<!doctype html><html>Please sign in</html>",
+    "2026-10-26", lambda rid, day, made: len(made), {}, lambda w: b""))
+check("a sign-in page landed as a records file is refused by the file's name, not by its Drive id (AJ2 proving)",
+      _page is not None and str(_page).startswith("amazon_az_health_2026-10-26.csv is"))
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 17 + 3 * len(TABLE) + 7 + 4 + 9 + 1 + 1
+EXPECTED = 17 + 3 * len(TABLE) + 7 + 4 + 9 + 1 + 1 + 1
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

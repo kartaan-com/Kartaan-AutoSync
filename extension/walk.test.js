@@ -1250,6 +1250,7 @@ check('asked to step back by nothing at all, it answers the day itself',
   const gotBlank = await aWalk(blank, statements)('me_orders', DAY);
   check('while rows that are all still open (no closed period) ARE nothing to fetch', gotBlank.state === NOTHING_TO_FETCH && blank.putAway.length === 0);
 const odd = aPortal({ rows: ['Oct 13 to Oct 20 Download Flat File V2', ROW_20], held: [] });  const gotOdd = await aWalk(odd, statements)('me_orders', DAY);  check('A ROW WITH A DOWNLOAD BUT NEITHER A PERIOD NOR "Present" IS A FAILURE IN WORDS, never skipped as open: Amazon writing its dates another way would otherwise read as nothing to fetch every week (the Opus review of the AJ2 join)',    gotOdd.state === FAILED && gotOdd.say.includes('Oct 13') && odd.putAway.length === 0);
+  check('and that failure carries the page it showed', gotOdd.pageWas.length > 0);
   const unseen = aPortal({ rows: [ROW_20], held: [], matches: { 'Download Flat File V2': 0 } });
   const gotUnseen = await aWalk(unseen, statements)('me_orders', DAY);
   check('and the walk WAITS for a control first: none turning up in the step\'s patience is a failure before any row is read',
@@ -3052,7 +3053,7 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
     === '05 SEPT 2026 / 2026-09-05|SEPT/05 / 2026-09-05');
 }
 
-const EXPECTED = 349 + 9 + 3 + 1 + 1 + 3 + 8 + 2 + 4 + 2 + 2 + 1 + 14;
+const EXPECTED = 349 + 9 + 3 + 1 + 1 + 3 + 8 + 2 + 4 + 2 + 2 + 1 + 14 + 1;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

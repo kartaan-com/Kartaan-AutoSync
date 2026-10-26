@@ -11,6 +11,15 @@
 import { readFileSync } from 'node:fs';
 import { THE_TABLES, afterTheLabel, leavesOf, plain, readTheTable, theCsv, theHeaderOf, theStatementPeriod } from './tables.js';
 
+process.on('uncaughtException', (err) => {
+  console.log(`FAIL  the checks stopped part way through: ${(err && err.message) || String(err)}`);
+  process.exit(1);
+});
+process.on('unhandledRejection', (err) => {
+  console.log(`FAIL  something was waited on and never came back: ${(err && err.message) || String(err)}`);
+  process.exit(1);
+});
+
 let ran = 0;
 let failures = 0;
 function check(name, passed) {
