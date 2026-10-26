@@ -1,0 +1,32 @@
+{
+  "written_by": "AJ2 (Sonnet 5.5), fixing the first two LOW findings of the fresh Opus security read of the join",
+  "reviewer": "The fresh Opus security reviewer of the AJ2 join read the findings; this fix is read by the whole-range fresh Opus review that follows",
+  "independent": false,
+  "if_not_independent_why": "A small fix by the author of the join to findings an independent reviewer made; the independent whole-range review of the tip follows before release.",
+  "read": [
+    "SOLVED_PROBLEMS.md",
+    "autosync/recipes.py",
+    "autosync/recipes_checks.py",
+    "autosync/record_reports_checks.py",
+    "autosync/reports.py",
+    "autosync/returns_ads_checks.py",
+    "autosync/shopdays.py",
+    "autosync/shopdays_checks.py",
+    "extension/driver.test.js",
+    "extension/manifest.json",
+    "extension/tables.js",
+    "extension/tables.test.js",
+    "extension/walk.test.js"
+  ],
+  "checked_against_decision_log": true,
+  "decisions_followed": ["D726 stability work; Control's word to fix the two LOWs and bump the manifest to 0.1.22"],
+  "deviation": null,
+  "found": [
+    "Real Amazon health figures, his standing and his brand name were in N018's comments and test rows on the public branch; now made-up values, with a check (shopdays_checks.py) that went red first and keeps them out.",
+    "plain() in tables.js left any sign-then-digit cell alone, so -1+1 or +1+cmd|x ran as a formula; it now leaves a sign alone only when the whole cell is a figure, check red first.",
+    "manifest.json version is 0.1.22 so the zip for his live run says so; version.json is left for the announce step after the release."
+  ],
+  "security": "Removes seller-specific figures from a public repo and closes a spreadsheet-formula gap on page text written to files; no new permission, secret or outgoing data.",
+  "could_not_be_checked": ["The proving run on the merged tip is still going; changed lines of this commit are proved against 6621e51 afterwards."],
+  "verify_instruction": "Load the extension from the build and see its version say 0.1.22."
+}

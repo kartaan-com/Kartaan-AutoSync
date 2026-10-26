@@ -74,10 +74,11 @@ export function afterTheLabel(leaves, label) {
 }
 
 /* **A CELL THAT BEGINS LIKE A SPREADSHEET FORMULA IS MADE PLAIN TEXT** (review finding): a product title is the seller's, and a file opened
- * in Excel would run `=...` or `@...`. A sign before a figure (`-3%`, `+4`) is left alone; a sign before words is not. */
+ * in Excel would run `=...` or `@...`. A sign before a WHOLE figure (`-3%`, `+4`, `-1,250.50`) is left alone; a sign before words, or before a figure with
+ * more after it (`-1+1`), is not (the security read of the AJ2 join). */
 export const plain = (value) => {
   const text = String(value ?? '');
-  return /^([=@\t\r]|[+-][^\d.\u20B9])/.test(text) ? `'${text}` : text;
+  return /^([=@\t\r]|[+-](?!\u20B9?(\d[\d,]*)?\.?\d+%?$))/.test(text) ? `'${text}` : text;
 };
 const quoted = (value) => `"${plain(value).replace(/"/g, '""')}"`;
 

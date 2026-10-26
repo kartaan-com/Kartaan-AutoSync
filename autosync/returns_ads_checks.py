@@ -701,7 +701,7 @@ def az_ads_file(*rows):
     return table.read(("﻿" + "\n".join([AZ_ADS_HEAD, *rows]) + "\n").encode("utf-8"))
 
 
-_AZ_ROW = ('"Oct 25, 2026 - Oct 25, 2026","=""ACCOUNT-TEST""",RUMEE,,Sponsored Products,"=""100000000000001""",Test Campaign,,INR,1000,0,10,1%,,50.00000,1,,50.00000,,200.50,,4.01,')
+_AZ_ROW = ('"Oct 25, 2026 - Oct 25, 2026","=""ACCOUNT-TEST""",BRAND,,Sponsored Products,"=""100000000000001""",Test Campaign,,INR,1000,0,10,1%,,50.00000,1,,50.00000,,200.50,,4.01,')
 _az = answered(lambda: ads.read_ads("az_ads", az_ads_file(_AZ_ROW), "2026-10-26", None))
 _azc = ((_az.records.get("amazon__2026-10-25") or {}).get("campaigns") or {}).get("100000000000001", {}) if _az else {}
 check("AN AMAZON ADS DAY'S RECORD IS NAMED amazon__<day> and holds each campaign by its id, the quotes and equals sign of the id taken off",
@@ -741,7 +741,7 @@ def az_ads_days_file(*rows):
     return table.read(("﻿" + "\n".join([AZ_ADS_HEAD_DAYS, *rows]) + "\n").encode("utf-8"))
 
 
-_AZ_DAY = '"=""ACCOUNT-TEST""",RUMEE,,Sponsored Products,"=""100000000000001""",Test Campaign,,INR,"{day}",{imp},0,{clk},1%,,{cost},{buy},,,,{sales},,1.0,'
+_AZ_DAY = '"=""ACCOUNT-TEST""",BRAND,,Sponsored Products,"=""100000000000001""",Test Campaign,,INR,"{day}",{imp},0,{clk},1%,,{cost},{buy},,,,{sales},,1.0,'
 _azd = answered(lambda: ads.read_ads("az_ads", az_ads_days_file(
     _AZ_DAY.format(day="Aug 16, 2026", imp=1000, clk=10, cost="50.00000", buy=1, sales="200.50"),
     _AZ_DAY.format(day="Aug 14, 2026", imp=20, clk=1, cost="4.99000", buy=0, sales="0.00"),

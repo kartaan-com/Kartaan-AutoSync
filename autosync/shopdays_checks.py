@@ -83,35 +83,42 @@ check("a file without the Orders column is refused in words (R20 proving)",
 # **THE FIGURES ARE FROM HIS OWN ACCOUNT HEALTH PAGE (26 Oct 2026); the file is the one-row-per-day file the walk writes** (`Date`, then the five labels the recipe reads). A rate is a percentage with decimals,
 # the rating a whole number; a blank is nothing, never nought (a late dispatch rate of 0 is a good day, a blank is a page that did not draw).
 HEALTH_HEAD = "Date,Account Health Rating,Order Defect Rate,Late Dispatch Rate,Pre-fulfilment Cancel Rate,Valid Tracking Rate"
-_hd = (answered(lambda: shopdays.read_health_days("az_health", "amazon", file_of(HEALTH_HEAD + "\n2026-10-26,204,0,1.8,0,100\n"), "2026-10-26")) or ({}, ()))
-_hwant = {"platform": "amazon", "report": "az_health", "day": "2026-10-26", "healthRating": 204, "orderDefectRate": 0.0, "lateDispatchRate": 1.8,
+_hd = (answered(lambda: shopdays.read_health_days("az_health", "amazon", file_of(HEALTH_HEAD + "\n2026-10-26,187,0,1.4,0,100\n"), "2026-10-26")) or ({}, ()))
+_hwant = {"platform": "amazon", "report": "az_health", "day": "2026-10-26", "healthRating": 187, "orderDefectRate": 0.0, "lateDispatchRate": 1.4,
           "cancelRate": 0.0, "validTrackingRate": 100.0, "fileDay": "2026-10-26"}
 check("AN ACCOUNT HEALTH DAY'S RECORD HOLDS EXACTLY its day, the rating, the four rates (as numbers) and the file's day, named platform__day",
       _hd[0].get("amazon__2026-10-26") == dict(_hwant, digest=records.the_digest(_hwant)) and _hd[1] == ())
-_hnone = (answered(lambda: shopdays.read_health_days("az_health", "amazon", file_of(HEALTH_HEAD + "\n2026-10-26,204,,1.8,,100\n"), "2026-10-26")) or ({}, ()))[0]
+_hnone = (answered(lambda: shopdays.read_health_days("az_health", "amazon", file_of(HEALTH_HEAD + "\n2026-10-26,187,,1.4,,100\n"), "2026-10-26")) or ({}, ()))[0]
 check("a blank figure is nothing, not nought: a late dispatch rate of 0 is kept as 0 and a blank is left out",
-      "orderDefectRate" not in _hnone.get("amazon__2026-10-26", {"orderDefectRate": 0}) and _hnone["amazon__2026-10-26"]["lateDispatchRate"] == 1.8)
-_, _hbad = answered(lambda: shopdays.read_health_days("az_health", "amazon", file_of(HEALTH_HEAD + "\nsoon,204,0,1.8,0,100\n2026-10-27,x,0,1.8,0,100\n2026-10-28,204,0,-1,0,100\n2026-10-29,204,0,150,0,100\n"), "2026-10-29")) or ({}, ())
+      "orderDefectRate" not in _hnone.get("amazon__2026-10-26", {"orderDefectRate": 0}) and _hnone["amazon__2026-10-26"]["lateDispatchRate"] == 1.4)
+_, _hbad = answered(lambda: shopdays.read_health_days("az_health", "amazon", file_of(HEALTH_HEAD + "\nsoon,187,0,1.4,0,100\n2026-10-27,x,0,1.4,0,100\n2026-10-28,187,0,-1,0,100\n2026-10-29,187,0,150,0,100\n"), "2026-10-29")) or ({}, ())
 check("a day, a rating or a rate this cannot read (not a number, below nought, over a hundred percent) is refused by name and the rest are read", len(_hbad) == 4)
 check("a file without the Account Health columns is refused in words naming what it has",
       "Nothing was read" in str(caught(lambda: shopdays.read_health_days("az_health", "amazon", file_of("Date,Views,Orders\n2026-10-06,1,1\n"), "2026-10-26"))))
 check("every field a health record carries is one the shop-day record kind accepts", all(set(r) <= set(shopdays.SHOP_FIELDS) for r in _hd[0].values()))
 # **AMAZON'S OWN STATUS WORD (Control's word 26 Oct 2026): one text field per rate EXACTLY as the page prints it, and the overall one if the page shows it.** Optional columns: a file without them (older, or a page with no word) still reads.
 STATUS_HEAD = HEALTH_HEAD + ",Account Health Status,Order Defect Rate Status,Late Dispatch Rate Status,Pre-fulfilment Cancel Rate Status,Valid Tracking Rate Status"
-_hs = (answered(lambda: shopdays.read_health_days("az_health", "amazon", file_of(STATUS_HEAD + "\n2026-10-26,204,0,1.8,0,100,Healthy,Healthy,At Risk,Healthy,Healthy\n"), "2026-10-26")) or ({}, ()))
+_hs = (answered(lambda: shopdays.read_health_days("az_health", "amazon", file_of(STATUS_HEAD + "\n2026-10-26,187,0,1.4,0,100,Healthy,Healthy,At Risk,Healthy,Healthy\n"), "2026-10-26")) or ({}, ()))
 _hs_rec = _hs[0].get("amazon__2026-10-26", {})
 check("EVERY RATE'S STATUS WORD IS KEPT AS TEXT EXACTLY AS AMAZON PRINTS IT, and the overall status too, in fields of their own",
       (_hs_rec.get("healthStatus"), _hs_rec.get("orderDefectRateStatus"), _hs_rec.get("lateDispatchRateStatus"), _hs_rec.get("cancelRateStatus"), _hs_rec.get("validTrackingRateStatus"))
-      == ("Healthy", "Healthy", "At Risk", "Healthy", "Healthy") and _hs[1] == () and _hs_rec.get("lateDispatchRate") == 1.8)
-_hsb = (answered(lambda: shopdays.read_health_days("az_health", "amazon", file_of(STATUS_HEAD + "\n2026-10-26,204,0,1.8,0,100,,,At Risk,,\n"), "2026-10-26")) or ({}, ()))[0].get("amazon__2026-10-26", {})
+      == ("Healthy", "Healthy", "At Risk", "Healthy", "Healthy") and _hs[1] == () and _hs_rec.get("lateDispatchRate") == 1.4)
+_hsb = (answered(lambda: shopdays.read_health_days("az_health", "amazon", file_of(STATUS_HEAD + "\n2026-10-26,187,0,1.4,0,100,,,At Risk,,\n"), "2026-10-26")) or ({}, ()))[0].get("amazon__2026-10-26", {})
 check("a blank status word is left out, never written as an empty text, and the figures still land",
       "healthStatus" not in _hsb and "orderDefectRateStatus" not in _hsb and _hsb.get("lateDispatchRateStatus") == "At Risk" and _hsb.get("orderDefectRate") == 0.0)
 check("a status word is part of the record's digest, so a rate that turns At Risk is a changed record",
       _hs_rec.get("digest") != _hd[0]["amazon__2026-10-26"]["digest"])
 
+# **A PUBLIC REPOSITORY COPIED INTO EVERY SELLER'S ACCOUNT NEVER CARRIES ONE SELLER'S OWN FIGURES OR BRAND (the security read of the AJ2 join, 26 Oct 2026):** the real health rating,
+# the real late-dispatch rate with his status, and his brand as a test row all came in with N018 and are gone; this keeps them out.
+_HERE = Path(__file__).resolve().parent
+_PUBLIC_TEXT = " ".join((_HERE / one).read_text(encoding="utf-8") for one in ("shopdays.py", "reports.py", "recipes.py", "recipes_checks.py", "returns_ads_checks.py"))
+check("no seller's own account-health figures, standing or brand name in the sources and checks N018 added",
+      not any(one in _PUBLIC_TEXT for one in ("rating 187", "1.4% against", "At Risk on Late", "RUMEE,")))
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 7 + 4 + 5 + 3
+EXPECTED = 7 + 4 + 5 + 3 + 1
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

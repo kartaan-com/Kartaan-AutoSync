@@ -337,7 +337,7 @@ REPORTS: Tuple[Report, ...] = (
     Report("az_claims", "amazon", "Amazon SAFE-T claims", BROWSER, DAILY, "csv",
            cannot_backfill="The page offers Yesterday, the last 7, 30 or 60 days, or exact dates; the run asks for one of the relative ones, so a day already gone cannot be fetched again by the run. "
                            "Overlapping files are expected and are settled by the SAFE-T claim id."),
-    # **AMAZON'S ACCOUNT HEALTH BY THE BROWSER (N018, his ruling D726; Control's word: he is At Risk on Late Dispatch).** Account health > Manage account health: five figures on the page (the rating and four rates), no download, so they are read off the
+    # **AMAZON'S ACCOUNT HEALTH BY THE BROWSER (N018, his ruling D726).** Account health > Manage account health: five figures on the page (the rating and four rates), no download, so they are read off the
     # page and written as the day's own one-row file, like Meesho's views. How the page stands today, so a past day cannot be had.
     Report("az_health", "amazon", "Amazon account health", BROWSER, DAILY, "csv", cannot_backfill=_SNAPSHOT),
     # **AMAZON ADS BY THE BROWSER (N018, his ruling D726; Control's word: build it anyway; D728 refined 26 Oct 2026).** Amazon Ads console (`advertising.amazon.in`) > Reporting: ONE saved Campaign report named `Kartaan campaign by day` (the Date column, the last 30 days, once, CSV) is

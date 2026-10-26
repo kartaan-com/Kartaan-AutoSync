@@ -2731,16 +2731,16 @@ for (const [start, end, from, expectedMonth] of [
 }
 
 /* --------------------------------------------- N018: a PERCENTAGE read off a card (Amazon's Account Health, 26 Oct 2026)
- * **ADDED BESIDE THE PLAIN-NUMBER READ, NEVER IN PLACE OF IT.** A card there reads `Late Dispatch Rate`, `1.8%`, `2 of 111 orders`, `30 days`; the plain read takes whole numbers only and would take
+ * **ADDED BESIDE THE PLAIN-NUMBER READ, NEVER IN PLACE OF IT.** A card there reads `Late Dispatch Rate`, `1.4%`, `2 of 111 orders`, `30 days`; the plain read takes whole numbers only and would take
  * the `2`. A step says it wants a percentage; one that does not says nothing and reads exactly as it always did -- the Meesho views checks above are that proof. */
 {
   const page = aPage();
   const door = doorOn();
   const card = thing('div');
-  card.append(thing('a', 'Late Dispatch Rate'), thing('span', '1.8%'), thing('span', '2 of 111 orders'), thing('span', '30 days'));
+  card.append(thing('a', 'Late Dispatch Rate'), thing('span', '1.4%'), thing('span', '2 of 111 orders'), thing('span', '30 days'));
   page.body.append(card);
   check('a percentage is read as the number it is, with its decimals',
-    (await door.read_number(BY_TEXT, 'Late Dispatch Rate', true, 0, [], '', 'percent')) === 1.8);
+    (await door.read_number(BY_TEXT, 'Late Dispatch Rate', true, 0, [], '', 'percent')) === 1.4);
   const whole = thing('div');
   whole.append(thing('a', 'Valid Tracking Rate'), thing('span', '100%'), thing('span', '64 of 64 shipments'));
   page.body.append(whole);
@@ -2750,9 +2750,9 @@ for (const [start, end, from, expectedMonth] of [
   check('the same card read the PLAIN way is still refused as before: no whole number beside it, and it is not handed the percentage or the 64',
     plainSaid.includes('no plain number'));
   const plainCard = thing('div');
-  plainCard.append(thing('a', 'Account Health Rating'), thing('span', '204'), thing('span', '0 - 1000'));
+  plainCard.append(thing('a', 'Account Health Rating'), thing('span', '187'), thing('span', '0 - 1000'));
   page.body.append(plainCard);
-  check('while a whole number beside its label is read the plain way exactly as before', (await door.read_number(BY_TEXT, 'Account Health Rating')) === 204);
+  check('while a whole number beside its label is read the plain way exactly as before', (await door.read_number(BY_TEXT, 'Account Health Rating')) === 187);
   const bare = aPage();
   const bareCard = thing('div');
   bareCard.append(thing('a', 'Order Defect Rate'), thing('span', '0 of 128 orders'));
@@ -2768,7 +2768,7 @@ for (const [start, end, from, expectedMonth] of [
   const page = aPage();
   const door = doorOn();
   const risk = thing('div');
-  risk.append(thing('a', 'Late Dispatch Rate'), thing('span', '1.8%'), thing('span', 'At Risk'), thing('span', 'Target: below 4%'));
+  risk.append(thing('a', 'Late Dispatch Rate'), thing('span', '1.4%'), thing('span', 'At Risk'), thing('span', 'Target: below 4%'));
   const fine = thing('div');
   fine.append(thing('a', 'Valid Tracking Rate'), thing('span', '100%'), thing('span', 'Healthy'));
   const unknown = thing('div');

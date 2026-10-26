@@ -1176,12 +1176,12 @@ check('asked to step back by nothing at all, it answers the day itself',
     daysInWords: BOOK.daysInWords,
     fileNames: BOOK.fileNames,
   };
-  const portal = aPortal({ cards: { Views: 204, Orders: 1.8 } });
+  const portal = aPortal({ cards: { Views: 187, Orders: 1.4 } });
   const got = await aWalk(portal, health)('me_views', DAY);
   check('a step that reads a percentage asks the door for one, and a plain step asks for nothing special',
     got.state === LANDED && portal.numbersRead.length === 2 && portal.numbersRead[0].reads === '' && portal.numbersRead[1].reads === 'percent');
   check('and both figures reach the day\'s row under the names the recipe gives them',
-    portal.rowsAdded.length === 1 && portal.rowsAdded[0].header === 'Date,Account Health Rating,Late Dispatch Rate' && portal.rowsAdded[0].row.endsWith(',204,1.8'));
+    portal.rowsAdded.length === 1 && portal.rowsAdded[0].header === 'Date,Account Health Rating,Late Dispatch Rate' && portal.rowsAdded[0].row.endsWith(',187,1.4'));
 }
 
 /* --------------------------- N018: EVERY CLOSED STATEMENT THE DRIVE DOES NOT ALREADY HOLD (Control's ruling of 26 Oct 2026)

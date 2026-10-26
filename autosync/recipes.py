@@ -1473,7 +1473,7 @@ RECIPES: Dict[str, Recipe] = {
         ),
     ),
 
-    # ---- Amazon Account Health by the browser (N018, his ruling D726; Control's word: he is At Risk on Late Dispatch). **Read off the page, because it has no download**: the rating (a whole number beside its label) and four
+    # ---- Amazon Account Health by the browser (N018, his ruling D726). **Read off the page, because it has no download**: the rating (a whole number beside its label) and four
     # ---- rates, each read as a PERCENTAGE because the same card also says `2 of 111 orders`. Written as the day's own one-row file, like Meesho's views (his D473). Seen on his page 26 Oct 2026; **NOT YET RUN LIVE.**
     "az_health": Recipe(
         to_take=(

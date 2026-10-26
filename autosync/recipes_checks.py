@@ -807,8 +807,8 @@ check("and when no closed statement is new that is NOTHING TO FETCH in words, ne
       len(AZS_STEPS) == 3 and "nothing to fetch" in AZS_STEPS[2].none_means_nothing_to_fetch and AZS_STEPS[1].find.how == pages.BY_TEXT)
 check("only that one step may say that nothing new is nothing to fetch, across every recipe",
       answered(lambda: [(r, i) for r in tool.every_recipe() for i, s in enumerate(tool.recipe(r).to_ask + tool.recipe(r).to_take) if s.none_means_nothing_to_fetch] == [("az_settlements", 2)]))
-# **AMAZON'S ACCOUNT HEALTH THROUGH THE BROWSER (N018, his ruling D726), read off his own Seller Central on 26 Oct 2026:** Account health > Manage account health (`/performance/dashboard`) shows the rating (204,
-# a whole number beside its label) and four rates (`1.8%`, with `2 of 111 orders` and `30 days` in the same card, which is why a rate is read as a PERCENTAGE). No download: the day is written as its own one-row file.
+# **AMAZON'S ACCOUNT HEALTH THROUGH THE BROWSER (N018, his ruling D726), read off his own Seller Central on 26 Oct 2026:** Account health > Manage account health (`/performance/dashboard`) shows the rating (a whole number,
+# beside its label) and four rates (`1.4%`, with `2 of 111 orders` and `30 days` in the same card, which is why a rate is read as a PERCENTAGE). No download: the day is written as its own one-row file.
 AZH = answered(lambda: tool.RECIPES["az_health"])
 AZH_STEPS = AZH.to_take if AZH else ()
 check("az_health is a one-phase read of thirteen steps: open, wait, five figures, five status words, write the day",

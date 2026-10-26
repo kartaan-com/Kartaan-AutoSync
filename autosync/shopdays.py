@@ -51,7 +51,7 @@ def read_shop_days(report_id: str, platform: str, rows: table.Table, file_day: s
 
 
 # ---------------------------------------------------------------- AMAZON'S ACCOUNT HEALTH (N018)
-# **THE FIGURES ARE FROM HIS OWN ACCOUNT HEALTH PAGE (seen 26 Oct 2026: rating 204; order defect 0%, late dispatch 1.8% against a 2% target, pre-fulfilment cancel 0%, valid tracking 100%)**, written by the walk as the day's
+# **THE FIGURES ARE FROM A SELLER'S ACCOUNT HEALTH PAGE (seen 26 Oct 2026: a whole-number rating and four percentages, each written as the page gives it)**, written by the walk as the day's
 # own one-row file (his D473: a running list is never read again). It is the same kind of fact as Meesho's views -- a figure for the WHOLE SHOP on a day -- so it lands as the same record, `platform_shop_days/amazon__<day>`.
 # **A BLANK IS NOTHING, NEVER NOUGHT:** a late dispatch rate of 0 is a good day, a blank is a page that did not draw. A rate below nought or over a hundred percent, or a rating that is not a whole number, is refused by name.
 HEALTH_COLUMNS = ("Date", "Account Health Rating", "Order Defect Rate", "Late Dispatch Rate", "Pre-fulfilment Cancel Rate", "Valid Tracking Rate")

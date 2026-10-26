@@ -74,7 +74,7 @@ SAMPLES = {
     # Amazon's Account Health day file (N018): the five labels the walk reads, the figures seen on his page on 26 Oct 2026.
     "az_health": (
         "amazon_az_health_2026-10-26.csv",
-        "Date,Account Health Rating,Order Defect Rate,Late Dispatch Rate,Pre-fulfilment Cancel Rate,Valid Tracking Rate\n2026-10-26,204,0,1.8,0,100\n"),
+        "Date,Account Health Rating,Order Defect Rate,Late Dispatch Rate,Pre-fulfilment Cancel Rate,Valid Tracking Rate\n2026-10-26,187,0,1.4,0,100\n"),
     # Amazon's SAFE-T claims report (N018): the real header, one made-up row.
     "az_claims": (
         "amazon_az_claims_2026-10-26.csv",

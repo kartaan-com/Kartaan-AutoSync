@@ -369,6 +369,7 @@ check('a title that begins like a formula is made plain text, and a figure with 
   plain('=HYPERLINK("x")') === "'=HYPERLINK(\"x\")" && plain('@SUM(1)') === "'@SUM(1)" && plain('-cmd') === "'-cmd"
   && plain('-3%') === '-3%' && plain('+4') === '+4' && plain('\u20B9199') === '\u20B9199' && plain('Ring') === 'Ring');
 check('and the file carries the guard', theCsv(['a'], [['=1+1']]).split('\n')[1] === `"'=1+1"`);
+check('A SIGN FOLLOWED BY A DIGIT IS ONLY LEFT ALONE WHEN THE WHOLE CELL IS A FIGURE (the AJ2 security read): -1+1 and +1+cmd are still formulas',   plain('-1+1') === "'-1+1" && plain('+1+cmd|x') === "'+1+cmd|x" && plain('-.5') === '-.5' && plain('-1,250.50') === '-1,250.50' && plain('+₹1,199') === '+₹1,199' && plain('-12.5%') === '-12.5%');
 
 {
   /* The names the recipes ask for and the names this reads must be the same list, so a drift reads red here. */
@@ -536,7 +537,7 @@ const THE_QUALITY_PRODUCTS = {
 }
 
 console.log(failures ? `\n${failures} FAILED (${ran} checks)` : `\nall ${ran} checks passed`);
-const EXPECTED = 52 + 1 + 4 + 5 + 10;
+const EXPECTED = 52 + 1 + 4 + 5 + 10 + 1;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   process.exit(1);
