@@ -2684,7 +2684,28 @@ for (const [start, end, from, expectedMonth] of [
   check('while a word that is nowhere on the page is still nowhere', (await door.find(BY_PRESSABLE_TEXT, 'Cancelled Listings Report', true, 0)) === 0);
 }
 
-const EXPECTED = 325 + 3;
+/* **AND A ROW IS FOUND THROUGH A SHADOW ROOT TOO (the Opus review of N018's range, finding 4).** Amazon's `Download` controls are `kat-button`s; if the word is drawn inside the button's shadow root, the
+ * climb from it to its row has to step from the root to the HOST (a real root has no parent of its own), or every take narrowed to a day finds nothing. */
+{
+  const page = aPage();
+  const door = doorOn();
+  const row = thing('div', '', { box: BIG });
+  row.append(thing('b', 'All Listings Report 25 October 2026 at 10:31 pm', { box: BIG }));
+  const host = thing('kat-button', '', { box: BIG });
+  const label = thing('span', 'Download', { box: BIG });
+  label.style.cursor = 'pointer';
+  const root = { children: [label], host, parentNode: null };
+  label.parentNode = root;
+  host.shadowRoot = root;
+  row.append(host);
+  page.body.append(row);
+  check('a word inside a component\'s shadow root is narrowed to its row through the host',
+    (await door.find(BY_PRESSABLE_TEXT, 'Download', true, 0, ['25 October 2026'], 'All Listings Report')) === 1);
+  check('and a row that does not name the day still has none of them',
+    (await door.find(BY_PRESSABLE_TEXT, 'Download', true, 0, ['26 October 2026'], 'All Listings Report')) === 0);
+}
+
+const EXPECTED = 325 + 3 + 2;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

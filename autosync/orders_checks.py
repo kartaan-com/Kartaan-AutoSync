@@ -386,9 +386,22 @@ check("AMAZON'S 'Shipped - Returned to Seller' IS A PARCEL THAT CAME BACK, and '
 check("FLIPKART'S APPROVAL_HOLD IS AN ORDER STILL WAITING FOR APPROVAL: blank, not 'not understood yet' (D446)",
       tool.what_happened("APPROVAL_HOLD") is None)
 
+# **THE FILE SELLER CENTRAL'S ALL ORDERS REPORT GIVES (N018, seen live 26 Oct 2026: tab-separated, 35 columns, asked by Last Updated Date).** Moving Amazon orders off the API to the browser (his ruling D726)
+# is only right if the reader takes this file's own header as it is. The header below is the real one; the row is made up.
+_AZ_LIVE_HEAD = ("amazon-order-id", "merchant-order-id", "purchase-date", "last-updated-date", "order-status", "fulfillment-channel", "sales-channel", "order-channel", "url",
+                 "ship-service-level", "product-name", "sku", "asin", "item-status", "quantity", "currency", "item-price", "item-tax", "shipping-price", "shipping-tax",
+                 "gift-wrap-price", "gift-wrap-tax", "item-promotion-discount", "ship-promotion-discount", "ship-city", "ship-state", "ship-postal-code", "ship-country",
+                 "promotion-ids", "is-business-order", "purchase-order-number", "price-designation", "is-iba", "order-item-id", "is-prime ")
+_az_live_row = {"amazon-order-id": "406-0000000-0000001", "purchase-date": "2026-10-20T10:00:00+00:00", "last-updated-date": "2026-10-25T10:00:00+00:00",
+                "order-status": "Shipped", "fulfillment-channel": "Merchant", "sku": "SKU-L", "quantity": "2", "item-price": "398.00", "currency": "INR"}
+_az_live = answered(lambda: tool.read_orders(a_file(_AZ_LIVE_HEAD, tuple(_az_live_row.get(c, "") for c in _AZ_LIVE_HEAD)), "amazon"))
+check("THE FILE THE ALL ORDERS PAGE GIVES IS READ BY THE SAME READER, on its own 35-column header: the order, SKU, day, quantity and price come through (N018)",
+      _az_live is not None and len(_az_live.sales) == 1 and _az_live.sales[0].order_id == "406-0000000-0000001" and _az_live.sales[0].sku == "SKU-L"
+      and _az_live.sales[0].on == "2026-10-20" and str(_az_live.sales[0].qty) == "2" and _az_live.sales[0].gmv == "398.00")
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-WITH_HIS_FILES = 98
+WITH_HIS_FILES = 99
 WITHOUT = WITH_HIS_FILES - 7 * len(REAL) - 3
 EXPECTED = WITH_HIS_FILES if not not_run else WITHOUT
 if ran != EXPECTED:

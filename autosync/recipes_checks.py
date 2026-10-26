@@ -711,7 +711,7 @@ for az_id, az_name, az_minutes in (("az_listings", "All Listings Report", 30), (
           and take[2].find.what == "Download" and take[2].find.near == "{day_in_words}" and take[2].find.also_saying == az_name
           and take[2].find.day_in_words_is == "amazon" and take[2].find.day_in_words_of == pages.THE_DAY_IT_WAS_MADE
           and "Cancelled" in take[2].find.called)
-check("Amazon's wording of a day is written down, with no purely numeric day/month form (05/06/2026 is two different days to two readers)",
+check("Amazon's wording of a day is written down, with the measured day-first numeric forms for Amazon alone (N018; 05/06/2026 is two days to two readers, so no other portal may use them)",
       answered(lambda: tool.the_days_in_words("amazon", date(2026, 6, 5))
                == ("5 Jun 2026", "05 Jun 2026", "Jun 5, 2026", "Jun 05, 2026", "2026-06-05", "5 June 2026", "05/06/26", "05/06/2026", "5/6/2026")))
 # **AMAZON RETURNS THROUGH THE BROWSER (N018, 26 Oct 2026), measured on his own Seller Central:** Orders > Order reports > Seller fulfilled return reports (`/returns/report`)

@@ -271,6 +271,13 @@ function thePage() {
 }
 
 /** Everything on the page, in the order it is written. */
+/* **THE PARENT OF A NODE, STEPPING OUT OF A SHADOW ROOT TO ITS HOST (N018, the Opus review's finding 4).** A node at the top of an open shadow root has the ROOT as its parent and the root has
+ * none of its own, so a climb to a row stopped there and a word drawn inside a `kat-button` could never be narrowed to its row. The root itself is never returned: it has no box and no text of its own. */
+function theParentOf(node) {
+  const up = node.parentNode;
+  return up && up.host ? up.host : up;
+}
+
 function everything(node, found = []) {
   found.push(node);
   for (const child of node.children || []) everything(child, found);
@@ -430,7 +437,7 @@ function whatMatches(how, what, exact, near = [], alsoSaying = '') {
    * into a wrong one -- at worst it removes the right one too, and then the
    * count is nought and the step refuses, which is the safe direction. */
   return innermost.filter((node) => {
-    let up = node.parentNode;
+    let up = theParentOf(node);
     /* **AND IT STOPS CLIMBING, WHICH IT DID NOT UNTIL 2026-09-11.**
      *
      * **WHAT IT COST, MEASURED ON HIS OWN CLAIMS PANEL.** That panel's own
@@ -474,7 +481,7 @@ function whatMatches(how, what, exact, near = [], alsoSaying = '') {
        * are being passed by two different rows. */
       if (rows.some((row) => said.includes(row))
           && (!alsoSaid || said.includes(alsoSaid))) return true;
-      up = up.parentNode;
+      up = theParentOf(up);
     }
     return false;
   });

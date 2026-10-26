@@ -900,7 +900,7 @@ check('the allowance is twenty, and it is a number a program can read',
     stands.platforms.filter((one) => one.id === 'amazon').length === 1
     && stands.platforms.some((one) => one.id === 'amazon' && one.throughTheBrowser === true
       && one.ready === false && one.lastRun === null));
-  check('and its walked reports, orders, settlements, returns, SAFE-T claims, traffic, All Listings and Referral Fee Preview, are fetchable, SAFE-T claims is listed but waits for its recipe (N018), and all are in the list of reports walked in the browser',
+  check('and its walked reports, orders, settlements, returns, SAFE-T claims, traffic, All Listings and Referral Fee Preview, are fetchable and are in the list of reports walked in the browser',
     stands.reports.filter((one) => one.platform === 'amazon').map((one) => one.id).sort().join() === 'az_claims,az_fee_preview,az_listings,az_orders,az_returns,az_settlements,az_traffic'
     && stands.reports.filter((one) => one.platform === 'amazon').every((one) => one.canBeFetched === true));
   check('nothing is set up yet, and both halves are named',
@@ -917,7 +917,7 @@ check('the allowance is twenty, and it is a number a program can read',
     stands.cannotBeFetched.every((one) => one.why.length > 40));
   check('the reasons are the Python\'s own words, not words invented here',
     stands.cannotBeFetched.every((one) => one.why === BOOK.notYetARecipe[one.id]));
-  check('so every report can be ticked but the two switched off (A84) ',
+  check('so every report can be ticked but the two switched off (A84)',
     stands.reports.filter((one) => !one.canBeFetched).map((one) => one.id).sort().join() === 'fk_ads_kw,fk_keywords');
   /* **AND THE TWO THE ADS SWEEP BRINGS ARE TICKABLE AND SAY WHO BRINGS THEM.**
    * Listed as unfetchable, a seller would read "cannot be fetched" about two

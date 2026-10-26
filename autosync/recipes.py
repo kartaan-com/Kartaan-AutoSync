@@ -1411,7 +1411,7 @@ RECIPES: Dict[str, Recipe] = {
     "az_listings": _amazon_inventory_report("All Listings Report", 30),
     "az_fee_preview": _amazon_inventory_report("Referral Fee Preview Report", 45),
 
-    # ---- Amazon orders by the browser (N018, his ruling D726). **Asked by LAST UPDATED date, which is how the order reader keys a row, with the page's own default range (last day, a rolling
+    # ---- Amazon orders by the browser (N018, his ruling D726). **Asked by LAST UPDATED date (so an order whose status changed, shipped or was cancelled, is in the file; the reader keys a row by the order id and SKU), with the page's own default range (last day, a rolling
     # ---- 24 hours from the request)**; Amazon builds it in about 40 seconds and the row reads Ready with a Download. Seen on his page 26 Oct 2026; **NOT YET RUN LIVE.**
     "az_orders": Recipe(
         ready_in_minutes=2,
