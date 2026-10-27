@@ -397,7 +397,7 @@ function wordsOn(node) {
 }
 
 function testIdOf(node) {
-  return node.getAttribute('data-testid') ?? '';
+  return node.getAttribute('data-testid') ?? node.getAttribute('data-test-id') ?? '';
 }
 
 function looksLike(node, how, what, exact) {

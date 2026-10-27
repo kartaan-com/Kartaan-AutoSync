@@ -846,7 +846,7 @@ check("THE CREATING STEPS ARE EACH DONE ONLY WHEN THE SAVED ROW IS NOT THERE: op
       and _create[0].address == "https://advertising.amazon.in/reporting/new?templateId=campaign"
       and _create[1].find.how == pages.BY_THE_CONTROL_BESIDE and _create[1].find.what == "Report name"
       and _create[2].find.how == pages.BY_THE_CONTROL_BESIDE and _create[2].find.what == "Report name" and _create[2].words == "Kartaan campaign by day"
-      and [s.find.what for s in _create[3:]] == ["Date range", "Date", "Last seven days", "Last 30 days", "Submit"])
+      and [s.find.what for s in _create[3:]] == ["option-root-Date range", "option-root-Date", "Last seven days", "Last 30 days", "Submit"])
 check("then it waits for the saved row (found or just made), and opens ITS Actions and presses Run only when that row does not already show today -- a report just created has run once and is not run again",
       len(AZA_STEPS) == 18 and AZA_STEPS[10].do == pages.WAIT_FOR and AZA_STEPS[10].find == AZA_ROW and AZA_STEPS[10].only_if_absent is None
       and AZA_STEPS[11].do == pages.CLICK and AZA_STEPS[11].find == AZA_ROW and AZA_STEPS[12].do == pages.CLICK and AZA_STEPS[12].find.what == "Run"
@@ -1438,11 +1438,14 @@ check("and it is asked for as the whole word, because a loose one is what cost n
 # `cursor: auto` -- a row heading, measured -- and what starts a request is a
 # real button reading `REQUEST REPORT`, one on every row. So the words name the
 # row and the button beside them is pressed, exactly as the box-beside way does.
-check("every one of them is pressable, a thing beside some words, or that one menu",
+# **A THIRD NAMED EXCEPTION SINCE 27 OCT 2026: the thing the page names itself (`data-test-id`).** The ads Create report form writes "Date range" twice (the column checkbox row and the report period field) and the words cannot tell them apart; the column checkbox is the row named `option-root-Date range` (his console output), and `option-root-Date` is the Date column.
+check("every one of them is pressable, a thing beside some words, that one menu, or the ads column rows named by the page itself",
       answered(lambda: all(f.how in (tool.BY_PRESSABLE_TEXT, tool.BY_ROLE_AND_TEXT,
                                      tool.BY_THE_CONTROL_BESIDE, tool.BY_THE_BUTTON_BESIDE,
-                                     tool.BY_TEXT)
+                                     tool.BY_TEXT, tool.BY_TEST_ID)
                            for f in CLICKED)))
+check("and the test-id way is used by the two ads column rows and nowhere else",
+      answered(lambda: sorted({r for r in tool.every_recipe() for s in (tool.recipe(r).to_ask + tool.recipe(r).to_take) if s.find is not None and s.find.how == tool.BY_TEST_ID}) == ["az_ads"]))
 check("and the button-beside way is asked for on the Reports Centre two and nowhere else (Amazon's ads console row actions joined, N018)",
       answered(lambda: sorted({r for r in tool.every_recipe()
                                for one in (tool.recipe(r).to_ask + tool.recipe(r).to_take)
@@ -1630,7 +1633,7 @@ check("and the panel name was still filled into the addresses on the way",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 456
+EXPECTED = 457
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

@@ -164,8 +164,8 @@
         {
           "do": "click",
           "find": {
-            "how": "pressable",
-            "what": "Date range",
+            "how": "test-id",
+            "what": "option-root-Date range",
             "exact": true,
             "called": "the Date range column",
             "near": "",
@@ -201,8 +201,8 @@
         {
           "do": "click",
           "find": {
-            "how": "pressable",
-            "what": "Date",
+            "how": "test-id",
+            "what": "option-root-Date",
             "exact": true,
             "called": "the Date column",
             "near": "",

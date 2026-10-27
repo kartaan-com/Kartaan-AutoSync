@@ -675,6 +675,16 @@ function everyDateBox(page) {
     (await door.find(BY_TEST_ID, 'anything at all')) === 0);
 }
 
+/* **AMAZON ADS CALLS ITS TEST ID `data-test-id` (his console output of 27 Oct 2026):** the Create report form's column checkboxes are `li` rows named `option-root-Date range` and `option-root-Date`, the one stable thing that tells the Date range COLUMN from the report period field and from the column's own tooltip text. */
+{
+  const page = aPage();
+  const door = doorOn();
+  const column = thing('li', 'Date range', { attrs: { 'data-test-id': 'option-root-Date range', role: 'treeitem' } });
+  page.body.append(column, thing('label', 'Date range'), thing('li', 'Date', { attrs: { 'data-test-id': 'option-root-Date' } }));
+  check('a thing Amazon Ads names with data-test-id is found by that name, one thing each',
+    (await door.find(BY_TEST_ID, 'option-root-Date range')) === 1 && (await door.find(BY_TEST_ID, 'option-root-Date')) === 1);
+}
+
 {
   const door = doorOn();
   /* NOT ANSWERED WITH NOUGHT. A way of finding something this does not
@@ -3129,7 +3139,7 @@ for (const [start, end, from, expectedMonth] of [
     refused.includes('is not on the calendar') && pressedInAugust.length === 0 && pressedInSeptember.length === 0);
 }
 
-const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1;
+const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1 + 1;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;
