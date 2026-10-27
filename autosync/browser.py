@@ -179,12 +179,14 @@ BY_THE_BUTTON_BESIDE = "button-beside"  # the button on the row these words name
 # pretending -- for the same reason `BY_A_REAL_BUTTON` exists.
 
 
-# **PRESSABLE WORDS WHERE EACH ROW HOLDS TWO OF THEM AND THE SECOND IS WANTED (his fifth live Amazon run, 27 Oct 2026, az_returns).** Amazon's returns rows have a Download for the XML and one for the TSV, both
-# reading `Download`; each held the other match, so neither counted as sitting in a row and nothing was found. The extension lets a row hold its pair and presses the SECOND of the newest row's pair.
-BY_THE_SECOND_PRESSABLE = "pressable-second"
+# **A LINK BY WHAT ITS ADDRESS ENDS IN (his Chrome, 27 Oct 2026, Amazon returns).** Each row has a Download for the XML and one for the TSV, both reading `Download`; today's rows carry both and older rows only the TSV, so the
+# words cannot tell them apart and the address can: `what` is the ending (`.tsv`), only an `a` counts.
+BY_THE_LINK_ENDING = "link-ending"
+# **A COLUMN'S ROW IS FOUND BY THE PAGE'S OWN NAME FOR IT BUT PRESSED BY THE LABEL INSIDE IT (his Chrome, 27 Oct 2026, Amazon Ads; proved by the checkbox state before and after each click):** pressing the row does nothing.
+BY_THE_LABEL_IN_TEST_ID = "label-in-test-id"
 
 WAYS_OF_FINDING = (BY_TEXT, BY_ROLE_AND_TEXT, BY_TEST_ID, BY_PRESSABLE_TEXT,
-                   BY_THE_CONTROL_BESIDE, BY_A_REAL_BUTTON, BY_THE_BUTTON_BESIDE, BY_THE_SECOND_PRESSABLE)
+                   BY_THE_CONTROL_BESIDE, BY_A_REAL_BUTTON, BY_THE_BUTTON_BESIDE, BY_THE_LINK_ENDING, BY_THE_LABEL_IN_TEST_ID)
 
 # ---------------------------------------------------- which day names the row
 

@@ -27,7 +27,7 @@ import { FakeNode, installFakeBrowser } from '../test/fake-browser.js';
 import {
   BY_A_REAL_BUTTON,
   BY_PRESSABLE_TEXT, BY_ROLE_AND_TEXT, BY_TEST_ID, BY_TEXT, BY_THE_CONTROL_BESIDE,
-  BY_THE_BUTTON_BESIDE, BY_THE_SECOND_PRESSABLE,
+  BY_THE_BUTTON_BESIDE, BY_THE_LINK_ENDING, BY_THE_LABEL_IN_TEST_ID,
   CAUGHT_A_FILE, THE_CALLS, ASKED_ONLY_BY_THE_WALK,
   pageDoor, theCatcherSaid, theExtensionIsGone, aFileReallyComesFrom,
   DECLINED_A_LINK, looksLikeASpreadsheet, onThePlatformsOwnSite, whatThePageTriedToOpen,
@@ -2292,8 +2292,9 @@ for (const [start, end, from, expectedMonth] of [
   const rowOf = (when, tag) => {
     const row = thing('div', '', { box: BIG });
     row.append(thing('span', 'All Returns', { box: BIG }), thing('span', when, { box: BIG }));
-    for (const kind of ['xml', 'tsv']) {
-      const press = thing('div', 'Download', { box: BIG });
+    /* TODAY'S rows carry an XML Download then a TSV Download; OLDER rows carry only the TSV (his Chrome, 27 Oct 2026). */
+    for (const kind of (tag === 'old' ? ['tsv'] : ['xml', 'tsv'])) {
+      const press = thing('a', 'Download', { box: BIG, attrs: { href: `/reports/report-${tag}.${kind}` } });
       press.style.cursor = 'pointer';
       press.addEventListener('click', () => pressed.push(`${tag} ${kind}`));
       row.append(press);
@@ -2305,10 +2306,24 @@ for (const [start, end, from, expectedMonth] of [
   rowOf('26 October 2026 at 6:36:21 am IST', 'old');
   check('plain pressable words find nothing on a row holding two Downloads, as the live run did',
     (await door.find(BY_PRESSABLE_TEXT, 'Download', true, 0, ['27 October 2026'], 'All Returns')) === 0);
-  check('the second-of-two way finds both Downloads of each of today\'s rows and none of another day\'s',
-    (await door.find(BY_THE_SECOND_PRESSABLE, 'Download', true, 0, ['27 October 2026'], 'All Returns')) === 4);
-  door.click(BY_THE_SECOND_PRESSABLE, 'Download', true, ['27 October 2026'], true, 'All Returns');
-  check('and it presses the second Download of the newest row', pressed.length === 1 && pressed[0] === 'newest tsv');
+  check('the link-ending way finds the one TSV link of each of today\'s rows and none of another day\'s',
+    (await door.find(BY_THE_LINK_ENDING, '.tsv', true, 0, ['27 October 2026'], 'All Returns')) === 2);
+  door.click(BY_THE_LINK_ENDING, '.tsv', true, ['27 October 2026'], true, 'All Returns');
+  check('and it presses the TSV of the newest row, never the XML', pressed.length === 1 && pressed[0] === 'newest tsv');
+}
+/* **THE COLUMN'S CHECKBOX IS TOGGLED BY ITS LABEL, NOT BY THE ROW (his Chrome, 27 Oct 2026, proved by the checkbox state before and after each click):** pressing `li[data-test-id="option-root-Date range"]` does nothing; the `label` inside it toggles it. */
+{
+  const page = aPage();
+  const door = doorOn();
+  const pressed = [];
+  const row = thing('li', '', { box: BIG, attrs: { 'data-test-id': 'option-root-Date range' } });
+  row.addEventListener('click', () => pressed.push('the row'));
+  const label = thing('label', 'Date range', { box: BIG });
+  label.addEventListener('click', () => pressed.push('the label'));
+  row.append(label);
+  page.body.append(row);
+  door.click(BY_THE_LABEL_IN_TEST_ID, 'option-root-Date range');
+  check('a column row is pressed by the label inside it, never by the row itself', pressed[0] === 'the label');
 }
 {
   const page = aPage();
@@ -3218,7 +3233,7 @@ for (const [start, end, from, expectedMonth] of [
     refused.includes('is not on the calendar') && pressedInAugust.length === 0 && pressedInSeptember.length === 0);
 }
 
-const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1 + 1 + 1 + 3 + 2;
+const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1 + 1 + 1 + 3 + 2 + 1;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

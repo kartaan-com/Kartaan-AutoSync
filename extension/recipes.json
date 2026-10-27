@@ -164,7 +164,7 @@
         {
           "do": "click",
           "find": {
-            "how": "test-id",
+            "how": "label-in-test-id",
             "what": "option-root-Date range",
             "exact": true,
             "called": "the Date range column",
@@ -201,7 +201,7 @@
         {
           "do": "click",
           "find": {
-            "how": "test-id",
+            "how": "label-in-test-id",
             "what": "option-root-Date",
             "exact": true,
             "called": "the Date column",
@@ -1939,8 +1939,8 @@
         {
           "do": "wait-for",
           "find": {
-            "how": "pressable-second",
-            "what": "Download",
+            "how": "link-ending",
+            "what": ".tsv",
             "exact": true,
             "called": "the Download of the All Returns row requested today",
             "near": "{day_in_words}",
@@ -1967,8 +1967,8 @@
         {
           "do": "take-file",
           "find": {
-            "how": "pressable-second",
-            "what": "Download",
+            "how": "link-ending",
+            "what": ".tsv",
             "exact": true,
             "called": "the Download of the All Returns row requested today",
             "near": "{day_in_words}",

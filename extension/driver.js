@@ -140,12 +140,13 @@ export const BY_A_REAL_BUTTON = 'button';
  * something that never changes is the same row every night. The reference has
  * done exactly this for months (`content/flipkart.js` StepC). */
 export const BY_THE_BUTTON_BESIDE = 'button-beside';
-/* **PRESSABLE WORDS, WHERE THE ROW HOLDS TWO OF THEM AND THE SECOND IS THE ONE WANTED (his fifth live Amazon run, 27 Oct 2026, az_returns).** Amazon's returns rows carry a Download for the XML and one for the
- * TSV, both reading `Download`. Each held the other match, so the rule "a row holds no other match" left neither in a row and the lookup found nothing. This way lets a row hold ONE other match (its pair),
- * and a click presses the SECOND of the newest row's pair. */
-export const BY_THE_SECOND_PRESSABLE = 'pressable-second';
+/* **A LINK BY WHAT ITS ADDRESS ENDS IN (his Chrome, 27 Oct 2026, Amazon returns):** each row has a Download for the XML and one for the TSV, both reading `Download`, and today's rows carry both while older rows carry only the TSV. The words cannot tell them
+ * apart; the address can: the TSV's ends `.tsv`. `what` is the ending (query and fragment are left off), and only an `a` counts. */
+export const BY_THE_LINK_ENDING = 'link-ending';
+/* **A COLUMN'S ROW IS FOUND BY ITS TEST ID BUT PRESSED BY THE `label` INSIDE IT (his Chrome, 27 Oct 2026, proved by the checkbox state before and after each click, Amazon Ads):** pressing the row does nothing, pressing the label toggles the checkbox. */
+export const BY_THE_LABEL_IN_TEST_ID = 'label-in-test-id';
 const WAYS_OF_FINDING = Object.freeze([BY_TEXT, BY_ROLE_AND_TEXT, BY_TEST_ID, BY_PRESSABLE_TEXT,
-  BY_THE_CONTROL_BESIDE, BY_A_REAL_BUTTON, BY_THE_BUTTON_BESIDE, BY_THE_SECOND_PRESSABLE]);
+  BY_THE_CONTROL_BESIDE, BY_A_REAL_BUTTON, BY_THE_BUTTON_BESIDE, BY_THE_LINK_ENDING, BY_THE_LABEL_IN_TEST_ID]);
 
 /* **HOW FAR UP FROM THE LABEL TO LOOK FOR THE BOX IT LABELS.** Five, which is
  * the reference's own number. Not unlimited: walked far enough, every label's
@@ -414,12 +415,17 @@ function testIdOf(node) {
 }
 
 function looksLike(node, how, what, exact) {
-  if (how === BY_TEST_ID) {
+  if (how === BY_TEST_ID || how === BY_THE_LABEL_IN_TEST_ID) {
     const id = testIdOf(node);
     return exact ? sameWords(id, what) : holdsWords(id, what);
   }
+  if (how === BY_THE_LINK_ENDING) {
+    /* The address as written, without a query or a fragment. */
+    const address = String((typeof node.getAttribute === 'function' && node.getAttribute('href')) || '').split(/[?#]/)[0].toLowerCase();
+    return String(node.tagName || '').toLowerCase() === 'a' && address.endsWith(String(what).toLowerCase());
+  }
   if (how === BY_ROLE_AND_TEXT && !actsLikeAControl(node)) return false;
-  if ((how === BY_PRESSABLE_TEXT || how === BY_THE_SECOND_PRESSABLE) && !looksPressable(node)) return false;
+  if (how === BY_PRESSABLE_TEXT && !looksPressable(node)) return false;
   /* **A BOX SOMEBODY TYPES INTO IS NEVER THE THING SOME WORDS NAME -- AND THE
    * POINTER CURSOR HAD LET IT BACK IN.** This door already says so for controls
    * ("a box somebody types into is not a control"), and a check holds it. But
@@ -435,7 +441,7 @@ function looksLike(node, how, what, exact) {
    *
    * **A BUTTON DRAWN AS AN INPUT STILL COUNTS** -- its value really is the words
    * on it -- which is the one case reading an input's value exists for. */
-  if ((how === BY_PRESSABLE_TEXT || how === BY_THE_SECOND_PRESSABLE) && isABoxSomebodyTypesInto(node)) return false;
+  if (how === BY_PRESSABLE_TEXT && isABoxSomebodyTypesInto(node)) return false;
   /* **THE TAG ITSELF, NOT WHAT THE PAGE CLAIMS ABOUT IT.** A `div` saying
    * `role="button"` is a control by every other test here and is not this. */
   if (how === BY_A_REAL_BUTTON && String(node.tagName || '').toLowerCase() !== 'button') {
@@ -527,9 +533,7 @@ function whatMatches(how, what, exact, near = [], alsoSaying = '') {
        * of course contains the words being looked for, so every row "matched"
        * and nothing was narrowed at all. That was the first version of this and
        * it read as working. */
-      /* **A ROW OF A PAIR MAY HOLD ONE OTHER MATCH, ITS MATE (BY_THE_SECOND_PRESSABLE), NEVER TWO**: a second match inside means the climb has taken in a neighbouring row or the page. */
-      const others = innermost.filter((other) => other !== node && holds(up, other)).length;
-      if (how === BY_THE_SECOND_PRESSABLE ? others > 1 : others > 0) return false;
+      if (innermost.some((other) => other !== node && holds(up, other))) return false;
       const said = words(up.textContent).toLowerCase();
       /* **AND WHAT ELSE THE SAME ROW HAS TO SAY, ANDed WITH THE DAY.**
        * Flipkart's Reports Centre lists orders, returns and settled
@@ -1641,15 +1645,11 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
         `"${what}" is on the page but switched off, so nothing was clicked.`
       );
     }
-    /* **THE SECOND OF THE NEWEST ROW'S PAIR** (BY_THE_SECOND_PRESSABLE): page order lists the newest row first, and its pair is the first two matches. Anything but pairs is refused in words. */
-    if (how === BY_THE_SECOND_PRESSABLE) {
-      if (found.length % 2 !== 0) {
-        throw new Error(`${found.length} things on the page match "${what}", and this looks for a pair in every row, so which one was meant cannot be known. Nothing was clicked.`);
-      }
-      pressIt(found[1], what, likeAMouse);
-      return;
-    }
-    pressIt(found[0], what, likeAMouse);
+    /* **THE LABEL INSIDE THE ROW IS WHAT TOGGLES A COLUMN** (BY_THE_LABEL_IN_TEST_ID); a row with no label is pressed as it is. */
+    const target = how === BY_THE_LABEL_IN_TEST_ID
+      ? (everything(found[0]).find((inside) => String(inside.tagName || '').toLowerCase() === 'label') || found[0])
+      : found[0];
+    pressIt(target, what, likeAMouse);
   }
 
   /**

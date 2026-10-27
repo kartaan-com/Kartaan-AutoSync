@@ -735,8 +735,8 @@ check("az_returns presses only the one real Request button, never a neighbour",
       and AZR_ASK[1].do == pages.WAIT_FOR and AZR_ASK[1].find == AZR_ASK[2].find)
 check("az_returns takes only the Download of the All Returns row requested on the run's own day, so an old row is never taken for today's",
       len(AZR_TAKE) == 3 and AZR_TAKE[2].do == pages.TAKE_FILE and AZR_TAKE[1].find == AZR_TAKE[2].find
-      and AZR_TAKE[2].find.what == "Download" and AZR_TAKE[2].find.near == "{day_in_words}" and AZR_TAKE[2].find.also_saying == "All Returns"
-      and AZR_TAKE[2].find.how == pages.BY_THE_SECOND_PRESSABLE
+      and AZR_TAKE[2].find.what == ".tsv" and AZR_TAKE[2].find.near == "{day_in_words}" and AZR_TAKE[2].find.also_saying == "All Returns"
+      and AZR_TAKE[2].find.how == pages.BY_THE_LINK_ENDING
       and AZR_TAKE[2].find.day_in_words_is == "amazon" and AZR_TAKE[2].find.day_in_words_of == pages.THE_DAY_IT_WAS_MADE)
 # **AMAZON'S ORDER REPORTS AND SETTLEMENT STATEMENTS DATE A ROW WITH NUMBERS ONLY (N018, seen 26 Oct 2026; Control's ruling of the same day).** Order report rows read
 # `26/10/26, 6:36:33 am India Standard Time`, and statement rows `13/10/2026 – 20/10/2026`, `6/10/2026 – 13/10/2026`, `29/9/2026 – 6/10/2026`: the DAY COMES FIRST (19/10, 20/10, 26/10
@@ -1446,10 +1446,11 @@ check("and it is asked for as the whole word, because a loose one is what cost n
 check("every one of them is pressable, a thing beside some words, that one menu, or the ads column rows named by the page itself",
       answered(lambda: all(f.how in (tool.BY_PRESSABLE_TEXT, tool.BY_ROLE_AND_TEXT,
                                      tool.BY_THE_CONTROL_BESIDE, tool.BY_THE_BUTTON_BESIDE,
-                                     tool.BY_TEXT, tool.BY_TEST_ID)
+                                     tool.BY_TEXT, tool.BY_TEST_ID, tool.BY_THE_LABEL_IN_TEST_ID)
                            for f in CLICKED)))
-check("and the test-id way is used by the two ads column rows and nowhere else",
-      answered(lambda: sorted({r for r in tool.every_recipe() for s in (tool.recipe(r).to_ask + tool.recipe(r).to_take) if s.find is not None and s.find.how == tool.BY_TEST_ID}) == ["az_ads"]))
+check("and the label-in-test-id way (the row found by the page's own name, pressed by the label inside it: his Chrome, 27 Oct 2026) is used by the two ads column rows and nowhere else",
+      answered(lambda: sorted({r for r in tool.every_recipe() for s in (tool.recipe(r).to_ask + tool.recipe(r).to_take) if s.find is not None and s.find.how == tool.BY_THE_LABEL_IN_TEST_ID}) == ["az_ads"]
+               and not any(s.find is not None and s.find.how == tool.BY_TEST_ID for r in tool.every_recipe() for s in (tool.recipe(r).to_ask + tool.recipe(r).to_take))))
 check("and the button-beside way is asked for on the Reports Centre two and nowhere else (Amazon's ads console row actions joined, N018)",
       answered(lambda: sorted({r for r in tool.every_recipe()
                                for one in (tool.recipe(r).to_ask + tool.recipe(r).to_take)

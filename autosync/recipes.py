@@ -42,7 +42,8 @@ from browser import (
     BY_TEST_ID,
     BY_THE_CONTROL_BESIDE,
     BY_THE_BUTTON_BESIDE,
-    BY_THE_SECOND_PRESSABLE,
+    BY_THE_LABEL_IN_TEST_ID,
+    BY_THE_LINK_ENDING,
     CLICK,
     GO,
     PICK_RANGE,
@@ -1521,9 +1522,10 @@ RECIPES: Dict[str, Recipe] = {
                  why="waiting for the report form to draw"),
             Step(TYPE_IN, find=Find(BY_THE_CONTROL_BESIDE, "Report name", called="the Report name box"), words=AMAZON_ADS_REPORT_NAME, only_if_absent=_ADS_SAVED_ROW,
                  why="naming the saved report"),
-            Step(CLICK, find=Find(BY_TEST_ID, "option-root-Date range", called="the Date range column"), only_if_absent=_ADS_SAVED_ROW,
+            # **THE ROW IS FOUND BY ITS TEST ID BUT THE LABEL INSIDE IT IS PRESSED (his Chrome, 27 Oct 2026, proved by the checkbox state before and after each click):** pressing the row did nothing, which is why the saved report kept `Date range`.
+            Step(CLICK, find=Find(BY_THE_LABEL_IN_TEST_ID, "option-root-Date range", called="the Date range column"), only_if_absent=_ADS_SAVED_ROW,
                  why="taking the Date range column off the report (Amazon will not offer Date while it is on)"),
-            Step(CLICK, find=Find(BY_TEST_ID, "option-root-Date", called="the Date column"), only_if_absent=_ADS_SAVED_ROW,
+            Step(CLICK, find=Find(BY_THE_LABEL_IN_TEST_ID, "option-root-Date", called="the Date column"), only_if_absent=_ADS_SAVED_ROW,
                  why="putting the Date column on the report, so every day of the period is its own row"),
             Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Last seven days", called="the report period button"), only_if_absent=_ADS_SAVED_ROW, why="opening the report period"),
             Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Last 30 days", called="the Last 30 days period"), only_if_absent=_ADS_SAVED_ROW,
@@ -1588,12 +1590,12 @@ RECIPES: Dict[str, Recipe] = {
         ),
         to_take=(
             Step(GO, address=AMAZON_RETURNS, patience=60, why="coming back to Seller fulfilled return reports for the returns"),
-            # **EACH RETURNS ROW HAS TWO DOWNLOADS (XML, then TSV), read from his run of 27 Oct 2026: `All Returns | 27 October 2026 at 4:49:28 pm IST | Download Download`. The TSV, the second, is the one wanted.**
-            Step(WAIT_FOR, find=Find(BY_THE_SECOND_PRESSABLE, "Download", near="{day_in_words}", also_saying="All Returns",
+            # **EACH RETURNS ROW HAS A DOWNLOAD FOR THE XML AND ONE FOR THE TSV, today's rows both and older rows only the TSV (his Chrome, 27 Oct 2026); the TSV's address ends `.tsv`, which is what is looked for.**
+            Step(WAIT_FOR, find=Find(BY_THE_LINK_ENDING, ".tsv", near="{day_in_words}", also_saying="All Returns",
                                      day_in_words_is=AMAZON_WRITES_IT, day_in_words_of=THE_DAY_IT_WAS_MADE,
                                      called="the Download of the All Returns row requested today"),
                  patience=90, why="waiting for the finished returns row"),
-            Step(TAKE_FILE, find=Find(BY_THE_SECOND_PRESSABLE, "Download", near="{day_in_words}", also_saying="All Returns",
+            Step(TAKE_FILE, find=Find(BY_THE_LINK_ENDING, ".tsv", near="{day_in_words}", also_saying="All Returns",
                                       day_in_words_is=AMAZON_WRITES_IT, day_in_words_of=THE_DAY_IT_WAS_MADE,
                                       called="the Download of the All Returns row requested today"),
                  patience=90, why="taking the finished returns file"),
