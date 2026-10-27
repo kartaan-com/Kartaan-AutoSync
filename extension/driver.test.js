@@ -2981,6 +2981,42 @@ for (const [start, end, from, expectedMonth] of [
   check('a card with a label and no percentage beside it is refused in words, never filled with another number', said.includes('no plain number') || said.includes('no percentage'));
 }
 
+/* **AMAZON'S ACCOUNT HEALTH DRAWS A METRIC'S FIGURE FOUR LEVELS ABOVE ITS NAME (read from his Chrome, 27 Oct 2026):** the name is an `a`, and the row `div` four parents up holds `Target`, `0%`, `0 of 136 orders`, `60 days`. The percentage read climbed only two levels and
+ * found nothing. A percentage is looked for as high as the row, the first `%` leaf is the figure, and the row of the next metric is never reached. */
+{
+  const page = aPage();
+  const door = doorOn();
+  const metric = (name, figure) => {
+    const row = thing('div');
+    const first = thing('div');
+    const second = thing('div');
+    const third = thing('div');
+    third.append(thing('a', name));
+    second.append(third);
+    first.append(second);
+    row.append(first, thing('b', 'Target'), thing('span', figure), thing('span', '0 of 136 orders'), thing('span', '60 days'));
+    return row;
+  };
+  page.body.append(metric('Order Defect Rate', '0%'), metric('Late Dispatch Rate', '1.69%'));
+  check('a percentage four levels above its label is read from the label\'s own row',
+    (await door.read_number(BY_TEXT, 'Order Defect Rate', true, 0, [], '', 'percent')) === 0
+    && (await door.read_number(BY_TEXT, 'Late Dispatch Rate', true, 0, [], '', 'percent')) === 1.69);
+}
+
+/* **AMAZON'S STATEMENT DOWNLOAD IS A `kat-button` WHOSE WORDS ARE ONLY IN ITS `label` (read from his Chrome, 27 Oct 2026):** the light text is empty, so a lookup by words found it nowhere though the page text showed it. A component with no words of its own is read by its label. */
+{
+  const page = aPage();
+  const door = doorOn();
+  const row = thing('div', '', { box: BIG });
+  row.append(thing('span', '20/10/2026 – 27/10/2026', { box: BIG }));
+  const download = thing('kat-button', '', { box: BIG, attrs: { label: 'Download Flat File V2' } });
+  download.style.cursor = 'pointer';
+  row.append(download);
+  page.body.append(row);
+  check('a kat-button with empty light text is found by the words of its label',
+    (await door.find(BY_PRESSABLE_TEXT, 'Download Flat File V2', true, 0, [], '')) === 1);
+}
+
 /* --------------------------------------------- N018: Amazon's own STATUS WORD beside a rate (Control's word 26 Oct 2026: "At Risk", "Healthy", exactly as the page prints it)
  * **A BLANK IS NOTHING, NEVER A FAILURE:** the word list is from what Amazon is known to print, the page was not seen with every word on it, so a card with no word we know leaves the cell empty and the figures still land. */
 {
@@ -3182,7 +3218,7 @@ for (const [start, end, from, expectedMonth] of [
     refused.includes('is not on the calendar') && pressedInAugust.length === 0 && pressedInSeptember.length === 0);
 }
 
-const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1 + 1 + 1 + 3;
+const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1 + 1 + 1 + 3 + 2;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

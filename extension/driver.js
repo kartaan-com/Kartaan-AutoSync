@@ -182,6 +182,7 @@ const AS_FAR_UP_AS_A_STATEMENT = 12;
  * and a wrong number is worse than none because nothing about it looks wrong
  * afterwards. */
 const A_NUMBER_SITS_THIS_FAR_ABOVE_ITS_LABEL = 2;
+const A_PERCENTAGE_SITS_THIS_FAR_ABOVE_ITS_LABEL = 4;
 
 /* WHAT COUNTS AS A NUMBER: digits, and the commas a page groups them with.
  *
@@ -403,6 +404,8 @@ function actsLikeAControl(node) {
 function wordsOn(node) {
   const tag = String(node.tagName || '').toLowerCase();
   if (tag === 'input') return node.value;
+  /* **A COMPONENT WITH NO WORDS OF ITS OWN IS READ BY ITS `label`** (Amazon's `kat-button` on All Statements, read from his Chrome 27 Oct 2026: light text empty, the words only in the label attribute and inside its shadow). */
+  if (tag.startsWith('kat-') && !words(node.textContent || '') && typeof node.getAttribute === 'function') return node.getAttribute('label') || '';
   return node.textContent;
 }
 
@@ -1578,7 +1581,9 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
     }
     const label = whatMatches(how, what, exact, near, alsoSaying)[0];
     let up = label.parentNode;
-    for (let k = 0; k < A_NUMBER_SITS_THIS_FAR_ABOVE_ITS_LABEL && up; k += 1) {
+    /* **A PERCENTAGE IS LOOKED FOR AS HIGH AS THE METRIC'S ROW, FOUR LEVELS UP (Amazon's Account Health, read from his Chrome 27 Oct 2026)**, where a plain number or a word is not. The first `%` leaf from the bottom up is the figure. */
+    const howFar = kind === 'percent' ? A_PERCENTAGE_SITS_THIS_FAR_ABOVE_ITS_LABEL : A_NUMBER_SITS_THIS_FAR_ABOVE_ITS_LABEL;
+    for (let k = 0; k < howFar && up; k += 1) {
       const found = kind === 'percent' ? theFirstPercentageIn(up)
         : kind === 'status' ? theFirstStatusWordIn(up) : theFirstPlainNumberIn(up);
       if (found !== null) return found;
