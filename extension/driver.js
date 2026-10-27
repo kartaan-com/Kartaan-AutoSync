@@ -278,6 +278,12 @@ function whatAPersonReads(node) {
   if (NEVER_READ_AS_WORDS.includes(tag)) return '';
   /* **WHAT THE PAGE HIDES IS NOT READ**, by the marks a page puts on it (hidden, aria-hidden, an inline display:none), the fresh review of 27 Oct 2026. */
   if (node.hidden === true || (typeof node.getAttribute === 'function' && (node.getAttribute('aria-hidden') === 'true' || ['navigation', 'banner', 'complementary'].includes(node.getAttribute('role')))) || (node.style && node.style.display === 'none')) return '';
+  /* **A POP-UP KEPT CLOSED, AND WORDS THE PAGE'S STYLE HIDES, ARE NOT READ (his fourth live Amazon run, 27 Oct 2026):** the selling-experience dialog, a survey and an error box were hidden by a style sheet or a closed `dialog`, so the marks above missed them and they spent the failure line. */
+  if (tag === 'dialog' && typeof node.getAttribute === 'function' && node.getAttribute('open') === null) return '';
+  if (node.style && typeof globalThis.getComputedStyle === 'function') {
+    const style = globalThis.getComputedStyle(node);
+    if (String(style.display || '').toLowerCase() === 'none' || String(style.visibility || '').toLowerCase() === 'hidden') return '';
+  }
   const pieces = [];
   if (tag.startsWith('kat-') && !node.shadowRoot && typeof node.getAttribute === 'function') pieces.push(` ${node.getAttribute('label') || ''} `);
   /* **AN INLINE PIECE RUNS ON INTO ITS NEIGHBOURS, ANYTHING ELSE (a cell, a block, a component) STANDS APART**, so a figure split across inline tags stays one figure and two cells stay two. */

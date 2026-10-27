@@ -2267,6 +2267,22 @@ for (const [start, end, from, expectedMonth] of [
   page.body.append(hiddenOne, ariaHidden, none, thing('p', 'What is on the screen'));
   check('words the page hides (hidden, aria-hidden, display none) are not read', door.page_text() === 'What is on the screen');
 }
+/* **A POP-UP THE PAGE KEEPS CLOSED IS NOT READ EITHER (his fourth live Amazon run, 27 Oct 2026):** the selling-experience dialog, the survey and the Seller Assistant error spent the failure line's characters. A closed `dialog`
+ * and anything the page's style hides (display none or visibility hidden, as the browser works it out) are left out; an OPEN dialog is read. */
+{
+  const page = aPage();
+  const door = doorOn();
+  const closed = thing('dialog', 'Closed survey words');
+  const openOne = thing('dialog', 'Open dialog words', { attrs: { open: '' } });
+  const styled = thing('div', 'Styled away words');
+  styled.style.display = 'none';
+  const invisible = thing('div', 'Invisible words');
+  invisible.style.visibility = 'hidden';
+  page.body.append(closed, openOne, styled, invisible, thing('p', 'Report rows'));
+  const said = door.page_text();
+  check('a closed dialog and words the style hides are not read, an open dialog is',
+    !said.includes('Closed survey') && !said.includes('Styled away') && !said.includes('Invisible') && said.includes('Open dialog words') && said.includes('Report rows'));
+}
 {
   const page = aPage();
   const door = doorOn();
@@ -3139,7 +3155,7 @@ for (const [start, end, from, expectedMonth] of [
     refused.includes('is not on the calendar') && pressedInAugust.length === 0 && pressedInSeptember.length === 0);
 }
 
-const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1 + 1;
+const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1 + 1 + 1;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;
