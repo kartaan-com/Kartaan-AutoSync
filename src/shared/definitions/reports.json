@@ -11,7 +11,7 @@
       "id": "az_ads",
       "platform": "amazon",
       "name": "Amazon ads, campaigns by day",
-      "cannotBeAskedForAgain": null
+      "cannotBeAskedForAgain": "Every run takes the saved report's last 30 days, so a day that was missed is already in the newest file; the ads site is visited once per run, not once per owed day."
     },
     {
       "id": "az_claims",

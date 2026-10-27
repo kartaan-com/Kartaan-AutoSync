@@ -18,6 +18,7 @@ import { installFakeChrome } from '../test/fake-chrome.js';
 import {
   SPENDS_THE_ALLOWANCE,
   ONLY_ITS_NEWEST_DAY,
+  whyOnlyItsNewestDay,
   THE_NIGHT,
   endTheNight,
   NOT_ASKED,
@@ -131,9 +132,12 @@ async function said(fn) {
    * over whatever is in the tab now; left out of a past-day sync they would be
    * lost, and they landed on his own run of 6 September. */
   check('and the three tables read off a page are on it, so a past day never reads the page of today',
-    ['me_product_performance', 'me_pricing', 'fk_quality_insights', 'az_listings', 'az_fee_preview'].every((one) => ONLY_ITS_NEWEST_DAY.includes(one)));
+    ['me_product_performance', 'me_pricing', 'fk_quality_insights', 'az_listings', 'az_fee_preview', 'az_ads'].every((one) => ONLY_ITS_NEWEST_DAY.includes(one)));
   check('while a rolling-window report is not on that list',
     !ONLY_ITS_NEWEST_DAY.includes('me_returns') && !ONLY_ITS_NEWEST_DAY.includes('me_claims'));
+  /* **A PAST DAY OF THE ADS REPORT IS NOT WALKED AGAIN, AND IS TOLD WHY IN ITS OWN WORDS (the fresh review of 27 Oct 2026):** every run takes the saved report's last 30 days, so a day missed is already in the newest file, and a walk per owed day would pay the pause and visit the ads site again each time. */
+  const adsWhy = whyOnlyItsNewestDay({ latestDay: '2026-10-27' }, 'az_ads', '2026-10-24');
+  check('a past day of the Amazon ads report is left out and says the newest file already holds it', typeof adsWhy === 'string' && adsWhy.includes('30 days') && !adsWhy.includes('picture of how things stand'));
 }
 
 /* **RETURNS LEFT THE REPORTS CENTRE ON 2026-09-14**, by his ruling, so asking for
@@ -1788,7 +1792,7 @@ async function seedLandedRangeForTest(c, reportId, from, to) {
       && one.say.includes('has not been asked for')).length === 3);
 }
 
-const EXPECTED = 180 + 16 + 5 + 1;
+const EXPECTED = 180 + 16 + 5 + 1 + 1;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

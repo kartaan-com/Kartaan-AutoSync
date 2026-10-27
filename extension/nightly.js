@@ -622,7 +622,7 @@ function theCountGivenBack(night) {
  * each how the page stands today. A sync for a past day would read today's page under that day's name. */
 export const ONLY_ITS_NEWEST_DAY = Object.freeze([
   'me_views', 'me_catalog', 'me_ads', 'me_product_performance', 'me_pricing', 'me_quality', 'fk_quality_insights',
-  'az_listings', 'az_fee_preview', 'az_returns', 'az_claims', 'az_orders', 'az_health',
+  'az_listings', 'az_fee_preview', 'az_returns', 'az_claims', 'az_orders', 'az_health', 'az_ads',
 ]);
 
 /**
@@ -642,6 +642,10 @@ export function whyOnlyItsNewestDay(night, reportId, day) {
   if (!ONLY_ITS_NEWEST_DAY.includes(reportId)) return null;
   if (!night || !night.latestDay || !day) return null;
   if (String(day) >= String(night.latestDay)) return null;
+  /* The ads report is not a picture of now: every run takes the saved report's last 30 days, so a past day is already in the newest file. */
+  if (reportId === 'az_ads') {
+    return `az_ads takes the saved report's last 30 days on every run, so ${day} is already in the newest file and was not walked again.`;
+  }
   return `${reportId} is a picture of how things stand now -- the platform keeps no history `
     + `to ask for -- so ${day} is not available and was not asked for.`;
 }

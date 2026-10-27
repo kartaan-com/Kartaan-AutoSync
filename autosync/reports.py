@@ -342,7 +342,8 @@ REPORTS: Tuple[Report, ...] = (
     Report("az_health", "amazon", "Amazon account health", BROWSER, DAILY, "csv", cannot_backfill=_SNAPSHOT),
     # **AMAZON ADS BY THE BROWSER (N018, his ruling D726; Control's word: build it anyway; D728 refined 26 Oct 2026).** Amazon Ads console (`advertising.amazon.in`) > Reporting: ONE saved Campaign report named `Kartaan campaign by day` (the Date column, the last 30 days, once, CSV) is
     # created by the walk the first time it is missing; every run takes its latest file, one row per campaign per day of the last 30 days, so a day missed on an earlier run and a first look-back are covered by every run. A day with no ads is no row at all: nothing to process.
-    Report("az_ads", "amazon", "Amazon ads, campaigns by day", BROWSER, DAILY, "csv"),
+    Report("az_ads", "amazon", "Amazon ads, campaigns by day", BROWSER, DAILY, "csv",
+           cannot_backfill="Every run takes the saved report's last 30 days, so a day that was missed is already in the newest file; the ads site is visited once per run, not once per owed day."),
     # **THE TWO AMAZON FILES MADE ON REQUEST (AutoSync v0.1.21 lane 1 job 8).** Seller Central > Products > Product reports (Inventory Reports): the seller
     # presses Request Report, Amazon builds a tab-separated text file (up to 45 minutes, a new one at most once in 24 hours) and a row with a Download button
     # appears. Both are pictures of right now. Amazon's own text says ".txt" and the files are landed as such.
