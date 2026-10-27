@@ -344,7 +344,7 @@ export const RECHECK_AFTER_MINUTES = 60;
  *  on the very next try with nothing else changed -- the dashboard had
  *  simply not finished drawing. Named here rather than left to the same
  *  rule as a two-phase report, because there is no `theirId` to have missed. */
-export const RECHECK_EVEN_WITHOUT_AN_ASK = Object.freeze(['me_views', 'az_ads']);
+export const RECHECK_EVEN_WITHOUT_AN_ASK = Object.freeze(['me_views', 'az_ads', 'me_returns']);
 
 /* **FLIPKART TRAFFIC IS ASKED FROM THE DAY AFTER THE LAST ONE CAPTURED -- RUMEE'S WAY
  * (A53, his "yes").** Rumee remembers `fk_views_last_to` from the latest date inside

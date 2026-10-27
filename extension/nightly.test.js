@@ -1222,6 +1222,22 @@ check('and three days of trying is the reference\'s own number', GIVE_UP_AFTER_D
 }
 
 {
+  /* **MEESHO'S OWN "SOMETHING WENT WRONG" AND AN ORDERS PAGE IN ANOTHER STATE ARE CHECKED AGAIN IN AN HOUR (his live runs of 27 Oct 2026):** returns failed on Meesho's own error twice running, and orders failed once when an
+   * order had just been accepted and the page showed "No orders yet" with no date control; the same reports landed on the runs either side. Neither is the platform saying the day is not there. */
+  for (const reportId of ['me_returns']) {
+    const browser = installFakeChrome();
+    const c = browser.chrome;
+    const day = '2026-10-26';
+    await startTheNight(c, { doing: [reportId], at: 1, openAt: 'https://x/', dataDate: day });
+    const first = await thatOneIsDone(c, {
+      reportId, state: 'failed', say: 'could not find the control the page was in another state.', dataDate: day, at: 2,
+    });
+    check(`${reportId} is checked again in an hour when it fails, though it has no asking phase`,
+      first.done.at(-1).state === 'still-waiting' && first.done.at(-1).say.includes('(1 of 3)'));
+  }
+}
+
+{
   /* **A53: A FAILED DAY OF A REPORT THAT CAN GO BACK IS TRIED AGAIN ON LATER SYNCS --
    * RUMEE'S gap-catchup, EVERY OWED DAY RATHER THAN ONE.** */
   const browser = installFakeChrome();
@@ -1792,7 +1808,7 @@ async function seedLandedRangeForTest(c, reportId, from, to) {
       && one.say.includes('has not been asked for')).length === 3);
 }
 
-const EXPECTED = 180 + 16 + 5 + 1 + 1;
+const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;
