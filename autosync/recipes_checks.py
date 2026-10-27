@@ -245,7 +245,7 @@ SHAPES = {
     # **AMAZON ACCOUNT HEALTH (N018):** open the dashboard, wait for the rating, read the rating and four rates, write the day as its own one-row file.
     "az_health": ((), (pages.GO, pages.WAIT_FOR, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.ADD_TO_THE_LIST)),
     # **AMAZON ADS (N018), ONE PHASE SO THE ADS SITE IS VISITED ONCE (27 Oct 2026):** the seller's one saved daily report is created if missing, RUN, the list loaded again, the row that shows today as its last run waited for, and its latest file taken, all in one visit.
-    "az_ads": ((), (pages.GO, pages.WAIT_FOR, pages.GO, pages.WAIT_FOR, pages.TYPE_IN, pages.CLICK, pages.CLICK, pages.CLICK, pages.CLICK, pages.CLICK, pages.WAIT_FOR, pages.CLICK, pages.CLICK, pages.GO, pages.WAIT_FOR, pages.CLICK, pages.TAKE_FILE)),
+    "az_ads": ((), (pages.GO, pages.WAIT_FOR, pages.GO, pages.WAIT_FOR, pages.TYPE_IN, pages.CLICK, pages.CLICK, pages.CLICK, pages.CLICK, pages.CLICK, pages.WAIT_FOR, pages.CLICK, pages.CLICK, pages.WAIT, pages.GO, pages.WAIT_FOR, pages.CLICK, pages.TAKE_FILE)),
 }
 for report_id, (ask, take) in sorted(SHAPES.items()):
     one = tool.recipe(report_id)
@@ -833,12 +833,12 @@ check("only the health recipe asks for a percentage or a status word, across eve
 AZA = answered(lambda: tool.RECIPES["az_ads"])
 AZA_STEPS = AZA.to_take if AZA else ()
 AZA_ROW = pages.Find(pages.BY_THE_BUTTON_BESIDE, "Kartaan campaign by day", also_saying="Actions", called="the Actions menu of the saved report Kartaan campaign by day")
-check("az_ads is a ONE-phase walk, so the ads site is visited once: seventeen steps (open, prove the list, create the saved report only if missing x8, wait for its row, open its Actions, Run, load the list again, wait for today's row, open its Actions, take)",
-      AZA is not None and not AZA.two_phase and len(AZA_STEPS) == 17 and not AZA.to_ask)
+check("az_ads is a ONE-phase walk, so the ads site is visited once: eighteen steps (open, prove the list, create the saved report only if missing x8, wait for its row, open its Actions, Run, pause, load the list again, wait for today's row, open its Actions, take)",
+      AZA is not None and not AZA.two_phase and len(AZA_STEPS) == 18 and not AZA.to_ask)
 check("az_ads opens the reporting page first and again to refresh it, an address that carries nothing of the seller's own, and proves the list drew (the Create report button) before deciding anything",
-      bool(AZA_STEPS) and AZA_STEPS[0].address == AZA_STEPS[13].address == "https://advertising.amazon.in/reporting" and AZA_STEPS[13].do == pages.GO
+      bool(AZA_STEPS) and AZA_STEPS[0].address == AZA_STEPS[14].address == "https://advertising.amazon.in/reporting" and AZA_STEPS[14].do == pages.GO
       and AZA_STEPS[1].do == pages.WAIT_FOR and AZA_STEPS[1].find.what == "Create report" and AZA_STEPS[1].only_if_absent is None)
-_create = AZA_STEPS[2:10] if len(AZA_STEPS) == 17 else ()
+_create = AZA_STEPS[2:10] if len(AZA_STEPS) == 18 else ()
 check("THE CREATING STEPS ARE EACH DONE ONLY WHEN THE SAVED ROW IS NOT THERE: open the template, name it, choose Yesterday, submit -- the row looked for by its own name, nothing else created",
       len(_create) == 8 and all(s.only_if_absent is not None and s.only_if_absent.how == pages.BY_THE_BUTTON_BESIDE and s.only_if_absent.what == "Kartaan campaign by day"
                                 for s in _create)
@@ -848,16 +848,18 @@ check("THE CREATING STEPS ARE EACH DONE ONLY WHEN THE SAVED ROW IS NOT THERE: op
       and _create[2].find.how == pages.BY_THE_CONTROL_BESIDE and _create[2].find.what == "Report name" and _create[2].words == "Kartaan campaign by day"
       and [s.find.what for s in _create[3:]] == ["Date range", "Date", "Last seven days", "Last 30 days", "Submit"])
 check("then it waits for the saved row (found or just made), and opens ITS Actions and presses Run only when that row does not already show today -- a report just created has run once and is not run again",
-      len(AZA_STEPS) == 17 and AZA_STEPS[10].do == pages.WAIT_FOR and AZA_STEPS[10].find == AZA_ROW and AZA_STEPS[10].only_if_absent is None
+      len(AZA_STEPS) == 18 and AZA_STEPS[10].do == pages.WAIT_FOR and AZA_STEPS[10].find == AZA_ROW and AZA_STEPS[10].only_if_absent is None
       and AZA_STEPS[11].do == pages.CLICK and AZA_STEPS[11].find == AZA_ROW and AZA_STEPS[12].do == pages.CLICK and AZA_STEPS[12].find.what == "Run"
       and all(s.only_if_absent is not None and s.only_if_absent.near == "{day_in_words}" and s.only_if_absent.day_in_words_is == "amazon"
               and s.only_if_absent.day_in_words_of == pages.THE_DAY_IT_WAS_MADE for s in AZA_STEPS[11:13]))
 check("only the creating steps and the run steps use a condition, across every recipe",
       answered(lambda: sorted({r for r in tool.every_recipe() for s in (tool.recipe(r).to_ask + tool.recipe(r).to_take) if s.only_if_absent is not None}) == ["az_ads"]))
-check("and it takes the latest file only from a row whose LAST RUN is today, so yesterday's file is never taken for today's, waiting up to five minutes for it in the same visit",
-      len(AZA_STEPS) == 17 and AZA_STEPS[14].do == pages.WAIT_FOR and AZA_STEPS[14].find.how == pages.BY_THE_BUTTON_BESIDE and AZA_STEPS[14].find.near == "{day_in_words}"
-      and AZA_STEPS[14].find.day_in_words_is == "amazon" and AZA_STEPS[14].find.day_in_words_of == pages.THE_DAY_IT_WAS_MADE and AZA_STEPS[14].patience == 300
-      and AZA_STEPS[14].find == AZA_STEPS[15].find and AZA_STEPS[16].do == pages.TAKE_FILE and AZA_STEPS[16].find.what == "Download latest")
+check("and it takes the latest file only from a row whose LAST RUN is today, so yesterday's file is never taken for today's, after giving the run three minutes to finish (a pause, then the list loaded again) and then waiting up to two for the row",
+      len(AZA_STEPS) == 18 and AZA_STEPS[15].do == pages.WAIT_FOR and AZA_STEPS[15].find.how == pages.BY_THE_BUTTON_BESIDE and AZA_STEPS[15].find.near == "{day_in_words}"
+      and AZA_STEPS[15].find.day_in_words_is == "amazon" and AZA_STEPS[15].find.day_in_words_of == pages.THE_DAY_IT_WAS_MADE and AZA_STEPS[15].patience == 120
+      and AZA_STEPS[15].find == AZA_STEPS[16].find and AZA_STEPS[17].do == pages.TAKE_FILE and AZA_STEPS[17].find.what == "Download latest")
+check("THE RUN IS GIVEN TIME TO FINISH BEFORE THE LIST IS LOADED AGAIN: a pause of at least three minutes after Run (the run takes about three), so the list is never loaded seconds after Run and waited on with nothing to refresh it (the fresh review of 27 Oct 2026)",
+      len(AZA_STEPS) == 18 and AZA_STEPS[13].do == pages.WAIT and AZA_STEPS[13].patience >= 180 and AZA_STEPS[13].only_if_absent is None and AZA_STEPS[14].do == pages.GO)
 # **THE ADS SITE IS VISITED ONCE IN A RUN (his word, 27 Oct 2026: "this is nothing like human").** The night asks every report first and collects the two-phase ones at the END, so a two-phase ads report went to
 # advertising.amazon.in to ask and again to collect, with Seller Central between. Counted here the way the night walks: each Amazon report's asking steps (or its one phase), then the collecting steps of the two-phase ones.
 def _visits_to(host, steps_in_order):
@@ -1581,11 +1583,11 @@ check("and its patience came down with them, so the walk still fits inside the a
 # would watch for is already there. **Both waits are the reference's own numbers**
 # -- thirty-five seconds for orders, two and a half rounded up to three for the
 # stock panel -- and nothing else in the book may grow one without saying why here.
-check("orders and the stock file are the only two that wait with nothing to look at",
+check("orders, the stock file and the Amazon ads report (its run takes about three minutes and the list cannot be watched into refreshing, 27 Oct 2026) are the only waits with nothing to look at",
       answered(lambda: [r for r in sorted(tool.every_recipe())
                         if any(s.do == pages.WAIT
                                for s in tool.recipe(r).to_ask + tool.recipe(r).to_take)]
-               == ["me_catalog", "me_orders"]))
+               == ["az_ads", "me_catalog", "me_orders"]))
 
 # **TWO: THE MENU IS SHUT AND OPENED AGAIN BETWEEN LOOKS**
 # (`content/meesho.js:860-878`, six times, thirty seconds apart). Meesho draws
@@ -1628,7 +1630,7 @@ check("and the panel name was still filled into the addresses on the way",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 455
+EXPECTED = 456
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

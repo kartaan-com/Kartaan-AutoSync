@@ -1204,6 +1204,20 @@ check('and three days of trying is the reference\'s own number', GIVE_UP_AFTER_D
 }
 
 {
+  /* **THE AMAZON ADS REPORT IS ONE PHASE NOW (the ads site is visited once in a run, 27 Oct 2026), SO IT HAS NO ASK TO MAKE IT CHECKED AGAIN -- AND IT STILL NEEDS THE HOURLY LOOK** (the fresh review): a run that is slow to
+   * finish must not be written off for the day on one look. */
+  const browser = installFakeChrome();
+  const c = browser.chrome;
+  const day = '2026-10-26';
+  await startTheNight(c, { doing: ['az_ads'], at: 1, openAt: 'https://x/', dataDate: day });
+  const first = await thatOneIsDone(c, {
+    reportId: 'az_ads', state: 'failed', say: 'waiting for the saved report row to show today.', dataDate: day, at: 2,
+  });
+  check('the Amazon ads report is checked again in an hour when it fails, though it has no asking phase',
+    first.done.at(-1).state === 'still-waiting' && first.done.at(-1).say.includes('(1 of 3)'));
+}
+
+{
   /* **A53: A FAILED DAY OF A REPORT THAT CAN GO BACK IS TRIED AGAIN ON LATER SYNCS --
    * RUMEE'S gap-catchup, EVERY OWED DAY RATHER THAN ONE.** */
   const browser = installFakeChrome();
@@ -1774,7 +1788,7 @@ async function seedLandedRangeForTest(c, reportId, from, to) {
       && one.say.includes('has not been asked for')).length === 3);
 }
 
-const EXPECTED = 180 + 16 + 5;
+const EXPECTED = 180 + 16 + 5 + 1;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

@@ -449,6 +449,25 @@
           "noRowIsNothingToFetch": ""
         },
         {
+          "do": "wait",
+          "find": null,
+          "address": "",
+          "patience": 200,
+          "why": "giving the saved campaign report time to finish running, on the ads site",
+          "rangeDays": 1,
+          "switchedOffDaysChangeTheCursor": false,
+          "lookAgain": null,
+          "pressAgain": null,
+          "orFind": null,
+          "onlyIfAbsent": null,
+          "words": "",
+          "forEachCampaign": false,
+          "pressLikeAMouse": false,
+          "table": "",
+          "reads": "",
+          "noRowIsNothingToFetch": ""
+        },
+        {
           "do": "go",
           "find": null,
           "address": "https://advertising.amazon.in/reporting",
@@ -480,7 +499,7 @@
             "dayInWordsOf": "made"
           },
           "address": "",
-          "patience": 300,
+          "patience": 120,
           "why": "waiting for the saved report's row to show today as its last run",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,

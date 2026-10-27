@@ -1500,8 +1500,8 @@ RECIPES: Dict[str, Recipe] = {
     # ---- (D728 REFINED, 26 Oct 2026: the saved report carries the DATE column and the LAST 30 DAYS, so every run returns each of the last 30 days as its own row -- a missed run and a first look-back are covered by every run, no one-off reports.)
     # ---- Amazon ads by the browser (N018, his ruling D726; Control's word: build it anyway; his word D728: AutoSync CREATES the saved report itself the first time it is missing). **The one saved report `Kartaan campaign by day` (Campaign
     # ---- template, Yesterday, once, CSV) is CREATED ONLY WHEN IT IS NOT IN THE LIST** (each creating step is done only when its row is not there), and after that the walk only RUNS it and takes its latest file -- nothing is deleted and no campaign,
-    # ---- budget or spend is touched. Ask: open the list, prove it drew, [if missing: open the template, name it, choose Yesterday, submit -- which runs it once], wait for the row, and unless the row already shows today, open ITS Actions and press
-    # ---- Run. Take: wait for the row to show today as its last run (so yesterday's file is never taken for today's), open ITS Actions, press Download latest. Measured on his console 26 Oct 2026; **NOT YET RUN LIVE.**
+    # ---- budget or spend is touched. ONE VISIT: open the list, prove it drew, [if missing: open the template, name it, choose Yesterday, submit -- which runs it once], wait for the row, and unless the row already shows today, open ITS Actions and press
+    # ---- Run, give it three minutes, load the list again, then: wait for the row to show today as its last run (so yesterday's file is never taken for today's), open ITS Actions, press Download latest. Measured on his console 26 Oct 2026; **NOT YET RUN LIVE.**
     "az_ads": Recipe(
         # **ONE PHASE, ONE VISIT TO THE ADS SITE (his word, 27 Oct 2026: "go to the Amazon Ads site once, do all the ads work there, come back to Seller Central, and never return").** As two phases the night went to
         # advertising.amazon.in to ask, did all its Seller Central work, and went back at the end to collect. Now the walk asks, waits there for the report's row to show today (it runs in about three minutes), and
@@ -1528,9 +1528,11 @@ RECIPES: Dict[str, Recipe] = {
             Step(WAIT_FOR, find=_ADS_SAVED_ROW, patience=120, why=f"waiting for the saved report {AMAZON_ADS_REPORT_NAME} to be in the list"),
             Step(CLICK, find=_ADS_SAVED_ROW, only_if_absent=_ADS_SAVED_ROW_TODAY, why="opening the saved report's Actions menu"),
             Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Run", called="Run in the Actions menu"), only_if_absent=_ADS_SAVED_ROW_TODAY, why="running the saved campaign report"),
-            # The list's status can lag a finished run (his panel, 26 Oct 2026): the list is loaded again, on the same site, before it is waited on.
+            # **THE RUN IS GIVEN TIME TO FINISH BEFORE THE LIST IS LOADED AGAIN (the fresh review, 27 Oct 2026):** the run takes about three minutes and the list's status can lag a finished run (his panel, 26 Oct 2026), and
+            # nothing refreshes a loaded list while it is waited on, so the pause comes first and the list is loaded after it, on the same site. It is not conditional: whether the row already showed today is not known by then.
+            Step(WAIT, patience=200, why="giving the saved campaign report time to finish running, on the ads site"),
             Step(GO, address=AMAZON_ADS_REPORTING, patience=60, why="loading the ads reporting list again for the finished campaign report, without leaving the ads site"),
-            Step(WAIT_FOR, find=_ADS_SAVED_ROW_TODAY, patience=300, why="waiting for the saved report's row to show today as its last run"),
+            Step(WAIT_FOR, find=_ADS_SAVED_ROW_TODAY, patience=120, why="waiting for the saved report's row to show today as its last run"),
             Step(CLICK, find=_ADS_SAVED_ROW_TODAY, why="opening the saved report's Actions menu"),
             Step(TAKE_FILE, find=Find(BY_PRESSABLE_TEXT, "Download latest", called="Download latest in the Actions menu"), patience=60,
                  why="taking the saved report's latest file"),

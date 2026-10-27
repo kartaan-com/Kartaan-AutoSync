@@ -270,10 +270,12 @@ const NEVER_READ_AS_WORDS = ['script', 'style', 'noscript', 'template'];
 /* **A SPACE BETWEEN PIECES FOR A PAGE, NONE FOR A ROW (the fresh review of 27 Oct 2026):** a page reads better with its pieces apart, but a figure drawn as `<b>13</b>/10/2026` is one figure, and a row is read to find
  * periods in it. **WORDS PLACED DIRECTLY IN A SHADOW ROOT ARE A TEXT NODE**, so a root is read through its `childNodes` where it has them. **AND AN AMAZON COMPONENT (`kat-*`) CAN CARRY ITS WORDS IN A `label`
  * ATTRIBUTE** rather than between its tags. */
-const READ_RUN_TOGETHER = ['b', 'i', 'u', 'em', 'strong', 'small', 'sub', 'sup', 'font', 'mark', 'abbr', 'code', 'a', 'span'];
+const READ_RUN_TOGETHER = ['b', 'i', 'u', 'em', 'strong', 'small', 'sub', 'sup', 'font', 'mark', 'abbr', 'code'];
 function whatAPersonReads(node) {
   const tag = String(node.tagName || '').toLowerCase();
   if (NEVER_READ_AS_WORDS.includes(tag)) return '';
+  /* **WHAT THE PAGE HIDES IS NOT READ**, by the marks a page puts on it (hidden, aria-hidden, an inline display:none), the fresh review of 27 Oct 2026. */
+  if (node.hidden === true || (typeof node.getAttribute === 'function' && node.getAttribute('aria-hidden') === 'true') || (node.style && node.style.display === 'none')) return '';
   const pieces = [];
   if (tag.startsWith('kat-') && typeof node.getAttribute === 'function') pieces.push(` ${node.getAttribute('label') || ''} `);
   /* **AN INLINE PIECE RUNS ON INTO ITS NEIGHBOURS, ANYTHING ELSE (a cell, a block, a component) STANDS APART**, so a figure split across inline tags stays one figure and two cells stay two. */

@@ -471,6 +471,29 @@ check('A SIGN FOLLOWED BY A DIGIT IS ONLY LEFT ALONE WHEN THE WHOLE CELL IS A FI
 }
 
 {
+  /* **"STOPPED ARRIVING" MEANS THE SAME COUNT TWICE RUNNING, NOT ONCE (the fresh review of 27 Oct 2026):** rows that pause for one look and then arrive are still read whole. */
+  const rows = (names) => names.map((n) => priceRow(n, n, `S-${n}`, 'Best Priced'));
+  const built = aPage({ headers: PRICE_HEADERS, pages: [rows(['A', 'B', 'C']), rows(['D', 'E', 'F'])], extra: [p('All Products (6)'), p('Losing Orders (0)')], pager: PAGER(2) });
+  const body = built.table.children[1];
+  const next = built.buttons.find((one) => one.getAttribute('aria-label') === 'Next page');
+  const original = next.onClick;
+  const stillComing = [];
+  let looks = 0;
+  next.onClick = () => {
+    original();
+    stillComing.push(...body.children.slice(1));
+    body.children = body.children.slice(0, 1);
+    looks = 0;
+  };
+  const withAPause = async () => {
+    looks += 1;
+    if (stillComing.length && looks !== 2) body.children = [...body.children, stillComing.shift()];
+  };
+  const got = await readTheTable(built.page, { table: 'meesho-pricing', rest: withAPause });
+  check('ROWS THAT PAUSE FOR ONE LOOK AND THEN ARRIVE ARE STILL READ WHOLE, the same count being needed twice running', got.rows === 6 && got.pages === 2);
+}
+
+{
   /* **N017 (his D726; the run logs of 22-25 Oct): "the pager lists 7 pages and 6 were read" EVERY NIGHT.** The pager names a page the table does not have
    * (or whose button is switched off), and the page's own count of everything is the last word on whether the table is whole. */
   const short = (count) => aPage({
@@ -672,7 +695,7 @@ const aMeeshoQualityPage = ({
     (await feedbackRows(['Top Customer Feedback', 'Poor fit', '5 products', 'Colour differs', '2 products'])).length === 0);}
 
 console.log(failures ? `\n${failures} FAILED (${ran} checks)` : `\nall ${ran} checks passed`);
-const EXPECTED = 52 + 1 + 4 + 5 + 10 + 1 + 3 + 2 + 4 + 3 + 1 + 1 + 1 + 1;
+const EXPECTED = 52 + 1 + 4 + 5 + 10 + 1 + 3 + 2 + 4 + 3 + 1 + 1 + 1 + 1 + 1;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   process.exit(1);

@@ -2243,6 +2243,34 @@ for (const [start, end, from, expectedMonth] of [
     rows.length === 1 && rows[0].includes('13/10/2026'));
 }
 
+/* **TEXT THE PAGE HIDES IS NOT TEXT A PERSON READS, AND TWO CELLS DRAWN AS SPANS ARE TWO CELLS (the fresh review of 27 Oct 2026).** A node marked hidden, aria-hidden or display:none is left out (the page's hidden menus come first
+ * in its body and filled the failure line); and a `span` is not run on into its neighbour, because real tables draw their cells as spans and `Statement 2` beside `6/10/2026` must not read `26/10/2026`. */
+{
+  const page = aPage();
+  const door = doorOn();
+  const hiddenOne = thing('div', 'Hidden menu words');
+  hiddenOne.hidden = true;
+  const ariaHidden = thing('div', 'Screen reader only words');
+  ariaHidden.setAttribute('aria-hidden', 'true');
+  const none = thing('div', 'Not displayed words');
+  none.style.display = 'none';
+  page.body.append(hiddenOne, ariaHidden, none, thing('p', 'What is on the screen'));
+  check('words the page hides (hidden, aria-hidden, display none) are not read', door.page_text() === 'What is on the screen');
+}
+{
+  const page = aPage();
+  const door = doorOn();
+  const row = thing('div', '', { box: BIG });
+  row.append(thing('span', 'Statement 2', { box: BIG }), thing('span', '6/10/2026 – 13/10/2026', { box: BIG }));
+  const button = thing('button', 'Download Flat File V2', { box: BIG });
+  button.style.cursor = 'pointer';
+  row.append(button);
+  page.body.append(row);
+  const rows = await door.row_texts(BY_PRESSABLE_TEXT, 'Download Flat File V2', true, '');
+  check('two cells drawn as spans are two cells, so their digits are not glued together',
+    rows.length === 1 && rows[0].includes('6/10/2026 – 13/10/2026') && !rows[0].includes('26/10/2026'));
+}
+
 /* -------------------------------------------------- is it asking to sign in? */
 
 {
@@ -3043,7 +3071,7 @@ for (const [start, end, from, expectedMonth] of [
     refused.includes('is not on the calendar') && pressedInAugust.length === 0 && pressedInSeptember.length === 0);
 }
 
-const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3;
+const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;
