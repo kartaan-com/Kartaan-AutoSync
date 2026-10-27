@@ -37,6 +37,7 @@
     "https://seller.flipkart.com/*",
     "https://sellercentral.amazon.in/*",
     "https://advertising.amazon.in/*",
+    "https://businessreportsstack-prode-lambdas3bucket7d9a698f-1e32tlw5juy7t.s3.eu-west-1.amazonaws.com/*",
     "https://storage.googleapis.com/*",
     "https://www.googleapis.com/*",
     "https://api.kartaan.com/*",
