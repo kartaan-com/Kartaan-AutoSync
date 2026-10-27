@@ -518,7 +518,8 @@ def _amazon_inventory_report(report_name: str, ready_in_minutes: int) -> Recipe:
             Step(WAIT_FOR, find=chooser, patience=90, why="waiting for the Inventory Reports page to draw its report type dropdown"),
             Step(CLICK, find=chooser, why="opening the report types"),
             Step(CLICK, find=choice, why=f"choosing {report_name}"),
-            Step(CLICK, find=request, why=f"asking Amazon to build {report_name}"),
+            # **NOT ASKED A SECOND TIME IN A DAY (his second live Amazon run, 27 Oct 2026):** a second request made two Done rows for today and every lookup of the Download then refused as two matches; Amazon allows one a day anyway.
+            Step(CLICK, find=request, only_if_absent=finished, why=f"asking Amazon to build {report_name}, unless today's row is already there"),
         ),
         to_take=(
             Step(GO, address=AMAZON_INVENTORY_REPORTS, patience=60, why=f"coming back to Inventory Reports for {report_name}"),
@@ -1552,7 +1553,12 @@ RECIPES: Dict[str, Recipe] = {
             Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "SAFE-T Claims", called="the SAFE-T Claims report type"), why="choosing the SAFE-T Claims report"),
             Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Choose Report Dates", called="the report dates choice"), why="opening the report dates"),
             Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Last 30 days", called="the last 30 days choice"), why="choosing the last 30 days"),
-            Step(CLICK, find=Find(BY_ROLE_AND_TEXT, "Generate Report", called="the Generate Report button"), why="asking Amazon to build the SAFE-T claims"),
+            # **NOT ASKED A SECOND TIME IN A DAY (his second live Amazon run, 27 Oct 2026):** a second request made two rows for today and every lookup of the Download refused as two matches.
+            Step(CLICK, find=Find(BY_ROLE_AND_TEXT, "Generate Report", called="the Generate Report button"),
+                 only_if_absent=Find(BY_PRESSABLE_TEXT, "Download", near="{day_in_words}", also_saying="SAFE-T Claims Report",
+                                     day_in_words_is=AMAZON_WRITES_IT, day_in_words_of=THE_DAY_IT_WAS_MADE,
+                                     called="the Download of the SAFE-T Claims Report row made today"),
+                 why="asking Amazon to build the SAFE-T claims, unless today's row is already there"),
         ),
         to_take=(
             Step(GO, address=AMAZON_SAFET_REPORT, patience=60, why="coming back to the SAFE-T report page for the claims"),

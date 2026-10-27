@@ -162,6 +162,8 @@ const AS_FAR_UP_AS = 5;
  * **WITHOUT A LIMIT IT CLIMBS TO THE WHOLE PAGE, and on 2026-09-11 it did.** See
  * the claims panel, at the walk-up itself. */
 const AS_FAR_UP_AS_A_ROW = 6;
+/* A statement's row is read up to twelve levels (components add a level each), still stopping at the first level that holds another statement's control. */
+const AS_FAR_UP_AS_A_STATEMENT = 12;
 
 /* HOW FAR ABOVE ITS LABEL A NUMBER SITS. **TWO, AND IT IS MEASURED, NOT CHOSEN.**
  *
@@ -266,7 +268,7 @@ function holdsWords(a, b) {
 
 /* WHAT A PERSON READS ON A NODE: its text and its children's, the words inside an open shadow root, and never a script or a style (his first live Amazon run, 27 Oct 2026:
  * a page's `textContent` holds all of those, so every "the page said" line of its log was Amazon's own script). A node with no `childNodes` (a stand-in) is read as its `textContent`. */
-const NEVER_READ_AS_WORDS = ['script', 'style', 'noscript', 'template'];
+const NEVER_READ_AS_WORDS = ['script', 'style', 'noscript', 'template', 'nav', 'aside'];
 /* **A SPACE BETWEEN PIECES FOR A PAGE, NONE FOR A ROW (the fresh review of 27 Oct 2026):** a page reads better with its pieces apart, but a figure drawn as `<b>13</b>/10/2026` is one figure, and a row is read to find
  * periods in it. **WORDS PLACED DIRECTLY IN A SHADOW ROOT ARE A TEXT NODE**, so a root is read through its `childNodes` where it has them. **AND AN AMAZON COMPONENT (`kat-*`) CAN CARRY ITS WORDS IN A `label`
  * ATTRIBUTE** rather than between its tags. */
@@ -275,9 +277,9 @@ function whatAPersonReads(node) {
   const tag = String(node.tagName || '').toLowerCase();
   if (NEVER_READ_AS_WORDS.includes(tag)) return '';
   /* **WHAT THE PAGE HIDES IS NOT READ**, by the marks a page puts on it (hidden, aria-hidden, an inline display:none), the fresh review of 27 Oct 2026. */
-  if (node.hidden === true || (typeof node.getAttribute === 'function' && node.getAttribute('aria-hidden') === 'true') || (node.style && node.style.display === 'none')) return '';
+  if (node.hidden === true || (typeof node.getAttribute === 'function' && (node.getAttribute('aria-hidden') === 'true' || ['navigation', 'banner', 'complementary'].includes(node.getAttribute('role')))) || (node.style && node.style.display === 'none')) return '';
   const pieces = [];
-  if (tag.startsWith('kat-') && typeof node.getAttribute === 'function') pieces.push(` ${node.getAttribute('label') || ''} `);
+  if (tag.startsWith('kat-') && !node.shadowRoot && typeof node.getAttribute === 'function') pieces.push(` ${node.getAttribute('label') || ''} `);
   /* **AN INLINE PIECE RUNS ON INTO ITS NEIGHBOURS, ANYTHING ELSE (a cell, a block, a component) STANDS APART**, so a figure split across inline tags stays one figure and two cells stay two. */
   const readAll = (kids) => {
     for (const kid of kids) {
@@ -587,7 +589,9 @@ function theBoxesBeside(labels) {
       up = up.parentNode;
     }
   }
-  return found;
+  /* **A BOX SOMETHING IS TYPED IN BEATS ANYTHING ELSE PRESSABLE BESIDE THE SAME WORDS (his second live Amazon run, 27 Oct 2026: the ads form's "Report name" found the input and a help icon beside it).** */
+  const typed = found.filter(isABoxSomethingIsTypedIn);
+  return typed.length ? typed : found;
 }
 
 /** For each name, the real button on the row it names.
@@ -1882,7 +1886,10 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
 
   /** What is on the page now, for a failure to carry with it. */
   function pageText() {
-    return words(whatAPersonReads(thePage())).slice(0, PAGE_LIMIT);
+    const said = words(whatAPersonReads(thePage()));
+    /* **AND WHAT COULD BE PRESSED, after the words (his second live Amazon run, 27 Oct 2026): a failure that says "no Request button" should say which buttons there were.** */
+    const pressable = [...new Set(everything(thePage()).filter((one) => isPainted(one) && looksPressable(one)).map((one) => words(wordsOn(one))).filter((one) => one && one.length < 60))].slice(0, 30);
+    return (pressable.length ? `${said.slice(0, 900)} || pressable: ${pressable.join(" | ").slice(0, 580)}` : said).slice(0, PAGE_LIMIT);
   }
 
   /**
@@ -1977,7 +1984,7 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
     return found.map((node) => {
       let row = node;
       let up = theParentOf(node);
-      for (let howFar = 0; howFar < AS_FAR_UP_AS_A_ROW && up; howFar += 1) {
+      for (let howFar = 0; howFar < AS_FAR_UP_AS_A_STATEMENT && up; howFar += 1) {
         if (found.some((other) => other !== node && holds(up, other))) break;
         row = up;
         up = theParentOf(up);

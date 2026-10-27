@@ -852,8 +852,8 @@ check("then it waits for the saved row (found or just made), and opens ITS Actio
       and AZA_STEPS[11].do == pages.CLICK and AZA_STEPS[11].find == AZA_ROW and AZA_STEPS[12].do == pages.CLICK and AZA_STEPS[12].find.what == "Run"
       and all(s.only_if_absent is not None and s.only_if_absent.near == "{day_in_words}" and s.only_if_absent.day_in_words_is == "amazon"
               and s.only_if_absent.day_in_words_of == pages.THE_DAY_IT_WAS_MADE for s in AZA_STEPS[11:13]))
-check("only the creating steps and the run steps use a condition, across every recipe",
-      answered(lambda: sorted({r for r in tool.every_recipe() for s in (tool.recipe(r).to_ask + tool.recipe(r).to_take) if s.only_if_absent is not None}) == ["az_ads"]))
+check("only the creating steps and the run steps of ads, and the asking step of the three Amazon reports that must not be asked twice in a day, use a condition, across every recipe",
+      answered(lambda: sorted({r for r in tool.every_recipe() for s in (tool.recipe(r).to_ask + tool.recipe(r).to_take) if s.only_if_absent is not None}) == ["az_ads", "az_claims", "az_fee_preview", "az_listings"]))
 check("and it takes the latest file only from a row whose LAST RUN is today, so yesterday's file is never taken for today's, after giving the run three minutes to finish (a pause, then the list loaded again) and then waiting up to two for the row",
       len(AZA_STEPS) == 18 and AZA_STEPS[15].do == pages.WAIT_FOR and AZA_STEPS[15].find.how == pages.BY_THE_BUTTON_BESIDE and AZA_STEPS[15].find.near == "{day_in_words}"
       and AZA_STEPS[15].find.day_in_words_is == "amazon" and AZA_STEPS[15].find.day_in_words_of == pages.THE_DAY_IT_WAS_MADE and AZA_STEPS[15].patience == 120

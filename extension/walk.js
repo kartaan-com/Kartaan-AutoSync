@@ -188,7 +188,7 @@ export const TOO_BIG_TO_CARRY = 40 * 1024 * 1024;
 /* How much of the page to keep when something could not be found. The same 400
  * the Python keeps: enough to see what was really there, small enough that a log
  * stays readable and carries nothing of the seller's worth hiding. */
-const PAGE_SNIPPET = 400;
+const PAGE_SNIPPET = 1500;
 
 /** The kind of problem that is nobody's report's fault.
  *

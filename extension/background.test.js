@@ -641,6 +641,20 @@ const LATER = '2026-08-27T16:04:00.000Z';
   });
   check('and so does one that answered with a number', saidNo.couldNotFetch === 'the platform said 404');
 
+  /* **A SIGNED STORAGE LINK THAT REFUSES COOKIES IS ASKED AGAIN WITHOUT THEM (his second live Amazon run, 27 Oct 2026: the traffic file's link, a signed S3 address, "Failed to fetch" from both halves).**
+   * A signed address carries its permission in itself; a storage host that answers `*` to a cross-origin ask does not answer one that carries cookies. */
+  const theCookies = [];
+  const withCookiesFirst = globalThis.fetch;
+  globalThis.fetch = async (address, options) => {
+    theCookies.push(options && options.credentials);
+    if (options && options.credentials === 'include') throw new Error('Failed to fetch');
+    return { ok: true, status: 200, arrayBuffer: async () => new Uint8Array([4, 5, 6]).buffer };
+  };
+  const signed = await browser.aPageAsked({ do: 'fetch-this', address: 'https://a-bucket.s3.eu-west-1.amazonaws.com/report.csv?X-Amz-Signature=ab' });
+  check('A SIGNED LINK THAT REFUSES COOKIES COMES BACK AS BYTES WHEN ASKED AGAIN WITHOUT THEM',
+    Array.isArray(signed.bytes) && signed.bytes.length === 3 && theCookies.join() === 'include,omit');
+  globalThis.fetch = withCookiesFirst;
+
   /* **A NEW LINK ON THE ASKING PAGE'S OWN SITE (HIS RULING, 2026-09-14)** --
    * fetched, and kept only if the bytes really open as a spreadsheet. The page's
    * site is the one Chrome gives this half. */
@@ -2279,7 +2293,7 @@ check('the page relay is OFF in what ships, so no script on a portal page can dr
     && theRelayAllows(false, { do: 'run-now' }) === false);
 }
 
-const EXPECTED = 262 + 13 + 1 + 4 + 2;
+const EXPECTED = 262 + 13 + 1 + 4 + 2 + 1;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

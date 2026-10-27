@@ -388,6 +388,8 @@ function anIsoDay(day, month, year) {
 export function theStatementPeriod(rowText) {
   const text = String(rowText ?? '').replace(/\s+/g, ' ').trim();
   const found = A_STATEMENT_PERIOD.exec(text);
+  /* **SEVERAL PERIODS IN ONE ROW IS NOT ONE PERIOD (his second live Amazon run, 27 Oct 2026):** a climb that reached past its own row would otherwise file a statement under a neighbouring week. */
+  if (found && new RegExp(A_STATEMENT_PERIOD.source, "g").exec(text.slice(found.index + found[0].length))) return null;
   if (!found) return null;
   const start = anIsoDay(found[1], found[2], found[3]);
   const end = anIsoDay(found[4], found[5], found[6]);

@@ -661,6 +661,7 @@ const THE_QUALITY_PRODUCTS = {
     crossing !== null && crossing.start === '2026-09-29' && crossing.end === '2026-10-06');
   check('a period written with a hyphen or spaces broken by the page is still read, and the words are kept as the page spaces them',
     theStatementPeriod('6/10/2026\n -  13/10/2026').end === '2026-10-13' && theStatementPeriod('6/10/2026\n -  13/10/2026').period === '6/10/2026 - 13/10/2026');
+  check('a row text that holds SEVERAL periods (a climb that reached past its own row) is not one period, so no statement is filed under a neighbouring week', theStatementPeriod('13/10/2026 – 20/10/2026 View summary 6/10/2026 – 13/10/2026 View summary') === null);
   check('the open statement, which runs to "Present", is not a period at all', theStatementPeriod('20/10/2026 – Present Available after settlement close') === null);
   check('a row with no period, an impossible day, or an end before its start is nothing',
     theStatementPeriod('View summary') === null && theStatementPeriod('31/2/2026 – 6/3/2026') === null && theStatementPeriod('20/10/2026 – 13/10/2026') === null);
@@ -756,7 +757,7 @@ const aMeeshoQualityPage = ({
     (await feedbackRows(['Top Customer Feedback', 'Poor fit', '5 products', 'Colour differs', '2 products'])).length === 0);}
 
 console.log(failures ? `\n${failures} FAILED (${ran} checks)` : `\nall ${ran} checks passed`);
-const EXPECTED = 52 + 1 + 4 + 5 + 10 + 1 + 3 + 2 + 4 + 3 + 1 + 1 + 1 + 1 + 1 + 7;
+const EXPECTED = 52 + 1 + 4 + 5 + 10 + 1 + 3 + 2 + 4 + 3 + 1 + 1 + 1 + 1 + 1 + 7 + 1;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   process.exit(1);

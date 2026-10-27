@@ -1174,7 +1174,15 @@ async function carryOut(chrome, parts, asked, tabId, pageAddress = '') {
         + 'was fetched.' };
     }
     try {
-      const held = await fetch(asked.address, { credentials: 'include' });
+      let held;
+      try {
+        held = await fetch(asked.address, { credentials: 'include' });
+      } catch (refused) {
+        /* **A SIGNED AMAZON STORAGE LINK CARRIES ITS PERMISSION IN ITSELF, SO IT IS ASKED AGAIN WITHOUT COOKIES (his second live Amazon run, 27 Oct 2026):** a storage host that answers `*` to a cross-origin ask does
+         * not answer one that carries cookies, and the traffic file's link failed from both halves. Only a link that is signed in its own address gets this second ask. */
+        if (!/[?&]X-Amz-Signature=/i.test(String(asked.address))) throw refused;
+        held = await fetch(asked.address, { credentials: 'omit' });
+      }
       if (!held.ok) return { couldNotFetch: `the platform said ${held.status}` };
       const bytes = new Uint8Array(await held.arrayBuffer());
       if (toBeProved && !looksLikeASpreadsheet(bytes)) {

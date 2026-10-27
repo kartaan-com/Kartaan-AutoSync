@@ -982,7 +982,7 @@ check('and neither is a big dialog that is not laid over anything',
 check('the page is kept as one line of words',
   capture('  Payments \n   settled ') === 'Payments settled');
 check('and a very long page is cut to what a log can hold',
-  capture('x'.repeat(900)).length === 400);
+  capture('x'.repeat(2500)).length === 1500);
 check('and nothing at all is kept as nothing', capture(null) === '');
 
 check('a two-day range ends on the day being fetched',

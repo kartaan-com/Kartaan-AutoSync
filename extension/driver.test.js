@@ -2271,6 +2271,64 @@ for (const [start, end, from, expectedMonth] of [
     rows.length === 1 && rows[0].includes('6/10/2026 – 13/10/2026') && !rows[0].includes('26/10/2026'));
 }
 
+/* **A STATEMENT'S DOWNLOAD DRAWN DEEP INSIDE COMPONENTS (his second live Amazon run, 27 Oct 2026):** the row's words held only the button, because every component layer is a level and the climb gave up after six. A row is read up to twelve levels, still stopping at the first level that holds another statement's control. */
+{
+  const page = aPage();
+  const door = doorOn();
+  const aStatement = (period) => {
+    const row = thing('div', '', { box: BIG });
+    row.append(thing('span', period, { box: BIG }));
+    let inside = thing('div', '', { box: BIG });
+    const button = thing('button', 'Download Flat File V2', { box: BIG });
+    button.style.cursor = 'pointer';
+    inside.append(button);
+    for (let level = 0; level < 8; level += 1) { const outer = thing('div', '', { box: BIG }); outer.append(inside); inside = outer; }
+    row.append(inside);
+    return row;
+  };
+  const table = thing('div', '', { box: BIG });
+  table.append(aStatement('13/10/2026 – 20/10/2026'), aStatement('6/10/2026 – 13/10/2026'));
+  page.body.append(table);
+  const rows = await door.row_texts(BY_PRESSABLE_TEXT, 'Download Flat File V2', true, '');
+  check('a control drawn eight layers deep still reads its own row\'s period, and never the next row\'s',
+    rows.length === 2 && rows[0].includes('13/10/2026 – 20/10/2026') && !rows[0].includes('6/10/2026') && rows[1].includes('6/10/2026 – 13/10/2026') && !rows[1].includes('13/10/2026 –'));
+}
+
+/* **HIS SECOND LIVE AMAZON RUN (27 Oct 2026, v0.1.22 build fab9caf).** Every failure line still showed the Seller Central side menu, because the menu is the first 400 words of the page; the ads form's "Report name" matched the
+ * input AND a help icon beside it; and a failure should say which controls the page had. The page's navigation is left out of its words, the one box a label names is the typed-in one when there is one, and a failure carries
+ * the words of what could be pressed. */
+{
+  const page = aPage();
+  const door = doorOn();
+  const side = thing('div', 'Account health Performance notifications');
+  side.setAttribute('role', 'navigation');
+  page.body.append(thing('nav', 'Orders Returns Payments menu'), thing('aside', 'Seller Assistant'), side, thing('h1', 'All Orders'), thing('p', 'XML File available'));
+  check('the page\'s navigation (nav, aside, role navigation) is not part of the words a failure says it saw',
+    door.page_text() === 'All Orders XML File available');
+}
+{
+  const page = aPage();
+  const door = doorOn();
+  const request = thing('button', 'Request', { box: BIG });
+  request.style.cursor = 'pointer';
+  page.body.append(thing('p', 'Choose a date', { box: BIG }), request);
+  check('and when something can be pressed the words of what can be pressed follow the page\'s own words',
+    door.page_text() === 'Choose a date Request || pressable: Request');
+}
+{
+  const page = aPage();
+  const door = doorOn();
+  const input = thing('input', '', { type: 'text', value: 'Campaign - 10/27/2026', box: BIG });
+  const icon = thing('i', '', { box: BIG });
+  icon.style.cursor = 'pointer';
+  const field = thing('div', '', { box: BIG });
+  field.append(thing('label', 'Report name', { box: BIG }), icon, input);
+  const heading = thing('div', '', { box: BIG });
+  heading.append(thing('h4', 'Report name', { box: BIG }), icon);
+  page.body.append(heading, field);
+  check('the box a label names is the one something is typed in, never a help icon beside the words',
+    (await door.find(BY_THE_CONTROL_BESIDE, 'Report name')) === 1);
+}
 /* -------------------------------------------------- is it asking to sign in? */
 
 {
@@ -3071,7 +3129,7 @@ for (const [start, end, from, expectedMonth] of [
     refused.includes('is not on the calendar') && pressedInAugust.length === 0 && pressedInSeptember.length === 0);
 }
 
-const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2;
+const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;
