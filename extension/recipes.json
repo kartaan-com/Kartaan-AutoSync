@@ -1733,9 +1733,9 @@
           "do": "click",
           "find": {
             "how": "role",
-            "what": "Request",
+            "what": "Request Report",
             "exact": true,
-            "called": "the Request button",
+            "called": "the Request Report button",
             "near": "",
             "alsoSaying": "",
             "dayInWordsIs": "",

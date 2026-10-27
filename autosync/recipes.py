@@ -1444,7 +1444,7 @@ RECIPES: Dict[str, Recipe] = {
             Step(WAIT_FOR, find=Find(BY_PRESSABLE_TEXT, "Last Updated Date", called="the Last Updated Date choice"), patience=90,
                  why="waiting for the All Orders page to draw its report type choice"),
             Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Last Updated Date", called="the Last Updated Date choice"), why="choosing the orders by last updated date"),
-            Step(CLICK, find=Find(BY_ROLE_AND_TEXT, "Request", called="the Request button"), why="asking Amazon to build the orders for the last day"),
+            Step(CLICK, find=Find(BY_ROLE_AND_TEXT, "Request Report", called="the Request Report button"), why="asking Amazon to build the orders for the last day"),
         ),
         to_take=(
             Step(GO, address=AMAZON_ALL_ORDERS, patience=60, why="coming back to the All Orders report page for the orders"),

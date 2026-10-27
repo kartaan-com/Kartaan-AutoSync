@@ -784,7 +784,7 @@ check("az_orders opens the All Orders report page for both phases, the address c
 check("az_orders asks for the report by LAST UPDATED date (the way the order reader keys it), the page's own default range, and presses the one real Request button last",
       len(AZO_ASK) == 4 and [s.do for s in AZO_ASK[1:]] == [pages.WAIT_FOR, pages.CLICK, pages.CLICK]
       and AZO_ASK[2].find.what == "Last Updated Date" and AZO_ASK[1].find == AZO_ASK[2].find
-      and AZO_ASK[3].find.how == pages.BY_ROLE_AND_TEXT and AZO_ASK[3].find.what == "Request")
+      and AZO_ASK[3].find.how == pages.BY_ROLE_AND_TEXT and AZO_ASK[3].find.what == "Request Report")
 check("az_orders takes only the Download of the Last Updated Date row requested on the run's own day, written Amazon's day-first way, so an old row is never taken for today's",
       len(AZO_TAKE) == 3 and AZO_TAKE[2].do == pages.TAKE_FILE and AZO_TAKE[1].find == AZO_TAKE[2].find
       and AZO_TAKE[2].find.what == "Download" and AZO_TAKE[2].find.near == "{day_in_words}" and AZO_TAKE[2].find.also_saying == "Last Updated Date"
