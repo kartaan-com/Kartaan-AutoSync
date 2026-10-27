@@ -1200,6 +1200,8 @@ async function carryOut(chrome, parts, asked, tabId, pageAddress = '') {
     });
     /* **A LIST OF NUMBERS, because a message carries nothing else.** The page
      * half turns it back into bytes. */
+    /* **A REFUSED FETCH COMES BACK AS AN OBJECT WITH AN ADDRESS** (his fifth live Amazon run, az_ads: "held is not iterable"); it is handed on for the page half's own try, never spread as bytes. */
+    if (held && held.couldNotFetch) return held;
     return held ? { bytes: [...held] } : null;
   }
   say(asked.line);

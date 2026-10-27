@@ -538,12 +538,13 @@ const LATER = '2026-08-27T16:04:00.000Z';
   const went = [];
   const putAway = [];
   let driveRefuses = '';
+  let theDownloadIsRefused = false;
   wireUp(browser.chrome, {
     onDue: async () => {},
     answer: answerThePage(browser.chrome, {
       goTo: async (_chrome, where) => { went.push(where); },
       routeInThePage: async (_chrome, where) => { went.push({ ...where, routed: true }); return { arrived: true }; },
-      takeTheFile: async () => new Uint8Array([1, 2, 3]),
+      takeTheFile: async () => (theDownloadIsRefused ? { couldNotFetch: 'Failed to fetch', address: 'https://x.example/f' } : new Uint8Array([1, 2, 3])),
       whatIsHeld: async ({ reportId }) => (driveRefuses ? Promise.reject(new Error(driveRefuses)) : (reportId === 'me_orders' ? ['meesho_me_orders_2026-10-13.csv'] : [])),
       landTheFile: async (what) => {
         if (driveRefuses) throw new Error(driveRefuses);
@@ -590,6 +591,12 @@ const LATER = '2026-08-27T16:04:00.000Z';
   const file = await browser.aPageAsked({ do: 'take-file', patience: 5 });
   check('a file comes back as something a message can carry',
     Array.isArray(file.bytes) && file.bytes.length === 3);
+  /* **A DOWNLOAD THE BACKGROUND CANNOT FETCH IS HANDED BACK AS AN ADDRESS, NEVER SPREAD (his fifth live Amazon run, 27 Oct 2026: az_ads failed "held is not iterable"):** the answer of a refused fetch is an object, and spreading it threw. */
+  theDownloadIsRefused = true;
+  const refusedFile = await browser.aPageAsked({ do: 'take-file', patience: 5 }).catch((wrong) => ({ threw: String(wrong && wrong.message) }));
+  theDownloadIsRefused = false;
+  check('a download the background cannot fetch is handed back as an address for the page half to try, not thrown',
+    Boolean(refusedFile) && refusedFile.couldNotFetch === 'Failed to fetch' && typeof refusedFile.address === 'string' && refusedFile.bytes === undefined);
 
   /* ---- THE LINK THE PORTAL WAS ABOUT TO OPEN, FETCHED FROM THIS HALF (2026-09-11)
    *
@@ -2294,7 +2301,7 @@ check('the page relay is OFF in what ships, so no script on a portal page can dr
     && theRelayAllows(false, { do: 'run-now' }) === false);
 }
 
-const EXPECTED = 262 + 13 + 1 + 4 + 2 + 1;
+const EXPECTED = 262 + 13 + 1 + 4 + 2 + 1 + 1;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

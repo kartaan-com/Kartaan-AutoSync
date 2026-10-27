@@ -242,6 +242,20 @@ const BOOK = {
           patience: 60, why: 'taking the file' }),
       ],
     },
+    /* A RECIPE THAT WAITS FOR A ROW NAMED BY THE DAY, then takes it (his fifth live Amazon run, 27 Oct 2026: a day with two Done rows made the WAIT refuse "2 things match" though the take step takes the newest). */
+    me_waits_for_a_day: {
+      readyInMinutes: 0,
+      toAsk: [],
+      toTake: [
+        step({ do: 'go', address: 'https://supplier.example.invalid/panel/{panel}/r', why: 'opening the list' }),
+        step({ do: 'wait-for',
+          find: find('Download', { near: 'made on {day_in_words}', dayInWordsIs: 'loud', dayInWordsOf: 'about' }),
+          patience: 60, why: 'waiting for the finished row' }),
+        step({ do: 'take-file',
+          find: find('Download', { near: 'made on {day_in_words}', dayInWordsIs: 'loud', dayInWordsOf: 'about' }),
+          patience: 60, why: 'taking the file' }),
+      ],
+    },
     /* A RECIPE WHOSE FIRST CONTROL TOGGLES. Flipkart's Reports Centre hides its
      * calendar behind a date box and then a Custom chip, and both of them
      * toggle -- so the reference presses the box again on every third look for
@@ -1811,6 +1825,14 @@ const odd = aPortal({ rows: ['Oct 13 to Oct 20 Download Flat File V2', ROW_20], 
 }
 
 {
+  /* **A WAIT FOR A ROW NAMED BY THE DAY MAY SEE SEVERAL (his fifth live Amazon run, 27 Oct 2026):** two Done rows of the same day are two RIGHT rows, and the take step takes the newest; a wait with nothing narrowed still refuses. */
+  const portal = aPortal({ matches: { Download: 2 } });
+  const got = await aWalk(portal)('me_waits_for_a_day', DAY);
+  check('a wait narrowed by the day carries on when two rows of that day are there',
+    !String(got.say).includes('things match') && portal.tookFile === 1);
+}
+
+{
   /* **AND A DOOR WITH NOTHING TO SAY LEAVES THE SENTENCE AS IT WAS.** Asked
    * inside a failure, the question must never become one. */
   const portal = aPortal({ matches: { 'Export data': 2 } });
@@ -3053,7 +3075,7 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
     === '05 SEPT 2026 / 2026-09-05|SEPT/05 / 2026-09-05');
 }
 
-const EXPECTED = 349 + 9 + 3 + 1 + 1 + 3 + 8 + 2 + 4 + 2 + 2 + 1 + 14 + 1;
+const EXPECTED = 349 + 9 + 3 + 1 + 1 + 3 + 8 + 2 + 4 + 2 + 2 + 1 + 14 + 1 + 1;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

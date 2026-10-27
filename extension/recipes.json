@@ -1939,7 +1939,7 @@
         {
           "do": "wait-for",
           "find": {
-            "how": "pressable",
+            "how": "pressable-second",
             "what": "Download",
             "exact": true,
             "called": "the Download of the All Returns row requested today",
@@ -1967,7 +1967,7 @@
         {
           "do": "take-file",
           "find": {
-            "how": "pressable",
+            "how": "pressable-second",
             "what": "Download",
             "exact": true,
             "called": "the Download of the All Returns row requested today",

@@ -2056,7 +2056,10 @@ export function theWalk({
          * the recipe had opened itself; see `whyNothingWasFound`. */
         return whyNothingWasFound(step, reportId, dataDate);
       }
-      if (many > 1) {
+      /* **A WAIT FOR A ROW NARROWED TO A DAY MAY SEE SEVERAL (his fifth live Amazon run, 27 Oct 2026):** two Done rows of the same day are two RIGHT rows, the take step that follows takes the newest (the topmost), and a wait that only looks must not
+       * refuse what the take step accepts. A wait with nothing narrowed still refuses. */
+      const severalRowsOfTheDay = step.do === WAIT_FOR && (step.find.near || []).length > 0;
+      if (many > 1 && !severalRowsOfTheDay) {
         /* **AMBIGUITY IS A FAILURE, NOT A COIN TOSS.** Nine days of payments were
          * lost to a chart legend that read like a menu item. */
         return gaveUp(reportId, dataDate, {

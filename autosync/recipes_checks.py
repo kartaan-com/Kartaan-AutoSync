@@ -736,6 +736,7 @@ check("az_returns presses only the one real Request button, never a neighbour",
 check("az_returns takes only the Download of the All Returns row requested on the run's own day, so an old row is never taken for today's",
       len(AZR_TAKE) == 3 and AZR_TAKE[2].do == pages.TAKE_FILE and AZR_TAKE[1].find == AZR_TAKE[2].find
       and AZR_TAKE[2].find.what == "Download" and AZR_TAKE[2].find.near == "{day_in_words}" and AZR_TAKE[2].find.also_saying == "All Returns"
+      and AZR_TAKE[2].find.how == pages.BY_THE_SECOND_PRESSABLE
       and AZR_TAKE[2].find.day_in_words_is == "amazon" and AZR_TAKE[2].find.day_in_words_of == pages.THE_DAY_IT_WAS_MADE)
 # **AMAZON'S ORDER REPORTS AND SETTLEMENT STATEMENTS DATE A ROW WITH NUMBERS ONLY (N018, seen 26 Oct 2026; Control's ruling of the same day).** Order report rows read
 # `26/10/26, 6:36:33 am India Standard Time`, and statement rows `13/10/2026 – 20/10/2026`, `6/10/2026 – 13/10/2026`, `29/9/2026 – 6/10/2026`: the DAY COMES FIRST (19/10, 20/10, 26/10

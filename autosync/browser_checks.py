@@ -402,7 +402,7 @@ check("and a step may use it",
       answered(lambda: tool.why_step_is_refused(tool.Step(
           tool.CLICK, find=tool.Find(tool.BY_THE_BUTTON_BESIDE, "Orders"),
           why="x")) is None))
-check("and all seven ways are known", answered(lambda: len(tool.WAYS_OF_FINDING) == 7))
+check("and all eight ways are known (the eighth, pressable-second, is for a row holding a pair of the same words)", answered(lambda: len(tool.WAYS_OF_FINDING) == 8))
 check("a way nobody has heard of is still refused",
       answered(lambda: tool.why_step_is_refused(tool.Step(
           tool.CLICK, find=tool.Find("xpath", "//div"), why="x")) is not None))

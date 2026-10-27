@@ -42,6 +42,7 @@ from browser import (
     BY_TEST_ID,
     BY_THE_CONTROL_BESIDE,
     BY_THE_BUTTON_BESIDE,
+    BY_THE_SECOND_PRESSABLE,
     CLICK,
     GO,
     PICK_RANGE,
@@ -1587,11 +1588,12 @@ RECIPES: Dict[str, Recipe] = {
         ),
         to_take=(
             Step(GO, address=AMAZON_RETURNS, patience=60, why="coming back to Seller fulfilled return reports for the returns"),
-            Step(WAIT_FOR, find=Find(BY_PRESSABLE_TEXT, "Download", near="{day_in_words}", also_saying="All Returns",
+            # **EACH RETURNS ROW HAS TWO DOWNLOADS (XML, then TSV), read from his run of 27 Oct 2026: `All Returns | 27 October 2026 at 4:49:28 pm IST | Download Download`. The TSV, the second, is the one wanted.**
+            Step(WAIT_FOR, find=Find(BY_THE_SECOND_PRESSABLE, "Download", near="{day_in_words}", also_saying="All Returns",
                                      day_in_words_is=AMAZON_WRITES_IT, day_in_words_of=THE_DAY_IT_WAS_MADE,
                                      called="the Download of the All Returns row requested today"),
                  patience=90, why="waiting for the finished returns row"),
-            Step(TAKE_FILE, find=Find(BY_PRESSABLE_TEXT, "Download", near="{day_in_words}", also_saying="All Returns",
+            Step(TAKE_FILE, find=Find(BY_THE_SECOND_PRESSABLE, "Download", near="{day_in_words}", also_saying="All Returns",
                                       day_in_words_is=AMAZON_WRITES_IT, day_in_words_of=THE_DAY_IT_WAS_MADE,
                                       called="the Download of the All Returns row requested today"),
                  patience=90, why="taking the finished returns file"),
