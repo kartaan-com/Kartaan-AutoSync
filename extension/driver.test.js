@@ -2213,6 +2213,36 @@ for (const [start, end, from, expectedMonth] of [
     door.page_text() === 'All Orders Request Report XML File available through API');
 }
 
+/* **THE FRESH REVIEW'S FINDINGS ON THE SAME READ (27 Oct 2026).** Words placed directly in a shadow root are a TEXT node, not an element, so a root read only through `children` drops them; pieces of one
+ * figure drawn next to each other (`<b>13</b>/10/2026`) must not be split by a space when a ROW is read (a period has none); and Amazon's own components (`kat-*`) can carry their words in a `label` attribute. */
+{
+  const page = aPage();
+  const door = doorOn();
+  const host = thing('kat-label', '');
+  host.shadowRoot = { children: [], childNodes: [{ nodeType: 3, nodeValue: '13/10/2026 – 20/10/2026' }] };
+  const button = thing('kat-button', '');
+  button.setAttribute('label', 'Request');
+  page.body.append(host, button);
+  check('words placed directly in a shadow root are read, not only its elements',
+    door.page_text().includes('13/10/2026 – 20/10/2026'));
+  check('and a kat component\'s label attribute is read as the words on it',
+    door.page_text().includes('Request'));
+}
+{
+  const page = aPage();
+  const door = doorOn();
+  const cell = thing('span', '', { box: BIG });
+  cell.append(thing('b', '13', { box: BIG }), thing('i', '/10/2026', { box: BIG }));
+  const row = thing('div', '', { box: BIG });
+  const button = thing('button', 'Download Flat File V2', { box: BIG });
+  button.style.cursor = 'pointer';
+  row.append(cell, button);
+  page.body.append(row);
+  const rows = await door.row_texts(BY_PRESSABLE_TEXT, 'Download Flat File V2', true, '');
+  check('pieces of one figure drawn side by side are not split when a row is read',
+    rows.length === 1 && rows[0].includes('13/10/2026'));
+}
+
 /* -------------------------------------------------- is it asking to sign in? */
 
 {
@@ -3013,7 +3043,7 @@ for (const [start, end, from, expectedMonth] of [
     refused.includes('is not on the calendar') && pressedInAugust.length === 0 && pressedInSeptember.length === 0);
 }
 
-const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1;
+const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

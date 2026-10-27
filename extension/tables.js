@@ -235,6 +235,15 @@ export async function readTheTable(page, {
       .filter(Boolean).map((one) => Number(one[1])))
     : 0);
   let declared = 0;
+  let stopped = '';
+  /* The pager's buttons as the page draws them (label, then ON or OFF), for a short read to say; the table's own buttons are not the pager's, so only ones named for a page or for next/previous are listed. */
+  const pagerButtons = (where) => {
+    const named = below(where, 'button').map((one) => {
+      const said = (one.getAttribute && one.getAttribute('aria-label')) || '';
+      return said && /page|next|previous/i.test(said) ? `${said} ${isOff(one) ? 'OFF' : 'ON'}` : '';
+    }).filter(Boolean);
+    return named.length ? named.slice(0, 40).join(', ') : 'no button named for a page';
+  };
   if (way.pageLabel) {
     for (let waited = 0; waited < 15000 && !pagesNamed(); waited += 500) {
       // eslint-disable-next-line no-await-in-loop
@@ -243,7 +252,22 @@ export async function readTheTable(page, {
     if (!pagesNamed()) throw new Error('the page numbers never appeared on the pager, so there is no telling how many pages the table has. Nothing was read.');
   }
 
+  /* **A PAGE IS READ WHEN ITS ROWS HAVE STOPPED ARRIVING (his Meesho run of 27 Oct 2026: pages of 25 rows read as 20, 16 and 20).** A new page is known to have come by its first row changing, and the rest of its rows can
+   * still be drawing; the count of rows is looked at again, half a second apart, until it is the same twice running (at most twenty looks). */
+  const rowsNow = () => { const there2 = theTableOn(page, way); return there2 ? below(there2, 'tr').filter((one) => below(one, 'td').length).length : 0; };
+  const rowsHaveStoppedArriving = async () => {
+    let count = rowsNow();
+    for (let same = 0, looks = 0; same < 2 && looks < 20; looks += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      await rest(500);
+      const again = rowsNow();
+      same = again === count ? same + 1 : 0;
+      count = again;
+    }
+  };
+
   for (let guard = 0; guard < 500; guard += 1) {
+    await rowsHaveStoppedArriving();
     const now = theTableOn(page, way);
     if (!now) throw new Error(`the table went from the page after page ${pages}, so nothing was put away.`);
     const here = below(now, 'tr').filter((one) => below(one, 'td').length);
@@ -267,9 +291,16 @@ export async function readTheTable(page, {
     say(`${table}: page ${pages}, ${here.length} rows.`);
 
     /* **A PAGER THAT NAMES ITS PAGES IS FINISHED WHEN THE LAST NAMED PAGE IS READ**, whatever its next button then looks like. */
-    if (declared && pages >= declared) break;
-    const next = labelled(page, way.next);
-    if (!next || isOff(next)) break;
+    if (declared && pages >= declared) { stopped = `page ${pages} was the last the pager named`; break; }
+    /* **A NEXT BUTTON SWITCHED OFF WHILE THE PAGER STILL NAMES MORE PAGES IS GIVEN TIME TO COME ON** (his Meesho run of 27 Oct 2026): the page switches it off while it loads, and taking that for the end of the table
+     * stopped every night one page short. Up to ten seconds, only while more pages are named. */
+    let next = labelled(page, way.next);
+    for (let looks = 0; declared && pages < declared && (!next || isOff(next)) && looks < 20; looks += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      await rest(500);
+      next = labelled(page, way.next);
+    }
+    if (!next || isOff(next)) { stopped = next ? `the next button was there but switched off after page ${pages}` : `there was no next button after page ${pages}`; break; }
     next.click();
     /* **THE NEXT PAGE IS WAITED FOR BY ITS FIRST ROW CHANGING**, never by time alone.
      *
@@ -317,7 +348,8 @@ export async function readTheTable(page, {
       say(`${table}: the pager lists ${declared} pages and ${pages} were read, and the page counts ${countOnPage[1]} in all, which is every row read, so the table is whole.`);
     } else {
       throw new Error(`the pager lists ${declared} pages and ${pages} were read, so nothing was put away rather than a part of the table `
-        + `(rows on each page: ${perPage.join(', ')}; ${countOnPage ? `the page counts ${countOnPage[1]} in all` : 'the page prints no count of everything'}).`);
+        + `(rows on each page: ${perPage.join(', ')}; ${countOnPage ? `the page counts ${countOnPage[1]} in all` : 'the page prints no count of everything'}; `
+        + `the read stopped because ${stopped || 'the loop ended'}; the pager showed ${pagerButtons(page)}).`);
     }
   }
   if (refused.length) {

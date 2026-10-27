@@ -267,13 +267,30 @@ function holdsWords(a, b) {
 /* WHAT A PERSON READS ON A NODE: its text and its children's, the words inside an open shadow root, and never a script or a style (his first live Amazon run, 27 Oct 2026:
  * a page's `textContent` holds all of those, so every "the page said" line of its log was Amazon's own script). A node with no `childNodes` (a stand-in) is read as its `textContent`. */
 const NEVER_READ_AS_WORDS = ['script', 'style', 'noscript', 'template'];
+/* **A SPACE BETWEEN PIECES FOR A PAGE, NONE FOR A ROW (the fresh review of 27 Oct 2026):** a page reads better with its pieces apart, but a figure drawn as `<b>13</b>/10/2026` is one figure, and a row is read to find
+ * periods in it. **WORDS PLACED DIRECTLY IN A SHADOW ROOT ARE A TEXT NODE**, so a root is read through its `childNodes` where it has them. **AND AN AMAZON COMPONENT (`kat-*`) CAN CARRY ITS WORDS IN A `label`
+ * ATTRIBUTE** rather than between its tags. */
+const READ_RUN_TOGETHER = ['b', 'i', 'u', 'em', 'strong', 'small', 'sub', 'sup', 'font', 'mark', 'abbr', 'code', 'a', 'span'];
 function whatAPersonReads(node) {
-  if (NEVER_READ_AS_WORDS.includes(String(node.tagName || '').toLowerCase())) return '';
+  const tag = String(node.tagName || '').toLowerCase();
+  if (NEVER_READ_AS_WORDS.includes(tag)) return '';
   const pieces = [];
+  if (tag.startsWith('kat-') && typeof node.getAttribute === 'function') pieces.push(` ${node.getAttribute('label') || ''} `);
+  /* **AN INLINE PIECE RUNS ON INTO ITS NEIGHBOURS, ANYTHING ELSE (a cell, a block, a component) STANDS APART**, so a figure split across inline tags stays one figure and two cells stay two. */
+  const readAll = (kids) => {
+    for (const kid of kids) {
+      if (kid.nodeType === 3) pieces.push(kid.nodeValue);
+      else if (kid.nodeType === 8) continue;
+      else {
+        const said = whatAPersonReads(kid);
+        pieces.push(READ_RUN_TOGETHER.includes(String(kid.tagName || '').toLowerCase()) ? said : ` ${said} `);
+      }
+    }
+  };
   if (!node.childNodes) pieces.push(node.textContent);
-  else for (const kid of node.childNodes) pieces.push(kid.nodeType === 3 ? kid.nodeValue : kid.nodeType === 8 ? '' : whatAPersonReads(kid));
-  if (node.shadowRoot) for (const kid of node.shadowRoot.children || []) pieces.push(whatAPersonReads(kid));
-  return pieces.join(' ');
+  else readAll(node.childNodes);
+  if (node.shadowRoot) readAll(node.shadowRoot.childNodes || node.shadowRoot.children || []);
+  return pieces.join('');
 }
 
 function thePage() {

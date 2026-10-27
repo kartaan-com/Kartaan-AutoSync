@@ -437,6 +437,40 @@ check('A SIGN FOLLOWED BY A DIGIT IS ONLY LEFT ALONE WHEN THE WHOLE CELL IS A FI
 }
 
 {
+  /* **ROWS THAT ARE STILL DRAWING WHEN THE PAGE'S FIRST ROW CHANGES (his Meesho run of 27 Oct 2026: 25, 24, 25, 20, 16, 20 rows on pages of 25, the page counting 159).** A new page is known to have come by its first row
+   * changing, and the rest of its rows can still be arriving; a read taken that instant is a short page. The page is read once its rows have stopped arriving. */
+  const rows = (names) => names.map((n) => priceRow(n, n, `S-${n}`, 'Best Priced'));
+  const built = aPage({ headers: PRICE_HEADERS, pages: [rows(['A', 'B', 'C']), rows(['D', 'E', 'F'])], extra: [p('All Products (6)'), p('Losing Orders (0)')], pager: PAGER(2) });
+  const body = built.table.children[1];
+  const next = built.buttons.find((one) => one.getAttribute('aria-label') === 'Next page');
+  const original = next.onClick;
+  const stillComing = [];
+  next.onClick = () => {
+    original();
+    stillComing.push(...body.children.slice(1));
+    body.children = body.children.slice(0, 1);
+  };
+  const arriving = async () => { if (stillComing.length) body.children = [...body.children, stillComing.shift()]; };
+  const got = await readTheTable(built.page, { table: 'meesho-pricing', rest: arriving });
+  check('A PAGE WHOSE ROWS ARE STILL ARRIVING IS READ WHOLE, once they have stopped, never as a short page', got.rows === 6 && got.pages === 2);
+}
+
+{
+  /* **A NEXT BUTTON THAT IS SWITCHED OFF WHILE THE PAGER STILL NAMES MORE PAGES IS WAITED FOR (his Meesho run of 27 Oct 2026: "7 pages and 6 were read" every night).** Meesho switches the button off while a page
+   * is still loading; a read that takes it for the end of the table stops one page short. It is given time to come on again before it is believed. */
+  const rows = (names) => names.map((n) => priceRow(n, n, `S-${n}`, 'Best Priced'));
+  const built = aPage({ headers: PRICE_HEADERS, pages: [rows(['A']), rows(['B']), rows(['C'])], extra: [p('All Products (3)'), p('Losing Orders (0)')], pager: PAGER(3) });
+  const next = built.buttons.find((one) => one.getAttribute('aria-label') === 'Next page');
+  let loading = 0;
+  Object.defineProperty(next, 'disabled', { get: () => loading > 0 || built.state.at >= 2 });
+  const original = next.onClick;
+  next.onClick = () => { original(); if (built.state.at === 1) loading = 4; };
+  const slow = async () => { if (loading > 0) loading -= 1; };
+  const got = await readTheTable(built.page, { table: 'meesho-pricing', rest: slow });
+  check('A NEXT BUTTON SWITCHED OFF FOR A MOMENT WHILE MORE PAGES ARE NAMED IS WAITED FOR, never read as the end of the table', got.rows === 3 && got.pages === 3);
+}
+
+{
   /* **N017 (his D726; the run logs of 22-25 Oct): "the pager lists 7 pages and 6 were read" EVERY NIGHT.** The pager names a page the table does not have
    * (or whose button is switched off), and the page's own count of everything is the last word on whether the table is whole. */
   const short = (count) => aPage({
@@ -455,6 +489,9 @@ check('A SIGN FOLLOWED BY A DIGIT IS ONLY LEFT ALONE WHEN THE WHOLE CELL IS A FI
   });
   const why2 = await thrown(() => readTheTable(noCount.page, { table: 'meesho-pricing', rest: noWaiting }));
   check('N017: A PAGE THAT PRINTS NO COUNT CANNOT EXCUSE A SHORT PAGER', why2.includes('lists 3 pages and 2 were read') && why2.includes('prints no count'));
+  /* **A SHORT READ SAYS WHAT THE PAGER LOOKED LIKE AND WHY THE READ STOPPED (his Meesho run of 27 Oct 2026: "7 pages and 6 were read" with no way to tell whether the next button was gone, switched off, or never pressed).** */
+  check('and a short read says why it stopped and what the pager buttons were, so the next run shows the cause',
+    why2.includes('stopped because') && why2.includes('the pager showed') && why2.includes('Page 3'));
 }
 
 /* ---------------------------------------------------------------- Meesho's QUALITY page (N025, his Product Quality page, seen 26 Oct 2026; every figure here is made up)
@@ -635,7 +672,7 @@ const aMeeshoQualityPage = ({
     (await feedbackRows(['Top Customer Feedback', 'Poor fit', '5 products', 'Colour differs', '2 products'])).length === 0);}
 
 console.log(failures ? `\n${failures} FAILED (${ran} checks)` : `\nall ${ran} checks passed`);
-const EXPECTED = 52 + 1 + 4 + 5 + 10 + 1 + 3 + 2 + 4 + 3 + 1;
+const EXPECTED = 52 + 1 + 4 + 5 + 10 + 1 + 3 + 2 + 4 + 3 + 1 + 1 + 1 + 1;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   process.exit(1);
