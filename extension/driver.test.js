@@ -2311,6 +2311,28 @@ for (const [start, end, from, expectedMonth] of [
   door.click(BY_THE_LINK_ENDING, '.tsv', true, ['27 October 2026'], true, 'All Returns');
   check('and it presses the TSV of the newest row, never the XML', pressed.length === 1 && pressed[0] === 'newest tsv');
 }
+/* **THE ADS ROW IS DONE ONLY WHEN ITS STATUS READS Completed (his Chrome, 27 Oct 2026):** Last run shows the new time the moment Run is pressed while Report status still reads Processing. Another report that is Completed today must not count. */
+{
+  const page = aPage();
+  const door = doorOn();
+  const rowOf = (name, status, lastRun) => {
+    const row = thing('div', '', { box: BIG });
+    const state = thing('span', status, { box: BIG });
+    row.append(thing('span', name, { box: BIG }), state, thing('span', lastRun, { box: BIG }));
+    page.body.append(row);
+    return state;
+  };
+  const other = rowOf('Campaign - 10/26/2026T08:46:55', 'Completed', '27 Oct, 2026 9:30 AM');
+  const ours = rowOf('Kartaan campaign by day', 'Processing', '27 Oct, 2026 9:01 PM');
+  const older = rowOf('Kartaan old report', 'Completed', '26 Oct, 2026 9:30 AM');
+  const mine = (day) => door.find(BY_TEXT, 'Completed', true, 0, [day], 'Kartaan campaign by day');
+  check('a row still Processing is not Completed even with today as its last run, and another report that is Completed today does not stand in for it',
+    (await mine('27 Oct, 2026')) === 0);
+  ours.textContent = 'Completed';
+  check('and the same row reading Completed with today as its last run is found, alone',
+    (await mine('27 Oct, 2026')) === 1);
+  check('while a Completed row of another day is never found for today', other !== older && (await mine('26 Oct, 2026')) === 0);
+}
 /* **THE COLUMN'S CHECKBOX IS TOGGLED BY ITS LABEL, NOT BY THE ROW (his Chrome, 27 Oct 2026, proved by the checkbox state before and after each click):** pressing `li[data-test-id="option-root-Date range"]` does nothing; the `label` inside it toggles it. */
 {
   const page = aPage();
@@ -2835,6 +2857,24 @@ for (const [start, end, from, expectedMonth] of [
   check('a way out named in words inside an overlay is pressed',
     saidLater && byWords.length === 1);
   check('and the same word loose on the page is left alone', !looseXPressed);
+
+  /* **AMAZON'S SURVEY, SEEN ON HIS SAFE-T AND PRODUCT REPORTS PAGES, 27 Oct 2026**, opened about 30 s after the page drew: a `div[role=dialog]` of class `awsui_root`, its Close
+   * button `button[aria-label="Close"]` of class `awsui_dismiss-control`, and beside it "Remind me in an hour" and "Submit". Only the Close X is pressed, never Submit. */
+  const withASurvey = aPage();
+  const surveyDoor = doorOn();
+  const survey = thing('div', '', { attrs: { role: 'dialog' }, className: 'awsui_root_1abc', box: BIG });
+  const surveyX = thing('button', '', { attrs: { 'aria-label': 'Close' }, className: 'awsui_dismiss-control_1abc', box: BIG });
+  const remind = thing('button', 'Remind me in an hour', { box: BIG });
+  const submitSurvey = thing('button', 'Submit', { box: BIG });
+  survey.append(surveyX, remind, submitSurvey);
+  withASurvey.body.append(survey);
+  const surveyPressed = [];
+  surveyX.addEventListener('click', () => { surveyPressed.push('close'); survey.remove(); });
+  remind.addEventListener('click', () => surveyPressed.push('remind'));
+  submitSurvey.addEventListener('click', () => surveyPressed.push('submit'));
+  const surveyClosed = surveyDoor.close_pop_ups();
+  check('AMAZON\'S SURVEY IS SHUT BY ITS CLOSE X', surveyPressed.includes('close') && surveyClosed.length === 1);
+  check('and neither "Remind me in an hour" nor Submit is ever pressed', surveyPressed.length === 1);
 }
 
 {
@@ -3233,7 +3273,7 @@ for (const [start, end, from, expectedMonth] of [
     refused.includes('is not on the calendar') && pressedInAugust.length === 0 && pressedInSeptember.length === 0);
 }
 
-const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1 + 1 + 1 + 3 + 2 + 1;
+const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1 + 1 + 1 + 3 + 2 + 1 + 2 + 3;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

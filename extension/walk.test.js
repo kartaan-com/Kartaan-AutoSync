@@ -2909,7 +2909,23 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
   check('but an exact wait is not rescued by a banner, and fails when nothing else counts',
     (await aWalk(aPortal({ notOnThePage: ['Generated', 'Orders'], banners: [{ at: 1, words: 'Generated' }] }),
       aBook)('waits_exactly', DAY)).state === FAILED);
-  check('POP-UPS ARE CLOSED ONCE A PAGE, NOT ONCE A STEP', heard.closedPopUps === 1);
+  check('POP-UPS ARE CLOSED BEFORE EVERY STEP A PAGE WALKS, NOT ONCE A PAGE (a survey opens 30 s after the page drew)',
+    heard.closedPopUps === 1);
+  const threeSteps = aPortal({ banners: [{ at: 1, words: 'Report is requested successfully.' }] });
+  await aWalk(threeSteps, {
+    ...aBook,
+    recipes: { ...aBook.recipes, three_after_go: {
+      readyInMinutes: 5,
+      toAsk: [
+        step({ do: 'go', address: 'https://seller.example.invalid/asked', why: 'opening the page' }),
+        step({ do: 'wait-for', find: find('Orders', { how: 'text', called: 'the list' }), patience: 5, why: 'first' }),
+        step({ do: 'wait-for', find: find('Orders', { how: 'text', called: 'the list' }), patience: 5, why: 'second' }),
+        step({ do: 'wait-for', find: find('Orders', { how: 'text', called: 'the list' }), patience: 5, why: 'third' }),
+      ],
+      toTake: [step({ do: 'go', address: 'https://seller.example.invalid/asked', why: 'coming back' })],
+    } },
+  })('three_after_go', DAY);
+  check('and a walk of three steps after its go closes them three times, once before each', threeSteps.closedPopUps === 3);
 
   const shown = withWhatThePageShowed({ state: FAILED, say: 'could not find it.' },
     [{ words: 'Date range invalid' }, { words: 'Date range invalid' }]);
@@ -3075,7 +3091,7 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
     === '05 SEPT 2026 / 2026-09-05|SEPT/05 / 2026-09-05');
 }
 
-const EXPECTED = 349 + 9 + 3 + 1 + 1 + 3 + 8 + 2 + 4 + 2 + 2 + 1 + 14 + 1 + 1;
+const EXPECTED = 349 + 9 + 3 + 1 + 1 + 3 + 8 + 2 + 4 + 2 + 2 + 1 + 14 + 1 + 1 + 1;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

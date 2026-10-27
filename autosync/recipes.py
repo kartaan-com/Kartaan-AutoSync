@@ -452,6 +452,9 @@ AMAZON_ADS_NEW_CAMPAIGN_REPORT = "https://advertising.amazon.in/reporting/new?te
 _ADS_SAVED_ROW = Find(BY_THE_BUTTON_BESIDE, AMAZON_ADS_REPORT_NAME, also_saying="Actions", called=f"the Actions menu of the saved report {AMAZON_ADS_REPORT_NAME}")
 _ADS_SAVED_ROW_TODAY = Find(BY_THE_BUTTON_BESIDE, AMAZON_ADS_REPORT_NAME, also_saying="Actions", near="{day_in_words}", day_in_words_is=AMAZON_WRITES_IT,
                             day_in_words_of=THE_DAY_IT_WAS_MADE, called=f"the Actions menu of {AMAZON_ADS_REPORT_NAME}, showing today")
+# **THE WORD THE ROW'S STATUS READS WHEN THE FILE IS MADE (his Chrome, 27 Oct 2026), on the saved report's own row, today.** The row is named by its report name and by today in Amazon's wording.
+_ADS_SAVED_REPORT_COMPLETED_TODAY = Find(BY_TEXT, "Completed", also_saying=AMAZON_ADS_REPORT_NAME, near="{day_in_words}", day_in_words_is=AMAZON_WRITES_IT,
+                                         day_in_words_of=THE_DAY_IT_WAS_MADE, called=f"the Completed status of {AMAZON_ADS_REPORT_NAME}, showing today")
 # **THESE THREE WERE WRONG, AND THEY COST A WHOLE NIGHT (2026-09-06).** Nine of
 # ten reports failed within twenty minutes of each other -- seven ads reports
 # looking for "the other reports tab", claims looking for "the claims tab",
@@ -1534,11 +1537,12 @@ RECIPES: Dict[str, Recipe] = {
             Step(WAIT_FOR, find=_ADS_SAVED_ROW, patience=120, why=f"waiting for the saved report {AMAZON_ADS_REPORT_NAME} to be in the list"),
             Step(CLICK, find=_ADS_SAVED_ROW, only_if_absent=_ADS_SAVED_ROW_TODAY, why="opening the saved report's Actions menu"),
             Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Run", called="Run in the Actions menu"), only_if_absent=_ADS_SAVED_ROW_TODAY, why="running the saved campaign report"),
-            # **THE RUN IS GIVEN TIME TO FINISH BEFORE THE LIST IS LOADED AGAIN (the fresh review, 27 Oct 2026):** the run takes about three minutes and the list's status can lag a finished run (his panel, 26 Oct 2026), and
-            # nothing refreshes a loaded list while it is waited on, so the pause comes first and the list is loaded after it, on the same site. It is not conditional: whether the row already showed today is not known by then.
-            Step(WAIT, patience=200, why="giving the saved campaign report time to finish running, on the ads site"),
+            # **THE RUN IS GIVEN TIME TO FINISH BEFORE THE LIST IS LOADED AGAIN (the fresh review, 27 Oct 2026; time raised the same night):** a run of 30 per-day rows took about seven minutes on his console, and nothing refreshes a loaded list
+            # while it is waited on, so the pause comes first (eight minutes) and the list is loaded after it, on the same site. It is not conditional: whether the row already showed today is not known by then.
+            Step(WAIT, patience=480, why="giving the saved campaign report time to finish running, on the ads site"),
             Step(GO, address=AMAZON_ADS_REPORTING, patience=60, why="loading the ads reporting list again for the finished campaign report, without leaving the ads site"),
-            Step(WAIT_FOR, find=_ADS_SAVED_ROW_TODAY, patience=120, why="waiting for the saved report's row to show today as its last run"),
+            # **THE STATUS, NOT THE LAST-RUN TIME (his Chrome, 27 Oct 2026):** Last run shows the new time the moment Run is pressed while Report status still reads Processing, so today's row alone would take the OLD file.
+            Step(WAIT_FOR, find=_ADS_SAVED_REPORT_COMPLETED_TODAY, patience=120, why="waiting for the saved report's status to read Completed on today's row"),
             Step(CLICK, find=_ADS_SAVED_ROW_TODAY, why="opening the saved report's Actions menu"),
             Step(TAKE_FILE, find=Find(BY_PRESSABLE_TEXT, "Download latest", called="Download latest in the Actions menu"), patience=60,
                  why="taking the saved report's latest file"),

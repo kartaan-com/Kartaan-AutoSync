@@ -96,7 +96,7 @@ const BUILT_IN_THE_PAGE = 'blob:';
  * bounds its own uncaptured-download fallback at FIVE minutes and arms seconds
  * before the click; this arms at the start of the walk, because that is the only
  * message this product sends before the click, and so it has further to reach. */
-export const ARMED_FOR_MS = 25 * 60 * 1000;
+export const ARMED_FOR_MS = 30 * 60 * 1000;
 
 /* What our own window and our own tab are called in storage. **Written down
  * rather than remembered, because the worker that made the window is shut down

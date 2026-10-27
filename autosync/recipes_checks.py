@@ -858,12 +858,14 @@ check("then it waits for the saved row (found or just made), and opens ITS Actio
               and s.only_if_absent.day_in_words_of == pages.THE_DAY_IT_WAS_MADE for s in AZA_STEPS[11:13]))
 check("only the creating steps and the run steps of ads, and the asking step of the three Amazon reports that must not be asked twice in a day, use a condition, across every recipe",
       answered(lambda: sorted({r for r in tool.every_recipe() for s in (tool.recipe(r).to_ask + tool.recipe(r).to_take) if s.only_if_absent is not None}) == ["az_ads", "az_claims", "az_fee_preview", "az_listings"]))
-check("and it takes the latest file only from a row whose LAST RUN is today, so yesterday's file is never taken for today's, after giving the run three minutes to finish (a pause, then the list loaded again) and then waiting up to two for the row",
-      len(AZA_STEPS) == 18 and AZA_STEPS[15].do == pages.WAIT_FOR and AZA_STEPS[15].find.how == pages.BY_THE_BUTTON_BESIDE and AZA_STEPS[15].find.near == "{day_in_words}"
+check("and it takes the latest file only from a row whose LAST RUN is today AND WHOSE STATUS READS Completed, so neither yesterday's file nor a file still being made is taken (his Chrome, 27 Oct 2026: Last run shows the new time the moment Run is pressed while the status still reads Processing), after the pause and the list loaded again",
+      len(AZA_STEPS) == 18 and AZA_STEPS[15].do == pages.WAIT_FOR and AZA_STEPS[15].find.how == pages.BY_TEXT and AZA_STEPS[15].find.what == "Completed"
+      and AZA_STEPS[15].find.also_saying == "Kartaan campaign by day" and AZA_STEPS[15].find.near == "{day_in_words}"
       and AZA_STEPS[15].find.day_in_words_is == "amazon" and AZA_STEPS[15].find.day_in_words_of == pages.THE_DAY_IT_WAS_MADE and AZA_STEPS[15].patience == 120
-      and AZA_STEPS[15].find == AZA_STEPS[16].find and AZA_STEPS[17].do == pages.TAKE_FILE and AZA_STEPS[17].find.what == "Download latest")
-check("THE RUN IS GIVEN TIME TO FINISH BEFORE THE LIST IS LOADED AGAIN: a pause of at least three minutes after Run (the run takes about three), so the list is never loaded seconds after Run and waited on with nothing to refresh it (the fresh review of 27 Oct 2026)",
-      len(AZA_STEPS) == 18 and AZA_STEPS[13].do == pages.WAIT and AZA_STEPS[13].patience >= 180 and AZA_STEPS[13].only_if_absent is None and AZA_STEPS[14].do == pages.GO)
+      and AZA_STEPS[16].find.how == pages.BY_THE_BUTTON_BESIDE and AZA_STEPS[16].find.near == "{day_in_words}" and AZA_STEPS[16].find.what == "Kartaan campaign by day"
+      and AZA_STEPS[17].do == pages.TAKE_FILE and AZA_STEPS[17].find.what == "Download latest")
+check("THE RUN IS GIVEN TIME TO FINISH BEFORE THE LIST IS LOADED AGAIN: a pause of at least eight minutes after Run (the run takes about seven, 30 per-day rows, his Chrome 27 Oct 2026), so the list is loaded once the file is made and not seconds after Run",
+      len(AZA_STEPS) == 18 and AZA_STEPS[13].do == pages.WAIT and AZA_STEPS[13].patience >= 480 and AZA_STEPS[13].only_if_absent is None and AZA_STEPS[14].do == pages.GO)
 # **THE ADS SITE IS VISITED ONCE IN A RUN (his word, 27 Oct 2026: "this is nothing like human").** The night asks every report first and collects the two-phase ones at the END, so a two-phase ads report went to
 # advertising.amazon.in to ask and again to collect, with Seller Central between. Counted here the way the night walks: each Amazon report's asking steps (or its one phase), then the collecting steps of the two-phase ones.
 def _visits_to(host, steps_in_order):

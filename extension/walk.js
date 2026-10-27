@@ -1409,9 +1409,8 @@ export function theWalk({
      * every read-number step and the add-to-the-list step after them have to sit
      * on the same page. The one recipe that uses them does. */
     const readSoFar = new Map();
-    /* **POP-UPS ARE SHUT ONCE A PAGE, BEFORE ITS FIRST STEP** -- his ruling,
-     * 2026-09-14, the reference's own `dismissFkPopups`. */
-    let closedPopUpsHere = false;
+    /* **POP-UPS ARE SHUT BEFORE EVERY STEP, NOT ONCE A PAGE** -- his ruling 2026-09-14 (the reference's `dismissFkPopups`), widened 2026-10-27: "any platform may show any
+     * pop-up anywhere". Amazon's survey opened about 30 s after the page drew and swallowed a Download click. By its Close button only, never Submit. */
 
     for (let at = 0; at < plan.steps.length; at += 1) {
       const step = plan.steps[at];
@@ -1487,8 +1486,7 @@ export function theWalk({
         }
       }
 
-      if (!closedPopUpsHere && step.do !== GO && typeof door.close_pop_ups === 'function') {
-        closedPopUpsHere = true;
+      if (step.do !== GO && typeof door.close_pop_ups === 'function') {
         try {
           const closed = (await door.close_pop_ups()) || [];
           if (closed.length) say(`${reportId}: closed what was in the way first -- ${closed.join('; ')}.`);
