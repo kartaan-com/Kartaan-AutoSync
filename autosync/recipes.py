@@ -1509,7 +1509,9 @@ RECIPES: Dict[str, Recipe] = {
             Step(WAIT_FOR, find=Find(BY_ROLE_AND_TEXT, "Create report", called="the Create report button"), patience=90,
                  why="waiting for the ads reporting list to draw, so that a missing saved report is told apart from a page that never drew"),
             Step(GO, address=AMAZON_ADS_NEW_CAMPAIGN_REPORT, patience=60, only_if_absent=_ADS_SAVED_ROW, why="creating the saved campaign report, once: opening the Campaign template"),
-            Step(WAIT_FOR, find=Find(BY_TEXT, "Report name", called="the Report name label"), patience=90, only_if_absent=_ADS_SAVED_ROW,
+            # **THE BOX, NOT THE WORDS (his first live run, 27 Oct 2026):** "Report name" is on the form twice (a heading and a label), so waiting for the words refused as two matches and nothing was clicked;
+            # the box beside them is one thing however many times the words are written.
+            Step(WAIT_FOR, find=Find(BY_THE_CONTROL_BESIDE, "Report name", called="the Report name box"), patience=90, only_if_absent=_ADS_SAVED_ROW,
                  why="waiting for the report form to draw"),
             Step(TYPE_IN, find=Find(BY_THE_CONTROL_BESIDE, "Report name", called="the Report name box"), words=AMAZON_ADS_REPORT_NAME, only_if_absent=_ADS_SAVED_ROW,
                  why="naming the saved report"),

@@ -282,7 +282,19 @@
         if (fromTheOtherHalf && fromTheOtherHalf.bytes) {
           return guarded(new Uint8Array(fromTheOtherHalf.bytes));
         }
-        const held = await fetch(answer.address, { credentials: 'include' });
+        let held;
+        try {
+          held = await fetch(answer.address, { credentials: 'include' });
+        } catch (wrong) {
+          /* **NAMED, NOT BARE (his first live Amazon run, 27 Oct 2026):** the traffic report failed as just "Failed to fetch", which says neither whose address nor what the other half had said. Only the kind of
+           * address and its host are named, never the rest of it (it can carry a signed key). */
+          const where = (() => { try { const at = new URL(answer.address); return at.protocol === 'https:' ? at.host : at.protocol; } catch { return 'an address that is not a web address'; } })();
+          throw new Error(
+            'The platform would not hand the file over, to either half: '
+            + `${(fromTheOtherHalf && fromTheOtherHalf.couldNotFetch) || 'nothing was said'}, `
+            + `and this page's own fetch from ${where} failed too: ${(wrong && wrong.message) || String(wrong)}.`
+          );
+        }
         if (!held.ok) {
           throw new Error(
             'The platform would not hand the file over, to either half: '

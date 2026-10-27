@@ -89,10 +89,10 @@
         {
           "do": "wait-for",
           "find": {
-            "how": "text",
+            "how": "beside",
             "what": "Report name",
             "exact": true,
-            "called": "the Report name label",
+            "called": "the Report name box",
             "near": "",
             "alsoSaying": "",
             "dayInWordsIs": "",

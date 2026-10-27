@@ -845,6 +845,7 @@ check("THE CREATING STEPS ARE EACH DONE ONLY WHEN THE SAVED ROW IS NOT THERE: op
                                 for s in _create)
       and [s.do for s in _create] == [pages.GO, pages.WAIT_FOR, pages.TYPE_IN, pages.CLICK, pages.CLICK, pages.CLICK, pages.CLICK, pages.CLICK]
       and _create[0].address == "https://advertising.amazon.in/reporting/new?templateId=campaign"
+      and _create[1].find.how == pages.BY_THE_CONTROL_BESIDE and _create[1].find.what == "Report name"
       and _create[2].find.how == pages.BY_THE_CONTROL_BESIDE and _create[2].find.what == "Report name" and _create[2].words == "Kartaan campaign by day"
       and [s.find.what for s in _create[3:]] == ["Date range", "Date", "Last seven days", "Last 30 days", "Submit"])
 check("then it waits for the saved row (found or just made), and opens ITS Actions and presses Run only when that row does not already show today -- a report just created has run once and is not run again",

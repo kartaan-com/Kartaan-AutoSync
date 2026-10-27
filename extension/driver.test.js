@@ -973,6 +973,20 @@ function everyDateBox(page) {
   check('and nothing more was pressed', pressed.length === 1);
 }
 
+/* **A NAME WRITTEN TWICE, A BOX ONCE (his first live Amazon run, 27 Oct 2026).** The ads form has "Report name" as a heading and again as a label, so the words match two things and a wait on them refused; the box beside them is one. */
+{
+  const page = aPage();
+  const door = doorOn();
+  const box = thing('input', '', { type: 'text', value: 'Campaign - 10/26/2026' });
+  const field = thing('div');
+  field.append(thing('label', 'Report name'), box);
+  page.body.append(thing('h4', 'Report name'), field);
+  check('the words written twice match two things, which is why waiting on them refused',
+    (await door.find(BY_TEXT, 'Report name')) === 2);
+  check('and the box beside them is exactly one thing, so waiting on the box does not refuse',
+    (await door.find(BY_THE_CONTROL_BESIDE, 'Report name')) === 1);
+}
+
 /* ------------------------------- the box a label names, not the label (A53) */
 
 {
@@ -2180,6 +2194,25 @@ for (const [start, end, from, expectedMonth] of [
     door.page_text().length === 5000);
 }
 
+/* **A PAGE'S SCRIPT TEXT IS NOT WHAT IT SAYS (his first live Amazon run, 27 Oct 2026).** Every "the page said" line of that run's log was Amazon's own script text, because the page was read as its
+ * whole `textContent`, which holds the text of every `script` and `style`. It is read as what a person reads: no script, no style, and the words inside an open shadow root. */
+{
+  const page = aPage();
+  const door = doorOn();
+  const host = thing('kat-button', '');
+  host.shadowRoot = { children: [thing('span', 'Request Report'), thing('style', '.kat{color:red}')] };
+  page.body.append(
+    thing('script', "csa('Config', {}); window.csa = 1;"),
+    thing('style', '.a-button{margin:0}'),
+    thing('noscript', 'Enable JavaScript'),
+    thing('h1', 'All Orders'),
+    host,
+    thing('p', 'XML File available through API'),
+  );
+  check('the page is read as the words a person reads, not its script or style text',
+    door.page_text() === 'All Orders Request Report XML File available through API');
+}
+
 /* -------------------------------------------------- is it asking to sign in? */
 
 {
@@ -2830,6 +2863,28 @@ for (const [start, end, from, expectedMonth] of [
   check('the call is one only the walk asks', ASKED_ONLY_BY_THE_WALK.includes('row_texts') && !THE_CALLS.includes('row_texts'));
 }
 
+/* **A ROW WHOSE PERIOD IS DRAWN INSIDE A COMPONENT (his first live Amazon run, 27 Oct 2026).** The walk found each closed statement's Download and then read an EMPTY row ("no period this walk can read"), because the row's words were its
+ * `textContent`, and words drawn inside an open shadow root are not in it. A row is read as a person reads it, shadow roots included. */
+{
+  const page = aPage();
+  const door = doorOn();
+  const aRow = (period) => {
+    const row = thing('div', '', { box: BIG });
+    const cell = thing('kat-label', '', { box: BIG });
+    cell.shadowRoot = { children: [thing('span', period, { box: BIG })] };
+    const button = thing('button', 'Download Flat File V2', { box: BIG });
+    button.style.cursor = 'pointer';
+    row.append(cell, button);
+    return row;
+  };
+  const table = thing('div', '', { box: BIG });
+  table.append(aRow('13/10/2026 – 20/10/2026'), aRow('6/10/2026 – 13/10/2026'));
+  page.body.append(table);
+  const rows = await door.row_texts(BY_PRESSABLE_TEXT, 'Download Flat File V2', true, '');
+  check('a period drawn inside a component is in the words of its row, one row each',
+    rows.length === 2 && rows[0].includes('13/10/2026 – 20/10/2026') && rows[1].includes('6/10/2026 – 13/10/2026') && !rows[0].includes('6/10/2026'));
+}
+
 /* --------------------------------------------- proving survivors closed: the figure readers look at LEAVES only, only PAINTED ones, and the status word never borrows a neighbour's
  * **EACH CHECK BELOW IS WRITTEN AGAINST A DELIBERATE CHANGE NO EARLIER CHECK NOTICED** (the proving run on the AJ2 join): a reader that took a wrapper for a leaf, took a hidden leaf, stopped counting percentages, or
  * threw where it should have answered nothing. */
@@ -2958,7 +3013,7 @@ for (const [start, end, from, expectedMonth] of [
     refused.includes('is not on the calendar') && pressedInAugust.length === 0 && pressedInSeptember.length === 0);
 }
 
-const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11;
+const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

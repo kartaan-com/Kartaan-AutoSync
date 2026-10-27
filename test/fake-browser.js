@@ -144,6 +144,11 @@ export class FakeNode {
   get textContent() {
     return this._text + this.children.map((c) => c.textContent).join('');
   }
+  /* The text and the elements in the order a browser lists them, so a check can read a page the way a person does. Elements carry no `nodeType` here; a text piece has 3. */
+  get childNodes() {
+    return [...(this._text ? [{ nodeType: 3, nodeValue: this._text }] : []), ...this.children];
+  }
+
   set textContent(value) {
     this.children = [];
     this._text = String(value);

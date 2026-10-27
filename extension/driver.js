@@ -264,6 +264,18 @@ function holdsWords(a, b) {
 
 /* ------------------------------------------------------------ reading a page */
 
+/* WHAT A PERSON READS ON A NODE: its text and its children's, the words inside an open shadow root, and never a script or a style (his first live Amazon run, 27 Oct 2026:
+ * a page's `textContent` holds all of those, so every "the page said" line of its log was Amazon's own script). A node with no `childNodes` (a stand-in) is read as its `textContent`. */
+const NEVER_READ_AS_WORDS = ['script', 'style', 'noscript', 'template'];
+function whatAPersonReads(node) {
+  if (NEVER_READ_AS_WORDS.includes(String(node.tagName || '').toLowerCase())) return '';
+  const pieces = [];
+  if (!node.childNodes) pieces.push(node.textContent);
+  else for (const kid of node.childNodes) pieces.push(kid.nodeType === 3 ? kid.nodeValue : kid.nodeType === 8 ? '' : whatAPersonReads(kid));
+  if (node.shadowRoot) for (const kid of node.shadowRoot.children || []) pieces.push(whatAPersonReads(kid));
+  return pieces.join(' ');
+}
+
 function thePage() {
   const doc = globalThis.document;
   if (!doc || !doc.body) {
@@ -1851,7 +1863,7 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
 
   /** What is on the page now, for a failure to carry with it. */
   function pageText() {
-    return words(thePage().textContent).slice(0, PAGE_LIMIT);
+    return words(whatAPersonReads(thePage())).slice(0, PAGE_LIMIT);
   }
 
   /**
@@ -1951,7 +1963,7 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
         row = up;
         up = theParentOf(up);
       }
-      return words(row.textContent);
+      return words(whatAPersonReads(row));
     });
   }
 
