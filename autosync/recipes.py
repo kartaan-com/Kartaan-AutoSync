@@ -1445,7 +1445,8 @@ RECIPES: Dict[str, Recipe] = {
             Step(WAIT_FOR, find=Find(BY_PRESSABLE_TEXT, "Last Updated Date", called="the Last Updated Date choice"), patience=90,
                  why="waiting for the All Orders page to draw its report type choice"),
             Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Last Updated Date", called="the Last Updated Date choice"), why="choosing the orders by last updated date"),
-            Step(CLICK, find=Find(BY_ROLE_AND_TEXT, "Request Report", called="the Request Report button"), why="asking Amazon to build the orders for the last day"),
+            # **THE BUTTON READS EXACTLY "Request"; "Request Report" is the section's heading, a collapse toggle (his screenshot and console, 27 Oct 2026).** Pressing the heading logged "Asked for it" and made no row.
+            Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Request", called="the Request button under the date range"), why="asking Amazon to build the orders for the last day"),
         ),
         to_take=(
             Step(GO, address=AMAZON_ALL_ORDERS, patience=60, why="coming back to the All Orders report page for the orders"),

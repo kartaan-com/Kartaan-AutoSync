@@ -1732,10 +1732,10 @@
         {
           "do": "click",
           "find": {
-            "how": "role",
-            "what": "Request Report",
+            "how": "pressable",
+            "what": "Request",
             "exact": true,
-            "called": "the Request Report button",
+            "called": "the Request button under the date range",
             "near": "",
             "alsoSaying": "",
             "dayInWordsIs": "",

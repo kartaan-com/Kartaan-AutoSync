@@ -784,7 +784,10 @@ check("az_orders opens the All Orders report page for both phases, the address c
 check("az_orders asks for the report by LAST UPDATED date (the way the order reader keys it), the page's own default range, and presses the one real Request button last",
       len(AZO_ASK) == 4 and [s.do for s in AZO_ASK[1:]] == [pages.WAIT_FOR, pages.CLICK, pages.CLICK]
       and AZO_ASK[2].find.what == "Last Updated Date" and AZO_ASK[1].find == AZO_ASK[2].find
-      and AZO_ASK[3].find.how == pages.BY_ROLE_AND_TEXT and AZO_ASK[3].find.what == "Request Report")
+      and AZO_ASK[3].find.how == pages.BY_PRESSABLE_TEXT and AZO_ASK[3].find.what == "Request")
+# **"REQUEST REPORT" IS THE SECTION HEADING (a collapse toggle), THE BUTTON READS EXACTLY "REQUEST" (his screenshot and console, 27 Oct 2026):** pressing the heading logged "Asked for it" and made no row.
+check("az_orders never presses the Request Report heading: its button is looked for by the exact words Request",
+      len(AZO_ASK) == 4 and AZO_ASK[3].find.what == "Request" and "Request Report" not in AZO_ASK[3].find.called)
 check("az_orders takes only the Download of the Last Updated Date row requested on the run's own day, written Amazon's day-first way, so an old row is never taken for today's",
       len(AZO_TAKE) == 3 and AZO_TAKE[2].do == pages.TAKE_FILE and AZO_TAKE[1].find == AZO_TAKE[2].find
       and AZO_TAKE[2].find.what == "Download" and AZO_TAKE[2].find.near == "{day_in_words}" and AZO_TAKE[2].find.also_saying == "Last Updated Date"
@@ -1633,7 +1636,7 @@ check("and the panel name was still filled into the addresses on the way",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 457
+EXPECTED = 458
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
