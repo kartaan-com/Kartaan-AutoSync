@@ -494,6 +494,67 @@ check('A SIGN FOLLOWED BY A DIGIT IS ONLY LEFT ALONE WHEN THE WHOLE CELL IS A FI
 }
 
 {
+  /* **THE WAITS COST ONLY WHAT THEY MUST, AND EACH STOPS WHEN IT SHOULD (proving survivors of the settle and next-button waits, 27 Oct 2026).** Counted in looks (calls of `rest`), because a wait that never stops or never
+   * starts reads the same table and differs only in how long it takes. */
+  const rows = (names) => names.map((n) => priceRow(n, n, `S-${n}`, 'Best Priced'));
+  const counting = () => { const c = { calls: 0 }; c.rest = async () => { c.calls += 1; }; return c; };
+
+  const one = counting();
+  await readTheTable(aPage({ headers: PRICE_HEADERS, pages: [rows(['A'])], extra: [p('All Products (1)'), p('Losing Orders (0)')], pager: PAGER(1) }).page, { table: 'meesho-pricing', rest: one.rest });
+  check('a table that is already still is looked at twice and read: the same count twice running ends the wait', one.calls === 2);
+
+  const two = counting();
+  await readTheTable(aPage({ headers: PRICE_HEADERS, pages: [rows(['A']), rows(['B'])], extra: [p('All Products (2)'), p('Losing Orders (0)')], pager: PAGER(2) }).page, { table: 'meesho-pricing', rest: two.rest });
+  check('and two still pages cost two looks each and one for the move, with no waiting for a next button that is on', two.calls === 5);
+
+  /* Four rows arriving one look apart: all four are read, and the wait ends soon after the last one. */
+  const built = aPage({ headers: PRICE_HEADERS, pages: [rows(['A', 'B', 'C', 'D']), rows(['E', 'F', 'G', 'H'])], extra: [p('All Products (8)'), p('Losing Orders (0)')], pager: PAGER(2) });
+  const body = built.table.children[1];
+  const next = built.buttons.find((b) => b.getAttribute('aria-label') === 'Next page');
+  const original = next.onClick;
+  const coming = [];
+  next.onClick = () => { original(); coming.push(...body.children.slice(1)); body.children = body.children.slice(0, 1); };
+  const arriving = counting();
+  arriving.rest = async () => { arriving.calls += 1; if (coming.length) body.children = [...body.children, coming.shift()]; };
+  const got = await readTheTable(built.page, { table: 'meesho-pricing', rest: arriving.rest });
+  check('rows arriving one look apart are read whole (four of them, not the three a "changed twice" stop would take)', got.rows === 8);
+  check('and the wait ends soon after they stop, not after the longest it could go', arriving.calls <= 10);
+
+  /* Rows that never stop arriving do not hold the read for ever: twenty looks at most. */
+  const endless = aPage({ headers: PRICE_HEADERS, pages: [rows(['A'])], extra: [p('All Products (1)'), p('Losing Orders (0)')], pager: PAGER(1) });
+  const endlessBody = endless.table.children[1];
+  const forever = counting();
+  forever.rest = async () => {
+    forever.calls += 1;
+    if (forever.calls <= 60) endlessBody.children = [...endlessBody.children, endlessBody.children[0]];
+  };
+  await thrown(() => readTheTable(endless.page, { table: 'meesho-pricing', rest: forever.rest }));
+  check('and rows that never stop arriving cost twenty looks at most, never more', forever.calls >= 20 && forever.calls <= 25);
+
+  /* A next button that is redrawn as a new one while it is waited for is looked for again each time, never judged from the old one. */
+  const redrawn = aPage({ headers: PRICE_HEADERS, pages: [rows(['A']), rows(['B']), rows(['C'])], extra: [p('All Products (3)'), p('Losing Orders (0)')], pager: PAGER(3) });
+  const old = redrawn.buttons.find((b2) => b2.getAttribute('aria-label') === 'Next page');
+  const advance = old.onClick;
+  Object.defineProperty(old, 'disabled', { get: () => true });
+  const fresh = el('button', 'Next page', [], { 'aria-label': 'Next page' });
+  fresh.onClick = advance;
+  let looksSoFar = 0;
+  const swap = async () => {
+    looksSoFar += 1;
+    if (looksSoFar === 4) redrawn.page.children = redrawn.page.children.map((one2) => (one2 === old ? fresh : one2));
+  };
+  const afterRedraw = await readTheTable(redrawn.page, { table: 'meesho-pricing', rest: swap });
+  check('a next button redrawn as a new one while it is waited for is found again, never judged from the old one', afterRedraw.rows === 3 && afterRedraw.pages === 3);
+
+  /* A pager button that is not the pager's is not listed in a short read. */
+  const stray = aPage({
+    headers: PRICE_HEADERS, pages: [rows(['A']), rows(['B'])], extra: [p('Losing Orders (0)'), el('button', 'Save changes', [], { 'aria-label': 'Save changes' })], pager: PAGER(3),
+  });
+  const why = await thrown(() => readTheTable(stray.page, { table: 'meesho-pricing', rest: noWaiting }));
+  check('a short read lists the pager\'s buttons and not the page\'s other buttons', why.includes('Page 3') && !why.includes('Save changes'));
+}
+
+{
   /* **N017 (his D726; the run logs of 22-25 Oct): "the pager lists 7 pages and 6 were read" EVERY NIGHT.** The pager names a page the table does not have
    * (or whose button is switched off), and the page's own count of everything is the last word on whether the table is whole. */
   const short = (count) => aPage({
@@ -695,7 +756,7 @@ const aMeeshoQualityPage = ({
     (await feedbackRows(['Top Customer Feedback', 'Poor fit', '5 products', 'Colour differs', '2 products'])).length === 0);}
 
 console.log(failures ? `\n${failures} FAILED (${ran} checks)` : `\nall ${ran} checks passed`);
-const EXPECTED = 52 + 1 + 4 + 5 + 10 + 1 + 3 + 2 + 4 + 3 + 1 + 1 + 1 + 1 + 1;
+const EXPECTED = 52 + 1 + 4 + 5 + 10 + 1 + 3 + 2 + 4 + 3 + 1 + 1 + 1 + 1 + 1 + 7;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   process.exit(1);

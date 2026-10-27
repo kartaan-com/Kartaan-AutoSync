@@ -2219,12 +2219,12 @@ for (const [start, end, from, expectedMonth] of [
   const page = aPage();
   const door = doorOn();
   const host = thing('kat-label', '');
-  host.shadowRoot = { children: [], childNodes: [{ nodeType: 3, nodeValue: '13/10/2026 – 20/10/2026' }] };
+  host.shadowRoot = { children: [], childNodes: [{ nodeType: 3, nodeValue: '13/10/2026 – 20/10/2026' }, { nodeType: 8, textContent: 'A COMMENT NOBODY READS' }] };
   const button = thing('kat-button', '');
   button.setAttribute('label', 'Request');
   page.body.append(host, button);
   check('words placed directly in a shadow root are read, not only its elements',
-    door.page_text().includes('13/10/2026 – 20/10/2026'));
+    door.page_text().includes('13/10/2026 – 20/10/2026') && !door.page_text().includes('A COMMENT'));
   check('and a kat component\'s label attribute is read as the words on it',
     door.page_text().includes('Request'));
 }
