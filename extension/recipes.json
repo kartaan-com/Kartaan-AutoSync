@@ -9,8 +9,9 @@
   "recipes": {
     "az_ads": {
       "campaignsFrom": null,
-      "readyInMinutes": 5,
-      "toAsk": [
+      "readyInMinutes": 0,
+      "toAsk": [],
+      "toTake": [
         {
           "do": "go",
           "find": null,
@@ -446,15 +447,13 @@
           "table": "",
           "reads": "",
           "noRowIsNothingToFetch": ""
-        }
-      ],
-      "toTake": [
+        },
         {
           "do": "go",
           "find": null,
           "address": "https://advertising.amazon.in/reporting",
           "patience": 60,
-          "why": "coming back to the ads reporting list for the finished campaign report",
+          "why": "loading the ads reporting list again for the finished campaign report, without leaving the ads site",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,
           "lookAgain": null,
@@ -481,7 +480,7 @@
             "dayInWordsOf": "made"
           },
           "address": "",
-          "patience": 120,
+          "patience": 300,
           "why": "waiting for the saved report's row to show today as its last run",
           "rangeDays": 1,
           "switchedOffDaysChangeTheCursor": false,

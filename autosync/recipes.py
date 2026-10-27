@@ -1503,8 +1503,10 @@ RECIPES: Dict[str, Recipe] = {
     # ---- budget or spend is touched. Ask: open the list, prove it drew, [if missing: open the template, name it, choose Yesterday, submit -- which runs it once], wait for the row, and unless the row already shows today, open ITS Actions and press
     # ---- Run. Take: wait for the row to show today as its last run (so yesterday's file is never taken for today's), open ITS Actions, press Download latest. Measured on his console 26 Oct 2026; **NOT YET RUN LIVE.**
     "az_ads": Recipe(
-        ready_in_minutes=5,
-        to_ask=(
+        # **ONE PHASE, ONE VISIT TO THE ADS SITE (his word, 27 Oct 2026: "go to the Amazon Ads site once, do all the ads work there, come back to Seller Central, and never return").** As two phases the night went to
+        # advertising.amazon.in to ask, did all its Seller Central work, and went back at the end to collect. Now the walk asks, waits there for the report's row to show today (it runs in about three minutes), and
+        # takes the file before it leaves.
+        to_take=(
             Step(GO, address=AMAZON_ADS_REPORTING, patience=60, why="opening the ads reporting list to run the saved campaign report"),
             Step(WAIT_FOR, find=Find(BY_ROLE_AND_TEXT, "Create report", called="the Create report button"), patience=90,
                  why="waiting for the ads reporting list to draw, so that a missing saved report is told apart from a page that never drew"),
@@ -1526,10 +1528,9 @@ RECIPES: Dict[str, Recipe] = {
             Step(WAIT_FOR, find=_ADS_SAVED_ROW, patience=120, why=f"waiting for the saved report {AMAZON_ADS_REPORT_NAME} to be in the list"),
             Step(CLICK, find=_ADS_SAVED_ROW, only_if_absent=_ADS_SAVED_ROW_TODAY, why="opening the saved report's Actions menu"),
             Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Run", called="Run in the Actions menu"), only_if_absent=_ADS_SAVED_ROW_TODAY, why="running the saved campaign report"),
-        ),
-        to_take=(
-            Step(GO, address=AMAZON_ADS_REPORTING, patience=60, why="coming back to the ads reporting list for the finished campaign report"),
-            Step(WAIT_FOR, find=_ADS_SAVED_ROW_TODAY, patience=120, why="waiting for the saved report's row to show today as its last run"),
+            # The list's status can lag a finished run (his panel, 26 Oct 2026): the list is loaded again, on the same site, before it is waited on.
+            Step(GO, address=AMAZON_ADS_REPORTING, patience=60, why="loading the ads reporting list again for the finished campaign report, without leaving the ads site"),
+            Step(WAIT_FOR, find=_ADS_SAVED_ROW_TODAY, patience=300, why="waiting for the saved report's row to show today as its last run"),
             Step(CLICK, find=_ADS_SAVED_ROW_TODAY, why="opening the saved report's Actions menu"),
             Step(TAKE_FILE, find=Find(BY_PRESSABLE_TEXT, "Download latest", called="Download latest in the Actions menu"), patience=60,
                  why="taking the saved report's latest file"),

@@ -244,8 +244,8 @@ SHAPES = {
     "az_settlements": ((), (pages.GO, pages.WAIT_FOR, pages.TAKE_EVERY_NEW)),
     # **AMAZON ACCOUNT HEALTH (N018):** open the dashboard, wait for the rating, read the rating and four rates, write the day as its own one-row file.
     "az_health": ((), (pages.GO, pages.WAIT_FOR, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.READ_NUMBER, pages.ADD_TO_THE_LIST)),
-    # **AMAZON ADS (N018):** the seller's one saved daily report is RUN (open, wait for its row, open the row's Actions, press Run); later the row that shows today as its last run is opened and its latest file taken.
-    "az_ads": ((pages.GO, pages.WAIT_FOR, pages.GO, pages.WAIT_FOR, pages.TYPE_IN, pages.CLICK, pages.CLICK, pages.CLICK, pages.CLICK, pages.CLICK, pages.WAIT_FOR, pages.CLICK, pages.CLICK), (pages.GO, pages.WAIT_FOR, pages.CLICK, pages.TAKE_FILE)),
+    # **AMAZON ADS (N018), ONE PHASE SO THE ADS SITE IS VISITED ONCE (27 Oct 2026):** the seller's one saved daily report is created if missing, RUN, the list loaded again, the row that shows today as its last run waited for, and its latest file taken, all in one visit.
+    "az_ads": ((), (pages.GO, pages.WAIT_FOR, pages.GO, pages.WAIT_FOR, pages.TYPE_IN, pages.CLICK, pages.CLICK, pages.CLICK, pages.CLICK, pages.CLICK, pages.WAIT_FOR, pages.CLICK, pages.CLICK, pages.GO, pages.WAIT_FOR, pages.CLICK, pages.TAKE_FILE)),
 }
 for report_id, (ask, take) in sorted(SHAPES.items()):
     one = tool.recipe(report_id)
@@ -402,7 +402,7 @@ check("so nothing in the collecting half looks for a row it has not named",
 
 two = [r for r in tool.every_recipe() if tool.recipe(r).two_phase]
 check("the reports Flipkart has to go away and build are two-phase",
-      answered(lambda: set(two) == {"fk_orders", "fk_returns", "fk_payments", "fk_views", "fk_listings", "az_listings", "az_fee_preview", "az_returns", "az_claims", "az_orders", "az_ads"}))
+      answered(lambda: set(two) == {"fk_orders", "fk_returns", "fk_payments", "fk_views", "fk_listings", "az_listings", "az_fee_preview", "az_returns", "az_claims", "az_orders"}))
 check("and no Meesho report is", answered(lambda: not any(r.startswith("me_") for r in two)))
 # **A ONE-SHOT REPORT SAYS NOTHING ABOUT HOW LONG IT TAKES TO BE READY**, because
 # nobody is building it -- a number there would be read by nothing.
@@ -831,15 +831,14 @@ check("only the health recipe asks for a percentage or a status word, across eve
 # The Create report form (`/reporting/new?templateId=campaign`) has a `Report name` box, a period button reading `Last seven days` whose presets include `Yesterday`, and `Submit`. **THE WALK CREATES THE ONE SAVED REPORT
 # NAMED `Kartaan campaign by day` (Campaign template, Yesterday, once, CSV) ONLY WHEN IT IS NOT IN THE LIST, then only RUNS it and takes its latest file** -- it deletes nothing and touches no campaign, budget or spend. **NOT YET RUN LIVE.**
 AZA = answered(lambda: tool.RECIPES["az_ads"])
-AZA_ASK = AZA.to_ask if AZA else ()
-AZA_TAKE = AZA.to_take if AZA else ()
+AZA_STEPS = AZA.to_take if AZA else ()
 AZA_ROW = pages.Find(pages.BY_THE_BUTTON_BESIDE, "Kartaan campaign by day", also_saying="Actions", called="the Actions menu of the saved report Kartaan campaign by day")
-check("az_ads is a two-phase walk: thirteen steps to ask (open, prove the list, create the saved report only if missing x8, wait for its row, open its Actions, Run), four to take",
-      AZA is not None and AZA.two_phase and len(AZA_ASK) == 13 and len(AZA_TAKE) == 4)
-check("az_ads opens the reporting page for both phases, an address that carries nothing of the seller's own, and proves the list drew (the Create report button) before deciding anything",
-      bool(AZA_ASK) and bool(AZA_TAKE) and AZA_ASK[0].address == AZA_TAKE[0].address == "https://advertising.amazon.in/reporting"
-      and AZA_ASK[1].do == pages.WAIT_FOR and AZA_ASK[1].find.what == "Create report" and AZA_ASK[1].only_if_absent is None)
-_create = AZA_ASK[2:10] if len(AZA_ASK) == 13 else ()
+check("az_ads is a ONE-phase walk, so the ads site is visited once: seventeen steps (open, prove the list, create the saved report only if missing x8, wait for its row, open its Actions, Run, load the list again, wait for today's row, open its Actions, take)",
+      AZA is not None and not AZA.two_phase and len(AZA_STEPS) == 17 and not AZA.to_ask)
+check("az_ads opens the reporting page first and again to refresh it, an address that carries nothing of the seller's own, and proves the list drew (the Create report button) before deciding anything",
+      bool(AZA_STEPS) and AZA_STEPS[0].address == AZA_STEPS[13].address == "https://advertising.amazon.in/reporting" and AZA_STEPS[13].do == pages.GO
+      and AZA_STEPS[1].do == pages.WAIT_FOR and AZA_STEPS[1].find.what == "Create report" and AZA_STEPS[1].only_if_absent is None)
+_create = AZA_STEPS[2:10] if len(AZA_STEPS) == 17 else ()
 check("THE CREATING STEPS ARE EACH DONE ONLY WHEN THE SAVED ROW IS NOT THERE: open the template, name it, choose Yesterday, submit -- the row looked for by its own name, nothing else created",
       len(_create) == 8 and all(s.only_if_absent is not None and s.only_if_absent.how == pages.BY_THE_BUTTON_BESIDE and s.only_if_absent.what == "Kartaan campaign by day"
                                 for s in _create)
@@ -849,16 +848,44 @@ check("THE CREATING STEPS ARE EACH DONE ONLY WHEN THE SAVED ROW IS NOT THERE: op
       and _create[2].find.how == pages.BY_THE_CONTROL_BESIDE and _create[2].find.what == "Report name" and _create[2].words == "Kartaan campaign by day"
       and [s.find.what for s in _create[3:]] == ["Date range", "Date", "Last seven days", "Last 30 days", "Submit"])
 check("then it waits for the saved row (found or just made), and opens ITS Actions and presses Run only when that row does not already show today -- a report just created has run once and is not run again",
-      len(AZA_ASK) == 13 and AZA_ASK[10].do == pages.WAIT_FOR and AZA_ASK[10].find == AZA_ROW and AZA_ASK[10].only_if_absent is None
-      and AZA_ASK[11].do == pages.CLICK and AZA_ASK[11].find == AZA_ROW and AZA_ASK[12].do == pages.CLICK and AZA_ASK[12].find.what == "Run"
+      len(AZA_STEPS) == 17 and AZA_STEPS[10].do == pages.WAIT_FOR and AZA_STEPS[10].find == AZA_ROW and AZA_STEPS[10].only_if_absent is None
+      and AZA_STEPS[11].do == pages.CLICK and AZA_STEPS[11].find == AZA_ROW and AZA_STEPS[12].do == pages.CLICK and AZA_STEPS[12].find.what == "Run"
       and all(s.only_if_absent is not None and s.only_if_absent.near == "{day_in_words}" and s.only_if_absent.day_in_words_is == "amazon"
-              and s.only_if_absent.day_in_words_of == pages.THE_DAY_IT_WAS_MADE for s in AZA_ASK[11:]))
+              and s.only_if_absent.day_in_words_of == pages.THE_DAY_IT_WAS_MADE for s in AZA_STEPS[11:13]))
 check("only the creating steps and the run steps use a condition, across every recipe",
       answered(lambda: sorted({r for r in tool.every_recipe() for s in (tool.recipe(r).to_ask + tool.recipe(r).to_take) if s.only_if_absent is not None}) == ["az_ads"]))
-check("and it takes the latest file only from a row whose LAST RUN is today, so yesterday's file is never taken for today's",
-      len(AZA_TAKE) == 4 and AZA_TAKE[1].find.how == pages.BY_THE_BUTTON_BESIDE and AZA_TAKE[1].find.near == "{day_in_words}"
-      and AZA_TAKE[1].find.day_in_words_is == "amazon" and AZA_TAKE[1].find.day_in_words_of == pages.THE_DAY_IT_WAS_MADE and AZA_TAKE[1].find == AZA_TAKE[2].find
-      and AZA_TAKE[3].do == pages.TAKE_FILE and AZA_TAKE[3].find.what == "Download latest")
+check("and it takes the latest file only from a row whose LAST RUN is today, so yesterday's file is never taken for today's, waiting up to five minutes for it in the same visit",
+      len(AZA_STEPS) == 17 and AZA_STEPS[14].do == pages.WAIT_FOR and AZA_STEPS[14].find.how == pages.BY_THE_BUTTON_BESIDE and AZA_STEPS[14].find.near == "{day_in_words}"
+      and AZA_STEPS[14].find.day_in_words_is == "amazon" and AZA_STEPS[14].find.day_in_words_of == pages.THE_DAY_IT_WAS_MADE and AZA_STEPS[14].patience == 300
+      and AZA_STEPS[14].find == AZA_STEPS[15].find and AZA_STEPS[16].do == pages.TAKE_FILE and AZA_STEPS[16].find.what == "Download latest")
+# **THE ADS SITE IS VISITED ONCE IN A RUN (his word, 27 Oct 2026: "this is nothing like human").** The night asks every report first and collects the two-phase ones at the END, so a two-phase ads report went to
+# advertising.amazon.in to ask and again to collect, with Seller Central between. Counted here the way the night walks: each Amazon report's asking steps (or its one phase), then the collecting steps of the two-phase ones.
+def _visits_to(host, steps_in_order):
+    visits, there = 0, False
+    for step in steps_in_order:
+        if step.do != pages.GO:
+            continue
+        now = host in step.address
+        if now and not there:
+            visits += 1
+        there = now
+    return visits
+
+
+def _a_night_of_amazon_steps():
+    from reports import REPORTS as every_report
+    amazon = [r.id for r in every_report if r.platform == "amazon" and r.id in tool.RECIPES]
+    asking = [s for r in amazon for s in (tool.RECIPES[r].to_ask if tool.RECIPES[r].two_phase else tool.RECIPES[r].to_take)]
+    collecting = [s for r in amazon if tool.RECIPES[r].two_phase for s in tool.RECIPES[r].to_take]
+    return asking + collecting
+
+
+check("A RUN GOES TO THE AMAZON ADS SITE EXACTLY ONCE, however many pages of it the work needs, and never comes back to it after Seller Central",
+      answered(lambda: _visits_to("advertising.amazon.in", _a_night_of_amazon_steps())) == 1)
+check("and the counting itself sees a second visit when there is one (so the check above could fail)",
+      _visits_to("b.example", [pages.Step(pages.GO, address="https://b.example/1", patience=1, why="x"),
+                               pages.Step(pages.GO, address="https://a.example/2", patience=1, why="x"),
+                               pages.Step(pages.GO, address="https://b.example/3", patience=1, why="x")]) == 2)
 check("Amazon's ads console writes a day like `26 Oct, 2026`, and that is one of the day's spellings",
       answered(lambda: "26 Oct, 2026" in tool.the_days_in_words("amazon", date(2026, 10, 26))))
 # **MEESHO'S PRODUCT QUALITY PAGE (N025), read off his own panel on 26 Oct 2026:** side menu Quality -> `.../cataloging/<slug>/product-optimiser`, no download; the page is read, tab by tab, into ONE FILE A DAY.
@@ -1601,7 +1628,7 @@ check("and the panel name was still filled into the addresses on the way",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 456
+EXPECTED = 455
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
