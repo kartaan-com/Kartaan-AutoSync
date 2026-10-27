@@ -1598,7 +1598,7 @@ const LATER = '2026-08-27T16:04:00.000Z';
   /* **AND STILL NOT EVERYTHING.** The reference asks for `<all_urls>`; a product
    * copied into every seller's own account asks for the hosts it can name. */
   check('and it still does not ask for every address there is',
-    !hosts.includes('<all_urls>') && hosts.length <= 9);
+    !hosts.includes('<all_urls>') && hosts.length <= 10);
   /* **THE SEVENTH IS THE ONE REPOSITORY FOLDER THE "NEWER VERSION" NOTICE READS (A82)**, read only, and not
    * raw.githubusercontent.com as a whole. */
   check('the version notice may read the files of this repository and no other GitHub address',
@@ -1611,8 +1611,8 @@ const LATER = '2026-08-27T16:04:00.000Z';
   /* **AMAZON IS ALLOWED ON ITS ONE HOST AND NO WIDER (A79, D317).** Chrome's own match-pattern
    * page: a host pattern needs a path that is ignored, `/*` by convention; no `*.` in front means
    * no other Amazon address, and no scheme wildcard means https only. */
-  check('Amazon is allowed on exactly three addresses, Seller Central India, the Amazon Ads console and the one report-file storage host of the traffic report, each EXACTLY by name over https, never a wildcard (his yes D732, 27 Oct 2026: that host sends no CORS header, so only a holder of its permission can read the signed file link)',
-    hosts.filter((one) => one.includes('amazon')).sort().join() === 'https://advertising.amazon.in/*,https://businessreportsstack-prode-lambdas3bucket7d9a698f-1e32tlw5juy7t.s3.eu-west-1.amazonaws.com/*,https://sellercentral.amazon.in/*'
+  check('Amazon is allowed on exactly four addresses, Seller Central India, the Amazon Ads console and the two report-file storage hosts (the traffic report, his yes D732; the ads report, his yes D734, 27 Oct 2026), each EXACTLY by name over https, never a wildcard (those hosts send no CORS header, so only a holder of the permission can read a signed file link)',
+    hosts.filter((one) => one.includes('amazon')).sort().join() === 'https://advertising.amazon.in/*,https://businessreportsstack-prode-lambdas3bucket7d9a698f-1e32tlw5juy7t.s3.eu-west-1.amazonaws.com/*,https://decorated-reports-prod-dub.s3.eu-west-1.amazonaws.com/*,https://sellercentral.amazon.in/*'
     && !hosts.some((one) => one.includes('*.s3') || one.includes('*.amazonaws')));
   /* **THE ID IS PINNED BY A KEY (his ruling D319, 12 Oct 2026: no Chrome Web Store, sellers install
    * from a ZIP).** Without a `key` the id comes from the folder the seller unzips into, so no two
