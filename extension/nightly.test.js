@@ -2017,7 +2017,7 @@ check('report table: null night gives null', theReportTable(null, () => '') === 
 {
   const night = {
     startedAt: 0,
-    finishedAt: 0,
+    finishedAt: null,
     doing: 'r-doing',
     left: ['r-wait'],
     done: []

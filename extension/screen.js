@@ -1883,7 +1883,7 @@ export function showTheReportTable(into, table, platformName, opened) {
   }
 
   const runHead = make('div', `${OURS}run-head`);
-  const whenText = table.finishedAt === 0
+  const whenText = !table.finishedAt
     ? `${inWordsWhen(table.startedAt)} · still going`
     : `${inWordsWhen(table.startedAt)} to ${inWordsWhen(table.finishedAt)} · ${table.minutes} min`;
   put(
@@ -1924,13 +1924,13 @@ export function showTheReportTable(into, table, platformName, opened) {
 
   const tbody = make('tbody');
   for (const row of table.rows) {
-    const reportRow = make('tr', `${OURS}report-row ${OURS}report-row--${row.status}`);
+    const reportRow = make('tr', `${OURS}report-row ${OURS}report-row--${row.status.toLowerCase()}`);
     reportRow.setAttribute('tabindex', '0');
     reportRow.setAttribute('aria-expanded', opened.has(row.key) ? 'true' : 'false');
     reportRow.setAttribute('title', 'Tap to open the full detail');
 
     const nameCell = make('td', `${OURS}cell-name`, row.name);
-    const wordCell = put(make('td'), make('span', `${OURS}word ${OURS}word--${row.status}`, row.word));
+    const wordCell = put(make('td'), make('span', `${OURS}word ${OURS}word--${row.status.toLowerCase()}`, row.word));
     const timeCell = make('td');
     timeCell.textContent = row.seconds === null ? '' : `${row.seconds} s${row.star ? ' *' : ''}`;
     const meansCell = make('td', '', row.means);

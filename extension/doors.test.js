@@ -938,6 +938,16 @@ function aFetch(answers) {
   const closed = await closeOurOwn(browser.chrome, { ownWindow: true });
 
   check('N039: own window closes and returns true', closed === true);
+  /* Review of 28 Oct: a tab of his that landed in our window (a link from another program) is not ours to close. */
+  {
+    const b2 = installFakeChrome();
+    const ours = await aTabToWalkIn(b2.chrome);
+    const his = await b2.chrome.tabs.create({ url: 'https://person.example/landed', windowId: ours.windowId, active: false });
+    const did = await closeOurOwn(b2.chrome, { ownWindow: true });
+    check('our window stays while a tab of his is in it; only our tab goes',
+      did === true && b2.windows().some((w) => w.id === ours.windowId)
+      && b2.tabs().some((t) => t.id === his.id) && !b2.tabs().some((t) => t.id === ours.id));
+  }
   check('N039: own window is gone', !browser.windows().some((window) => window.id === ourWindowId));
   check('N039: person window stays', browser.windows().some((window) => window.id === personWindow.id));
   check('N039: person tab stays', browser.tabs().some((tab) => tab.id === personTabId && tab.windowId === personWindow.id));
@@ -1086,7 +1096,7 @@ function aFetch(answers) {
   check('N039: window remove error leaves storage', stored[OUR_WINDOW] !== undefined && stored[OUR_TAB] !== undefined);
 }
 
-const EXPECTED = 90 + 25;
+const EXPECTED = 90 + 25 + 1;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

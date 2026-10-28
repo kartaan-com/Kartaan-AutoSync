@@ -3138,11 +3138,29 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
   const lateFirst = await lateWalk('reload_me', DAY, { panel: PANEL, startAt: 1 });
   const lateSecond = await lateWalk('reload_me', DAY, { panel: PANEL, startAt: 1, reloadedOnce: true });
   check('N036: a page that draws the button only after a load carries on after the one reload and finds it', hasNotFinished(lateFirst) && late.portal.went.length === 1 && lateSecond.state !== FAILED);
+  /* Review of 28 Oct: a not-found reload AFTER a request was pressed would press it a second time and spend Flipkart's daily allowance twice. */
+  const afterPress = { ...book, recipes: { ...book.recipes, reload_press: {
+    readyInMinutes: 5,
+    toAsk: [
+      step({ do: 'go', address, patience: 30, why: 'opening the page' }),
+      step({ do: 'click', find: find('Submit', { how: 'pressable', called: 'the submit button' }), patience: 5, why: 'asking' }),
+      step({ do: 'wait-for', find: find('Orders', { how: 'text', called: 'the list' }), patience: 5, why: 'looking' }),
+    ],
+    toTake: [step({ do: 'go', address, why: 'coming back' })],
+  } } };
+  const pressedPortal = aPortal({ notOnThePage: ['Orders'], page: 'Returns   Nothing special here' });
+  const pressedMarks = [];
+  const pressedAnswer = await theWalk({
+    door: pressedPortal.door, book: afterPress, say: () => {}, putTheFile: pressedPortal.putTheFile, armTheCatcher: pressedPortal.armTheCatcher,
+    addToTheList: async () => ({ size: 0 }), pause: () => {}, markReloadedOnce: async () => { pressedMarks.push(1); },
+  })('reload_press', DAY, { panel: PANEL, startAt: 1 });
+  check('a thing not found AFTER a request was pressed is never loaded again, which would press the request twice',
+    pressedAnswer.state === FAILED && pressedPortal.went.length === 0 && pressedMarks.length === 0);
   const others = await run('Unable to load the generated reports.');
   check('Amazons own sentence does the same', hasNotFinished(others.answer));
 }
 
-const EXPECTED = 349 + 9 + 3 + 1 + 1 + 3 + 8 + 2 + 4 + 2 + 2 + 1 + 14 + 1 + 1 + 1 + 2 + 4 + 3;
+const EXPECTED = 349 + 9 + 3 + 1 + 1 + 3 + 8 + 2 + 4 + 2 + 2 + 1 + 14 + 1 + 1 + 1 + 2 + 4 + 3 + 1;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

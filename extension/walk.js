@@ -71,7 +71,7 @@ export const NOT_AVAILABLE_YET = 'not-available-yet';
 export const CARRYING_ON = 'carrying-on';
 
 /** The platforms' own error sentences (lower case): Meesho's "Something went wrong", Amazon's returns and reports pages. A walk that failed with one on the page is tried again once, from a fresh load. */
-export const THE_PLATFORMS_OWN_ERRORS = Object.freeze([
+const THE_PLATFORMS_OWN_ERRORS = Object.freeze([
   'something went wrong. please try again after some time',
   'unable to load the generated reports',
   'report generation did not succeed',
@@ -1351,6 +1351,8 @@ export function theWalk({
    */
   /* **WHERE THE PAGE THIS TURN WALKS WAS REACHED FROM**, so a page that shows the platform's own error can be loaded again from the same address and the same step. */
   let thisPageCameFrom = null;
+  /* **WHETHER ANYTHING WAS PRESSED IN THIS TURN.** A page loaded again after a press would press it again, and a request pressed twice spends Flipkart's twenty a day twice and leaves two rows for one day. */
+  let somethingWasPressed = false;
   const walkThisPage = async function walk(reportId, dataDate, {
     /* **THERE IS NO `dayInWords` HERE ANY MORE, AND THAT IS THE FIX (A52).** It
      * was an option the caller could hand in, defaulting to the plain ISO day,
@@ -2139,6 +2141,7 @@ export function theWalk({
           await door.click(step.find.how, step.find.what, step.find.exact, step.find.near,
             false, step.find.alsoSaying, Boolean(step.pressLikeAMouse));
         }
+        somethingWasPressed = true;
         /* **NOT SAID TWICE.** Every step announces itself above, before it is
          * attempted, and a second line here would double every click.
          *
@@ -2181,6 +2184,7 @@ export function theWalk({
   /* **WHEN THE PLATFORM SHOWS ITS OWN ERROR, THE PAGE IS LOADED AGAIN ONCE AND THE STEPS OF IT ARE TRIED AGAIN BEFORE GIVING UP (his word, 28 Oct 2026, from Meesho's returns: "Something went wrong. Please try again after some time").** Only a walk that has FAILED, only when the page or its banners say one of the platform's own error sentences, only once for the walk (the mark outlives the page), and only a page reached by a `go` -- the same address and the same step it began at. */
   return async function walkAndReloadOnce(reportId, dataDate, rest = {}) {
     thisPageCameFrom = null;
+    somethingWasPressed = false;
     const answer = await walkThisPage(reportId, dataDate, rest);
     if (!answer || answer.state !== FAILED || (rest && rest.reloadedOnce) || !thisPageCameFrom
       || typeof markReloadedOnce !== 'function' || typeof door.go !== 'function') return answer;
@@ -2191,7 +2195,7 @@ export function theWalk({
       shown = shown.replace(/\s+/g, ' ').toLowerCase();
       const theirs = THE_PLATFORMS_OWN_ERRORS.find((words) => shown.includes(words));
       /* **N036: A THING NOT FOUND IS LOADED AGAIN ONCE TOO.** The asking phase ends on the request press, so a page loaded again before it has asked for nothing yet. */
-      if (!theirs && !answer.notFound) return answer;
+      if (!theirs && (!answer.notFound || somethingWasPressed)) return answer;
       await markReloadedOnce();
       say(theirs
         ? `${reportId}: the platform showed its own error ("${theirs}"), so the page is loaded again, once, and the steps are tried again.`

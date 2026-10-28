@@ -306,10 +306,18 @@ export async function closeOurOwn(chrome, { ownWindow }) {
 
     let closed = false;
     try {
-      await chrome.windows.remove(ourWindow);
+      /* **A TAB OF HIS THAT LANDED IN OUR WINDOW IS NOT OURS TO CLOSE** (review, 28 Oct): a link from another program opens in the window last in front. With anything else in it, only our tab goes. */
+      const inIt = await chrome.tabs.query({ windowId: ourWindow });
+      const others = inIt.filter((one) => one.id !== ourTab);
+      if (others.length > 0 && ourTab !== undefined && ourTab !== null) {
+        await chrome.tabs.remove(ourTab);
+      } else {
+        await chrome.windows.remove(ourWindow);
+      }
       closed = true;
     } catch (gone) {
-      if (!String(gone && gone.message || gone).includes('No window with id')) {
+      const words = String(gone && gone.message || gone);
+      if (!words.includes('No window with id') && !words.includes('No tab with id')) {
         throw gone;
       }
       /* Already closed by somebody; nothing to tidy. */

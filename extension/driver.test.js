@@ -2655,7 +2655,7 @@ for (const [start, end, from, expectedMonth] of [
 
   /* **AMAZON'S SETTLEMENT FILE (his Chrome, 28 Oct 2026):** "Download Flat File V2" opens a short-lived tab on `/payments/reports/download?referenceId=...&contentType=text/xls&fileName=...txt` and the file downloads from it; the catcher takes that path on Seller Central only. */
   check("AND AMAZON'S SETTLEMENT FILE, BY ITS OWN PATH, IS BELIEVED",
-    saying('https://sellercentral.amazon.in/payments/reports/download?referenceId=51128020753&contentType=text/xls&fileName=51128020753.txt&ref_=xx_myp_allstmts_download') !== null);
+    saying('https://sellercentral.amazon.in/payments/reports/download?referenceId=00000000001&contentType=text/xls&fileName=00000000001.txt&ref_=xx_myp_allstmts_download') !== null);
   check("while Seller Central's other payments addresses and another host's same path are still refused",
     saying('https://sellercentral.amazon.in/payments/dashboard') === null && saying('https://evil.example/payments/reports/download?x=1') === null);
 

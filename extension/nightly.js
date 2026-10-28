@@ -1076,7 +1076,7 @@ export function theReportTable(night, nameOf) {
     if (entry.state === 'landed') {
       status = 'landed';
       word = 'Landed';
-      means = say || `${entry.size} bytes`;
+      means = say || 'file saved';
     } else if (entry.state === 'nothing-to-fetch') {
       status = 'landed';
       word = 'Nothing to fetch';

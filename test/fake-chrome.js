@@ -372,6 +372,10 @@ export function installFakeChrome({ now = () => 0, identityIsOn = true, refuseTh
         tabs.delete(id);
         await onTabRemoved.happened(id, { windowId: 1, isWindowClosing: false });
       },
+      async query({ windowId }) {
+        owner._noteACall();
+        return [...tabs.values()].filter((tab) => tab.windowId === windowId).map((tab) => ({ ...tab }));
+      },
       async get(id) {
         owner._noteACall();
         if (!tabs.has(id)) throw new Error(`There is no tab ${id}.`);
