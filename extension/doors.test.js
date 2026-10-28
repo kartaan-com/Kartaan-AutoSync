@@ -19,7 +19,7 @@ import { readFileSync } from 'node:fs';
 import { installFakeChrome } from '../test/fake-chrome.js';
 import { A_PERSON_LOOKS_AT_A_NEW_PAGE } from './walk.js';
 import {
-  ARMED_FOR_MS, OUR_TAB, OUR_WINDOW, WALK_IN_HIS_OWN_WINDOW, aTabToWalkIn, goTo, routeInThePage,
+  ARMED_FOR_MS, OUR_TAB, OUR_WINDOW, WALK_IN_HIS_OWN_WINDOW, aTabToWalkIn, closeOurOwn, goTo, routeInThePage,
   sameDocumentAs,
   takeTheFile,
   thePageToLoad,
@@ -924,7 +924,169 @@ function aFetch(answers) {
     !browser.tabs().some((one) => one.id === first.id));
 }
 
-const EXPECTED = 90;
+{
+  const browser = installFakeChrome();
+  const personWindow = await browser.chrome.windows.create({
+    url: 'https://person.example/one',
+    focused: false,
+    state: 'normal'
+  });
+  const personTabId = personWindow.tabs[0].id;
+  const ourTab = await aTabToWalkIn(browser.chrome);
+  const ourWindowId = ourTab.windowId;
+
+  const closed = await closeOurOwn(browser.chrome, { ownWindow: true });
+
+  check('N039: own window closes and returns true', closed === true);
+  check('N039: own window is gone', !browser.windows().some((window) => window.id === ourWindowId));
+  check('N039: person window stays', browser.windows().some((window) => window.id === personWindow.id));
+  check('N039: person tab stays', browser.tabs().some((tab) => tab.id === personTabId && tab.windowId === personWindow.id));
+  const stored = browser.storedForTheSession();
+  check('N039: own window close clears storage', stored[OUR_WINDOW] === undefined && stored[OUR_TAB] === undefined);
+}
+
+{
+  const browser = installFakeChrome();
+  const personWindow = await browser.chrome.windows.create({
+    url: 'https://person.example/one',
+    focused: false,
+    state: 'normal'
+  });
+  const ourTabId = personWindow.tabs[0].id;
+  const otherTab = await browser.chrome.tabs.create({
+    url: 'https://person.example/two',
+    windowId: personWindow.id,
+    active: false
+  });
+  await browser.chrome.storage.session.set({
+    [OUR_WINDOW]: personWindow.id,
+    [OUR_TAB]: ourTabId
+  });
+
+  const closed = await closeOurOwn(browser.chrome, { ownWindow: false });
+
+  check('N039: person window closes only our tab and returns true', closed === true);
+  check('N039: person window stays', browser.windows().some((window) => window.id === personWindow.id));
+  check('N039: our tab is gone', !browser.tabs().some((tab) => tab.id === ourTabId));
+  check('N039: other tab stays', browser.tabs().some((tab) => tab.id === otherTab.id && tab.windowId === personWindow.id));
+  const stored = browser.storedForTheSession();
+  check('N039: person window tab close clears storage', stored[OUR_WINDOW] === undefined && stored[OUR_TAB] === undefined);
+}
+
+{
+  const browser = installFakeChrome();
+  const beforeWindows = browser.windows().length;
+  const beforeTabs = browser.tabs().length;
+  let threw = false;
+  let ownWindowClosed;
+  let personWindowClosed;
+  try {
+    ownWindowClosed = await closeOurOwn(browser.chrome, { ownWindow: true });
+    personWindowClosed = await closeOurOwn(browser.chrome, { ownWindow: false });
+  } catch (error) {
+    threw = true;
+  }
+
+  check('N039: nothing opened does not throw', threw === false);
+  check('N039: nothing opened returns false for own window', ownWindowClosed === false);
+  check('N039: nothing opened returns false for person window', personWindowClosed === false);
+  check('N039: nothing opened leaves windows alone', browser.windows().length === beforeWindows);
+  check('N039: nothing opened leaves tabs alone', browser.tabs().length === beforeTabs);
+  const stored = browser.storedForTheSession();
+  check('N039: nothing opened leaves storage clear', stored[OUR_WINDOW] === undefined && stored[OUR_TAB] === undefined);
+}
+
+{
+  const browser = installFakeChrome();
+  const ourTab = await aTabToWalkIn(browser.chrome);
+  const ourWindowId = ourTab.windowId;
+  await browser.chrome.windows.remove(ourWindowId);
+  browser.chrome.windows.remove = async (id) => {
+    throw new Error(`No window with id: ${id}.`);
+  };
+
+  let threw = false;
+  let closed;
+  try {
+    closed = await closeOurOwn(browser.chrome, { ownWindow: true });
+  } catch (error) {
+    threw = true;
+  }
+
+  check('N039: already closed own window does not throw', threw === false);
+  check('N039: already closed own window returns false (chosen)', closed === false);
+  const stored = browser.storedForTheSession();
+  check('N039: already closed own window clears storage', stored[OUR_WINDOW] === undefined && stored[OUR_TAB] === undefined);
+}
+
+{
+  const browser = installFakeChrome();
+  const personWindow = await browser.chrome.windows.create({
+    url: 'https://person.example/one',
+    focused: false,
+    state: 'normal'
+  });
+  const ourTabId = personWindow.tabs[0].id;
+  const otherTab = await browser.chrome.tabs.create({
+    url: 'https://person.example/two',
+    windowId: personWindow.id,
+    active: false
+  });
+  await browser.chrome.storage.session.set({
+    [OUR_WINDOW]: personWindow.id,
+    [OUR_TAB]: ourTabId
+  });
+  await browser.chrome.tabs.remove(ourTabId);
+  browser.chrome.tabs.remove = async (id) => {
+    throw new Error(`No tab with id: ${id}.`);
+  };
+
+  let threw = false;
+  let closed;
+  try {
+    closed = await closeOurOwn(browser.chrome, { ownWindow: false });
+  } catch (error) {
+    threw = true;
+  }
+
+  check('N039: already closed our tab does not throw', threw === false);
+  check('N039: already closed our tab returns false (chosen)', closed === false);
+  check('N039: already closed our tab leaves other tab', browser.tabs().some((tab) => tab.id === otherTab.id && tab.windowId === personWindow.id));
+  const stored = browser.storedForTheSession();
+  check('N039: already closed our tab clears storage', stored[OUR_WINDOW] === undefined && stored[OUR_TAB] === undefined);
+}
+
+{
+  const browser = installFakeChrome();
+  const ourWindow = await browser.chrome.windows.create({
+    url: 'https://person.example/one',
+    focused: false,
+    state: 'normal'
+  });
+  const ourTabId = ourWindow.tabs[0].id;
+  await browser.chrome.storage.session.set({
+    [OUR_WINDOW]: ourWindow.id,
+    [OUR_TAB]: ourTabId
+  });
+  browser.chrome.windows.remove = async () => {
+    throw new Error('boom');
+  };
+
+  let threw = false;
+  let message;
+  try {
+    await closeOurOwn(browser.chrome, { ownWindow: true });
+  } catch (error) {
+    threw = true;
+    message = error.message;
+  }
+
+  check('N039: window remove error rethrows', threw === true && message === 'boom');
+  const stored = browser.storedForTheSession();
+  check('N039: window remove error leaves storage', stored[OUR_WINDOW] !== undefined && stored[OUR_TAB] !== undefined);
+}
+
+const EXPECTED = 90 + 25;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

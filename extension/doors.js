@@ -290,6 +290,55 @@ export async function aTabToWalkIn(chrome, { address = 'about:blank', fresh = fa
 }
 
 /**
+ * Close what this product opened, when a run ends (N039).
+ *
+ * **ONLY OURS, NEVER HIS.** In a window of our own that whole window goes; in his window only our one tab does, and nothing else of his is touched. Whether it was already closed by somebody is not a fault.
+ */
+export async function closeOurOwn(chrome, { ownWindow }) {
+  const held = await chrome.storage.session.get([OUR_WINDOW, OUR_TAB]);
+  const ourWindow = held[OUR_WINDOW];
+  const ourTab = held[OUR_TAB];
+
+  if (ownWindow) {
+    if (ourWindow === undefined || ourWindow === null) {
+      return false;
+    }
+
+    let closed = false;
+    try {
+      await chrome.windows.remove(ourWindow);
+      closed = true;
+    } catch (gone) {
+      if (!String(gone && gone.message || gone).includes('No window with id')) {
+        throw gone;
+      }
+      /* Already closed by somebody; nothing to tidy. */
+    }
+
+    await chrome.storage.session.remove([OUR_WINDOW, OUR_TAB]);
+    return closed;
+  }
+
+  if (ourTab === undefined || ourTab === null) {
+    return false;
+  }
+
+  let closed = false;
+  try {
+    await chrome.tabs.remove(ourTab);
+    closed = true;
+  } catch (gone) {
+    if (!String(gone && gone.message || gone).includes('No tab with id')) {
+      throw gone;
+    }
+    /* Already closed by somebody; nothing to tidy. */
+  }
+
+  await chrome.storage.session.remove([OUR_WINDOW, OUR_TAB]);
+  return closed;
+}
+
+/**
  * Go to an address in the working tab, and wait for the page to finish drawing.
  *
  * **WAITED FOR, not fired and forgotten.** Handing back the moment the address

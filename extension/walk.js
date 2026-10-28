@@ -75,6 +75,7 @@ export const THE_PLATFORMS_OWN_ERRORS = Object.freeze([
   'something went wrong. please try again after some time',
   'unable to load the generated reports',
   'report generation did not succeed',
+  'something went wrong please try refreshing the page',
 ]);
 
 function carryingOn(at) {
@@ -1131,7 +1132,7 @@ export function theWalk({
       lookingFor: name,
       doing: step.why,
       coveringWords: covering || '',
-    });
+    }).then((gaveUp) => ({ ...gaveUp, notFound: true }));
   }
 
   /* **SHUT WHAT IS IN THE WAY, ONCE PER STEP, WHEN THE STEP'S TARGET IS NOT FOUND OR NOT PRESSABLE.** Answers whether anything was closed, so the step is tried once more; false means nothing was in the way and the failure stands as it was. */
@@ -2189,9 +2190,12 @@ export function theWalk({
       if (typeof door.banners_seen === 'function') shown += ` ${((await door.banners_seen()) || []).map((one) => one.words).join(' ')}`;
       shown = shown.replace(/\s+/g, ' ').toLowerCase();
       const theirs = THE_PLATFORMS_OWN_ERRORS.find((words) => shown.includes(words));
-      if (!theirs) return answer;
+      /* **N036: A THING NOT FOUND IS LOADED AGAIN ONCE TOO.** The asking phase ends on the request press, so a page loaded again before it has asked for nothing yet. */
+      if (!theirs && !answer.notFound) return answer;
       await markReloadedOnce();
-      say(`${reportId}: the platform showed its own error ("${theirs}"), so the page is loaded again, once, and the steps are tried again.`);
+      say(theirs
+        ? `${reportId}: the platform showed its own error ("${theirs}"), so the page is loaded again, once, and the steps are tried again.`
+        : `${reportId}: "${answer.say}" -- so the page is loaded again, once, and looked at again before saying it is not there.`);
       await door.go(thisPageCameFrom.address, thisPageCameFrom.patience, thisPageCameFrom.at);
       return carryingOn(thisPageCameFrom.at);
     } catch (couldNotReload) {

@@ -710,6 +710,8 @@ function aPortal(how = {}) {
       /* **WORDS THAT ARE NOT ON THE PAGE RIGHT NOW** -- a banner that has gone,
        * or a row that is not listed. */
       if (how.notOnThePage && how.notOnThePage.includes(what)) return 0;
+      /* **A BUTTON THE PORTAL DRAWS ONLY AFTER THE PAGE IS LOADED AGAIN (N036).** */
+      if (how.appearsAfterAReload && how.appearsAfterAReload.includes(what) && it.went.length < 1) return 0;
       /* **A POP-UP THAT OPENED LATE HIDES IT UNTIL IT IS CLOSED**: the page-level close (the first) does not reveal it, the retry's close (the second) does. */
       if (how.hiddenUntilClosedTwice && how.hiddenUntilClosedTwice.includes(what) && (!how.closes || !how.closes.length || (it.closedPopUps || 0) < 2)) return 0;
       if (how.appearsAfterReopens !== undefined && what === 'Download') {
@@ -3122,12 +3124,25 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
   const second = await run('Returns   Something went wrong. Please try again after some time.', { reloadedOnce: true });
   check('but only once for the walk: the next time it fails as it did', second.answer.state === FAILED && second.portal.went.length === 0 && second.marks.length === 0);
   const plain = await run('Returns   Nothing special here');
-  check('and a failure with no such error on the page is left exactly as it was', plain.answer.state === FAILED && plain.portal.went.length === 0 && plain.marks.length === 0);
+  check('N036: a thing not found, with no error words on the page, loads the page again once too', hasNotFinished(plain.answer) && plain.portal.went.length === 1 && plain.marks.length === 1);
+  const plainTwice = await run('Returns   Nothing special here', { reloadedOnce: true });
+  check('N036: and after that one load a page that never has it fails exactly as before', plainTwice.answer.state === FAILED && plainTwice.portal.went.length === 0 && plainTwice.marks.length === 0);
+  const flipkart = await run('Returns   Something went wrong Please try refreshing the page or check back in a few minutes. Refresh Page');
+  check('N036: Flipkarts own words (Something went wrong Please try refreshing the page) are named as the platforms error', hasNotFinished(flipkart.answer) && flipkart.portal.went.length === 1);
+  const late = { portal: aPortal({ appearsAfterAReload: ['Orders'] }) };
+  const lateMarks = [];
+  const lateWalk = theWalk({
+    door: late.portal.door, book, say: () => {}, putTheFile: late.portal.putTheFile, armTheCatcher: late.portal.armTheCatcher,
+    addToTheList: async () => ({ size: 0 }), pause: () => {}, markReloadedOnce: async () => { lateMarks.push(1); },
+  });
+  const lateFirst = await lateWalk('reload_me', DAY, { panel: PANEL, startAt: 1 });
+  const lateSecond = await lateWalk('reload_me', DAY, { panel: PANEL, startAt: 1, reloadedOnce: true });
+  check('N036: a page that draws the button only after a load carries on after the one reload and finds it', hasNotFinished(lateFirst) && late.portal.went.length === 1 && lateSecond.state !== FAILED);
   const others = await run('Unable to load the generated reports.');
   check('Amazons own sentence does the same', hasNotFinished(others.answer));
 }
 
-const EXPECTED = 349 + 9 + 3 + 1 + 1 + 3 + 8 + 2 + 4 + 2 + 2 + 1 + 14 + 1 + 1 + 1 + 2 + 4;
+const EXPECTED = 349 + 9 + 3 + 1 + 1 + 3 + 8 + 2 + 4 + 2 + 2 + 1 + 14 + 1 + 1 + 1 + 2 + 4 + 3;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

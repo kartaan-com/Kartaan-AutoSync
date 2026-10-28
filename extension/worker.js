@@ -21,7 +21,9 @@ import {
   startTheNight, theDay, theNight, theRecheckSync, theRunLog, whatIsBeingRechecked, whatIsPaused,
   whatNeedsYou,
 } from './nightly.js';
-import { goTo, routeInThePage, takeTheFile, watchForDownloads } from './doors.js';
+import {
+  WALK_IN_HIS_OWN_WINDOW, closeOurOwn, goTo, routeInThePage, takeTheFile, watchForDownloads,
+} from './doors.js';
 import {
   aDriveToken, aWayOfAsking, addARowTo, landTheFile, recordWhatLanded, theKartaanFolder, whatIsHeldFor,
 } from './drive.js';
@@ -171,6 +173,8 @@ const followTheNightThrough = async (doneNight) => {
     if (next.refused.length) {
       console.warn('Kartaan Auto-sync: part of the scheduled sync could not start.', next.refused);
     }
+    /* **N039: THE RUN IS OVER WHEN NO NEXT PLATFORM STARTED OR IS RUNNING -- THE WINDOW THIS PRODUCT OPENED IS CLOSED, never his own.** */
+    if (!next.started && !next.waiting) await closeOurOwn(chrome, { ownWindow: WALK_IN_HIS_OWN_WINDOW });
     /* **THE WHOLE SYNC STOPPED SHORT: THE LAST NIGHT THAT RAN WAS NOT THE LAST ONE PLANNED.** Told once, here. */
     await tellForASyncThatCannotContinue(chrome, next, doneNight,
       ({ failed }) => tellFinished(chrome, kartaanFetch, { failed }));
@@ -448,6 +452,7 @@ wireUp(chrome, {
         return fetch(address, how);
       },
       watching,
+      closeOurWindow: () => closeOurOwn(chrome, { ownWindow: WALK_IN_HIS_OWN_WINDOW }),
       setTheHour,
       whyThatIsNotATimeOfDay,
       /* **WHEN IT NEXT WAKES BY ITSELF (A53, 2026-09-16).** The hour as it was

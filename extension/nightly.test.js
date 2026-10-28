@@ -22,7 +22,7 @@ import {
   THE_NIGHT,
   endTheNight,
   NOT_ASKED,
-  howTheNightWent,
+  howTheNightWent, secondsPerReport, theSlowestLine, theSlowestThree,
   oneWasAskedFor,
   spendsTheAllowance,
   startTheNight,
@@ -1153,6 +1153,29 @@ check('and three days of trying is the reference\'s own number', GIVE_UP_AFTER_D
 }
 
 {
+  /* **N037: ASKS ALL FIRST, DOWNLOADS NEXT, COLLECTS LAST -- FOR EVERY DAY OF A RANGE TOO (his 28 Oct 2026).** Two days, one report with a request step and one without: both days of the first are asked before the second report is touched, then the download-only, then the asked ones are collected, and none is asked twice. */
+  const browser = installFakeChrome();
+  const walk = aWalkThat();
+  const days = ['2026-09-13', '2026-09-14'];
+  await startTheNight(browser.chrome, {
+    doing: ['az_orders', 'az_traffic'], mayAskFor: 0, at: 1, openAt: 'https://sellercentral.example.test/', dataDate: days[1], days,
+  });
+  const finish = async (answer, at) => { walk.itFinished(answer); await carryTheNightOn(browser.chrome, { ...walk, at }); };
+  await carryTheNightOn(browser.chrome, { ...walk, at: 2 });
+  for (let at = 3; at < 12 && walk.held; at += 1) {
+    const now = walk.started.at(-1);
+    // eslint-disable-next-line no-await-in-loop
+    if (now.reportId === 'az_orders' && !now.askedAlready) await finish({ state: 'still-waiting', reportId: 'az_orders', theirId: now.dataDate, dataDate: now.dataDate }, at);
+    // eslint-disable-next-line no-await-in-loop
+    else await finish({ state: 'landed', reportId: now.reportId, size: 10, dataDate: now.dataDate }, at);
+    if (!(await theNight(browser.chrome)) || (await theNight(browser.chrome)).finishedAt) break;
+  }
+  const order = walk.started.map((one) => `${one.reportId}${one.askedAlready ? '+collect' : ''}`).join();
+  check('N037: every ask of every day comes first, then the download-only report, then the collects, and none is asked twice',
+    order === 'az_orders,az_orders,az_traffic,az_traffic,az_orders+collect,az_orders+collect');
+}
+
+{
   /* **A53: A COLLECT NOT READY IS CHECKED AGAIN EVERY HOUR, THREE TIMES, THEN "NOT
    * READY TODAY" FOR THE NEXT SYNC -- RUMEE'S WAY.** */
   const browser = installFakeChrome();
@@ -1808,7 +1831,134 @@ async function seedLandedRangeForTest(c, reportId, from, to) {
       && one.say.includes('has not been asked for')).length === 3);
 }
 
-const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1;
+{
+  const consecutiveNight = {
+    startedAt: 1000,
+    done: [
+      { reportId: 'a1', at: 4000 },
+      { reportId: 'b2', at: 9000 },
+      { reportId: 'c3', at: 12000 }
+    ]
+  };
+  check(
+    'N038: seconds per entry use consecutive finish times',
+    JSON.stringify(secondsPerReport(consecutiveNight)) === JSON.stringify([3, 5, 3])
+  );
+
+  const firstStartNight = {
+    startedAt: 2000,
+    done: [
+      { reportId: 'a1', at: 5000 },
+      { reportId: 'b2', at: 9000 }
+    ]
+  };
+  check(
+    'N038: first entry is measured from startedAt',
+    JSON.stringify(secondsPerReport(firstStartNight)) === JSON.stringify([3, 4])
+  );
+
+  const backwardsNight = {
+    startedAt: 10000,
+    done: [
+      { reportId: 'a1', at: 9000 },
+      { reportId: 'b2', at: 8000 }
+    ]
+  };
+  check(
+    'N038: a backwards clock gives 0 seconds',
+    JSON.stringify(secondsPerReport(backwardsNight)) === JSON.stringify([0, 0])
+  );
+
+  const roundedNight = {
+    startedAt: 0,
+    done: [
+      { reportId: 'a1', at: 1499 },
+      { reportId: 'b2', at: 3000 }
+    ]
+  };
+  check(
+    'N038: seconds are rounded to whole seconds',
+    JSON.stringify(secondsPerReport(roundedNight)) === JSON.stringify([1, 2])
+  );
+
+  const tieNight = {
+    startedAt: 0,
+    done: [
+      { reportId: 'a1', dataDate: '2026-01-01', at: 5000 },
+      { reportId: 'b2', dataDate: '2026-01-02', at: 15000 },
+      { reportId: 'c3', at: 25000 },
+      { reportId: 'd4', dataDate: '2026-01-04', at: 45000 }
+    ]
+  };
+  check(
+    'N038: slowest three are slowest first and ties keep finish order',
+    JSON.stringify(theSlowestThree(tieNight)) === JSON.stringify([
+      { reportId: 'd4', dataDate: '2026-01-04', seconds: 20 },
+      { reportId: 'b2', dataDate: '2026-01-02', seconds: 10 },
+      { reportId: 'c3', dataDate: '', seconds: 10 }
+    ])
+  );
+
+  const twoNight = {
+    startedAt: 0,
+    done: [
+      { reportId: 'a1', dataDate: '2026-01-01', at: 1000 },
+      { reportId: 'b2', at: 4000 }
+    ]
+  };
+  check(
+    'N038: fewer than three entries returns only those entries',
+    JSON.stringify(theSlowestThree(twoNight)) === JSON.stringify([
+      { reportId: 'b2', dataDate: '', seconds: 3 },
+      { reportId: 'a1', dataDate: '2026-01-01', seconds: 1 }
+    ])
+  );
+
+  check(
+    'N038: empty done gives no slow reports',
+    JSON.stringify(theSlowestThree({ startedAt: 0, done: [] })) === JSON.stringify([])
+  );
+
+  check(
+    'N038: missing done gives no slow reports',
+    JSON.stringify(theSlowestThree({ startedAt: 0 })) === JSON.stringify([])
+  );
+
+  check(
+    'N038: empty done gives an empty slowest line',
+    theSlowestLine({ startedAt: 0, done: [] }) === ''
+  );
+
+  const exampleNight = {
+    startedAt: 0,
+    done: [
+      { reportId: 'b2', dataDate: '2026-01-02', at: 95000 },
+      { reportId: 'a1', at: 135000 },
+      { reportId: 'c3', at: 147000 }
+    ]
+  };
+  check(
+    'N038: slowest line matches the example text',
+    theSlowestLine(exampleNight) === 'Slowest reports: b2 2026-01-02 95 s, a1 40 s, c3 12 s.'
+  );
+}
+
+{
+  /* **N038 WIRING: THE RUN LOG NAMES THE SLOWEST THREE AT THE TOP AND EACH REPORT LINE SAYS ITS SECONDS.** */
+  const wired = {
+    startedAt: 1, finishedAt: 200000, why: 'x',
+    left: [], doing: null, spent: 0, mayAskFor: 0,
+    done: [
+      { reportId: 'a1', state: 'landed', size: 5, at: 40001 },
+      { reportId: 'b2', state: 'landed', size: 5, at: 135001 },
+    ],
+  };
+  const log = theRunLog(wired).text;
+  check('N038: the run log names the slowest reports above the counts', log.indexOf('Slowest reports: b2 95 s, a1 40 s.') > -1
+    && log.indexOf('Slowest reports') < log.indexOf('landed,'));
+  check('N038: and each report line says how many seconds it took', log.includes('  a1: landed (5 bytes) [40 s]') && log.includes('  b2: landed (5 bytes) [95 s]'));
+}
+const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

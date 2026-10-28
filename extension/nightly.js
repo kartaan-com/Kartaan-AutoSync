@@ -848,6 +848,8 @@ export async function thatOneIsDone(chrome, {
     collectLater[counted] = true;
     daysLeft[reportId] = [...(daysLeft[reportId] || []), day];
   }
+  /* **N037: A REPORT STILL HAS DAYS TO ASK FOR STAYS WHERE IT IS, so every ask of the run comes before any download and every collect after them.** Only when all its days are asked does it go to the end to be collected. */
+  const stillToAsk = toCollect && (daysLeft[reportId] || []).some((one) => !collectLater[thatOneAndThatDay(reportId, one)]);
   /* **ONCE THE REQUEST IS KNOWN TO HAVE GONE, IT CANNOT BE HANDED BACK LATER (review finding, 2026-10-05).**
    * `lastCounted` was never cleared after a successful ask, so a later hourly-recheck failure for the same report
    * and day, written as not-available, would have refunded a request that really went. */
@@ -878,7 +880,7 @@ export async function thatOneIsDone(chrome, {
     daysLeft,
     /* **STILL ON THE LIST WHILE IT HAS ANOTHER DAY TO WALK TONIGHT**, and off it
      * the moment it has none. */
-    left: toCollect
+    left: toCollect && !stillToAsk
       ? [...night.left.filter((one) => one !== reportId), reportId]
       : (stillOwed ? night.left : night.left.filter((one) => one !== reportId)),
     collectLater,
@@ -992,14 +994,46 @@ export function howTheNightWent(night) {
    * failure. */
   if (night.doing) lines.push(`Being fetched right now: ${night.doing}.`);
   if (notStarted.length) lines.push(`Not started: ${notStarted.join(', ')}.`);
-  for (const one of night.done) {
+  const tookSeconds = secondsPerReport(night);
+  night.done.forEach((one, at) => {
     lines.push(`  ${one.reportId}: ${one.state}${one.size ? ` (${one.size} bytes)` : ''}`
-      + `${one.say ? ` -- ${one.say}` : ''}`);
+      + `${one.say ? ` -- ${one.say}` : ''} [${tookSeconds[at]} s]`);
     /* **AND UNDER IT, WHAT WAS ACTUALLY THERE.** A summary that says only what
      * was looked for cannot tell one cause from nine. */
     if (one.pageWas) lines.push(`      the page said: ${one.pageWas}`);
-  }
+  });
   return lines.join('\n');
+}
+
+/* **HOW LONG EACH REPORT TOOK (N038).** Walks never overlap, so a report took the time since the one before it finished (the first, since the night began). */
+export function secondsPerReport(night) {
+  const done = night.done ?? [];
+  const seconds = [];
+  for (let i = 0; i < done.length; i++) {
+    const start = i === 0 ? night.startedAt : done[i - 1].at;
+    seconds.push(Math.max(0, Math.round((done[i].at - start) / 1000)));
+  }
+  return seconds;
+}
+
+export function theSlowestThree(night) {
+  const done = night.done ?? [];
+  const seconds = secondsPerReport(night);
+  return done
+    .map((entry, i) => ({
+      reportId: entry.reportId,
+      dataDate: entry.dataDate ?? '',
+      seconds: seconds[i]
+    }))
+    .sort((a, b) => b.seconds - a.seconds)
+    .slice(0, 3);
+}
+
+export function theSlowestLine(night) {
+  const slowest = theSlowestThree(night);
+  if (slowest.length === 0) return '';
+  const items = slowest.map((entry) => `${entry.reportId}${entry.dataDate ? ` ${entry.dataDate}` : ''} ${entry.seconds} s`);
+  return `Slowest reports: ${items.join(', ')}.`;
 }
 
 /**
@@ -1018,6 +1052,7 @@ export function theRunLog(night) {
     `Finished: ${night.finishedAt ? new Date(night.finishedAt).toISOString() : 'not yet'}`,
     `Why it ended: ${night.why || ''}`,
     ...(night.toldKartaan && night.toldKartaan.said ? [`Told Kartaan: ${night.toldKartaan.said}`] : []),
+    ...(theSlowestLine(night) ? [theSlowestLine(night)] : []),
     '',
     howTheNightWent(night),
   ];

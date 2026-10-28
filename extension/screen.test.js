@@ -1191,7 +1191,8 @@ function panelParts(chrome, held = {}) {
    * the NEXT report -- so pressing Stop would start something. */
   const { chrome, tabs } = installFakeChrome();
   const held = {};
-  const say = (asked) => answerThePanelsQuestion(chrome, panelParts(chrome, held), asked);
+  const closedOurs = [];
+  const say = (asked) => answerThePanelsQuestion(chrome, { ...panelParts(chrome, held), closeOurWindow: async () => { closedOurs.push(1); } }, asked);
   await startTheNight(chrome, {
     doing: ['fk_views', 'fk_orders'], mayAskFor: 1, at: 1, openAt: 'https://seller.flipkart.com',
   });
@@ -1214,6 +1215,7 @@ function panelParts(chrome, held = {}) {
   check('the armed download-cancel is put away, so the seller\'s next download survives',
     held.disarmed === true);
   check('and the tab the walk was in is closed', !tabs().some((one) => one.id === tab.id));
+  check('N039: Stop also closes the window this product opened, once', closedOurs.length === 1);
 
   /* **AND THE REPORT THAT WAS BEING FETCHED IS WRITTEN DOWN.** `endTheNight`
    * leaves `doing` where it was, so before this the panel said that report was
@@ -1229,6 +1231,7 @@ function panelParts(chrome, held = {}) {
 
   const nothing = await say({ do: 'stop' });
   check('stopping when nothing is going is not an error', nothing.stopped === false);
+  check('N039: and it closes nothing when nothing was going', closedOurs.length === 1);
 }
 
 {

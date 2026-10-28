@@ -950,6 +950,8 @@ export async function answerThePanelsQuestion(chrome, parts, asked) {
          * seller closing it is one of the ways a walk ends. */
       }
     }
+    /* **N039: THE WINDOW THIS PRODUCT OPENED GOES TOO, never his own.** Only when a run really was going. */
+    if (wasGoing && parts.closeOurWindow) await parts.closeOurWindow();
     return { stopped: wasGoing, was: (walk && walk.reportId) || '' };
   });
 
