@@ -710,6 +710,8 @@ function aPortal(how = {}) {
       /* **WORDS THAT ARE NOT ON THE PAGE RIGHT NOW** -- a banner that has gone,
        * or a row that is not listed. */
       if (how.notOnThePage && how.notOnThePage.includes(what)) return 0;
+      /* **A POP-UP THAT OPENED LATE HIDES IT UNTIL IT IS CLOSED**: the page-level close (the first) does not reveal it, the retry's close (the second) does. */
+      if (how.hiddenUntilClosedTwice && how.hiddenUntilClosedTwice.includes(what) && (!how.closes || !how.closes.length || (it.closedPopUps || 0) < 2)) return 0;
       if (how.appearsAfterReopens !== undefined && what === 'Download') {
         return it.menuOpen && it.reopened >= how.appearsAfterReopens ? 1 : 0;
       }
@@ -2909,23 +2911,26 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
   check('but an exact wait is not rescued by a banner, and fails when nothing else counts',
     (await aWalk(aPortal({ notOnThePage: ['Generated', 'Orders'], banners: [{ at: 1, words: 'Generated' }] }),
       aBook)('waits_exactly', DAY)).state === FAILED);
-  check('POP-UPS ARE CLOSED BEFORE EVERY STEP A PAGE WALKS, NOT ONCE A PAGE (a survey opens 30 s after the page drew)',
-    heard.closedPopUps === 1);
-  const threeSteps = aPortal({ banners: [{ at: 1, words: 'Report is requested successfully.' }] });
-  await aWalk(threeSteps, {
-    ...aBook,
-    recipes: { ...aBook.recipes, three_after_go: {
-      readyInMinutes: 5,
-      toAsk: [
-        step({ do: 'go', address: 'https://seller.example.invalid/asked', why: 'opening the page' }),
-        step({ do: 'wait-for', find: find('Orders', { how: 'text', called: 'the list' }), patience: 5, why: 'first' }),
-        step({ do: 'wait-for', find: find('Orders', { how: 'text', called: 'the list' }), patience: 5, why: 'second' }),
-        step({ do: 'wait-for', find: find('Orders', { how: 'text', called: 'the list' }), patience: 5, why: 'third' }),
-      ],
-      toTake: [step({ do: 'go', address: 'https://seller.example.invalid/asked', why: 'coming back' })],
-    } },
-  })('three_after_go', DAY);
-  check('and a walk of three steps after its go closes them three times, once before each', threeSteps.closedPopUps === 3);
+  check('POP-UPS ARE CLOSED ONCE A PAGE, BEFORE ITS FIRST STEP', heard.closedPopUps === 1);
+  const recipeOf = (id, steps) => ({ ...aBook, recipes: { ...aBook.recipes, [id]: {
+    readyInMinutes: 5, toAsk: steps,
+    toTake: [step({ do: 'go', address: 'https://seller.example.invalid/asked', why: 'coming back' })],
+  } } });
+  const goTo = step({ do: 'go', address: 'https://seller.example.invalid/asked', why: 'opening the page' });
+  const press = (what) => step({ do: 'click', find: find(what, { how: 'text', called: what }), why: `pressing ${what}` });
+  /* **NEVER RIGHT AFTER OUR OWN CLICK (his sixth live run, 28 Oct 2026):** closing before every step shut the box the previous click had just opened, and Meesho's catalog, orders and payments failed. */
+  const opens = aPortal({ closes: ['the box we just opened'] });
+  const opened = await aWalk(opens, recipeOf('opens_then_presses', [goTo, press('Open the box'), press('Download'), press('Custom Date Range')]))('opens_then_presses', DAY);
+  check('A CLICK THAT OPENS A BOX, THEN A PRESS INSIDE IT, SURVIVES: pop-ups are closed once on the page and never between our own steps',
+    opens.closedPopUps === 1 && opens.clicked.join() === 'Open the box,Download,Custom Date Range' && opened.state === STILL_WAITING);
+  /* **AMAZON'S SURVEY OPENS LATE (27 Oct 2026):** a target that cannot be found has what is in the way closed and is tried ONCE more. */
+  const late = aPortal({ closes: ['a survey'], hiddenUntilClosedTwice: ['Orders'] });
+  const afterTheSurvey = await aWalk(late, recipeOf('survey_late', [goTo, step({ do: 'wait-for', find: find('Orders', { how: 'text', called: 'the list' }), patience: 5, why: 'looking' })]))('survey_late', DAY);
+  check('a target hidden by a pop-up that opened late is found once that pop-up is closed, and the step goes on',
+    late.closedPopUps === 2 && afterTheSurvey.state === STILL_WAITING);
+  const nothing = aPortal({ closes: [], hiddenUntilClosedTwice: ['Orders'] });
+  const stuck = await aWalk(nothing, recipeOf('survey_late', [goTo, step({ do: 'wait-for', find: find('Orders', { how: 'text', called: 'the list' }), patience: 5, why: 'looking' })]))('survey_late', DAY);
+  check('while a target that is missing with nothing to close still fails, as it always did, and is not tried again', stuck.state === FAILED && nothing.closedPopUps === 2);
 
   const shown = withWhatThePageShowed({ state: FAILED, say: 'could not find it.' },
     [{ words: 'Date range invalid' }, { words: 'Date range invalid' }]);
@@ -3091,7 +3096,38 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
     === '05 SEPT 2026 / 2026-09-05|SEPT/05 / 2026-09-05');
 }
 
-const EXPECTED = 349 + 9 + 3 + 1 + 1 + 3 + 8 + 2 + 4 + 2 + 2 + 1 + 14 + 1 + 1 + 1;
+{
+  /* **WHEN THE PLATFORM SHOWS ITS OWN ERROR, THE PAGE IS LOADED AGAIN ONCE (his word, 28 Oct 2026, Meesho's returns: "Something went wrong. Please try again after some time").** Only a failed walk, only with that sentence on the page, only once for the walk. */
+  const address = 'https://seller.example.invalid/asked';
+  const book = { ...BOOK, recipes: { ...BOOK.recipes, reload_me: {
+    readyInMinutes: 5,
+    toAsk: [
+      step({ do: 'go', address, patience: 30, why: 'opening the page' }),
+      step({ do: 'wait-for', find: find('Orders', { how: 'text', called: 'the list' }), patience: 5, why: 'looking' }),
+    ],
+    toTake: [step({ do: 'go', address, why: 'coming back' })],
+  } } };
+  const run = async (page, options = {}) => {
+    const portal = aPortal({ notOnThePage: ['Orders'], page });
+    const marks = [];
+    const walking = theWalk({
+      door: portal.door, book, say: () => {}, putTheFile: portal.putTheFile, armTheCatcher: portal.armTheCatcher,
+      addToTheList: async () => ({ size: 0 }), pause: () => {}, markReloadedOnce: async () => { marks.push(1); },
+    });
+    return { portal, marks, answer: await walking('reload_me', DAY, { panel: PANEL, startAt: 1, ...options }) };
+  };
+  const first = await run('Returns   Something went wrong. Please try again after some time.');
+  check('A FAILED WALK WITH THE PLATFORMS OWN ERROR ON THE PAGE LOADS THE PAGE AGAIN, from its own address and step, and marks that it did',
+    hasNotFinished(first.answer) && first.answer.at === 1 && first.portal.went.length === 1 && first.portal.went[0].includes(address) && first.marks.length === 1);
+  const second = await run('Returns   Something went wrong. Please try again after some time.', { reloadedOnce: true });
+  check('but only once for the walk: the next time it fails as it did', second.answer.state === FAILED && second.portal.went.length === 0 && second.marks.length === 0);
+  const plain = await run('Returns   Nothing special here');
+  check('and a failure with no such error on the page is left exactly as it was', plain.answer.state === FAILED && plain.portal.went.length === 0 && plain.marks.length === 0);
+  const others = await run('Unable to load the generated reports.');
+  check('Amazons own sentence does the same', hasNotFinished(others.answer));
+}
+
+const EXPECTED = 349 + 9 + 3 + 1 + 1 + 3 + 8 + 2 + 4 + 2 + 2 + 1 + 14 + 1 + 1 + 1 + 2 + 4;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

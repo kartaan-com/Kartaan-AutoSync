@@ -787,7 +787,7 @@ export function answerThePage(chrome, parts) {
  *  and carrying out a known one cannot disagree about which is which. */
 export const KNOWN = ['go', 'arm-the-catcher', 'take-file', 'fetch-this', 'land-the-file', 'what-is-held', 'say',
   'resume?', 'walk-done', 'add-to-the-list', 'keep-the-campaigns', 'the-campaigns', 'route-to',
-  'tried-signing-in'];
+  'tried-signing-in', 'reloaded-once'];
 
 /** Where the campaigns that ran on a day are kept, by report and day (2026-09-15). */
 export const THE_CAMPAIGNS = 'kartaan-autosync-campaigns';
@@ -1114,6 +1114,13 @@ async function carryOut(chrome, parts, asked, tabId, pageAddress = '') {
     const held = (await chrome.storage.local.get(THE_WALK))[THE_WALK];
     if (!held || held.tabId !== tabId) return { marked: false };
     await chrome.storage.local.set({ [THE_WALK]: { ...held, triedSigningIn: true } });
+    return { marked: true };
+  }
+  if (asked.do === 'reloaded-once') {
+    /* **THE ONE RELOAD (his word, 28 Oct 2026) IS WRITTEN ON THE WALK, for its own tab only**, so the page that loads again does not reload a second time. */
+    const held = (await chrome.storage.local.get(THE_WALK))[THE_WALK];
+    if (!held || held.tabId !== tabId) return { marked: false };
+    await chrome.storage.local.set({ [THE_WALK]: { ...held, reloadedOnce: true } });
     return { marked: true };
   }
   if (asked.do === 'route-to') {

@@ -481,6 +481,7 @@
     /* **MOVES THIS PAGE TO A FLIPKART ROUTE (A53)**, done by the background in the
      * page's own world. See `doors.js` `routeInThePage`. */
     markTriedSigningIn: async () => chrome.runtime.sendMessage({ do: 'tried-signing-in' }),
+    markReloadedOnce: async () => chrome.runtime.sendMessage({ do: 'reloaded-once' }),
     routeTo: async ({ address }) => {
       const answer = await chrome.runtime.sendMessage({ do: 'route-to', address });
       if (!answer) throw new Error('The browser half said nothing about moving the page.');

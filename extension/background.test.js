@@ -583,6 +583,10 @@ const LATER = '2026-08-27T16:04:00.000Z';
   await browser.aPageAsked({ do: 'tried-signing-in' }, flipkartPage);
   check('the one sign-in attempt is written on the walk of the tab that made it',
     (await browser.chrome.storage.local.get(THE_WALK))[THE_WALK].triedSigningIn === true);
+  await browser.aPageAsked({ do: 'reloaded-once' }, flipkartPage);
+  check('the one reload (the platform showed its own error) is written on the walk of the tab that made it, beside the sign-in mark',
+    (await browser.chrome.storage.local.get(THE_WALK))[THE_WALK].reloadedOnce === true
+    && (await browser.chrome.storage.local.get(THE_WALK))[THE_WALK].triedSigningIn === true);
   await browser.chrome.storage.local.remove(THE_WALK);
   check('but never to another site',
     String(otherSite && otherSite.wrong).includes('only be moved within its own site')
@@ -2301,7 +2305,7 @@ check('the page relay is OFF in what ships, so no script on a portal page can dr
     && theRelayAllows(false, { do: 'run-now' }) === false);
 }
 
-const EXPECTED = 262 + 13 + 1 + 4 + 2 + 1 + 1;
+const EXPECTED = 262 + 13 + 1 + 4 + 2 + 1 + 1 + 1;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

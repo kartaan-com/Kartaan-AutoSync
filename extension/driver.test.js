@@ -3072,6 +3072,38 @@ for (const [start, end, from, expectedMonth] of [
     (await door.find(BY_PRESSABLE_TEXT, 'Download Flat File V2', true, 0, [], '')) === 1);
 }
 
+/* **THE STATEMENT'S OWN DOWNLOAD IS TAKEN BY ITS PERIOD (his sixth live Amazon run, 28 Oct 2026: "not on the page at all" though the row shows Download Flat File V2):** the `kat-button`'s words sit in its shadow root, a span in a slot in a button, so the row is more than six levels above them. Reading the rows found every statement (twelve levels), but taking one narrowed to its period climbed only six and found none. A period written as a statement's is narrowed within the same twelve levels, still stopping at the first level that holds another statement's control. */
+{
+  const page = aPage();
+  const door = doorOn();
+  const table = thing('div', '', { box: BIG });
+  const aStatement = (period) => {
+    const row = thing('div', '', { box: BIG });
+    const cell = thing('div', '', { box: BIG });
+    row.append(thing('span', period, { box: BIG }), cell);
+    const host = thing('kat-button', '', { box: BIG, attrs: { label: 'Download Flat File V2' } });
+    const word = thing('span', 'Download Flat File V2', { box: BIG });
+    word.style.cursor = 'pointer';
+    const slot = thing('div', '', { box: BIG });
+    const wrapper = thing('div', '', { box: BIG });
+    const button = thing('div', '', { box: BIG });
+    slot.append(word);
+    wrapper.append(slot);
+    button.append(wrapper);
+    const root = { children: [button], host, parentNode: null, nodeType: 11 };
+    button.parentNode = root;
+    host.shadowRoot = root;
+    const inCell = thing('div', '', { box: BIG });
+    inCell.append(host);
+    cell.append(inCell);
+    return row;
+  };
+  table.append(aStatement('13/10/2026 – 20/10/2026'), aStatement('20/10/2026 – 27/10/2026'));
+  page.body.append(table);
+  check('a statement\'s Download deep in a shadow root is found by its own period, alone',
+    (await door.find(BY_PRESSABLE_TEXT, 'Download Flat File V2', true, 0, ['20/10/2026 – 27/10/2026'], '')) === 1);
+}
+
 /* --------------------------------------------- N018: Amazon's own STATUS WORD beside a rate (Control's word 26 Oct 2026: "At Risk", "Healthy", exactly as the page prints it)
  * **A BLANK IS NOTHING, NEVER A FAILURE:** the word list is from what Amazon is known to print, the page was not seen with every word on it, so a card with no word we know leaves the cell empty and the figures still land. */
 {
@@ -3273,7 +3305,7 @@ for (const [start, end, from, expectedMonth] of [
     refused.includes('is not on the calendar') && pressedInAugust.length === 0 && pressedInSeptember.length === 0);
 }
 
-const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1 + 1 + 1 + 3 + 2 + 1 + 2 + 3;
+const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1 + 1 + 1 + 3 + 2 + 1 + 2 + 3 + 1;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

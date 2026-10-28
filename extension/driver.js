@@ -169,6 +169,7 @@ const AS_FAR_UP_AS = 5;
 const AS_FAR_UP_AS_A_ROW = 6;
 /* A statement's row is read up to twelve levels (components add a level each), still stopping at the first level that holds another statement's control. */
 const AS_FAR_UP_AS_A_STATEMENT = 12;
+const A_STATEMENT_PERIOD_WORDS = /^\d{1,2}\/\d{1,2}\/\d{4} ?[–—-] ?\d{1,2}\/\d{1,2}\/\d{4}$/;
 
 /* HOW FAR ABOVE ITS LABEL A NUMBER SITS. **TWO, AND IT IS MEASURED, NOT CHOSEN.**
  *
@@ -501,6 +502,8 @@ function whatMatches(how, what, exact, near = [], alsoSaying = '') {
    * **IT ONLY EVER TAKES MATCHES AWAY.** So it cannot turn one right answer
    * into a wrong one -- at worst it removes the right one too, and then the
    * count is nought and the step refuses, which is the safe direction. */
+  /* **A STATEMENT PERIOD NAMES A ROW THAT SITS DEEPER (his sixth live Amazon run, 28 Oct 2026):** the words of Amazon's Download are in a component's shadow root, so its row is more than six levels up -- the same twelve the rows are read within. Only a period written as a statement's gets the longer climb; it still stops at the first level that holds another match. */
+  const farUp = rows.some((row) => A_STATEMENT_PERIOD_WORDS.test(row)) ? AS_FAR_UP_AS_A_STATEMENT : AS_FAR_UP_AS_A_ROW;
   return innermost.filter((node) => {
     let up = theParentOf(node);
     /* **AND IT STOPS CLIMBING, WHICH IT DID NOT UNTIL 2026-09-11.**
@@ -527,7 +530,7 @@ function whatMatches(how, what, exact, near = [], alsoSaying = '') {
      * **AND IT TAKES NOTHING AWAY FROM WHAT ALREADY WORKS.** Measured the same
      * day: Meesho's orders rows, its returns rows and its claims rows all match
      * at level one, and Flipkart's Reports Centre rows at their own row. */
-    for (let howFar = 0; howFar < AS_FAR_UP_AS_A_ROW && up; howFar += 1) {
+    for (let howFar = 0; howFar < farUp && up; howFar += 1) {
       /* **THE MOMENT IT TAKES IN ANOTHER MATCH, IT IS NO LONGER A ROW.** Walked
        * up without this, every match eventually reaches the whole page -- which
        * of course contains the words being looked for, so every row "matched"

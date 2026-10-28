@@ -70,6 +70,13 @@ export const NOT_AVAILABLE_YET = 'not-available-yet';
  * half: `content.js` takes it and says nothing to anybody. */
 export const CARRYING_ON = 'carrying-on';
 
+/** The platforms' own error sentences (lower case): Meesho's "Something went wrong", Amazon's returns and reports pages. A walk that failed with one on the page is tried again once, from a fresh load. */
+export const THE_PLATFORMS_OWN_ERRORS = Object.freeze([
+  'something went wrong. please try again after some time',
+  'unable to load the generated reports',
+  'report generation did not succeed',
+]);
+
 function carryingOn(at) {
   return { carryingOn: CARRYING_ON, at };
 }
@@ -769,6 +776,8 @@ export function theWalk({
   routeTo = null,
   /* **MARKS THE ONE SIGN-IN ATTEMPT AS MADE, in the half that outlives the page (A53).** */
   markTriedSigningIn = null,
+  /* **MARKS THE ONE RELOAD AS MADE, in the half that outlives the page** (his word, 28 Oct 2026: reload once when the platform shows its own error). */
+  markReloadedOnce = null,
 }) {
   if (!door) throw new Error('A walk needs a door to the page.');
   if (!book || !book.recipes) throw new Error('A walk needs the book of recipes.');
@@ -1125,6 +1134,21 @@ export function theWalk({
     });
   }
 
+  /* **SHUT WHAT IS IN THE WAY, ONCE PER STEP, WHEN THE STEP'S TARGET IS NOT FOUND OR NOT PRESSABLE.** Answers whether anything was closed, so the step is tried once more; false means nothing was in the way and the failure stands as it was. */
+  const triedAgainWithoutPopUps = new Set();
+  async function closeWhatIsInTheWay(step, reportId) {
+    if (triedAgainWithoutPopUps.has(step) || typeof door.close_pop_ups !== 'function') return false;
+    triedAgainWithoutPopUps.add(step);
+    try {
+      const closed = (await door.close_pop_ups()) || [];
+      if (closed.length) say(`${reportId}: closed what was in the way, and trying this step once more -- ${closed.join('; ')}.`);
+      return closed.length > 0;
+    } catch (couldNotClose) {
+      say(`${reportId}: could not close what was in the way -- ${(couldNotClose && couldNotClose.message) || couldNotClose}`);
+      return false;
+    }
+  }
+
   async function takeTheFile(step, reportId, dataDate) {
     if (step.find) {
       let many = await door.find(step.find.how, step.find.what, step.find.exact, step.patience,
@@ -1173,6 +1197,10 @@ export function theWalk({
       /* **A ROW THAT IS NOT THERE MAY BE NOTHING TO FETCH, WHEN THE RECIPE SAYS SO (N018, Control's ruling of 26 Oct 2026).** Amazon's settlement statements come weekly, so on six days in
        * seven the statements table is drawn and no row ends on the day. **ONLY SAFE BECAUSE THE STEP BEFORE THIS ONE WAITED FOR THE TABLE ITSELF**: a page that never drew, or a table that was
        * renamed, failed there and this was never reached. The same rule `browser_door.py` holds. */
+      if (many === 0 && await closeWhatIsInTheWay(step, reportId)) {
+        many = await door.find(step.find.how, step.find.what, step.find.exact, step.patience,
+          step.find.near, step.find.alsoSaying);
+      }
       if (many === 0 && step.noRowIsNothingToFetch) {
         return { nothing: { say: step.noRowIsNothingToFetch } };
       }
@@ -1249,8 +1277,14 @@ export function theWalk({
        * taken on an older secret, and the report fails out loud. Falling back to
        * the older secret would be the one thing this change exists to stop. */
       await armTheCatcher();
-      await door.click(step.find.how, step.find.what, step.find.exact, step.find.near,
-        newestOfSeveral, step.find.alsoSaying);
+      try {
+        await door.click(step.find.how, step.find.what, step.find.exact, step.find.near,
+          newestOfSeveral, step.find.alsoSaying);
+      } catch (blocked) {
+        if (!(await closeWhatIsInTheWay(step, reportId))) throw blocked;
+        await door.click(step.find.how, step.find.what, step.find.exact, step.find.near,
+          newestOfSeveral, step.find.alsoSaying);
+      }
     }
 
     const body = await door.take_file(step.patience);
@@ -1314,7 +1348,9 @@ export function theWalk({
    * reference burned through them re-submitting reports that had worked, then
    * spent the rest of the day locked out.
    */
-  return async function walk(reportId, dataDate, {
+  /* **WHERE THE PAGE THIS TURN WALKS WAS REACHED FROM**, so a page that shows the platform's own error can be loaded again from the same address and the same step. */
+  let thisPageCameFrom = null;
+  const walkThisPage = async function walk(reportId, dataDate, {
     /* **THERE IS NO `dayInWords` HERE ANY MORE, AND THAT IS THE FIX (A52).** It
      * was an option the caller could hand in, defaulting to the plain ISO day,
      * and no caller anywhere ever handed one in -- so five reports looked for a
@@ -1409,8 +1445,10 @@ export function theWalk({
      * every read-number step and the add-to-the-list step after them have to sit
      * on the same page. The one recipe that uses them does. */
     const readSoFar = new Map();
-    /* **POP-UPS ARE SHUT BEFORE EVERY STEP, NOT ONCE A PAGE** -- his ruling 2026-09-14 (the reference's `dismissFkPopups`), widened 2026-10-27: "any platform may show any
-     * pop-up anywhere". Amazon's survey opened about 30 s after the page drew and swallowed a Download click. By its Close button only, never Submit. */
+    /* **POP-UPS ARE SHUT ONCE A PAGE, BEFORE ITS FIRST STEP** -- his ruling, 2026-09-14, the reference's own `dismissFkPopups` -- **AND AGAIN, ONCE, FOR A STEP THAT CANNOT FIND OR PRESS ITS TARGET** (`closeWhatIsInTheWay`):
+     * "any platform may show any pop-up anywhere" (Amazon's survey opened 30 s after the page drew and swallowed a Download click). **NEVER RIGHT AFTER OUR OWN CLICK**: closing before every step shut the Bulk
+     * Stock Update box, the Download Orders Data menu and the payments Download menu the previous step had just opened, and three Meesho reports that had landed failed (his sixth run, 28 Oct 2026). */
+    let closedPopUpsHere = false;
 
     for (let at = 0; at < plan.steps.length; at += 1) {
       const step = plan.steps[at];
@@ -1471,6 +1509,7 @@ export function theWalk({
       /* **A PAGE PICKED UP AFTER A `go` TO AN ADDRESS WITH `#` IS MOVED TO THAT ROUTE
        * FIRST** (A53). The `go` loaded only the page before the `#`. */
       const cameFrom = at === startAt && at > 0 ? plan.steps[at - 1] : null;
+      if (cameFrom && cameFrom.do === GO) thisPageCameFrom = { address: cameFrom.address, patience: cameFrom.patience, at: startAt };
       if (cameFrom && cameFrom.do === GO && String(cameFrom.address || '').includes('#')) {
         if (typeof routeTo !== 'function') {
           return anAnswer(FAILED, reportId, dataDate, {
@@ -1486,7 +1525,8 @@ export function theWalk({
         }
       }
 
-      if (step.do !== GO && typeof door.close_pop_ups === 'function') {
+      if (!closedPopUpsHere && step.do !== GO && typeof door.close_pop_ups === 'function') {
+        closedPopUpsHere = true;
         try {
           const closed = (await door.close_pop_ups()) || [];
           if (closed.length) say(`${reportId}: closed what was in the way first -- ${closed.join('; ')}.`);
@@ -2046,6 +2086,7 @@ export function theWalk({
 
       let many = await howManyMatch(step, reportId);
       if (many === 0 && step.do === WAIT_FOR) many = await whatElseCounts(step, reportId);
+      if (many === 0 && await closeWhatIsInTheWay(step, reportId)) many = await howManyMatch(step, reportId);
       if (many === 0) {
         /* **ITS OWN NAMED FAILURE, decided after the lookup rather than before
          * it.** "Button not found" sent a month of diagnosis at a button that was
@@ -2089,8 +2130,14 @@ export function theWalk({
       }
 
       if (step.do === CLICK) {
-        await door.click(step.find.how, step.find.what, step.find.exact, step.find.near,
-          false, step.find.alsoSaying, Boolean(step.pressLikeAMouse));
+        try {
+          await door.click(step.find.how, step.find.what, step.find.exact, step.find.near,
+            false, step.find.alsoSaying, Boolean(step.pressLikeAMouse));
+        } catch (blocked) {
+          if (!(await closeWhatIsInTheWay(step, reportId))) throw blocked;
+          await door.click(step.find.how, step.find.what, step.find.exact, step.find.near,
+            false, step.find.alsoSaying, Boolean(step.pressLikeAMouse));
+        }
         /* **NOT SAID TWICE.** Every step announces itself above, before it is
          * attempted, and a second line here would double every click.
          *
@@ -2128,6 +2175,28 @@ export function theWalk({
     return anAnswer(FAILED, reportId, dataDate, {
       say: 'Every step ran and none of them took a file. The recipe is missing its last step.',
     });
+  };
+
+  /* **WHEN THE PLATFORM SHOWS ITS OWN ERROR, THE PAGE IS LOADED AGAIN ONCE AND THE STEPS OF IT ARE TRIED AGAIN BEFORE GIVING UP (his word, 28 Oct 2026, from Meesho's returns: "Something went wrong. Please try again after some time").** Only a walk that has FAILED, only when the page or its banners say one of the platform's own error sentences, only once for the walk (the mark outlives the page), and only a page reached by a `go` -- the same address and the same step it began at. */
+  return async function walkAndReloadOnce(reportId, dataDate, rest = {}) {
+    thisPageCameFrom = null;
+    const answer = await walkThisPage(reportId, dataDate, rest);
+    if (!answer || answer.state !== FAILED || (rest && rest.reloadedOnce) || !thisPageCameFrom
+      || typeof markReloadedOnce !== 'function' || typeof door.go !== 'function') return answer;
+    try {
+      let shown = `${answer.say || ''} ${answer.pageWas || ''}`;
+      if (typeof door.page_text === 'function') shown += ` ${await door.page_text()}`;
+      if (typeof door.banners_seen === 'function') shown += ` ${((await door.banners_seen()) || []).map((one) => one.words).join(' ')}`;
+      shown = shown.replace(/\s+/g, ' ').toLowerCase();
+      const theirs = THE_PLATFORMS_OWN_ERRORS.find((words) => shown.includes(words));
+      if (!theirs) return answer;
+      await markReloadedOnce();
+      say(`${reportId}: the platform showed its own error ("${theirs}"), so the page is loaded again, once, and the steps are tried again.`);
+      await door.go(thisPageCameFrom.address, thisPageCameFrom.patience, thisPageCameFrom.at);
+      return carryingOn(thisPageCameFrom.at);
+    } catch (couldNotReload) {
+      return answer;
+    }
   };
 }
 
