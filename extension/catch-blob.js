@@ -314,6 +314,7 @@ export function catchTheNextFile(secret) {
     'downloadreturns',
     'downloadpayments',
     'seller.flipkart.com/napi/listing/stockfiledownload',
+    'sellercentral.amazon.in/listing/downloadfile',
   ];
   const worthTaking = (address) => {
     /* The host and the path are looked at, never the whole string -- the same rule, spelt the same,

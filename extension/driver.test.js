@@ -2333,6 +2333,51 @@ for (const [start, end, from, expectedMonth] of [
     (await mine('27 Oct, 2026')) === 1);
   check('while a Completed row of another day is never found for today', other !== older && (await mine('26 Oct, 2026')) === 0);
 }
+/* **THE ADS LIST IS A GRID THAT DRAWS EACH ROW IN TWO HALVES THAT SHARE `aria-rowindex` (his Chrome, 28 Oct 2026):** the left half holds the report name, its Actions and the Report status, the centre half holds Last modified and Last run, so today's date is never inside the half that holds the name and the status. A row's other half counts as part of the row. */
+{
+  const page = aPage();
+  const door = doorOn();
+  const left = thing('div', '', { box: BIG });
+  const centre = thing('div', '', { box: BIG });
+  const halves = (index, name, status, lastRun) => {
+    const leftRow = thing('div', '', { box: BIG, attrs: { role: 'row', 'aria-rowindex': String(index) } });
+    const nameCell = thing('div', '', { box: BIG });
+    const actions = thing('button', '', { box: BIG });
+    actions.append(thing('span', 'Actions', { box: BIG }));
+    nameCell.append(thing('a', name, { box: BIG }), actions);
+    const statusCell = thing('div', '', { box: BIG });
+    const state = thing('p', status, { box: BIG });
+    statusCell.append(state);
+    leftRow.append(nameCell, statusCell, thing('div', '27 Oct, 2026', { box: BIG }));
+    const centreRow = thing('div', '', { box: BIG, attrs: { role: 'row', 'aria-rowindex': String(index) } });
+    centreRow.append(thing('div', lastRun, { box: BIG }), thing('div', '—', { box: BIG }));
+    left.append(leftRow);
+    centre.append(centreRow);
+    return state;
+  };
+  halves(2, 'Campaign - 10/26/2026T08:46:55', 'Completed', '28 Oct, 2026 1:10 AM IST');
+  const ours = halves(3, 'Kartaan campaign by day', 'Processing', '28 Oct, 2026 3:00 AM IST');
+  halves(4, 'Kartaan old report', 'Completed', '26 Oct, 2026 3:00 AM IST');
+  page.body.append(left, centre);
+  const completedToday = (day) => door.find(BY_TEXT, 'Completed', true, 0, [day], 'Kartaan campaign by day');
+  const actionsToday = (day) => door.find(BY_THE_BUTTON_BESIDE, 'Kartaan campaign by day', true, 0, [day], 'Actions');
+  check('the saved report still Processing is not Completed, though its Last run is today in the OTHER half and another report is Completed today',
+    (await completedToday('28 Oct, 2026')) === 0);
+  check('and its Actions button is found by the date held in the other half of the row',
+    (await actionsToday('28 Oct, 2026')) === 1 && (await actionsToday('26 Oct, 2026')) === 0);
+  ours.textContent = 'Completed';
+  check('once the status reads Completed, the row is found by the Last run date in the other half, alone',
+    (await completedToday('28 Oct, 2026')) === 1 && (await completedToday('29 Oct, 2026')) === 0);
+}
+/* **A `kat-button` LABEL WITH A TRAILING SPACE IS THE SAME WORDS (his Chrome, 28 Oct 2026: the listings Download is `label="Download "`).** */
+{
+  const page = aPage();
+  const door = doorOn();
+  const download = thing('kat-button', '', { box: BIG, attrs: { label: 'Download ' } });
+  download.style.cursor = 'pointer';
+  page.body.append(download);
+  check('a kat-button whose label has a trailing space is found by the plain word', (await door.find(BY_PRESSABLE_TEXT, 'Download', true, 0, [], '')) === 1);
+}
 /* **THE COLUMN'S CHECKBOX IS TOGGLED BY ITS LABEL, NOT BY THE ROW (his Chrome, 27 Oct 2026, proved by the checkbox state before and after each click):** pressing `li[data-test-id="option-root-Date range"]` does nothing; the `label` inside it toggles it. */
 {
   const page = aPage();
@@ -2581,6 +2626,12 @@ for (const [start, end, from, expectedMonth] of [
       !== null);
   check('while the portal\'s other addresses on the same name are still refused',
     saying('https://seller.flipkart.com/napi/riddler/fetchAssignedQuestionsCount?x=1') === null);
+
+  /* **AMAZON'S LISTING FILE (his Chrome, 28 Oct 2026):** the Download kat-button calls `window.open('/listing/downloadfile?...')`, and a script click is no user gesture, so Chrome blocks it unless the catcher takes the address. By its own path only. */
+  check("AND AMAZON'S LISTING FILE, BY ITS OWN PATH, IS BELIEVED",
+    saying('https://sellercentral.amazon.in/listing/downloadfile?fileId=ab&name=All_Listings.txt') !== null);
+  check("while Seller Central's other addresses are still refused",
+    saying('https://sellercentral.amazon.in/home') === null && saying('https://evil.example/listing/downloadfile?x=1') === null);
 
   /* **THE FORGERY THIS ONE STOPS.** Right page, right secret shape, right
    * everything -- and an address belonging to whoever wrote the advert. */
@@ -3305,7 +3356,7 @@ for (const [start, end, from, expectedMonth] of [
     refused.includes('is not on the calendar') && pressedInAugust.length === 0 && pressedInSeptember.length === 0);
 }
 
-const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1 + 1 + 1 + 3 + 2 + 1 + 2 + 3 + 1;
+const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1 + 1 + 1 + 3 + 2 + 1 + 2 + 3 + 1 + 2 + 4;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

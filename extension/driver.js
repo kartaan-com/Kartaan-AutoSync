@@ -452,6 +452,16 @@ function looksLike(node, how, what, exact) {
   return exact ? sameWords(said, what) : holdsWords(said, what);
 }
 
+/** The words of a row, **AND OF ITS OTHER HALF WHEN THE GRID DRAWS A ROW IN TWO (his Chrome, 28 Oct 2026, Amazon Ads' reporting list):** the left half holds the report name, its Actions and the status, the centre half holds Last modified and Last run, and the two share `aria-rowindex`. A row that names its index also reads the other element carrying the same index, so today's date in one half counts for the name in the other. A row with no index reads only itself, exactly as before. */
+function theWordsOfTheRow(row) {
+  const own = row.textContent;
+  const index = typeof row.getAttribute === 'function' ? row.getAttribute('aria-rowindex') : null;
+  if (!index) return own;
+  const otherHalves = everything(thePage()).filter((other) => other !== row && typeof other.getAttribute === 'function'
+    && other.getAttribute('aria-rowindex') === index && !holds(row, other) && !holds(other, row));
+  return [own, ...otherHalves.map((other) => other.textContent)].join(' ');
+}
+
 /** Everything on the page that matches, innermost only.
  *
  *  **THE INNERMOST RULE IS NOT A REFINEMENT, IT IS WHAT MAKES COUNTING WORK.**
@@ -537,7 +547,7 @@ function whatMatches(how, what, exact, near = [], alsoSaying = '') {
        * and nothing was narrowed at all. That was the first version of this and
        * it read as working. */
       if (innermost.some((other) => other !== node && holds(up, other))) return false;
-      const said = words(up.textContent).toLowerCase();
+      const said = words(theWordsOfTheRow(up)).toLowerCase();
       /* **AND WHAT ELSE THE SAME ROW HAS TO SAY, ANDed WITH THE DAY.**
        * Flipkart's Reports Centre lists orders, returns and settled
        * transactions all asked for on the same night over the same range, so
@@ -549,6 +559,8 @@ function whatMatches(how, what, exact, near = [], alsoSaying = '') {
        * are being passed by two different rows. */
       if (rows.some((row) => said.includes(row))
           && (!alsoSaid || said.includes(alsoSaid))) return true;
+      /* **A GRID ROW IS WHERE THE CLIMB ENDS (his Chrome, 28 Oct 2026):** the element that names its own `aria-rowindex` IS the row, so climbing past it reaches the grid, which holds every other row's dates too. */
+      if (typeof up.getAttribute === 'function' && up.getAttribute('aria-rowindex')) return false;
       up = theParentOf(up);
     }
     return false;
@@ -1176,6 +1188,8 @@ export const WHERE_A_FILE_REALLY_COMES_FROM = Object.freeze([
    * a slash before the word and does not match it. By its own path only, so the
    * portal's other addresses are never believed. */
   'seller.flipkart.com/napi/listing/stockfiledownload',
+  /* **AMAZON'S LISTING FILE (his Chrome, 28 Oct 2026):** the Download kat-button opens `/listing/downloadfile?...` with `window.open`; a script click is no user gesture, so Chrome blocked it and nothing began. By its own path only, on Seller Central only. */
+  'sellercentral.amazon.in/listing/downloadfile',
 ]);
 
 /** The hosts a bare path word may count on: the platforms' own, and the storage they hand files out of. */
