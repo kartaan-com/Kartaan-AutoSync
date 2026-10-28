@@ -1096,7 +1096,41 @@ function aFetch(answers) {
   check('N039: window remove error leaves storage', stored[OUR_WINDOW] !== undefined && stored[OUR_TAB] !== undefined);
 }
 
-const EXPECTED = 90 + 25 + 1;
+/* **WHAT CHROME REFUSES WITH MAY NOT BE AN `Error`:** a plain string saying the window or tab is gone is still "already closed by somebody"; nothing at all (null) or any other reason is not, and is handed up as it came. */
+async function closeWhenRemoveRefusesWith(ownWindow, refusal) {
+  const browser = installFakeChrome();
+  const opened = await browser.chrome.windows.create({ url: 'https://person.example/one', focused: false, state: 'normal' });
+  await browser.chrome.storage.session.set({ [OUR_WINDOW]: opened.id, [OUR_TAB]: opened.tabs[0].id });
+  const refuse = async () => { throw refusal; };
+  if (ownWindow) browser.chrome.windows.remove = refuse; else browser.chrome.tabs.remove = refuse;
+  let threw = false;
+  let value;
+  let closed;
+  try {
+    closed = await closeOurOwn(browser.chrome, { ownWindow });
+  } catch (error) {
+    threw = true;
+    value = error;
+  }
+  return { threw, value, closed };
+}
+
+{
+  const goneWindow = await closeWhenRemoveRefusesWith(true, 'No window with id: 7.');
+  check('N039: a plain-string "no window" refusal means already closed, not a fault', goneWindow.threw === false && goneWindow.closed === false);
+  const nothingWindow = await closeWhenRemoveRefusesWith(true, null);
+  check('N039: an empty refusal on the window is handed up as it came, not turned into another fault',
+    nothingWindow.threw === true && nothingWindow.value === null);
+  const goneTab = await closeWhenRemoveRefusesWith(false, 'No tab with id: 7.');
+  check('N039: a plain-string "no tab" refusal means already closed, not a fault', goneTab.threw === false && goneTab.closed === false);
+  const nothingTab = await closeWhenRemoveRefusesWith(false, null);
+  check('N039: an empty refusal on the tab is handed up as it came, not turned into another fault',
+    nothingTab.threw === true && nothingTab.value === null);
+  const boomTab = await closeWhenRemoveRefusesWith(false, new Error('boom'));
+  check('N039: any other refusal on our tab is rethrown, not swallowed', boomTab.threw === true && boomTab.value.message === 'boom');
+}
+
+const EXPECTED = 90 + 25 + 1 + 5;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

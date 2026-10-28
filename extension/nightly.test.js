@@ -2108,7 +2108,72 @@ check('report table: null night gives null', theReportTable(null, () => '') === 
   check('report table: a state nobody named goes to still to fetch with its own word',
     counts.toFetch === 1 && counts.landed + counts.asked + counts.failed === 0 && rows[0].word === 'odd-thing' && rows[0].means === 'x');
 }
-const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8;
+{
+  const D = '2026-01-02';
+  const one = (reportId, state, say) => ({ reportId, state, say, size: 0, at: 1000, dataDate: D });
+  const night = {
+    startedAt: 5000,
+    finishedAt: 125000,
+    doing: 'rd',
+    left: ['rw'],
+    done: [
+      one('a', 'landed', 'saved ok'),
+      one('b', 'landed', ''),
+      one('c', 'nothing-to-fetch', 'empty day'),
+      one('d', 'still-waiting', 'asked it'),
+      one('e', 'not-available-yet', 'not built'),
+      one('f', 'not-asked', 'later'),
+      one('g', 'failed', 'broke'),
+      one('h', 'needs-you', 'log in'),
+      one('i', 'odd-thing', 'odd say')
+    ]
+  };
+  const table = theReportTable(night, (id) => (id === 'rd' ? 'Doing name' : id === 'rw' ? 'Waiting name' : ''));
+  const row = (id) => table.rows.find((r) => r.key === `${id}|${D}`);
+  const same = (r, word, means, star) => r.word === word && r.means === means && r.star === star;
+  check('report table: landed row says Landed with its words, and "file saved" when it has none',
+    same(row('a'), 'Landed', 'saved ok', false) && same(row('b'), 'Landed', 'file saved', false));
+  check('report table: nothing-to-fetch row says Nothing to fetch with its words and no star',
+    same(row('c'), 'Nothing to fetch', 'empty day', false) && row('c').status === 'landed');
+  check('report table: still-waiting row says Asked with its words and a star',
+    same(row('d'), 'Asked', 'asked it', true));
+  check('report table: not-built row says Not built yet with its words and a star',
+    same(row('e'), 'Not built yet', 'not built', true));
+  check('report table: not-asked row says Not asked with its words and no star',
+    same(row('f'), 'Not asked', 'later', false) && row('f').status === 'toFetch');
+  check('report table: failed row says Failed with its words and no star',
+    same(row('g'), 'Failed', 'broke', false) && row('g').status === 'failed');
+  check('report table: needs-you row says Needs you with its words and no star',
+    same(row('h'), 'Needs you', 'log in', false) && row('h').status === 'failed');
+  check('report table: unnamed state keeps its own words and no star',
+    same(row('i'), 'odd-thing', 'odd say', false));
+  const doing = table.rows.find((r) => r.key === 'rd|');
+  const waiting = table.rows.find((r) => r.key === 'rw|');
+  check('report table: the running and not-started rows carry the name, no star, no words, no detail',
+    doing.name === 'Doing name' && doing.star === false && doing.means === '' && doing.detail === '' &&
+    waiting.name === 'Waiting name' && waiting.star === false && waiting.means === '' && waiting.detail === '');
+  const bare = theReportTable({ ...night, doing: 'x1', left: ['x2'] }, () => '');
+  const bd = bare.rows.find((r) => r.key === 'x1|');
+  const bw = bare.rows.find((r) => r.key === 'x2|');
+  check('report table: the running and not-started rows fall back to the id when there is no name',
+    bd.name === 'x1' && bw.name === 'x2');
+  check('report table: carries the night start and finish times',
+    table.startedAt === 5000 && table.finishedAt === 125000);
+}
+{
+  const D = '2026-01-02';
+  const night = {
+    startedAt: 0, finishedAt: 60000, doing: null, left: [],
+    done: [
+      { reportId: 'q1', state: 'not-asked', say: 'x', size: 0, at: 1000, dataDate: D },
+      { reportId: 'q1', state: 'not-available-yet', say: 'y', size: 0, at: 2000, dataDate: D }
+    ]
+  };
+  const q = theReportTable(night, (id) => id).rows[0];
+  check('report table: an earlier step that was not "still waiting" does not make not-built asked',
+    q.status === 'toFetch' && q.word === 'Not built yet');
+}
+const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

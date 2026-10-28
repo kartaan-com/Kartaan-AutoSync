@@ -620,6 +620,7 @@ function aPortal(how = {}) {
       return cards[what];
     },
     async go(address, patience, nextAt) {
+      if (how.goRefuses) throw new Error(how.goRefuses);
       it.went.push(address);
       it.patienceTold.push(['go', patience]);
       /* **WHAT THE REAL BACKGROUND IS HANDED, and it is recorded because it is
@@ -725,6 +726,10 @@ function aPortal(how = {}) {
     },
     async click(kind, what, exact, near, newestOfSeveral, alsoSaying, likeAMouse) {
       if (likeAMouse) it.pressedLikeAMouse = [...(it.pressedLikeAMouse || []), what];
+      /* **EVERY PRESS ASKED FOR, AND A PRESS SOMETHING STANDS IN THE WAY OF (AJ7 proving).** `how.blockedClicks` presses are refused before they land. */
+      it.clickTries = (it.clickTries || 0) + 1;
+      (it.clickArgs = it.clickArgs || []).push([newestOfSeveral, Boolean(likeAMouse)]);
+      if (how.blockedClicks && it.clickTries <= how.blockedClicks) throw new Error('something is in the way');
       /* **A CONTROL THAT IS NOT THERE CANNOT BE CLICKED, AND THE REAL DOOR
        * THROWS.** `driver.js` looks the thing up and refuses when nothing
        * matches. A stand-in that quietly accepted the click would let a walk
@@ -830,6 +835,7 @@ function aPortal(how = {}) {
     },
     async close_pop_ups() {
       it.closedPopUps = (it.closedPopUps || 0) + 1;
+      if (how.closeRefusesAfter !== undefined && it.closedPopUps > how.closeRefusesAfter) throw new Error('boom');
       return how.closes || [];
     },
     async page_text() {
@@ -3160,7 +3166,137 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
   check('Amazons own sentence does the same', hasNotFinished(others.answer));
 }
 
-const EXPECTED = 349 + 9 + 3 + 1 + 1 + 3 + 8 + 2 + 4 + 2 + 2 + 1 + 14 + 1 + 1 + 1 + 2 + 4 + 3 + 1;
+{
+  /* **AJ7 PROVING: THE RELOAD-ONCE RULE AND THE CLOSE-WHAT-IS-IN-THE-WAY RULE, EACH LINE OF THEM.** */
+  const address = 'https://seller.example.invalid/asked';
+  const goStep = step({ do: 'go', address, patience: 30, why: 'opening the page' });
+  const pressing = (what, rest = {}) => step({ do: 'click', find: find(what, { how: 'text', called: what }), patience: 5, why: `pressing ${what}`, ...rest });
+  const waiting = (what, rest = {}) => step({ do: 'wait-for', find: find(what, { how: 'text', called: 'the list', ...rest }), patience: 5, why: 'looking' });
+  const back = [step({ do: 'go', address, why: 'coming back' })];
+  const book = { ...BOOK, recipes: { ...BOOK.recipes,
+    pressed: { readyInMinutes: 5, toAsk: [goStep, pressing('Submit'), waiting('Orders')], toTake: back },
+    plain: { readyInMinutes: 5, toAsk: [goStep, waiting('Orders')], toTake: back },
+    bare: { readyInMinutes: 5, toAsk: [waiting('Orders')], toTake: back },
+    clicking: { readyInMinutes: 5, toAsk: [goStep, pressing('Go')], toTake: back },
+    clickingLikeAMouse: { readyInMinutes: 5, toAsk: [goStep, pressing('Go', { pressLikeAMouse: true })], toTake: back },
+    waitSeveral: { readyInMinutes: 5, toAsk: [goStep, waiting('Orders')], toTake: back },
+    waitNarrowed: { readyInMinutes: 5, toAsk: [goStep, waiting('Orders', { near: ['Row one'] })], toTake: back },
+    clickNarrowed: { readyInMinutes: 5, toAsk: [goStep, step({ do: 'click', find: find('Orders', { how: 'text', called: 'Orders', near: ['Row one'] }), patience: 5, why: 'pressing Orders' })], toTake: back },
+    me_orders: { readyInMinutes: 0, toAsk: [], toTake: [step({ do: 'take-file', find: find('Download'), patience: 60, why: 'taking the file' })] },
+  } };
+  const walkerFor = (portal, marks, extra = {}) => theWalk({
+    door: portal.door, book, say: () => {}, putTheFile: portal.putTheFile, armTheCatcher: portal.armTheCatcher,
+    addToTheList: async () => ({ size: 0 }), pause: () => {}, markReloadedOnce: async () => { marks.push(1); }, ...extra,
+  });
+  const turnOf = async (recipe, how, options = {}, extra = {}) => {
+    const portal = aPortal(how);
+    const marks = [];
+    const answer = await walkerFor(portal, marks, extra)(recipe, DAY, { panel: PANEL, startAt: 1, ...options });
+    return { portal, marks, answer };
+  };
+  const filler = 'filler '.repeat(400);
+
+  /* The platform's four own sentences each cause the one reload, on a walk that pressed something (so a thing-not-found reload cannot be what does it), and the words are found off the whole page, off the banners, in any case and spacing. */
+  const sentences = ['Something went wrong. Please try again after some time', 'Unable to load the generated reports',
+    'Report generation did not succeed', 'Something went wrong please try refreshing the page'];
+  for (const sentence of sentences) {
+    const onPage = await turnOf('pressed', { notOnThePage: ['Orders'], page: `Returns ${filler} ${sentence.toUpperCase().replace(' ', '\n  ')}` });
+    check(`"${sentence}" far down the page, in capitals and over a line break, loads the page again once after a request was pressed`,
+      hasNotFinished(onPage.answer) && onPage.portal.went.length === 1 && onPage.marks.length === 1);
+    const inBanner = await turnOf('pressed', { notOnThePage: ['Orders'], page: 'Returns', banners: [{ at: 1, words: sentence }] });
+    check(`"${sentence}" in a banner loads the page again once after a request was pressed`,
+      hasNotFinished(inBanner.answer) && inBanner.portal.went.length === 1);
+  }
+  const quiet = await turnOf('pressed', { notOnThePage: ['Orders'], page: `Returns ${filler}`, banners: [{ at: 1, words: 'Saved' }] });
+  check('a walk that pressed something and shows none of the platform\'s sentences is not loaded again',
+    quiet.answer.state === FAILED && quiet.portal.went.length === 0 && quiet.marks.length === 0);
+  const wrongPage = 'Returns Something went wrong. Please try again after some time';
+  const succeeded = await turnOf('plain', { page: wrongPage });
+  check('a walk that did not fail is not loaded again whatever the page says', succeeded.answer.state !== FAILED && succeeded.portal.went.length === 0 && succeeded.marks.length === 0);
+  const noPageBefore = await turnOf('bare', { notOnThePage: ['Orders'], page: wrongPage }, { startAt: 0 });
+  check('a walk that was not picked up after a go has no page to load again, and fails as it was', noPageBefore.answer.state === FAILED && noPageBefore.portal.went.length === 0 && noPageBefore.marks.length === 0);
+  const noMark = await turnOf('plain', { notOnThePage: ['Orders'], page: wrongPage }, {}, { markReloadedOnce: undefined });
+  check('with no way to remember a reload has happened, none is made', noMark.answer.state === FAILED && noMark.portal.went.length === 0);
+  const noGo = aPortal({ notOnThePage: ['Orders'], page: wrongPage });
+  delete noGo.door.go;
+  const noGoMarks = [];
+  const noGoAnswer = await walkerFor(noGo, noGoMarks)('plain', DAY, { panel: PANEL, startAt: 1 });
+  check('with a door that cannot go anywhere, no reload is made', noGoAnswer.state === FAILED && noGo.went.length === 0 && noGoMarks.length === 0);
+  const goRefused = await turnOf('plain', { notOnThePage: ['Orders'], page: wrongPage, goRefuses: 'offline' });
+  check('a reload that the door refuses leaves the walk failed as it was, not lost', goRefused.answer && goRefused.answer.state === FAILED);
+
+  /* The memory of a walk is cleared at the start of every turn, so a walker kept across turns does not carry a press or a page from the one before. */
+  const how = { page: wrongPage };
+  const sharedPortal = aPortal(how);
+  const sharedMarks = [];
+  const shared = walkerFor(sharedPortal, sharedMarks);
+  await shared('plain', DAY, { panel: PANEL, startAt: 1 });
+  how.notOnThePage = ['Orders'];
+  const noGoThisTurn = await shared('bare', DAY, { panel: PANEL, startAt: 0 });
+  check('the page a turn came from is forgotten when the next turn starts', noGoThisTurn.state === FAILED && sharedPortal.went.length === 0);
+  const how2 = { notOnThePage: ['Orders'], page: 'Returns' };
+  const sharedPortal2 = aPortal(how2);
+  const shared2 = walkerFor(sharedPortal2, []);
+  const afterPress = await shared2('pressed', DAY, { panel: PANEL, startAt: 1 });
+  const noPressNow = await shared2('plain', DAY, { panel: PANEL, startAt: 1 });
+  check('a press in one turn is forgotten when the next turn starts: a thing not found with nothing pressed this turn is loaded again',
+    afterPress.state === FAILED && hasNotFinished(noPressNow) && sharedPortal2.went.length === 1);
+
+  /* Closing what is in the way: once per step, and said. */
+  const SAID_AT = SAID.length;
+  const blockedOnce = aPortal({ blockedClicks: 1, closes: ['a survey'] });
+  await aWalk(blockedOnce, book)('clicking', DAY);
+  check('a press that something stands in the way of is tried once more after what was in the way is closed',
+    blockedOnce.clickTries === 2 && blockedOnce.clicked.join() === 'Go' && blockedOnce.closedPopUps === 2
+    && blockedOnce.clickArgs.every((one) => one[0] === false && one[1] === false));
+  check('and it says what it closed', SAID.slice(SAID_AT).some((line) => line.includes('closed what was in the way, and trying this step once more -- a survey.')));
+  const mouse = aPortal({ blockedClicks: 1, closes: ['a survey'] });
+  await aWalk(mouse, book)('clickingLikeAMouse', DAY);
+  check('both presses of a step that is pressed like a mouse are told so', mouse.clickArgs.length === 2 && mouse.clickArgs.every((one) => one[0] === false && one[1] === true));
+  const SAID_REFUSED = SAID.length;
+  const closeFails = aPortal({ blockedClicks: 5, closes: ['a survey'], closeRefusesAfter: 1 });
+  const refusedAnswer = await aWalk(closeFails, book)('clicking', DAY);
+  check('when what is in the way cannot be closed the press is not tried again, and the walk fails',
+    closeFails.clickTries === 1 && refusedAnswer.state !== LANDED && refusedAnswer.state !== STILL_WAITING);
+  check('and it says that it could not close it, with the reason', SAID.slice(SAID_REFUSED).some((line) => line.includes('could not close what was in the way -- boom')));
+  const nothingToClose = aPortal({ blockedClicks: 5, closes: [] });
+  await aWalk(nothingToClose, book)('clicking', DAY);
+  check('when nothing was in the way the press is not tried again', nothingToClose.clickTries === 1);
+  const onlyOnce = aPortal({ blockedClicks: 5, closes: ['a survey'], hiddenUntilClosedTwice: ['Go'] });
+  await aWalk(onlyOnce, book)('clicking', DAY);
+  check('what is in the way is closed only once for a step, even when the step is stopped a second time', onlyOnce.clickTries === 1 && onlyOnce.closedPopUps === 2);
+  const SAID_NO_DOOR = SAID.length;
+  const noCloser = aPortal({ notOnThePage: ['Orders'] });
+  delete noCloser.door.close_pop_ups;
+  const noCloserAnswer = await aWalk(noCloser, book)('plain', DAY);
+  check('a door that cannot close pop-ups is not asked to, and the step fails as it did', noCloserAnswer.state === FAILED && !SAID.slice(SAID_NO_DOOR).some((line) => line.includes('in the way')));
+
+  /* The take-file step does the same. */
+  const hiddenDownload = aPortal({ closes: ['a survey'], hiddenUntilClosedTwice: ['Download'] });
+  const taken = await aWalk(hiddenDownload, book)('me_orders', DAY);
+  check('a file link hidden by a pop-up that opened late is found once it is closed, and the file is taken', taken.state === LANDED && hiddenDownload.closedPopUps === 2);
+  const visibleDownload = aPortal({ closes: ['a survey'] });
+  const takenPlain = await aWalk(visibleDownload, book)('me_orders', DAY);
+  check('a file link that is there is taken without closing anything more', takenPlain.state === LANDED && visibleDownload.closedPopUps === 1);
+  const blockedTake = aPortal({ blockedClicks: 1, closes: ['a survey'] });
+  const blockedTaken = await aWalk(blockedTake, book)('me_orders', DAY);
+  check('a file link press that something stands in the way of is tried once more after it is closed', blockedTaken.state === LANDED && blockedTake.clickTries === 2);
+  const THREW_AT = THREW.length;
+  const blockedForGood = aPortal({ blockedClicks: 1, closes: [] });
+  const blockedGone = await aWalk(blockedForGood, book)('me_orders', DAY);
+  check('and with nothing to close it is not tried again, and the file is not taken', blockedGone.state !== LANDED && blockedForGood.clickTries === 1 && blockedForGood.tookFile === 0 && THREW.length >= THREW_AT);
+
+  /* A wait that sees several rows is refused unless it is narrowed to a day; a press never is. */
+  const several = { matches: { Orders: 2 } };
+  const severalWait = await aWalk(aPortal(several), book)('waitSeveral', DAY);
+  check('a wait that sees several of the thing and is not narrowed is refused', severalWait.state === FAILED);
+  const narrowedWait = await aWalk(aPortal(several), book)('waitNarrowed', DAY);
+  check('a wait narrowed to a row of the day may see several', narrowedWait.state === STILL_WAITING);
+  const narrowedClick = await aWalk(aPortal(several), book)('clickNarrowed', DAY);
+  check('a press narrowed to a row that sees several is still refused', narrowedClick.state === FAILED);
+}
+
+const EXPECTED = 349 + 31 + 9 + 3 + 1 + 1 + 3 + 8 + 2 + 4 + 2 + 2 + 1 + 14 + 1 + 1 + 1 + 2 + 4 + 3 + 1;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

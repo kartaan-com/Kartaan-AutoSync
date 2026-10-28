@@ -1959,6 +1959,44 @@ for (const [start, end, from, expectedMonth] of [
       (await saidAfterWaiting(() => door.pick_range('2026-09-01', '2026-09-01', 0, true)))
         .includes('switched off'));
   }
+  {
+    /* **ONLY DAY NUMBERS THAT ARE ON SHOW SAY WHERE THE MONTH STARTS:** a "1" in the grid that is not painted (a hidden spare) is not the month's first day. */
+    const page = aPage();
+    const door = doorOn();
+    const panel = thing('div');
+    panel.append(thing('div', 'October 2026'));
+    const grid = thing('div');
+    const spare = thing('td', '1', { box: NOT_PAINTED });
+    const leading = [27, 28, 29, 30].map((d) => thing('td', String(d)));
+    const own = Array.from({ length: 31 }, (_, i) => thing('td', String(i + 1)));
+    grid.append(spare, ...leading, ...own);
+    panel.append(grid);
+    const hits = [];
+    leading[0].addEventListener('click', () => hits.push('september'));
+    own[26].addEventListener('click', () => hits.push('october'));
+    page.body.append(panel);
+    check('a hidden "1" does not start the month early, so the month before\'s day is still not taken',
+      (await saidAfterWaiting(() => door.pick_range('2026-10-27', '2026-10-27'))) === ''
+      && hits.length > 0 && hits.every((one) => one === 'october'));
+  }
+  {
+    /* **NO "1" TO START THE MONTH FROM: THE CELLS COME AS THEY WERE FOUND** (so two of the same day stay two and are refused as ambiguous, not narrowed to the last). */
+    const page = aPage();
+    const door = doorOn();
+    const panel = thing('div');
+    panel.append(thing('div', 'October 2026'));
+    const grid = thing('div');
+    const first = thing('td', '27');
+    const second = thing('td', '27');
+    grid.append(thing('td', '26'), first, thing('td', '28'), second);
+    panel.append(grid);
+    const hits = [];
+    first.addEventListener('click', () => hits.push('first'));
+    second.addEventListener('click', () => hits.push('second'));
+    page.body.append(panel);
+    const refused = await saidAfterWaiting(() => door.pick_range('2026-10-27', '2026-10-27'));
+    check('with no "1" in the grid, two of the same day are refused rather than one of them taken', refused !== '' && hits.length === 0);
+  }
 }
 
 {
@@ -2208,6 +2246,29 @@ for (const [start, end, from, expectedMonth] of [
   page.body.append(thing('div', 'x'.repeat(400), { attrs: { role: 'dialog' }, box: BIG }));
   check('a great deal of words on it is cut down to something a log can hold',
     door.overlays()[0].text.length === 300);
+}
+
+/* **WORDS THE PAGE'S STYLE SHEET HIDES ARE NOT READ (his fourth live Amazon run, 27 Oct 2026):** the browser's own answer for how a node looks (display none, or hidden), not only the marks written on the node. */
+{
+  const page = aPage();
+  const door = doorOn();
+  const looksLike = new Map();
+  const standIn = globalThis.getComputedStyle;
+  globalThis.getComputedStyle = (node) => looksLike.get(node) || { display: 'block', visibility: 'visible' };
+  const gone = thing('p', 'gone by display');
+  const unseen = thing('p', 'gone by visibility');
+  const shown = thing('p', 'shown');
+  looksLike.set(gone, { display: 'none', visibility: 'visible' });
+  looksLike.set(unseen, { display: 'block', visibility: 'hidden' });
+  page.body.append(gone, unseen, shown);
+  check('words a style sheet hides, by display or by visibility alone, are not read; the rest are',
+    door.page_text() === 'shown');
+  /* A node with no style of its own is not asked how it looks, and with no way of asking nothing is asked at all. */
+  const bare = thing('p', 'no style', { style: null });
+  page.body.append(bare);
+  globalThis.getComputedStyle = (node) => (node.style ? { display: 'block', visibility: 'visible' } : { display: 'none', visibility: 'hidden' });
+  check('a node with no style is read as it is, not asked how it looks', door.page_text().includes('no style'));
+  globalThis.getComputedStyle = standIn;
 }
 
 /* ---------------------------------------------------------- what is on the page */
@@ -2469,6 +2530,22 @@ for (const [start, end, from, expectedMonth] of [
   page.body.append(thing('p', 'Choose a date', { box: BIG }), request);
   check('and when something can be pressed the words of what can be pressed follow the page\'s own words',
     door.page_text() === 'Choose a date Request || pressable: Request');
+}
+{
+  /* Only what is on show AND can be pressed is listed: a button that is not painted is left out, and so is a painted thing that cannot be pressed. */
+  const page = aPage();
+  const door = doorOn();
+  page.body.append(thing('p', 'Choose a date', { box: BIG }), thing('button', 'Hidden button', { box: NOT_PAINTED }));
+  check('a button that is not painted, and words that cannot be pressed, are not listed as pressable',
+    door.page_text() === 'Choose a date Hidden button');
+}
+{
+  /* A pressable with no words (an icon) and one whose words run past 60 characters are not listed either, so a failure line is not spent on them. */
+  const page = aPage();
+  const door = doorOn();
+  page.body.append(thing('p', 'Choose a date', { box: BIG }), thing('button', '', { box: BIG }), thing('button', 'w'.repeat(80), { box: BIG }));
+  check('a pressable with no words, or with a very long run of them, is not listed as pressable',
+    !door.page_text().includes('pressable:'));
 }
 {
   const page = aPage();
@@ -3149,6 +3226,20 @@ for (const [start, end, from, expectedMonth] of [
     (await door.find(BY_PRESSABLE_TEXT, 'Download Flat File V2', true, 0, [], '')) === 1);
 }
 
+/* **THE LABEL IS READ ONLY FOR A COMPONENT WITH NO WORDS OF ITS OWN, AND ONLY FOR A `kat-*` ONE:** a `kat-button` that has its own words is found by those, not by a label it also carries, and a plain element with a label and no words is not found by the label. */
+{
+  const page = aPage();
+  const door = doorOn();
+  const withWords = thing('kat-button', 'Other thing', { box: BIG, attrs: { label: 'Download Flat File V2' } });
+  withWords.style.cursor = 'pointer';
+  const plain = thing('div', '', { box: BIG, attrs: { label: 'Download Plain Label' } });
+  plain.style.cursor = 'pointer';
+  page.body.append(withWords, plain);
+  check('a kat-button with words of its own is found by them', (await door.find(BY_PRESSABLE_TEXT, 'Other thing', true, 0, [], '')) === 1);
+  check('and not by the label it also carries', (await door.find(BY_PRESSABLE_TEXT, 'Download Flat File V2', true, 0, [], '')) === 0);
+  check('and a plain element with a label and no words is not found by the label', (await door.find(BY_PRESSABLE_TEXT, 'Download Plain Label', true, 0, [], '')) === 0);
+}
+
 /* **THE STATEMENT'S OWN DOWNLOAD IS TAKEN BY ITS PERIOD (his sixth live Amazon run, 28 Oct 2026: "not on the page at all" though the row shows Download Flat File V2):** the `kat-button`'s words sit in its shadow root, a span in a slot in a button, so the row is more than six levels above them. Reading the rows found every statement (twelve levels), but taking one narrowed to its period climbed only six and found none. A period written as a statement's is narrowed within the same twelve levels, still stopping at the first level that holds another statement's control. */
 {
   const page = aPage();
@@ -3382,7 +3473,7 @@ for (const [start, end, from, expectedMonth] of [
     refused.includes('is not on the calendar') && pressedInAugust.length === 0 && pressedInSeptember.length === 0);
 }
 
-const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1 + 1 + 1 + 3 + 2 + 1 + 2 + 3 + 1 + 2 + 4 + 1 + 2;
+const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1 + 1 + 1 + 3 + 2 + 1 + 2 + 3 + 1 + 2 + 4 + 1 + 2 + 9;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

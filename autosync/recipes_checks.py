@@ -771,6 +771,10 @@ check("az_claims takes only the Download of the SAFE-T Claims Report row made on
       len(AZC_TAKE) == 3 and AZC_TAKE[2].do == pages.TAKE_FILE and AZC_TAKE[1].find == AZC_TAKE[2].find
       and AZC_TAKE[2].find.what == "Download" and AZC_TAKE[2].find.near == "{day_in_words}" and AZC_TAKE[2].find.also_saying == "SAFE-T Claims Report"
       and AZC_TAKE[2].find.day_in_words_is == "amazon" and AZC_TAKE[2].find.day_in_words_of == pages.THE_DAY_IT_WAS_MADE)
+check("az_claims is not asked a second time in a day: the Generate Report press is skipped when today's SAFE-T Claims Report row is there, the row looked for by Amazon's day wording and the day it was made",
+      len(AZC_ASK) == 7 and AZC_ASK[6].only_if_absent is not None and AZC_ASK[6].only_if_absent.what == "Download"
+      and AZC_ASK[6].only_if_absent.near == "{day_in_words}" and AZC_ASK[6].only_if_absent.also_saying == "SAFE-T Claims Report"
+      and AZC_ASK[6].only_if_absent.day_in_words_is == "amazon" and AZC_ASK[6].only_if_absent.day_in_words_of == pages.THE_DAY_IT_WAS_MADE)
 # **AMAZON ORDERS THROUGH THE BROWSER (N018, 26 Oct 2026), measured on his own Seller Central:** Orders > Order reports > All Orders (`/order-reports-and-feeds/reports/allOrders`). A radio reads
 # `Last Updated Date`, the date range opens on `Date range: Last day`, a real button reads `Request`; the list below reads `Last Updated Date | <batch> | 19/10/26, 6:36:33 am ... | 26/10/26,
 # 6:36:33 am India Standard Time | Ready | Download` and takes about 40 seconds. **NOT YET RUN LIVE.**
@@ -1640,7 +1644,7 @@ check("and the panel name was still filled into the addresses on the way",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 458
+EXPECTED = 459
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

@@ -9,6 +9,13 @@
   ],
   "accepted": [
     {
+      "file": "extension/tables.js",
+      "operator": "line",
+      "line": "if (!way.pageLabel) return 0;",
+      "occurrence": 0,
+      "why": "The only caller uses the page size as `size && notTheLast()`, and notTheLast needs pagesNamed() above 0. pagesNamed returns 0 for every way with no pageLabel, so for such a way the size is never acted on whether it is 0 or the printed number. For a way with a pageLabel the line does not return. No wait, no failure, no row read or put away comes out different."
+    },
+    {
       "file": "autosync/ledger.py",
       "operator": "line",
       "line": "if column == \"settlement\" and str(was) != \"\" and not added:",
@@ -70,9 +77,32 @@
       "line": "if (from < 0 || to < 0 || to < from) return [];",
       "occurrence": 1,
       "why": "When the Quality Recommendations heading is missing (`to < 0`) and the feedback heading is there, `to < from` is true as well, and when the feedback heading is later than the recommendations the section sliced between them is empty whether or not this guard returns first; so `from < 0 || (to < 0 && to < from)` and the original give an empty list for every page."
+    },
+    {
+      "file": "extension/walk.js",
+      "operator": "line",
+      "line": "return false;",
+      "occurrence": 0,
+      "why": "This is the `return false;` that ends the catch of closeWhatIsInTheWay. Deleting it makes the function return undefined instead of false. Every caller uses the result only as a truth value (`many === 0 && await ...`, `if (!(await ...)) throw blocked`), and undefined and false are both falsy, so no write, store or word to the seller differs."
+    },
+    {
+      "file": "extension/walk.js",
+      "operator": "boolean",
+      "line": "let somethingWasPressed = false;",
+      "occurrence": 0,
+      "why": "The starting value is never read: walkThisPage is called only from walkAndReloadOnce, which sets somethingWasPressed = false on its first line of every turn before any step runs, and the only read is after that call. Starting at true instead of false leaves no state in which a result differs."
+    },
+    {
+      "file": "extension/driver.js",
+      "operator": "line",
+      "line": "if (cells.length < 2) return cells;",
+      "occurrence": 0,
+      "why": "This only saves work: with no cell or one cell, the lines below either find no run to keep and answer the cells as they came, or keep the one cell (it is the only candidate), or keep nothing and fall back to the cells as they came (`kept.length > 0 ? kept : cells`). In every case the answer is those same cells, so nothing pressed, written or said comes out different."
     }
   ],
   "cannot_load": {
+    "extension/driver.js": "Deleting BY_THE_LINK_ENDING or BY_THE_LABEL_IN_TEST_ID, which driver.js exports, driver.test.js imports by name and the list on the next line is built from, stops the checks file importing at all. Noticed by the load, not by a red check. Read off the prover's verdicts at AJ7 (2 changes).",
+    "extension/doors.js": "Deleting ARMED_FOR_MS, which doors.js exports and doors.test.js imports by name, stops the checks file importing at all. Noticed by the load, not by a red check. Read off the prover's verdicts at AJ7 (1 change).",
     "tools/move_group.py": "Deleting an import (json, re, dataclass), a constant (REPO, GROUPS, BURNT, TAG), a field of Facts, a function's own head line, or a line that first sets a name a later line reads (why, state, now, going_back, ahead, sha, url, refs, tags, name, branches, releases, groups) leaves that name undefined, so the module will not import or the function throws a NameError the moment the checks call it, before any check prints. Read off the prover's verdicts at AP11 (36 such changes, none surviving); every other change to this file went red by name.",
     "autosync/listing_notes.py": "Deleting an import (dataclass, typing, listings), a function's head line (read_fees), the READERS table, or the line that sets `reader` or returns from it leaves a name the module or its checks need undefined, so listing_notes_checks.py stops before or while its first notes are read; deleting the line that remembers where a listing was first seen (seen_at) or says the repeat makes the repeat check reach into a list that is empty. Noticed by the file failing to load, not by a check going red. Read off the prover's verdicts at AP11 (9 changes, none surviving).",
     "autosync/amazon.py": "Deleting the `snapshot` field's line from AmazonReport, or one line of the two snapshot reports' entries (az_suppressed, az_health: their id, Amazon's report type, or how it is asked for), leaves the table of reports unable to be built, so the module does not import and amazon_checks.py dies before its first check. Noticed by the load, not by a red check. Read off the prover's verdicts at AP11 (7 changes, none surviving).",

@@ -2048,6 +2048,59 @@ function panelParts(chrome, held = {}) {
     && shown.log.findAll('p-title').length === 0);
 }
 
+/* AJ7 proving: the shape of the report table, and when it is drawn again. */
+{
+  const into = document.createElement('div');
+  const table = {
+    startedAt: Date.UTC(2026, 9, 28, 3, 10),
+    finishedAt: Date.UTC(2026, 9, 28, 3, 20),
+    minutes: 10,
+    counts: { landed: 1, asked: 0, toFetch: 0, failed: 0 },
+    rows: [
+      { key: 'a', name: 'Report A', status: 'landed', word: 'Landed', seconds: 1, star: false, means: 'Means A', detail: 'Detail A' },
+    ]
+  };
+  showTheReportTable(into, table, 'Amazon', new Set(['a']));
+  const tableEl = into.find('p-table');
+  const thead = tableEl.children[0];
+  check('table screen: the head is one row of Report, Status, Time, What it means',
+    thead.children.length === 1 && thead.children[0].children.map((c) => c.textContent).join('|') === 'Report|Status|Time|What it means');
+  const reportRow = into.find('p-report-row');
+  check('table screen: a report row can be reached by keyboard and says whether it is open',
+    reportRow.getAttribute('tabindex') === '0' && reportRow.getAttribute('aria-expanded') === 'true'
+    && reportRow.getAttribute('title') === 'Tap to open the full detail');
+  check('table screen: the detail cell spans all four columns',
+    into.find('p-detail-row').children[0].getAttribute('colspan') === '4');
+  check('table screen: the note says what the star means',
+    into.findAll('p-note').some((n) => n.textContent === '* Time spent waiting for the platform, not working.'));
+}
+
+{
+  installFakeBrowser();
+  const { chrome } = installFakeChrome();
+  const shown = buildThePanel(document.body, {
+    connectTheDrive: () => {}, saveThePanelName: () => {}, runNow: () => {}, stop: () => {}, setTheHour: () => {},
+  });
+  const stands = await howItStands(chrome, { book: BOOK, now: Date.now() });
+  const [one, two] = stands.reports.map((r) => r.id);
+  const at = Date.UTC(2026, 9, 28, 3, 10);
+  const night = {
+    startedAt: at, finishedAt: at + 5 * 60000, doing: null, left: [], why: '', spent: 0, mayAskFor: 0, platform: 'flipkart',
+    done: [{ reportId: one, state: 'landed', say: '', size: 500, at: at + 40000 }],
+  };
+  showHowItStands(shown, { ...stands, night });
+  const rowsBefore = shown.log.findAll('p-report-row');
+  check('AJ7: a report row is called by the name the panel knows it by',
+    rowsBefore.length === 1 && rowsBefore[0].find('p-cell-name').textContent === stands.reports.find((r) => r.id === one).name);
+  showHowItStands(shown, { ...stands, night });
+  check('AJ7: a poll that finds the run unchanged does not draw the table again', shown.log.findAll('p-report-row')[0] === rowsBefore[0]);
+  const longer = { ...night, done: [...night.done, { reportId: two, state: 'failed', say: 'x', size: 0, at: at + 90000 }] };
+  showHowItStands(shown, { ...stands, night: longer });
+  check('AJ7: a changed run is drawn again, in place of the old table and not under it',
+    shown.log.findAll('p-report-row').length === 2 && shown.log.findAll('p-table').length === 1
+    && shown.log.findAll('p-report-row')[0] !== rowsBefore[0]);
+}
+
 reachedTheEnd = true;
 console.log(`\n${ran} checks, ${failures} failed.`);
 process.exit(failures ? 1 : 0);

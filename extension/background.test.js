@@ -587,6 +587,23 @@ const LATER = '2026-08-27T16:04:00.000Z';
   check('the one reload (the platform showed its own error) is written on the walk of the tab that made it, beside the sign-in mark',
     (await browser.chrome.storage.local.get(THE_WALK))[THE_WALK].reloadedOnce === true
     && (await browser.chrome.storage.local.get(THE_WALK))[THE_WALK].triedSigningIn === true);
+  /* **THE MARKS ARE ANSWERED, AND NEVER WRITTEN ON A WALK THAT BELONGS TO ANOTHER TAB (or on no walk at all).** */
+  await browser.chrome.storage.local.set({
+    [THE_WALK]: { tabId: tab.id, reportId: 'me_orders', at: 1, carryOnUntil: Date.now() + 60000, answer: null },
+  });
+  const anotherTab = { tab: { id: tab.id + 1000 }, id: 'stand-in-extension-id', url: 'https://seller.flipkart.com/index.html' };
+  const markedFromAnotherTab = await browser.aPageAsked({ do: 'reloaded-once' }, anotherTab);
+  check('a mark from a page in another tab is refused and nothing is written on the walk',
+    Boolean(markedFromAnotherTab) && markedFromAnotherTab.marked === false
+    && (await browser.chrome.storage.local.get(THE_WALK))[THE_WALK].reloadedOnce === undefined);
+  const markedOwn = await browser.aPageAsked({ do: 'reloaded-once' }, flipkartPage);
+  check('a mark from the walk\'s own tab is answered as marked',
+    Boolean(markedOwn) && markedOwn.marked === true);
+  await browser.chrome.storage.local.remove(THE_WALK);
+  const markedWithNoWalk = await browser.aPageAsked({ do: 'reloaded-once' }, flipkartPage);
+  check('a mark when there is no walk at all is refused and no walk is made',
+    Boolean(markedWithNoWalk) && markedWithNoWalk.marked === false
+    && (await browser.chrome.storage.local.get(THE_WALK))[THE_WALK] === undefined);
   await browser.chrome.storage.local.remove(THE_WALK);
   check('but never to another site',
     String(otherSite && otherSite.wrong).includes('only be moved within its own site')
@@ -664,6 +681,16 @@ const LATER = '2026-08-27T16:04:00.000Z';
   const signed = await browser.aPageAsked({ do: 'fetch-this', address: 'https://a-bucket.s3.eu-west-1.amazonaws.com/report.csv?X-Amz-Signature=ab' });
   check('A SIGNED LINK THAT REFUSES COOKIES COMES BACK AS BYTES WHEN ASKED AGAIN WITHOUT THEM',
     Array.isArray(signed.bytes) && signed.bytes.length === 3 && theCookies.join() === 'include,omit');
+  /* A link that is NOT signed is never asked again without cookies: the refusal stands. */
+  const theUnsignedAsks = [];
+  globalThis.fetch = async (address, options) => {
+    theUnsignedAsks.push(options && options.credentials);
+    if (options && options.credentials === 'include') throw new Error('Failed to fetch');
+    return { ok: true, status: 200, arrayBuffer: async () => new Uint8Array([4, 5, 6]).buffer };
+  };
+  const unsigned = await browser.aPageAsked({ do: 'fetch-this', address: 'https://a-bucket.s3.eu-west-1.amazonaws.com/report.csv?x=1' });
+  check('A LINK THAT IS NOT SIGNED IS NOT ASKED AGAIN WITHOUT COOKIES, AND COMES BACK REFUSED',
+    unsigned.bytes === undefined && theUnsignedAsks.join() === 'include' && unsigned.couldNotFetch === 'Failed to fetch');
   globalThis.fetch = withCookiesFirst;
 
   /* **A NEW LINK ON THE ASKING PAGE'S OWN SITE (HIS RULING, 2026-09-14)** --
@@ -2305,7 +2332,7 @@ check('the page relay is OFF in what ships, so no script on a portal page can dr
     && theRelayAllows(false, { do: 'run-now' }) === false);
 }
 
-const EXPECTED = 262 + 13 + 1 + 4 + 2 + 1 + 1 + 1;
+const EXPECTED = 262 + 13 + 1 + 4 + 2 + 1 + 1 + 1 + 4;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;
