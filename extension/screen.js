@@ -34,7 +34,7 @@
 
 import { MANUAL, TOOLTIPS } from './manual.js';
 import {
-  theNight, endTheNight, howTheNightWent, theDay, thatOneIsDone,
+  theNight, endTheNight, howTheNightWent, theDay, thatOneIsDone, theReportTable,
   A_DAYS_ALLOWANCE, KEPT_FOR_HIS_OWN_RUNS, inTheNightsOwnLine, spendsTheAllowance, whatNeedsYou,
 } from './nightly.js';
 import { theUpdateNotice } from './update.js';
@@ -1557,8 +1557,7 @@ export function buildThePanel(into, doing) {
 
   /* ----------------------------------------------------------------- the log */
   const log = make('section', `${OURS}card`);
-  put(log, make('h2', `${OURS}title`, 'What happened, in words'));
-  parts.log = make('pre', `${OURS}log`, '');
+  parts.log = make('div', `${OURS}run`);
   put(log, parts.log);
   put(body, log);
 
@@ -1611,6 +1610,8 @@ export function buildThePanel(into, doing) {
 
   /* What is ticked, kept here rather than read back off the page every poll. */
   parts.ticked = new Set();
+  /* The report rows that are open in the last-run table, kept across the two-second redraws. */
+  parts.opened = new Set();
   parts.boxes = new Map();
   parts.states = new Map();
   /* One tick-all button per platform, so a seller picks a whole platform in one press. */
@@ -1862,7 +1863,116 @@ function showTheRestOfIt(parts, stands) {
   }
   parts.hourState.textContent = whenItNextWakes(clock);
 
-  parts.log.textContent = stands.inWords;
+  /* **ONE TABLE FOR THE LAST RUN, REPLACING THE WORDS BOX (AJ6).** The full words still go to the Drive; the panel draws only when the run changed, so an open row is not rebuilt for nothing. */
+  const names = new Map(stands.reports.map((one) => [one.id, one.name]));
+  const shown = theReportTable(stands.night, (id) => names.get(id) || '');
+  const ofPlatform = (stands.night && stands.night.platform) || '';
+  const drawn = JSON.stringify([shown, ofPlatform]);
+  if (parts.drawn !== drawn) {
+    parts.drawn = drawn;
+    showTheReportTable(parts.log, shown, CALLED[ofPlatform] || ofPlatform, parts.opened);
+  }
+}
+
+export function showTheReportTable(into, table, platformName, opened) {
+  into.textContent = '';
+
+  if (table === null) {
+    put(into, make('p', `${OURS}note`, 'No sync has been run.'));
+    return;
+  }
+
+  const runHead = make('div', `${OURS}run-head`);
+  const whenText = table.finishedAt === 0
+    ? `${inWordsWhen(table.startedAt)} · still going`
+    : `${inWordsWhen(table.startedAt)} to ${inWordsWhen(table.finishedAt)} · ${table.minutes} min`;
+  put(
+    runHead,
+    make('span', `${OURS}run-title`, `Last run: ${platformName}`),
+    make('span', `${OURS}note`, whenText)
+  );
+
+  const counts = make('div', `${OURS}counts`);
+  const countBoxes = [
+    ['landed', 'Landed', table.counts.landed],
+    ['asked', 'Asked, not yet in', table.counts.asked],
+    ['tofetch', 'Still to fetch', table.counts.toFetch],
+    ['failed', 'Failed', table.counts.failed]
+  ];
+  for (const [name, label, value] of countBoxes) {
+    put(
+      counts,
+      put(
+        make('div', `${OURS}count ${OURS}count--${name}`),
+        make('span', `${OURS}count-number`, String(value)),
+        make('span', `${OURS}count-label`, label)
+      )
+    );
+  }
+
+  const tableEl = make('table', `${OURS}table`);
+  const thead = make('thead');
+  const headRow = make('tr');
+  put(
+    headRow,
+    make('th', '', 'Report'),
+    make('th', '', 'Status'),
+    make('th', '', 'Time'),
+    make('th', '', 'What it means')
+  );
+  put(thead, headRow);
+
+  const tbody = make('tbody');
+  for (const row of table.rows) {
+    const reportRow = make('tr', `${OURS}report-row ${OURS}report-row--${row.status}`);
+    reportRow.setAttribute('tabindex', '0');
+    reportRow.setAttribute('aria-expanded', opened.has(row.key) ? 'true' : 'false');
+    reportRow.setAttribute('title', 'Tap to open the full detail');
+
+    const nameCell = make('td', `${OURS}cell-name`, row.name);
+    const wordCell = put(make('td'), make('span', `${OURS}word ${OURS}word--${row.status}`, row.word));
+    const timeCell = make('td');
+    timeCell.textContent = row.seconds === null ? '' : `${row.seconds} s${row.star ? ' *' : ''}`;
+    const meansCell = make('td', '', row.means);
+    put(reportRow, nameCell, wordCell, timeCell, meansCell);
+
+    const detailRow = make('tr', `${OURS}detail-row`);
+    detailRow.hidden = !opened.has(row.key);
+    const detailCell = make('td');
+    detailCell.setAttribute('colspan', '4');
+    put(
+      detailCell,
+      make('pre', `${OURS}log`, row.detail || 'Nothing more to show yet.')
+    );
+    put(detailRow, detailCell);
+
+    const toggle = () => {
+      if (opened.has(row.key)) {
+        opened.delete(row.key);
+      } else {
+        opened.add(row.key);
+      }
+      const isOpen = opened.has(row.key);
+      detailRow.hidden = !isOpen;
+      reportRow.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    };
+
+    reportRow.addEventListener('click', toggle);
+    reportRow.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') toggle();
+    });
+
+    put(tbody, reportRow, detailRow);
+  }
+  put(tableEl, thead, tbody);
+
+  put(
+    into,
+    runHead,
+    counts,
+    tableEl,
+    make('p', `${OURS}note`, '* Time spent waiting for the platform, not working.')
+  );
 }
 
 /** When the extension next wakes by itself, in the seller's own words. */

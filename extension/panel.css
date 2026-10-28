@@ -321,3 +321,156 @@ body {
   gap: 12px;
   margin: 16px 0 6px;
 }
+
+/* ---------------------------------------------- the last run, report by report (AJ6) */
+.p-run {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.p-run-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-family: var(--font);
+}
+
+.p-run-title {
+  font-family: var(--font);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--brand);
+}
+
+.p-counts {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.p-count {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  font-family: var(--font);
+}
+
+.p-count--landed {
+  border-color: var(--ok);
+  background: var(--ok-bg);
+}
+
+.p-count--asked {
+  border-color: var(--warn);
+  background: var(--warn-bg);
+}
+
+.p-count--tofetch {
+  border-color: var(--text-muted);
+  background: var(--surface-raised);
+}
+
+.p-count--failed {
+  border-color: var(--danger);
+  background: var(--danger-bg);
+}
+
+.p-count-number {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.p-count--landed .p-count-number {
+  color: var(--ok);
+}
+
+.p-count--asked .p-count-number {
+  color: var(--warn);
+}
+
+.p-count--tofetch .p-count-number {
+  color: var(--text-muted);
+}
+
+.p-count--failed .p-count-number {
+  color: var(--danger);
+}
+
+.p-count-label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.p-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font);
+  font-size: 14px;
+}
+
+.p-table tr {
+  border-bottom: 1px solid var(--border);
+}
+
+.p-table th,
+.p-table td {
+  padding: 8px 10px;
+}
+
+.p-table th {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: left;
+}
+
+.p-report-row {
+  cursor: pointer;
+}
+
+.p-report-row:hover {
+  background: var(--surface-raised);
+}
+
+.p-report-row:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+}
+
+.p-word {
+  font-weight: 700;
+}
+
+.p-word--landed {
+  color: var(--ok);
+}
+
+.p-word--asked {
+  color: var(--warn);
+}
+
+.p-word--tofetch {
+  color: var(--text-muted);
+}
+
+.p-word--failed {
+  color: var(--danger);
+}
+
+.p-detail-row .p-log {
+  width: 100%;
+}
+
+.p-cell-name {
+  font-weight: 600;
+}
+
+@media (max-width: 480px) {
+  .p-counts {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

@@ -77,6 +77,7 @@ import {
   rememberTheNight,
   saySomething,
   showHowItStands,
+  showTheReportTable,
   whenItNextWakes,
   theDay,
   theDayToFetch,
@@ -1865,6 +1866,186 @@ function panelParts(chrome, held = {}) {
   });
   check('a platform\'s card says how many reports the last run fetched AND how many failed',
     shown.platforms.textContent.includes('3 fetched, 2 failed.'));
+}
+
+/* AJ6: the per-report table replaces the words box. */
+{
+  installFakeBrowser();
+}
+
+{
+  const into = document.createElement('div');
+  showTheReportTable(into, null, 'Amazon', new Set());
+  check('table screen: null table shows note', into.textContent.includes('No sync has been run.'));
+}
+
+{
+  const into = document.createElement('div');
+  const table = {
+    startedAt: Date.UTC(2026, 9, 28, 3, 10),
+    finishedAt: Date.UTC(2026, 9, 28, 3, 20),
+    minutes: 10,
+    counts: { landed: 2, asked: 1, toFetch: 3, failed: 4 },
+    rows: []
+  };
+  showTheReportTable(into, table, 'Amazon', new Set());
+  const numbers = ['landed', 'asked', 'tofetch', 'failed'].map((name) =>
+    into.find(`p-count--${name}`).find('p-count-number').textContent
+  );
+  const labels = into.textContent;
+  check(
+    'table screen: counts and labels appear',
+    numbers.join(',') === '2,1,3,4' &&
+      labels.includes('Asked, not yet in') &&
+      labels.includes('Still to fetch')
+  );
+}
+
+{
+  const into = document.createElement('div');
+  const table = {
+    startedAt: Date.UTC(2026, 9, 28, 3, 10),
+    finishedAt: Date.UTC(2026, 9, 28, 3, 20),
+    minutes: 10,
+    counts: { landed: 1, asked: 1, toFetch: 0, failed: 1 },
+    rows: [
+      { key: 'a', name: 'Report A', status: 'landed', word: 'Landed', seconds: 95, star: true, means: 'Means A', detail: 'Detail A' },
+      { key: 'b', name: 'Report B', status: 'asked', word: 'Asked', seconds: null, star: false, means: 'Means B', detail: 'Detail B' },
+      { key: 'c', name: 'Report C', status: 'failed', word: 'Failed', seconds: 12, star: false, means: 'Means C', detail: 'Detail C' }
+    ]
+  };
+  showTheReportTable(into, table, 'Flipkart', new Set());
+  const reportRows = into.findAll('p-report-row');
+  const detailRows = into.findAll('p-detail-row');
+  const firstWord = reportRows[0].find('p-word').textContent;
+  const starredTime = reportRows[0].children[2].textContent;
+  const emptyTime = reportRows[1].children[2].textContent;
+  check(
+    'table screen: rows, words and time cells',
+    reportRows.length === 3 &&
+      detailRows.length === 3 &&
+      firstWord === 'Landed' &&
+      starredTime === '95 s *' &&
+      emptyTime === ''
+  );
+}
+
+{
+  const into = document.createElement('div');
+  const table = {
+    startedAt: Date.UTC(2026, 9, 28, 3, 10),
+    finishedAt: Date.UTC(2026, 9, 28, 3, 20),
+    minutes: 10,
+    counts: { landed: 1, asked: 0, toFetch: 0, failed: 0 },
+    rows: [
+      { key: 'a', name: 'Report A', status: 'landed', word: 'Landed', seconds: 1, star: false, means: 'Means A', detail: 'Detail A' },
+      { key: 'b', name: 'Report B', status: 'landed', word: 'Landed', seconds: 2, star: false, means: 'Means B', detail: 'Detail B' }
+    ]
+  };
+  showTheReportTable(into, table, 'Amazon', new Set());
+  const detailRows = into.findAll('p-detail-row');
+  const oldTitle = into.findAll('p-title').some((node) => node.textContent === 'What happened, in words');
+  check('table screen: details start hidden and old log is gone', detailRows.every((row) => row.hidden) && !oldTitle);
+}
+
+{
+  const into = document.createElement('div');
+  const opened = new Set();
+  const table = {
+    startedAt: Date.UTC(2026, 9, 28, 3, 10),
+    finishedAt: Date.UTC(2026, 9, 28, 3, 20),
+    minutes: 10,
+    counts: { landed: 1, asked: 1, toFetch: 0, failed: 0 },
+    rows: [
+      { key: 'a', name: 'Report A', status: 'landed', word: 'Landed', seconds: 1, star: false, means: 'Means A', detail: 'Detail A' },
+      { key: 'b', name: 'Report B', status: 'asked', word: 'Asked', seconds: 2, star: false, means: 'Means B', detail: 'Detail B' }
+    ]
+  };
+  showTheReportTable(into, table, 'Amazon', opened);
+  const reportRows = into.findAll('p-report-row');
+  const detailRows = into.findAll('p-detail-row');
+
+  reportRows[0].click();
+  const afterOpen =
+    !detailRows[0].hidden &&
+    detailRows[1].hidden &&
+    opened.has('a') &&
+    !opened.has('b') &&
+    reportRows[0].getAttribute('aria-expanded') === 'true';
+
+  reportRows[0].click();
+  const afterClose =
+    detailRows[0].hidden &&
+    detailRows[1].hidden &&
+    !opened.has('a') &&
+    !opened.has('b') &&
+    reportRows[0].getAttribute('aria-expanded') === 'false';
+
+  reportRows[0].fire('keydown', { key: 'Enter' });
+  const afterEnter =
+    !detailRows[0].hidden &&
+    detailRows[1].hidden &&
+    opened.has('a') &&
+    !opened.has('b') &&
+    reportRows[0].getAttribute('aria-expanded') === 'true';
+
+  check('table screen: click and Enter toggle own detail', afterOpen && afterClose && afterEnter);
+}
+
+{
+  const into = document.createElement('div');
+  const opened = new Set(['b']);
+  const table = {
+    startedAt: Date.UTC(2026, 9, 28, 3, 10),
+    finishedAt: Date.UTC(2026, 9, 28, 3, 20),
+    minutes: 10,
+    counts: { landed: 1, asked: 1, toFetch: 0, failed: 0 },
+    rows: [
+      { key: 'a', name: 'Report A', status: 'landed', word: 'Landed', seconds: 1, star: false, means: 'Means A', detail: 'Detail A' },
+      { key: 'b', name: 'Report B', status: 'asked', word: 'Asked', seconds: 2, star: false, means: 'Means B', detail: 'Detail B' }
+    ]
+  };
+  showTheReportTable(into, table, 'Amazon', opened);
+  const detailRows = into.findAll('p-detail-row');
+  check('table screen: redraw keeps opened detail', detailRows[0].hidden && !detailRows[1].hidden);
+}
+
+/* AJ6, wired: the panel draws the last run as a table, one row per report, and the words box is gone. */
+{
+  installFakeBrowser();
+  const { chrome } = installFakeChrome();
+  const shown = buildThePanel(document.body, {
+    connectTheDrive: () => {}, saveThePanelName: () => {}, runNow: () => {}, stop: () => {}, setTheHour: () => {},
+  });
+  const stands = await howItStands(chrome, { book: BOOK, now: Date.now() });
+  const [one, two, three, four] = stands.reports.map((r) => r.id);
+  const at = Date.UTC(2026, 9, 28, 3, 10);
+  const night = {
+    startedAt: at, finishedAt: at + 33 * 60000, doing: null, left: [], why: '', spent: 0, mayAskFor: 0, platform: 'flipkart',
+    done: [
+      { reportId: one, state: 'landed', say: '', size: 500, at: at + 40000 },
+      { reportId: two, state: 'failed', say: 'nothing matched Download', size: 0, at: at + 100000, pageWas: 'Oops!' },
+      { reportId: three, state: 'still-waiting', say: 'asked, not built', size: 0, at: at + 130000 },
+      { reportId: four, state: 'needs-you', say: 'sign in first', size: 0, at: at + 150000 },
+    ],
+  };
+  showHowItStands(shown, { ...stands, night });
+  const rows = shown.log.findAll('p-report-row');
+  const number = (name) => shown.log.find(`p-count--${name}`).find('p-count-number').textContent;
+  check('AJ6: the last run is one row per report', rows.length === 4);
+  check('AJ6: the four boxes count landed, asked, still to fetch, failed (needs you is failed)',
+    [number('landed'), number('asked'), number('tofetch'), number('failed')].join(',') === '1,1,0,2');
+  check('AJ6: the heading names the platform and the minutes', shown.log.textContent.includes('Last run: Flipkart')
+    && shown.log.textContent.includes('33 min'));
+  check('AJ6: tapping a row opens the detail of that report', (() => {
+    const detail = shown.log.findAll('p-detail-row');
+    rows[1].click();
+    return !detail[1].hidden && detail[0].hidden && detail[1].textContent.includes('the page said: Oops!');
+  })());
+  showHowItStands(shown, { ...stands, night });
+  check('AJ6: a poll does not shut the row that is open', shown.log.findAll('p-detail-row').filter((r) => !r.hidden).length === 1);
+  check('AJ6: the old "What happened, in words" box is gone', !SCREEN.includes('What happened, in words')
+    && shown.log.findAll('p-title').length === 0);
 }
 
 reachedTheEnd = true;

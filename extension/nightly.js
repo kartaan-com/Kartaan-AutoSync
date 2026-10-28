@@ -1036,6 +1036,141 @@ export function theSlowestLine(night) {
   return `Slowest reports: ${items.join(', ')}.`;
 }
 
+/* **THE PANEL'S TABLE (AJ6): one row per report-day of the run, from the same words the log has.** */
+export function theReportTable(night, nameOf) {
+  if (!night) return null;
+
+  const seconds = secondsPerReport(night);
+  const nightCounts = theNightsCounts(night);
+  const byKey = new Map();
+  const order = [];
+
+  night.done.forEach((entry, index) => {
+    const dataDate = entry.dataDate || '';
+    const key = `${entry.reportId}|${dataDate}`;
+    let group = byKey.get(key);
+    if (!group) {
+      group = { reportId: entry.reportId, dataDate: entry.dataDate, entries: [] };
+      byKey.set(key, group);
+      order.push(key);
+    }
+    group.entries.push({ entry, index });
+  });
+
+  const rows = [];
+
+  for (const key of order) {
+    const group = byKey.get(key);
+    const entries = group.entries;
+    const last = entries[entries.length - 1];
+    const entry = last.entry;
+    const reportId = group.reportId;
+    const dataDate = group.dataDate;
+    const say = entry.say || '';
+
+    let status;
+    let word;
+    let star = false;
+    let means = '';
+
+    if (entry.state === 'landed') {
+      status = 'landed';
+      word = 'Landed';
+      means = say || `${entry.size} bytes`;
+    } else if (entry.state === 'nothing-to-fetch') {
+      status = 'landed';
+      word = 'Nothing to fetch';
+      means = say;
+    } else if (entry.state === 'still-waiting') {
+      status = 'asked';
+      word = 'Asked';
+      star = true;
+      means = say;
+    } else if (entry.state === 'not-available-yet') {
+      const wasWaiting = entries.some((step) => step.index < last.index && step.entry.state === 'still-waiting');
+      status = wasWaiting ? 'asked' : 'toFetch';
+      word = 'Not built yet';
+      star = true;
+      means = say;
+    } else if (entry.state === 'not-asked') {
+      status = 'toFetch';
+      word = 'Not asked';
+      means = say;
+    } else if (entry.state === 'failed') {
+      status = 'failed';
+      word = 'Failed';
+      means = say;
+    } else if (entry.state === 'needs-you') {
+      status = 'failed';
+      word = 'Needs you';
+      means = say;
+    } else {
+      status = 'toFetch';
+      word = entry.state;
+      means = say;
+    }
+
+    const name = (nameOf(reportId) || reportId) + (dataDate ? ` (${dataDate})` : '');
+    const detail = entries.map(({ entry: step, index }) => {
+      const size = step.size ? ` (${step.size} bytes)` : '';
+      const said = step.say ? ` -- ${step.say}` : '';
+      let line = `${step.reportId}: ${step.state}${size}${said} [${seconds[index]} s]`;
+      if (step.pageWas) line += `\n    the page said: ${step.pageWas}`;
+      return line;
+    }).join('\n');
+
+    rows.push({
+      key,
+      name,
+      status,
+      word,
+      seconds: seconds[last.index],
+      star,
+      means,
+      detail
+    });
+  }
+
+  const doneIds = new Set(night.done.map((entry) => entry.reportId));
+  if (night.doing && !doneIds.has(night.doing)) {
+    const id = night.doing;
+    rows.push({
+      key: `${id}|`,
+      name: nameOf(id) || id,
+      status: 'toFetch',
+      word: 'Fetching now',
+      seconds: null,
+      star: false,
+      means: '',
+      detail: ''
+    });
+  }
+
+  for (const id of nightCounts.notStarted) {
+    rows.push({
+      key: `${id}|`,
+      name: nameOf(id) || id,
+      status: 'toFetch',
+      word: 'Waiting',
+      seconds: null,
+      star: false,
+      means: '',
+      detail: ''
+    });
+  }
+
+  const counts = { landed: 0, asked: 0, toFetch: 0, failed: 0 };
+  for (const row of rows) counts[row.status] += 1;
+
+  return {
+    startedAt: night.startedAt,
+    finishedAt: night.finishedAt,
+    minutes: night.finishedAt ? Math.max(1, Math.floor((night.finishedAt - night.startedAt) / 60000)) : 0,
+    counts,
+    rows
+  };
+}
+
 /**
  * The night written out as a file for the seller's Drive (A53, 2026-09-15).
  *

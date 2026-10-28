@@ -22,7 +22,7 @@ import {
   THE_NIGHT,
   endTheNight,
   NOT_ASKED,
-  howTheNightWent, secondsPerReport, theSlowestLine, theSlowestThree,
+  howTheNightWent, secondsPerReport, theSlowestLine, theSlowestThree, theReportTable,
   oneWasAskedFor,
   spendsTheAllowance,
   startTheNight,
@@ -1958,7 +1958,157 @@ async function seedLandedRangeForTest(c, reportId, from, to) {
     && log.indexOf('Slowest reports') < log.indexOf('landed,'));
   check('N038: and each report line says how many seconds it took', log.includes('  a1: landed (5 bytes) [40 s]') && log.includes('  b2: landed (5 bytes) [95 s]'));
 }
-const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12;
+/* AJ6: the per-report table of the panel. */
+check('report table: null night gives null', theReportTable(null, () => '') === null);
+
+{
+  const night = {
+    startedAt: 0,
+    finishedAt: 60000,
+    doing: null,
+    left: [],
+    done: [
+      { reportId: 'r1', state: 'landed', say: 'ok', size: 10, at: 1000, dataDate: '2026-01-02' },
+      { reportId: 'r2', state: 'failed', say: 'bad', size: 0, at: 2000, dataDate: '2026-01-02' },
+      { reportId: 'r3', state: 'needs-you', say: 'auth', size: 0, at: 3000, dataDate: '2026-01-02' },
+      { reportId: 'r4', state: 'nothing-to-fetch', say: 'empty', size: 0, at: 4000, dataDate: '2026-01-02' },
+      { reportId: 'r5', state: 'not-asked', say: 'later', size: 0, at: 5000, dataDate: '2026-01-02' },
+      { reportId: 'r6', state: 'still-waiting', say: 'asked', size: 0, at: 6000, dataDate: '2026-01-02' },
+      { reportId: 'r6', state: 'landed', say: 'got', size: 123, at: 7000, dataDate: '2026-01-02' }
+    ]
+  };
+  const table = theReportTable(night, (id) => id);
+  check(
+    'report table: mixed run counts and one row per report-day',
+    table.counts.landed === 3 &&
+    table.counts.asked === 0 &&
+    table.counts.toFetch === 1 &&
+    table.counts.failed === 2 &&
+    table.rows.length === 6
+  );
+}
+
+{
+  const night = {
+    startedAt: 0,
+    finishedAt: 60000,
+    doing: null,
+    left: [],
+    done: [
+      { reportId: 'r1', state: 'still-waiting', say: 'wait', size: 0, at: 1000, dataDate: '2026-01-02' },
+      { reportId: 'r2', state: 'still-waiting', say: 'wait', size: 0, at: 2000, dataDate: '2026-01-02' },
+      { reportId: 'r3', state: 'not-available-yet', say: 'not built', size: 0, at: 3000, dataDate: '2026-01-02' },
+      { reportId: 'r2', state: 'not-available-yet', say: 'still not', size: 0, at: 4000, dataDate: '2026-01-02' }
+    ]
+  };
+  const table = theReportTable(night, (id) => id);
+  const r1 = table.rows.find((row) => row.key === 'r1|2026-01-02');
+  const r2 = table.rows.find((row) => row.key === 'r2|2026-01-02');
+  const r3 = table.rows.find((row) => row.key === 'r3|2026-01-02');
+  check(
+    'report table: still-waiting is asked with star and earlier wait makes not-built asked',
+    r1.status === 'asked' &&
+    r1.star === true &&
+    r2.status === 'asked' &&
+    r3.status === 'toFetch'
+  );
+}
+
+{
+  const night = {
+    startedAt: 0,
+    finishedAt: 0,
+    doing: 'r-doing',
+    left: ['r-wait'],
+    done: []
+  };
+  const table = theReportTable(night, (id) => id);
+  const doing = table.rows.find((row) => row.key === 'r-doing|');
+  const waiting = table.rows.find((row) => row.key === 'r-wait|');
+  check(
+    'report table: doing and notStarted rows are toFetch with no seconds',
+    doing.word === 'Fetching now' &&
+    doing.status === 'toFetch' &&
+    doing.seconds === null &&
+    waiting.word === 'Waiting' &&
+    waiting.status === 'toFetch' &&
+    waiting.seconds === null
+  );
+}
+
+{
+  const night = {
+    startedAt: 0,
+    finishedAt: 3000,
+    doing: null,
+    left: [],
+    done: [
+      { reportId: 'r1', state: 'still-waiting', say: 'waiting', size: 0, at: 1000, dataDate: '2026-01-02', pageWas: 'checking' },
+      { reportId: 'r1', state: 'landed', say: 'done', size: 200, at: 2000, dataDate: '2026-01-02', pageWas: 'ok page' }
+    ]
+  };
+  const table = theReportTable(night, (id) => id);
+  const lines = table.rows[0].detail.split('\n');
+  check(
+    'report table: detail has two steps in order and pageWas under each',
+    lines[0] === 'r1: still-waiting -- waiting [1 s]' &&
+    lines[1] === '    the page said: checking' &&
+    lines[2] === 'r1: landed (200 bytes) -- done [1 s]' &&
+    lines[3] === '    the page said: ok page'
+  );
+}
+
+{
+  const night = {
+    startedAt: 0,
+    finishedAt: 33 * 60 * 1000,
+    doing: null,
+    left: [],
+    done: [
+      { reportId: 'r1', state: 'landed', say: 'ok', size: 10, at: 1000, dataDate: '2026-01-02' },
+      { reportId: 'r2', state: 'failed', say: 'bad', size: 0, at: 2000, dataDate: '2026-01-02' }
+    ]
+  };
+  const nameOf = (id) => (id === 'r1' ? 'Sales' : '');
+  const table = theReportTable(night, nameOf);
+  const named = table.rows.find((row) => row.key === 'r1|2026-01-02');
+  const fallback = table.rows.find((row) => row.key === 'r2|2026-01-02');
+  const stopped = theReportTable({ ...night, finishedAt: 0 }, nameOf);
+  check(
+    'report table: name uses nameOf, falls back to id, adds date, and minutes is 33 or 0',
+    named.name === 'Sales (2026-01-02)' &&
+    fallback.name === 'r2 (2026-01-02)' &&
+    table.minutes === 33 &&
+    stopped.minutes === 0
+  );
+}
+
+{
+  const night = {
+    startedAt: 0,
+    finishedAt: 6000,
+    doing: null,
+    left: [],
+    done: [
+      { reportId: 'r1', state: 'still-waiting', say: 'wait', size: 0, at: 2000, dataDate: '2026-01-02' },
+      { reportId: 'r1', state: 'landed', say: 'done', size: 100, at: 5000, dataDate: '2026-01-02' }
+    ]
+  };
+  const ticks = secondsPerReport(night);
+  const table = theReportTable(night, () => '');
+  check(
+    'report table: seconds on a row is the report-day last entry seconds',
+    table.rows.length === 1 && table.rows[0].seconds === ticks[1]
+  );
+}
+
+{
+  const night = { startedAt: 0, finishedAt: 60000, doing: null, left: [], done: [{ reportId: 'r1', state: 'odd-thing', say: 'x', size: 0, at: 1000 }] };
+  const { counts, rows } = theReportTable(night, () => '');
+  check('report table: a state nobody named goes to still to fetch with its own word',
+    counts.toFetch === 1 && counts.landed + counts.asked + counts.failed === 0 && rows[0].word === 'odd-thing' && rows[0].means === 'x');
+}
+const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;
