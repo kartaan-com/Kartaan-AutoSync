@@ -266,13 +266,32 @@ export async function readTheTable(page, {
     }
   };
 
+  /* **EVERY PAGE BUT THE LAST GIVES THE PAGE SIZE THE PAGE PRINTS (his Meesho pricing run of 28 Oct 2026: the read gave 24 rows where his own count of that page was 25; the rows had stopped arriving for ten seconds and then came).**
+   * "25 Items / page" is the page's own word for how many rows a full page holds, so a page before the last that shows fewer is still drawing: it is waited for, up to `patience`, and a page that never fills fails the read. */
+  const printedPageSize = () => {
+    if (!way.pageLabel) return 0;
+    const said = leavesOf(page).map((one) => /^(\d{1,3})\s*Items?\s*\/\s*page$/i.exec(one)).find(Boolean);
+    return said ? Number(said[1]) : 0;
+  };
   for (let guard = 0; guard < 500; guard += 1) {
     await rowsHaveStoppedArriving();
+    const size = printedPageSize();
+    const notTheLast = () => { const named = pagesNamed(); return named > 0 && pages + 1 < named; };
+    if (size && notTheLast()) {
+      for (let waited = 0; waited < patience * 1000 && rowsNow() < size; waited += 500) {
+        // eslint-disable-next-line no-await-in-loop
+        await rest(500);
+      }
+      if (rowsNow() < size) {
+        throw new Error(`page ${pages + 1} showed ${rowsNow()} rows, but the page prints ${size} Items / page and this is not the last page, so the rest of its rows never came and nothing was put away.`);
+      }
+    }
     const now = theTableOn(page, way);
     if (!now) throw new Error(`the table went from the page after page ${pages}, so nothing was put away.`);
     const here = below(now, 'tr').filter((one) => below(one, 'td').length);
     pages += 1;
-    declared = Math.max(declared, pagesNamed());
+    /* **THE PAGE COUNT IS THE PAGER AS IT STANDS NOW, not the highest "Page N" it ever showed (his run of 28 Oct 2026: a "Page 7" that stuck made a 6-page table read as short).** */
+    declared = pagesNamed() || declared;
     const firstKey = here.length ? textOf(here[0]) : '';
     if (firstKey && seen.has(firstKey) && !way.pageLabel) break;
     if (firstKey && seen.has(firstKey)) {

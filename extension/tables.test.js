@@ -756,8 +756,46 @@ const aMeeshoQualityPage = ({
   check('and with no recommendations heading nothing after the feedback heading is taken for feedback',
     (await feedbackRows(['Top Customer Feedback', 'Poor fit', '5 products', 'Colour differs', '2 products'])).length === 0);}
 
+{
+  /* **HIS MESHO PRICING RUN OF 28 OCT 2026: PAGE 2 HAS 25 ROWS, THE READ GAVE 24 (and 135 of 156 over the table).** The page prints "25 Items / page"; a page before the last that shows fewer is still drawing. */
+  const priceRows = (prefix, n) => Array.from({ length: n }, (_, i) => priceRow(`${prefix}${i}`, `${prefix}${i}`, `S-${prefix}${i}`, 'Best Priced'));
+  const withSize = (pages, total, pagerSpecs) => aPage({
+    headers: PRICE_HEADERS, pages, extra: [p(`All Products (${total})`), p('Losing Orders (0)'), p('25 Items / page')], pager: pagerSpecs,
+  });
+  {
+    const built = withSize([priceRows('A', 25), priceRows('B', 5)], 30, PAGER(2));
+    const body = built.table.children[1];
+    const late = body.children.slice(20);
+    body.children = body.children.slice(0, 20);
+    let looks = 0;
+    const slowly = async () => { looks += 1; if (looks === 40 && late.length) body.children = [...body.children, ...late]; };
+    const got = await readTheTable(built.page, { table: 'meesho-pricing', rest: slowly });
+    check('A PAGE BEFORE THE LAST THAT DRAWS 20 ROWS AND THE OTHER 5 LATER IS READ AS 25, the page printing 25 Items / page', got.rows === 30 && got.pages === 2);
+  }
+  {
+    const built = withSize([priceRows('A', 24), priceRows('B', 5)], 29, PAGER(2));
+    const why = await thrown(() => readTheTable(built.page, { table: 'meesho-pricing', rest: noWaiting, patience: 5 }));
+    check('and a page before the last that never reaches the printed size fails the read, nothing put away', why.includes('25 Items / page') && why.includes('page 1 showed 24'));
+  }
+  {
+    const built = withSize([priceRows('A', 25), priceRows('B', 5)], 30, PAGER(2));
+    const got = await readTheTable(built.page, { table: 'meesho-pricing', rest: noWaiting });
+    check('while the LAST page may be short', got.rows === 30 && got.pages === 2);
+  }
+  {
+    /* The pager keeps a "Page 7" button after the table has ended at 6: the count is the pager as it stands on the last page. */
+    const pages = [1, 2, 3, 4, 5, 6].map((n) => [perfRow(`P${n}`, String(n))]);
+    const built = aPage({ headers: PERF_HEADERS, pages, extra: PRINTED, pager: PAGER(7) });
+    const next = built.buttons.find((one) => one.getAttribute('aria-label') === 'Next page');
+    const original = next.onClick;
+    next.onClick = () => { original(); if (built.state.at === 5) built.page.children = built.page.children.filter((one) => one.getAttribute('aria-label') !== 'Page 7'); };
+    const got = await readTheTable(built.page, { table: 'meesho-product-performance', rest: noWaiting });
+    check('A PAGE COUNT IS THE PAGER AS IT STANDS ON THE LAST PAGE, not the highest "Page N" it ever showed', got.rows === 6 && got.pages === 6);
+  }
+}
+
 console.log(failures ? `\n${failures} FAILED (${ran} checks)` : `\nall ${ran} checks passed`);
-const EXPECTED = 52 + 1 + 4 + 5 + 10 + 1 + 3 + 2 + 4 + 3 + 1 + 1 + 1 + 1 + 1 + 7 + 1;
+const EXPECTED = 52 + 1 + 4 + 5 + 10 + 1 + 3 + 2 + 4 + 3 + 1 + 1 + 1 + 1 + 1 + 7 + 1 + 4;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   process.exit(1);

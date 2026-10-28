@@ -1050,12 +1050,32 @@ function everyCellShowingTheDay({ y, m, d }) {
       const inside = everything(up).filter(
         (node) => node !== up && isPainted(node) && words(wordsOn(node)) === dayOnItsOwn
       );
-      const smallest = innermostOf(inside);
+      const smallest = onlyThisMonthsOwnDays(up, innermostOf(inside));
       if (smallest.length > 0) return smallest;
       up = up.parentNode;
     }
   }
   return [];
+}
+
+/**
+ * Of the cells showing the day wanted, only those inside the month's own run of days.
+ *
+ * **A MONTH'S GRID LEADS WITH THE LAST DAYS OF THE MONTH BEFORE AND ENDS WITH THE FIRST DAYS OF THE NEXT (his Flipkart ads calendar, 28 Oct 2026: the October grid starts `27 28 29 30`
+ * of September, so "27" matched twice and all five ads reports refused).** Nothing else about those cells was read, so the order is used: the month is the run of day numbers from the
+ * first "1" up to the next "1" (or the end), and a cell outside that run is a neighbour's day. No "1" found, or nothing left inside the run, answers the cells as they came.
+ */
+function onlyThisMonthsOwnDays(panel, cells) {
+  if (cells.length < 2) return cells;
+  const numbers = innermostOf(
+    everything(panel).filter((node) => node !== panel && isPainted(node) && /^\d{1,2}$/.test(words(wordsOn(node))))
+  );
+  const first = numbers.findIndex((node) => words(wordsOn(node)) === '1');
+  if (first === -1) return cells;
+  const next = numbers.findIndex((node, at) => at > first && words(wordsOn(node)) === '1');
+  const own = numbers.slice(first, next === -1 ? numbers.length : next);
+  const kept = cells.filter((cell) => own.includes(cell));
+  return kept.length > 0 ? kept : cells;
 }
 
 /** The arrow to the next month, or to the one before. */
@@ -1190,6 +1210,8 @@ export const WHERE_A_FILE_REALLY_COMES_FROM = Object.freeze([
   'seller.flipkart.com/napi/listing/stockfiledownload',
   /* **AMAZON'S LISTING FILE (his Chrome, 28 Oct 2026):** the Download kat-button opens `/listing/downloadfile?...` with `window.open`; a script click is no user gesture, so Chrome blocked it and nothing began. By its own path only, on Seller Central only. */
   'sellercentral.amazon.in/listing/downloadfile',
+  /* **AMAZON'S SETTLEMENT FILE (his Chrome, 28 Oct 2026):** "Download Flat File V2" opens a short-lived tab on `/payments/reports/download?referenceId=...` and the file downloads from it. Its own path, Seller Central only. */
+  'sellercentral.amazon.in/payments/reports/download',
 ]);
 
 /** The hosts a bare path word may count on: the platforms' own, and the storage they hand files out of. */

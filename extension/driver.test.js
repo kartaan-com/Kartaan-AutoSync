@@ -1927,8 +1927,28 @@ for (const [start, end, from, expectedMonth] of [
     const door = doorOn();
     const { panel } = spillOver();
     page.body.append(panel);
-    check('and on a calendar the recipe says nothing about, two matches are still refused',
-      (await saidAfterWaiting(() => door.pick_range('2026-09-01', '2026-09-01'))).includes('2 things'));
+    check('and on a calendar the recipe says nothing about, the next month\'s days after the month\'s own run are not counted',
+      (await saidAfterWaiting(() => door.pick_range('2026-09-01', '2026-09-01'))) === '');
+  }
+  {
+    /* **THE PREVIOUS MONTH'S LAST DAYS LEAD THE GRID (Flipkart ads, 28 Oct 2026: October opens `27 28 29 30` of September, so "27" matched twice and all five ads reports failed).**
+     * No cursor flag here: the order of the days alone says which "27" is October's. */
+    const page = aPage();
+    const door = doorOn();
+    const panel = thing('div');
+    panel.append(thing('div', 'October 2026'));
+    const grid = thing('div');
+    const leading = [27, 28, 29, 30].map((d) => thing('td', String(d)));
+    const own = Array.from({ length: 31 }, (_, i) => thing('td', String(i + 1)));
+    grid.append(...leading, ...own);
+    panel.append(grid);
+    const hits = [];
+    leading[0].addEventListener('click', () => hits.push('september'));
+    own[26].addEventListener('click', () => hits.push('october'));
+    page.body.append(panel);
+    check('a day also drawn at the head of the grid from the month before is the month\'s own day',
+      (await saidAfterWaiting(() => door.pick_range('2026-10-27', '2026-10-27'))) === ''
+      && hits.length > 0 && hits.every((one) => one === 'october'));
   }
   {
     const page = aPage();
@@ -2632,6 +2652,12 @@ for (const [start, end, from, expectedMonth] of [
     saying('https://sellercentral.amazon.in/listing/downloadfile?fileId=ab&name=All_Listings.txt') !== null);
   check("while Seller Central's other addresses are still refused",
     saying('https://sellercentral.amazon.in/home') === null && saying('https://evil.example/listing/downloadfile?x=1') === null);
+
+  /* **AMAZON'S SETTLEMENT FILE (his Chrome, 28 Oct 2026):** "Download Flat File V2" opens a short-lived tab on `/payments/reports/download?referenceId=...&contentType=text/xls&fileName=...txt` and the file downloads from it; the catcher takes that path on Seller Central only. */
+  check("AND AMAZON'S SETTLEMENT FILE, BY ITS OWN PATH, IS BELIEVED",
+    saying('https://sellercentral.amazon.in/payments/reports/download?referenceId=51128020753&contentType=text/xls&fileName=51128020753.txt&ref_=xx_myp_allstmts_download') !== null);
+  check("while Seller Central's other payments addresses and another host's same path are still refused",
+    saying('https://sellercentral.amazon.in/payments/dashboard') === null && saying('https://evil.example/payments/reports/download?x=1') === null);
 
   /* **THE FORGERY THIS ONE STOPS.** Right page, right secret shape, right
    * everything -- and an address belonging to whoever wrote the advert. */
@@ -3356,7 +3382,7 @@ for (const [start, end, from, expectedMonth] of [
     refused.includes('is not on the calendar') && pressedInAugust.length === 0 && pressedInSeptember.length === 0);
 }
 
-const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1 + 1 + 1 + 3 + 2 + 1 + 2 + 3 + 1 + 2 + 4;
+const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1 + 1 + 1 + 3 + 2 + 1 + 2 + 3 + 1 + 2 + 4 + 1 + 2;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;
