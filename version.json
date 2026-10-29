@@ -1,5 +1,5 @@
 {
-  "version": "0.1.21",
+  "version": "0.1.22",
   "url": "https://github.com/kartaan-com/Kartaan-AutoSync/releases/latest/download/kartaan-autosync-extension.zip",
-  "notes": "Meesho shop views read every day; damaged listing rows reported, not lost; stale hidden listings and fees cleared."
+  "notes": "Meesho pricing, Amazon reports, window closes after run"
 }
