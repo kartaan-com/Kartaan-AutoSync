@@ -1,19 +1,17 @@
 {
   "record": "security",
-  "commit": "6be82cf",
-  "run_at": "30 Oct 2026 (AJ8). A fresh Opus 5.5 security reviewer read the uncommitted change on top of 4cdc094.",
-  "tool": "A fresh Opus 5.5 security-review sub-agent with no stake in the code; read-only; scanned the diff for keys, tokens, webhooks and .env.",
-  "invoked_as": "git status / git diff and reads of extension/idle.js, extension/idle.test.js, extension/background.js, extension/screen.js, extension/manifest.json, test/fake-chrome.js.",
-  "ran_by": "Fresh Opus 5.5 sub-agent of AJ8 (Sonnet 5.5, worker for Kartaan Control); it wrote none of the code.",
-  "scope": "4cdc094 to 6be82cf: the new permission idle, the new alarm path and the stored wait (kartaan-autosync-waiting-for-idle), the panel text.",
-  "phases_not_run": "None skipped. Not run: a live Chrome with the permission installed (whether Windows reports 'active' during video playback is unknown until his next timed run).",
+  "commit": "d2e94b1",
+  "run_at": "31 Oct 2026 (BR1/AD1). A fresh Opus 5.5 security reviewer read d2e94b1 and the helper (kartaan-bridge) and Tune diffs; findings fixed in be205b9 and the later commits.",
+  "tool": "A fresh Opus 5.5 sub-agent, read-only, walking every way in: the native-messaging origin, the pipe, the MCP inputs, the extension-side validation, the AI switch (who may send 'ai-switch'), idle enforcement, the allowance, setup, leaks.",
+  "ran_by": "Fresh Opus 5.5 sub-agent of BR1; it wrote none of the code.",
+  "scope": "extension/bridge.js, worker.js wiring, panel.js, screen.js card, manifest.json; and the Kartaan Bridge helper it talks to.",
   "found": [
-    "No HIGH, no MEDIUM. The idle permission exposes only 'active', 'idle' or 'locked' (no page content, no keystrokes, no tabs), is the narrowest API for this, adds no install warning, and uses no onStateChanged listener. Honest one-line reason for the store's privacy tab: 'Detects whether the computer is in use so automatic fetching waits until it is free.'",
-    "Nothing new accepts input from outside: externally_connectable and both message listeners are unchanged (only https://erp.kartaan.com); only the extension's own alarm reaches the new path, and Run now does not pass through it.",
-    "The stored wait holds at most two kinds, each one number; kinds read from storage are never used to pick a function (a fixed list daily, recheck is walked), so __proto__ or toString cannot choose one. Growth is bounded.",
-    "No new network call, no seller data in any new log line, no secrets in the diff.",
-    "LOW: a damaged stored value (NaN) never expired and showed 'waiting' with no time. FIXED: dropped on read; check red first.",
-    "LOW (availability, not security): if the computer reports 'active' all day, that day's run does not start; the wait is carried to the next free moment and the panel says it is waiting.",
-    "What a seller's repository now contains: one more permission line in the manifest, the version, and code. Nothing new is sent anywhere."
-  ]
+    "No HIGH.",
+    "MEDIUM: the AI could use all 20 of Flipkart's daily reports, starving the seller's timed sync. FIXED: the AI has its own ceiling (16 requests, 12 asks a day); check added.",
+    "MEDIUM: chrome.storage.local (AI switch, waiting asks) was readable and writable by content scripts running beside portal pages; the nativeMessaging permission stayed after switch-off. FIXED: storage set to trusted contexts only (no content script uses storage), the permission is given back at switch-off, and every waiting ask is checked again at the moment of starting; checks added (a forged stored ask is refused).",
+    "LOW: Chrome's idle error counted as 'free'. FIXED for AI asks (counts as in use).",
+    "LOW: promised allowance does not count a running ask (the hard cap howManyItMaySpend still holds; worst case the second ask is skipped as not-asked, in words). NAMED, not fixed.",
+    "INFO: once a run has started it is not paused if the seller returns (same as the night run). NAMED."
+  ],
+  "named_gaps": ["The security review ran before the fixes; each fix has a red-first check and the prover run covers them.", "The panel-only door (answerThePanel) was read and found sound; unchanged."]
 }
