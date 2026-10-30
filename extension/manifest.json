@@ -33,6 +33,9 @@
     "notifications",
     "idle"
   ],
+  "optional_permissions": [
+    "nativeMessaging"
+  ],
   "host_permissions": [
     "https://supplier.meesho.com/*",
     "https://seller.flipkart.com/*",

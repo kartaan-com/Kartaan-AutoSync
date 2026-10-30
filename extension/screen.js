@@ -216,7 +216,7 @@ export function theTimedList(book, setUp) {
 }
 
 /** Every report with a tick box of its own on the Run now panel (A61, Job 5b). */
-function theTickableReports(book) {
+export function theTickableReports(book) {
   return (book.reports || [])
     .filter((one) => THROUGH_THE_BROWSER.includes(one.platform) && (book.recipes || {})[one.id]
       && !OFF_THE_TIMED_LIST.includes(one.id))
@@ -1469,6 +1469,25 @@ export function buildThePanel(into, doing) {
   put(parts.kartaan, parts.kartaanSaid);
   put(body, parts.kartaan);
 
+  /* ----------------------------------------------------------- your AI (AD1, D818)
+   * **OFF UNTIL HE TURNS IT ON, and only here.** With it on, his AI app can read how the reports stand and ask for a run through the Kartaan
+   * Bridge helper; every ask waits for the computer to be left alone for 3 minutes. */
+  parts.ai = make('section', `${OURS}card`);
+  put(parts.ai, make('h2', `${OURS}title`, 'Your AI'));
+  const aiRow = make('div', `${OURS}row`);
+  parts.aiSwitch = make('button', 'k-button k-button--ordinary', 'AI may run AutoSync: Off');
+  parts.aiSwitch.type = 'button';
+  parts.aiState = make('span', `${OURS}state`, '');
+  put(aiRow, parts.aiSwitch, parts.aiState);
+  put(parts.ai, aiRow);
+  put(parts.ai, make('p', `${OURS}note`,
+    'With this on, your AI app (needs the Kartaan AI helper installed) can read how your reports stand and ask AutoSync to fetch reports for '
+    + 'dates it names. It cannot do anything else, and every ask waits until you have left the computer alone for 3 minutes.'));
+  parts.aiNote = make('p', `${OURS}note`, '');
+  parts.aiAsks = make('div', `${OURS}note`, '');
+  put(parts.ai, parts.aiNote, parts.aiAsks);
+  put(body, parts.ai);
+
   /* ----------------------------------------------------------- what is happening */
   parts.banner = make('div', `${OURS}banner`);
   put(body, parts.banner);
@@ -1603,6 +1622,7 @@ export function buildThePanel(into, doing) {
   parts.connectDrive.addEventListener('click', () => doing.connectTheDrive());
   parts.savePanel.addEventListener('click', () => doing.saveThePanelName(parts.panelName.value));
   parts.saveRunPass.addEventListener('click', () => doing.saveTheRunPass && doing.saveTheRunPass(parts.runPass.value));
+  parts.aiSwitch.addEventListener('click', () => doing.aiSwitch && doing.aiSwitch(!parts.aiOn));
   parts.runNow.addEventListener('click', () => doing.runNow(
     whatIsTicked(parts), parts.from.value, parts.to.value,
   ));
@@ -1717,6 +1737,14 @@ export function showHowItStands(parts, stands) {
     parts.version.textContent = installed ? `AutoSync ${installed}` : '';
   }
   if (parts.resume) parts.resume.hidden = !stands.paused;
+  if (parts.aiSwitch) {
+    const ai = stands.ai || { on: false, note: '', asks: [] };
+    parts.aiOn = Boolean(ai.on);
+    parts.aiSwitch.textContent = `AI may run AutoSync: ${ai.on ? 'On' : 'Off'}`;
+    parts.aiState.textContent = ai.on ? (ai.connected ? 'helper connected' : 'waiting for the helper') : '';
+    parts.aiNote.textContent = ai.note || '';
+    parts.aiAsks.textContent = (ai.asks || []).map((one) => one.panel_line).join('\n');
+  }
 
   parts.setup.hidden = stands.setUp.done;
   parts.driveState.textContent = stands.setUp.driveConnectedAt

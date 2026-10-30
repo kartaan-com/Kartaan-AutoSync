@@ -28,6 +28,7 @@ import {
   aDriveToken, aWayOfAsking, addARowTo, landTheFile, recordWhatLanded, theKartaanFolder, whatIsHeldFor,
 } from './drive.js';
 import { tellFinished } from './kartaan.js';
+import { AI_ALARM, aiState, keepWatching, makeThePort, noteAFile, setTheSwitch } from './bridge.js';
 import { VERSION_URL } from './update.js';
 import { aFreshInstallId, theLinesFor, theRecordNameFor } from './record.js';
 import {
@@ -279,6 +280,8 @@ const putOneFileAway = async ({ reportId, fileName, body }) => {
   const landed = await landTheFile(chrome, ask, { reportId, fileName, inside, body, layout });
   /* **WRITTEN DOWN IN THE EXTENSION'S OWN RECORD (job 38)** -- only for a report, never for the night log. */
   if (reportId !== THE_NIGHT_LOG) {
+    /* AD1: the file's name is kept against the AI's ask that is running, if any, so the AI can read back what landed. */
+    await noteAFile(chrome, landed.name || fileName);
     await writeItDown(ask, layout, inside, theLinesFor({
       reportId,
       fileName: landed.name || fileName,
@@ -424,6 +427,67 @@ async function showThePanel() {
 
 chrome.action.onClicked.addListener(showThePanel);
 
+/* **EVERYTHING THE PANEL MAY ASK, answered by `screen.js`** (moved here unchanged from inside `wireUp` so the AI door below can ask the very same
+ * question the Run now button asks -- AD1). */
+const answerThePanelsAsk = async (asked) => answerThePanelsQuestion(chrome, {
+  book: await theBook(),
+  startTheNight,
+  carryOn,
+  fetch: kartaanFetch,
+  /* **THE ONE ADDRESS THIS EXTENSION READS FOR "A NEWER VERSION IS OUT"**, and it can read nothing else. */
+  installed: chrome.runtime.getManifest().version,
+  fetchTheVersion: (address, how) => {
+    if (address !== VERSION_URL) throw new Error('Only the version file may be read here.');
+    return fetch(address, how);
+  },
+  watching,
+  closeOurWindow: () => closeOurOwn(chrome, { ownWindow: WALK_IN_HIS_OWN_WINDOW }),
+  setTheHour,
+  whyThatIsNotATimeOfDay,
+  /* **WHEN IT NEXT WAKES BY ITSELF (A53, 2026-09-16).** The hour as it was
+   * saved, and the moment Chrome's own clock will next fire -- the two
+   * together are what say whether anything will happen at all. */
+  theClock: async () => {
+    const chosen = await theHourItRuns(chrome);
+    const clock = await chrome.alarms.get(DAILY);
+    return {
+      chosen: chosen
+        ? `${String(chosen.hour).padStart(2, '0')}:${String(chosen.minute).padStart(2, '0')}`
+        : '',
+      nextAt: (clock && (clock.scheduledTime || clock.when)) || null,
+    };
+  },
+}, asked);
+
+/* **AD1: THE SELLER'S AI, THROUGH THE KARTAAN BRIDGE HELPER.** The port opens only while the panel's "AI may run AutoSync" switch is on. An ask
+ * runs through `answerThePanelsAsk` -- the Run now door -- never around it. `bridge.js` says the rest. */
+const theBridgeParts = {
+  theBook,
+  panelAnswer: answerThePanelsAsk,
+  openThePort: () => thePort.open(),
+  closeThePort: () => thePort.close(),
+  isConnected: () => thePort.isOpen(),
+};
+const thePort = makeThePort(chrome, theBridgeParts);
+
+/** The panel's questions, plus the AI switch, and the AI's part of "how it stands". */
+async function answerWithTheAi(asked) {
+  if (asked && asked.do === 'ai-switch') {
+    if (typeof asked.on !== 'boolean') return { wrong: 'The AI switch is on or off.' };
+    return setTheSwitch(chrome, theBridgeParts, asked.on);
+  }
+  const said = await answerThePanelsAsk(asked);
+  if (asked && asked.do === 'how-it-stands' && said && said.stands) said.stands.ai = await aiState(chrome, theBridgeParts);
+  return said;
+}
+
+/* **AND ON EVERY WAKING AND EVERY MINUTE WHILE THE SWITCH IS ON**: open the helper if it is closed, and move the asks on. The alarm is created
+ * by turning the switch on; a listener, like every listener here, is at the top level. */
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm && alarm.name === AI_ALARM) keepWatching(chrome, theBridgeParts, thePort).catch(() => {});
+});
+keepWatching(chrome, theBridgeParts, thePort).catch(() => {});
+
 wireUp(chrome, {
   carryOn,
   answerOutside: (asked, from) => answerAnExternalAsk(chrome, asked, from),
@@ -439,36 +503,8 @@ wireUp(chrome, {
    * which is a stronger test than the page half's and has to be, because these
    * messages start nights and connect Drives. */
   answerPanel: answerThePanel(chrome, {
-    mayAsk: THE_PANEL_ASKS,
-    answer: async (asked) => answerThePanelsQuestion(chrome, {
-      book: await theBook(),
-      startTheNight,
-      carryOn,
-      fetch: kartaanFetch,
-      /* **THE ONE ADDRESS THIS EXTENSION READS FOR "A NEWER VERSION IS OUT"**, and it can read nothing else. */
-      installed: chrome.runtime.getManifest().version,
-      fetchTheVersion: (address, how) => {
-        if (address !== VERSION_URL) throw new Error('Only the version file may be read here.');
-        return fetch(address, how);
-      },
-      watching,
-      closeOurWindow: () => closeOurOwn(chrome, { ownWindow: WALK_IN_HIS_OWN_WINDOW }),
-      setTheHour,
-      whyThatIsNotATimeOfDay,
-      /* **WHEN IT NEXT WAKES BY ITSELF (A53, 2026-09-16).** The hour as it was
-       * saved, and the moment Chrome's own clock will next fire -- the two
-       * together are what say whether anything will happen at all. */
-      theClock: async () => {
-        const chosen = await theHourItRuns(chrome);
-        const clock = await chrome.alarms.get(DAILY);
-        return {
-          chosen: chosen
-            ? `${String(chosen.hour).padStart(2, '0')}:${String(chosen.minute).padStart(2, '0')}`
-            : '',
-          nextAt: (clock && (clock.scheduledTime || clock.when)) || null,
-        };
-      },
-    }, asked),
+    mayAsk: [...THE_PANEL_ASKS, 'ai-switch'],
+    answer: answerWithTheAi,
   }),
   answer: answerThePage(chrome, {
     carryOn,
