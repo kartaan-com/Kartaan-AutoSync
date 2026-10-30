@@ -80,6 +80,7 @@ import {
   showTheReportTable,
   whenItNextWakes,
   theWaitingSaid,
+  theClockLine,
   theDay,
   theDayToFetch,
   whyThatDayCannotBeFetched,
@@ -1275,6 +1276,7 @@ function panelParts(chrome, held = {}) {
   check('a run that waits is passed to the panel', waits.stands.waitingForIdle.kinds.join() === 'daily');
   check('and the panel says so in plain words',
     theWaitingSaid(waits.stands.waitingForIdle) === 'Waiting until the computer has not been used for 3 minutes. Then the sync starts by itself.');
+check('AJ8: the clock line carries both the next wake and the waiting words, and only the first when nothing waits',    theClockLine({ chosen: '03:45', nextAt: null }, waits.stands.waitingForIdle).includes('nothing will start by itself')    && theClockLine({ chosen: '03:45', nextAt: null }, waits.stands.waitingForIdle).endsWith('starts by itself.')    && theClockLine({ chosen: '03:45', nextAt: null }, null) === whenItNextWakes({ chosen: '03:45', nextAt: null }));
 }
 
 {

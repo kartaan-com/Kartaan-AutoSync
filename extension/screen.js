@@ -1864,7 +1864,7 @@ function showTheRestOfIt(parts, stands) {
     && globalThis.document && globalThis.document.activeElement !== parts.hour) {
     parts.hour.value = clock.chosen;
   }
-  parts.hourState.textContent = [whenItNextWakes(clock), theWaitingSaid(stands.waitingForIdle)].filter(Boolean).join(' ');
+  parts.hourState.textContent = theClockLine(clock, stands.waitingForIdle);
 
   /* **ONE TABLE FOR THE LAST RUN, REPLACING THE WORDS BOX (AJ6).** The full words still go to the Drive; the panel draws only when the run changed, so an open row is not rebuilt for nothing. */
   const names = new Map(stands.reports.map((one) => [one.id, one.name]));
@@ -1997,4 +1997,9 @@ export function saySomething(parts, said) {
 /** What the panel says while an automatic run waits for the computer to be left alone (AJ8, his N063). */
 export function theWaitingSaid(waiting) {
   return waiting ? 'Waiting until the computer has not been used for 3 minutes. Then the sync starts by itself.' : '';
+}
+
+/** The clock's line on the panel: when it next wakes, and that a run is waiting when one is (AJ8). */
+export function theClockLine(clock, waiting) {
+  return [whenItNextWakes(clock), theWaitingSaid(waiting)].filter(Boolean).join(' ');
 }

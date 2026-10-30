@@ -9,6 +9,13 @@
   ],
   "accepted": [
     {
+      "file": "extension/background.js",
+      "operator": "line",
+      "line": "return;",
+      "occurrence": 0,
+      "why": "The return after carryOnWaiting in the ask-again alarm branch. Without it the code falls to the next line, which returns for every alarm that is not the daily one, and the ask-again alarm is not the daily one. The same nothing is started, stored or shown either way (AJ8)."
+    },
+    {
       "file": "extension/tables.js",
       "operator": "line",
       "line": "if (!way.pageLabel) return 0;",
@@ -101,6 +108,7 @@
     }
   ],
   "cannot_load": {
+    "extension/idle.js": "Deleting IDLE_SECONDS, IDLE_ALARM, WAITING or ASK_AGAIN_MINUTES, which idle.js exports and idle.test.js imports by name, stops the checks file importing at all. Noticed by the load, not by a red check. Read off the prover's verdicts at AJ8 (4 changes).",
     "extension/driver.js": "Deleting BY_THE_LINK_ENDING or BY_THE_LABEL_IN_TEST_ID, which driver.js exports, driver.test.js imports by name and the list on the next line is built from, stops the checks file importing at all. Noticed by the load, not by a red check. Read off the prover's verdicts at AJ7 (2 changes).",
     "extension/doors.js": "Deleting ARMED_FOR_MS, which doors.js exports and doors.test.js imports by name, stops the checks file importing at all. Noticed by the load, not by a red check. Read off the prover's verdicts at AJ7 (1 change).",
     "tools/move_group.py": "Deleting an import (json, re, dataclass), a constant (REPO, GROUPS, BURNT, TAG), a field of Facts, a function's own head line, or a line that first sets a name a later line reads (why, state, now, going_back, ahead, sha, url, refs, tags, name, branches, releases, groups) leaves that name undefined, so the module will not import or the function throws a NameError the moment the checks call it, before any check prints. Read off the prover's verdicts at AP11 (36 such changes, none surviving); every other change to this file went red by name.",

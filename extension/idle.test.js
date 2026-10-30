@@ -1,5 +1,5 @@
 import { installFakeChrome } from '../test/fake-chrome.js';
-import { ASK_AGAIN_MINUTES, IDLE_ALARM, IDLE_SECONDS, WAITING, carryOnWaiting, computerInUse, startWhenFree, whatIsWaiting } from './idle.js';
+import { ASK_AGAIN_MINUTES, IDLE_ALARM, askAgainIfWaiting, IDLE_SECONDS, WAITING, carryOnWaiting, computerInUse, startWhenFree, whatIsWaiting } from './idle.js';
 process.on('uncaughtException', (err) => { console.log(`FAIL  the checks stopped part way through: ${(err && err.message) || String(err)}`); process.exit(1); });
 process.on('unhandledRejection', (err) => { console.log(`FAIL  something was waited on and never came back: ${(err && err.message) || String(err)}`); process.exit(1); });
 let failures = 0; let ran = 0;
@@ -259,5 +259,76 @@ function check(name, passed) { ran++; console.log(`${passed ? 'PASS' : 'FAIL'}  
   check('a waiting run starts exactly once when the computer is free', dailyStarts === 1);
 }
 
+
+{
+  /* AJ8 proving: what was left unnoticed. */
+  const { chrome, setTheComputer, alarms } = installFakeChrome();
+  setTheComputer('active');
+  const saidSo = [];
+  const oldWarn = console.warn;
+  console.warn = (...args) => { saidSo.push(args); };
+  chrome.idle.queryState = async () => { throw new Error('no answer'); };
+  await computerInUse(chrome);
+  chrome.idle.queryState = async () => { throw 'plain words'; };
+  await computerInUse(chrome);
+  console.warn = oldWarn;
+  check('the warning for a Chrome that cannot answer carries the reason, whether an error or plain text',
+    saidSo.length === 2 && saidSo[0][1] === 'no answer' && saidSo[1][1] === 'plain words');
+
+  const first = new Date(2024, 0, 2, 11, 0).getTime();
+  const earlierSameDay = new Date(2024, 0, 2, 10, 0).getTime();
+  const mine = installFakeChrome();
+  mine.setTheComputer('active');
+  await startWhenFree(mine.chrome, 'daily', async () => {}, first);
+  await startWhenFree(mine.chrome, 'daily', async () => {}, earlierSameDay);
+  check('the earliest moment of the day is the one kept, even if the clock was put back',
+    (await mine.chrome.storage.local.get(WAITING))[WAITING].daily === earlierSameDay);
+
+  let after = 0;
+  const bad = installFakeChrome();
+  bad.setTheComputer('idle');
+  const failing = bad.chrome;
+  const oneFails = startWhenFree(failing, 'daily', async () => { throw new Error('boom'); });
+  const nextOne = startWhenFree(failing, 'recheck', async () => { after += 1; });
+  let thrown = null;
+  try { await oneFails; } catch (error) { thrown = error; }
+  await nextOne;
+  check('a start that fails is passed on, and does not stop the next one from running', thrown !== null && after === 1);
+
+  const junk = installFakeChrome();
+  junk.setTheComputer('idle');
+  await junk.chrome.storage.local.set({ [WAITING]: { x: 1 } });
+  await carryOnWaiting(junk.chrome, { daily: async () => {}, recheck: async () => {} });
+  check('a wait holding nothing but junk is removed altogether', (await junk.chrome.storage.local.get(WAITING))[WAITING] === undefined);
+
+  const mixed = installFakeChrome();
+  mixed.setTheComputer('active');
+  await mixed.chrome.storage.local.set({ [WAITING]: { daily: 5000, x: 1 } });
+  await carryOnWaiting(mixed.chrome, { daily: async () => {}, recheck: async () => {} });
+  check('and junk beside a real wait is cleaned out of what is kept',
+    JSON.stringify((await mixed.chrome.storage.local.get(WAITING))[WAITING]) === '{"daily":5000}');
+
+  const warned = [];
+  console.warn = (...args) => { warned.push(args); };
+  const twoWays = installFakeChrome();
+  twoWays.setTheComputer('idle');
+  await twoWays.chrome.storage.local.set({ [WAITING]: { daily: 5000, recheck: 5000 } });
+  await carryOnWaiting(twoWays.chrome, { daily: async () => { throw new Error('daily failed'); }, recheck: async () => { throw 'recheck failed'; } });
+  console.warn = oldWarn;
+  check('a waiting run that cannot start says why, for an error and for plain text',
+    warned.length === 2 && warned[0][1] === 'daily failed' && warned[1][1] === 'recheck failed');
+
+  const lost = installFakeChrome();
+  await askAgainIfWaiting(lost.chrome);
+  check('nothing waiting: no ask-again alarm is made', lost.alarms().length === 0);
+  await lost.chrome.storage.local.set({ [WAITING]: { daily: 5000 } });
+  await askAgainIfWaiting(lost.chrome);
+  const made = lost.alarms().find((one) => one.name === IDLE_ALARM);
+  check('a wait whose alarm was lost gets it back, a minute from now', Boolean(made));
+  const stamp = made.scheduledTime;
+  await new Promise((r) => setTimeout(r, 5));
+  await askAgainIfWaiting(lost.chrome);
+  check('and one that is already there is left alone', lost.alarms().find((one) => one.name === IDLE_ALARM).scheduledTime === stamp);
+}
 console.log(`\n${ran - failures} of ${ran} passed`);
 process.exit(failures ? 1 : 0);
