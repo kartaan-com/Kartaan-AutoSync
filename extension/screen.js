@@ -38,6 +38,7 @@ import {
   A_DAYS_ALLOWANCE, KEPT_FOR_HIS_OWN_RUNS, inTheNightsOwnLine, spendsTheAllowance, whatNeedsYou,
 } from './nightly.js';
 import { theUpdateNotice } from './update.js';
+import { whatIsWaiting } from './idle.js';
 import { THE_WALK } from './background.js';
 import { aDriveToken } from './drive.js';
 import {
@@ -782,6 +783,8 @@ export async function howItStands(chrome, { book, now = Date.now(), theClock = n
      * whose sync is minutes away. The clock is the one setting in this product
      * that runs when nobody is watching; it has to say so out loud. */
     clock: typeof theClock === 'function' ? await theClock() : null,
+    /* **AJ8: A RUN THAT IS WAITING FOR THE COMPUTER TO BE LEFT ALONE**, or null. */
+    waitingForIdle: await whatIsWaiting(chrome),
   };
 }
 
@@ -1861,7 +1864,7 @@ function showTheRestOfIt(parts, stands) {
     && globalThis.document && globalThis.document.activeElement !== parts.hour) {
     parts.hour.value = clock.chosen;
   }
-  parts.hourState.textContent = whenItNextWakes(clock);
+  parts.hourState.textContent = [whenItNextWakes(clock), theWaitingSaid(stands.waitingForIdle)].filter(Boolean).join(' ');
 
   /* **ONE TABLE FOR THE LAST RUN, REPLACING THE WORDS BOX (AJ6).** The full words still go to the Drive; the panel draws only when the run changed, so an open row is not rebuilt for nothing. */
   const names = new Map(stands.reports.map((one) => [one.id, one.name]));
@@ -1989,4 +1992,9 @@ export function whenItNextWakes(clock) {
 export function saySomething(parts, said) {
   parts.said.textContent = said || '';
   parts.said.hidden = !said;
+}
+
+/** What the panel says while an automatic run waits for the computer to be left alone (AJ8, his N063). */
+export function theWaitingSaid(waiting) {
+  return waiting ? 'Waiting until the computer has not been used for 3 minutes. Then the sync starts by itself.' : '';
 }

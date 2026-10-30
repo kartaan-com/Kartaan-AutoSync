@@ -716,6 +716,8 @@
         "extension/unzip.test.js",
         "extension/update.js",
         "extension/update.test.js",
+        "extension/idle.js",
+        "extension/idle.test.js",
         "tools/write_version.mjs",
         "extension/walk.js",
         "extension/walk.test.js",

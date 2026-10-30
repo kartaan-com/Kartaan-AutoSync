@@ -79,6 +79,7 @@ import {
   showHowItStands,
   showTheReportTable,
   whenItNextWakes,
+  theWaitingSaid,
   theDay,
   theDayToFetch,
   whyThatDayCannotBeFetched,
@@ -485,7 +486,9 @@ check('panel.html is not something a portal page is allowed to load',
 check('the manifest declares something to press', Boolean(MANIFEST.action));
 check('and no popup, because he asked for a page', !(MANIFEST.action || {}).default_popup);
 check('the panel needs no permission the manifest did not already have',
-  MANIFEST.permissions.join(',') === 'alarms,storage,downloads,scripting,identity,notifications');
+  MANIFEST.permissions.join(',') === 'alarms,storage,downloads,scripting,identity,notifications,idle');
+check('AJ8: the one permission added after that is `idle`, to ask Chrome whether the computer is in use (nothing else of his is read)',
+  MANIFEST.permissions.includes('idle') && MANIFEST.permissions.length === 7);
 check('the page the manifest opens and the page the worker believes are one name',
   PANEL_HTML.includes('panel.js') && THE_PANEL === 'panel.html');
 
@@ -1263,6 +1266,15 @@ function panelParts(chrome, held = {}) {
     whenItNextWakes({ chosen: '03:45', nextAt: null }).includes('nothing will start by itself'));
   check('and an hour nobody ever chose says what happens instead',
     whenItNextWakes(null).includes('half past two'));
+
+  /* **AJ8 (his N063): THE PANEL SAYS PLAINLY WHEN A RUN IS WAITING FOR THE COMPUTER TO BE LEFT ALONE.** */
+  check('the panel is told nothing waits when nothing does', told.stands.waitingForIdle === null);
+  check('and nothing is said about waiting then', theWaitingSaid(null) === '');
+  await chrome.storage.local.set({ 'kartaan-autosync-waiting-for-idle': { daily: 5000 } });
+  const waits = await say({ do: 'how-it-stands' });
+  check('a run that waits is passed to the panel', waits.stands.waitingForIdle.kinds.join() === 'daily');
+  check('and the panel says so in plain words',
+    theWaitingSaid(waits.stands.waitingForIdle) === 'Waiting until the computer has not been used for 3 minutes. Then the sync starts by itself.');
 }
 
 {

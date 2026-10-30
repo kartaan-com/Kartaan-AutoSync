@@ -58,6 +58,7 @@ import {
   NAMED_PER_CAMPAIGN,
 } from './background.js';
 import { LAST_LANDED } from './nightly.js';
+import { IDLE_ALARM, whatIsWaiting } from './idle.js';
 import { CAUGHT, TOO_BIG, catchTheNextFile } from './catch-blob.js';
 import {
   A_PLATFORM_OR_ITS_STORAGE, DECLINED_A_LINK, RELAY_TO_THE_PAGE, WHERE_A_FILE_REALLY_COMES_FROM, aFileReallyComesFrom,
@@ -223,6 +224,52 @@ const LATER = '2026-08-27T16:04:00.000Z';
   await browser.chrome.alarms.onAlarm.happened({ name: 'kartaan-autosync-recheck' });
   check('the hourly re-check alarm starts the re-check and not the daily sync',
     rechecked === 1 && due === 0);
+}
+
+{
+  /* **AJ8 (his N063, 30 Oct 2026): AN AUTOMATIC RUN WAITS UNTIL THE COMPUTER HAS BEEN LEFT ALONE FOR 3 MINUTES.**
+   * Both automatic starts (the daily sync and the hourly re-check) wait; a run he starts by pressing Run now never
+   * comes through here. A run that waited starts at the next free moment and is started once. */
+  const browser = installFakeChrome();
+  let due = 0;
+  let rechecked = 0;
+  const order = [];
+  await wireUp(browser.chrome, {
+    onDue: async () => { due += 1; order.push('daily'); }, onRecheck: async () => { rechecked += 1; order.push('recheck'); },
+  });
+  const waitingAlarm = () => browser.alarms().find((one) => one.name === IDLE_ALARM) || null;
+  browser.setTheComputer('active');
+  await browser.chrome.alarms.onAlarm.happened({ name: DAILY });
+  check('AJ8: the daily sync does not start while the computer is in use', due === 0);
+  check('AJ8: and it asks again, so it is not lost', waitingAlarm() !== null);
+  check('AJ8: and the wait is written down, for the panel to say so',
+    (await whatIsWaiting(browser.chrome)).kinds.join() === 'daily');
+  await browser.chrome.alarms.onAlarm.happened({ name: IDLE_ALARM });
+  check('AJ8: asking again while the computer is still in use starts nothing', due === 0 && waitingAlarm() !== null);
+  browser.setTheComputer('idle');
+  await browser.chrome.alarms.onAlarm.happened({ name: IDLE_ALARM });
+  check('AJ8: once the computer has been left alone the waiting sync starts, exactly once',
+    due === 1 && rechecked === 0);
+  check('AJ8: and nothing is left waiting', waitingAlarm() === null && (await whatIsWaiting(browser.chrome)) === null);
+  await browser.chrome.alarms.onAlarm.happened({ name: IDLE_ALARM });
+  check('AJ8: a late ask-again alarm with nothing waiting starts nothing', due === 1);
+
+  await browser.chrome.alarms.onAlarm.happened({ name: DAILY });
+  check('AJ8: with the computer left alone the daily sync starts at once, as before', due === 2);
+
+  browser.setTheComputer('active');
+  await browser.chrome.alarms.onAlarm.happened({ name: 'kartaan-autosync-recheck' });
+  check('AJ8: the hourly re-check waits too', rechecked === 0 && (await whatIsWaiting(browser.chrome)).kinds.join() === 'recheck');
+  await browser.chrome.alarms.onAlarm.happened({ name: DAILY });
+  browser.setTheComputer('idle');
+  await browser.chrome.alarms.onAlarm.happened({ name: IDLE_ALARM });
+  check('AJ8: when both waited, both start once, the daily sync first', due === 3 && rechecked === 1 && order.slice(-2).join() === 'daily,recheck');
+
+  browser.setTheComputer('active');
+  await browser.chrome.alarms.onAlarm.happened({ name: DAILY });
+  browser.forgetTheAlarms();
+  await wireUp(browser.chrome, { onDue: async () => { due += 1; }, onRecheck: async () => { rechecked += 1; } });
+  check('AJ8: a wait whose ask-again alarm was lost gets it back when the worker wakes', waitingAlarm() !== null);
 }
 
 {
@@ -2332,7 +2379,7 @@ check('the page relay is OFF in what ships, so no script on a portal page can dr
     && theRelayAllows(false, { do: 'run-now' }) === false);
 }
 
-const EXPECTED = 262 + 13 + 1 + 4 + 2 + 1 + 1 + 1 + 4;
+const EXPECTED = 262 + 13 + 1 + 4 + 2 + 1 + 1 + 1 + 4 + 11;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

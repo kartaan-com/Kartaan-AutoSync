@@ -130,6 +130,7 @@ export function installFakeChrome({ now = () => 0, identityIsOn = true, refuseTh
   const putIntoPages = [];
   let nextTabId = 1;
   let calls = 0;
+  let computerIs = 'idle';
 
   const owner = { _noteACall: () => { calls += 1; } };
 
@@ -216,6 +217,18 @@ export function installFakeChrome({ now = () => 0, identityIsOn = true, refuseTh
       async clearAll() {
         owner._noteACall();
         alarms.clear();
+      },
+    },
+
+    /* **`chrome.idle.queryState(seconds)`**: 'active' when the computer was used within that many seconds, otherwise
+     * 'idle' ('locked' when the screen is locked). A check sets the answer with `setTheComputer`. */
+    idle: {
+      async queryState(seconds) {
+        owner._noteACall();
+        if (!Number.isFinite(seconds) || seconds < 15) {
+          throw new Error('Chrome takes a detection time of at least 15 seconds.');
+        }
+        return computerIs;
       },
     },
 
@@ -471,6 +484,11 @@ export function installFakeChrome({ now = () => 0, identityIsOn = true, refuseTh
       tabs.clear();
       nextWindowId = 100;
       nextTabId = 1;
+    },
+
+    /** What `chrome.idle.queryState` answers from now on: 'active', 'idle' or 'locked'. */
+    setTheComputer(state) {
+      computerIs = state;
     },
 
     /** Every alarm there is. */

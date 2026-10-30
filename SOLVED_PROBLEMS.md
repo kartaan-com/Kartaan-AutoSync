@@ -141,6 +141,10 @@ the file where it happened. A reviewer finding something already on this list is
 - A platform's "no answer" mark (Amazon's `--` fee) is a row read, never a row not read: counted as not read, every real file shows "landed, not read" for good and the night says it could not read it. -- `autosync/listings.py` `read_fee_preview` (AP10 review)
 - A side file that writes beside listing records (suppressed, fee) is taken after the same day's listings file, never by Drive's id order: taken first it finds no record, is marked read, and writes nothing. -- `autosync/reading.py` `_which_day_it_is_about` (AP10 review)
 - Every reader adds `rows.refused` (rows of the wrong width) to its rows not read and its row count: left out, a torn row vanishes and the file reads as read in full. -- `autosync/listings.py` `read_fee_preview` (AP10 review)
+- A run that waits for the computer to be free is never dropped at midnight: a one-shot alarm (the hourly re-check) is not re-armed by anything else, so a dropped wait strands its reports for a day; it is carried over and started at the next free moment. -- `extension/idle.js` `carryOnWaiting` (AJ8, review)
+- Two alarms can fire in the same tick: every read-then-write of the stored wait goes one at a time through one chain, or a run starts twice and the Flipkart twenty is spent twice. -- `extension/idle.js` `oneAtATime` (AJ8, review)
+- Starting the waiting runs one after another, an error in one is warned about and the next still starts, or one failing start loses the other waiting run. -- `extension/idle.js` `carryOnWaiting` (AJ8, review)
+- A name read back from storage never picks a function and a stored time that is not a number is dropped, or one damaged value shows a panel "waiting since NaN". -- `extension/idle.js` `whatIsWaiting`, `carryOnWaiting` (AJ8, security review)
 
 ## Reading the reference
 

@@ -47,6 +47,7 @@ import {
   ASKS_A_RANGE, RANGE_FROM_LAST, RECHECK_ALARM, SPENDS_THE_ALLOWANCE, carryTheNightOn, rememberLastCaptured, rememberLastLanded,
 } from './nightly.js';
 import { theLatestDateInside } from './unzip.js';
+import { IDLE_ALARM, askAgainIfWaiting, carryOnWaiting, startWhenFree } from './idle.js';
 
 /** The day landed in this file's own name, whichever of the two dated shapes
  *  it is written in (see `whyTheseAreNotNames`): the ordinary
@@ -1336,12 +1337,19 @@ export function wireUp(chrome, {
      * else is happening. */
     if (carryOn) await carryOn();
     /* **THE HOURLY RE-CHECK STARTS ITS OWN SYNC (A53)**, never the daily one. */
+    /* **AJ8 (his N063): THE AUTOMATIC STARTS WAIT FOR THE COMPUTER TO BE LEFT ALONE FOR 3 MINUTES**, and the alarm that
+     * asks again starts whatever waited. Run now never comes through here. The walk being carried on above is not
+     * stopped by this: only the starting of a run waits. */
+    if (alarm && alarm.name === IDLE_ALARM) {
+      await carryOnWaiting(chrome, { daily: onDue, recheck: onRecheck });
+      return;
+    }
     if (alarm && alarm.name === RECHECK_ALARM) {
-      if (onRecheck) await onRecheck();
+      if (onRecheck) await startWhenFree(chrome, 'recheck', onRecheck);
       return;
     }
     if (alarm && alarm.name !== DAILY) return;
-    await onDue();
+    await startWhenFree(chrome, 'daily', onDue);
   });
 
   /* **AND ON THE WAY PAST, EVERY SINGLE TIME THIS WORKER WAKES.** This is the
@@ -1355,5 +1363,6 @@ export function wireUp(chrome, {
 async function bothClocks(chrome) {
   const daily = await makeSureTheClockIsSet(chrome);
   const awake = await makeSureTheWorkerIsWoken(chrome);
+  await askAgainIfWaiting(chrome);
   return daily || awake;
 }
