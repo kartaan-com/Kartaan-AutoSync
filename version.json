@@ -1,5 +1,5 @@
 {
-  "version": "0.1.22",
+  "version": "0.1.23",
   "url": "https://github.com/kartaan-com/Kartaan-AutoSync/releases/latest/download/kartaan-autosync-extension.zip",
-  "notes": "Meesho pricing, Amazon reports, window closes after run"
+  "notes": "AutoSync now waits until the computer has been left alone for 3 minutes before it starts by itself"
 }
