@@ -1312,6 +1312,7 @@ check('AJ8: the clock line carries both the next wake and the waiting words, and
 
   const stands = await howItStands(chrome, { book: BOOK, now: Date.now() });
   showHowItStands(parts, stands);
+check('AJ8: with nothing waiting the clock line on the screen says nothing about waiting',    !parts.hourState.textContent.includes('Waiting until'));  showHowItStands(parts, { ...stands, waitingForIdle: { since: 5000, kinds: ['daily'] } });  check('AJ8: and with a run waiting the screen itself says so, beside when it next wakes',    parts.hourState.textContent.includes('Waiting until the computer has not been used for 3 minutes')    && parts.hourState.textContent.includes('wakes'));  showHowItStands(parts, stands);
 
   check('the setup screen is shown while nothing is set up', parts.setup.hidden === false);
   check('and the banner says what is true when nothing has ever run',
