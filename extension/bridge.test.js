@@ -49,7 +49,10 @@ function rig({ left = 20, driveAt = 1, panel = 'a-panel', clock = () => NOW } = 
       }
       if (asked.do === 'run-now') {
         state.runNow.push(asked);
-        return state.refuseRunNow ? { wrong: state.refuseRunNow } : { started: ['x'] };
+        if (state.refuseRunNow) return { wrong: state.refuseRunNow };
+        /* The real door writes the night before it answers. */
+        if (state.writesANight !== false) await chrome.storage.local.set({ [THE_NIGHT]: { startedAt: clock(), finishedAt: 0, doing: asked.reportIds[0], left: [], done: [] } });
+        return { started: ['x'] };
       }
       return {};
     },
@@ -62,6 +65,7 @@ function rig({ left = 20, driveAt = 1, panel = 'a-panel', clock = () => NOW } = 
 const call = (r, tool, args) => answerTheBridge(r.chrome, r.parts, { tool, args });
 const asksOf = async (r) => (await r.chrome.storage.local.get(AI_ASKS))[AI_ASKS] || [];
 const FK = { reportIds: ['fk_orders'], from: '2026-05-01', to: '2026-05-31' };
+const settle = () => new Promise((res) => setTimeout(res, 40));
 
 {
   check('the tools AutoSync answers are exactly the three the bridge lists', BRIDGE_TOOLS.join() === 'autosync_status,autosync_run,autosync_result');
@@ -194,8 +198,10 @@ const refuses = async (name, args, words, setup = null) => {
   r.fake.setTheComputer('idle');
   r.state.refuseRunNow = 'Kartaan said this sync may not run (status 403).';
   const said = await call(r, 'autosync_run', FK);
+  await settle();
   const kept = (await asksOf(r))[0];
-  check('if the Run now door itself says no, the ask is refused with its words and not retried', kept.state === 'refused' && /Kartaan said this sync may not run/.test(kept.why) && said.result.state === 'refused');
+  check('the answer to the AI comes at once, as "asked, waiting" (the start is not waited for)', said.ok && said.result.state === 'waiting');
+  check('if the Run now door itself says no, the ask is refused with its words and not retried', kept.state === 'refused' && /Kartaan said this sync may not run/.test(kept.why));
   await processTheAsks(r.chrome, r.parts);
   check('and nothing is started later', r.state.runNow.length === 1);
 }
@@ -206,10 +212,11 @@ const refuses = async (name, args, words, setup = null) => {
   const r = rig({ clock: () => t });
   await r.chrome.storage.local.set({ [AI_SWITCH]: true });
   r.fake.setTheComputer('idle');
+  r.state.writesANight = false; // the extension is restarted before the run's night is written
   await call(r, 'autosync_run', FK);
-  const running = (await asksOf(r))[0];
+  await settle();
   await processTheAsks(r.chrome, r.parts); // a fresh worker after the update
-  check('after an update the running ask is still running and was not started again', running.state === 'running' && r.state.runNow.length === 1);
+  check('after an update the running ask is still running and was not started again', (await asksOf(r))[0].state === 'running' && r.state.runNow.length === 1);
   t += GIVE_UP_AFTER_MS + 1000;
   await processTheAsks(r.chrome, r.parts);
   const failed = (await asksOf(r))[0];
@@ -270,6 +277,130 @@ const refuses = async (name, args, words, setup = null) => {
   r.chrome.runtime.lastError = undefined;
   check('no helper on the computer: the switch goes off and says why in plain words', (await r.chrome.storage.local.get(AI_SWITCH))[AI_SWITCH] === false
     && /helper is not set up/i.test((await aiState(r.chrome, r.parts)).note));
+}
+
+{
+  // Review H1: the alarm is put back on every waking (Chrome can clear it on an update or restart), so a waiting ask is not stranded.
+  const r = rig();
+  const thePort = makeThePort(r.chrome, { ...r.parts });
+  r.chrome.runtime.connectNative = () => ({ onMessage: { addListener() {} }, onDisconnect: { addListener() {} }, postMessage() {}, disconnect() {} });
+  await r.chrome.storage.local.set({ [AI_SWITCH]: true });
+  r.fake.setTheComputer('active');
+  await call(r, 'autosync_run', FK);
+  await r.chrome.alarms.clear(AI_ALARM);
+  await keepWatching(r.chrome, r.parts, thePort);
+  check('a cleared alarm is back after the worker wakes', Boolean(await r.chrome.alarms.get(AI_ALARM)));
+  r.fake.setTheComputer('idle');
+  await keepWatching(r.chrome, r.parts, thePort);
+  check('and the waiting ask then starts without anybody asking again', r.state.runNow.length === 1);
+}
+
+{
+  // Review M1/M2/M3, security M1, idle error.
+  const r = rig();
+  await r.chrome.storage.local.set({ [AI_SWITCH]: true });
+  r.fake.setTheComputer('idle');
+  r.chrome.idle.queryState = async () => { throw new Error('no answer'); };
+  await call(r, 'autosync_run', FK);
+  await settle();
+  check('if Chrome cannot say whether the seller is at the computer, an ask from the AI does NOT start', r.state.runNow.length === 0);
+}
+{
+  const r = rig();
+  await r.chrome.storage.local.set({ [AI_SWITCH]: true });
+  r.fake.setTheComputer('active');
+  let held = false;
+  const quick = r.parts.panelAnswer;
+  r.parts.panelAnswer = async (asked) => {
+    if (asked.do !== 'run-now') return quick(asked);
+    held = true;
+    await new Promise((res) => setTimeout(res, 300)); // Kartaan's check and a slow portal page
+    return { started: ['x'] };
+  };
+  await call(r, 'autosync_run', FK);
+  r.fake.setTheComputer('idle');
+  const slow = processTheAsks(r.chrome, r.parts);
+  await settle();
+  const t0 = Date.now();
+  const st = await call(r, 'autosync_status', {});
+  check('while a run is being started (slow), status is still answered at once and nothing waits behind it', held && st.ok && Date.now() - t0 < 200);
+  await slow;
+}
+{
+  // The AI's own daily ceiling.
+  const r = rig();
+  await r.chrome.storage.local.set({ [AI_SWITCH]: true });
+  r.fake.setTheComputer('active');
+  const out = [];
+  for (let i = 0; i < 9; i += 1) {
+    out.push(await call(r, 'autosync_run', { reportIds: ['fk_orders', 'fk_payments'], from: `2026-05-0${i + 1}`, to: `2026-05-0${i + 1}` }));
+    await settle();
+    await r.chrome.storage.local.set({ [AI_ASKS]: (await asksOf(r)).map((x) => ({ ...x, state: 'done' })) }); // finished, so only the daily ceiling can stop the next
+  }
+  check('the AI may ask for at most 16 of Flipkart\'s 20 a day (4 are kept for the seller\'s own runs)', out.slice(0, 8).every((x) => x.ok) && out[8].ok === false && /may use 16/.test(out[8].error) && /midnight/.test(out[8].error));
+  const many = rig();
+  await many.chrome.storage.local.set({ [AI_SWITCH]: true });
+  many.fake.setTheComputer('active');
+  let blocked = null;
+  for (let i = 1; i <= 13; i += 1) {
+    // Free reports, one day each; each batch of five is allowed to finish so the five-waiting limit is not what stops it.
+    const a = await many.parts.theBook();
+    const said = await call(many, 'autosync_run', { reportIds: ['me_orders'], from: `2026-04-${String(i).padStart(2, '0')}`, to: `2026-04-${String(i).padStart(2, '0')}` });
+    if (!said.ok && /already waiting/.test(said.error)) {
+      const asks = await asksOf(many);
+      await many.chrome.storage.local.set({ [AI_ASKS]: asks.map((x) => ({ ...x, state: 'done' })) });
+      i -= 1;
+    } else if (!said.ok) { blocked = said; break; }
+  }
+  check('and for at most 12 asks a day, however small', blocked && /12 is the most a day/.test(blocked.error));
+}
+{
+  // Review M2: a run that some other start began in the gap is never adopted as the ask's.
+  let t = NOW;
+  const r = rig({ clock: () => t });
+  await r.chrome.storage.local.set({ [AI_SWITCH]: true });
+  r.fake.setTheComputer('idle');
+  r.state.writesANight = false;
+  await call(r, 'autosync_run', FK);
+  await settle();
+  await r.chrome.storage.local.set({ [THE_NIGHT]: { startedAt: NOW + 5000, finishedAt: NOW + 9000, doing: null, left: [], done: [{ reportId: 'fk_returns', state: 'landed', say: 'x', size: 1 }] } });
+  t = NOW + 20000;
+  await processTheAsks(r.chrome, r.parts);
+  const ask = (await asksOf(r))[0];
+  check('a timed sync that started in the gap is not adopted: its results are not the ask\'s', ask.state === 'running' && ask.results.length === 0);
+}
+{
+  // Review M1: a two-website ask is not called done in the gap between its websites.
+  let t = NOW;
+  const r = rig({ clock: () => t });
+  await r.chrome.storage.local.set({ [AI_SWITCH]: true });
+  r.fake.setTheComputer('idle');
+  await call(r, 'autosync_run', { reportIds: ['fk_orders', 'me_orders'], from: '2026-05-01', to: '2026-05-31' });
+  await settle();
+  await r.chrome.storage.local.set({ [THE_NIGHT]: { startedAt: NOW, finishedAt: NOW + 1000, doing: null, left: [], done: [{ reportId: 'fk_orders', state: 'landed', say: 'x', size: 1 }] }, [THE_QUEUE]: [] });
+  t = NOW + 30000;
+  await processTheAsks(r.chrome, r.parts);
+  check('the list is empty and the first website has ended, yet the ask is still running (the next website is being started)', (await asksOf(r))[0].state === 'running');
+  t = NOW + 1000 + 3 * 60 * 1000 + 1;
+  await processTheAsks(r.chrome, r.parts);
+  check('three minutes after the last run ended it is done', (await asksOf(r))[0].state === 'done');
+}
+{
+  // Security review M2: asked again at the moment of starting.
+  const r = rig();
+  await r.chrome.storage.local.set({ [AI_SWITCH]: true });
+  r.fake.setTheComputer('active');
+  await call(r, 'autosync_run', { reportIds: ['fk_orders', 'fk_payments'], from: '2026-05-01', to: '2026-05-31' });
+  r.state.left = 1; // the seller's own timed run spent the day's allowance while the ask waited
+  r.fake.setTheComputer('idle');
+  await processTheAsks(r.chrome, r.parts);
+  const ask = (await asksOf(r))[0];
+  check('an ask whose allowance was spent while it waited is refused, in words, instead of started', ask.state === 'refused' && /no longer possible/.test(ask.why) && r.state.runNow.length === 0);
+  const forged = rig();
+  await forged.chrome.storage.local.set({ [AI_SWITCH]: true, [AI_ASKS]: [{ id: 'aaaaaaaaaaaaaaaa', reportIds: ['not_a_report'], from: '2026-05-01', to: '2026-05-31', askedAt: NOW, state: 'waiting', results: [], files: [] }] });
+  forged.fake.setTheComputer('idle');
+  await processTheAsks(forged.chrome, forged.parts);
+  check('an ask written into storage by anything else is checked like any other, and refused', (await asksOf(forged))[0].state === 'refused' && forged.state.runNow.length === 0);
 }
 
 {

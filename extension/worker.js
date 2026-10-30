@@ -469,6 +469,9 @@ const theBridgeParts = {
   isConnected: () => thePort.isOpen(),
 };
 const thePort = makeThePort(chrome, theBridgeParts);
+/* **STORAGE IS FOR THIS EXTENSION'S OWN PAGES AND WORKER ONLY** (security review M2): the AI switch and the waiting asks live there, and a content
+ * script running beside a portal's code must not be able to write them. Nothing in a content script reads or writes `chrome.storage`. */
+try { chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' }).catch(() => {}); } catch (ignored) { /* an older Chrome */ }
 
 /** The panel's questions, plus the AI switch, and the AI's part of "how it stands". */
 async function answerWithTheAi(asked) {

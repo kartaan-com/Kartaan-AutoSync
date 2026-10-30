@@ -23,18 +23,36 @@
  * can serve the same tool names unchanged.
  */
 
-import { computerInUse, IDLE_SECONDS } from './idle.js';
+import { IDLE_SECONDS } from './idle.js';
 import {
   THE_QUEUE, theTickableReports, thePlatformOf, whyItCannotBeStarted, withTheListsTheyRead, whyThatRangeCannotBeFetched,
   theDayToFetch, theDaysBetween, CALLED,
 } from './screen.js';
-import { theNight, LAST_LANDED, SPENDS_THE_ALLOWANCE } from './nightly.js';
+import {
+  theNight, theDay, LAST_LANDED, SPENDS_THE_ALLOWANCE, A_DAYS_ALLOWANCE, KEPT_FOR_HIS_OWN_RUNS,
+} from './nightly.js';
+
+/** **FOR THE AI, "IN USE" IS THE ANSWER WHENEVER CHROME CANNOT SAY.** The night run starts when it cannot tell; an ask from the AI never does. */
+async function seatedAtTheComputer(chrome) {
+  try {
+    return (await chrome.idle.queryState(IDLE_SECONDS)) === 'active';
+  } catch (wrong) {
+    return true;
+  }
+}
 
 export const HOST = 'com.kartaan.bridge';
 export const AI_SWITCH = 'kartaan-autosync-ai-switch';
 export const AI_ASKS = 'kartaan-autosync-ai-asks';
 export const AI_NOTE = 'kartaan-autosync-ai-note';
 export const AI_ALARM = 'kartaan-autosync-ai-ask-wait';
+export const AI_SPENT = 'kartaan-autosync-ai-spent-today';
+/** **THE AI'S OWN CEILING FOR A DAY, so it can never starve the seller's timed sync of Flipkart's twenty.** It may ask for the day's twenty
+ *  less the ones kept for his own runs, and for this many asks. Counted when an ask is kept. */
+export const AI_MOST_FLIPKART_A_DAY = A_DAYS_ALLOWANCE - KEPT_FOR_HIS_OWN_RUNS;
+export const AI_MOST_ASKS_A_DAY = 12;
+/** A two-website ask has a gap between its websites; it is called finished only this long after its last run ended. */
+export const SETTLE_MS = 3 * 60 * 1000;
 /** The tools this extension answers, exactly as the Kartaan Bridge lists them for AutoSync (a check in the bridge repo holds the names equal). */
 export const BRIDGE_TOOLS = Object.freeze(['autosync_status', 'autosync_run', 'autosync_result']);
 /** At most this many asks wait at once; the newest twenty are kept for reading back. */
@@ -67,8 +85,25 @@ async function note(chrome, text) {
  * and the last write win (which is how an ask would be started twice or lost). */
 let turn = Promise.resolve();
 const inTurn = (job) => { const done = turn.then(job); turn = done.then(() => undefined, () => undefined); return done; };
-export const answerTheBridge = (chrome, parts, call) => inTurn(() => answerInner(chrome, parts, call));
-export const processTheAsks = (chrome, parts) => inTurn(() => processInner(chrome, parts));
+export const answerTheBridge = async (chrome, parts, call) => {
+  const answered = await inTurn(() => answerInner(chrome, parts, call));
+  /* **AN ASK IS ANSWERED AT ONCE and started AFTER the answer, outside the turn**: starting a run waits on Kartaan's network check and a portal
+   * page, up to a minute, and nothing else (the AI's status, the panel's two-second poll, Tune) may be held up behind that. */
+  if (call && call.tool === 'autosync_run' && answered && answered.ok) processTheAsks(chrome, parts).catch(() => {});
+  return answered;
+};
+/** Start the oldest waiting ask if it may start. **The turn is held only to decide and to write it down; the run itself is started outside it.** */
+export async function processTheAsks(chrome, parts) {
+  const going = await inTurn(() => prepareInner(chrome, parts));
+  if (!going) return;
+  let said;
+  try {
+    said = await parts.panelAnswer({ do: 'run-now', reportIds: going.reportIds, from: going.from, to: going.to });
+  } catch (wrong) {
+    said = { wrong: String((wrong && wrong.message) || wrong).slice(0, 200) };
+  }
+  await inTurn(() => afterStarting(chrome, parts, going, said));
+}
 export const noteAFile = (chrome, fileName) => inTurn(() => noteInner(chrome, fileName));
 export const aiState = (chrome, parts) => inTurn(() => stateInner(chrome, parts));
 export const setTheSwitch = (chrome, parts, on) => inTurn(() => switchInner(chrome, parts, on));
@@ -162,7 +197,7 @@ async function status(chrome, parts) {
     drive_connected: Boolean(stands.setUp.driveConnectedAt),
     run_going_now: going,
     waiting_asks: asks.filter((a) => a.state === 'waiting').length,
-    computer_in_use_now: await computerInUse(chrome),
+    computer_in_use_now: await seatedAtTheComputer(chrome),
     flipkart_requests_left_today: stands.flipkart.leftToday,
     flipkart_requests_a_day: stands.flipkart.allowedADay,
     timed_sync: (stands.timed && stands.timed.said) || '',
@@ -201,13 +236,21 @@ async function run(chrome, parts, args) {
   const wanted = key({ reportIds, from, to });
   const twin = asks.find((a) => (a.state === 'waiting' || a.state === 'running') && key(a) === wanted);
   if (twin) return { ok: true, result: { ask_id: twin.id, state: twin.state, message: 'This same ask is already in. ' + slimAsk(book, twin).message } };
+  /* **THE AI'S OWN DAILY CEILING (security review M1).** Counted in the seller's own day, when an ask is kept. */
+  const today = theDay(now);
+  const spent = (await chrome.storage.local.get(AI_SPENT))[AI_SPENT];
+  const so = spent && spent.day === today ? spent : { day: today, flipkart: 0, asks: 0 };
+  const cost = reportIds.filter((id) => SPENDS_THE_ALLOWANCE.includes(id)).length;
+  if (so.asks + 1 > AI_MOST_ASKS_A_DAY) return { ok: false, error: `Not asked: your AI has already made ${so.asks} asks today and ${AI_MOST_ASKS_A_DAY} is the most a day. Ask again tomorrow (the count starts again after midnight on the seller's computer).` };
+  if (so.flipkart + cost > AI_MOST_FLIPKART_A_DAY) {
+    return { ok: false, error: `Not asked: of Flipkart's ${A_DAYS_ALLOWANCE} reports a day, your AI may use ${AI_MOST_FLIPKART_A_DAY} (the rest are kept for the seller's own runs) and ${so.flipkart} are already used or promised today. Ask again tomorrow, after midnight on the seller's computer.` };
+  }
   const id = Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) => two(b.toString(16))).join('');
   const ask = { id, reportIds, from, to, askedAt: now, state: 'waiting', waitingFor: 'computer', results: [], files: [] };
+  await chrome.storage.local.set({ [AI_SPENT]: { day: today, flipkart: so.flipkart + cost, asks: so.asks + 1 } });
   await keepTheAsks(chrome, [...asks, ask]);
   await ensureTheAlarm(chrome);
-  await processInner(chrome, parts);
-  const kept = (await theAsks(chrome)).find((a) => a.id === id) || ask;
-  return { ok: true, result: { ask_id: id, state: kept.state, message: `Asked. ${slimAsk(book, kept).message} Read the outcome with autosync_result.` } };
+  return { ok: true, result: { ask_id: id, state: 'waiting', message: `Asked. ${slimAsk(book, ask).message} Read the outcome with autosync_result.` } };
 }
 
 async function result(chrome, parts, args) {
@@ -258,14 +301,21 @@ export async function refreshTheAsks(chrome, parts) {
   const night = await theNight(chrome);
   const queue = (await chrome.storage.local.get(THE_QUEUE))[THE_QUEUE];
   const now = (parts.now || Date.now)();
-  const mine = night && night.startedAt >= running.startedAt;
+  /* **ONLY A RUN THIS ASK STARTED IS THIS ASK'S** (review M2): the night its own start created, written down right after the start, and the ones
+   * after it. A timed sync or a re-check that began in some other gap is never adopted. */
+  const mine = night && running.nightStartedAt !== undefined && night.startedAt >= running.nightStartedAt;
   if (mine) {
     const seen = new Map(running.results.map((r) => [`${r.report}|${r.day}`, r]));
     for (const one of night.done || []) {
       seen.set(`${one.reportId}|${one.dataDate || ''}`, { report: one.reportId, day: one.dataDate || '', state: one.state, said: one.say || '' });
     }
     running.results = [...seen.values()];
-    if (night.finishedAt && !(Array.isArray(queue) && queue.length)) {
+    /* **A TWO-WEBSITE ASK HAS A GAP BETWEEN ITS WEBSITES** (the next one is taken off the list, then Kartaan is asked, then its run is written),
+     * so it is finished only once the list is empty AND the last run ended a few minutes ago. */
+    const book = await parts.theBook();
+    const twoSites = new Set(running.reportIds.map((id) => thePlatformOf(book, id))).size > 1;
+    const settled = !twoSites || now - night.finishedAt >= SETTLE_MS;
+    if (night.finishedAt && settled && !(Array.isArray(queue) && queue.length)) {
       running.state = 'done';
       running.finishedAt = night.finishedAt;
     }
@@ -282,27 +332,49 @@ export async function refreshTheAsks(chrome, parts) {
  * Start the oldest waiting ask if, and only if, nothing else is running and the computer has been left alone for three minutes. Called when an
  * ask is made, on the one-minute alarm, and whenever the worker wakes. **Never starts two, never starts one twice.**
  */
-async function processInner(chrome, parts) {
-  if (!(await aiIsOn(chrome))) return;
+async function prepareInner(chrome, parts) {
+  if (!(await aiIsOn(chrome))) return null;
   const asks = await refreshTheAsks(chrome, parts);
   const next = asks.find((a) => a.state === 'waiting');
-  if (asks.some((a) => a.state === 'running') || !next) return;
+  if (asks.some((a) => a.state === 'running') || !next) return null;
   const night = await theNight(chrome);
-  if (night && !night.finishedAt) { next.waitingFor = 'run'; await keepTheAsks(chrome, asks); return; }
-  if (await computerInUse(chrome)) { next.waitingFor = 'computer'; await keepTheAsks(chrome, asks); return; }
+  if (night && !night.finishedAt) { next.waitingFor = 'run'; await keepTheAsks(chrome, asks); return null; }
+  if (await seatedAtTheComputer(chrome)) { next.waitingFor = 'computer'; await keepTheAsks(chrome, asks); return null; }
+  /* **ASKED AGAIN AT THE MOMENT OF STARTING** (security review M2): storage is the only thing between a waiting ask and a start, so what was
+   * checked when it was kept is checked once more, against how things stand now (the Drive, the allowance spent meanwhile). */
+  const book = await parts.theBook();
+  const stands = (await parts.panelAnswer({ do: 'how-it-stands' })).stands;
+  const now = (parts.now || Date.now)();
+  const why = whyThisAskIsRefused(book, next, { now, panel: stands.setUp.panel, leftToday: stands.flipkart.leftToday, spentByOthers: 0, waitingCount: 0 })
+    || (stands.setUp.driveConnectedAt ? '' : 'the seller\'s Google Drive is not connected');
+  if (why) {
+    next.state = 'refused';
+    next.finishedAt = now;
+    next.why = `Checked again when it was about to start, and no longer possible: ${why}`;
+    await keepTheAsks(chrome, asks);
+    return null;
+  }
   /* **WRITTEN DOWN AS RUNNING BEFORE IT IS STARTED**, so a restart between the two can never start it again. */
   next.state = 'running';
-  next.startedAt = (parts.now || Date.now)();
+  next.startedAt = now;
   await keepTheAsks(chrome, asks);
-  const said = await parts.panelAnswer({ do: 'run-now', reportIds: next.reportIds, from: next.from, to: next.to });
+  return { ...next };
+}
+
+/** After the run was asked for: refused in words, or the night it began is written against the ask so only that run is ever read as its own. */
+async function afterStarting(chrome, parts, going, said) {
+  const latest = await theAsks(chrome);
+  const mine = latest.find((a) => a.id === going.id);
+  if (!mine || mine.state !== 'running') return;
   if (said && said.wrong) {
-    const latest = await theAsks(chrome);
-    const mine = latest.find((a) => a.id === next.id);
     mine.state = 'refused';
     mine.finishedAt = (parts.now || Date.now)();
     mine.why = `AutoSync would not start it: ${said.wrong}`;
-    await keepTheAsks(chrome, latest);
+  } else {
+    const night = await theNight(chrome);
+    if (night && night.startedAt >= mine.startedAt) mine.nightStartedAt = night.startedAt;
   }
+  await keepTheAsks(chrome, latest);
 }
 
 /** Remember a file that landed against the ask that is running (called after every landing; does nothing when no ask is running). */
@@ -331,7 +403,9 @@ async function stateInner(chrome, parts) {
     asks: live.map((a) => ({
       ...slimAsk(book, a),
       panel_line: `Asked by your AI: ${names(book, a.reportIds).join(', ')}, ${a.from} to ${a.to}`
-        + (a.state === 'waiting' ? ' -- waiting for the computer to be free' : ' -- running now'),
+        + (a.state === 'waiting'
+          ? (a.waitingFor === 'run' ? ' -- waiting for the run that is going now to finish' : ' -- waiting for the computer to be free')
+          : ' -- running now'),
     })),
     idle_seconds: IDLE_SECONDS,
   };
@@ -349,6 +423,8 @@ async function switchInner(chrome, parts, on) {
   await chrome.storage.local.set({ [AI_SWITCH]: false });
   parts.closeThePort();
   await chrome.alarms.clear(AI_ALARM);
+  /* The permission to talk to a helper is given back with the switch (security review M2); turning it on asks for it again. */
+  try { if (chrome.permissions && chrome.permissions.remove) await chrome.permissions.remove({ permissions: ['nativeMessaging'] }); } catch (ignored) { /* already gone */ }
   /* Asks still waiting are dropped: with the switch off nothing may start by itself. A run already going is left to finish. */
   const asks = await theAsks(chrome);
   const kept = asks.map((a) => (a.state === 'waiting' ? { ...a, state: 'failed', finishedAt: (parts.now || Date.now)(), why: 'The seller turned AutoSync\'s AI switch off before this ask started.' } : a));
@@ -405,6 +481,9 @@ export function makeThePort(chrome, parts) {
 /** On every waking and every minute: open the port if the switch is on and it is closed, and move the asks on. */
 export async function keepWatching(chrome, parts, thePort) {
   if (!(await aiIsOn(chrome))) return;
+  /* **THE ALARM IS PUT BACK ON EVERY WAKING** (review H1): Chrome can clear alarms when an extension updates or the browser restarts, and nothing
+   * else starts a waiting ask; background.js:240-249 says what the same oversight once cost. */
+  await ensureTheAlarm(chrome);
   if (!thePort.isOpen()) thePort.open();
   await processTheAsks(chrome, parts);
 }
