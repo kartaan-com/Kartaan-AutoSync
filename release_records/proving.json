@@ -1,45 +1,20 @@
 {
   "record": "proving",
-  "commit": "00978e78ea56ed3907dc72ea6010cda1420c77cd",
-  "run_at": "Whole run against v0.1.21 (a52f545) on 2de5ca1 ended 2026-10-27 about 02:20 IST (0 survivors). Then, after his live runs of 27 Oct, five more runs over the changed lines (--against a3e8186) on f5df645, 61ffe18, 689a687 and the final code tip 6e800b5, ending about 10:47 IST (session times); each run's survivors were closed before the next. FINAL RUN 29 Oct 2026 (AJ7): whole run against a52f545 on 21cb0be (source identical to 00978e7): 1808 changes tried, 1249 run, 1181 caught, 5 hung, 58 crashed on load (each recorded), 10 survived and all 10 accepted with a reason, 0 unrecorded: 'every deliberate change was either caught or recorded with a reason'. The run on 00978e7 before it had found 102 unnoticed changes; they were closed in 21cb0be (91 new checks that go red, 11 written reasons, 3 cannot_load entries).",
-  "tool": "tools/proving.py (AutoSync's own setup, AP11) loading the ERP's tools/prove_checks.py from D:/Kartaan-ERP, 4 workers. Line-ending-only changes are not counted; a change that survives its own checks file is put to every other checks file importing the module.",
-  "invoked_as": "git clone -c core.autocrlf=false -c core.eol=lf --branch autosync-join-022 <the repository> <scratch>/prove3, then in it: KARTAAN=D:/Kartaan-ERP python tools/proving.py --against a52f545 (the whole run, on 2de5ca1) and --against a3e8186 (the later ones, last on 6e800b5: 96 changes tried, 69 caught by a check, 3 hung and counted as caught, 27 would not parse, 0 survived, 0 stopped a file loading; final line 'every deliberate change was either caught or recorded with a reason').",
-  "ran_by": "AJ2 (Sonnet 5.5), worker for Kartaan Control, with two helper agents that wrote the first survivor-closing checks.",
-  "scope": "Every line changed since v0.1.21 (a52f545): N017, N018, the join's own fixes, and the fixes after his live runs of 27 Oct, in autosync/*.py, tools/*.py, extension/*.js, test/*.js. Run against code tip 6e800b5; the commit this record names is that code tip itself (the commit carrying the records changes only release_records/*.json). FINAL RUN: code tip 00978e7; 21cb0be adds checks and reasons only.",
+  "commit": "6be82cf",
+  "run_at": "30 Oct 2026 (AJ8). Three runs over the changed lines on a clean clone, each against 4cdc094: on 9feb5bb (149 changes, 15 survivors), on d541561 (152 changes, 2 survivors), on 6be82cf (152 changes, 1 survivor, accepted).",
+  "tool": "tools/proving.py (AutoSync's own setup, AP11) loading the ERP's tools/prove_checks.py from D:/Kartaan-ERP. Line-ending-only changes are not counted.",
+  "invoked_as": "git clone -c core.autocrlf=false -c core.eol=lf --branch aj8-idle-wait <the repository> <scratch>, then in it: KARTAAN=D:/Kartaan-ERP python tools/proving.py --against 4cdc094",
+  "ran_by": "AJ8 (Sonnet 5.5, worker for Kartaan Control).",
+  "scope": "Every changed line of extension/idle.js, extension/background.js, extension/screen.js (plus manifest and the stand-in) from 4cdc094 to 6be82cf.",
   "found": [
-    "First whole run on the merged tip: 85 survivors. 30 Python (29 closed by new checks; 1 was already caught by listing_notes_checks and also got a check in firestore_checks) and 55 JavaScript (49 closed by new checks, 6 accepted with reasons).",
-    "Second whole run: 2 survivors, both on lines the fixes touched (reading.py write_the_records; walk.js the page carried by the no-period failure). Closed, each shown red first.",
-    "extension/tables.js had 76 changes noticed only by the checks file crashing, because the Meesho quality reader had no check of its own; tables.test.js now has a made-up quality page and prints a failure when a change makes it throw.",
-    "Whole run on 2de5ca1: 0 survivors, 0 stale entries, 0 coverage problems; 13 load-stopping changes (ads.py, browser.py, quality.py, record_reports.py) each have their reason in tools/proven_survivors.json cannot_load.",
-    "After his live runs: the changed lines were proved over five runs. 8 survivors on f5df645 (the settle wait, the next-button wait, the pager-button list, a comment-node line) were closed by checks that count looks (each shown red with its mutation by hand) in 689a687; the runs on 61ffe18, 689a687 and 6e800b5 ended with 0 survivors.",
-    "FINAL RUN on 00978e7 found 102 changes no check noticed (nightly.js 34, walk.js 33, screen.js 14, driver.js 9, doors.js 5, background.js 5, tables.js 1, recipes.py 1) and 3 unrecorded load crashes. All closed in 21cb0be; the re-run on 21cb0be is clean."
+    "FINAL RUN on 6be82cf: 152 changes tried, 100 run, 95 caught, 4 crashed on load (each recorded under cannot_load for idle.js: its four exported constants), 52 would not parse, 0 hung, 1 survived and accepted with a reason, 0 unrecorded: 'every deliberate change was either caught or recorded with a reason'.",
+    "The first run found 15 changes no check noticed: the warning text when Chrome cannot answer, the earliest-moment rule, the queue carrying on after a failed start, junk cleaned out of the stored wait, the warning for a waiting run that cannot start, the re-made ask-again alarm, the panel's clock line (twice, the second needing a check that draws the screen). All closed with checks that go red."
   ],
   "survivors": [
-    {
-      "file": "extension/driver.js",
-      "line": "if (!outer || !inner) return false;  (and the final return false of holds)",
-      "why": "holds: a missing outer or inner node gives false whether the guard says || or && or is gone, and no caller passes a missing node; the last return false only turns false into undefined and every caller asks only for truthiness (four changes accepted)."
-    },
-    {
-      "file": "extension/tables.js",
-      "line": "if (made.getUTCFullYear() !== y || made.getUTCMonth() !== m - 1 || made.getUTCDate() !== d) return null;",
-      "why": "anIsoDay: a date that rolls over always moves the year, or the month and the day together; || to && on the last pair changes nothing."
-    },
-    {
-      "file": "extension/tables.js",
-      "line": "if (from < 0 || to < 0 || to < from) return [];",
-      "why": "theQualityFeedback: when the recommendations heading is missing and the feedback heading is there, to < from is true as well; the result is an empty list in every state."
-    },
-    {
-      "file": "autosync/ledger.py, autosync/payments.py",
-      "line": "(AP11's own three survivors, unchanged)",
-      "why": "Already accepted with reasons in tools/proven_survivors.json before this join."
-    }
+    "extension/background.js 'return;' after carryOnWaiting in the ask-again alarm branch: without it the code falls to the next line, which returns for every alarm that is not the daily one. Equivalent; recorded in tools/proven_survivors.json."
   ],
   "named_gaps": [
-    "Changes noticed only by a checks file failing to load say nothing about whether the checks are good, only that the change was noticed; per-file reasons are in tools/proven_survivors.json.",
-    "The az_ads reader (ads.read_ads) still has its own torn-row path that does not count rows.refused (named in review.json).",
-    "extension/content.js has no checks file (NOT_PROVEN), so its change (the host named when a page's own file fetch fails) is unproved."
+    "Live behaviour is not proved by the prover: whether Windows reports 'active' during video playback is for his first real timed run."
   ],
-  "unproved_files": "NOT_PROVEN in tools/proving.py, each with its reason: autosync/fake_firestore.py, autosync/start.py, extension/content.js, extension/panel.js, extension/worker.js, test/fake-browser.js, test/fake-chrome.js."
+  "unproved_files": "test/fake-chrome.js (a test stand-in, not shipped)."
 }
