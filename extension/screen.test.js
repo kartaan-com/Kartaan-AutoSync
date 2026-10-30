@@ -2116,6 +2116,48 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
     && shown.log.findAll('p-report-row')[0] !== rowsBefore[0]);
 }
 
+/* ------------------------------------------------- the AI card (AD1, BR1 proving) */
+{
+  installFakeBrowser();
+  const { chrome } = installFakeChrome();
+  const asked = [];
+  const parts = buildThePanel(document.body, { connectTheDrive() {}, saveThePanelName() {}, runNow() {}, stop() {}, setTheHour() {}, aiSwitch: (on) => asked.push(on) });
+  const stands = await howItStands(chrome, { book: BOOK, now: Date.now() });
+  const card = parts.ai;
+  const row = card.children[1];
+  check('AD1: the AI card is on the page, in the page body', card.parentNode !== null && card.parentNode.children.includes(card) && card.parentNode.className.includes('body'));
+  check('AD1: the card is titled "Your AI", as a heading', card.children[0].tagName === 'h2' && card.children[0].textContent === 'Your AI');
+  check('AD1: the switch and its state sit in one row of the card', row.children[0] === parts.aiSwitch && row.children[1] === parts.aiState && row.children.length === 2);
+  check('AD1: the switch is a plain button, off to start with', parts.aiSwitch.type === 'button' && parts.aiSwitch.textContent === 'AI may run AutoSync: Off');
+  check('AD1: the card says what the switch lets the AI do, and holds the note and the asks', /read how your reports stand/.test(card.children[2].textContent)
+    && /3 minutes/.test(card.children[2].textContent) && card.children[3] === parts.aiNote && card.children[4] === parts.aiAsks && card.children.length === 5);
+
+  showHowItStands(parts, stands);
+  check('AD1: with no word from the worker the switch reads Off and the rest is empty', parts.aiSwitch.textContent === 'AI may run AutoSync: Off'
+    && parts.aiState.textContent === '' && parts.aiNote.textContent === '' && parts.aiAsks.textContent === '' && parts.aiOn === false);
+  parts.aiSwitch.click();
+  check('AD1: pressing it while off asks for On', asked.length === 1 && asked[0] === true);
+
+  showHowItStands(parts, { ...stands, ai: { on: true, connected: false, note: '', asks: [] } });
+  check('AD1: on, the switch says On and that the helper is awaited', parts.aiSwitch.textContent === 'AI may run AutoSync: On' && parts.aiState.textContent === 'waiting for the helper' && parts.aiOn === true);
+  parts.aiSwitch.click();
+  check('AD1: pressing it while on asks for Off', asked.length === 2 && asked[1] === false);
+
+  showHowItStands(parts, { ...stands, ai: { on: true, connected: true, note: 'a note', asks: [{ panel_line: 'first line' }, { panel_line: 'second line' }] } });
+  check('AD1: connected, it says so', parts.aiState.textContent === 'helper connected');
+  check('AD1: the note is shown as it is', parts.aiNote.textContent === 'a note');
+  check('AD1: each ask is shown on a line of its own, in order', parts.aiAsks.textContent === 'first line\nsecond line');
+
+  showHowItStands(parts, { ...stands, ai: { on: false, connected: true } });
+  check('AD1: off, the state is empty even if the helper is still connected, and a missing note and asks are empty', parts.aiState.textContent === ''
+    && parts.aiNote.textContent === '' && parts.aiAsks.textContent === '' && parts.aiSwitch.textContent === 'AI may run AutoSync: Off');
+
+  const lone = buildThePanel(document.body, { connectTheDrive() {}, saveThePanelName() {}, runNow() {}, stop() {}, setTheHour() {} });
+  let threw = false;
+  try { lone.aiSwitch.click(); } catch (wrong) { threw = true; }
+  check('AD1: pressing the switch on a panel that was given no door does nothing and does not stop it', threw === false);
+}
+
 reachedTheEnd = true;
 console.log(`\n${ran} checks, ${failures} failed.`);
 process.exit(failures ? 1 : 0);
