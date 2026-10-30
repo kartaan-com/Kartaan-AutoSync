@@ -464,7 +464,7 @@ export function makeThePort(chrome, parts) {
       if (/not found|forbidden|not allowed/i.test(said)) {
         /* No helper on this computer, or it does not list this extension: the switch cannot work, so it says so and goes off. */
         await setTheSwitch(chrome, { ...parts, openThePort: open, closeThePort: close }, false);
-        await note(chrome, 'The Kartaan AI helper is not set up on this computer. Install it first (Kartaan-AI-helper.exe), then turn this on again.');
+        await note(chrome, 'The Kartaan AI helper is not set up on this computer. Install it first (Kartaan-AI-helper.exe); if you just installed it, close Chrome completely and open it again. Then turn this on again.');
       } else {
         await note(chrome, `The AI helper closed (${said.slice(0, 120) || 'no reason given'}). It is opened again within a minute while the switch is on.`);
       }
