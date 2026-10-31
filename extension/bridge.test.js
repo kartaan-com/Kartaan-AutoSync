@@ -42,6 +42,10 @@ function rig({ left = 20, driveAt = 1, panel = 'a-panel', clock = () => NOW } = 
           stands: {
             setUp: { done: Boolean(state.driveAt && state.panel), driveConnectedAt: state.driveAt, panel: state.panel, driveSaid: '' },
             night,
+            /* As the real panel answers: Meesho needs the panel name, Flipkart and Amazon only the Drive. */
+            platforms: ['flipkart', 'meesho', 'amazon'].map((id) => ({
+              id, ready: Boolean(state.driveAt) && (id !== 'meesho' || Boolean(state.panel)),
+            })),
             flipkart: { allowedADay: 20, askedForToday: 20 - state.left, leftToday: state.left },
             timed: 'timed' in state ? state.timed : { said: 'The timed sync will fetch: 0 reports' },
             reports: state.reports || reportsOf.map((r) => ({ id: r.id, name: r.name, platform: r.platform, canBeFetched: true, state: '', say: '' })),
@@ -500,7 +504,7 @@ const refuses = async (name, args, words, setup = null) => {
   r.state.driveAt = 1;
   r.state.panel = '';
   const nopanel = (await call(r, 'autosync_status', {})).result;
-  check('BR1: with a Drive but no panel name, connected yet not ready', nopanel.ready_to_run === false && nopanel.drive_connected === true);
+  check('BR1: with a Drive but no panel name, connected and still ready (Flipkart and Amazon need no panel name, AJ9 6)', nopanel.ready_to_run === true && nopanel.drive_connected === true);
   const asks = [anAsk('a1111111'), anAsk('a2222222', { state: 'done' })];
   await keepAsks(r, asks);
   const withAsks = (await call(r, 'autosync_status', {})).result;

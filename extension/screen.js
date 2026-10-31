@@ -34,7 +34,7 @@
 
 import { MANUAL, TOOLTIPS } from './manual.js';
 import {
-  theNight, endTheNight, howTheNightWent, theDay, thatOneIsDone, theReportTable,
+  theNight, endTheNight, howTheNightWent, theDay, thatOneIsDone, theReportTable, theIdleLine,
   A_DAYS_ALLOWANCE, KEPT_FOR_HIS_OWN_RUNS, inTheNightsOwnLine, spendsTheAllowance, whatNeedsYou,
 } from './nightly.js';
 import { theUpdateNotice } from './update.js';
@@ -733,6 +733,8 @@ export async function howItStands(chrome, { book, now = Date.now(), theClock = n
      * because his instruction on the three backfill pages the reference grew was
      * one page, one place. */
     inWords: howTheNightWent(night),
+    /* **WHAT HAPPENED, IN ORDER (AJ9 piece 6, BR1 lesson 5).** The panel used to show only the last note. */
+    events: theNightsEvents(night, (id) => ((book.reports || []).find((one) => one.id === id) || {}).name || id),
     /* **EVERY DAY GIVEN UP ON, KEPT ACROSS NIGHTS** until a later run fetches it,
      * so the banner can name it however many runs have happened since. */
     needsYou: await whatNeedsYou(chrome),
@@ -1262,6 +1264,30 @@ function put(into, ...nodes) {
   return into;
 }
 
+/**
+ * **THE NIGHT'S EVENTS, IN ORDER AND IN PLAIN WORDS (AJ9 piece 6).** Built from what the night already holds
+ * (start, the idle wait, each report with its own sentence, the end, and what Kartaan was told), so there is no second
+ * record to drift from the first. Words only: no pass, no customer data. Answers `[{ at, words }]`, oldest first.
+ */
+export function theNightsEvents(night, nameOf = (id) => id) {
+  if (!night || !night.startedAt) return [];
+  const events = [{ at: night.startedAt, words: 'The run started.' }, { at: night.startedAt, words: theIdleLine(night) }];
+  for (const one of night.done || []) {
+    events.push({
+      at: one.at || night.startedAt,
+      words: `${nameOf(one.reportId)}: ${whatThatStateIsCalled(one.state)}${one.say ? ` -- ${one.say}` : ''}`,
+    });
+  }
+  if (night.doing) events.push({ at: null, words: `Fetching now: ${nameOf(night.doing)}.` });
+  if (night.finishedAt) {
+    events.push({ at: night.finishedAt, words: `The run ended${night.why ? `: ${night.why}` : '.'}` });
+    if (night.toldKartaan && night.toldKartaan.said) {
+      events.push({ at: night.finishedAt, words: `Kartaan: ${night.toldKartaan.said}` });
+    }
+  }
+  return events;
+}
+
 /** A day and a time, in the seller's own words rather than a number. */
 export function inWordsWhen(at) {
   if (!at) return 'never';
@@ -1589,6 +1615,13 @@ export function buildThePanel(into, doing) {
   put(log, parts.log);
   put(body, log);
 
+  /* ------------------------------------------------------- what happened, in order (AJ9 piece 6) */
+  const happened = make('section', `${OURS}card`);
+  put(happened, make('h2', `${OURS}title`, 'What happened, in order'));
+  parts.events = make('ul', `${OURS}helpSteps`);
+  put(happened, parts.events);
+  put(body, happened);
+
   /* ------------------------------------------------------------- the manual */
   /* **THE LONGER ANSWER, AND IT IS ON THE SAME PAGE AS THE THING.** His
    * instruction, 2026-09-11: a tooltip beside the control, a manual for somebody
@@ -1908,6 +1941,22 @@ function showTheRestOfIt(parts, stands) {
   if (parts.drawn !== drawn) {
     parts.drawn = drawn;
     showTheReportTable(parts.log, shown, CALLED[ofPlatform] || ofPlatform, parts.opened);
+  }
+  showTheEvents(parts, stands.events || []);
+}
+
+/** The event list, redrawn only when it changed. Text nodes only: what a sentence says is never read as markup. */
+export function showTheEvents(parts, events) {
+  const drawn = JSON.stringify(events);
+  if (parts.eventsDrawn === drawn) return;
+  parts.eventsDrawn = drawn;
+  parts.events.textContent = '';
+  if (!events.length) {
+    put(parts.events, make('li', '', 'Nothing has run yet.'));
+    return;
+  }
+  for (const one of events) {
+    put(parts.events, make('li', '', `${one.at ? `${inWordsWhen(one.at)} -- ` : ''}${one.words}`));
   }
 }
 

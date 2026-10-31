@@ -46,7 +46,7 @@ import {
 import { RELAY_TO_THE_PAGE } from './driver.js';
 import {
   A_DAYS_ALLOWANCE, KEPT_FOR_HIS_OWN_RUNS, PAUSED, RECHECKS, THE_NIGHT, carryTheNightOn, endTheNight, howTheNightWent, oneWasAskedFor,
-  startTheNight, thatOneIsBeingTried, theNight,
+  startTheNight, thatOneIsBeingTried, theIdleLine, theNight,
 } from './nightly.js';
 import { MOST_DAYS_IN_A_RANGE_FILE, hasNotFinished, theWalk } from './walk.js';
 import { MANUAL, TOOLTIPS } from './manual.js';
@@ -77,6 +77,8 @@ import {
   rememberTheNight,
   saySomething,
   showHowItStands,
+  showTheEvents,
+  theNightsEvents,
   showTheReportTable,
   whenItNextWakes,
   theWaitingSaid,
@@ -2156,6 +2158,35 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   let threw = false;
   try { lone.aiSwitch.click(); } catch (wrong) { threw = true; }
   check('AD1: pressing the switch on a panel that was given no door does nothing and does not stop it', threw === false);
+}
+
+{
+  /* AJ9 piece 6: the panel lists what happened, in order, in plain words. */
+  const night = {
+    startedAt: 1_000_000, finishedAt: 1_900_000, why: 'all done', doing: null, idle: { waitedMs: 600000, kind: 'run' },
+    done: [
+      { reportId: 'fk_orders', state: 'landed', at: 1_200_000, say: '' },
+      { reportId: 'me_views', state: 'failed', at: 1_500_000, say: 'The tab closed, so it will be checked again in an hour.' },
+    ],
+    toldKartaan: { told: true, said: 'Kartaan has started your run.', finishedAt: 1_900_000 },
+  };
+  const events = theNightsEvents(night, (id) => (id === 'fk_orders' ? 'Flipkart orders' : id));
+  check('AJ9 6: the events run start, idle wait, each report, the end, then what Kartaan was told',
+    events.map((one) => one.words).join('|') === [
+      'The run started.', theIdleLine(night), 'Flipkart orders: fetched',
+      'me_views: failed -- The tab closed, so it will be checked again in an hour.',
+      'The run ended: all done', 'Kartaan: Kartaan has started your run.'].join('|'));
+  check('AJ9 6: a report being fetched now has no time on it', theNightsEvents({ ...night, finishedAt: null, doing: 'fk_ads' })
+    .some((one) => one.at === null && /Fetching now: fk_ads/.test(one.words)));
+  check('AJ9 6: no night, no events', theNightsEvents(null).length === 0);
+  installFakeBrowser();
+  const parts = buildThePanel(document.body, { connectTheDrive() {}, saveThePanelName() {}, runNow() {}, stop() {}, setTheHour() {} });
+  showTheEvents(parts, events);
+  check('AJ9 6: the panel draws one line per event, the report line carrying its own words',
+    parts.events.children.length === events.length
+    && [...parts.events.children].some((row) => row.textContent.includes('me_views: failed -- The tab closed')));
+  showTheEvents(parts, []);
+  check('AJ9 6: with nothing to show it says nothing has run', parts.events.children.length === 1 && /Nothing has run yet/.test(parts.events.children[0].textContent));
 }
 
 reachedTheEnd = true;

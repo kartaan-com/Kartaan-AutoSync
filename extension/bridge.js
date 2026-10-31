@@ -193,7 +193,7 @@ async function status(chrome, parts) {
   const latest = asks.length ? asks[asks.length - 1] : null;
   const going = Boolean(stands.night && !stands.night.finishedAt);
   return {
-    ready_to_run: Boolean(stands.setUp.done),
+    ready_to_run: Boolean(stands.setUp.driveConnectedAt) && (stands.platforms || []).some((one) => one.ready),
     drive_connected: Boolean(stands.setUp.driveConnectedAt),
     run_going_now: going,
     waiting_asks: asks.filter((a) => a.state === 'waiting').length,
