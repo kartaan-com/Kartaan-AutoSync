@@ -51,7 +51,7 @@ check("A CHANGE TO THE LEDGER IS ALSO PUT TO THE CHECKS THAT DRIVE IT FROM ITS C
       {"autosync/claims_checks.py", "autosync/payments_checks.py"} <= set(pc.also_proved_by("autosync/ledger.py"))
       and "autosync/ledger_checks.py" not in pc.also_proved_by("autosync/ledger.py"))
 check("and a module no other checks file imports has none, a page script none",
-      pc.also_proved_by("tools/move_group.py") == () and pc.also_proved_by("extension/walk.js") == ())
+      pc.also_proved_by("tools/dry_run.py") == () and pc.also_proved_by("extension/walk.js") == ())
 
 
 def away_from_the_real_repository():

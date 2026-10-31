@@ -36,3 +36,9 @@
 # byte for byte, so both stay Unix-ended on every machine (base fix, AP5c).
 extension/catch-blob.js text eol=lf
 extension/catch-early.js text eol=lf
+
+# The two generated files `tools/export_recipes.py` writes are compared with its output byte for byte
+# (`export_recipes_checks.py`). Checked out with Windows endings they were always "not what the Python says" on a
+# Windows machine, though nothing differed (AJ9 piece 7).
+extension/recipes.json text eol=lf
+src/shared/definitions/reports.json text eol=lf

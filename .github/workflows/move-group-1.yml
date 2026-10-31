@@ -1,0 +1,36 @@
+name: Move group-1 on release
+
+# **RELEASE EVENTS ONLY.** This job runs when a release is PUBLISHED and at no other time: no push, no pull request,
+# no schedule, no manual start. It moves `group-1` (Rumee's own pipeline) to the released tag, with the refusals of
+# tools/move_group.py. group-2 and group-3 are NOT moved here (they wait for clean nights counted by the Server).
+#
+# It needs one setting from the owner, once: the `groups` ruleset's bypass list must include "GitHub Actions"
+# (docs/RELEASING-GROUPS.md). Without it the push is refused by GitHub and this job turns red; nothing else breaks.
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+# Two releases published close together must not race: the second job waits, then reads where group-1 really is,
+# so the "never backwards" refusal sees the truth (AJ9 review).
+concurrency:
+  group: move-group-1
+  cancel-in-progress: false
+
+jobs:
+  move:
+    # Kartaan's own organisation only: a seller's copy of this repository must never run it.
+    if: github.repository_owner == 'kartaan-com'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Point group-1 at the released tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: python3 tools/move_group_on_release.py

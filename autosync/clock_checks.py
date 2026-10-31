@@ -348,6 +348,12 @@ long_late_run = tool.LastRun(started=datetime(2026, 11, 3, 0, 30), finished=date
 check("a late run that started at 00:30 and finished at 06:15 still belongs to the evening before: the 22:00 tick runs",
       answered(lambda: tool.why_not_now(long_late_run, datetime(2026, 11, 3, 22, 0))) is None)
 
+# **AJ9 PROVING: THE DAY A RUN IS FOR, asked of `the_evening_of` itself** (the runs and the log name take it from there).
+check("a run at 00:30 on 2 Nov is for the evening of 1 Nov",
+      answered(lambda: tool.the_evening_of(datetime(2026, 11, 2, 0, 30))) == date(2026, 11, 1))
+check("and a run at 22:00 on 2 Nov is for 2 Nov",
+      answered(lambda: tool.the_evening_of(datetime(2026, 11, 2, 22, 0))) == date(2026, 11, 2))
+
 # **AND NOTHING ABOVE ENDED BY THROWING RATHER THAN BY ANSWERING.**
 #
 # **IT SAT SEVENTY-ONE LINES FROM THE END, with fifteen checks after it (cycle
@@ -357,7 +363,7 @@ check("a late run that started at 00:30 and finished at 06:15 still belongs to t
 # before the tally now, which is the only place it covers everything.
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 78 + 6 + 7 + 1 + 3
+EXPECTED = 78 + 6 + 7 + 1 + 3 + 2
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

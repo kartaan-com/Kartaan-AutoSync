@@ -26,6 +26,11 @@ import {
   isARunPassSaved,
   saveTheRunPass,
   tellFinished,
+  tellFinishedAndAlert,
+  tellHimToSaveThePass,
+  tellTheProblem,
+  THE_NO_PASS_NOTICE,
+  TELL_ADDRESS,
   theFailedReportsToSend,
   whatKartaanLastSaid,
   whyThatIsNotARunPass,
@@ -634,9 +639,39 @@ async function oneNightThatEnds({ chrome, tell, doing, failedId, at }) {
   await withAPass(chrome);
   await chrome.storage.local.set({ [THE_SYNC_FAILED]: ['left_by_platform_one'] });
   await startTheScheduledSync(chrome, { ...parts, continuing: true });
-  check('Kartaan\'s no empties the queue and drops the remembered list: no half-done whole sync is ever told',
+  check('Kartaan\'s no empties the queue but KEEPS the remembered list, so the earlier platforms\' failures are still told (AJ9 3b)',
     ((await chrome.storage.local.get(THE_QUEUE))[THE_QUEUE] || []).length === 0
+    && (await chrome.storage.local.get(THE_SYNC_FAILED))[THE_SYNC_FAILED].join().startsWith("left_by_platform_one"));
+}
+
+{
+  /* AJ9 3b: Kartaan's no on platform two also leaves platform three untried; the one tell names ALL of them. */
+  const server = aServerThat({ status: 403, body: { fetch: false, said: 'Not on your plan.' } });
+  const { chrome, parts } = await aSetUpPanel({ fetch: server.fetch });
+  await withAPass(chrome);
+  await chrome.storage.local.set({
+    [THE_SYNC_FAILED]: ['fk_claims'], [THE_QUEUE]: [['me_orders'], { reportIds: ['az_ads'] }],
+  });
+  const next = await startTheNextPlatform(chrome, { ...parts, continuing: true });
+  const told = [];
+  await tellForASyncThatCannotContinue(chrome, next, null, async ({ failed }) => { told.push(failed.join()); return { told: true }; });
+  check('Kartaan\'s no: the earlier failure, the refused platform and the untried one are all told, once',
+    told.length === 1 && told[0] === 'fk_claims,me_orders,az_ads'
     && (await chrome.storage.local.get(THE_SYNC_FAILED))[THE_SYNC_FAILED] === undefined);
+}
+
+{
+  /* AJ9 3b review: a platform refused in the middle of a sync is remembered even when a LATER platform starts. */
+  const server = aServerThat({ body: { fetch: true, said: 'yes' } });
+  const { chrome, parts } = await aSetUpPanel({ fetch: server.fetch });
+  await withAPass(chrome);
+  await chrome.storage.local.set({
+    [THE_SYNC_FAILED]: ['fk_claims'], [THE_QUEUE]: [['nonsense_one'], ['fk_returns']],
+  });
+  const next = await startTheNextPlatform(chrome, { ...parts, continuing: true });
+  const kept = (await chrome.storage.local.get(THE_SYNC_FAILED))[THE_SYNC_FAILED] || [];
+  check('a refused middle platform is remembered as not fetched, and a later platform that starts still runs',
+    Boolean(next.started) && next.refused.length === 1 && kept.includes('fk_claims') && kept.includes('nonsense_one'));
 }
 
 {
@@ -654,8 +689,8 @@ async function oneNightThatEnds({ chrome, tell, doing, failedId, at }) {
   check('the second platform start is refused (nothing started, not waiting) and nothing is told yet',
     next.started === null && !next.waiting && next.refused.length === 1 && told().length === 0);
   const answer = await tellForASyncThatCannotContinue(chrome, next, first, tell);
-  check('then exactly ONE tell goes out, with the first platform\'s ids, and the list is forgotten',
-    told().length === 1 && formOf(told()[0]).failed === 'fk_claims' && answer.told === true
+  check('then exactly ONE tell goes out, with the first platform\'s ids AND the platform that never started, and the list is forgotten',
+    told().length === 1 && formOf(told()[0]).failed === 'fk_claims,me_orders' && answer.told === true
     && (await chrome.storage.local.get(THE_SYNC_FAILED))[THE_SYNC_FAILED] === undefined);
   check('and the answer replaces "waiting" on the earlier night',
     (await theNight(chrome)).toldKartaan.told === true);
@@ -828,7 +863,177 @@ check('kartaan.js opens no connection of its own: it is handed one',
     !recheck(WORKER.replace('if (!said.kartaanSaid) await', 'await')));
 }
 
-const EXPECTED = 121;
+/* ------------------------- AJ9 piece 3: a failed night reaches him through the message centre */
+
+{
+  const { chrome } = installFakeChrome();
+  await withAPass(chrome);
+  const server = aServerThat((address) => (address === TELL_ADDRESS
+    ? { body: { queued: true, said: 'Kept.' } }
+    : { body: { started: true, said: 'Kartaan has started your run.', failed: [] } }));
+  const got = await tellFinishedAndAlert(chrome, server.fetch, { failed: ['fk_orders', 'me_returns'], at: 1234 });
+  const tell = server.calls.find((one) => one.address === TELL_ADDRESS);
+  const form = tell ? formOf(tell) : {};
+  check('failed reports: /finished is called as before, then /tell with the AutoSync problem kind and the pass',
+    server.calls.length === 2 && server.calls[0].address === FINISHED_ADDRESS
+    && form.source === 'autosync' && form.kind === 'problem' && form.pass === PASS && form.id === 'autosync-failed-1234');
+  check('the words name the reports as he knows them and carry nothing else',
+    JSON.parse(form.facts).text.includes('Flipkart orders, Meesho returns') && !JSON.stringify(form.facts).includes(PASS));
+  const again = aServerThat({ body: { queued: true } });
+  await tellFinishedAndAlert(chrome, again.fetch, { failed: ['fk_orders'], endedAt: 777 });
+  await tellFinishedAndAlert(chrome, again.fetch, { failed: ['fk_orders'], endedAt: 777 });
+  const ids = again.calls.filter((one) => one.address === TELL_ADDRESS).map((one) => formOf(one).id);
+  check('the same night end sends the same message id twice, so a restart cannot make two messages',
+    ids.length === 2 && ids[0] === 'autosync-failed-777' && ids[1] === ids[0]);
+  check('and the words do not promise a retry for reports that need him',
+    !JSON.parse(form.facts).text.includes('tries again by itself') && JSON.parse(form.facts).text.includes('by hand'));
+  check('and the run log line says his messages were told, with the first answer kept as it was',
+    got.said.includes('Kartaan has started your run.') && got.said.includes('His messages were told which reports failed.'));
+
+  const clean = aServerThat({ body: { started: true, said: 'Kartaan has started your run.', failed: [] } });
+  await tellFinishedAndAlert(chrome, clean.fetch, { failed: [] });
+  check('nothing failed: no message to him', clean.calls.length === 1 && clean.calls[0].address === FINISHED_ADDRESS);
+
+  const refused = await tellFinishedAndAlert(chrome, aServerThat((address) => (address === TELL_ADDRESS
+    ? { status: 403, body: { queued: false, said: 'That was not proved.' } }
+    : { body: { started: true, said: 'ok', failed: [] } })).fetch, { failed: ['fk_orders'] });
+  check('a message the centre refuses is said in words, never silent, and never carries the pass',
+    refused.said.includes('His messages were not told') && refused.said.includes('not proved') && !refused.said.includes(PASS));
+
+  const down = await tellFinishedAndAlert(chrome, async () => { throw new Error('offline'); }, { failed: ['fk_orders'] });
+  check('unreachable: still plain words, never a throw', down.said.includes('His messages were not told'));
+}
+
+{
+  const { chrome } = installFakeChrome();
+  const server = aServerThat({ body: { queued: true } });
+  const got = await tellFinishedAndAlert(chrome, server.fetch, { failed: ['fk_orders'] });
+  check('no run pass: nothing is sent at all, and the line says his messages could not be told',
+    server.calls.length === 0 && got.said.includes('no run pass is saved'));
+}
+
+{
+  /* AJ9 3b: no run pass saved -> ONE plain browser notice a DAY, however many syncs end that day. */
+  const server = aServerThat({ body: { started: true, said: 'ok' } });
+  const { chrome } = installFakeChrome();
+  const shown = [];
+  let refuse = false;
+  chrome.notifications = {
+    create: (id, options, done) => {
+      shown.push({ id, options });
+      chrome.runtime.lastError = refuse ? { message: 'refused' } : undefined;
+      if (done) done();
+      chrome.runtime.lastError = undefined;
+    },
+  };
+  chrome.runtime.getURL = (path) => `chrome-extension://x/${path}`;
+  const NOON = new Date(2026, 9, 30, 12, 0, 0).getTime(); // local noon, so +2h never crosses a day in any time zone
+  const HOUR = 3600000;
+  await tellFinishedAndAlert(chrome, server.fetch, { failed: [], endedAt: NOON });
+  await tellFinishedAndAlert(chrome, server.fetch, { failed: [], endedAt: NOON + HOUR });
+  await tellFinishedAndAlert(chrome, server.fetch, { failed: [], endedAt: NOON + 2 * HOUR });
+  check('with no run pass ONE notice goes out for the day, saying what to press, though three syncs ended',
+    shown.length === 1 && /paste the run pass/.test(shown[0].options.message) && /Save/.test(shown[0].options.message));
+  await tellFinishedAndAlert(chrome, server.fetch, { failed: [], endedAt: NOON + 30 * HOUR });
+  check('and the next day is told again', shown.length === 2);
+  await withAPass(chrome);
+  await tellFinishedAndAlert(chrome, server.fetch, { failed: [], endedAt: NOON + 60 * HOUR });
+  check('with a pass saved no notice is shown', shown.length === 2);
+  const fresh = installFakeChrome().chrome;
+  fresh.notifications = {
+    create: (id, options, done) => {
+      fresh.runtime.lastError = refuse ? { message: 'refused' } : undefined;
+      if (done) done();
+      fresh.runtime.lastError = undefined;
+    },
+  };
+  fresh.runtime.getURL = chrome.runtime.getURL;
+  refuse = true;
+  const warned = [];
+  const realWarn = console.warn;
+  console.warn = (...said) => warned.push(said.join(' '));
+  let retried;
+  try {
+    await tellHimToSaveThePass(fresh, NOON);
+    await new Promise((r) => setTimeout(r, 0));
+    refuse = false;
+    retried = await tellHimToSaveThePass(fresh, NOON);
+  } finally {
+    console.warn = realWarn;
+  }
+  check('a notice Chrome refuses is said in the console and tried again at the next end, not marked as shown',
+    warned.some((one) => /refused the save-the-run-pass/.test(one)) && retried === true);
+}
+
+{
+  /* AJ9 proving: every answer tellTheProblem can give, as the yes/no and the words the run log shows. */
+  const { chrome } = installFakeChrome();
+  const none = await tellTheProblem(chrome, aServerThat({ body: { queued: true } }).fetch, { names: ['fk_orders'] });
+  check('tellTheProblem with no pass: not queued, and says no run pass is saved',
+    none.queued === false && none.said === 'His messages were not told which reports failed, because no run pass is saved.');
+  await withAPass(chrome);
+  const kept = await tellTheProblem(chrome, aServerThat({ body: { queued: true } }).fetch, { names: ['fk_orders'] });
+  check('queued by the centre: queued is a yes', kept.queued === true && kept.said === 'His messages were told which reports failed.');
+  const no = await tellTheProblem(chrome, aServerThat({ status: 403, body: { queued: false, said: 'Not proved.' } }).fetch,
+    { names: ['fk_orders'] });
+  check('refused in its own words: not queued, and its words passed on',
+    no.queued === false && no.said === 'His messages were not told which reports failed. Not proved.');
+  const odd = await tellTheProblem(chrome, aServerThat({ status: 403, body: { queued: false, said: 42 } }).fetch,
+    { names: ['fk_orders'] });
+  check('refused with no words: the could-not-reach words, not a number',
+    odd.queued === false && odd.said.startsWith('His messages were not told which reports failed. Kartaan could not be reached')
+    && !odd.said.includes('42'));
+  const away = await tellTheProblem(chrome, async () => { throw new Error('offline'); }, { names: ['fk_orders'] });
+  check('unreachable: not queued, and says it could not be reached (not the something-went-wrong words)',
+    away.queued === false && away.said.includes('Kartaan could not be reached') && !away.said.includes('something went wrong'));
+  const broke = await tellTheProblem(chrome, aServerThat({ body: { queued: true } }).fetch, { names: null });
+  check('something going wrong inside: not queued, in words, never a throw',
+    broke.queued === false
+    && broke.said === 'His messages were not told which reports failed (something went wrong sending it).');
+
+  /* endedAt 0 is not a night's end: the clock's `at` is used, for the message id and for the day of the notice. */
+  const zero = aServerThat((address) => (address === TELL_ADDRESS
+    ? { body: { queued: true } } : { body: { started: true, said: 'ok', failed: [] } }));
+  await tellFinishedAndAlert(chrome, zero.fetch, { failed: ['fk_orders'], endedAt: 0, at: 5555 });
+  check('an endedAt of 0 falls back to the clock for the message id',
+    formOf(zero.calls.find((one) => one.address === TELL_ADDRESS)).id === 'autosync-failed-5555');
+}
+
+{
+  /* AJ9 proving: tellHimToSaveThePass's own answers and the notice it asks Chrome for. */
+  const NOON = new Date(2026, 9, 30, 12, 0, 0).getTime(); // local noon, so +2h never crosses a day in any time zone
+  const plain = installFakeChrome().chrome;
+  delete plain.notifications;
+  check('no notifications in this browser: answers no, and nothing is stored',
+    (await tellHimToSaveThePass(plain, NOON)) === false
+    && (await plain.storage.local.get(THE_NO_PASS_NOTICE))[THE_NO_PASS_NOTICE] === undefined);
+  const { chrome } = installFakeChrome();
+  const shown = [];
+  chrome.notifications = { create: (id, options, done) => { shown.push({ id, options }); if (done) done(); } };
+  chrome.runtime.getURL = (path) => `chrome-extension://x/${path}`;
+  const first = await tellHimToSaveThePass(chrome, NOON);
+  const second = await tellHimToSaveThePass(chrome, NOON + 3600000);
+  check('the first of the day answers yes, the second the same day answers no', first === true && second === false);
+  const o = shown[0].options;
+  check('the notice is the plain kind, with the extension\'s icon and the title he reads',
+    o.type === 'basic' && o.iconUrl === 'chrome-extension://x/icon128.png' && o.title === 'AutoSync cannot tell Kartaan yet');
+  check('the notice stays until he closes it, at the highest priority', o.requireInteraction === true && o.priority === 2);
+  const shaky = installFakeChrome().chrome;
+  shaky.notifications = { create: () => {} };
+  shaky.storage.local.get = async () => { throw new Error('storage gone'); };
+  check('storage failing: answers no, never a throw', (await tellHimToSaveThePass(shaky, NOON)) === false);
+
+  const late = installFakeChrome().chrome;
+  const days = [];
+  late.notifications = { create: (id, options, done) => { days.push(id); if (done) done(); } };
+  late.runtime.getURL = (path) => path;
+  await tellFinishedAndAlert(late, aServerThat({ body: { started: true, said: 'ok' } }).fetch,
+    { failed: [], endedAt: 0, at: NOON });
+  check('an endedAt of 0 falls back to the clock for the day of the notice',
+    days.length === 1 && days[0] === `kartaan-no-pass-${new Date(NOON).toDateString().replace(/ /g, '-')}`);
+}
+
+const EXPECTED = 121 + 9 + 1 + 4 + 1 + 7 + 6;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

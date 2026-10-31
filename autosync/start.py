@@ -152,7 +152,7 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
     put_file = a_door(google, inside, say)
     read_state, save_state = nightly._state_in_drive(google, inside)
     read_manifest, save_manifest = nightly._manifest_in_drive(google, inside)
-    today = now().date()
+    today = clock.the_evening_of(now())  # a late tick after midnight is the evening before's (AJ9 piece 4)
 
     def fetch(report_id: str, data_date, asked_already=None):
         return fetch_one(

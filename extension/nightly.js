@@ -24,6 +24,7 @@
  */
 
 import { MOST_DAYS_IN_A_RANGE_FILE } from './walk.js';
+import { STARTED_AFTER_IDLE } from './idle.js';
 
 /* What the night's own record is called in storage. */
 export const THE_NIGHT = 'kartaan-autosync-night';
@@ -188,6 +189,16 @@ export async function startTheNight(chrome, {
     spentOn: {},
     mayAskFor: Math.max(0, Number(mayAskFor) || 0),
   };
+  /* **AJ9 PIECE 2: HOW THIS START GOT PAST THE 3-MINUTE IDLE WAIT, FOR THE RUN LOG.** `idle.js` writes it just before it
+   * starts a run; one written more than ten minutes ago belongs to an earlier start, and it is spent once read. A start
+   * from "Run now" never goes through the wait, so it finds none. */
+  const passed = (await chrome.storage.local.get(STARTED_AFTER_IDLE))[STARTED_AFTER_IDLE];
+  if (passed) {
+    await chrome.storage.local.remove(STARTED_AFTER_IDLE);
+    if (Number.isFinite(passed.at) && at - passed.at >= 0 && at - passed.at < 10 * 60 * 1000) {
+      night.idle = { kind: passed.kind, waitedMs: Number(passed.waitedMs) || 0 };
+    }
+  }
   await chrome.storage.local.set({ [THE_NIGHT]: night });
   return night;
 }
@@ -345,6 +356,12 @@ export const RECHECK_AFTER_MINUTES = 60;
  *  simply not finished drawing. Named here rather than left to the same
  *  rule as a two-phase report, because there is no `theirId` to have missed. */
 export const RECHECK_EVEN_WITHOUT_AN_ASK = Object.freeze(['me_views', 'az_ads', 'me_returns']);
+
+/** **AJ9 PIECE 1: A TAB CLOSED MID-WALK IS RETRIED THE SAME NIGHT, NEVER JUST LOST.** Nothing is wrong on the platform
+ *  when the tab is closed (30 Oct 01:26 UTC: fk_listings, fk_orders and fk_ads_search failed this way and waited for the
+ *  next sync), so a failure that starts with this sentence is checked again in an hour like any report above. The
+ *  sentence is written once, here, and `background.js` adds who-and-why after it. */
+export const TAB_CLOSED_SAY = 'The tab this report was being fetched in was closed before the walk finished.';
 
 /* **FLIPKART TRAFFIC IS ASKED FROM THE DAY AFTER THE LAST ONE CAPTURED -- RUMEE'S WAY
  * (A53, his "yes").** Rumee remembers `fk_views_last_to` from the latest date inside
@@ -792,7 +809,14 @@ export async function thatOneIsDone(chrome, {
     let asState = state;
     let asSay = say;
     let rechecking = false;
-    if (state === 'failed' && (being[key] !== undefined || RECHECK_EVEN_WITHOUT_AN_ASK.includes(reportId))) {
+    /* **A TAB CLOSED MID-WALK (AJ9 PIECE 1) IS CHECKED AGAIN TOO -- BUT NEVER A REQUEST THAT SPENDS FLIPKART'S TWENTY
+     * UNLESS ITS ASK IS ALREADY HELD** (review finding): with no `being[key]` the recheck would press Request again and
+     * count a second one. **And a closed tab is not "the platform has not built it"**: after the third, it stays a plain
+     * failure, so nothing is given back and nothing is added to the days the platform is said not to have built. */
+    const closedTab = String(say).startsWith(TAB_CLOSED_SAY)
+      && (!SPENDS_THE_ALLOWANCE.includes(reportId) || being[key] !== undefined);
+    const platformIsBuilding = being[key] !== undefined || RECHECK_EVEN_WITHOUT_AN_ASK.includes(reportId);
+    if (state === 'failed' && (platformIsBuilding || closedTab)) {
       const tries = ((rechecks[key] && rechecks[key].tries) || 0) + 1;
       if (tries <= RECHECK_TIMES) {
         await chrome.storage.local.set({
@@ -801,12 +825,16 @@ export async function thatOneIsDone(chrome, {
         rechecking = true;
         written = {
           state: 'still-waiting',
-          say: `${say} Not ready yet, so it is checked again in an hour (${tries} of ${RECHECK_TIMES}).`,
+          say: !platformIsBuilding
+            ? `${say} It is checked again in an hour (${tries} of ${RECHECK_TIMES}).`
+            : `${say} Not ready yet, so it is checked again in an hour (${tries} of ${RECHECK_TIMES}).`,
         };
-      } else {
+      } else if (platformIsBuilding) {
         asState = NOT_AVAILABLE_YET;
         asSay = `${say} Still not ready after ${RECHECK_TIMES} hourly checks: not ready today, `
           + 'and tried again on the next sync.';
+      } else {
+        asSay = `${say} It was checked again ${RECHECK_TIMES} times and the tab was closed each time.`;
       }
     }
     if (!rechecking && rechecks[key] !== undefined) {
@@ -1171,6 +1199,16 @@ export function theReportTable(night, nameOf) {
   };
 }
 
+/** **AJ9 PIECE 2: THE RUN LOG SAYS WHETHER THE 3-MINUTE WAIT WAS KEPT**, so the next "was he at the PC?" question has an
+ *  answer written down. A start that did not go through the wait (Run now, or a log from before this) says so. */
+export function theIdleLine(night) {
+  if (!night || !night.idle) return 'Idle wait: this start did not go through the 3-minute wait (started with Run now, or it is the next platform of a sync already going).';
+  const minutes = Math.round(night.idle.waitedMs / 60000);
+  return minutes >= 1
+    ? `Idle wait: waited ${minutes} min for the computer to be free, then started after 3 min idle.`
+    : `Idle wait: the computer was already free when the ${night.idle.kind === 'recheck' ? 'hourly re-check' : 'run'} was due, so it started after 3 min idle.`;
+}
+
 /**
  * The night written out as a file for the seller's Drive (A53, 2026-09-15).
  *
@@ -1186,6 +1224,7 @@ export function theRunLog(night) {
     `Started: ${started}`,
     `Finished: ${night.finishedAt ? new Date(night.finishedAt).toISOString() : 'not yet'}`,
     `Why it ended: ${night.why || ''}`,
+    theIdleLine(night),
     ...(night.toldKartaan && night.toldKartaan.said ? [`Told Kartaan: ${night.toldKartaan.said}`] : []),
     ...(theSlowestLine(night) ? [theSlowestLine(night)] : []),
     '',
@@ -1371,7 +1410,7 @@ async function tellThatItEnded(chrome, ended, tell) {
   const ids = [...new Set([...before, ...thisNights])];
   let said;
   try {
-    said = await tell({ failed: ids });
+    said = await tell({ failed: ids, endedAt: ended.finishedAt });
   } catch (wrong) {
     said = null;
   }

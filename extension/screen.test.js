@@ -46,8 +46,9 @@ import {
 import { RELAY_TO_THE_PAGE } from './driver.js';
 import {
   A_DAYS_ALLOWANCE, KEPT_FOR_HIS_OWN_RUNS, PAUSED, RECHECKS, THE_NIGHT, carryTheNightOn, endTheNight, howTheNightWent, oneWasAskedFor,
-  startTheNight, thatOneIsBeingTried, theNight,
+  startTheNight, thatOneIsBeingTried, theIdleLine, theNight, THE_SYNC_FAILED,
 } from './nightly.js';
+import { saveTheRunPass } from './kartaan.js';
 import { MOST_DAYS_IN_A_RANGE_FILE, hasNotFinished, theWalk } from './walk.js';
 import { MANUAL, TOOLTIPS } from './manual.js';
 import {
@@ -77,6 +78,9 @@ import {
   rememberTheNight,
   saySomething,
   showHowItStands,
+  showTheEvents,
+  tellForASyncThatCannotContinue,
+  theNightsEvents,
   showTheReportTable,
   whenItNextWakes,
   theWaitingSaid,
@@ -2156,6 +2160,142 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   let threw = false;
   try { lone.aiSwitch.click(); } catch (wrong) { threw = true; }
   check('AD1: pressing the switch on a panel that was given no door does nothing and does not stop it', threw === false);
+}
+
+{
+  /* AJ9 piece 6: the panel lists what happened, in order, in plain words. */
+  const night = {
+    startedAt: 1_000_000, finishedAt: 1_900_000, why: 'all done', doing: null, idle: { waitedMs: 600000, kind: 'run' },
+    done: [
+      { reportId: 'fk_orders', state: 'landed', at: 1_200_000, say: '' },
+      { reportId: 'me_views', state: 'failed', at: 1_500_000, say: 'The tab closed, so it will be checked again in an hour.' },
+    ],
+    toldKartaan: { told: true, said: 'Kartaan has started your run.', finishedAt: 1_900_000 },
+  };
+  const events = theNightsEvents(night, (id) => (id === 'fk_orders' ? 'Flipkart orders' : id));
+  check('AJ9 6: the events run start, idle wait, each report, the end, then what Kartaan was told',
+    events.map((one) => one.words).join('|') === [
+      'The run started.', theIdleLine(night), 'Flipkart orders: fetched',
+      'me_views: failed -- The tab closed, so it will be checked again in an hour.',
+      'The run ended: all done', 'Kartaan: Kartaan has started your run.'].join('|'));
+  check('AJ9 6: a report being fetched now has no time on it', theNightsEvents({ ...night, finishedAt: null, doing: 'fk_ads' })
+    .some((one) => one.at === null && /Fetching now: fk_ads/.test(one.words)));
+  check('AJ9 6: no night, no events', theNightsEvents(null).length === 0);
+  installFakeBrowser();
+  const parts = buildThePanel(document.body, { connectTheDrive() {}, saveThePanelName() {}, runNow() {}, stop() {}, setTheHour() {} });
+  showTheEvents(parts, events);
+  check('AJ9 6: the panel draws one line per event, the report line carrying its own words',
+    parts.events.children.length === events.length
+    && [...parts.events.children].some((row) => row.textContent.includes('me_views: failed -- The tab closed')));
+  showTheEvents(parts, []);
+  check('AJ9 6: with nothing to show it says nothing has run', parts.events.children.length === 1 && /Nothing has run yet/.test(parts.events.children[0].textContent));
+}
+
+/* ------------------------------------------------ AJ9 proving: what the run-before-last's checks never saw */
+
+{
+  /* The events of the panel's answer name a report by the book's name, and by its id when the book has no such report. */
+  installFakeBrowser();
+  const { chrome } = installFakeChrome();
+  const named = BOOK.reports.find((one) => one.id === 'fk_orders');
+  await chrome.storage.local.set({
+    [THE_NIGHT]: {
+      startedAt: 1_000_000, finishedAt: null, doing: null, left: [], spent: 0,
+      done: [
+        { reportId: 'fk_orders', state: 'landed', at: 1_100_000, say: '' },
+        { reportId: 'not_in_the_book', state: 'failed', at: 1_200_000, say: '' },
+      ],
+    },
+  });
+  let words = [];
+  try { words = ((await howItStands(chrome, { book: BOOK, now: Date.now() })).events || []).map((one) => one.words); } catch (wrong) { words = []; }
+  check('AJ9: the panel\'s events name a report by its name in the book', Boolean(named) && named.name !== 'fk_orders'
+    && words.some((one) => one.startsWith(`${named.name}: `)));
+  check('AJ9: and a report the book does not know by its id', words.some((one) => one.startsWith('not_in_the_book: ')));
+  let bare = null;
+  try { bare = await howItStands(chrome, { book: { ...BOOK, reports: undefined }, now: Date.now() }); } catch (wrong) { bare = null; }
+  check('AJ9: a book with no report list still names each report by its id',
+    Boolean(bare) && (bare.events || []).some((one) => one.words.startsWith('fk_orders: ')));
+}
+
+{
+  /* theNightsEvents: an event with no time of its own takes the night's start; "Kartaan:" only when something was said. */
+  const night = { startedAt: 5000, finishedAt: 9000, why: '', done: [{ reportId: 'fk_orders', state: 'landed', say: '' }] };
+  let events = [];
+  try { events = theNightsEvents(night); } catch (wrong) { events = []; }
+  check('AJ9: a report event with no time of its own is put at the night\'s start',
+    events.some((one) => one.words.startsWith('fk_orders: ') && one.at === 5000));
+  check('AJ9: a night that told Kartaan nothing has no "Kartaan:" line', events.length > 0 && !events.some((one) => one.words.startsWith('Kartaan:')));
+  let quiet = [];
+  try { quiet = theNightsEvents({ ...night, toldKartaan: { told: false } }); } catch (wrong) { quiet = []; }
+  check('AJ9: and nor does one whose answer said no words', quiet.length > 0 && !quiet.some((one) => one.words.startsWith('Kartaan:')));
+}
+
+{
+  /* A platform refused in the middle of a sync is MERGED into the ids already failed, with no id twice. */
+  const { chrome } = installFakeChrome();
+  const parts = { book: BOOK, now: () => Date.UTC(2026, 8, 16, 3, 0), startTheNight, carryOn: async () => {}, continuing: true };
+  await answerThePanelsQuestion(chrome, parts, { do: 'check-the-drive' });
+  await chrome.storage.local.set({ [THE_SYNC_FAILED]: ['fk_claims', 'nonsense_one'], [THE_QUEUE]: [['nonsense_one'], ['nonsense_two']] });
+  try { await startTheNextPlatform(chrome, parts); } catch (wrong) { /* read below */ }
+  const kept = (await chrome.storage.local.get(THE_SYNC_FAILED))[THE_SYNC_FAILED] || [];
+  check('AJ9: refused platforms are added to the ids already failed, each once', kept.join() === 'fk_claims,nonsense_one,nonsense_two');
+  await chrome.storage.local.remove(THE_SYNC_FAILED);
+  await chrome.storage.local.set({ [THE_QUEUE]: [['nonsense_one']] });
+  try { await startTheNextPlatform(chrome, parts); } catch (wrong) { /* read below */ }
+  check('AJ9: and with nothing failed before, the refused ids alone are kept',
+    ((await chrome.storage.local.get(THE_SYNC_FAILED))[THE_SYNC_FAILED] || []).join() === 'nonsense_one');
+}
+
+{
+  /* Kartaan's no keeps the platforms never tried, and the one tell names the union, each once, at the night's own end. */
+  const { chrome } = installFakeChrome();
+  const fetch = async () => ({ status: 403, json: async () => ({ fetch: false, said: 'Not on your plan.' }) });
+  const parts = { book: BOOK, now: () => Date.UTC(2026, 8, 16, 3, 0), startTheNight, carryOn: async () => {}, continuing: true, fetch };
+  await answerThePanelsQuestion(chrome, parts, { do: 'save-the-panel-name', panel: 'xuptj' });
+  await answerThePanelsQuestion(chrome, parts, { do: 'check-the-drive' });
+  await saveTheRunPass(chrome, `${'abcDEF0123456789-_'.repeat(8)}.${'xyz789'.repeat(10)}`);
+  await chrome.storage.local.set({
+    [THE_SYNC_FAILED]: ['fk_claims', 'me_orders'], [THE_QUEUE]: [['fk_returns'], ['me_orders'], { reportIds: ['az_ads'] }],
+  });
+  let next = null;
+  try { next = await startTheNextPlatform(chrome, parts); } catch (wrong) { next = null; }
+  check('AJ9: after Kartaan\'s no, the platforms never tried are kept, a timed entry and a Run now entry alike',
+    Boolean(next) && (next.neverTried || []).join() === 'me_orders,az_ads');
+  const told = [];
+  const tell = async (what) => { told.push(what); return { told: true, said: 'heard' }; };
+  await tellForASyncThatCannotContinue(chrome, next || { started: null, refused: [] }, { startedAt: 500, finishedAt: 777 }, tell);
+  check('AJ9: the one tell names what failed, what was refused and what was never tried, each once',
+    told.length === 1 && (told[0].failed || []).join() === 'fk_claims,me_orders,fk_returns,az_ads');
+  check('AJ9: and it is named by the finished night\'s end, never the clock', told.length === 1 && told[0].endedAt === 777);
+  await chrome.storage.local.set({ [THE_SYNC_FAILED]: ['fk_claims'] });
+  let answer = null;
+  try { answer = await tellForASyncThatCannotContinue(chrome, { started: null }, null, tell); } catch (wrong) { answer = null; }
+  check('AJ9: with no done night and no refused or untried list, it still tells the held ids, with no end time',
+    Boolean(answer) && told.length === 2 && (told[1].failed || []).join() === 'fk_claims' && told[1].endedAt == null);
+}
+
+{
+  /* The panel's "What happened, in order" card holds the events list, and is drawn from what the panel was told. */
+  installFakeBrowser();
+  const { chrome } = installFakeChrome();
+  const parts = buildThePanel(document.body, { connectTheDrive() {}, saveThePanelName() {}, runNow() {}, stop() {}, setTheHour() {} });
+  const card = parts.events.parentNode;
+  check('AJ9: the card titled "What happened, in order" is on the panel and holds the events list',
+    Boolean(card) && document.body.contains(card)
+    && card.children.some((one) => one.tagName === 'h2' && one.textContent === 'What happened, in order'));
+  const stands = await howItStands(chrome, { book: BOOK, now: Date.now() });
+  showHowItStands(parts, { ...stands, events: [{ at: null, words: 'Fetching now: Flipkart orders.' }] });
+  check('AJ9: the events the panel is told are the ones drawn',
+    parts.events.children.length === 1 && parts.events.children[0].textContent === 'Fetching now: Flipkart orders.');
+  const first = parts.events.children[0];
+  showTheEvents(parts, [{ at: null, words: 'Fetching now: Flipkart orders.' }]);
+  check('AJ9: the same events again are not drawn again', parts.events.children[0] === first);
+  const fresh = buildThePanel(document.body, { connectTheDrive() {}, saveThePanelName() {}, runNow() {}, stop() {}, setTheHour() {} });
+  let threw = false;
+  try { showHowItStands(fresh, { ...stands, events: undefined }); } catch (wrong) { threw = true; }
+  check('AJ9: an answer with no events says nothing has run yet',
+    !threw && fresh.events.children.length === 1 && /Nothing has run yet/.test(fresh.events.children[0].textContent));
 }
 
 reachedTheEnd = true;
