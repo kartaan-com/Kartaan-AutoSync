@@ -30,6 +30,7 @@ order is decided in `ledger.plan`, which knows the ledger -- this file does not.
 """
 
 import hashlib
+import re
 from dataclasses import dataclass, replace
 from decimal import Decimal, InvalidOperation
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
@@ -321,6 +322,15 @@ FLIPKART_SETTLEMENT_STARTS = "Bank Settlement Value"
 # already added. A file with no such column, or two, keeps the old behaviour (no key) rather than being refused.
 FLIPKART_PAYOUT_ID = "NEFT ID"
 PAYOUT_KEY = "pay:"
+# **WHAT A PAYOUT ID LOOKS LIKE (PR1c finding 3):** eight or more characters with at least one digit, no spaces. The ledger reads these keys back out of the
+# notes the seller also types in, so a word of his own (`pay:later`) must never be taken for a payout; a NEFT id that does not look like one is treated
+# as no key (the line is then handled as an unkeyed line, which never changes a row summed from keyed payouts).
+_PAYOUT_ID = re.compile(r"^(?=\S*\d)\S{8,}$")
+
+
+def is_payout_key(token: str) -> bool:
+    """Is this notes word a payout key this program wrote?"""
+    return token.startswith(PAYOUT_KEY) and bool(_PAYOUT_ID.match(token[len(PAYOUT_KEY):]))
 
 
 def _places(columns: Sequence[str], spec: Sequence[Tuple[str, str]], **how) -> Dict[str, List[int]]:
@@ -381,7 +391,7 @@ def read_flipkart(rows: Table, data_date: str, extras: Optional[Dict[str, object
                 nameless_money += 1
             continue
         payout = "_".join(_cell(row, payout_at[0]).split()) if len(payout_at) == 1 else ""
-        lines.put((order_id, _unwrap_flipkart_sku(_cell(row, sku_at))), paid, charges, PAYOUT_KEY + payout if payout else "")
+        lines.put((order_id, _unwrap_flipkart_sku(_cell(row, sku_at))), paid, charges, PAYOUT_KEY + payout if payout and _PAYOUT_ID.match(payout) else "")
 
     aside: List[str] = []
     if nameless_money:

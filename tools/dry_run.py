@@ -37,12 +37,24 @@ def the_payouts_that_disagree(read: Sequence[Tuple[str, "reading.Reading"]]) -> 
     seen: Dict[Tuple[str, str], Dict[str, set]] = {}
     for file_name, one in read:
         for sale in one.sales:
-            for key in (k for k in (sale.notes or "").split() if k.startswith(PAYOUT_KEY)):
+            keys = [k for k in (sale.notes or "").split() if k.startswith(PAYOUT_KEY)]
+            if len(keys) > 1:
+                continue  # **A LINE MERGED FROM SEVERAL PAYOUTS HAS ONE COMBINED FIGURE (PR1c finding 9):** listed by `the_orders_with_several_payouts_in_one_file`, never read as each key's own figure.
+            for key in keys:
                 figures = seen.setdefault((key[len(PAYOUT_KEY):], sale.id), {})
                 figures.setdefault(str(sale.settlement), set()).add(file_name)
     return [
         f"payout {payout}, {line!r}: " + "; ".join(f"{figure} in {', '.join(sorted(files))}" for figure, files in sorted(figures.items()))
         for (payout, line), figures in sorted(seen.items()) if len(figures) > 1
+    ]
+
+
+def the_orders_with_several_payouts_in_one_file(read: Sequence[Tuple[str, "reading.Reading"]]) -> List[str]:
+    """Each order and SKU a single file pays in more than one payout (PR1c finding 6): such a line carries one combined figure and several keys."""
+    return [
+        f"order line {sale.id!r} has {len(keys)} payouts in ONE file {file_name}: " + ", ".join(k[len(PAYOUT_KEY):] for k in keys)
+        for file_name, one in read for sale in one.sales
+        for keys in [[k for k in (sale.notes or "").split() if k.startswith(PAYOUT_KEY)]] if len(keys) > 1
     ]
 
 
@@ -73,7 +85,7 @@ def the_dry_run(
             read_ok.append(f"{report_id}/{name}: {len(one.sales)} line(s) read" + (f", {rows_refused} row(s) refused" if rows_refused else ""))
             if report_id == "fk_payments":
                 payments_read.append((name, one))
-    return read_ok, refused, the_payouts_that_disagree(payments_read)
+    return read_ok, refused, the_payouts_that_disagree(payments_read) + the_orders_with_several_payouts_in_one_file(payments_read)
 
 
 def main(argv: Sequence[str], out: Callable[[str], None] = print) -> int:
@@ -90,8 +102,8 @@ def main(argv: Sequence[str], out: Callable[[str], None] = print) -> int:
     for line in refused:
         out("REFUSED  " + line)
     for line in contradicting:
-        out("PAYOUT CONTRADICTS ITSELF  " + line)
-    out(f"\n{len(read_ok)} file(s) read, {len(refused)} refused or not read, {len(contradicting)} payout line(s) with different figures in different files. Nothing was written.")
+        out("PAYOUT PROBLEM  " + line)
+    out(f"\n{len(read_ok)} file(s) read, {len(refused)} refused or not read, {len(contradicting)} payout problem(s) (different figures for one payout in different files, or several payouts for one order in one file). Nothing was written.")
     return 1 if refused or contradicting else 0
 
 

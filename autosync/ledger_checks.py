@@ -824,14 +824,14 @@ def _night(files, start=None):
         values = [list(r) for r in values] + [list(r) for r in made.append]
         for at, row in made.update:
             values[at - 1] = list(row)
-        said += [str(r) for r in made.restated] + [str(d) for d in made.disagreements] + [str(k) for k in made.kept]
+        said += [str(r) for r in made.restated] + [str(d) for d in made.disagreements] + [str(k) for k in made.kept] + ["QUIET:" + str(k) for k in made.kept_quietly]
     return dict(zip(sales.COLUMNS, values[-1])), said
 
 
-_sale_paid, _return_paid = _payout("N1", "2026-10-20", "196.85"), _payout("N2", "2026-10-29", "-403.35")
+_sale_paid, _return_paid = _payout("UTR-0001", "2026-10-20", "196.85"), _payout("UTR-0002", "2026-10-29", "-403.35")
 _row, _said = _night([_sale_paid, _return_paid])
 check("A10: a sale paid in one payout and taken back in a later one is the SUM of the two (196.85 + -403.35 = -206.50)",
-      Decimal(_row["settlement"]) == Decimal("-206.50") and _row["notes"] == "pay:N1 pay:N2")
+      Decimal(_row["settlement"]) == Decimal("-206.50") and _row["notes"] == "pay:UTR-0001 pay:UTR-0002")
 check("A10: and the change is said (was -> now), not made quietly", any("196.85" in line and "-206.5" in line for line in _said))
 _row, _ = _night([_sale_paid, _return_paid, _return_paid, _sale_paid])
 check("A10: the same payouts read again (overlapping files) change nothing", Decimal(_row["settlement"]) == Decimal("-206.50"))
@@ -846,7 +846,7 @@ _row, _ = _night([_sale_paid, _sale_paid], start=HEADER + [list(sales.the_row_fo
                                                                                                   settlement="196.85", payments_on="2026-10-20")))])
 check("A10 REPAIR: a row that was right (one payout, no key) is not doubled by being read again", Decimal(_row["settlement"]) == Decimal("196.85"))
 _mixed = tool.Reading("fk_payments", "2026-10-29", payments.WHAT_PAYMENTS_KNOW,
-                      (sales.Sale(platform="flipkart", order_id="OD1", sku="S", settlement="5", notes="pay:N1 pay:N3", payments_on="2026-10-29"),),
+                      (sales.Sale(platform="flipkart", order_id="OD1", sku="S", settlement="5", notes="pay:UTR-0001 pay:UTR-0003", payments_on="2026-10-29"),),
                       "file-mixed", only_existing=True)
 _row, _said = _night([_sale_paid, _mixed])
 check("A10: a file with one payout the row has and one it has not is SAID and the figure is left", Decimal(_row["settlement"]) == Decimal("196.85") and any("settlement" in line for line in _said))
@@ -854,13 +854,46 @@ check("A10: a file with one payout the row has and one it has not is SAID and th
 # The earlier payout's file is gone from the folder: the row (written before payouts were keyed) holds -403.35, and the only payout file read says -403.35.
 _row, _said = _night([_return_paid], start=HEADER + [list(_wrong)])
 check("A10: an old figure that the only payout file left agrees with stays, and the order is NAMED as kept (never silent)",
-      Decimal(_row["settlement"]) == Decimal("-403.35") and any("kept the old figure -403.35 for payout N2" in line for line in _said))
+      Decimal(_row["settlement"]) == Decimal("-403.35") and any("kept the old figure -403.35 for payout UTR-0002" in line for line in _said))
 _row, _said = _night([_sale_paid, _return_paid])
 check("A10: and an order whose payouts all arrived in order names nothing as kept", not any("kept the old figure" in line for line in _said))
 
+# ---------------------------------- PR1c: the fresh review's findings 1, 3, 4, 5, 8 (each starts from the mixed shape the reviewer said was never tried)
+def _unkeyed(on, figure, file="file-unkeyed"):
+    return tool.Reading("fk_payments", on, payments.WHAT_PAYMENTS_KNOW,
+                        (sales.Sale(platform="flipkart", order_id="OD1", sku="S", settlement=figure, payments_on=on),), file, only_existing=True)
+
+
+_row, _said = _night([_sale_paid, _return_paid, _unkeyed("2026-10-30", "10")])
+check("PR1c 1: a line with no payout key over a row summed from keyed payouts changes no money, and is SAID",
+      Decimal(_row["settlement"]) == Decimal("-206.50") and any("settlement" in line and "'10'" in line for line in _said))
+_row, _said = _night([_sale_paid, _unkeyed("2026-10-30", "196.85")])
+check("PR1c 1: an unkeyed line that agrees with the keyed row changes nothing and says nothing",
+      Decimal(_row["settlement"]) == Decimal("196.85") and not _said)
+_row, _ = _night([_sale_paid, _unkeyed("2026-10-30", "10"), _return_paid])
+check("PR1c 1: and the real payout read after the unkeyed line is still added (the sum was never destroyed)",
+      Decimal(_row["settlement"]) == Decimal("-206.50"))
+_typed = list(sales.the_row_for(sales.Sale(platform="flipkart", order_id="OD1", sku="S", settlement="196.85", payments_on="2026-10-20", notes="pay:later")))
+_row, _ = _night([_sale_paid], start=HEADER + [_typed])
+check("PR1c 3: a word the seller typed (`pay:later`) is not a payout key -- 196.85 read with payout UTR-0001 (196.85) stays 196.85, not 393.70",
+      Decimal(_row["settlement"]) == Decimal("196.85") and "pay:later" in _row["notes"] and "pay:UTR-0001" in _row["notes"])
+_row, _said = _night([_sale_paid, _payout("UTR-0001", "2026-10-30", "150", )])
+check("PR1c 4: the same payout read again with a different figure is SAID, and the figure is kept",
+      Decimal(_row["settlement"]) == Decimal("196.85") and any("'150'" in line for line in _said))
+_row, _ = _night([_return_paid, _sale_paid])
+check("PR1c 8: the day of the last payment never goes backwards when an older payout is added", _row["paymentsOn"] == "2026-10-29")
+_legacy_sale = list(sales.the_row_for(sales.Sale(platform="flipkart", order_id="OD1", sku="S", settlement="196.85", payments_on="2026-10-20")))
+_row, _said = _night([_sale_paid], start=HEADER + [_legacy_sale])
+check("PR1c 5: a legacy single-payout row re-read on the repair night is COUNTED, not named",
+      Decimal(_row["settlement"]) == Decimal("196.85") and not any("kept the old figure" in line and not line.startswith("QUIET") for line in _said)
+      and sum(line.startswith("QUIET:") for line in _said) == 1)
+_made = tool.plan(HEADER + [_legacy_sale], [_sale_paid, _return_paid], tool.WhatTheNightHasDecided())
+check("PR1c 5: but a legacy row that ends the night (one call, both payouts) with a later payout is NAMED, not counted",
+      len(_made.kept) == 1 and not _made.kept_quietly and "kept the old figure 196.85" in str(_made.kept[0]))
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-WITH_HIS_FILES = 115 + 2 + 2 + 3 + 1 + 7 + 2
+WITH_HIS_FILES = 115 + 2 + 2 + 3 + 1 + 7 + 2 + 8
 EXPECTED = WITH_HIS_FILES - (9 if not_run else 0)
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")

@@ -48,6 +48,13 @@ check("one payout carrying different figures for one order in two files is liste
 other_orders = [("a.xlsx", Pretend(("OD1", "N1", "1"))), ("b.xlsx", Pretend(("OD2", "N1", "2"), ("OD1", "N2", "3")))]
 check("different orders in one payout, or one order in different payouts, are not a contradiction", answered(lambda: dry.the_payouts_that_disagree(other_orders)) == [])
 
+merged = [("a.xlsx", Pretend(("OD1", "N1 pay:N2", "50"))), ("b.xlsx", Pretend(("OD1", "N1", "196.85")))]
+check("PR1c 9: a line holding two payout keys (one combined figure) is not read as each key's own figure",
+      answered(lambda: dry.the_payouts_that_disagree(merged)) == [])
+said = answered(lambda: dry.the_orders_with_several_payouts_in_one_file(merged)) or []
+check("PR1c 6: and it is listed as an order paid in several payouts in ONE file, with the file named",
+      len(said) == 1 and "a.xlsx" in said[0] and "N1, N2" in said[0])
+
 ok, refused, clash = answered(lambda: dry.the_dry_run({"fk_payments": [("flipkart_fk_payments_2026-10-29.xlsx", b"this is no spreadsheet")]})) or ([], [], [])
 check("a body that is no spreadsheet is REFUSED and named with the reader's own words, not skipped", ok == [] and len(refused) == 1 and "fk_payments/flipkart_fk_payments_2026-10-29.xlsx" in refused[0])
 ok, refused, clash = answered(lambda: dry.the_dry_run({"fk_payments": [("no day here.xlsx", b"x")]})) or ([], [], [])
@@ -66,7 +73,7 @@ with tempfile.TemporaryDirectory() as folder:
     check("and the file it read is exactly as it was", one.read_bytes() == b"this is no spreadsheet" and sorted(p.name for p in Path(folder).rglob("*") if p.is_file()) == [one.name])
     check("with no folder it prints the usage and answers 2", answered(lambda: dry.main(["dry_run.py"], lines.append)) == 2)
 
-EXPECTED = 9
+EXPECTED = 11
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

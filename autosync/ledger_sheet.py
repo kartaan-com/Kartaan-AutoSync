@@ -613,6 +613,11 @@ def recording_into(
             speak(f"SALES LEDGER CLAIMS  {len(unclaimed)} claim(s) have no order row in the sheet and are kept in their own records only.")
         for one in what.restated:
             speak(f"SALES LEDGER PAYMENT RESTATED  {one}")
+        if what.kept_quietly:
+            speak(
+                f"SALES LEDGER PAYMENT KEPT OLD FIGURE  kept the old figure on {len(what.kept_quietly)} row(s), total "
+                f"{sum((ledger.a_decimal(k.figure) or 0 for k in what.kept_quietly), 0)} (each agrees with its first payout; only returns and rows with a later payout are named)"
+            )
         for one in what.kept:
             speak(f"SALES LEDGER PAYMENT KEPT OLD FIGURE  {one}")
         for one in what.shared:

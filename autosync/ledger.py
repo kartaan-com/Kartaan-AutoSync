@@ -93,7 +93,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 # deciding it here would be a second answer waiting to disagree, and what it
 # decides is whether an older file may put its figure over a newer one.
 from orders import CAME_BACK, DELIVERED, NOT_UNDERSTOOD_YET, the_day_in
-from payments import PAYOUT_KEY, a_decimal, as_text, shared_by_value, two_sales_of_one_row
+from payments import PAYOUT_KEY, a_decimal, as_text, is_payout_key, shared_by_value, two_sales_of_one_row
 from sales import CHARGE_COLUMNS, COLUMNS, ERP_OWNED_COLUMNS, FROM_FIELD, Sale, a_cell, name_for, the_row_for
 from table import CannotRead
 
@@ -496,6 +496,13 @@ class KeptFigure:
         )
 
 
+def _worth_naming(one: "KeptFigure", now: Dict[str, Dict[str, str]]) -> bool:
+    """Is a kept old figure one somebody should look at: a return-type sale (nought or less), or an order that ended the night with a later payout?"""
+    figure = a_decimal(one.figure)
+    later = len([k for k in (now.get(one.name, {}).get("notes", "") or "").split() if is_payout_key(k)]) > 1
+    return figure is None or figure <= 0 or later
+
+
 @dataclass(frozen=True)
 class Plan:
     """What the door should do, and what nobody could decide."""
@@ -515,6 +522,9 @@ class Plan:
     restated: Tuple[Restated, ...] = ()
     # **A FLIPKART ROW'S OLD FIGURE THAT A PAYOUT FILE AGREED WITH (PR1, A10).** Each is named, never a count on its own.
     kept: Tuple["KeptFigure", ...] = ()
+    # **THE ORDINARY ONES, COUNTED NOT NAMED (PR1c finding 5):** a single-payout row re-read on the repair night is almost every Flipkart order. They are
+    # said as one count and one total; `kept` names only a return-type row (a sale of nought or less) or one that ended the night with a later payout.
+    kept_quietly: Tuple["KeptFigure", ...] = ()
     # **A CHARGE SHARED ACROSS AN ORDER'S ROWS (D563).** The ledger has no column to mark a share, so each is named here and in the night's lines.
     shared: Tuple[SharedCharge, ...] = ()
 
@@ -993,10 +1003,20 @@ def plan(
             # that takes it back in a later one. The row's money is the sum of its DISTINCT payouts, so a payout whose key the row's notes already
             # hold changes nothing (the same payout in an overlapping file), and one it does not hold is a different line -- arriving older than
             # the row is no reason to lose it. A row with NO payout key yet (everything written before this) takes the first one as it always did.
-            pay_keys = {k for k in (sale.notes or "").split() if k.startswith(PAYOUT_KEY)}
-            standing_pays = {k for k in (now[name].get("notes", "") or "").split() if k.startswith(PAYOUT_KEY)} if name in now else set()
+            # **ONLY A WORD OF THE SHAPE THIS PROGRAM WRITES IS A PAYOUT KEY (PR1c finding 3):** a word the seller typed into the notes (`pay:later`) is not.
+            pay_keys = {k for k in (sale.notes or "").split() if is_payout_key(k)}
+            standing_pays = {k for k in (now[name].get("notes", "") or "").split() if is_payout_key(k)} if name in now else set()
             pay_seen = bool(pay_keys) and pay_keys <= standing_pays
             pay_new = bool(pay_keys) and not pay_seen
+            # **A LINE WITH NO PAYOUT KEY OVER A ROW SUMMED FROM KEYED PAYOUTS CHANGES NO MONEY (PR1c finding 1):** a missing or renamed NEFT column, or a
+            # blank cell, would otherwise REPLACE the sum with that one line's figure, and reading the real payout afterwards would do nothing (its key is
+            # already on the row). It is said instead. A no-SKU fee line is keyed its own way and still adds.
+            pay_blind = bool(standing_pays) and not pay_keys and name not in only_a_fee
+            # **THE SAME PAYOUT AGAIN WITH A DIFFERENT FIGURE (PR1c finding 4):** only a row holding exactly that one payout (and no fee added to its figure) can be compared.
+            pay_restated_figure = (pay_seen and len(standing_pays) == 1 and name not in only_a_fee and name in now
+                                   and not any(_FEE_KEY.match(k) or k.startswith(_FEE_BASE) for k in (now[name].get("notes", "") or "").split())
+                                   and a_decimal(str(says.get("settlement", ""))) is not None and a_decimal(str(now[name].get("settlement", ""))) is not None
+                                   and a_decimal(str(says["settlement"])) != a_decimal(str(now[name]["settlement"])))
             pay_adds = pay_new and bool(standing_pays) and not (pay_keys & standing_pays)
             if name in now and not pay_new:
                 too_old = older_than_the_row(now[name], reading)
@@ -1010,6 +1030,13 @@ def plan(
                     ))
                     continue
 
+            if (pay_blind or pay_restated_figure) and a_decimal(str(says.get("settlement", ""))) is not None \
+                    and a_decimal(str(says.get("settlement", ""))) != a_decimal(str(now[name].get("settlement", ""))):
+                disagreements.append(Disagreement(
+                    name=name, column="settlement", kept=str(now[name].get("settlement", "")),
+                    also_said=str(says.get("settlement", "")), from_report=reading.report, on=reading.on,
+                    kept_from=THE_SHEET_REMEMBERS, also_from=reading.one_statement,
+                ))
             if name not in now:
                 # **A NEW SALE STARTS AS EVERY COLUMN BLANK**, then takes what
                 # this report knows. A blank means "nobody has worked this out
@@ -1057,7 +1084,11 @@ def plan(
             for column, value in says.items():
                 if column == "id":
                     continue
-                if (fee_seen or re_download or pay_seen) and (column == "settlement" or column in CHARGE_COLUMNS):
+                if (fee_seen or re_download or pay_seen or pay_blind) and (column == "settlement" or column in CHARGE_COLUMNS):
+                    continue
+                # **THE DAY OF THE LAST PAYMENT NEVER GOES BACKWARDS WHEN AN OLDER PAYOUT IS ADDED (PR1c finding 8):** the age check and the ERP read it.
+                if (column == "paymentsOn" and (pay_new or pay_blind) and _is_a_day(now[name].get(column, "")) and _is_a_day(value)
+                        and str(value) < str(now[name].get(column, ""))):
                     continue
                 was = now[name].get(column, "")
                 added = False
@@ -1224,6 +1255,7 @@ def plan(
         left_alone=tuple(left_alone),
         unmatched=tuple(unmatched),
         restated=tuple(restated),
-        kept=tuple(kept),
+        kept=tuple(k for k in kept if _worth_naming(k, now)),
+        kept_quietly=tuple(k for k in kept if not _worth_naming(k, now)),
         shared=tuple(shared),
     )

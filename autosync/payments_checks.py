@@ -1344,6 +1344,8 @@ def _flipkart_with_payout(header, payout):
 _paid = answered(lambda: read_as("fk_payments", "flipkart_fk_payments_2026-08-28.xlsx", _flipkart_with_payout(_with_payout, "NFT-/XUTR/AB1 ")))
 check("A10: a Flipkart line carries its payout's NEFT id as a key (spaces inside it turned to underscores, the trailing one dropped)",
       _paid is not None and _paid[0].sales[0].notes == "pay:NFT-/XUTR/AB1")
+_short = answered(lambda: read_as("fk_payments", "flipkart_fk_payments_2026-08-28.xlsx", _flipkart_with_payout(_with_payout, "later")))
+check("PR1c 3: a NEFT id that does not look like one (too short, no digit) is no key", _short is not None and _short[0].sales[0].notes is None)
 _unkeyed = answered(lambda: read_as("fk_payments", "flipkart_fk_payments_2026-08-28.xlsx", _flipkart_with_payout(_with_payout[:-1] + ["Other"], "x")))
 check("A10: a file with no NEFT id column is read as before, without a key, not refused",
       _unkeyed is not None and _unkeyed[0].sales[0].notes is None)
@@ -1356,7 +1358,7 @@ if failures:
     print(f"{len(failures)} FAILED: {failures}")
     sys.exit(1)
 WITHOUT = ran - real_ran
-if WITHOUT != 95 + 22 + 17 + 8 + 2 + 3 + 5 + 3 + 5 + 14 + 9 + 4 + 2 + 1 + 1 + 2:  # one 1 is N018 (AU3 #6), the other AP11 proving, the 14 are A90d proving, the 9 A90e (D581), the 6 A90f (D582)
-    print(f"FAIL  checks went missing -- {WITHOUT} ran without his files, 193 expected")
+if WITHOUT != 95 + 22 + 17 + 8 + 2 + 3 + 5 + 3 + 5 + 14 + 9 + 4 + 2 + 1 + 1 + 2 + 1:  # one 1 is N018 (AU3 #6), the other AP11 proving, the 14 are A90d proving, the 9 A90e (D581), the 6 A90f (D582)
+    print(f"FAIL  checks went missing -- {WITHOUT} ran without his files, 194 expected")
     sys.exit(1)
 print(f"all {ran} checks passed" + ("" if real_ran == HIS_FILES_GROUP else f" ({HIS_FILES_GROUP - real_ran} of his real-file checks not run -- the files are elsewhere)"))
