@@ -2085,6 +2085,16 @@
         "tools/proving.py",
         "tools/proving_checks.py"
       ]
+    },
+    {
+      "id": "dry-run",
+      "name": "A read-only dry run of the readers over a folder of old files, before they are moved in (PR1)",
+      "what": "tools/dry_run.py runs each report's own reader over a local folder (one sub-folder per report), lists every refused or unreadable file in the reader's own words, and lists each Flipkart payout that carries different figures for one order in different files (the A10 release condition). It opens files to read only and writes nothing anywhere.",
+      "rests_on": [],
+      "files": [
+        "tools/dry_run.py",
+        "tools/dry_run_checks.py"
+      ]
     }
   ]
 }
