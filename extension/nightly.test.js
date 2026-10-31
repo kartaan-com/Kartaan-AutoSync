@@ -56,6 +56,7 @@ import {
   theRangeOfTheDays,
   TAB_CLOSED_SAY,
 } from './nightly.js';
+import { STARTED_AFTER_IDLE } from './idle.js';
 import { NOT_AVAILABLE_YET as THE_WALKS_WORD } from './walk.js';
 
 process.on('uncaughtException', (err) => {
@@ -1246,6 +1247,28 @@ check('and three days of trying is the reference\'s own number', GIVE_UP_AFTER_D
 }
 
 {
+  /* **AJ9 PIECE 2: THE RUN LOG SAYS WHETHER THE 3-MINUTE WAIT WAS KEPT.** */
+  const waited = installFakeChrome();
+  const at = 5_000_000_000_000;
+  await waited.chrome.storage.local.set({ [STARTED_AFTER_IDLE]: { kind: 'daily', waitedMs: 7 * 60000, at: at - 1000 } });
+  const night = await startTheNight(waited.chrome, { doing: ['fk_views'], at, openAt: 'https://x/', dataDate: '2026-10-29' });
+  check('a night started after waiting carries how long it waited, and the note is spent',
+    night.idle.waitedMs === 7 * 60000 && !(await waited.chrome.storage.local.get(STARTED_AFTER_IDLE))[STARTED_AFTER_IDLE]);
+  check('the run log says it waited 7 min and started after 3 min idle',
+    theRunLog({ ...night, finishedAt: at + 1 }).text.includes('Idle wait: waited 7 min for the computer to be free, then started after 3 min idle.'));
+  const stale = installFakeChrome();
+  await stale.chrome.storage.local.set({ [STARTED_AFTER_IDLE]: { kind: 'daily', waitedMs: 0, at: at - 3 * 3600000 } });
+  const byHand = await startTheNight(stale.chrome, { doing: ['fk_views'], at, openAt: 'https://x/', dataDate: '2026-10-29' });
+  check('a note from hours ago is not mistaken for this start, and the log says it did not go through the wait',
+    byHand.idle === undefined && theRunLog({ ...byHand, finishedAt: at + 1 }).text.includes('did not go through the 3-minute wait'));
+  const free = installFakeChrome();
+  await free.chrome.storage.local.set({ [STARTED_AFTER_IDLE]: { kind: 'daily', waitedMs: 0, at } });
+  const now = await startTheNight(free.chrome, { doing: ['fk_views'], at, openAt: 'https://x/', dataDate: '2026-10-29' });
+  check('a start that never had to wait says the computer was already free',
+    theRunLog({ ...now, finishedAt: at + 1 }).text.includes('already free at the scheduled time'));
+}
+
+{
   /* **AJ9 PIECE 1 (30 Oct 01:26 UTC): A TAB CLOSED MID-WALK IS CHECKED AGAIN IN AN HOUR, FOR ANY REPORT.** fk_listings
    * and fk_ads_search failed on "the tab was closed" with no asking phase and were not in the list above, so they were
    * lost until the next sync. Another failure for the same report is still just a failure. */
@@ -2196,7 +2219,7 @@ check('report table: null night gives null', theReportTable(null, () => '') === 
   check('report table: an earlier step that was not "still waiting" does not make not-built asked',
     q.status === 'toFetch' && q.word === 'Not built yet');
 }
-const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2;
+const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 4;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

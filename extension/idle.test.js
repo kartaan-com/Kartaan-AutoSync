@@ -1,5 +1,5 @@
 import { installFakeChrome } from '../test/fake-chrome.js';
-import { ASK_AGAIN_MINUTES, IDLE_ALARM, askAgainIfWaiting, IDLE_SECONDS, WAITING, carryOnWaiting, computerInUse, startWhenFree, whatIsWaiting } from './idle.js';
+import { STARTED_AFTER_IDLE, ASK_AGAIN_MINUTES, IDLE_ALARM, askAgainIfWaiting, IDLE_SECONDS, WAITING, carryOnWaiting, computerInUse, startWhenFree, whatIsWaiting } from './idle.js';
 process.on('uncaughtException', (err) => { console.log(`FAIL  the checks stopped part way through: ${(err && err.message) || String(err)}`); process.exit(1); });
 process.on('unhandledRejection', (err) => { console.log(`FAIL  something was waited on and never came back: ${(err && err.message) || String(err)}`); process.exit(1); });
 let failures = 0; let ran = 0;
@@ -330,5 +330,24 @@ function check(name, passed) { ran++; console.log(`${passed ? 'PASS' : 'FAIL'}  
   await askAgainIfWaiting(lost.chrome);
   check('and one that is already there is left alone', lost.alarms().find((one) => one.name === IDLE_ALARM).scheduledTime === stamp);
 }
+{
+  /* AJ9 piece 2: how a start got past the idle wait is written down for the run log. */
+  const t0 = 1_000_000_000_000;
+  const free = installFakeChrome();
+  free.setTheComputer('idle');
+  await startWhenFree(free.chrome, 'daily', async () => {}, t0);
+  const direct = (await free.chrome.storage.local.get(STARTED_AFTER_IDLE))[STARTED_AFTER_IDLE];
+  check('a start with the computer already free is noted with no wait', direct.kind === 'daily' && direct.waitedMs === 0 && direct.at === t0);
+
+  const busy = installFakeChrome();
+  busy.setTheComputer('active');
+  await startWhenFree(busy.chrome, 'daily', async () => {}, t0);
+  check('a start held back leaves no note yet', !(await busy.chrome.storage.local.get(STARTED_AFTER_IDLE))[STARTED_AFTER_IDLE]);
+  busy.setTheComputer('idle');
+  await carryOnWaiting(busy.chrome, { daily: async () => {} }, t0 + 7 * 60000);
+  const late = (await busy.chrome.storage.local.get(STARTED_AFTER_IDLE))[STARTED_AFTER_IDLE];
+  check('a start that waited seven minutes says so', late.kind === 'daily' && late.waitedMs === 7 * 60000);
+}
+
 console.log(`\n${ran - failures} of ${ran} passed`);
 process.exit(failures ? 1 : 0);

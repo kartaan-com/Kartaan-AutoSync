@@ -24,6 +24,7 @@
  */
 
 import { MOST_DAYS_IN_A_RANGE_FILE } from './walk.js';
+import { STARTED_AFTER_IDLE } from './idle.js';
 
 /* What the night's own record is called in storage. */
 export const THE_NIGHT = 'kartaan-autosync-night';
@@ -188,6 +189,16 @@ export async function startTheNight(chrome, {
     spentOn: {},
     mayAskFor: Math.max(0, Number(mayAskFor) || 0),
   };
+  /* **AJ9 PIECE 2: HOW THIS START GOT PAST THE 3-MINUTE IDLE WAIT, FOR THE RUN LOG.** `idle.js` writes it just before it
+   * starts a run; one written more than ten minutes ago belongs to an earlier start, and it is spent once read. A start
+   * from "Run now" never goes through the wait, so it finds none. */
+  const passed = (await chrome.storage.local.get(STARTED_AFTER_IDLE))[STARTED_AFTER_IDLE];
+  if (passed) {
+    await chrome.storage.local.remove(STARTED_AFTER_IDLE);
+    if (Number.isFinite(passed.at) && at - passed.at >= 0 && at - passed.at < 10 * 60 * 1000) {
+      night.idle = { kind: passed.kind, waitedMs: Number(passed.waitedMs) || 0 };
+    }
+  }
   await chrome.storage.local.set({ [THE_NIGHT]: night });
   return night;
 }
@@ -1178,6 +1189,16 @@ export function theReportTable(night, nameOf) {
   };
 }
 
+/** **AJ9 PIECE 2: THE RUN LOG SAYS WHETHER THE 3-MINUTE WAIT WAS KEPT**, so the next "was he at the PC?" question has an
+ *  answer written down. A start that did not go through the wait (Run now, or a log from before this) says so. */
+export function theIdleLine(night) {
+  if (!night || !night.idle) return 'Idle wait: this start did not go through the 3-minute wait (started with Run now, or it is the next platform of a sync already going).';
+  const minutes = Math.round(night.idle.waitedMs / 60000);
+  return minutes >= 1
+    ? `Idle wait: waited ${minutes} min for the computer to be free, then started after 3 min idle.`
+    : 'Idle wait: the computer was already free at the scheduled time, so it started after 3 min idle.';
+}
+
 /**
  * The night written out as a file for the seller's Drive (A53, 2026-09-15).
  *
@@ -1193,6 +1214,7 @@ export function theRunLog(night) {
     `Started: ${started}`,
     `Finished: ${night.finishedAt ? new Date(night.finishedAt).toISOString() : 'not yet'}`,
     `Why it ended: ${night.why || ''}`,
+    theIdleLine(night),
     ...(night.toldKartaan && night.toldKartaan.said ? [`Told Kartaan: ${night.toldKartaan.said}`] : []),
     ...(theSlowestLine(night) ? [theSlowestLine(night)] : []),
     '',

@@ -6,6 +6,16 @@ export const WAITING = 'kartaan-autosync-waiting-for-idle';
 /** How long to wait before asking again. */
 export const ASK_AGAIN_MINUTES = 1;
 
+/** AJ9 piece 2: chrome.storage.local key: { kind, waitedMs, at } -- how the run just started got past the idle wait.
+ *  `startTheNight` reads it into the night so the run log can say so; a start that did not come through here (Run now)
+ *  leaves none. */
+export const STARTED_AFTER_IDLE = 'kartaan-autosync-started-after-idle';
+
+async function noteTheStart(chrome, kind, since, now) {
+  const waitedMs = Number.isFinite(since) ? Math.max(0, now - since) : 0;
+  await chrome.storage.local.set({ [STARTED_AFTER_IDLE]: { kind, waitedMs, at: now } });
+}
+
 let turn = Promise.resolve();
 
 function oneAtATime(job) {
@@ -46,6 +56,7 @@ export async function startWhenFree(chrome, kind, start, now = Date.now()) {
 
     const stored = await chrome.storage.local.get(WAITING);
     const waiting = stored[WAITING] || {};
+    const since = waiting[kind];
     delete waiting[kind];
     if (Object.keys(waiting).length) {
       await chrome.storage.local.set({ [WAITING]: waiting });
@@ -53,6 +64,7 @@ export async function startWhenFree(chrome, kind, start, now = Date.now()) {
       await chrome.storage.local.remove(WAITING);
       await chrome.alarms.clear(IDLE_ALARM);
     }
+    await noteTheStart(chrome, kind, since, now);
     await start();
     return true;
   });
@@ -93,6 +105,7 @@ export async function carryOnWaiting(chrome, starts, now = Date.now()) {
         continue;
       }
       try {
+        await noteTheStart(chrome, kind, waiting[kind], now);
         await start();
       } catch (error) {
         console.warn(`Kartaan Auto-sync: the waiting ${kind} run could not start.`, (error && error.message) || String(error));
