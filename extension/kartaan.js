@@ -370,6 +370,32 @@ export async function tellTheProblem(chrome, fetchImpl, { names, timeoutMs = WAI
   }
 }
 
+/** The night a "save the run pass" notice was last shown for (AJ9 3b): one notice per night, never repeated. */
+export const THE_NO_PASS_NOTICE = 'kartaan-autosync-no-pass-notice-night';
+
+/**
+ * **WITH NO RUN PASS SAVED NOTHING CAN BE SENT, SO HE IS TOLD AT THE COMPUTER, ONCE A NIGHT (AJ9 3b, A12's real cause).**
+ * A browser notification in plain words saying what to press. Remembered by the night's end, so a second tell the
+ * same night shows nothing. Never throws, never changes how the night went. Answers whether one was shown.
+ */
+export async function tellHimToSaveThePass(chrome, nightKey) {
+  try {
+    if (!chrome.notifications) return false;
+    const done = (await chrome.storage.local.get(THE_NO_PASS_NOTICE))[THE_NO_PASS_NOTICE];
+    if (done === nightKey) return false;
+    await chrome.storage.local.set({ [THE_NO_PASS_NOTICE]: nightKey });
+    chrome.notifications.create(`kartaan-no-pass-${nightKey}`, {
+      type: 'basic', iconUrl: chrome.runtime.getURL('icon128.png'), title: 'AutoSync cannot tell Kartaan yet',
+      message: 'Open the AutoSync panel, paste the run pass from Kartaan\'s page (Run pass), and press Save. '
+        + 'Until then your reports are fetched but Kartaan is not told.',
+      requireInteraction: true, priority: 2,
+    }, () => { void chrome.runtime.lastError; });
+    return true;
+  } catch (wrong) {
+    return false;
+  }
+}
+
 /**
  * `tellFinished`, and then -- only when some report failed or needs him -- the message to him. **The sentence that
  * comes back says both**, so the run log's "Told Kartaan" line shows whether his messages were told. Never throws.
@@ -378,6 +404,7 @@ export async function tellFinishedAndAlert(chrome, fetchImpl, {
   failed = [], endedAt = null, timeoutMs = WAIT_AT_MOST_MS, at = Date.now(),
 } = {}) {
   const answer = await tellFinished(chrome, fetchImpl, { failed, timeoutMs, at });
+  if (answer.kind === 'no-pass') await tellHimToSaveThePass(chrome, Number.isFinite(endedAt) && endedAt ? endedAt : at);
   const names = theFailedReportsToSend(failed);
   if (!names.length) return answer;
   const alert = await tellTheProblem(chrome, fetchImpl, {

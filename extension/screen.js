@@ -1049,6 +1049,7 @@ export async function startTheScheduledSync(chrome, parts) {
 export async function startTheNextPlatform(chrome, parts) {
   const left = [...((await chrome.storage.local.get(THE_QUEUE))[THE_QUEUE] || [])];
   const refused = [];
+  const neverTried = [];
   while (left.length) {
     /* A Run now entry carries its days (A61, Job 5b); a timed one is the ids alone. */
     const entry = left.shift();
@@ -1069,13 +1070,15 @@ export async function startTheNextPlatform(chrome, parts) {
     /* **KARTAAN'S NO (OR NO ANSWER) STOPS THE WHOLE QUEUE.** The next platform would only ask the same question and
      * get the same answer -- and the server counts every ask against a thirty-a-day allowance. */
     if (said && said.kartaanSaid) {
+      /* **THE PLATFORMS NEVER TRIED ARE KEPT (neverTried), AND THE EARLIER PLATFORMS' FAILED LIST IS KEPT TOO (AJ9 3b).** The
+       * one place that tells (`tellForASyncThatCannotContinue`) names both, so a report that did not get fetched is not
+       * left without a word to him just because Kartaan said no to starting the next platform. */
+      for (const rest of left) neverTried.push(...(Array.isArray(rest) ? rest : rest.reportIds));
       await chrome.storage.local.set({ [THE_QUEUE]: [] });
-      /* Nothing more will run, so no whole sync is left to tell about: the earlier platforms' ids are dropped. */
-      await chrome.storage.local.remove(THE_SYNC_FAILED);
       break;
     }
   }
-  return { started: null, refused };
+  return { started: null, refused, neverTried };
 }
 
 /**
@@ -1091,7 +1094,10 @@ export async function tellForASyncThatCannotContinue(chrome, next, doneNight, te
     const held = (await chrome.storage.local.get(THE_SYNC_FAILED))[THE_SYNC_FAILED];
     if (held === undefined) return null;
     await chrome.storage.local.remove(THE_SYNC_FAILED);
-    const said = await tell({ failed: [...held] });
+    /* A platform that never started has fetched nothing, so every report of it is told as one that did not land (AJ9 3b). */
+    const neverStarted = [...(next.refused || []).flatMap((one) => (Array.isArray(one.reportIds) ? one.reportIds : [])),
+      ...(next.neverTried || [])];
+    const said = await tell({ failed: [...new Set([...held, ...neverStarted])] });
     const toldKartaan = {
       startedAt: doneNight && doneNight.startedAt,
       finishedAt: doneNight && doneNight.finishedAt,

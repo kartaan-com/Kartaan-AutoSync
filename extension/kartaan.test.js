@@ -27,6 +27,7 @@ import {
   saveTheRunPass,
   tellFinished,
   tellFinishedAndAlert,
+  tellHimToSaveThePass,
   TELL_ADDRESS,
   theFailedReportsToSend,
   whatKartaanLastSaid,
@@ -636,8 +637,24 @@ async function oneNightThatEnds({ chrome, tell, doing, failedId, at }) {
   await withAPass(chrome);
   await chrome.storage.local.set({ [THE_SYNC_FAILED]: ['left_by_platform_one'] });
   await startTheScheduledSync(chrome, { ...parts, continuing: true });
-  check('Kartaan\'s no empties the queue and drops the remembered list: no half-done whole sync is ever told',
+  check('Kartaan\'s no empties the queue but KEEPS the remembered list, so the earlier platforms\' failures are still told (AJ9 3b)',
     ((await chrome.storage.local.get(THE_QUEUE))[THE_QUEUE] || []).length === 0
+    && (await chrome.storage.local.get(THE_SYNC_FAILED))[THE_SYNC_FAILED].join() === 'left_by_platform_one');
+}
+
+{
+  /* AJ9 3b: Kartaan's no on platform two also leaves platform three untried; the one tell names ALL of them. */
+  const server = aServerThat({ status: 403, body: { fetch: false, said: 'Not on your plan.' } });
+  const { chrome, parts } = await aSetUpPanel({ fetch: server.fetch });
+  await withAPass(chrome);
+  await chrome.storage.local.set({
+    [THE_SYNC_FAILED]: ['fk_claims'], [THE_QUEUE]: [['me_orders'], { reportIds: ['az_ads'] }],
+  });
+  const next = await startTheNextPlatform(chrome, { ...parts, continuing: true });
+  const told = [];
+  await tellForASyncThatCannotContinue(chrome, next, null, async ({ failed }) => { told.push(failed.join()); return { told: true }; });
+  check('Kartaan\'s no: the earlier failure, the refused platform and the untried one are all told, once',
+    told.length === 1 && told[0] === 'fk_claims,me_orders,az_ads'
     && (await chrome.storage.local.get(THE_SYNC_FAILED))[THE_SYNC_FAILED] === undefined);
 }
 
@@ -656,8 +673,8 @@ async function oneNightThatEnds({ chrome, tell, doing, failedId, at }) {
   check('the second platform start is refused (nothing started, not waiting) and nothing is told yet',
     next.started === null && !next.waiting && next.refused.length === 1 && told().length === 0);
   const answer = await tellForASyncThatCannotContinue(chrome, next, first, tell);
-  check('then exactly ONE tell goes out, with the first platform\'s ids, and the list is forgotten',
-    told().length === 1 && formOf(told()[0]).failed === 'fk_claims' && answer.told === true
+  check('then exactly ONE tell goes out, with the first platform\'s ids AND the platform that never started, and the list is forgotten',
+    told().length === 1 && formOf(told()[0]).failed === 'fk_claims,me_orders' && answer.told === true
     && (await chrome.storage.local.get(THE_SYNC_FAILED))[THE_SYNC_FAILED] === undefined);
   check('and the answer replaces "waiting" on the earlier night',
     (await theNight(chrome)).toldKartaan.told === true);
@@ -879,7 +896,25 @@ check('kartaan.js opens no connection of its own: it is handed one',
     server.calls.length === 0 && got.said.includes('no run pass is saved'));
 }
 
-const EXPECTED = 121 + 9;
+{
+  /* AJ9 3b: no run pass saved -> ONE plain browser notice per night, never repeated that night. */
+  const server = aServerThat({ body: { started: true, said: 'ok' } });
+  const { chrome } = installFakeChrome();
+  const shown = [];
+  chrome.notifications = { create: (id, options, done) => { shown.push({ id, options }); done && done(); } };
+  chrome.runtime.getURL = (path) => `chrome-extension://x/${path}`;
+  await tellFinishedAndAlert(chrome, server.fetch, { failed: [], endedAt: 500 });
+  await tellFinishedAndAlert(chrome, server.fetch, { failed: [], endedAt: 500 });
+  check('with no run pass one notice goes out for the night, saying what to press, and the second tell shows none',
+    shown.length === 1 && /paste the run pass/.test(shown[0].options.message) && /Save/.test(shown[0].options.message));
+  await tellFinishedAndAlert(chrome, server.fetch, { failed: [], endedAt: 900 });
+  check('and the next night is told again', shown.length === 2);
+  await withAPass(chrome);
+  await tellFinishedAndAlert(chrome, server.fetch, { failed: [], endedAt: 1300 });
+  check('with a pass saved no notice is shown', shown.length === 2 && (await tellHimToSaveThePass({ storage: chrome.storage }, 1)) === false);
+}
+
+const EXPECTED = 121 + 9 + 1 + 3;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;
