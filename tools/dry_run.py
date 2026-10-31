@@ -24,7 +24,7 @@ sys.path.insert(0, str(ROOT / "autosync"))
 
 import reading  # noqa: E402
 import whats_new  # noqa: E402
-from payments import PAYOUT_KEY  # noqa: E402
+from payments import PAYOUT_KEY, is_payout_key  # noqa: E402
 
 NOT_READ_HERE = ("az_settlements",)
 
@@ -37,7 +37,7 @@ def the_payouts_that_disagree(read: Sequence[Tuple[str, "reading.Reading"]]) -> 
     seen: Dict[Tuple[str, str], Dict[str, set]] = {}
     for file_name, one in read:
         for sale in one.sales:
-            keys = [k for k in (sale.notes or "").split() if k.startswith(PAYOUT_KEY)]
+            keys = [k for k in (sale.notes or "").split() if is_payout_key(k)]
             if len(keys) > 1:
                 continue  # **A LINE MERGED FROM SEVERAL PAYOUTS HAS ONE COMBINED FIGURE (PR1c finding 9):** listed by `the_orders_with_several_payouts_in_one_file`, never read as each key's own figure.
             for key in keys:
@@ -54,7 +54,7 @@ def the_orders_with_several_payouts_in_one_file(read: Sequence[Tuple[str, "readi
     return [
         f"order line {sale.id!r} has {len(keys)} payouts in ONE file {file_name}: " + ", ".join(k[len(PAYOUT_KEY):] for k in keys)
         for file_name, one in read for sale in one.sales
-        for keys in [[k for k in (sale.notes or "").split() if k.startswith(PAYOUT_KEY)]] if len(keys) > 1
+        for keys in [[k for k in (sale.notes or "").split() if is_payout_key(k)]] if len(keys) > 1
     ]
 
 
