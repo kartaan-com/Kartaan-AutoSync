@@ -207,6 +207,50 @@ jobs:
           # fix is what makes a merge get asked at all. **A stated limit is worth
           # more than a guard that looks stronger than it is.**
           # ------------------------------------------------------------------------
+          # **D852 (his yes, Control chat): THE PAST SAVES MADE WITH THE HOOKS OFF ARE
+          # ACCEPTED ON THEIR RELEASE RECORDS, AND THE CHECK STARTS FRESH FROM HERE.**
+          # These commits were made in clones where the commit-msg hook was not turned
+          # on, so none carries the tag. Each is named by its FULL id with the record
+          # that covers it. Nothing else is excused: a commit not on this list without
+          # the tag is refused exactly as before. It is not a list that grows: a new
+          # untagged commit is a refusal, never a new line here.
+          #   v0.1.24 (AD1, BR1): review and security records naming d2e94b1 with a
+          #   scope reaching ae7d023, and the proving record naming ae7d023.
+          #   v0.1.25 (PR1, PR1c): review, security, proving and real-files records
+          #   on 2198a06; the release commits and both announces change only the
+          #   version (version.json, extension/manifest.json) and the record notes.
+          D852_ACCEPTED='
+          d2e94b1d6115fee6b742279d3e794880f6023ec3 v0.1.24-records-on-ae7d023
+          be205b961ae8b78f6c0f1b08c25ccd0a8c9334cc v0.1.24-records-on-ae7d023
+          b06cdf8ca91aba3d76f8ae3d5153f574a38608ec v0.1.24-records-on-ae7d023
+          ae7d0238eea7e144fac965b6790a4bd8a65ecd94 v0.1.24-records-on-ae7d023
+          7e33432073ff6779111e425f2ccf2b94944f5ddc v0.1.24-records-on-ae7d023
+          b69740091ade74e276f9044671a1248bb74aaf60 v0.1.24-release-version-only
+          750c124b20d4ea08df9bf16ca6b707c0202584a4 v0.1.25-records-on-2198a06
+          2a4733cde536b36d5f56665eddf664682a34ec34 v0.1.25-records-on-2198a06
+          e70b9767556e49d0a58d6eb0488fdc5f74b3f664 v0.1.25-records-on-2198a06
+          151f945869fcbbed6d82f5e4f42ea66a7b26bc0d v0.1.25-records-on-2198a06
+          36b840f08205dbf73dab80e7f6405590111244f4 v0.1.25-records-on-2198a06
+          429242ae6f7305d3ef42a2d19f7bc55a627f233e v0.1.25-records-on-2198a06
+          e05ba2bb931a3b97bbfdfaef0afcb4b8944cd493 v0.1.25-records-on-2198a06
+          b347d83b9e06e07c37a10eefa63bd20c190d2f08 v0.1.25-records-on-2198a06
+          fe1b866453b6a3efc9c852faecd22e713ca04447 v0.1.25-records-on-2198a06
+          6b945015ae8bee406f28eca9a00431023071b10c v0.1.25-records-on-2198a06
+          1c70866fcff20fd142f0cce1d809b0d921770566 v0.1.25-records-on-2198a06
+          45a16862366d7d994e098353033bdd0e1817eff9 v0.1.25-records-on-2198a06
+          4c2e3d24446851b6f6b2f7e53f58ccc670922c0d v0.1.25-records-on-2198a06
+          173ab2024659e2bc1135bcc436d774abb7abe2d2 v0.1.25-records-on-2198a06
+          79535ebe91e307f1d54ee200f3c4323b1fa380af v0.1.25-records-on-2198a06
+          75ecd0ccaaebce23fad9baf7a739d62aa43c9a6f v0.1.25-records-on-2198a06
+          da2d391f8d2d8cfc7514cb41dfec6dfd57013580 v0.1.24-announce-version-only
+          738fc243d7032fe4e61151889fdc512fa6f2ac17 v0.1.25-records-on-2198a06
+          574541df1fa1318c2d4cb85a3e302ba2c251f84c v0.1.25-records-on-2198a06
+          0dac5d3fead7d0b67925db5426219c7c3b899711 v0.1.25-records-on-2198a06
+          2198a06d893876a493e04b5e850c03d6aae1b41f v0.1.25-records-on-2198a06
+          1e2c2dd725e1f7c1dbb09f8d2f424a771a80ab64 v0.1.25-the-records-themselves
+          9d7d0902df7ed3b1708b649c86be56179aa29a6c v0.1.25-release-version-only
+          899a09d5c7a41c74eab957cdb27eb15e1d030427 v0.1.25-announce-version-only
+          '
           MISSING=0
           for sha in $(git rev-list "${{ steps.changed.outputs.range }}"); do
             THIS="$(git rev-parse --verify "$sha^{commit}")"
@@ -248,6 +292,18 @@ jobs:
               TAG_TEST="$TAG_ANCHORED"
             else
               TAG_TEST="$TAG_BEFORE_THAT"
+            fi
+            # D852 -- the named list above. Asked as whole-string EQUALITY against the
+            # resolved 40-character id, never as a pattern, so nothing in the list can
+            # match more than the one commit it names. A line with no record named
+            # after its id is not accepted.
+            ACCEPTED=""
+            while read -r NAMED COVER; do
+              if [ "$THIS" = "$NAMED" ]; then ACCEPTED="$COVER"; fi
+            done <<< "$D852_ACCEPTED"
+            if [ -n "$ACCEPTED" ]; then
+              echo "::notice::commit $sha is accepted without the review tag by D852 ($ACCEPTED)"
+              continue
             fi
             if ! git log -1 --format=%B "$sha" | grep -qE "$TAG_TEST"; then
               echo "::error::commit $sha changes code and carries no [PM-REVIEWED] tag -- nothing records that anybody read it"
