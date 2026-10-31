@@ -56,7 +56,7 @@ import {
   theRangeOfTheDays,
   TAB_CLOSED_SAY,
 } from './nightly.js';
-import { STARTED_AFTER_IDLE } from './idle.js';
+import { STARTED_AFTER_IDLE, startWhenFree } from './idle.js';
 import { NOT_AVAILABLE_YET as THE_WALKS_WORD } from './walk.js';
 
 process.on('uncaughtException', (err) => {
@@ -1256,6 +1256,15 @@ check('and three days of trying is the reference\'s own number', GIVE_UP_AFTER_D
     night.idle.waitedMs === 7 * 60000 && !(await waited.chrome.storage.local.get(STARTED_AFTER_IDLE))[STARTED_AFTER_IDLE]);
   check('the run log says it waited 7 min and started after 3 min idle',
     theRunLog({ ...night, finishedAt: at + 1 }).text.includes('Idle wait: waited 7 min for the computer to be free, then started after 3 min idle.'));
+  /* the real flow: the idle wait lets the run start, and the night it starts carries the note */
+  const flow = installFakeChrome();
+  flow.setTheComputer('idle');
+  let flowNight = null;
+  await startWhenFree(flow.chrome, 'daily', async () => {
+    flowNight = await startTheNight(flow.chrome, { doing: ['fk_views'], at: Date.now(), openAt: 'https://x/', dataDate: '2026-10-29' });
+  });
+  check('through the real wait, the night started carries the idle note and the note is gone after',
+    flowNight.idle && flowNight.idle.kind === 'daily' && !(await flow.chrome.storage.local.get(STARTED_AFTER_IDLE))[STARTED_AFTER_IDLE]);
   const stale = installFakeChrome();
   await stale.chrome.storage.local.set({ [STARTED_AFTER_IDLE]: { kind: 'daily', waitedMs: 0, at: at - 3 * 3600000 } });
   const byHand = await startTheNight(stale.chrome, { doing: ['fk_views'], at, openAt: 'https://x/', dataDate: '2026-10-29' });
@@ -1265,7 +1274,7 @@ check('and three days of trying is the reference\'s own number', GIVE_UP_AFTER_D
   await free.chrome.storage.local.set({ [STARTED_AFTER_IDLE]: { kind: 'daily', waitedMs: 0, at } });
   const now = await startTheNight(free.chrome, { doing: ['fk_views'], at, openAt: 'https://x/', dataDate: '2026-10-29' });
   check('a start that never had to wait says the computer was already free',
-    theRunLog({ ...now, finishedAt: at + 1 }).text.includes('already free at the scheduled time'));
+    theRunLog({ ...now, finishedAt: at + 1 }).text.includes('already free when the run was due'));
 }
 
 {
@@ -2247,7 +2256,7 @@ check('report table: null night gives null', theReportTable(null, () => '') === 
   check('report table: an earlier step that was not "still waiting" does not make not-built asked',
     q.status === 'toFetch' && q.word === 'Not built yet');
 }
-const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 4 + 3;
+const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

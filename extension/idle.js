@@ -11,9 +11,26 @@ export const ASK_AGAIN_MINUTES = 1;
  *  leaves none. */
 export const STARTED_AFTER_IDLE = 'kartaan-autosync-started-after-idle';
 
-async function noteTheStart(chrome, kind, since, now) {
+/** **THE NOTE LIVES ONLY WHILE THIS ONE START RUNS (AJ9 review).** `startTheNight` reads and spends it inside `start()`;
+ *  a start that is refused before that (a night already going, Drive not connected) must not leave it for the next
+ *  platform's start to pick up, so it is always taken away after. **And a note that cannot be written never stops the
+ *  start** -- the wait entry is already gone by now, so a failure here would lose the run for the day. */
+async function startNoted(chrome, kind, since, now, start) {
   const waitedMs = Number.isFinite(since) ? Math.max(0, now - since) : 0;
-  await chrome.storage.local.set({ [STARTED_AFTER_IDLE]: { kind, waitedMs, at: now } });
+  try {
+    await chrome.storage.local.set({ [STARTED_AFTER_IDLE]: { kind, waitedMs, at: now } });
+  } catch (error) {
+    console.warn('Kartaan Auto-sync: could not note how the run got past the idle wait.', (error && error.message) || String(error));
+  }
+  try {
+    await start();
+  } finally {
+    try {
+      await chrome.storage.local.remove(STARTED_AFTER_IDLE);
+    } catch (error) {
+      console.warn('Kartaan Auto-sync: could not clear the idle-wait note.', (error && error.message) || String(error));
+    }
+  }
 }
 
 let turn = Promise.resolve();
@@ -64,8 +81,7 @@ export async function startWhenFree(chrome, kind, start, now = Date.now()) {
       await chrome.storage.local.remove(WAITING);
       await chrome.alarms.clear(IDLE_ALARM);
     }
-    await noteTheStart(chrome, kind, since, now);
-    await start();
+    await startNoted(chrome, kind, since, now, start);
     return true;
   });
 }
@@ -105,8 +121,7 @@ export async function carryOnWaiting(chrome, starts, now = Date.now()) {
         continue;
       }
       try {
-        await noteTheStart(chrome, kind, waiting[kind], now);
-        await start();
+        await startNoted(chrome, kind, waiting[kind], now, start);
       } catch (error) {
         console.warn(`Kartaan Auto-sync: the waiting ${kind} run could not start.`, (error && error.message) || String(error));
       }

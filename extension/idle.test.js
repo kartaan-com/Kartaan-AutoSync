@@ -335,8 +335,12 @@ function check(name, passed) { ran++; console.log(`${passed ? 'PASS' : 'FAIL'}  
   const t0 = 1_000_000_000_000;
   const free = installFakeChrome();
   free.setTheComputer('idle');
-  await startWhenFree(free.chrome, 'daily', async () => {}, t0);
-  const direct = (await free.chrome.storage.local.get(STARTED_AFTER_IDLE))[STARTED_AFTER_IDLE];
+  let direct = null;
+  await startWhenFree(free.chrome, 'daily', async () => {
+    direct = (await free.chrome.storage.local.get(STARTED_AFTER_IDLE))[STARTED_AFTER_IDLE];
+  }, t0);
+  check('and the note is taken away once that start is over, so no later start can pick it up',
+    !(await free.chrome.storage.local.get(STARTED_AFTER_IDLE))[STARTED_AFTER_IDLE]);
   check('a start with the computer already free is noted with no wait', direct.kind === 'daily' && direct.waitedMs === 0 && direct.at === t0);
 
   const busy = installFakeChrome();
@@ -344,9 +348,33 @@ function check(name, passed) { ran++; console.log(`${passed ? 'PASS' : 'FAIL'}  
   await startWhenFree(busy.chrome, 'daily', async () => {}, t0);
   check('a start held back leaves no note yet', !(await busy.chrome.storage.local.get(STARTED_AFTER_IDLE))[STARTED_AFTER_IDLE]);
   busy.setTheComputer('idle');
-  await carryOnWaiting(busy.chrome, { daily: async () => {} }, t0 + 7 * 60000);
-  const late = (await busy.chrome.storage.local.get(STARTED_AFTER_IDLE))[STARTED_AFTER_IDLE];
+  let late = null;
+  await carryOnWaiting(busy.chrome, {
+    daily: async () => { late = (await busy.chrome.storage.local.get(STARTED_AFTER_IDLE))[STARTED_AFTER_IDLE]; },
+  }, t0 + 7 * 60000);
   check('a start that waited seven minutes says so', late.kind === 'daily' && late.waitedMs === 7 * 60000);
+
+  const refused = installFakeChrome();
+  refused.setTheComputer('idle');
+  let thrown = false;
+  try {
+    await startWhenFree(refused.chrome, 'recheck', async () => { throw new Error('a night is going'); }, t0);
+  } catch (error) { thrown = true; }
+  check('a start that is refused leaves no note behind for the next platform',
+    thrown && !(await refused.chrome.storage.local.get(STARTED_AFTER_IDLE))[STARTED_AFTER_IDLE]);
+
+  const broken = installFakeChrome();
+  broken.setTheComputer('idle');
+  const realSet = broken.chrome.storage.local.set;
+  broken.chrome.storage.local.set = async (items) => {
+    if (items && items[STARTED_AFTER_IDLE]) throw new Error('quota');
+    return realSet(items);
+  };
+  let ran1 = false;
+  const warn = console.warn;
+  console.warn = () => {};
+  try { await startWhenFree(broken.chrome, 'daily', async () => { ran1 = true; }, t0); } finally { console.warn = warn; }
+  check('a note that cannot be written never stops the run from starting', ran1 === true);
 }
 
 console.log(`\n${ran - failures} of ${ran} passed`);

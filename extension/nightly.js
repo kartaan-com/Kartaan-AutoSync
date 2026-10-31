@@ -1206,7 +1206,7 @@ export function theIdleLine(night) {
   const minutes = Math.round(night.idle.waitedMs / 60000);
   return minutes >= 1
     ? `Idle wait: waited ${minutes} min for the computer to be free, then started after 3 min idle.`
-    : 'Idle wait: the computer was already free at the scheduled time, so it started after 3 min idle.';
+    : `Idle wait: the computer was already free when the ${night.idle.kind === 'recheck' ? 'hourly re-check' : 'run'} was due, so it started after 3 min idle.`;
 }
 
 /**
