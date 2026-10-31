@@ -1243,7 +1243,60 @@ check("PROOF: a tally that let the record's failure out WOULD have refused the f
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 144 + 12 + 9 + 2 + 2
+
+# ---------------------------------------------- "TOO MANY REQUESTS" IS WAITED OUT (PR1)
+
+
+class ASlowReply(ASheetsReply):
+    def __init__(self, status, headers=None):
+        super().__init__({"ok": 1}, status, "no" if status != 200 else "")
+        self.headers = headers or {}
+
+
+class ASlowConnection:
+    """Answers the given statuses in turn, then the last one for ever."""
+
+    def __init__(self, statuses, headers=None):
+        self.statuses, self.headers, self.calls = list(statuses), headers, 0
+
+    def _reply(self):
+        status = self.statuses[min(self.calls, len(self.statuses) - 1)]
+        self.calls += 1
+        return ASlowReply(status, self.headers)
+
+    def get(self, url, params=None, headers=None):
+        return self._reply()
+
+    def post(self, url, params=None, headers=None, json=None, data=None):
+        return self._reply()
+
+
+def asked_with_waits(statuses, headers=None, method="GET"):
+    waits = []
+    connection = ASlowConnection(statuses, headers)
+    asking_slowly = tool.a_way_to_ask(connection, wait=waits.append)
+    got, wrong = None, None
+    try:
+        got = asking_slowly(method, "/v4/spreadsheets/abc", body={"x": 1} if method == "POST" else None)
+    except Exception as thrown:  # noqa: BLE001 - the check reads what was thrown
+        wrong = thrown
+    return waits, got, wrong, connection.calls
+
+
+waited, got_back, wrong, _ = asked_with_waits([429, 429, 429, 200])
+check("three 429s wait 2, 4, 8 and then the answer comes back", waited == [2, 4, 8] and got_back == {"ok": 1} and wrong is None)
+waited, _, _, _ = asked_with_waits([429, 200], {"Retry-After": "7"}, "POST")
+check("a Retry-After of 7 seconds is waited instead of 2, on a POST too", waited == [7])
+waited, _, _, _ = asked_with_waits([429, 200], {"retry-after": "500"})
+check("a Retry-After of 500 is cut to 60, and the lower-case name is read", waited == [60])
+waited, _, wrong, asked = asked_with_waits([429])
+check("a 429 that never stops raises after exactly five waits, saying so",
+      waited == [2, 4, 8, 16, 32] and asked == 6 and isinstance(wrong, drive_door.DriveSaidNo)
+      and "Still too many requests after 5 waits" in str(wrong))
+waited, _, wrong, asked = asked_with_waits([403])
+check("a 403 is not waited for at all", waited == [] and asked == 1 and isinstance(wrong, drive_door.DriveSaidNo))
+
+EXPECTED = 144 + 12 + 9 + 2 + 2 + 5
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

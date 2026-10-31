@@ -62,6 +62,7 @@ for Drive, Amazon and Firestore, so every line below is checked with no account,
 no sheet and no internet.
 """
 
+import time
 from typing import Callable, Dict, Optional, Sequence, Tuple
 
 import ledger
@@ -326,7 +327,20 @@ def _first_difference(header: Sequence[str], want: Sequence[str]) -> int:
 # ------------------------------------------------- the one way to ask Google
 
 
-def a_way_to_ask(transport, api: str = SHEETS) -> Callable:
+MOST_WAITS_FOR_TOO_MANY = 5
+LONGEST_WAIT_SECONDS = 60
+
+
+def _seconds_to_wait(reply, waits_so_far: int) -> int:
+    """How long to wait after a 429: Google's own `Retry-After` when it is a whole number of seconds, else 2, 4, 8, 16, 32."""
+    named = (getattr(reply, "headers", None) or {})
+    named = named.get("Retry-After", named.get("retry-after"))
+    if named is not None and str(named).strip().isdigit():
+        return min(int(str(named).strip()), LONGEST_WAIT_SECONDS)
+    return 2 ** (waits_so_far + 1)
+
+
+def a_way_to_ask(transport, api: str = SHEETS, wait: Callable = time.sleep) -> Callable:
     """Turn the seller's `Google` connection into what `LedgerDoor` asks with.
 
     **ONE CONNECTION, ONE REFRESH TOKEN, THREE GOOGLE SERVICES.** Drive, the
@@ -337,6 +351,11 @@ def a_way_to_ask(transport, api: str = SHEETS) -> Callable:
 
     **A REFUSAL SAYS THE STATUS, NEVER WHAT WAS SENT.** These sentences end up in
     a log that is written into the seller's own Drive.
+
+    **"TOO MANY REQUESTS" (429) IS WAITED OUT, NOT GIVEN UP ON (PR1).** A big month of old files asks Google
+    a lot, and leaving the file for tomorrow night meant a month could take a week. Up to five waits (2, 4, 8,
+    16, 32 seconds, or the seconds Google's `Retry-After` names, never more than 60), then the same refusal as
+    any other, saying so. Reading and writing here are safe to repeat; `wait` is handed in so no check sleeps.
     """
 
     def ask(
@@ -346,29 +365,34 @@ def a_way_to_ask(transport, api: str = SHEETS) -> Callable:
         body: Optional[Dict] = None,
     ):
         where = f"{api}{path}"
-        if method == "GET":
-            reply = transport.get(where, params=query)
-        elif method == "POST":
-            reply = transport.post(where, params=query, json=body)
-        else:
-            # **REFUSED RATHER THAN GUESSED AT.** The two the ledger uses are the
-            # two that exist here; anything else is a call nobody has read
-            # Google's documentation for.
-            raise CannotMakeTheLedger(
-                f"The sales ledger was asked to talk to Google with {method}, and "
-                "the only ways it talks are GET and POST."
-            )
-        if reply is None:
-            raise DriveSaidNo(
-                f"{method} {path}: Google said nothing at all about the sales ledger."
-            )
-        if not getattr(reply, "ok", False):
+        for waits_so_far in range(MOST_WAITS_FOR_TOO_MANY + 1):
+            if method == "GET":
+                reply = transport.get(where, params=query)
+            elif method == "POST":
+                reply = transport.post(where, params=query, json=body)
+            else:
+                # **REFUSED RATHER THAN GUESSED AT.** The two the ledger uses are the
+                # two that exist here; anything else is a call nobody has read
+                # Google's documentation for.
+                raise CannotMakeTheLedger(
+                    f"The sales ledger was asked to talk to Google with {method}, and "
+                    "the only ways it talks are GET and POST."
+                )
+            if reply is None:
+                raise DriveSaidNo(
+                    f"{method} {path}: Google said nothing at all about the sales ledger."
+                )
+            if getattr(reply, "ok", False):
+                return reply.json()
+            if getattr(reply, "status", None) == 429 and waits_so_far < MOST_WAITS_FOR_TOO_MANY:
+                wait(_seconds_to_wait(reply, waits_so_far))
+                continue
             raise DriveSaidNo(
                 f"{method} {path}: Google refused "
                 f"({getattr(reply, 'status', '')}) about the sales ledger. "
-                f"{getattr(reply, 'text', '') or ''}"[:400]
+                + (f"Still too many requests after {MOST_WAITS_FOR_TOO_MANY} waits. " if getattr(reply, "status", None) == 429 else "")
+                + f"{getattr(reply, 'text', '') or ''}"[:400]
             )
-        return reply.json()
 
     return ask
 
