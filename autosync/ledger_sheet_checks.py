@@ -1262,7 +1262,7 @@ class ASlowConnection:
     def _reply(self):
         status = self.statuses[min(self.calls, len(self.statuses) - 1)]
         self.calls += 1
-        return ASlowReply(status, self.headers)
+        return None if status is None else ASlowReply(status, self.headers)
 
     def get(self, url, params=None, headers=None):
         return self._reply()
@@ -1295,6 +1295,30 @@ check("a 429 that never stops raises after exactly five waits, saying so",
       and "Still too many requests after 5 waits" in str(wrong))
 waited, _, wrong, asked = asked_with_waits([403])
 check("a 403 is not waited for at all", waited == [] and asked == 1 and isinstance(wrong, drive_door.DriveSaidNo))
+_, _, wrong_none, _ = asked_with_waits([None])
+check("PR1c proving: no reply at all is refused in words naming the call and the ledger",
+      isinstance(wrong_none, drive_door.DriveSaidNo) and "GET /v4/spreadsheets/abc" in str(wrong_none) and "said nothing at all about the sales ledger" in str(wrong_none))
+_, _, wrong_put, _ = asked_with_waits([200], method="PUT")
+check("PR1c proving: a method other than GET and POST is refused, naming it and the two that exist",
+      isinstance(wrong_put, tool.CannotMakeTheLedger) and "PUT" in str(wrong_put) and "the only ways it talks are GET and POST" in str(wrong_put))
+
+
+class _ABareReply:
+    status, headers, text = 500, {}, "x" * 500
+
+
+class _ABareConnection:
+    def get(self, url, params=None, headers=None):
+        return _ABareReply()
+
+
+try:
+    tool.a_way_to_ask(_ABareConnection(), wait=lambda seconds: None)("GET", "/v4/spreadsheets/abc")
+    _bare_wrong = None
+except Exception as _thrown:  # noqa: BLE001
+    _bare_wrong = _thrown
+check("PR1c proving: a reply that does not say it is ok is NOT taken as ok, and what it said is quoted up to 400 characters",
+      isinstance(_bare_wrong, drive_door.DriveSaidNo) and str(_bare_wrong).count("x") == 400 and "(500)" in str(_bare_wrong))
 check("PR1c proving: a 403 is refused saying who refused and what the status was", "Google refused" in str(wrong) and "403" in str(wrong))
 waited, _, _, _ = asked_with_waits([429, 200], {"Retry-After": "soon"})
 check("PR1c proving: a Retry-After that is not a whole number of seconds is ignored (2, not an error)", waited == [2])
@@ -1364,7 +1388,7 @@ check("the cut is the history day plus 45 days: the 14 Feb file is set aside, th
 check("and only Flipkart and Meesho payments are cut -- Amazon's lines are never held back, so never set aside",
       not ledger.is_payment_file_from_before_history("az_settlements", "2026-02-01") and not ledger.is_payment_file_from_before_history("fk_payments", "no day"))
 
-EXPECTED = 144 + 12 + 9 + 2 + 2 + 5 + 6 + 2 + 1 + 5
+EXPECTED = 144 + 12 + 9 + 2 + 2 + 5 + 6 + 2 + 1 + 5 + 3
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

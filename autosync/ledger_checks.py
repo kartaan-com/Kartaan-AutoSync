@@ -976,9 +976,20 @@ _groups.put_on_what_states(("OD1", "S"), Decimal(5), {})
 check("PR1c proving: a rebate with no payout of its own rides on the FIRST payout that states its order, and on nothing when none does",
       [(s_.order_id, s_.settlement) for s_ in _groups.sales("flipkart", "2026-10-29")] == [("OD1", "6"), ("OD1", "2")])
 
+_kf = tool.KeptFigure(name="n", figure="1", payout="p", from_report="fk_payments", on="2026-10-29", from_file="f.xlsx")
+check("PR1c proving: a kept figure is said with its report, day and file, and without a file it still closes properly",
+      str(_kf) == "'n': kept the old figure 1 for payout p (fk_payments of 2026-10-29, file f.xlsx)"
+      and str(tool.KeptFigure(name="n", figure="1", payout="p", from_report="fk_payments", on="2026-10-29")) == "'n': kept the old figure 1 for payout p (fk_payments of 2026-10-29)")
+_unreadable_row = list(sales.the_row_for(sales.Sale(platform="flipkart", order_id="OD1", sku="S", settlement="n/a", payments_on="2026-10-20", notes="fkpay:UTR-0001")))
+_row, _said = _night([_payout("UTR-0001", "2026-10-30", "150")], start=HEADER + [_unreadable_row])
+check("PR1c proving: a restated payout is NOT compared with a figure on the row that cannot be read (nothing said, nothing guessed)", not any("'150'" in line for line in _said))
+_made = tool.plan(HEADER, [_sale_paid, _mixed], tool.WhatTheNightHasDecided())
+check("PR1c proving: a file with one payout the row has and one it has not says which file said what (the sheet's memory against this file)",
+      len(_made.disagreements) == 1 and _made.disagreements[0].kept_from == tool.THE_SHEET_REMEMBERS and _made.disagreements[0].also_from == "file-mixed")
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-WITH_HIS_FILES = 115 + 2 + 2 + 3 + 1 + 7 + 2 + 8 + 4 + 2 + 2 + 8
+WITH_HIS_FILES = 115 + 2 + 2 + 3 + 1 + 7 + 2 + 8 + 4 + 2 + 2 + 8 + 3
 EXPECTED = WITH_HIS_FILES - (9 if not_run else 0)
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")

@@ -112,6 +112,41 @@
       "line": "try { if (chrome.permissions && chrome.permissions.remove) await chrome.permissions.remove({ permissions: ['nativeMessaging'] }); } catch (ignored) { /* already gone */ }",
       "occurrence": 0,
       "why": "`chrome.permissions && chrome.permissions.remove` and `chrome.permissions || chrome.permissions.remove` take the same road in every state: with no permissions object both skip the call (undefined is falsy), with one that has a remove both make it, and with one that has no remove the changed test is true and calls undefined, which throws inside the try that swallows it. Nothing is written, stored or said differently (BR1)."
+    },
+    {
+      "file": "autosync/ledger.py",
+      "operator": "boolean",
+      "line": "@dataclass(frozen=True)",
+      "occurrence": 7,
+      "why": "Removing `frozen=True` from KeptFigure only allows assigning to its fields afterwards. Nothing assigns to a KeptFigure: plan() builds it once and hands it on, and the sibling classes in this file carry the same line. No state exists in which what is written, stored or said differs."
+    },
+    {
+      "file": "autosync/ledger.py",
+      "operator": "logic",
+      "line": "if column == \"settlement\" and name in only_a_fee:",
+      "occurrence": 0,
+      "why": "The test only decides whether `fee_base_was` is set. `fee_base_was` is read only inside `if fee_keys and not fee_seen`, and `fee_keys` is empty for any row that is not in `only_a_fee`. Changing the test therefore changes a value that is never read in the rows it newly applies to (PR1c)."
+    },
+    {
+      "file": "autosync/nightly.py",
+      "operator": "line",
+      "line": "def _a_note_in_the_logs_folder(transport, inside: str) -> Callable[[str, str], None]:",
+      "occurrence": 0,
+      "why": "No check reaches nightly's wiring of the before-history note onto the real Drive transport: it is one call to the already proven `_put_in_place` into the Logs folder. The callback the ledger calls is checked with a stand-in in ledger_sheet_checks (name, text, one note per file). First live night shows it. Weaker than the other reasons (PR1c)."
+    },
+    {
+      "file": "autosync/nightly.py",
+      "operator": "line",
+      "line": "return keep",
+      "occurrence": 0,
+      "why": "Same function as the entry above: returning the note-keeping callback. Without it nightly would pass no callback and the before-history lines would be said in the log but no note file kept. No check reaches nightly's real Drive wiring; the callback itself is checked in ledger_sheet_checks. Weaker than the other reasons (PR1c)."
+    },
+    {
+      "file": "autosync/reading.py",
+      "operator": "logic",
+      "line": "if unwrapped is not body and landing.what_it_really_is(unwrapped) != landing.ZIP:",
+      "occurrence": 0,
+      "why": "The second half of a defensive condition: the landing's unwrapper returns a spreadsheet, and an inner plain zip is refused by the reader's next step in words anyway. Not shown unreachable by a check; the first half is killed by the zip-with-one-spreadsheet checks (PR1 A4)."
     }
   ],
   "cannot_load": {
@@ -136,6 +171,8 @@
     "autosync/ads.py": "Deleting the `re` import, a dataclass field (day_is_a_range, day_column_alt) or a piece of a report's table row (the 'amazon', 'days' pair, the keyword arguments naming its date column) leaves a name undefined or a call with the wrong arguments, so the module will not import and the checks file stops before any check prints. Read off the prover's verdicts at AJ2 (5 such changes, none surviving); every other change to this file went red by name.",
     "autosync/browser.py": "Deleting the TAKE_EVERY_NEW constant leaves a name that the walk table and its recipes read undefined, so the module will not import and the checks file stops before any check prints. Read off the prover's verdict at AJ2 (1 such change, none surviving); every other change to this file went red by name.",
     "autosync/quality.py": "Deleting the `re` import, or the line that builds a record's point from its stars, returnsPct and percent keys before a later line reads it, leaves a name undefined, so the module will not import or the first read throws a NameError before any check prints. Read off the prover's verdicts at AJ2 (2 such changes, none surviving); every other change to this file went red by name.",
-    "autosync/record_reports.py": "Deleting the lines that name a report's kind, its reader, its words or its merge in the RECORD_REPORTS table leaves a name undefined or a call with the wrong arguments, so the module will not import and the checks file stops before any check prints. Read off the prover's verdicts at AJ2 (5 such changes, none surviving); every other change to this file went red by name."
+    "autosync/record_reports.py": "Deleting the lines that name a report's kind, its reader, its words or its merge in the RECORD_REPORTS table leaves a name undefined or a call with the wrong arguments, so the module will not import and the checks file stops before any check prints. Read off the prover's verdicts at AJ2 (5 such changes, none surviving); every other change to this file went red by name.",
+    "autosync/ledger_sheet.py": "Deleting an import line (sys, pathlib, typing, the readers' own modules) or an exported name that ledger_sheet_checks imports by name stops the checks file importing at all. Noticed by the load, not by a red check. Read off the prover's verdicts at PR1c (5 changes).",
+    "tools/dry_run.py": "Deleting an import line (sys, pathlib, typing, reading, whats_new, payments) or the ROOT / sys.path lines dry_run_checks relies on stops the checks file importing dry_run at all. Noticed by the load, not by a red check. Read off the prover's verdicts at PR1c (6 changes)."
   }
 }

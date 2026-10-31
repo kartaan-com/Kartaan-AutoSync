@@ -63,6 +63,49 @@ ok, refused, clash = answered(lambda: dry.the_dry_run({"made_up_report": [("x.xl
 check("a folder no reader is named for, and the settlements report, are listed as not read -- never silently skipped",
       len(refused) == 2 and any("no reader" in r for r in refused) and any("2 file(s) unchecked" in r for r in refused))
 
+# **A REAL READABLE FLIPKART PAYMENTS FILE (PR1c proving):** two payouts for one order in one file, and the same payout with another figure in a second file.
+import io  # noqa: E402
+
+import openpyxl  # noqa: E402
+import payments  # noqa: E402
+
+
+def _a_payments_file(*lines):
+    cols = list(payments.the_columns_a_file_of("flipkart")) + ["NEFT ID"]
+    book = openpyxl.Workbook()
+    book.active.title = "Report Help"
+    sheet = book.create_sheet("Orders")
+    sheet.append(["Payment Details"] + [""] * (len(cols) - 1))
+    sheet.append(cols)
+    sheet.append(["", "", "", "sub-heading"] + [""] * (len(cols) - 4))
+    for order, figure, payout in lines:
+        row = [""] * len(cols)
+        row[cols.index("Order ID")], row[cols.index("Seller SKU")] = order, "S"
+        row[cols.index("Bank Settlement Value (Rs.)")], row[cols.index("NEFT ID")] = figure, payout
+        sheet.append(row)
+    out = io.BytesIO()
+    book.save(out)
+    return out.getvalue()
+
+
+_one = _a_payments_file(("OD1", "196.85", "UTR-00000001"), ("OD1", "-403.35", "UTR-00000002"))
+_two = _a_payments_file(("OD1", "100.00", "UTR-00000001"))
+ok, refused, clash = answered(lambda: dry.the_dry_run({"fk_payments": [("flipkart_fk_payments_2026-10-29.xlsx", _one), ("flipkart_fk_payments_2026-10-30.xlsx", _two)]})) or ([], [], [])
+check("PR1c proving: real payments files are read, counted by their lines, and not refused",
+      refused == [] and ok == ["fk_payments/flipkart_fk_payments_2026-10-29.xlsx: 2 line(s) read", "fk_payments/flipkart_fk_payments_2026-10-30.xlsx: 1 line(s) read"])
+check("PR1c proving: and from them it lists the payout that disagrees with itself AND the order paid in two payouts in one file",
+      any("UTR-00000001" in x and "196.85 in flipkart_fk_payments_2026-10-29.xlsx" in x and "100 in flipkart_fk_payments_2026-10-30.xlsx" in x for x in clash)
+      and any("2 payouts in ONE file flipkart_fk_payments_2026-10-29.xlsx" in x for x in clash))
+with tempfile.TemporaryDirectory() as folder2:
+    (Path(folder2) / "fk_payments").mkdir()
+    (Path(folder2) / "fk_payments" / "flipkart_fk_payments_2026-10-29.xlsx").write_bytes(_one)
+    (Path(folder2) / "fk_payments" / "flipkart_fk_payments_2026-10-30.xlsx").write_bytes(_two)
+    said = []
+    code = answered(lambda: dry.main(["dry_run.py", folder2], said.append))
+    check("PR1c proving: run over a folder it prints each problem under PAYOUT PROBLEM, answers 1, and counts them",
+          code == 1 and sum(x.startswith("PAYOUT PROBLEM  ") for x in said) == len(clash) and any(x.startswith("READ     ") for x in said)
+          and "2 file(s) read, 0 refused or not read, 2 payout problem(s)" in said[-1])
+
 with tempfile.TemporaryDirectory() as folder:
     (Path(folder) / "fk_payments").mkdir()
     one = Path(folder) / "fk_payments" / "flipkart_fk_payments_2026-10-29.xlsx"
@@ -75,7 +118,7 @@ with tempfile.TemporaryDirectory() as folder:
     check("with no folder it prints the usage and answers 2", answered(lambda: dry.main(["dry_run.py"], _usage.append)) == 2)
     check("PR1c proving: and the usage line says what to give it", len(_usage) == 1 and "Usage: python tools/dry_run.py" in _usage[0] and "sub-folder per report" in _usage[0])
 
-EXPECTED = 12
+EXPECTED = 15
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
