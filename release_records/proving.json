@@ -1,20 +1,22 @@
 {
   "record": "proving",
-  "commit": "6be82cf",
-  "run_at": "30 Oct 2026 (AJ8). Three runs over the changed lines on a clean clone, each against 4cdc094: on 9feb5bb (149 changes, 15 survivors), on d541561 (152 changes, 2 survivors), on 6be82cf (152 changes, 1 survivor, accepted).",
-  "tool": "tools/proving.py (AutoSync's own setup, AP11) loading the ERP's tools/prove_checks.py from D:/Kartaan-ERP. Line-ending-only changes are not counted.",
-  "invoked_as": "git clone -c core.autocrlf=false -c core.eol=lf --branch aj8-idle-wait <the repository> <scratch>, then in it: KARTAAN=D:/Kartaan-ERP python tools/proving.py --against 4cdc094",
-  "ran_by": "AJ8 (Sonnet 5.5, worker for Kartaan Control).",
-  "scope": "Every changed line of extension/idle.js, extension/background.js, extension/screen.js (plus manifest and the stand-in) from 4cdc094 to 6be82cf.",
+  "commit": "ae7d023",
+  "run_at": "31 Oct 2026 (BR1/AD1). Two runs of the ERP prover over the changed lines, each against f22075e on a clean LF clone: first on b06cdf8, then on ae7d023 after the checks were strengthened.",
+  "tool": "tools/proving.py (AutoSync's own setup) loading the ERP's tools/prove_checks.py from D:/Kartaan-ERP. Line-ending-only changes are not counted.",
+  "invoked_as": "git clone -c core.autocrlf=false -c core.eol=lf --branch ad1-ai-runs-autosync <repo> <scratch>, then in it: KARTAAN=D:/Kartaan-ERP python tools/proving.py --against f22075e",
+  "ran_by": "BR1 (Sonnet 5.5); the checks were strengthened by a Sonnet 5.5 sub-agent.",
+  "scope": "Every changed line of extension/bridge.js and extension/screen.js (571 deliberate changes), from v0.1.23 to ae7d023.",
   "found": [
-    "FINAL RUN on 6be82cf: 152 changes tried, 100 run, 95 caught, 4 crashed on load (each recorded under cannot_load for idle.js: its four exported constants), 52 would not parse, 0 hung, 1 survived and accepted with a reason, 0 unrecorded: 'every deliberate change was either caught or recorded with a reason'.",
-    "The first run found 15 changes no check noticed: the warning text when Chrome cannot answer, the earliest-moment rule, the queue carrying on after a failed start, junk cleaned out of the stored wait, the warning for a waiting run that cannot start, the re-made ask-again alarm, the panel's clock line (twice, the second needing a check that draws the screen). All closed with checks that go red."
+    "FIRST RUN (b06cdf8): 571 changes tried; 113 were not noticed by any check (96 in extension/bridge.js, 17 in the 'Your AI' card in screen.js) and 12 export/import deletions stopped the checks file loading with no reason recorded.",
+    "The checks were strengthened (about 90 new exact-output checks in extension/bridge.test.js, 14 in extension/screen.test.js; bridge.test.js 165 checks, screen.test.js 319); no product code changed.",
+    "FINAL RUN (ae7d023): 571 changes tried; 420 caught by a check, 136 would not parse (discarded), 3 hung and stopped (counted as caught), 1 survived and accepted with a written reason, the 12 that stop the checks file loading recorded under cannot_load for extension/bridge.js. The tool's verdict: every deliberate change was either caught or recorded with a reason."
   ],
   "survivors": [
-    "extension/background.js 'return;' after carryOnWaiting in the ask-again alarm branch: without it the code falls to the next line, which returns for every alarm that is not the daily one. Equivalent; recorded in tools/proven_survivors.json."
+    "extension/bridge.js line 427: 'chrome.permissions && chrome.permissions.remove' written the other way round; equivalent in every state (reason in tools/proven_survivors.json)."
   ],
   "named_gaps": [
-    "Live behaviour is not proved by the prover: whether Windows reports 'active' during video playback is for his first real timed run."
+    "Live behaviour is not proved by the prover: Chrome starting the helper, Claude Code finding the tool, the idle state during real use. That is the owner's morning test."
   ],
-  "unproved_files": "test/fake-chrome.js (a test stand-in, not shipped)."
+  "unproved_files": "test/fake-chrome.js (a test stand-in, not shipped).",
+  "release_note": "31 Oct 2026, Kartaan Control: released as v0.1.24. The release commit differs from 7e33432 only by extension/manifest.json version 0.1.23 -> 0.1.24 (no code change)."
 }

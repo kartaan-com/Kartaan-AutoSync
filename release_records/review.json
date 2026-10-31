@@ -1,20 +1,21 @@
 {
   "record": "review",
-  "commit": "6be82cf",
-  "run_at": "30 Oct 2026 (AJ8). A fresh Opus 5.5 reviewer read the uncommitted change on top of 4cdc094; its findings were fixed and re-run in the checks; proving then read every changed line.",
-  "tool": "A fresh Opus 5.5 reviewer sub-agent with no stake in the code, handed SOLVED_PROBLEMS.md, read-only git reads; it ran idle.test.js, background.test.js and screen.test.js.",
-  "invoked_as": "git status / git diff over the worktree plus the untracked extension/idle.js and extension/idle.test.js; node extension/idle.test.js, background.test.js, screen.test.js.",
-  "ran_by": "Fresh Opus 5.5 sub-agent of AJ8 (Sonnet 5.5, worker for Kartaan Control); it wrote none of the code. extension/idle.js and its checks were written by DeepSeek (deepseek-flash); AJ8 applied them and the corrections DeepSeek wrote after review.",
-  "scope": "4cdc094 (v0.1.22) to 6be82cf: automatic runs wait until the computer has been idle 3 minutes (his N063): extension/idle.js, the wiring in extension/background.js wireUp, the panel line in extension/screen.js, manifest permission idle and version 0.1.23, the chrome.idle stand-in in test/fake-chrome.js. The records for v0.1.22 are in git at 8dfbad6.",
+  "commit": "d2e94b1",
+  "run_at": "31 Oct 2026 (BR1/AD1). A fresh Opus 5.5 reviewer read d2e94b1 (the first AD1 commit, on top of f22075e = v0.1.23). Its findings were fixed in be205b9 and the later commits b06cdf8 and ae7d023, each re-run in the checks.",
+  "tool": "A fresh Opus 5.5 sub-agent with no stake in the code, read-only, handed SOLVED_PROBLEMS.md; it ran extension/bridge.test.js and the other extension checks and built and ran the helper bundle.",
+  "invoked_as": "git diff origin/main..HEAD and reads of extension/bridge.js, worker.js, screen.js, panel.js, manifest.json; node extension/bridge.test.js.",
+  "ran_by": "Fresh Opus 5.5 sub-agent of BR1 (Sonnet 5.5, worker for Kartaan Control); it wrote none of the code. extension/bridge.js and its checks were written by BR1 itself (DeepSeek was not used).",
+  "scope": "f22075e (v0.1.23) to ae7d023: the AI door (extension/bridge.js), its wiring in worker.js, the 'Your AI' card in screen.js and panel.js, manifest optional permission nativeMessaging.",
   "found": [
-    "MEDIUM: a waiting hourly re-check dropped at midnight was never re-armed (the re-check alarm is one-shot), stranding its reports for about a day, and the same drop skipped a late-evening daily sync. FIXED: a wait is carried over midnight and started at the next free moment; check red first.",
-    "MEDIUM: two alarms firing in the same tick could start a run twice (Flipkart's twenty requests spent twice) or lose a wait. FIXED: every read-then-write of the stored wait goes through one chain (oneAtATime); check red first.",
-    "MEDIUM: an error in the daily start lost the waiting re-check. FIXED: each waiting start is tried on its own, a failure is warned about and the next still runs; check red first.",
-    "LOW: weak check 'leaves no ask-again alarm' made real (startWhenFree now clears the alarm when nothing else waits); the order daily-then-recheck pinned in background.test.js; panel wording made plainer and given a time reference.",
-    "LOW (both reviews): a damaged stored value (NaN, a name like __proto__) is dropped on read, in carryOnWaiting and whatIsWaiting.",
-    "NAMED, NOT FIXED (LOW): startWhenFree removes the wait before calling start, so a start that throws loses that run, as it did before this change. If the computer is in use all day the run does not start that day; the wait is carried to the next free moment and the panel says it is waiting.",
-    "NOT BUILT, asked of Control: what happens if he starts using the computer DURING a run. Today a run carries on; Click checks only at the start of a round. No pause was invented."
+    "HIGH: the one-minute alarm that starts a waiting ask was not re-created after an extension update or browser restart, so a waiting ask could wait for ever. FIXED (keepWatching re-creates it on every waking); check added, including a cleared-alarm case.",
+    "MEDIUM: a two-website ask (Flipkart + Meesho) could be marked done in the gap between its websites. FIXED (done only 3 minutes after the last run ended and the list is empty); check added.",
+    "MEDIUM: a run started by something else in the gap was adopted as the ask's. FIXED (the night the ask's own start created is written against the ask); check added.",
+    "MEDIUM: autosync_run waited for the whole start (Kartaan's check, a portal page), holding the one-at-a-time lock and outlasting the helper's 90 s. FIXED (kept and answered at once; the start runs outside the lock); check added.",
+    "LOW: panel wording while waiting for a run; a Chrome idle error counted as 'free' for AI asks; a test that proved less than its name; ready_to_run needs the Meesho panel name even for Flipkart-only sellers (NAMED, not fixed)."
   ],
-  "per_landing_evidence": "Commits 9feb5bb, d541561 and 6be82cf each passed the commit gate with a review_pass.json and checks red first; the first is independent (two fresh Opus reads), the other two are checks-only and say so.",
-  "version_note": "extension/manifest.json is 0.1.23; version.json stays 0.1.22 until the release's announce step."
+  "named_gaps": [
+    "The review ran on d2e94b1, before the fixes; the fixes are covered by their own red-first checks and by the prover run on ae7d023.",
+    "A two-website ask can still be disturbed by a timed sync overwriting Run now's own queue (pre-existing in Run now)."
+  ],
+  "release_note": "31 Oct 2026, Kartaan Control: released as v0.1.24. The release commit differs from 7e33432 only by extension/manifest.json version 0.1.23 -> 0.1.24 (no code change)."
 }

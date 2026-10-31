@@ -105,9 +105,17 @@
       "line": "if (cells.length < 2) return cells;",
       "occurrence": 0,
       "why": "This only saves work: with no cell or one cell, the lines below either find no run to keep and answer the cells as they came, or keep the one cell (it is the only candidate), or keep nothing and fall back to the cells as they came (`kept.length > 0 ? kept : cells`). In every case the answer is those same cells, so nothing pressed, written or said comes out different."
+    },
+    {
+      "file": "extension/bridge.js",
+      "operator": "logic",
+      "line": "try { if (chrome.permissions && chrome.permissions.remove) await chrome.permissions.remove({ permissions: ['nativeMessaging'] }); } catch (ignored) { /* already gone */ }",
+      "occurrence": 0,
+      "why": "`chrome.permissions && chrome.permissions.remove` and `chrome.permissions || chrome.permissions.remove` take the same road in every state: with no permissions object both skip the call (undefined is falsy), with one that has a remove both make it, and with one that has no remove the changed test is true and calls undefined, which throws inside the try that swallows it. Nothing is written, stored or said differently (BR1)."
     }
   ],
   "cannot_load": {
+    "extension/bridge.js": "Deleting an import line or an exported name that bridge.test.js imports by name (the imports from idle, screen and nightly; HOST, AI_SWITCH, AI_ASKS, AI_NOTE, AI_ALARM, AI_SPENT, BRIDGE_TOOLS, MOST_WAITING, GIVE_UP_AFTER_MS; noteAFile, aiState, setTheSwitch) stops the checks file importing at all. Noticed by the load, not by a red check. Read off the prover's verdicts at BR1 (12 changes).",
     "extension/idle.js": "Deleting IDLE_SECONDS, IDLE_ALARM, WAITING or ASK_AGAIN_MINUTES, which idle.js exports and idle.test.js imports by name, stops the checks file importing at all. Noticed by the load, not by a red check. Read off the prover's verdicts at AJ8 (4 changes).",
     "extension/driver.js": "Deleting BY_THE_LINK_ENDING or BY_THE_LABEL_IN_TEST_ID, which driver.js exports, driver.test.js imports by name and the list on the next line is built from, stops the checks file importing at all. Noticed by the load, not by a red check. Read off the prover's verdicts at AJ7 (2 changes).",
     "extension/doors.js": "Deleting ARMED_FOR_MS, which doors.js exports and doors.test.js imports by name, stops the checks file importing at all. Noticed by the load, not by a red check. Read off the prover's verdicts at AJ7 (1 change).",

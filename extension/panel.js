@@ -79,6 +79,21 @@ const parts = buildThePanel(document.body, {
     const said = await ask({ do: 'save-the-ticks', reportIds });
     if (said && said.wrong) saySomething(parts, said.wrong);
   },
+  aiSwitch: async (on) => {
+    /* **ASKED FOR WHILE THE SELLER'S OWN CLICK IS STILL FRESH** (Chrome only grants a permission from a click), and awaited only after the
+     * message that turns the switch on has been sent, because the question can close this page. Optional, so an update never switches
+     * the extension off waiting for an answer. */
+    const asked = on ? chrome.permissions.request({ permissions: ['nativeMessaging'] }).catch(() => false) : null;
+    const said = await ask({ do: 'ai-switch', on });
+    if (on && asked && !(await asked)) {
+      await ask({ do: 'ai-switch', on: false });
+      saySomething(parts, 'Chrome did not allow the AI helper, so the switch stays off.');
+    } else if (on) {
+      await ask({ do: 'ai-switch', on: true }); // again, now that Chrome has said yes: opens the helper at once
+      saySomething(parts, 'Your AI may now run AutoSync.');
+    } else saySomething(parts, (said && said.wrong) || (on ? 'Your AI may now run AutoSync.' : 'Your AI may no longer run AutoSync.'));
+    await refresh();
+  },
   runNow: async (reportIds, from, to) => {
     const said = await ask({ do: 'run-now', reportIds, from, to });
     saySomething(parts, (said && said.wrong) || `Started.${said && said.note ? ` ${said.note}` : ''}`);
