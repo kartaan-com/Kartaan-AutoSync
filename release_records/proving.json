@@ -1,55 +1,72 @@
 {
   "record": "proving",
-  "commit": "2198a06",
-  "run_at": "31 Oct 2026 (PR1c). Three runs against v0.1.24 on clean LF clones: first 441 changes, 38 survivors, 11 crashes; after new checks 17 survivors; after more checks and reasons on the rest 5 survivors, all accepted, 0 stale, 0 coverage problems (run 3, on 2198a06).",
+  "commit": "5e09952",
+  "run_at": "31 Oct - 1 Nov 2026 (AJ9b, AJ9c). Four runs against v0.1.25 on the LF clone D:/aj9b/final: AJ9b's first 58 survivors and 18 unexplained crashes; after AJ9c's new checks 8 survivors, 4 with reasons; after the last reasons 8 survivors all accepted (run on the staged tree); and again on the committed head 5e09952: 283 changes tried, 189 run, 161 caught by a check, 20 crashes noticed by the file failing to load (all named in cannot_load), 94 would not parse, 8 accepted survivors; the prover ended: every deliberate change was either caught or recorded with a reason.",
   "tool": "tools/proving.py (AutoSync's own setup) loading the ERP's tools/prove_checks.py from D:/Kartaan-ERP.",
-  "invoked_as": "git clone -c core.autocrlf=false -c core.eol=lf --branch pr1-pipeline-history <local clone> D:/pr1c/prove3, then there: KARTAAN=D:/Kartaan-ERP python tools/proving.py --against v0.1.24 (under D:\\Control\\long-run.lock)",
-  "ran_by": "PR1c (Sonnet 5.5, worker for Kartaan Control).",
-  "scope": "Every changed line between v0.1.24 and 2198a06 in autosync/*.py and tools/*.py (441 changes tried, 332 run, 280 caught by a check, 47 crashes noticed by the file failing to load, 109 would not parse, 5 accepted survivors).",
+  "invoked_as": "in D:/aj9b/final: KARTAAN=D:/Kartaan-ERP python tools/proving.py --against 9d7d090 --workers 2 (under D:\\Control\\long-run.lock); log D:/aj9b/proving_5e09952.log",
+  "ran_by": "AJ9c (Opus 5.5, worker for Kartaan Control).",
+  "scope": "Every changed line between v0.1.25 (9d7d090) and 5e09952 in the 14 code files the prover reads (extension/*.js, autosync/*.py, tools/*.py).",
   "found": [
-    "FIRST RUN: 38 survivors in the new payout rules, the Google call's refusals, the before-history note and the dry-run tool; killed by new checks (see ledger_checks, ledger_sheet_checks, dry_run_checks 'PR1c proving')."
+    "FIRST RUN (AJ9b): 58 survivors -- the message-centre answers and the no-pass notice (kartaan.js), the night's end time passed on (kartaan.js, nightly.js), the refused-ids merge, the one tell and the event card (screen.js), ready_to_run (bridge.js), the_evening_of (clock.py) and the group-1 script's words and gh call; killed by new checks in kartaan.test.js, screen.test.js, nightly.test.js, bridge.test.js, clock_checks.py and move_group_on_release_checks.py ('AJ9 proving').",
+    "18 crashes with no reason recorded: each is a deleted import, exported name or def line that stops the checks file loading; now named per file in tools/proven_survivors.json cannot_load (noticed, but by the load, not by a red check).",
+    "LAST RUN on 5e09952: every deliberate change was either caught or recorded with a reason."
   ],
   "survivors": [
     {
-      "file": "autosync/ledger.py",
-      "operator": "boolean",
-      "line": "@dataclass(frozen=True)",
-      "occurrence": 7,
-      "why": "Removing `frozen=True` from KeptFigure only allows assigning to its fields afterwards. Nothing assigns to a KeptFigure: plan() builds it once and hands it on, and the sibling classes in this file carry the same line. No state exists in which what is written, stored or said differs."
-    },
-    {
-      "file": "autosync/ledger.py",
-      "operator": "logic",
-      "line": "if column == \"settlement\" and name in only_a_fee:",
-      "occurrence": 0,
-      "why": "The test only decides whether `fee_base_was` is set. `fee_base_was` is read only inside `if fee_keys and not fee_seen`, and `fee_keys` is empty for any row that is not in `only_a_fee`. Changing the test therefore changes a value that is never read in the rows it newly applies to (PR1c)."
-    },
-    {
-      "file": "autosync/nightly.py",
+      "file": "extension/screen.js",
       "operator": "line",
-      "line": "def _a_note_in_the_logs_folder(transport, inside: str) -> Callable[[str, str], None]:",
+      "line": "return;",
       "occurrence": 0,
-      "why": "No check reaches nightly's wiring of the before-history note onto the real Drive transport: it is one call to the already proven `_put_in_place` into the Logs folder. The callback the ledger calls is checked with a stand-in in ledger_sheet_checks (name, text, one note per file). First live night shows it. Weaker than the other reasons (PR1c)."
+      "why": "The return after 'Nothing has run yet.' in showTheEvents. Without it the code goes on to the loop over the events, and that list is empty (it is the only way into that branch), so the loop draws nothing. The panel shows the one 'Nothing has run yet.' line either way; nothing written, stored or said differs (AJ9)."
     },
     {
-      "file": "autosync/nightly.py",
+      "file": "extension/idle.js",
       "operator": "line",
-      "line": "return keep",
+      "line": "console.warn('Kartaan Auto-sync: could not note how the run got past the idle wait.', (error && error.message) || String(error));",
       "occurrence": 0,
-      "why": "Same function as the entry above: returning the note-keeping callback. Without it nightly would pass no callback and the before-history lines would be said in the log but no note file kept. No check reaches nightly's real Drive wiring; the callback itself is checked in ledger_sheet_checks. Weaker than the other reasons (PR1c)."
+      "why": "A warning to the extension's own console inside a catch, words only. The catch has already swallowed the failure and the start goes on either way, so without the line nothing is stored, started or shown to the seller differently (AJ9)."
     },
     {
-      "file": "autosync/reading.py",
-      "operator": "logic",
-      "line": "if unwrapped is not body and landing.what_it_really_is(unwrapped) != landing.ZIP:",
+      "file": "extension/idle.js",
+      "operator": "line",
+      "line": "console.warn('Kartaan Auto-sync: could not clear the idle-wait note.', (error && error.message) || String(error));",
       "occurrence": 0,
-      "why": "The second half of a defensive condition: the landing's unwrapper returns a spreadsheet, and an inner plain zip is refused by the reader's next step in words anyway. Not shown unreachable by a check; the first half is killed by the zip-with-one-spreadsheet checks (PR1 A4)."
+      "why": "A warning to the extension's own console inside a catch, words only. The note's removal has already failed and been swallowed, and the start has already run, so without the line nothing is stored, started or shown differently (AJ9)."
+    },
+    {
+      "file": "extension/idle.js",
+      "operator": "logic",
+      "line": "console.warn('Kartaan Auto-sync: could not note how the run got past the idle wait.', (error && error.message) || String(error));",
+      "occurrence": 0,
+      "why": "Only which words of the error the console warning prints changes; the warning is inside a catch that has already swallowed the failure, so nothing is stored, started or shown to the seller differently (AJ9)."
+    },
+    {
+      "file": "extension/idle.js",
+      "operator": "logic",
+      "line": "console.warn('Kartaan Auto-sync: could not note how the run got past the idle wait.', (error && error.message) || String(error));",
+      "occurrence": 1,
+      "why": "Only which words of the error the console warning prints changes; the warning is inside a catch that has already swallowed the failure, so nothing is stored, started or shown to the seller differently (AJ9)."
+    },
+    {
+      "file": "extension/idle.js",
+      "operator": "logic",
+      "line": "console.warn('Kartaan Auto-sync: could not clear the idle-wait note.', (error && error.message) || String(error));",
+      "occurrence": 0,
+      "why": "Only which words of the error the console warning prints changes; the warning is inside a catch that has already swallowed the failure, so nothing is stored, started or shown to the seller differently (AJ9)."
+    },
+    {
+      "file": "extension/idle.js",
+      "operator": "logic",
+      "line": "console.warn('Kartaan Auto-sync: could not clear the idle-wait note.', (error && error.message) || String(error));",
+      "occurrence": 1,
+      "why": "Only which words of the error the console warning prints changes; the warning is inside a catch that has already swallowed the failure, so nothing is stored, started or shown to the seller differently (AJ9)."
+    },
+    {
+      "file": "tools/move_group_on_release.py",
+      "operator": "line",
+      "line": "sys.path.insert(0, str(Path(__file__).resolve().parent))",
+      "occurrence": 0,
+      "why": "It only makes `import move_group` find tools/. Run as a script (the workflow runs `python tools/move_group_on_release.py`), Python already puts the script's own folder first on the path, and the checks put tools/ there themselves. So the same move_group is found in every state and nothing moved, refused or said differs (AJ9)."
     }
-  ],
-  "crashes": "11 changes stop ledger_sheet_checks / dry_run_checks loading (import lines); recorded in tools/proven_survivors.json under cannot_load.",
-  "named_gaps": [
-    "The two nightly.py survivors and the reading.py one have weaker reasons than the rest (no check reaches the real Drive wiring; the second half of a defensive zip condition is not shown unreachable) and are named so in their own text.",
-    "Live behaviour is not proved by the prover: the first live nightly run shows the note file and the payouts."
-  ],
-  "release_note": "31 Oct 2026, Kartaan Control: released as v0.1.25 (D845). The release commit differs from 1e2c2dd only by extension/manifest.json version 0.1.24 -> 0.1.25 and this note (no code change)."
+  ]
 }
