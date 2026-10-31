@@ -86,6 +86,7 @@ sheet moves every row under it, so every remembered row number becomes wrong.
 
 import re
 from dataclasses import dataclass
+from datetime import date, timedelta
 from typing import Dict, List, Optional, Sequence, Tuple
 
 # **THE ONE READER OF 'IS THIS A DAY' IN THIS PACKAGE.** A second way of
@@ -98,6 +99,23 @@ from table import CannotRead
 
 # The first row of the sheet is the column names, so a sale is on row 2 or later.
 THE_HEADER_IS_ROW = 1
+
+# Payments reports whose lines wait for their order (A81).
+PAYMENTS_THAT_WAIT_FOR_THEIR_ORDERS = ("fk_payments", "me_payments")
+
+# **HISTORY STARTS ON THIS DAY, THE SAME FOR EVERY SELLER AND NOTHING FOR ANYONE TO SET (PR1, D842).** No order before it was ever loaded, so a
+# payment line for one has no order to wait for. A payments file carries no order date, so the cut is made on the FILE's day: a file dated
+# before this day PLUS the margin may hold lines for orders from before it (a payout comes up to 45 days after the order), and its lines
+# with no order are set aside and said, not waited for for ever. A later file's lines are waited for as before.
+HISTORY_STARTS_ON = date(2026, 1, 1)
+HISTORY_MARGIN_DAYS = 45
+
+
+def is_payment_file_from_before_history(report: str, on: str) -> bool:
+    """Is this payments file one whose unmatched lines could belong to orders from before history started?"""
+    said = the_day_in(str(on or ""))
+    return (report in PAYMENTS_THAT_WAIT_FOR_THEIR_ORDERS and said is not None
+            and date.fromisoformat(said) < HISTORY_STARTS_ON + timedelta(days=HISTORY_MARGIN_DAYS))
 
 # **D157'S FOUR DATE-MARKER COLUMNS, NAMED HERE SO THAT THEIR ABSENCE CAN BE
 # CHECKED RATHER THAN REMEMBERED.**
@@ -409,6 +427,7 @@ class Unmatched:
     from_report: str
     on: str
     from_file: str = ""
+    amount: str = ""
 
     def __str__(self) -> str:
         # The name comes out of a platform's file, so it is said with its control characters shown, not acted on.
@@ -876,7 +895,7 @@ def _put_each_on_its_row(
             if target is None:
                 said.append(Unmatched(
                     name=sale.id, why=why, from_report=reading.report, on=reading.on,
-                    from_file=reading.one_statement,
+                    from_file=reading.one_statement, amount=str(sale.settlement or ""),
                 ))
                 continue
         if sale.sku or target not in by_fee:

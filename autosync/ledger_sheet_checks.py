@@ -1296,7 +1296,34 @@ check("a 429 that never stops raises after exactly five waits, saying so",
 waited, _, wrong, asked = asked_with_waits([403])
 check("a 403 is not waited for at all", waited == [] and asked == 1 and isinstance(wrong, drive_door.DriveSaidNo))
 
-EXPECTED = 144 + 12 + 9 + 2 + 2 + 5
+# ---------------------------------- PR1: HISTORY STARTS ON A DAY; A PAYMENTS FILE FROM BEFORE IT DOES NOT WAIT FOR ORDERS NEVER LOADED
+_NO_SKU_LINE = sales.Sale(platform="meesho", order_id="NEVER-LOADED", sku="", settlement="40.50")
+
+
+def _history_night(on, report="me_payments"):
+    heard, kept = [], []
+    file_read = ledger.Reading(report=report, on=on, knows=("settlement",), sales=(_NO_SKU_LINE,), which="pay-h", only_existing=True)
+    waiting = answered(lambda: tool.recording_into(LedgerDoor(PretendSheets(rows=list(THE_HEADER)), "s"), say=heard.append,
+                                                   keep_a_note=lambda name, text: kept.append((name, text)))([file_read]))
+    return waiting, heard, kept
+
+
+_waiting, _heard, _kept = _history_night("2026-02-10")
+check("PR1: a payments file from before history starts (plus the margin) hands back NOUGHT waiting for a line whose order was never loaded", _waiting == 0)
+check("and says it with the count, the money and the day history starts, not as a payment with no order",
+      any(one.startswith("SALES LEDGER BEFORE HISTORY") and "1 payment line(s)" in one and "40.50" in one and "2026-01-01" in one for one in _heard)
+      and not any(one.startswith("SALES LEDGER PAYMENT WITH NO ORDER") for one in _heard))
+check("and keeps a file of the lines for the seller's Kartaan folder, named for the report and the day",
+      len(_kept) == 1 and _kept[0][0] == "payments-before-history-me_payments-2026-02-10.txt" and "NEVER-LOADED" in _kept[0][1] and "40.50" in _kept[0][1])
+_waiting, _heard, _kept = _history_night("2026-03-01")
+check("a payments file from after the margin still waits for its order, as before, and sets nothing aside",
+      _waiting == 1 and _kept == [] and not any("BEFORE HISTORY" in one for one in _heard))
+check("the cut is the history day plus 45 days: the 14 Feb file is set aside, the 15 Feb file waits",
+      ledger.is_payment_file_from_before_history("fk_payments", "2026-02-14") and not ledger.is_payment_file_from_before_history("fk_payments", "2026-02-15"))
+check("and only Flipkart and Meesho payments are cut -- Amazon's lines are never held back, so never set aside",
+      not ledger.is_payment_file_from_before_history("az_settlements", "2026-02-01") and not ledger.is_payment_file_from_before_history("fk_payments", "no day"))
+
+EXPECTED = 144 + 12 + 9 + 2 + 2 + 5 + 6
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

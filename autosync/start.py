@@ -181,6 +181,7 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
     # `ledger_sheet.WhatWasWritten` only when sales rows really were written, and a failure there is said, never raised.
     record_the_sales, could_not_write_sales = ledger_sheet.the_writing_half(
         google, read_state, save_state, say, inside=inside,
+        keep_a_note=nightly._a_note_in_the_logs_folder(google, inside),
         tally=ledger_sheet.WhatWasWritten(now, a_ledger_sink(their_login, their_project, the_code_version(Path(__file__).resolve().parent.parent)), say),
     )
 

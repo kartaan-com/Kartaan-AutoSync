@@ -909,6 +909,18 @@ def _extension_records_in_drive(transport, inside: str) -> Callable[[], Sequence
     return read_them
 
 
+def _a_note_in_the_logs_folder(transport, inside: str) -> Callable[[str, str], None]:
+    """A named text file in the seller's `Logs` folder, replaced if it is already there (the lines a payments file set aside, PR1).
+
+    **THE LOGS FOLDER, NEVER A REPORT'S:** a file put in a report's folder would be read as a report the next night.
+    """
+
+    def keep(name: str, text: str) -> None:
+        _put_in_place(transport, _drive_folder(transport, inside, layout.LOGS), name, text.encode("utf-8"))
+
+    return keep
+
+
 def _log_to_drive(transport, inside: str, today: date) -> Callable[[Sequence[runlog.Line]], None]:
     """The copy of the run log that lives in the seller's own Drive (D100).
 

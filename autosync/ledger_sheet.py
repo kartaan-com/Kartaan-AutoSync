@@ -514,6 +514,7 @@ def recording_into(
     door: LedgerDoor,
     say: Optional[Callable[[str], None]] = None,
     tally: Optional[WhatWasWritten] = None,
+    keep_a_note: Optional[Callable[[str, str], None]] = None,
 ) -> Callable[[Sequence[ledger.Reading]], None]:
     """What `reading.read_what_is_new` has always taken and has never been given.
 
@@ -579,8 +580,29 @@ def recording_into(
         # is NOT written down as read while any of its lines is waiting (A81) -- it is opened again on later runs until its orders arrive.
         # **A CLAIM WITH NO ORDER ROW IS NOT A FAULT (D459):** it is kept in its own record and only noted on a row that exists, so they are counted, not listed.
         unclaimed = [one for one in what.unmatched if "claim" in str(one.from_report)]
+        # **A PAYMENTS FILE FROM BEFORE HISTORY STARTED DOES NOT WAIT FOR ORDERS THAT WERE NEVER LOADED (PR1).** Its lines with no order are
+        # counted with their money and kept in a file in the seller's Kartaan folder, and the file is then marked read like any other.
+        before_history = [
+            one for one in what.unmatched
+            if one not in unclaimed and ledger.is_payment_file_from_before_history(one.from_report, one.on)
+        ]
+        if before_history:
+            total = sum((ledger.a_decimal(one.amount) or 0 for one in before_history), 0)
+            first = before_history[0]
+            speak(
+                f"SALES LEDGER BEFORE HISTORY  {len(before_history)} payment line(s) in {first.from_file or first.from_report} of {first.on} "
+                f"({first.from_report}) have no order and are not waited for: history starts on {ledger.HISTORY_STARTS_ON.isoformat()}. "
+                f"Their money adds up to {total}."
+            )
+            if keep_a_note is not None:
+                keep_a_note(
+                    f"payments-before-history-{first.from_report}-{first.on}.txt",
+                    f"History starts on {ledger.HISTORY_STARTS_ON.isoformat()}. These payment lines of {first.from_report} dated {first.on} "
+                    f"(file {first.from_file}) have no order in the sales sheet and were not waited for. Total {total}.\n"
+                    + "\n".join(f"{one.name}\t{one.amount}" for one in before_history) + "\n",
+                )
         for one in what.unmatched:
-            if one not in unclaimed:
+            if one not in unclaimed and one not in before_history:
                 speak(f"SALES LEDGER PAYMENT WITH NO ORDER  {one}")
         if unclaimed:
             speak(f"SALES LEDGER CLAIMS  {len(unclaimed)} claim(s) have no order row in the sheet and are kept in their own records only.")
@@ -622,7 +644,7 @@ def recording_into(
                 "date and it is read again the next night. The rows are named "
                 "above, each on its own SALES LEDGER OLDER THAN THE ROW line."
             )
-        return len(what.unmatched)
+        return len(what.unmatched) - len(before_history)
 
     return record_the_sales
 
@@ -782,6 +804,7 @@ def the_writing_half(
     ask: Optional[Callable] = None,
     inside: Optional[str] = None,
     tally: Optional[WhatWasWritten] = None,
+    keep_a_note: Optional[Callable[[str, str], None]] = None,
 ) -> Tuple[Optional[Callable], str]:
     """The one place a sale lands, and why there is none when there is none.
 
@@ -830,7 +853,7 @@ def the_writing_half(
             save_state(between_runs.write(between_runs.with_the_ledger(so_far, which)))
         if tally is not None:
             tally.sheet_id = which
-        return recording_into(door, speak, tally), ""
+        return recording_into(door, speak, tally, keep_a_note), ""
     except Exception as wrong:  # noqa: BLE001 - handed back in words, never swallowed
         return None, str(wrong)
 

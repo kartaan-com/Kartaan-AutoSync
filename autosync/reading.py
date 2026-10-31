@@ -99,6 +99,7 @@ import table
 import views
 import whats_new
 from firestore_door import TheirDatabaseSaidNo
+import ledger
 from ledger import LedgerRefused, Reading, which_markers
 from reports import report as the_report
 from sales import FROM_FIELD, Sale
@@ -128,8 +129,8 @@ WHAT_ORDERS_KNOWS = ("platform", "orderId", "on", "sku", "qty", "gmv", "status",
 # learns to write a column it did not, and every file is read once more -- which is safe, because reading a
 # file again writes the same figures and an older file never undoes a newer one (D150 rule 2).
 READING_RULES = "orders-with-the-platforms-status-word-and-what-happened-india-day-a81-returns-in-the-ledger-a87-flipkart-payouts-added-pr1"
-# Payments reports whose lines wait for their order (A81).
-PAYMENTS_THAT_WAIT_FOR_THEIR_ORDERS = ("fk_payments", "me_payments")
+# Payments reports whose lines wait for their order (A81). Named in `ledger.py`, where the history date that ends the wait is asked.
+PAYMENTS_THAT_WAIT_FOR_THEIR_ORDERS = ledger.PAYMENTS_THAT_WAIT_FOR_THEIR_ORDERS
 
 
 
