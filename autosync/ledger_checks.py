@@ -803,9 +803,57 @@ for _name, _files in (("orders file first", [_picked_up, _delivered, _requested]
     check(f"a delivered order whose return was only requested the same day reads Delivered -- {_name}",
           _row is not None and _row["whatHappened"] == "Delivered" and _row["returnsOn"] == "2026-10-16")
 
+# ---------------------------------- PR1 (A10): A FLIPKART ORDER'S MONEY IS THE SUM OF ITS DISTINCT PAYOUTS, NEVER THE LAST PAYOUT ALONE
+# The real case (Rumee's ledger, 30 Oct 2026): a sale paid 196.85 in one payout, then a customer return taken back in a later payout (refund and reverse
+# shipping, -403.35). The row ended at -403.35; it is -206.50.
+import payments  # noqa: E402
+from decimal import Decimal  # noqa: E402
+
+
+def _payout(payout, on, figure):
+    return tool.Reading("fk_payments", on, payments.WHAT_PAYMENTS_KNOW,
+                        (sales.Sale(platform="flipkart", order_id="OD1", sku="S", settlement=figure, notes="pay:" + payout, payments_on=on),),
+                        "file-" + payout, only_existing=True)
+
+
+def _night(files, start=None):
+    values, memory = (start or HEADER), tool.WhatTheNightHasDecided()
+    said = []
+    for one in files:
+        made = tool.plan(values, [one], memory)
+        values = [list(r) for r in values] + [list(r) for r in made.append]
+        for at, row in made.update:
+            values[at - 1] = list(row)
+        said += [str(r) for r in made.restated] + [str(d) for d in made.disagreements]
+    return dict(zip(sales.COLUMNS, values[-1])), said
+
+
+_sale_paid, _return_paid = _payout("N1", "2026-10-20", "196.85"), _payout("N2", "2026-10-29", "-403.35")
+_row, _said = _night([_sale_paid, _return_paid])
+check("A10: a sale paid in one payout and taken back in a later one is the SUM of the two (196.85 + -403.35 = -206.50)",
+      Decimal(_row["settlement"]) == Decimal("-206.50") and _row["notes"] == "pay:N1 pay:N2")
+check("A10: and the change is said (was -> now), not made quietly", any("196.85" in line and "-206.5" in line for line in _said))
+_row, _ = _night([_sale_paid, _return_paid, _return_paid, _sale_paid])
+check("A10: the same payouts read again (overlapping files) change nothing", Decimal(_row["settlement"]) == Decimal("-206.50"))
+_row, _ = _night([_return_paid, _sale_paid])
+check("A10: a payout that arrives AFTER a newer one is still added, not held back as older than the row",
+      Decimal(_row["settlement"]) == Decimal("-206.50"))
+_wrong = sales.the_row_for(sales.Sale(platform="flipkart", order_id="OD1", sku="S", settlement="-403.35", payments_on="2026-10-29"))
+_row, _ = _night([_sale_paid, _return_paid], start=HEADER + [list(_wrong)])
+check("A10 REPAIR: a row written before this change at -403.35 is re-worked from the payouts in order and comes out at -206.50",
+      Decimal(_row["settlement"]) == Decimal("-206.50"))
+_row, _ = _night([_sale_paid, _sale_paid], start=HEADER + [list(sales.the_row_for(sales.Sale(platform="flipkart", order_id="OD1", sku="S",
+                                                                                                  settlement="196.85", payments_on="2026-10-20")))])
+check("A10 REPAIR: a row that was right (one payout, no key) is not doubled by being read again", Decimal(_row["settlement"]) == Decimal("196.85"))
+_mixed = tool.Reading("fk_payments", "2026-10-29", payments.WHAT_PAYMENTS_KNOW,
+                      (sales.Sale(platform="flipkart", order_id="OD1", sku="S", settlement="5", notes="pay:N1 pay:N3", payments_on="2026-10-29"),),
+                      "file-mixed", only_existing=True)
+_row, _said = _night([_sale_paid, _mixed])
+check("A10: a file with one payout the row has and one it has not is SAID and the figure is left", Decimal(_row["settlement"]) == Decimal("196.85") and any("settlement" in line for line in _said))
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-WITH_HIS_FILES = 115 + 2 + 2 + 3 + 1
+WITH_HIS_FILES = 115 + 2 + 2 + 3 + 1 + 7
 EXPECTED = WITH_HIS_FILES - (9 if not_run else 0)
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")

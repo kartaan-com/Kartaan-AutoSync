@@ -92,7 +92,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 # deciding it here would be a second answer waiting to disagree, and what it
 # decides is whether an older file may put its figure over a newer one.
 from orders import CAME_BACK, DELIVERED, NOT_UNDERSTOOD_YET, the_day_in
-from payments import a_decimal, as_text, shared_by_value, two_sales_of_one_row
+from payments import PAYOUT_KEY, a_decimal, as_text, shared_by_value, two_sales_of_one_row
 from sales import CHARGE_COLUMNS, COLUMNS, ERP_OWNED_COLUMNS, FROM_FIELD, Sale, a_cell, name_for, the_row_for
 from table import CannotRead
 
@@ -943,7 +943,17 @@ def plan(
             # the 4th handed over after the 5th is refused by what the 5th just
             # wrote, whatever order they came in. The sort above stops being the
             # only thing standing between a seller and a destroyed correction.
-            if name in now:
+            # **A FLIPKART PAYOUT THE ROW HAS NOT SEEN IS ADDED, NEVER REPLACED, AND NEVER HELD BACK BY AGE (PR1, A10).** Each payments file is one
+            # payout (its NEFT id, `pay:<id>` in the line's notes) and carries only its own lines for an order: the sale in one payout, the return
+            # that takes it back in a later one. The row's money is the sum of its DISTINCT payouts, so a payout whose key the row's notes already
+            # hold changes nothing (the same payout in an overlapping file), and one it does not hold is a different line -- arriving older than
+            # the row is no reason to lose it. A row with NO payout key yet (everything written before this) takes the first one as it always did.
+            pay_keys = {k for k in (sale.notes or "").split() if k.startswith(PAYOUT_KEY)}
+            standing_pays = {k for k in (now[name].get("notes", "") or "").split() if k.startswith(PAYOUT_KEY)} if name in now else set()
+            pay_seen = bool(pay_keys) and pay_keys <= standing_pays
+            pay_new = bool(pay_keys) and not pay_seen
+            pay_adds = pay_new and bool(standing_pays) and not (pay_keys & standing_pays)
+            if name in now and not pay_new:
                 too_old = older_than_the_row(now[name], reading)
                 if too_old is not None:
                     marker, stood, unreadable_cell = too_old
@@ -982,6 +992,14 @@ def plan(
                     also_said=str(says.get("settlement", "")), from_report=reading.report, on=reading.on,
                     kept_from=THE_SHEET_REMEMBERS, also_from=reading.one_statement,
                 ))
+            if pay_new and standing_pays and (pay_keys & standing_pays):
+                # Some of this file's payouts are on the row and some are not: which part of the figure is the missing one cannot be said.
+                disagreements.append(Disagreement(
+                    name=name, column="settlement", kept=str(now[name].get("settlement", "")),
+                    also_said=str(says.get("settlement", "")), from_report=reading.report, on=reading.on,
+                    kept_from=THE_SHEET_REMEMBERS, also_from=reading.one_statement,
+                ))
+                continue
             figure_replaced = False
             fee_base_was = ""
             # **A SKU FILE DOWNLOADED AGAIN WITH THE SAME FIGURE IS NOT A REPLACEMENT (D582, Rule 29):** the row's figure holds the fees added
@@ -994,19 +1012,24 @@ def plan(
             for column, value in says.items():
                 if column == "id":
                     continue
-                if (fee_seen or re_download) and (column == "settlement" or column in CHARGE_COLUMNS):
+                if (fee_seen or re_download or pay_seen) and (column == "settlement" or column in CHARGE_COLUMNS):
                     continue
                 was = now[name].get(column, "")
                 added = False
-                if name in only_a_fee and (column == "settlement" or column in CHARGE_COLUMNS) and str(value) != "" and str(was) != "":
+                if (name in only_a_fee or pay_adds) and (column == "settlement" or column in CHARGE_COLUMNS) and str(value) != "" and str(was) != "":
                     # **A FEE THIS FILE NAMES NO SKU FOR ADDS TO WHAT THE ROW ALREADY HOLDS, never replaces it (D574 item 3): the figure the
                     # row holds is the order's other money from an earlier file, and a replacement would lose it.** A figure either side that
                     # cannot be read is left to the ordinary rule.
                     old_figure, fee = a_decimal(str(was)), a_decimal(str(value))
                     if old_figure is not None and fee is not None:
                         value, added = as_text(old_figure + fee), True
-                        if column == "settlement":
+                        if column == "settlement" and name in only_a_fee:
                             fee_base_was = str(was)
+                        if column == "settlement" and pay_adds and str(was) != str(value):
+                            restated.append(Restated(
+                                name=name, was=str(was), now=str(value), from_report=reading.report,
+                                on=reading.on, from_file=reading.one_statement,
+                            ))
 
                 # **SAYING NOTHING IS NOT SAYING "NOTHING". A blank never
                 # overwrites something already there.**
@@ -1071,6 +1094,7 @@ def plan(
                     before = _what_the_sheet_remembers(held.get(name), reading)
                 if (before is not None and before[0] == reading.on
                         and before[1] != reading.one_statement
+                        and not pay_new
                         and not (reading.corrects and from_the_sheet)):
                     if str(was) != str(value):
                         # **RULE 3. Nothing is overwritten on a tie.**
@@ -1106,6 +1130,11 @@ def plan(
                 # leave the notes, so a later re-read of the first fee file adds that fee back instead of skipping it as "already added".
                 now[name]["notes"] = " ".join(k for k in (now[name].get("notes", "") or "").split()
                                               if not _FEE_KEY.match(k) and not k.startswith(_FEE_BASE))
+                changed[name] = True
+                columns_changed.setdefault(name, set()).add("notes")
+            if pay_new:
+                # The payout keys go into the row's notes beside whatever he wrote there, so the next reading of this payout knows it was added.
+                now[name]["notes"] = " ".join(filter(None, [now[name].get("notes", "") or "", *sorted(pay_keys - standing_pays)]))
                 changed[name] = True
                 columns_changed.setdefault(name, set()).add("notes")
             if fee_keys and not fee_seen:

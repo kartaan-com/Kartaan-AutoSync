@@ -127,7 +127,7 @@ WHAT_ORDERS_KNOWS = ("platform", "orderId", "on", "sku", "qty", "gmv", "status",
 # already in his ledger would go on looking like sales for ever. Change this name whenever the orders reader
 # learns to write a column it did not, and every file is read once more -- which is safe, because reading a
 # file again writes the same figures and an older file never undoes a newer one (D150 rule 2).
-READING_RULES = "orders-with-the-platforms-status-word-and-what-happened-india-day-a81-returns-in-the-ledger-a87"
+READING_RULES = "orders-with-the-platforms-status-word-and-what-happened-india-day-a81-returns-in-the-ledger-a87-flipkart-payouts-added-pr1"
 # Payments reports whose lines wait for their order (A81).
 PAYMENTS_THAT_WAIT_FOR_THEIR_ORDERS = ("fk_payments", "me_payments")
 

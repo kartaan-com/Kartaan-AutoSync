@@ -280,7 +280,7 @@ finally:
     reading.a_listings_reading = _real_listings
 check("the titles come from the newest DATED catalog file, Drive's id breaking a tie of one day (R20 proving)", _cats == ["cat-b"])
 check("the reading rules carry this release's change, so files read under the old rules are read once more (R20 proving)",
-      reading.READING_RULES.endswith("-returns-in-the-ledger-a87"))
+      "-returns-in-the-ledger-a87" in reading.READING_RULES)
 _orders_key = reading._which_day_it_is_about((next(h for h in reading.WHAT_CAN_BE_READ if h.report_id == "me_orders"),
                                               whats_new.InTheFolder(which="o", name="meesho_me_orders_2026-10-20.csv", size=9)))
 _claims_key = reading._which_day_it_is_about((next(h for h in reading.WHAT_CAN_BE_READ if h.report_id == "me_claims"),

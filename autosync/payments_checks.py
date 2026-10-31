@@ -1327,6 +1327,27 @@ check("and a Date Range Transaction file in the same folder is read on its own, 
       and ("404-1", "SKU-A") in {(s.order_id, s.sku) for s in _old_shape[0].sales}
       and ("407-1", "SKU-A") not in {(s.order_id, s.sku) for s in _old_shape[0].sales})
 
+# ---------------------------------- PR1 (A10): EACH FLIPKART LINE CARRIES ITS PAYOUT'S ID (the NEFT id) SO THE LEDGER CAN ADD PAYOUTS UP
+_with_payout = FLIPKART_HEADER + ["NEFT ID"]
+
+
+def _flipkart_with_payout(header, payout):
+    cols = list(header)
+    sub = ["", "", "", "sub-heading"] + [""] * (len(cols) - 4)
+    return a_spreadsheet([
+        ("Report Help", [["How to read this report"]]),
+        ("Orders", [["Payment Details"] + [""] * (len(cols) - 1), cols, sub,
+                    a_line(cols, **{"Order ID": "OD1", "Seller SKU": "S", "Bank Settlement Value (Rs.)": "5", "NEFT ID": payout})]),
+    ])
+
+
+_paid = answered(lambda: read_as("fk_payments", "flipkart_fk_payments_2026-08-28.xlsx", _flipkart_with_payout(_with_payout, "NFT-/XUTR/AB1 ")))
+check("A10: a Flipkart line carries its payout's NEFT id as a key (spaces inside it turned to underscores, the trailing one dropped)",
+      _paid is not None and _paid[0].sales[0].notes == "pay:NFT-/XUTR/AB1")
+_unkeyed = answered(lambda: read_as("fk_payments", "flipkart_fk_payments_2026-08-28.xlsx", _flipkart_with_payout(_with_payout[:-1] + ["Other"], "x")))
+check("A10: a file with no NEFT id column is read as before, without a key, not refused",
+      _unkeyed is not None and _unkeyed[0].sales[0].notes is None)
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 HIS_FILES_GROUP = 6
@@ -1335,7 +1356,7 @@ if failures:
     print(f"{len(failures)} FAILED: {failures}")
     sys.exit(1)
 WITHOUT = ran - real_ran
-if WITHOUT != 95 + 22 + 17 + 8 + 2 + 3 + 5 + 3 + 5 + 14 + 9 + 4 + 2 + 1 + 1:  # one 1 is N018 (AU3 #6), the other AP11 proving, the 14 are A90d proving, the 9 A90e (D581), the 6 A90f (D582)
-    print(f"FAIL  checks went missing -- {WITHOUT} ran without his files, 191 expected")
+if WITHOUT != 95 + 22 + 17 + 8 + 2 + 3 + 5 + 3 + 5 + 14 + 9 + 4 + 2 + 1 + 1 + 2:  # one 1 is N018 (AU3 #6), the other AP11 proving, the 14 are A90d proving, the 9 A90e (D581), the 6 A90f (D582)
+    print(f"FAIL  checks went missing -- {WITHOUT} ran without his files, 193 expected")
     sys.exit(1)
 print(f"all {ran} checks passed" + ("" if real_ran == HIS_FILES_GROUP else f" ({HIS_FILES_GROUP - real_ran} of his real-file checks not run -- the files are elsewhere)"))

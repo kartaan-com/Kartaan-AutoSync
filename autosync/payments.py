@@ -316,6 +316,11 @@ FLIPKART_ORDER_ID = "Order ID"
 FLIPKART_SKU = "Seller SKU"
 # The settlement's heading carries its own formula after a line break, which the platform may reword; the start is the name.
 FLIPKART_SETTLEMENT_STARTS = "Bank Settlement Value"
+# **EACH FLIPKART PAYMENTS FILE IS ONE PAYOUT (PR1, A10), AND THE PAYOUT'S ID IS ITS NEFT ID.** An order's sale and its later return are paid in
+# DIFFERENT payouts, each file carrying only its own lines for the order, so the ledger adds payouts up and needs this id to tell one it has
+# already added. A file with no such column, or two, keeps the old behaviour (no key) rather than being refused.
+FLIPKART_PAYOUT_ID = "NEFT ID"
+PAYOUT_KEY = "pay:"
 
 
 def _places(columns: Sequence[str], spec: Sequence[Tuple[str, str]], **how) -> Dict[str, List[int]]:
@@ -360,6 +365,7 @@ def read_flipkart(rows: Table, data_date: str, extras: Optional[Dict[str, object
     sku_at = _where(columns, FLIPKART_SKU)
     paid_at = _where(columns, FLIPKART_SETTLEMENT_STARTS, starts=True)
     places = _places(columns, FLIPKART_CHARGES)
+    payout_at = [at for at, one in enumerate(columns) if one.strip() == FLIPKART_PAYOUT_ID]
 
     lines = _Lines()
     not_read = _the_refused(rows)
@@ -374,7 +380,8 @@ def read_flipkart(rows: Table, data_date: str, extras: Optional[Dict[str, object
             if paid is not None or charges:
                 nameless_money += 1
             continue
-        lines.put((order_id, _unwrap_flipkart_sku(_cell(row, sku_at))), paid, charges)
+        payout = "_".join(_cell(row, payout_at[0]).split()) if len(payout_at) == 1 else ""
+        lines.put((order_id, _unwrap_flipkart_sku(_cell(row, sku_at))), paid, charges, PAYOUT_KEY + payout if payout else "")
 
     aside: List[str] = []
     if nameless_money:
