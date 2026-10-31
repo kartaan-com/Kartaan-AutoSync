@@ -321,7 +321,7 @@ FLIPKART_SETTLEMENT_STARTS = "Bank Settlement Value"
 # DIFFERENT payouts, each file carrying only its own lines for the order, so the ledger adds payouts up and needs this id to tell one it has
 # already added. A file with no such column, or two, keeps the old behaviour (no key) rather than being refused.
 FLIPKART_PAYOUT_ID = "NEFT ID"
-PAYOUT_KEY = "pay:"
+PAYOUT_KEY = "fkpay:"
 # **WHAT A PAYOUT ID LOOKS LIKE (PR1c finding 3):** eight or more characters with at least one digit, no spaces. The ledger reads these keys back out of the
 # notes the seller also types in, so a word of his own (`pay:later`) must never be taken for a payout; a NEFT id that does not look like one is treated
 # as no key (the line is then handled as an unkeyed line, which never changes a row summed from keyed payouts).
@@ -360,7 +360,18 @@ class _PayoutGroups:
                 return
 
     def sales(self, platform: str, data_date: str) -> Tuple[Sale, ...]:
-        return tuple(sale for payout_key in sorted(self._by_key) for sale in self._by_key[payout_key].sales(platform, data_date))
+        # **A LINE WITH NO KEY IS FOLDED INTO THE ONE KEYED PAYOUT THAT STATES THE SAME ORDER (PR1c review):** kept apart it would be set first and then
+        # REPLACED by the keyed line, losing its money. With no or several candidates it stays apart and goes LAST, where the ledger says it instead of adding it.
+        keyed = {k: g for k, g in self._by_key.items() if k}
+        loose = self._by_key.get("")
+        if loose is not None and keyed:
+            for key in list(loose._settlement):
+                owners = [k for k, g in keyed.items() if g.states(key)]
+                if len(owners) == 1:
+                    keyed[owners[0]].put(key, loose._settlement.pop(key), loose._charges.pop(key))
+            loose._keys.clear()
+        order = sorted(keyed) + ([""] if loose is not None and loose._settlement else [])
+        return tuple(sale for payout_key in order for sale in self._by_key[payout_key].sales(platform, data_date))
 
 
 def _flipkart_rebates(lines: "_Lines", found) -> List[str]:

@@ -1315,7 +1315,7 @@ check("and says it with the count, the money and the day history starts, not as 
       and not any(one.startswith("SALES LEDGER PAYMENT WITH NO ORDER") for one in _heard))
 check("and keeps a file of the lines for the seller's Kartaan folder, named for the report and the day",
       len(_kept) == 1 and _kept[0][0].startswith("payments-before-history-me_payments-2026-02-10-") and _kept[0][0].endswith(".txt") and "NEVER-LOADED" in _kept[0][1] and "40.50" in _kept[0][1])
-_charge_only = sales.Sale(platform="meesho", order_id="CHARGE-ONLY", sku="", charges={"otherServices": "-12.50"})
+_charge_only = sales.Sale(platform="meesho", order_id="CHARGE-ONLY", sku="", charges={"otherServices": "12.50"})
 _heard_charge = []
 _file_c = ledger.Reading(report="me_payments", on="2026-02-10", knows=("settlement",), sales=(_charge_only,), which="pay-c", only_existing=True)
 answered(lambda: tool.recording_into(LedgerDoor(PretendSheets(rows=list(THE_HEADER)), "s"), say=_heard_charge.append, keep_a_note=lambda n, t: None)([_file_c]))

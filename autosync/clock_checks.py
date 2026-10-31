@@ -132,9 +132,13 @@ check("a run that finished at 02:25 does not refuse tomorrow's tick at 02:23",
 # **AND IT IS STILL ONCE A DAY.** The drift is gone; the rule it was serving is not.
 same_day_again = tool.LastRun(
     started=datetime(2026, 8, 28, 2, 23), finished=datetime(2026, 8, 28, 2, 25))
-check("but a second tick the same day is still refused",
+# **PR1c: A RUN IN THE SMALL HOURS BELONGS TO THE EVENING BEFORE, for every floor** (the one tick is 18:00 plus GitHub's delay), so a second tick
+# in the same small hours is refused, and the evening's own tick at 23:00 is a new evening and runs.
+check("but a second tick in the same small hours is still refused",
       answered(lambda: tool.why_not_now(
-          same_day_again, datetime(2026, 8, 28, 23, 0), 2)) is not None)
+          same_day_again, datetime(2026, 8, 28, 2, 50), 2)) is not None)
+check("and the same evening's own tick at 23:00 is the next evening and runs",
+      answered(lambda: tool.why_not_now(same_day_again, datetime(2026, 8, 28, 23, 0), 2)) is None)
 
 # A run is given up on well within a day, so a run that died in the night is
 # replaced rather than blocking every later one.
@@ -334,6 +338,16 @@ check("a seller with a floor under 6 keeps calendar days: run at 02:00, tick at 
       answered(lambda: tool.why_not_now(tool.LastRun(started=datetime(2026, 11, 2, 2, 0), finished=datetime(2026, 11, 2, 2, 5)),
                                         datetime(2026, 11, 2, 3, 0), 1)) is not None)
 
+# **PR1c REVIEW: floors under 6, a late run that finishes after 06:00.**
+late_run_low_floor = tool.LastRun(started=datetime(2026, 11, 3, 0, 30), finished=datetime(2026, 11, 3, 0, 45))
+check("floor 2: after a late run at 00:30 on 3 Nov, the on-time tick of 3 Nov at 22:00 runs",
+      answered(lambda: tool.why_not_now(late_run_low_floor, datetime(2026, 11, 3, 22, 0), 2)) is None)
+check("floor 0: and a second tick at 00:50 the same night is refused",
+      answered(lambda: tool.why_not_now(late_run_low_floor, datetime(2026, 11, 3, 0, 50), 0)) is not None)
+long_late_run = tool.LastRun(started=datetime(2026, 11, 3, 0, 30), finished=datetime(2026, 11, 3, 6, 15))
+check("a late run that started at 00:30 and finished at 06:15 still belongs to the evening before: the 22:00 tick runs",
+      answered(lambda: tool.why_not_now(long_late_run, datetime(2026, 11, 3, 22, 0))) is None)
+
 # **AND NOTHING ABOVE ENDED BY THROWING RATHER THAN BY ANSWERING.**
 #
 # **IT SAT SEVENTY-ONE LINES FROM THE END, with fifteen checks after it (cycle
@@ -343,7 +357,7 @@ check("a seller with a floor under 6 keeps calendar days: run at 02:00, tick at 
 # before the tally now, which is the only place it covers everything.
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 78 + 6 + 7
+EXPECTED = 78 + 6 + 7 + 1 + 3
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

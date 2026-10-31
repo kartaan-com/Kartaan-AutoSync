@@ -636,7 +636,8 @@ def _the_money_of(sale: Sale) -> str:
     by_column = dict(zip(COLUMNS, the_row_for(sale)))
     charges = [a_decimal(str(by_column.get(c, ""))) for c in CHARGE_COLUMNS]
     charges = [c for c in charges if c is not None]
-    return as_text(sum(charges, Decimal(0))) if charges else ""
+    # **A CHARGE IS STORED POSITIVE WHERE MONEY WAS TAKEN (payments._taken), so the line's money is the charges NEGATED (PR1c review).**
+    return as_text(-sum(charges, Decimal(0))) if charges else ""
 
 
 def _what_a_sale_says(sale: Sale, knows: Sequence[str]) -> Dict[str, str]:
@@ -1013,7 +1014,7 @@ def plan(
             # wrote, whatever order they came in. The sort above stops being the
             # only thing standing between a seller and a destroyed correction.
             # **A FLIPKART PAYOUT THE ROW HAS NOT SEEN IS ADDED, NEVER REPLACED, AND NEVER HELD BACK BY AGE (PR1, A10).** Each payments file is one
-            # payout (its NEFT id, `pay:<id>` in the line's notes) and carries only its own lines for an order: the sale in one payout, the return
+            # payout (its NEFT id, `fkpay:<id>` in the line's notes) and carries only its own lines for an order: the sale in one payout, the return
             # that takes it back in a later one. The row's money is the sum of its DISTINCT payouts, so a payout whose key the row's notes already
             # hold changes nothing (the same payout in an overlapping file), and one it does not hold is a different line -- arriving older than
             # the row is no reason to lose it. A row with NO payout key yet (everything written before this) takes the first one as it always did.

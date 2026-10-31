@@ -36,7 +36,7 @@ class Pretend:
     """A reading with only what the payout question looks at."""
 
     def __init__(self, *lines):
-        self.sales = tuple(sales.Sale(platform="flipkart", order_id=o, sku="S", settlement=fig, notes="pay:" + pay) for o, pay, fig in lines)
+        self.sales = tuple(sales.Sale(platform="flipkart", order_id=o, sku="S", settlement=fig, notes="fkpay:" + pay) for o, pay, fig in lines)
 
 
 same = [("a.xlsx", Pretend(("OD1", "UTR-0001", "196.85"))), ("b.xlsx", Pretend(("OD1", "UTR-0001", "196.85")))]
@@ -48,7 +48,7 @@ check("one payout carrying different figures for one order in two files is liste
 other_orders = [("a.xlsx", Pretend(("OD1", "UTR-0001", "1"))), ("b.xlsx", Pretend(("OD2", "UTR-0001", "2"), ("OD1", "UTR-0002", "3")))]
 check("different orders in one payout, or one order in different payouts, are not a contradiction", answered(lambda: dry.the_payouts_that_disagree(other_orders)) == [])
 
-merged = [("a.xlsx", Pretend(("OD1", "UTR-0001 pay:UTR-0002", "50"))), ("b.xlsx", Pretend(("OD1", "UTR-0001", "196.85")))]
+merged = [("a.xlsx", Pretend(("OD1", "UTR-0001 fkpay:UTR-0002", "50"))), ("b.xlsx", Pretend(("OD1", "UTR-0001", "196.85")))]
 check("PR1c 9: a line holding two payout keys (one combined figure) is not read as each key's own figure",
       answered(lambda: dry.the_payouts_that_disagree(merged)) == [])
 said = answered(lambda: dry.the_orders_with_several_payouts_in_one_file(merged)) or []

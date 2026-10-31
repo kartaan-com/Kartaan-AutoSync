@@ -812,7 +812,7 @@ from decimal import Decimal  # noqa: E402
 
 def _payout(payout, on, figure):
     return tool.Reading("fk_payments", on, payments.WHAT_PAYMENTS_KNOW,
-                        (sales.Sale(platform="flipkart", order_id="OD1", sku="S", settlement=figure, notes="pay:" + payout, payments_on=on),),
+                        (sales.Sale(platform="flipkart", order_id="OD1", sku="S", settlement=figure, notes="fkpay:" + payout, payments_on=on),),
                         "file-" + payout, only_existing=True)
 
 
@@ -831,7 +831,7 @@ def _night(files, start=None):
 _sale_paid, _return_paid = _payout("UTR-0001", "2026-10-20", "196.85"), _payout("UTR-0002", "2026-10-29", "-403.35")
 _row, _said = _night([_sale_paid, _return_paid])
 check("A10: a sale paid in one payout and taken back in a later one is the SUM of the two (196.85 + -403.35 = -206.50)",
-      Decimal(_row["settlement"]) == Decimal("-206.50") and _row["notes"] == "pay:UTR-0001 pay:UTR-0002")
+      Decimal(_row["settlement"]) == Decimal("-206.50") and _row["notes"] == "fkpay:UTR-0001 fkpay:UTR-0002")
 check("A10: and the change is said (was -> now), not made quietly", any("196.85" in line and "-206.5" in line for line in _said))
 _row, _ = _night([_sale_paid, _return_paid, _return_paid, _sale_paid])
 check("A10: the same payouts read again (overlapping files) change nothing", Decimal(_row["settlement"]) == Decimal("-206.50"))
@@ -846,7 +846,7 @@ _row, _ = _night([_sale_paid, _sale_paid], start=HEADER + [list(sales.the_row_fo
                                                                                                   settlement="196.85", payments_on="2026-10-20")))])
 check("A10 REPAIR: a row that was right (one payout, no key) is not doubled by being read again", Decimal(_row["settlement"]) == Decimal("196.85"))
 _mixed = tool.Reading("fk_payments", "2026-10-29", payments.WHAT_PAYMENTS_KNOW,
-                      (sales.Sale(platform="flipkart", order_id="OD1", sku="S", settlement="5", notes="pay:UTR-0001 pay:UTR-0003", payments_on="2026-10-29"),),
+                      (sales.Sale(platform="flipkart", order_id="OD1", sku="S", settlement="5", notes="fkpay:UTR-0001 fkpay:UTR-0003", payments_on="2026-10-29"),),
                       "file-mixed", only_existing=True)
 _row, _said = _night([_sale_paid, _mixed])
 check("A10: a file with one payout the row has and one it has not is SAID and the figure is left", Decimal(_row["settlement"]) == Decimal("196.85") and any("settlement" in line for line in _said))
@@ -876,7 +876,7 @@ check("PR1c 1: and the real payout read after the unkeyed line is still added (t
 _typed = list(sales.the_row_for(sales.Sale(platform="flipkart", order_id="OD1", sku="S", settlement="196.85", payments_on="2026-10-20", notes="pay:later")))
 _row, _ = _night([_sale_paid], start=HEADER + [_typed])
 check("PR1c 3: a word the seller typed (`pay:later`) is not a payout key -- 196.85 read with payout UTR-0001 (196.85) stays 196.85, not 393.70",
-      Decimal(_row["settlement"]) == Decimal("196.85") and "pay:later" in _row["notes"] and "pay:UTR-0001" in _row["notes"])
+      Decimal(_row["settlement"]) == Decimal("196.85") and "pay:later" in _row["notes"] and "fkpay:UTR-0001" in _row["notes"])
 _row, _said = _night([_sale_paid, _payout("UTR-0001", "2026-10-30", "150", )])
 check("PR1c 4: the same payout read again with a different figure is SAID, and the figure is kept",
       Decimal(_row["settlement"]) == Decimal("196.85") and any("'150'" in line for line in _said))
@@ -894,14 +894,14 @@ check("PR1c 5: but a legacy row that ends the night (one call, both payouts) wit
 # **TWO PAYOUTS FOR ONE ORDER IN ONE FILE (PR1c finding 6; the real files have 325 such lines in 14 files).** The reader now gives each payout its own line.
 def _two_in_one_file(on="2026-10-29"):
     return tool.Reading("fk_payments", on, payments.WHAT_PAYMENTS_KNOW,
-                        (sales.Sale(platform="flipkart", order_id="OD1", sku="S", settlement="196.85", notes="pay:UTR-0001", payments_on=on),
-                         sales.Sale(platform="flipkart", order_id="OD1", sku="S", settlement="-403.35", notes="pay:UTR-0002", payments_on=on)),
+                        (sales.Sale(platform="flipkart", order_id="OD1", sku="S", settlement="196.85", notes="fkpay:UTR-0001", payments_on=on),
+                         sales.Sale(platform="flipkart", order_id="OD1", sku="S", settlement="-403.35", notes="fkpay:UTR-0002", payments_on=on)),
                         "file-two", only_existing=True)
 
 
 _row, _ = _night([_two_in_one_file()])
 check("PR1c 6: two payouts for one order in one file, on a new row, add up (196.85 + -403.35 = -206.50) with both keys",
-      Decimal(_row["settlement"]) == Decimal("-206.50") and _row["notes"] == "pay:UTR-0001 pay:UTR-0002")
+      Decimal(_row["settlement"]) == Decimal("-206.50") and _row["notes"] == "fkpay:UTR-0001 fkpay:UTR-0002")
 _row, _ = _night([_sale_paid, _two_in_one_file()])
 check("PR1c 6: and a row that already has the first payout gets the second added, not a disagreement and not lost",
       Decimal(_row["settlement"]) == Decimal("-206.50"))
@@ -910,9 +910,25 @@ check("PR1c 6: and reading the same file again, or each payout's own file, chang
 _row, _ = _night([_two_in_one_file()], start=HEADER + [list(_wrong)])
 check("PR1c 6: a legacy row written wrong at -403.35 is re-worked to -206.50 by the file holding both payouts", Decimal(_row["settlement"]) == Decimal("-206.50"))
 
+# **PR1c REVIEW: a keyed and an unkeyed line for one order in one file are ONE order's money; a note shaped like an id is not a payout key.**
+def _keyed_and_loose(on="2026-10-29"):
+    return tool.Reading("fk_payments", on, payments.WHAT_PAYMENTS_KNOW,
+                        (sales.Sale(platform="flipkart", order_id="OD1", sku="S", settlement="-50", payments_on=on),
+                         sales.Sale(platform="flipkart", order_id="OD1", sku="S", settlement="200", notes="fkpay:UTR-0001", payments_on=on)),
+                        "file-loose", only_existing=True)
+
+
+_row, _ = _night([_keyed_and_loose()])
+check("PR1c review 1: a keyed line (200) and an unkeyed line (-50) for one order in one file are NOT replaced by the keyed one alone",
+      Decimal(_row["settlement"]) in (Decimal("200"), Decimal("150")) and Decimal(_row["settlement"]) != Decimal("-50"))
+_typed2 = list(sales.the_row_for(sales.Sale(platform="flipkart", order_id="OD1", sku="S", settlement="196.85", payments_on="2026-10-20", notes="pay:15Nov2026")))
+_row, _ = _night([_sale_paid], start=HEADER + [_typed2])
+check("PR1c review 3: a seller note shaped like an id (`pay:15Nov2026`) is no payout key either",
+      Decimal(_row["settlement"]) == Decimal("196.85") and "pay:15Nov2026" in _row["notes"])
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-WITH_HIS_FILES = 115 + 2 + 2 + 3 + 1 + 7 + 2 + 8 + 4
+WITH_HIS_FILES = 115 + 2 + 2 + 3 + 1 + 7 + 2 + 8 + 4 + 2
 EXPECTED = WITH_HIS_FILES - (9 if not_run else 0)
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
