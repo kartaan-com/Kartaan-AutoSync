@@ -62,6 +62,7 @@ for Drive, Amazon and Firestore, so every line below is checked with no account,
 no sheet and no internet.
 """
 
+import hashlib
 import time
 from typing import Callable, Dict, Optional, Sequence, Tuple
 
@@ -586,20 +587,24 @@ def recording_into(
             one for one in what.unmatched
             if one not in unclaimed and ledger.is_payment_file_from_before_history(one.from_report, one.on)
         ]
-        if before_history:
-            total = sum((ledger.a_decimal(one.amount) or 0 for one in before_history), 0)
-            first = before_history[0]
+        # **ONE NOTE PER FILE, NAMED WITH A SHORT MARK OF THE FILE (security review):** two files of one report and one day must not write over
+        # each other's note, and the file's name goes into the log in quotes (`!r`) so a name with a line break cannot forge a log line.
+        # **A NOTE THAT CANNOT BE KEPT IS NOT SWALLOWED:** the error leaves the file unread, so it is read again tomorrow and the lines are not lost.
+        for from_file in dict.fromkeys(one.from_file for one in before_history):
+            lines = [one for one in before_history if one.from_file == from_file]
+            total = sum((ledger.a_decimal(one.amount) or 0 for one in lines), 0)
+            first = lines[0]
             speak(
-                f"SALES LEDGER BEFORE HISTORY  {len(before_history)} payment line(s) in {first.from_file or first.from_report} of {first.on} "
+                f"SALES LEDGER BEFORE HISTORY  {len(lines)} payment line(s) in {(first.from_file or first.from_report)!r} of {first.on} "
                 f"({first.from_report}) have no order and are not waited for: history starts on {ledger.HISTORY_STARTS_ON.isoformat()}. "
                 f"Their money adds up to {total}."
             )
             if keep_a_note is not None:
                 keep_a_note(
-                    f"payments-before-history-{first.from_report}-{first.on}.txt",
+                    f"payments-before-history-{first.from_report}-{first.on}-{hashlib.sha1(from_file.encode('utf-8')).hexdigest()[:8]}.txt",
                     f"History starts on {ledger.HISTORY_STARTS_ON.isoformat()}. These payment lines of {first.from_report} dated {first.on} "
-                    f"(file {first.from_file}) have no order in the sales sheet and were not waited for. Total {total}.\n"
-                    + "\n".join(f"{one.name}\t{one.amount}" for one in before_history) + "\n",
+                    f"(file {from_file!r}) have no order in the sales sheet and were not waited for. Total {total}.\n"
+                    + "\n".join(f"{one.name!r}\t{one.amount}" for one in lines) + "\n",
                 )
         for one in what.unmatched:
             if one not in unclaimed and one not in before_history:

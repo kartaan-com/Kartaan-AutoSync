@@ -1314,8 +1314,20 @@ check("and says it with the count, the money and the day history starts, not as 
       any(one.startswith("SALES LEDGER BEFORE HISTORY") and "1 payment line(s)" in one and "40.50" in one and "2026-01-01" in one for one in _heard)
       and not any(one.startswith("SALES LEDGER PAYMENT WITH NO ORDER") for one in _heard))
 check("and keeps a file of the lines for the seller's Kartaan folder, named for the report and the day",
-      len(_kept) == 1 and _kept[0][0] == "payments-before-history-me_payments-2026-02-10.txt" and "NEVER-LOADED" in _kept[0][1] and "40.50" in _kept[0][1])
+      len(_kept) == 1 and _kept[0][0].startswith("payments-before-history-me_payments-2026-02-10-") and _kept[0][0].endswith(".txt") and "NEVER-LOADED" in _kept[0][1] and "40.50" in _kept[0][1])
 _waiting, _heard, _kept = _history_night("2026-03-01")
+_w2, _h2, _kept_two = _history_night("2026-02-10")
+_other_file = ledger.Reading(report="me_payments", on="2026-02-10", knows=("settlement",), sales=(_NO_SKU_LINE,), which="pay-other", only_existing=True)
+_kept_other = []
+answered(lambda: tool.recording_into(LedgerDoor(PretendSheets(rows=list(THE_HEADER)), "s"), keep_a_note=lambda n, t: _kept_other.append(n))([_other_file]))
+check("two files of one report and one day keep two notes with different names, so one cannot write over the other",
+      len(_kept_other) == 1 and _kept_other[0] != _kept_two[0][0])
+_tricky = ledger.Reading(report="me_payments", on="2026-02-10", knows=("settlement",), sales=(_NO_SKU_LINE,), which="a" + chr(10) + "SALES LEDGER FORGED", only_existing=True)
+_tricky_heard = []
+answered(lambda: tool.recording_into(LedgerDoor(PretendSheets(rows=list(THE_HEADER)), "s"), say=_tricky_heard.append)([_tricky]))
+check("a file name with a line break cannot forge a log line: it is quoted",
+      any("BEFORE HISTORY" in line for line in _tricky_heard)
+      and not any(line.startswith("SALES LEDGER FORGED") for line in chr(10).join(_tricky_heard).split(chr(10))))
 check("a payments file from after the margin still waits for its order, as before, and sets nothing aside",
       _waiting == 1 and _kept == [] and not any("BEFORE HISTORY" in one for one in _heard))
 check("the cut is the history day plus 45 days: the 14 Feb file is set aside, the 15 Feb file waits",
@@ -1323,7 +1335,7 @@ check("the cut is the history day plus 45 days: the 14 Feb file is set aside, th
 check("and only Flipkart and Meesho payments are cut -- Amazon's lines are never held back, so never set aside",
       not ledger.is_payment_file_from_before_history("az_settlements", "2026-02-01") and not ledger.is_payment_file_from_before_history("fk_payments", "no day"))
 
-EXPECTED = 144 + 12 + 9 + 2 + 2 + 5 + 6
+EXPECTED = 144 + 12 + 9 + 2 + 2 + 5 + 6 + 2
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
