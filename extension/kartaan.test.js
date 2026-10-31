@@ -846,6 +846,14 @@ check('kartaan.js opens no connection of its own: it is handed one',
     && form.source === 'autosync' && form.kind === 'problem' && form.pass === PASS && form.id === 'autosync-failed-1234');
   check('the words name the reports as he knows them and carry nothing else',
     JSON.parse(form.facts).text.includes('Flipkart orders, Meesho returns') && !JSON.stringify(form.facts).includes(PASS));
+  const again = aServerThat({ body: { queued: true } });
+  await tellFinishedAndAlert(chrome, again.fetch, { failed: ['fk_orders'], endedAt: 777 });
+  await tellFinishedAndAlert(chrome, again.fetch, { failed: ['fk_orders'], endedAt: 777 });
+  const ids = again.calls.filter((one) => one.address === TELL_ADDRESS).map((one) => formOf(one).id);
+  check('the same night end sends the same message id twice, so a restart cannot make two messages',
+    ids.length === 2 && ids[0] === 'autosync-failed-777' && ids[1] === ids[0]);
+  check('and the words do not promise a retry for reports that need him',
+    !JSON.parse(form.facts).text.includes('tries again by itself') && JSON.parse(form.facts).text.includes('by hand'));
   check('and the run log line says his messages were told, with the first answer kept as it was',
     got.said.includes('Kartaan has started your run.') && got.said.includes('His messages were told which reports failed.'));
 
@@ -871,7 +879,7 @@ check('kartaan.js opens no connection of its own: it is handed one',
     server.calls.length === 0 && got.said.includes('no run pass is saved'));
 }
 
-const EXPECTED = 121 + 7;
+const EXPECTED = 121 + 9;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

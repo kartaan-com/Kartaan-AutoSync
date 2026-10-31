@@ -351,8 +351,11 @@ export async function tellTheProblem(chrome, fetchImpl, { names, timeoutMs = WAI
     }
     const words = names.map(aReportInWords).join(', ');
     const facts = {
-      text: `AutoSync could not fetch: ${words}. It tries again by itself; if it keeps failing, open the AutoSync panel.`,
+      text: `AutoSync did not get: ${words}. Some are tried again by itself; if one is still missing tomorrow, `
+        + 'open the AutoSync panel -- a few have to be fetched by hand.',
     };
+    /* **THE ID IS THE NIGHT'S END, NOT THE CLOCK**, so a worker restarted between the post and the note that it was told
+     * sends the same id again and the centre keeps one message (review finding). */
     const got = await postForm(fetchImpl, TELL_ADDRESS, {
       source: 'autosync', kind: 'problem', id: `autosync-failed-${at}`, facts: JSON.stringify(facts), pass,
     }, timeoutMs);
@@ -371,10 +374,14 @@ export async function tellTheProblem(chrome, fetchImpl, { names, timeoutMs = WAI
  * `tellFinished`, and then -- only when some report failed or needs him -- the message to him. **The sentence that
  * comes back says both**, so the run log's "Told Kartaan" line shows whether his messages were told. Never throws.
  */
-export async function tellFinishedAndAlert(chrome, fetchImpl, { failed = [], timeoutMs = WAIT_AT_MOST_MS, at = Date.now() } = {}) {
+export async function tellFinishedAndAlert(chrome, fetchImpl, {
+  failed = [], endedAt = null, timeoutMs = WAIT_AT_MOST_MS, at = Date.now(),
+} = {}) {
   const answer = await tellFinished(chrome, fetchImpl, { failed, timeoutMs, at });
   const names = theFailedReportsToSend(failed);
   if (!names.length) return answer;
-  const alert = await tellTheProblem(chrome, fetchImpl, { names, timeoutMs, at });
+  const alert = await tellTheProblem(chrome, fetchImpl, {
+    names, timeoutMs, at: Number.isFinite(endedAt) && endedAt ? endedAt : at,
+  });
   return { ...answer, said: `${answer.said} ${alert.said}` };
 }

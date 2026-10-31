@@ -178,7 +178,7 @@ const followTheNightThrough = async (doneNight) => {
     if (!next.started && !next.waiting) await closeOurOwn(chrome, { ownWindow: WALK_IN_HIS_OWN_WINDOW });
     /* **THE WHOLE SYNC STOPPED SHORT: THE LAST NIGHT THAT RAN WAS NOT THE LAST ONE PLANNED.** Told once, here. */
     await tellForASyncThatCannotContinue(chrome, next, doneNight,
-      ({ failed }) => tellFinishedAndAlert(chrome, kartaanFetch, { failed }));
+      ({ failed, endedAt }) => tellFinishedAndAlert(chrome, kartaanFetch, { failed, endedAt }));
   }
 };
 
@@ -204,7 +204,7 @@ const theNightsParts = {
   startAWalk: async (how) => startAWalk(chrome, how),
   /* **A NIGHT THAT REACHES ITS NATURAL END TELLS KARTAAN (plan jobs 30 and 48).** `nightly.js` decides when, once,
    * and keeps the answer on the night; it never throws and never changes how the night went. */
-  tellKartaan: async ({ failed }) => tellFinishedAndAlert(chrome, kartaanFetch, { failed }),
+  tellKartaan: async ({ failed, endedAt }) => tellFinishedAndAlert(chrome, kartaanFetch, { failed, endedAt }),
 };
 
 /* **THE TWO HANDLES A NIGHT IS RUN AND READ BY, until there is a screen for

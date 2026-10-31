@@ -1410,7 +1410,7 @@ async function tellThatItEnded(chrome, ended, tell) {
   const ids = [...new Set([...before, ...thisNights])];
   let said;
   try {
-    said = await tell({ failed: ids });
+    said = await tell({ failed: ids, endedAt: ended.finishedAt });
   } catch (wrong) {
     said = null;
   }
