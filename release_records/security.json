@@ -13,5 +13,9 @@
     "LOW: promised allowance does not count a running ask (the hard cap howManyItMaySpend still holds; worst case the second ask is skipped as not-asked, in words). NAMED, not fixed.",
     "INFO: once a run has started it is not paused if the seller returns (same as the night run). NAMED."
   ],
-  "named_gaps": ["The security review ran before the fixes; each fix has a red-first check and the prover run covers them.", "The panel-only door (answerThePanel) was read and found sound; unchanged."]
+  "named_gaps": [
+    "The security review ran before the fixes; each fix has a red-first check and the prover run covers them.",
+    "The panel-only door (answerThePanel) was read and found sound; unchanged."
+  ],
+  "release_note": "31 Oct 2026, Kartaan Control: released as v0.1.24. The release commit differs from 7e33432 only by extension/manifest.json version 0.1.23 -> 0.1.24 (no code change)."
 }

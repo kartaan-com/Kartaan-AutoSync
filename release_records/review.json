@@ -13,5 +13,9 @@
     "MEDIUM: autosync_run waited for the whole start (Kartaan's check, a portal page), holding the one-at-a-time lock and outlasting the helper's 90 s. FIXED (kept and answered at once; the start runs outside the lock); check added.",
     "LOW: panel wording while waiting for a run; a Chrome idle error counted as 'free' for AI asks; a test that proved less than its name; ready_to_run needs the Meesho panel name even for Flipkart-only sellers (NAMED, not fixed)."
   ],
-  "named_gaps": ["The review ran on d2e94b1, before the fixes; the fixes are covered by their own red-first checks and by the prover run on ae7d023.", "A two-website ask can still be disturbed by a timed sync overwriting Run now's own queue (pre-existing in Run now)."]
+  "named_gaps": [
+    "The review ran on d2e94b1, before the fixes; the fixes are covered by their own red-first checks and by the prover run on ae7d023.",
+    "A two-website ask can still be disturbed by a timed sync overwriting Run now's own queue (pre-existing in Run now)."
+  ],
+  "release_note": "31 Oct 2026, Kartaan Control: released as v0.1.24. The release commit differs from 7e33432 only by extension/manifest.json version 0.1.23 -> 0.1.24 (no code change)."
 }
