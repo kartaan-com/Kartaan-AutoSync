@@ -1288,6 +1288,34 @@ check('and three days of trying is the reference\'s own number', GIVE_UP_AFTER_D
   });
   check('any other failure of such a report is not swept into the hourly check',
     other.done.at(-1).state === 'failed');
+  check('the closed-tab line says it once, and does not call a closed tab "not ready"',
+    (closed.done.at(-1).say.match(/checked again in an hour/g) || []).length === 1
+    && !closed.done.at(-1).say.includes('Not ready'));
+
+  /* Review finding 1: a request that spends Flipkart's twenty is never pressed again by a recheck of a closed tab. */
+  const spend = installFakeChrome();
+  await startTheNight(spend.chrome, { doing: ['fk_orders'], at: 1, openAt: 'https://x/', dataDate: day });
+  const orders = await thatOneIsDone(spend.chrome, {
+    reportId: 'fk_orders', state: 'failed', dataDate: day, at: 2, say: `${TAB_CLOSED_SAY} x`,
+  });
+  check('a closed tab on a report that spends the twenty, with nothing asked yet, is not rechecked',
+    orders.done.at(-1).state === 'failed' && Object.keys(await whatIsBeingRechecked(spend.chrome)).length === 0);
+
+  /* Review findings 2 and 3: tabs closed every time stay a plain failure, never "the platform has not built it". */
+  const again = installFakeChrome();
+  await startTheNight(again.chrome, {
+    doing: ['fk_listings'], at: 1, openAt: 'https://x/', dataDate: day, canGoBack: ['fk_listings'],
+  });
+  let last = null;
+  for (const at of [2, 3, 4, 5]) {
+    // eslint-disable-next-line no-await-in-loop
+    last = await thatOneIsDone(again.chrome, {
+      reportId: 'fk_listings', state: 'failed', dataDate: day, at, say: `${TAB_CLOSED_SAY} x`,
+    });
+  }
+  check('after the third recheck a closed tab is a plain failure, not "not available yet"',
+    last.done.at(-1).state === 'failed' && last.done.at(-1).say.includes('tab was closed each time')
+    && Object.keys(await whatIsBeingRechecked(again.chrome)).length === 0);
 }
 
 {
@@ -2219,7 +2247,7 @@ check('report table: null night gives null', theReportTable(null, () => '') === 
   check('report table: an earlier step that was not "still waiting" does not make not-built asked',
     q.status === 'toFetch' && q.word === 'Not built yet');
 }
-const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 4;
+const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 4 + 3;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

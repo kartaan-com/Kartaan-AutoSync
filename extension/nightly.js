@@ -809,8 +809,14 @@ export async function thatOneIsDone(chrome, {
     let asState = state;
     let asSay = say;
     let rechecking = false;
-    if (state === 'failed' && (being[key] !== undefined || RECHECK_EVEN_WITHOUT_AN_ASK.includes(reportId)
-        || String(say).startsWith(TAB_CLOSED_SAY))) {
+    /* **A TAB CLOSED MID-WALK (AJ9 PIECE 1) IS CHECKED AGAIN TOO -- BUT NEVER A REQUEST THAT SPENDS FLIPKART'S TWENTY
+     * UNLESS ITS ASK IS ALREADY HELD** (review finding): with no `being[key]` the recheck would press Request again and
+     * count a second one. **And a closed tab is not "the platform has not built it"**: after the third, it stays a plain
+     * failure, so nothing is given back and nothing is added to the days the platform is said not to have built. */
+    const closedTab = String(say).startsWith(TAB_CLOSED_SAY)
+      && (!SPENDS_THE_ALLOWANCE.includes(reportId) || being[key] !== undefined);
+    const platformIsBuilding = being[key] !== undefined || RECHECK_EVEN_WITHOUT_AN_ASK.includes(reportId);
+    if (state === 'failed' && (platformIsBuilding || closedTab)) {
       const tries = ((rechecks[key] && rechecks[key].tries) || 0) + 1;
       if (tries <= RECHECK_TIMES) {
         await chrome.storage.local.set({
@@ -819,12 +825,16 @@ export async function thatOneIsDone(chrome, {
         rechecking = true;
         written = {
           state: 'still-waiting',
-          say: `${say} Not ready yet, so it is checked again in an hour (${tries} of ${RECHECK_TIMES}).`,
+          say: !platformIsBuilding
+            ? `${say} It is checked again in an hour (${tries} of ${RECHECK_TIMES}).`
+            : `${say} Not ready yet, so it is checked again in an hour (${tries} of ${RECHECK_TIMES}).`,
         };
-      } else {
+      } else if (platformIsBuilding) {
         asState = NOT_AVAILABLE_YET;
         asSay = `${say} Still not ready after ${RECHECK_TIMES} hourly checks: not ready today, `
           + 'and tried again on the next sync.';
+      } else {
+        asSay = `${say} It was checked again ${RECHECK_TIMES} times and the tab was closed each time.`;
       }
     }
     if (!rechecking && rechecks[key] !== undefined) {

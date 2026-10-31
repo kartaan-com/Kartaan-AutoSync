@@ -1360,12 +1360,12 @@ export function wireUp(chrome, {
 
 /** **AJ9 PIECE 1: WHY THE TAB WENT, IN PLAIN WORDS.** Chrome does not say who closed a tab, so the log says what is known:
  *  whether the computer was being used at that moment (most likely closed by hand) or left alone (Chrome or the page
- *  closed it). Either way the report is checked again in an hour. */
+ *  closed it). What happens next is said by `thatOneIsDone`, which knows whether a recheck follows. */
 export async function whoClosedIt(chrome) {
   const used = await computerInUse(chrome);
   return used
-    ? 'The computer was being used at that moment, so it was most likely closed by hand. It is checked again in an hour.'
-    : 'The computer was being left alone at that moment, so Chrome or the page closed it. It is checked again in an hour.';
+    ? 'The computer was being used at that moment, so it was most likely closed by hand.'
+    : 'The computer was being left alone at that moment, so Chrome or the page closed it.';
 }
 
 /** Both alarms, asked for together. **Written once**: two places asking for one

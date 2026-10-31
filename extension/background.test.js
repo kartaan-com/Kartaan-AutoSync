@@ -2388,7 +2388,7 @@ check('the page relay is OFF in what ships, so no script on a portal page can dr
   browser.setTheComputer('idle');
   const alone = await whoClosedIt(browser.chrome);
   check('AJ9: a tab closed while the computer is in use is logged as most likely closed by hand',
-    used.includes('closed by hand') && used.includes('checked again in an hour'));
+    used.includes('closed by hand') && !used.includes('checked again'));
   check('AJ9: a tab closed while the computer is left alone is logged as Chrome or the page',
     alone.includes('Chrome or the page') && !alone.includes('by hand'));
 }

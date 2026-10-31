@@ -269,3 +269,5 @@ the file where it happened. A reviewer finding something already on this list is
 - Charges are stored positive where money was taken: the money of a charge-only line is the charges NEGATED. -- `autosync/ledger.py` `_the_money_of`
 - A run before 06:00 belongs to the evening before, for every floor, and is compared by when it STARTED, not when it finished. -- `autosync/clock.py` `_evening_day`
 - A scan of the seller's real files is the only thing that finds a shape the checks never imagined (several payouts per order in one file). Run it before deciding a shape "does not happen". -- `tools/dry_run.py`
+- A retry of a failed walk must first ask whether the first try already spent a platform request; a report that spends Flipkart's twenty is rechecked only when its ask is already held, or the recheck presses Request again. -- `extension/nightly.js` `thatOneIsDone` (AJ9 review)
+- A failure that is not the platform's fact (a tab closed) stays a plain failure after its rechecks run out; it is never booked as "not available yet" (that gives a counted request back and feeds the 3-days-then-needs-you rule). -- `extension/nightly.js` `thatOneIsDone` (AJ9 review)
