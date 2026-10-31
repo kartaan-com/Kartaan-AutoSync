@@ -284,6 +284,7 @@ STILL_ON_ITS_WAY = frozenset({
     # phrases, so only the ones seen in his files are known; any other stays "not understood yet" and is named in the run's report.
     "partiallyshipped", "invoiceunconfirmed", "pendingavailability", "shipped - picked up",
     "shipped - out for delivery",  # Control's reading of the plain words (D447): the parcel is on its last leg, not yet delivered.
+    "pending - waiting for pick up",  # Seen on his old Amazon files (A4): the order is waiting to be collected, not finished.
 })
 
 

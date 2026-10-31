@@ -1154,7 +1154,29 @@ check("a catalog file that will not read stops the pricing file in words naming 
       _torn_catalog is not None and "meesho_me_catalog_2026-10-20.xlsx" in str(_torn_catalog) and "the sheet is torn" in str(_torn_catalog)
       and "pricing" in str(_torn_catalog) and "read again" in str(_torn_catalog))
 
-EXPECTED = 122 + 5 + 1 + 1 + 2
+# ---------------------------------- PR1 (A4): OLD FILES THE READERS USED TO REFUSE WITHOUT A WORD THAT HELPED
+_fk_orders_how = next(h for h in tool.WHAT_CAN_BE_READ if h.report_id == "fk_orders")
+_a_flipkart_name = "flipkart_fk_orders_2026-10-02.xlsx"
+_wrapped = BytesIO()
+with zipfile.ZipFile(_wrapped, "w") as _z:
+    _z.writestr("orders.xlsx", a_flipkart_file(("OD1", "SKU:A", "1", "2026-10-02 10:00:00", "DELIVERED")))
+_read_from_wrapper = answered(lambda: tool.a_reading(_fk_orders_how, whats_new.InTheFolder(which="w1", name=_a_flipkart_name), _wrapped.getvalue()))
+check("a zip with one spreadsheet inside, sitting in the folder under a spreadsheet's name, is READ (the file Meesho served that way)",
+      _read_from_wrapper is not None and len(_read_from_wrapper[0].sales) == 1)
+_hollow = BytesIO()
+with zipfile.ZipFile(_hollow, "w") as _z:
+    _z.writestr("notes.txt", "nothing to read")
+    _z.writestr("more.txt", "nothing to read either")
+_why_hollow = str(refused(lambda: tool.a_reading(_fk_orders_how, whats_new.InTheFolder(which="w2", name=_a_flipkart_name), _hollow.getvalue())) or "")
+check("and a zip with no single spreadsheet in it is refused in words that name the file and say somebody has to look", _a_flipkart_name in _why_hollow and "Somebody has to look" in _why_hollow)
+_why_undated = str(refused(lambda: tool.a_listings_reading(_fk_orders_how, whats_new.InTheFolder(which="u1", name="Flipkart Listing Data.xlsx"), b"x")) or "")
+check("a listing file with no day in its name is refused by NAME and the reason is given, never read or dated by guess",
+      "Flipkart Listing Data.xlsx" in _why_undated and "no day in its name" in _why_undated)
+check("Amazon's 'Pending - Waiting for Pick Up' is a known word: the order is still on its way, so blank, not 'not understood yet'",
+      orders_reader.what_happened("Pending - Waiting for Pick Up") is None)
+check("and an unknown word still reads 'not understood yet'", orders_reader.what_happened("Pending - Made Up Word") == orders_reader.NOT_UNDERSTOOD_YET)
+
+EXPECTED = 122 + 5 + 1 + 1 + 2 + 5
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

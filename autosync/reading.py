@@ -531,6 +531,16 @@ def _rows_in(how: HowToRead, body: bytes, called: str):
     problem, which is that nobody is signed in.
     """
     really = landing.what_it_really_is(body)
+    if really == landing.ZIP:
+        # **A ZIP WITH ONE SPREADSHEET INSIDE, ALREADY IN THE FOLDER UNDER A SPREADSHEET'S NAME (A4):** Meesho served its payments export this way
+        # for a while, and the landing now unwraps it, but the files that landed before are still there. Read the spreadsheet out of it;
+        # a wrapper with nothing a reader can open is refused in words, as before.
+        _, unwrapped, _ = landing.the_file_that_matters(called, body)
+        if unwrapped is not body and landing.what_it_really_is(unwrapped) != landing.ZIP:
+            return _rows_in(how, unwrapped, called)
+        raise table.CannotRead(
+            f"{called} is a zip with no single spreadsheet inside it that this can open, so nothing in it was read. Somebody has to look inside it."
+        )
     if really == "xlsx":
         return sheet.read(body, sheet=how.which_sheet, header_row=how.header_row)
     if really == "csv":
