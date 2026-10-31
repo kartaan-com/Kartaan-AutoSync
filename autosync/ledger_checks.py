@@ -824,7 +824,7 @@ def _night(files, start=None):
         values = [list(r) for r in values] + [list(r) for r in made.append]
         for at, row in made.update:
             values[at - 1] = list(row)
-        said += [str(r) for r in made.restated] + [str(d) for d in made.disagreements]
+        said += [str(r) for r in made.restated] + [str(d) for d in made.disagreements] + [str(k) for k in made.kept]
     return dict(zip(sales.COLUMNS, values[-1])), said
 
 
@@ -851,9 +851,16 @@ _mixed = tool.Reading("fk_payments", "2026-10-29", payments.WHAT_PAYMENTS_KNOW,
 _row, _said = _night([_sale_paid, _mixed])
 check("A10: a file with one payout the row has and one it has not is SAID and the figure is left", Decimal(_row["settlement"]) == Decimal("196.85") and any("settlement" in line for line in _said))
 
+# The earlier payout's file is gone from the folder: the row (written before payouts were keyed) holds -403.35, and the only payout file read says -403.35.
+_row, _said = _night([_return_paid], start=HEADER + [list(_wrong)])
+check("A10: an old figure that the only payout file left agrees with stays, and the order is NAMED as kept (never silent)",
+      Decimal(_row["settlement"]) == Decimal("-403.35") and any("kept the old figure -403.35 for payout N2" in line for line in _said))
+_row, _said = _night([_sale_paid, _return_paid])
+check("A10: and an order whose payouts all arrived in order names nothing as kept", not any("kept the old figure" in line for line in _said))
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-WITH_HIS_FILES = 115 + 2 + 2 + 3 + 1 + 7
+WITH_HIS_FILES = 115 + 2 + 2 + 3 + 1 + 7 + 2
 EXPECTED = WITH_HIS_FILES - (9 if not_run else 0)
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")

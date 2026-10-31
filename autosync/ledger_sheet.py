@@ -586,6 +586,8 @@ def recording_into(
             speak(f"SALES LEDGER CLAIMS  {len(unclaimed)} claim(s) have no order row in the sheet and are kept in their own records only.")
         for one in what.restated:
             speak(f"SALES LEDGER PAYMENT RESTATED  {one}")
+        for one in what.kept:
+            speak(f"SALES LEDGER PAYMENT KEPT OLD FIGURE  {one}")
         for one in what.shared:
             speak(f"SALES LEDGER SHARED ORDER CHARGE  {one}")
         for each in readings or ():

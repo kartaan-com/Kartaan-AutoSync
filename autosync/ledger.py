@@ -455,6 +455,29 @@ class Restated:
 
 
 @dataclass(frozen=True)
+class KeptFigure:
+    """A Flipkart row written before payouts were keyed held a figure, and the first payout file now read for it says the same thing.
+
+    **NOTHING CHANGES, SO NOTHING WOULD HAVE BEEN SAID -- BUT THE ROW'S OLD FIGURE MAY HAVE COME FROM A PAYOUT WHOSE FILE IS NO LONGER IN THE
+    FOLDER (PR1, A10).** Such an order's earlier payout cannot be added back, so the figure stays as it was and is named here with the payout
+    that agreed with it, for whoever looks at the order to open both.
+    """
+
+    name: str
+    figure: str
+    payout: str
+    from_report: str
+    on: str
+    from_file: str = ""
+
+    def __str__(self) -> str:
+        return (
+            f"{self.name!r}: kept the old figure {self.figure} for payout {self.payout} "
+            f"({self.from_report} of {self.on}" + (f", file {self.from_file})" if self.from_file else ")")
+        )
+
+
+@dataclass(frozen=True)
 class Plan:
     """What the door should do, and what nobody could decide."""
 
@@ -471,6 +494,8 @@ class Plan:
     unmatched: Tuple[Unmatched, ...] = ()
     # **A SETTLEMENT A NEWER PAYMENTS FILE CHANGED** (job 36). Never a count on its own: each is named.
     restated: Tuple[Restated, ...] = ()
+    # **A FLIPKART ROW'S OLD FIGURE THAT A PAYOUT FILE AGREED WITH (PR1, A10).** Each is named, never a count on its own.
+    kept: Tuple["KeptFigure", ...] = ()
     # **A CHARGE SHARED ACROSS AN ORDER'S ROWS (D563).** The ledger has no column to mark a share, so each is named here and in the night's lines.
     shared: Tuple[SharedCharge, ...] = ()
 
@@ -915,6 +940,7 @@ def plan(
 
     unmatched: List[Unmatched] = []
     restated: List[Restated] = []
+    kept: List[KeptFigure] = []
     shared: List[SharedCharge] = []
     columns_changed: Dict[str, set] = {}
 
@@ -1016,6 +1042,12 @@ def plan(
                     continue
                 was = now[name].get(column, "")
                 added = False
+                if (column == "settlement" and pay_new and not pay_adds and not standing_pays and a_decimal(str(was)) is not None
+                        and a_decimal(str(was)) == a_decimal(str(value))):
+                    kept.append(KeptFigure(
+                        name=name, figure=str(was), payout=" ".join(sorted(k[len(PAYOUT_KEY):] for k in pay_keys)),
+                        from_report=reading.report, on=reading.on, from_file=reading.one_statement,
+                    ))
                 if (name in only_a_fee or pay_adds) and (column == "settlement" or column in CHARGE_COLUMNS) and str(value) != "" and str(was) != "":
                     # **A FEE THIS FILE NAMES NO SKU FOR ADDS TO WHAT THE ROW ALREADY HOLDS, never replaces it (D574 item 3): the figure the
                     # row holds is the order's other money from an earlier file, and a replacement would lose it.** A figure either side that
@@ -1173,5 +1205,6 @@ def plan(
         left_alone=tuple(left_alone),
         unmatched=tuple(unmatched),
         restated=tuple(restated),
+        kept=tuple(kept),
         shared=tuple(shared),
     )
