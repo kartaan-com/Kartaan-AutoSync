@@ -71,9 +71,11 @@ with tempfile.TemporaryDirectory() as folder:
     code = answered(lambda: dry.main(["dry_run.py", folder], lines.append))
     check("run over a folder it lists the refusal, answers 1, and says nothing was written", code == 1 and any("REFUSED" in x for x in lines) and "Nothing was written." in lines[-1])
     check("and the file it read is exactly as it was", one.read_bytes() == b"this is no spreadsheet" and sorted(p.name for p in Path(folder).rglob("*") if p.is_file()) == [one.name])
-    check("with no folder it prints the usage and answers 2", answered(lambda: dry.main(["dry_run.py"], lines.append)) == 2)
+    _usage = []
+    check("with no folder it prints the usage and answers 2", answered(lambda: dry.main(["dry_run.py"], _usage.append)) == 2)
+    check("PR1c proving: and the usage line says what to give it", len(_usage) == 1 and "Usage: python tools/dry_run.py" in _usage[0] and "sub-folder per report" in _usage[0])
 
-EXPECTED = 11
+EXPECTED = 12
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

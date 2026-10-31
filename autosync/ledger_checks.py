@@ -938,9 +938,47 @@ _row, _ = _night([_sale_paid], start=HEADER + [_typed2])
 check("PR1c review 3: a seller note shaped like an id (`pay:15Nov2026`) is no payout key either",
       Decimal(_row["settlement"]) == Decimal("196.85") and "pay:15Nov2026" in _row["notes"])
 
+# **PR1c PROVING: survivors the prover found in the new payout rules.**
+_zero_row = list(sales.the_row_for(sales.Sale(platform="flipkart", order_id="OD1", sku="S", settlement="0", payments_on="2026-10-20")))
+_zero_file = tool.Reading("fk_payments", "2026-10-29", payments.WHAT_PAYMENTS_KNOW,
+                          (sales.Sale(platform="flipkart", order_id="OD1", sku="S", settlement="0", notes="fkpay:UTR-0001", payments_on="2026-10-29"),),
+                          "file-zero", only_existing=True)
+_made = tool.plan(HEADER + [_zero_row], [_zero_file], tool.WhatTheNightHasDecided())
+check("PR1c proving: a kept figure of nought is NAMED (a sale of nothing is return-type), not counted away",
+      len(_made.kept) == 1 and not _made.kept_quietly)
+_made = tool.plan(HEADER + [_legacy_sale], [_sale_paid], tool.WhatTheNightHasDecided())
+check("PR1c proving: and a positive kept figure with no later payout is counted, not named", not _made.kept and len(_made.kept_quietly) == 1)
+_made = tool.plan(HEADER + [_legacy_sale], [_sale_paid], tool.WhatTheNightHasDecided())
+check("PR1c proving: a payout added to a row has its key SENT as a changed cell (notes), not only in the whole row",
+      any(("notes", "fkpay:UTR-0001") in cells for _, cells in tool.plan(HEADER, [_sale_paid], tool.WhatTheNightHasDecided()).cells)
+      or any("notes" in dict(cells) for _, cells in _made.cells))
+_with_fee = list(sales.the_row_for(sales.Sale(platform="flipkart", order_id="OD1", sku="S", settlement="196.85", payments_on="2026-10-20",
+                                              notes="fkpay:UTR-0001 fee:SET1:1")))
+_row, _said = _night([_payout("UTR-0001", "2026-10-30", "150")], start=HEADER + [_with_fee])
+check("PR1c proving: a row that also holds an added fee is not compared with a payout's figure (the row's figure includes the fee)",
+      not any("'150'" in line for line in _said))
+_two_keys = list(sales.the_row_for(sales.Sale(platform="flipkart", order_id="OD1", sku="S", settlement="-206.5", payments_on="2026-10-29",
+                                              notes="fkpay:UTR-0001 fkpay:UTR-0002")))
+_row, _said = _night([_payout("UTR-0002", "2026-10-30", "-100")], start=HEADER + [_two_keys])
+check("PR1c proving: a restated payout on a row holding TWO payouts cannot be compared and changes nothing (the stated limit)",
+      Decimal(_row["settlement"]) == Decimal("-206.50") and not _said)
+_made = tool.plan(HEADER, [_sale_paid, _unkeyed("2026-10-30", "10")], tool.WhatTheNightHasDecided())
+check("PR1c proving: an unkeyed line over a keyed row says WHO said it: the sheet's own memory against the file",
+      len(_made.disagreements) == 1 and _made.disagreements[0].kept_from == tool.THE_SHEET_REMEMBERS and _made.disagreements[0].also_from == "file-unkeyed")
+check("PR1c proving: is_payout_key accepts a key this program writes, and refuses a bare prefix, a short id, an id with no digit and another prefix",
+      payments.is_payout_key("fkpay:UTR-00000001") and not payments.is_payout_key("fkpay:") and not payments.is_payout_key("fkpay:short1")
+      and not payments.is_payout_key("fkpay:ABCDEFGHIJ") and not payments.is_payout_key("pay:UTR-00000001"))
+_groups = payments._PayoutGroups()
+_groups.put(("OD1", "S"), Decimal(1), {}, "fkpay:AAAAAAA1")
+_groups.put(("OD1", "S"), Decimal(2), {}, "fkpay:BBBBBBB2")
+_groups.put_on_what_states(("OD9", "S"), Decimal(5), {})
+_groups.put_on_what_states(("OD1", "S"), Decimal(5), {})
+check("PR1c proving: a rebate with no payout of its own rides on the FIRST payout that states its order, and on nothing when none does",
+      [(s_.order_id, s_.settlement) for s_ in _groups.sales("flipkart", "2026-10-29")] == [("OD1", "6"), ("OD1", "2")])
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-WITH_HIS_FILES = 115 + 2 + 2 + 3 + 1 + 7 + 2 + 8 + 4 + 2 + 2
+WITH_HIS_FILES = 115 + 2 + 2 + 3 + 1 + 7 + 2 + 8 + 4 + 2 + 2 + 8
 EXPECTED = WITH_HIS_FILES - (9 if not_run else 0)
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")

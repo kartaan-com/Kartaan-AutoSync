@@ -1295,6 +1295,28 @@ check("a 429 that never stops raises after exactly five waits, saying so",
       and "Still too many requests after 5 waits" in str(wrong))
 waited, _, wrong, asked = asked_with_waits([403])
 check("a 403 is not waited for at all", waited == [] and asked == 1 and isinstance(wrong, drive_door.DriveSaidNo))
+check("PR1c proving: a 403 is refused saying who refused and what the status was", "Google refused" in str(wrong) and "403" in str(wrong))
+waited, _, _, _ = asked_with_waits([429, 200], {"Retry-After": "soon"})
+check("PR1c proving: a Retry-After that is not a whole number of seconds is ignored (2, not an error)", waited == [2])
+waited, _, _, _ = asked_with_waits([429, 200], {"Retry-After": " 9 "})
+check("PR1c proving: and one with spaces round a whole number is read", waited == [9])
+
+# ---------------------------------- PR1c proving: what the night says about kept figures and the note it keeps for before-history lines
+_legacy_row = list(sales.the_row_for(sales.Sale(platform="flipkart", order_id="OD1", sku="S", settlement="196.85", payments_on="2026-10-20")))
+_kept_heard = []
+_kept_file = ledger.Reading(report="fk_payments", on="2026-10-29", knows=("settlement", "paymentsOn"), which="pay-k", only_existing=True,
+                            sales=(sales.Sale(platform="flipkart", order_id="OD1", sku="S", settlement="196.85", notes="fkpay:UTR-0001", payments_on="2026-10-29"),))
+answered(lambda: tool.recording_into(LedgerDoor(PretendSheets(rows=list(THE_HEADER) + [_legacy_row]), "s"), say=_kept_heard.append)([_kept_file]))
+check("PR1c proving: a legacy row whose figure agrees with its first payout is COUNTED in one line with the total, not named",
+      any("kept the old figure on 1 row(s), total 196.85" in one for one in _kept_heard) and not any("kept the old figure 196.85" in one for one in _kept_heard))
+_neg_heard = []
+_neg_row = list(sales.the_row_for(sales.Sale(platform="flipkart", order_id="OD1", sku="S", settlement="-403.35", payments_on="2026-10-29")))
+_neg_file = ledger.Reading(report="fk_payments", on="2026-10-29", knows=("settlement", "paymentsOn"), which="pay-n", only_existing=True,
+                           sales=(sales.Sale(platform="flipkart", order_id="OD1", sku="S", settlement="-403.35", notes="fkpay:UTR-0002", payments_on="2026-10-29"),))
+answered(lambda: tool.recording_into(LedgerDoor(PretendSheets(rows=list(THE_HEADER) + [_neg_row]), "s"), say=_neg_heard.append)([_neg_file]))
+check("PR1c proving: a return-type (negative) kept figure is NAMED, with its payout, and not counted away",
+      any("KEPT OLD FIGURE" in one and "'flipkart::OD1::S'" in one and "-403.35" in one and "UTR-0002" in one for one in _neg_heard)
+      and not any("row(s), total" in one for one in _neg_heard))
 
 # ---------------------------------- PR1: HISTORY STARTS ON A DAY; A PAYMENTS FILE FROM BEFORE IT DOES NOT WAIT FOR ORDERS NEVER LOADED
 _NO_SKU_LINE = sales.Sale(platform="meesho", order_id="NEVER-LOADED", sku="", settlement="40.50")
@@ -1314,7 +1336,8 @@ check("and says it with the count, the money and the day history starts, not as 
       any(one.startswith("SALES LEDGER BEFORE HISTORY") and "1 payment line(s)" in one and "40.50" in one and "2026-01-01" in one for one in _heard)
       and not any(one.startswith("SALES LEDGER PAYMENT WITH NO ORDER") for one in _heard))
 check("and keeps a file of the lines for the seller's Kartaan folder, named for the report and the day",
-      len(_kept) == 1 and _kept[0][0].startswith("payments-before-history-me_payments-2026-02-10-") and _kept[0][0].endswith(".txt") and "NEVER-LOADED" in _kept[0][1] and "40.50" in _kept[0][1])
+      len(_kept) == 1 and _kept[0][0].startswith("payments-before-history-me_payments-2026-02-10-") and _kept[0][0].endswith(".txt") and "NEVER-LOADED" in _kept[0][1] and "40.50" in _kept[0][1]
+      and "History starts on 2026-01-01" in _kept[0][1] and "Total 40.50" in _kept[0][1] and "have no order in the sales sheet" in _kept[0][1])
 _charge_only = sales.Sale(platform="meesho", order_id="CHARGE-ONLY", sku="", charges={"otherServices": "12.50"})
 _heard_charge = []
 _file_c = ledger.Reading(report="me_payments", on="2026-02-10", knows=("settlement",), sales=(_charge_only,), which="pay-c", only_existing=True)
@@ -1341,7 +1364,7 @@ check("the cut is the history day plus 45 days: the 14 Feb file is set aside, th
 check("and only Flipkart and Meesho payments are cut -- Amazon's lines are never held back, so never set aside",
       not ledger.is_payment_file_from_before_history("az_settlements", "2026-02-01") and not ledger.is_payment_file_from_before_history("fk_payments", "no day"))
 
-EXPECTED = 144 + 12 + 9 + 2 + 2 + 5 + 6 + 2 + 1
+EXPECTED = 144 + 12 + 9 + 2 + 2 + 5 + 6 + 2 + 1 + 5
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
