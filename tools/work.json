@@ -695,6 +695,8 @@
         "extension/manifest.json",
         "extension/background.js",
         "extension/background.test.js",
+        "extension/bridge.js",
+        "extension/bridge.test.js",
         "extension/content.js",
         "extension/catch-blob.js",
         "extension/doors.js",
