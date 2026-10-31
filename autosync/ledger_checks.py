@@ -913,14 +913,26 @@ check("PR1c 6: a legacy row written wrong at -403.35 is re-worked to -206.50 by 
 # **PR1c REVIEW: a keyed and an unkeyed line for one order in one file are ONE order's money; a note shaped like an id is not a payout key.**
 def _keyed_and_loose(on="2026-10-29"):
     return tool.Reading("fk_payments", on, payments.WHAT_PAYMENTS_KNOW,
-                        (sales.Sale(platform="flipkart", order_id="OD1", sku="S", settlement="-50", payments_on=on),
-                         sales.Sale(platform="flipkart", order_id="OD1", sku="S", settlement="200", notes="fkpay:UTR-0001", payments_on=on)),
+                        (sales.Sale(platform="flipkart", order_id="OD1", sku="S", settlement="200", notes="fkpay:UTR-0001", payments_on=on),
+                         sales.Sale(platform="flipkart", order_id="OD1", sku="S", settlement="-50", payments_on=on)),
                         "file-loose", only_existing=True)
 
 
-_row, _ = _night([_keyed_and_loose()])
-check("PR1c review 1: a keyed line (200) and an unkeyed line (-50) for one order in one file are NOT replaced by the keyed one alone",
-      Decimal(_row["settlement"]) in (Decimal("200"), Decimal("150")) and Decimal(_row["settlement"]) != Decimal("-50"))
+_row, _said = _night([_keyed_and_loose()])
+check("PR1c review 1: a keyed line (200) and an unkeyed line (-50) for one order in one file: the keyed payout is the row's money and the unkeyed one is SAID, not set first and lost",
+      Decimal(_row["settlement"]) == Decimal("200") and any("'-50'" in line for line in _said))
+_rebate_file = tool.Reading("fk_payments", "2026-10-30", payments.WHAT_PAYMENTS_KNOW,
+                            (sales.Sale(platform="flipkart", order_id="OD1", sku="S", settlement="5", notes="fkpay:UTR-0009", payments_on="2026-10-30"),),
+                            "file-rebate", only_existing=True)
+_row, _ = _night([_sale_paid, _return_paid, _rebate_file])
+check("PR1c review: a rebate paid in its own payout is added to a row that already has two payouts (-206.50 + 5 = -201.50)", Decimal(_row["settlement"]) == Decimal("-201.50"))
+_new_first = tool.Reading("fk_payments", "2026-10-30", payments.WHAT_PAYMENTS_KNOW,
+                          (sales.Sale(platform="flipkart", order_id="OD1", sku="S", settlement="-30", notes="fkpay:AAA-00000", payments_on="2026-10-30"),
+                           sales.Sale(platform="flipkart", order_id="OD1", sku="S", settlement="205", notes="fkpay:UTR-0001", payments_on="2026-10-30")),
+                          "file-new-first", only_existing=True)
+_row, _said = _night([_sale_paid, _new_first])
+check("PR1c review: a restated payout is said even when a NEW payout in the same file sorts before it",
+      any("'205'" in line or "205" in line for line in _said if "settlement" in line))
 _typed2 = list(sales.the_row_for(sales.Sale(platform="flipkart", order_id="OD1", sku="S", settlement="196.85", payments_on="2026-10-20", notes="pay:15Nov2026")))
 _row, _ = _night([_sale_paid], start=HEADER + [_typed2])
 check("PR1c review 3: a seller note shaped like an id (`pay:15Nov2026`) is no payout key either",
@@ -928,7 +940,7 @@ check("PR1c review 3: a seller note shaped like an id (`pay:15Nov2026`) is no pa
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-WITH_HIS_FILES = 115 + 2 + 2 + 3 + 1 + 7 + 2 + 8 + 4 + 2
+WITH_HIS_FILES = 115 + 2 + 2 + 3 + 1 + 7 + 2 + 8 + 4 + 2 + 2
 EXPECTED = WITH_HIS_FILES - (9 if not_run else 0)
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")

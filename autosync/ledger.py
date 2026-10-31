@@ -989,6 +989,7 @@ def plan(
     columns_changed: Dict[str, set] = {}
 
     for reading in in_order:
+        payouts_at_start: Dict[str, set] = {}
         # **A READING THAT NAMES A COLUMN THE ERP OWNS IS REFUSED BEFORE ANYTHING IS DECIDED (D462),** so the night's memory never holds a decision
         # that was not written.
         owned = sorted(set(reading.knows) & set(ERP_OWNED_COLUMNS))
@@ -1028,10 +1029,12 @@ def plan(
             # already on the row). It is said instead. A no-SKU fee line is keyed its own way and still adds.
             pay_blind = bool(standing_pays) and not pay_keys and name not in only_a_fee
             # **THE SAME PAYOUT AGAIN WITH A DIFFERENT FIGURE (PR1c finding 4):** only a row holding exactly that one payout (and no fee added to its figure) can be compared.
-            pay_restated_figure = (pay_seen and len(standing_pays) == 1 and name not in only_a_fee and name in now
+            # **THE ROW'S PAYOUTS AS THIS READING FOUND THEM (PR1c review):** a new payout earlier in the same file must not hide a restated one.
+            at_start = payouts_at_start.setdefault(name, (frozenset(standing_pays), str(now[name].get("settlement", "")) if name in now else ""))
+            pay_restated_figure = (pay_seen and len(at_start[0]) == 1 and set(at_start[0]) == pay_keys and name not in only_a_fee and name in now
                                    and not any(_FEE_KEY.match(k) or k.startswith(_FEE_BASE) for k in (now[name].get("notes", "") or "").split())
-                                   and a_decimal(str(says.get("settlement", ""))) is not None and a_decimal(str(now[name].get("settlement", ""))) is not None
-                                   and a_decimal(str(says["settlement"])) != a_decimal(str(now[name]["settlement"])))
+                                   and a_decimal(str(says.get("settlement", ""))) is not None and a_decimal(at_start[1]) is not None
+                                   and a_decimal(str(says["settlement"])) != a_decimal(at_start[1]))
             pay_adds = pay_new and bool(standing_pays) and not (pay_keys & standing_pays)
             if name in now and not pay_new:
                 too_old = older_than_the_row(now[name], reading)
@@ -1046,9 +1049,9 @@ def plan(
                     continue
 
             if (pay_blind or pay_restated_figure) and a_decimal(str(says.get("settlement", ""))) is not None \
-                    and a_decimal(str(says.get("settlement", ""))) != a_decimal(str(now[name].get("settlement", ""))):
+                    and a_decimal(str(says.get("settlement", ""))) != a_decimal(at_start[1] if pay_restated_figure else str(now[name].get("settlement", ""))):
                 disagreements.append(Disagreement(
-                    name=name, column="settlement", kept=str(now[name].get("settlement", "")),
+                    name=name, column="settlement", kept=at_start[1] if pay_restated_figure else str(now[name].get("settlement", "")),
                     also_said=str(says.get("settlement", "")), from_report=reading.report, on=reading.on,
                     kept_from=THE_SHEET_REMEMBERS, also_from=reading.one_statement,
                 ))

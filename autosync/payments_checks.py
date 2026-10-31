@@ -1358,8 +1358,15 @@ check("PR1c 6: one order paid in TWO payouts in one file is two lines, each with
       _two is not None and sorted((s.settlement, s.notes) for s in _two[0].sales)
       == [("-403.35", "fkpay:UTR-00000002"), ("196.85", "fkpay:UTR-00000001")])
 _loose = answered(lambda: read_as("fk_payments", "flipkart_fk_payments_2026-08-28.xlsx", _flipkart_two_payouts(("200", "UTR-00000001"), ("-50", ""))))
-check("PR1c review 1: a line with a blank NEFT id for an order that one keyed payout states is that order's money (150), one line, not two",
-      _loose is not None and [(s.settlement, s.notes) for s in _loose[0].sales] == [("150", "fkpay:UTR-00000001")])
+check("PR1c review 1/2: a line with a blank NEFT id stays its own line and goes LAST (never folded into a payout it may not belong to)",
+      _loose is not None and [(s.settlement, s.notes) for s in _loose[0].sales] == [("200", "fkpay:UTR-00000001"), ("-50", None)])
+_rebate_sheet = [("MP Fee Rebate", a_two_row_sheet(_REBATE_COLUMNS,
+    ["UTR-00000009", "NEFT", "2026-08-01", "5", "DJ 14", "OD1", "OI1", "2026-07-01", "2026-08-01"]))]
+_fk_rebate = answered(lambda: read_as("fk_payments", "flipkart_fk_payments_2026-08-28.xlsx", with_more_sheets(
+    [("Report Help", [["How to read"]]), FK_ORDERS_SHEET], _rebate_sheet)))
+check("PR1c review: a rebate with a valid NEFT id of its own is its own line under its own payout key (added once by the ledger), not folded into the order's other line",
+      _fk_rebate is not None and any(s.notes == "fkpay:UTR-00000009" and s.settlement == "5" and s.order_id == "OD1" for s in _fk_rebate[0].sales)
+      and any(s.order_id == "OD1" and s.settlement == "-300" for s in _fk_rebate[0].sales))
 _short = answered(lambda: read_as("fk_payments", "flipkart_fk_payments_2026-08-28.xlsx", _flipkart_with_payout(_with_payout, "later")))
 check("PR1c 3: a NEFT id that does not look like one (too short, no digit) is no key", _short is not None and _short[0].sales[0].notes is None)
 _unkeyed = answered(lambda: read_as("fk_payments", "flipkart_fk_payments_2026-08-28.xlsx", _flipkart_with_payout(_with_payout[:-1] + ["Other"], "x")))
@@ -1374,7 +1381,7 @@ if failures:
     print(f"{len(failures)} FAILED: {failures}")
     sys.exit(1)
 WITHOUT = ran - real_ran
-if WITHOUT != 95 + 22 + 17 + 8 + 2 + 3 + 5 + 3 + 5 + 14 + 9 + 4 + 2 + 1 + 1 + 2 + 1 + 1 + 1:  # one 1 is N018 (AU3 #6), the other AP11 proving, the 14 are A90d proving, the 9 A90e (D581), the 6 A90f (D582)
-    print(f"FAIL  checks went missing -- {WITHOUT} ran without his files, 196 expected")
+if WITHOUT != 95 + 22 + 17 + 8 + 2 + 3 + 5 + 3 + 5 + 14 + 9 + 4 + 2 + 1 + 1 + 2 + 1 + 1 + 1 + 1:  # one 1 is N018 (AU3 #6), the other AP11 proving, the 14 are A90d proving, the 9 A90e (D581), the 6 A90f (D582)
+    print(f"FAIL  checks went missing -- {WITHOUT} ran without his files, 197 expected")
     sys.exit(1)
 print(f"all {ran} checks passed" + ("" if real_ran == HIS_FILES_GROUP else f" ({HIS_FILES_GROUP - real_ran} of his real-file checks not run -- the files are elsewhere)"))

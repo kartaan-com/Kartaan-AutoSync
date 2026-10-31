@@ -360,17 +360,9 @@ class _PayoutGroups:
                 return
 
     def sales(self, platform: str, data_date: str) -> Tuple[Sale, ...]:
-        # **A LINE WITH NO KEY IS FOLDED INTO THE ONE KEYED PAYOUT THAT STATES THE SAME ORDER (PR1c review):** kept apart it would be set first and then
-        # REPLACED by the keyed line, losing its money. With no or several candidates it stays apart and goes LAST, where the ledger says it instead of adding it.
-        keyed = {k: g for k, g in self._by_key.items() if k}
-        loose = self._by_key.get("")
-        if loose is not None and keyed:
-            for key in list(loose._settlement):
-                owners = [k for k, g in keyed.items() if g.states(key)]
-                if len(owners) == 1:
-                    keyed[owners[0]].put(key, loose._settlement.pop(key), loose._charges.pop(key))
-            loose._keys.clear()
-        order = sorted(keyed) + ([""] if loose is not None and loose._settlement else [])
+        # **A LINE WITH NO KEY STAYS APART AND GOES LAST (PR1c review):** the ledger then says it instead of adding it to a row summed from keyed payouts.
+        # Folding it into a keyed payout of the same order would count its money twice if it comes back later under a payout of its own.
+        order = sorted(k for k in self._by_key if k) + ([""] if "" in self._by_key else [])
         return tuple(sale for payout_key in order for sale in self._by_key[payout_key].sales(platform, data_date))
 
 
@@ -383,6 +375,7 @@ def _flipkart_rebates(lines: "_Lines", found) -> List[str]:
     order_at = _where(columns, FLIPKART_ORDER_ID)
     sku_at = _where(columns, "SKU")
     paid_at = _where(columns, "Settlement Value (Rs.)")
+    payout_at = [at for at, one in enumerate(columns) if one.strip() == FLIPKART_PAYOUT_ID] if len([1 for one in columns if one.strip() == FLIPKART_PAYOUT_ID]) == 1 else []
     said = []
     for row in found:
         order_id = _cell(row, order_at).strip()
@@ -393,6 +386,12 @@ def _flipkart_rebates(lines: "_Lines", found) -> List[str]:
             said.append("rebate line(s) with no order id")
             continue
         key = (order_id, _unwrap_flipkart_sku(_cell(row, sku_at)))
+        # **A REBATE IS PAID IN A PAYOUT OF ITS OWN (PR1c review): the sheet carries that payout's NEFT id, so with a valid one it is its own line under its
+        # own key and the ledger ADDS it to the order, once.** Only a rebate with no usable id falls back to riding on a payout that states the order.
+        rebate_id = "_".join(_cell(row, payout_at[0]).split()) if payout_at else ""
+        if isinstance(lines, _PayoutGroups) and rebate_id and _PAYOUT_ID.match(rebate_id):
+            lines.put(key, paid, {"otherServices": -paid}, PAYOUT_KEY + rebate_id)
+            continue
         if not lines.states(key):
             # **A REBATE ADDS TO WHAT THIS FILE STATES FOR THE ORDER, AND ONLY THEN.** The rebate sheet is often for orders paid in an
             # earlier workbook; as a line of its own it would REPLACE that order's settlement and other charges (the newest statement
