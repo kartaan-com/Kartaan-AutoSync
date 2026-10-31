@@ -229,10 +229,13 @@ def why_not_now(last: LastRun, moment: datetime, not_before_hour: int = NOT_BEFO
         # early return was written here and taken out again: it answered exactly
         # what the bottom of this function already answers, and a second way of
         # saying one thing is a place for the two to disagree.
-    if last.finished is not None and last.finished.date() == moment.date():
+    if last.finished is not None and _evening_day(last.finished, not_before_hour) == _evening_day(moment, not_before_hour):
         # **ASKED OF THE DAY, NEVER OF HOW LONG AGO.** Twenty-four hours from the
         # last finish walks the floor forward every night by however long the run
         # took, and the night it walks past the tick, the day is lost.
+        if too_early:
+            # A late tick (small hours) of an evening that already ran: the plain "too early" answer, as before.
+            return too_early
         return (
             f"The last run finished at {last.finished.isoformat()}, "
             "which is today. The next one is due tomorrow."
@@ -255,7 +258,20 @@ def _a_late_tick_catching_up(last: LastRun, moment: datetime, not_before_hour: i
     if why_the_hour_is_no_good(not_before_hour) or moment.hour >= LATE_TICK_UNTIL_HOUR:
         return False
     when = last.finished or last.started
-    return when.date() < (moment - timedelta(days=1)).date()
+    return _evening_day(when, not_before_hour) < _evening_day(moment, not_before_hour)
+
+
+def _evening_day(moment: datetime, not_before_hour: int) -> date:
+    """The evening a moment belongs to.
+
+    **A RUN IN THE SMALL HOURS IS THE PREVIOUS EVENING'S TICK ARRIVING LATE** (see `_a_late_tick_catching_up`), so it is recorded on the
+    next calendar day but belongs to the day before. Comparing calendar days made 2 Nov's on-time 22:00 tick "finished today" after
+    a late run at 00:30 on 2 Nov, and the late 3 Nov tick "yesterday had a run" -- the whole of 2 Nov's evening never ran (PR1c finding 2).
+    A floor under the late-tick hours has no late ticks, so it keeps the calendar day.
+    """
+    if not why_the_hour_is_no_good(not_before_hour) and not_before_hour >= LATE_TICK_UNTIL_HOUR and moment.hour < LATE_TICK_UNTIL_HOUR:
+        return moment.date() - timedelta(days=1)
+    return moment.date()
 
 
 def _too_early(moment: datetime, not_before_hour: int) -> Optional[str]:

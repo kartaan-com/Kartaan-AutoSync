@@ -313,6 +313,27 @@ gave_up_yesterday = tool.LastRun(started=datetime(2026, 8, 27, 18, 40))
 check("a run given up on that began the day before yesterday does not stop the late tick either",
       answered(lambda: tool.why_not_now(gave_up_yesterday, LATE_AT)) is None)
 
+# **TWO DAYS IN A ROW (PR1c, finding 2).** A late catch-up run (1 Nov's tick arriving 00:30 on 2 Nov) is recorded on 2 Nov, but it
+# belongs to the evening of 1 Nov. 2 Nov's own on-time tick (22:00) must still run, and a late 3 Nov tick after that must be refused.
+late_run = tool.LastRun(started=datetime(2026, 11, 2, 0, 30), finished=datetime(2026, 11, 2, 0, 45))
+check("after a late run on 2 Nov at 00:30, the on-time tick of 2 Nov at 22:00 runs",
+      answered(lambda: tool.why_not_now(late_run, datetime(2026, 11, 2, 22, 0))) is None)
+check("after a late run on 2 Nov at 00:30, a second tick at 00:50 the same night is refused",
+      answered(lambda: tool.why_not_now(late_run, datetime(2026, 11, 2, 0, 50))) is not None)
+ran_2nd_evening = tool.LastRun(started=datetime(2026, 11, 2, 22, 0), finished=datetime(2026, 11, 2, 22, 20))
+check("after 2 Nov's 22:00 run, a late tick at 00:40 on 3 Nov (the same evening's second tick) is refused",
+      answered(lambda: tool.why_not_now(ran_2nd_evening, datetime(2026, 11, 3, 0, 40))) is not None)
+check("after a late run on 2 Nov at 00:30, a late tick at 00:40 on 3 Nov (2 Nov's evening never ran) runs",
+      answered(lambda: tool.why_not_now(late_run, datetime(2026, 11, 3, 0, 40))) is None)
+check("two late runs in a row: 3 Nov 00:40 run, then 4 Nov 00:20 tick runs",
+      answered(lambda: tool.why_not_now(tool.LastRun(started=datetime(2026, 11, 3, 0, 40), finished=datetime(2026, 11, 3, 1, 0)),
+                                        datetime(2026, 11, 4, 0, 20))) is None)
+check("a late run at 00:30 and an on-time tick at 18:00 the SAME calendar day: runs (new evening)",
+      answered(lambda: tool.why_not_now(late_run, datetime(2026, 11, 2, 18, 0))) is None)
+check("a seller with a floor under 6 keeps calendar days: run at 02:00, tick at 03:00 same day refused",
+      answered(lambda: tool.why_not_now(tool.LastRun(started=datetime(2026, 11, 2, 2, 0), finished=datetime(2026, 11, 2, 2, 5)),
+                                        datetime(2026, 11, 2, 3, 0), 1)) is not None)
+
 # **AND NOTHING ABOVE ENDED BY THROWING RATHER THAN BY ANSWERING.**
 #
 # **IT SAT SEVENTY-ONE LINES FROM THE END, with fifteen checks after it (cycle
@@ -322,7 +343,7 @@ check("a run given up on that began the day before yesterday does not stop the l
 # before the tally now, which is the only place it covers everything.
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 78 + 6
+EXPECTED = 78 + 6 + 7
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
