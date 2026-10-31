@@ -33,6 +33,27 @@ version, so nothing in your own copy needs to be up to date.
 4. **Rollback** (a bad version): `python tools/move_group.py group-2 v0.1.20 --rollback`
    prints a command that moves only that group back. Do it for every group already on the bad version (order does not matter for a rollback).
 
+## group-1 moves by itself on a release (AJ9 piece 5)
+
+When a release is **published**, `.github/workflows/move-group-1.yml` points `group-1` at it, using the same
+refusals as the tool above (published release only, never `v0.1.0`, never backwards). It runs on that event
+only, only in kartaan-com, with the repository's own token (no stored key). If it refuses, or GitHub refuses
+the push, the job turns red and `group-1` stays where it was. It never touches group-2 or group-3.
+
+**One step for the owner, once** (without it the job turns red and nothing else happens):
+github.com/kartaan-com/Kartaan-AutoSync > Settings > Rules > Rulesets > `groups` > Bypass list >
+Add bypass > choose **GitHub Actions** > Always allow > Save.
+
+## group-2 and group-3: the design (NOT built; built in the Server round when a group-2 seller exists)
+
+- **Who counts the quiet nights:** the Server, because it sees every pipeline's `/finished` call; this repository
+  cannot read other sellers' nights.
+- **Rule:** two clean nights of every pipeline in the group before, then the next group moves. A bad night
+  stops the move and the Server tells him (`/tell`, kind `problem`).
+- **Who moves it:** a small GitHub Actions job started by the Server that proves who is calling with
+  GitHub's OIDC id-token (no stored key), then runs the same refusals as `move_group.py`.
+- Until then group-2 and group-3 are moved by hand as in the section above.
+
 ## One-time, by the owner on GitHub: only the owner may move a group or a version
 
 This repository is public. Without this, anyone with write access could move a

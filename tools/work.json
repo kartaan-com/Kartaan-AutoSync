@@ -2048,6 +2048,9 @@
       "files": [
         "tools/move_group.py",
         "tools/move_group_checks.py",
+        "tools/move_group_on_release.py",
+        "tools/move_group_on_release_checks.py",
+        ".github/workflows/move-group-1.yml",
         "docs/RELEASING-GROUPS.md"
       ],
       "also_touches": [
