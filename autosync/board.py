@@ -235,9 +235,9 @@ def nothing_ran(
         last_run_on=last,
         days_quiet=quiet,
         message=(
-            f"Nothing has run for {quiet} days -- the last run was {last}. "
-            "No report has failed, because no report has been asked for. "
-            "Nothing is being fetched from any platform."
+            f"The pipeline did not run for {quiet} days -- its last run was {last}. "
+            "No report has failed, because the pipeline asked for none. "
+            "Reports fetched by the browser extension may still have arrived: this says nothing about them."
         ),
     )
 

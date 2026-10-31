@@ -91,7 +91,7 @@ def alarms_for(
                 headline=(
                     "Nothing is being fetched."
                     if quiet.last_run_on is None
-                    else f"Nothing has been fetched for {quiet.days_quiet} days."
+                    else f"The pipeline did not run for {quiet.days_quiet} days."
                 ),
                 what_it_means=quiet.message,
             )

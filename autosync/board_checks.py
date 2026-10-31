@@ -152,7 +152,7 @@ check("and when the last run was", answered(lambda: quiet.last_run_on == DAY("20
 # board of missing days and no failures concludes the board is broken.
 check(
     "and it says that nothing failed because nothing was asked for",
-    answered(lambda: "no report has been asked for" in quiet.message),
+    answered(lambda: "No report has failed, because the pipeline asked for none" in quiet.message),
 )
 check("a run yesterday is not an alarm", answered(lambda: tool.nothing_ran([DAY("2026-08-26")], TODAY) is None))
 check("a run today is certainly not", answered(lambda: tool.nothing_ran([TODAY], TODAY) is None))

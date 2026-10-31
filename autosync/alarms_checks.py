@@ -20,6 +20,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import alarms as tool  # noqa: E402
+import board  # noqa: E402
 from board import BLOCKED, EMPTY, MISSING, ARRIVED, NothingRan, Row  # noqa: E402
 
 ran = 0
@@ -98,6 +99,8 @@ check("and the meaning says nothing failed because nothing was asked for",
 
 # Never having run at all reads differently -- there is no day count to give.
 never = tool.alarms_for([], NothingRan(None, 0, "Nothing has ever run."))
+check("A12: the quiet alarm says the PIPELINE did not run, not that nothing was fetched (the browser extension may have fetched)",
+      answered(lambda: both[0].headline == "The pipeline did not run for 2 days." and "extension" in board.nothing_ran([DAY("2026-08-25")], DAY("2026-08-28")).message))
 check("never having run says so without a number of days", answered(lambda: never[0].headline == "Nothing is being fetched."))
 check("and does not claim a count of days", answered(lambda: "0 days" not in never[0].headline))
 
@@ -254,7 +257,7 @@ check("what changed cannot be edited after it is worked out",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 63
+EXPECTED = 64
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
