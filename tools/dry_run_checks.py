@@ -65,27 +65,54 @@ check("a folder no reader is named for, and the settlements report, are listed a
 
 # **A REAL READABLE FLIPKART PAYMENTS FILE (PR1c proving):** two payouts for one order in one file, and the same payout with another figure in a second file.
 import io  # noqa: E402
+import zipfile  # noqa: E402
+from xml.sax.saxutils import escape  # noqa: E402
 
-import openpyxl  # noqa: E402
 import payments  # noqa: E402
+
+NS = ('xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+      'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"')
+
+
+def _letters(n):
+    out = ""
+    n += 1
+    while n:
+        n, rest = divmod(n - 1, 26)
+        out = chr(65 + rest) + out
+    return out
+
+
+def _a_spreadsheet(sheets):
+    """A real `.xlsx` made by hand, a zip of XML parts, as payments_checks.py makes one: GitHub's runner has no openpyxl."""
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w") as z:
+        book = [f"<workbook {NS}><sheets>"]
+        rels = ['<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">']
+        for at, (name, rows) in enumerate(sheets, start=1):
+            book.append(f'<sheet name="{name}" sheetId="{at}" r:id="rId{at}"/>')
+            rels.append(f'<Relationship Id="rId{at}" Target="worksheets/sheet{at}.xml" '
+                        'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet"/>')
+            body = "".join(
+                f'<row r="{number}">' + "".join(
+                    f'<c r="{_letters(n)}{number}" t="inlineStr"><is><t>{escape(said)}</t></is></c>'
+                    for n, said in enumerate(cells) if said != "") + "</row>"
+                for number, cells in enumerate(rows, start=1))
+            z.writestr(f"xl/worksheets/sheet{at}.xml", f"<worksheet {NS}><sheetData>{body}</sheetData></worksheet>")
+        z.writestr("xl/workbook.xml", "".join(book) + "</sheets></workbook>")
+        z.writestr("xl/_rels/workbook.xml.rels", "".join(rels) + "</Relationships>")
+    return out.getvalue()
 
 
 def _a_payments_file(*lines):
     cols = list(payments.the_columns_a_file_of("flipkart")) + ["NEFT ID"]
-    book = openpyxl.Workbook()
-    book.active.title = "Report Help"
-    sheet = book.create_sheet("Orders")
-    sheet.append(["Payment Details"] + [""] * (len(cols) - 1))
-    sheet.append(cols)
-    sheet.append(["", "", "", "sub-heading"] + [""] * (len(cols) - 4))
+    rows = [["Payment Details"] + [""] * (len(cols) - 1), cols, ["", "", "", "sub-heading"] + [""] * (len(cols) - 4)]
     for order, figure, payout in lines:
         row = [""] * len(cols)
         row[cols.index("Order ID")], row[cols.index("Seller SKU")] = order, "S"
         row[cols.index("Bank Settlement Value (Rs.)")], row[cols.index("NEFT ID")] = figure, payout
-        sheet.append(row)
-    out = io.BytesIO()
-    book.save(out)
-    return out.getvalue()
+        rows.append(row)
+    return _a_spreadsheet([("Report Help", []), ("Orders", rows)])
 
 
 _one = _a_payments_file(("OD1", "196.85", "UTR-00000001"), ("OD1", "-403.35", "UTR-00000002"))
