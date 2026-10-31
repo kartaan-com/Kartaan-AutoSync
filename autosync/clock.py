@@ -273,6 +273,13 @@ def _evening_day(moment: datetime) -> date:
     return moment.date() - timedelta(days=1) if moment.hour < LATE_TICK_UNTIL_HOUR else moment.date()
 
 
+def the_evening_of(moment: datetime) -> date:
+    """**THE DAY A RUN IS FOR (AJ9 piece 4, R121).** The evening a moment belongs to -- so a late GitHub tick at 00:30 on 2 Nov
+    fetches for 1 Nov's evening, as the 22:00 tick would have, and not for the 2 Nov that has only just begun (which also made
+    a report that owes the previous day fetch 1 Nov, the day that had barely ended)."""
+    return _evening_day(moment)
+
+
 def _too_early(moment: datetime, not_before_hour: int) -> Optional[str]:
     """Is it earlier in his day than the seller asked for?
 
