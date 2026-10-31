@@ -346,6 +346,12 @@ export const RECHECK_AFTER_MINUTES = 60;
  *  rule as a two-phase report, because there is no `theirId` to have missed. */
 export const RECHECK_EVEN_WITHOUT_AN_ASK = Object.freeze(['me_views', 'az_ads', 'me_returns']);
 
+/** **AJ9 PIECE 1: A TAB CLOSED MID-WALK IS RETRIED THE SAME NIGHT, NEVER JUST LOST.** Nothing is wrong on the platform
+ *  when the tab is closed (30 Oct 01:26 UTC: fk_listings, fk_orders and fk_ads_search failed this way and waited for the
+ *  next sync), so a failure that starts with this sentence is checked again in an hour like any report above. The
+ *  sentence is written once, here, and `background.js` adds who-and-why after it. */
+export const TAB_CLOSED_SAY = 'The tab this report was being fetched in was closed before the walk finished.';
+
 /* **FLIPKART TRAFFIC IS ASKED FROM THE DAY AFTER THE LAST ONE CAPTURED -- RUMEE'S WAY
  * (A53, his "yes").** Rumee remembers `fk_views_last_to` from the latest date inside
  * the file, never from the request (`D:\rumee-auto-sync\content\flipkart.js:2522-2585`):
@@ -792,7 +798,8 @@ export async function thatOneIsDone(chrome, {
     let asState = state;
     let asSay = say;
     let rechecking = false;
-    if (state === 'failed' && (being[key] !== undefined || RECHECK_EVEN_WITHOUT_AN_ASK.includes(reportId))) {
+    if (state === 'failed' && (being[key] !== undefined || RECHECK_EVEN_WITHOUT_AN_ASK.includes(reportId)
+        || String(say).startsWith(TAB_CLOSED_SAY))) {
       const tries = ((rechecks[key] && rechecks[key].tries) || 0) + 1;
       if (tries <= RECHECK_TIMES) {
         await chrome.storage.local.set({

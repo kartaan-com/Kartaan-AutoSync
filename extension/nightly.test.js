@@ -54,6 +54,7 @@ import {
   CATCH_UP_REACH_DAYS,
   clearNamedNeedsYouEntries,
   theRangeOfTheDays,
+  TAB_CLOSED_SAY,
 } from './nightly.js';
 import { NOT_AVAILABLE_YET as THE_WALKS_WORD } from './walk.js';
 
@@ -1245,6 +1246,28 @@ check('and three days of trying is the reference\'s own number', GIVE_UP_AFTER_D
 }
 
 {
+  /* **AJ9 PIECE 1 (30 Oct 01:26 UTC): A TAB CLOSED MID-WALK IS CHECKED AGAIN IN AN HOUR, FOR ANY REPORT.** fk_listings
+   * and fk_ads_search failed on "the tab was closed" with no asking phase and were not in the list above, so they were
+   * lost until the next sync. Another failure for the same report is still just a failure. */
+  const browser = installFakeChrome();
+  const c = browser.chrome;
+  const day = '2026-10-29';
+  await startTheNight(c, { doing: ['fk_listings', 'fk_ads_search'], at: 1, openAt: 'https://x/', dataDate: day });
+  const closed = await thatOneIsDone(c, {
+    reportId: 'fk_listings', state: 'failed', dataDate: day, at: 2,
+    say: `${TAB_CLOSED_SAY} The computer was being used at that moment, so it was most likely closed by hand.`,
+  });
+  check('a report whose tab was closed is checked again in an hour, not lost',
+    closed.done.at(-1).state === 'still-waiting' && closed.done.at(-1).say.includes('(1 of 3)')
+    && closed.done.at(-1).say.includes('closed by hand'));
+  const other = await thatOneIsDone(c, {
+    reportId: 'fk_ads_search', state: 'failed', dataDate: day, at: 3, say: 'Failed to fetch.',
+  });
+  check('any other failure of such a report is not swept into the hourly check',
+    other.done.at(-1).state === 'failed');
+}
+
+{
   /* **MEESHO'S OWN "SOMETHING WENT WRONG" AND AN ORDERS PAGE IN ANOTHER STATE ARE CHECKED AGAIN IN AN HOUR (his live runs of 27 Oct 2026):** returns failed on Meesho's own error twice running, and orders failed once when an
    * order had just been accepted and the page showed "No orders yet" with no date control; the same reports landed on the runs either side. Neither is the platform saying the day is not there. */
   for (const reportId of ['me_returns']) {
@@ -2173,7 +2196,7 @@ check('report table: null night gives null', theReportTable(null, () => '') === 
   check('report table: an earlier step that was not "still waiting" does not make not-built asked',
     q.status === 'toFetch' && q.word === 'Not built yet');
 }
-const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1;
+const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

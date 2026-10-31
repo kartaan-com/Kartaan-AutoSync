@@ -56,6 +56,7 @@ import {
   afterALanding,
   whyTheseAreNotNames,
   NAMED_PER_CAMPAIGN,
+  whoClosedIt,
 } from './background.js';
 import { LAST_LANDED } from './nightly.js';
 import { IDLE_ALARM, whatIsWaiting } from './idle.js';
@@ -2379,7 +2380,20 @@ check('the page relay is OFF in what ships, so no script on a portal page can dr
     && theRelayAllows(false, { do: 'run-now' }) === false);
 }
 
-const EXPECTED = 262 + 13 + 1 + 4 + 2 + 1 + 1 + 1 + 4 + 11;
+{
+  /* AJ9 piece 1: the log says whether the computer was in use when a tab went. */
+  const browser = installFakeChrome();
+  browser.setTheComputer('active');
+  const used = await whoClosedIt(browser.chrome);
+  browser.setTheComputer('idle');
+  const alone = await whoClosedIt(browser.chrome);
+  check('AJ9: a tab closed while the computer is in use is logged as most likely closed by hand',
+    used.includes('closed by hand') && used.includes('checked again in an hour'));
+  check('AJ9: a tab closed while the computer is left alone is logged as Chrome or the page',
+    alone.includes('Chrome or the page') && !alone.includes('by hand'));
+}
+
+const EXPECTED = 262 + 13 + 1 + 4 + 2 + 1 + 1 + 1 + 4 + 11 + 2;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;
