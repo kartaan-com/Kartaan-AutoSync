@@ -309,6 +309,10 @@ check("and holds the sheet, the moment as text, and the rows -- and nothing else
                          "rows": {"integerValue": "12"}})
 check("and it is replaced whole: the write carries no field mask",
       "updateMask" not in ledger_there.posts[0]["json"]["writes"][0])
+_versioned = Transport()
+answered(lambda: tool.a_ledger_sink(_versioned, PROJECT, "0.1.24")("sheet-9", AT, 12))
+check("a sink told its AutoSync version writes it into the ledger record, replaced whole",
+      _versioned.posts[0]["json"]["writes"][0]["update"]["fields"].get("autosyncVersion") == {"stringValue": "0.1.24"})
 check("a 403 from the seller's database is thrown in words that name the likeliest cause",
       "Security Rules" in _why(lambda: tool.a_ledger_sink(Transport([Reply(403, {})]), PROJECT)("s", AT, 1)))
 
@@ -382,7 +386,7 @@ _held = answered(lambda: tool._what_is_held_of(_RealBytes(), "p", "listings_seen
 check("a batchGet list reply, as the real transport reads it, is read as records and not refused", _held is not None)
 check("and only the record that was found is held", _held is not None and list(_held) == ["L1"])
 
-EXPECTED = 56 + 5 + 2
+EXPECTED = 56 + 5 + 2 + 1
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

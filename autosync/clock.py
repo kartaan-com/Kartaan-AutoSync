@@ -79,6 +79,9 @@ NOT_BEFORE_HOUR = THE_ONE_TICK_HOUR
 FIRST_HOUR = 0
 LAST_HOUR = 23
 
+# Before this hour of his day, a tick that finds yesterday without a run is the evening's tick arriving late (see `_a_late_tick_catching_up`).
+LATE_TICK_UNTIL_HOUR = 6
+
 
 def his_clock(machine_moment: datetime) -> datetime:
     """The machine's clock, told as his.
@@ -234,7 +237,25 @@ def why_not_now(last: LastRun, moment: datetime, not_before_hour: int = NOT_BEFO
             f"The last run finished at {last.finished.isoformat()}, "
             "which is today. The next one is due tomorrow."
         )
+    if too_early and _a_late_tick_catching_up(last, moment, not_before_hour):
+        return None
     return too_early
+
+
+def _a_late_tick_catching_up(last: LastRun, moment: datetime, not_before_hour: int) -> bool:
+    """Is this the evening's tick, started by GitHub after his midnight, and did yesterday go without a run?
+
+    **PROVED FROM RUMEE'S RUN LIST (31 Oct 2026): GITHUB STARTS THE 18:00 TICK 3.5 TO 7 HOURS LATE** (started between 21:40 and 01:25 his
+    time), so some evenings' tick arrives after midnight, when the hour is under the floor. It was refused as "too early", the day had no
+    run, and the quiet alarm said two days. **A TICK IN THE SMALL HOURS THAT FINDS YESTERDAY WITHOUT A RUN IS THAT TICK, so it runs** --
+    the data date is the day that just ended, which is what the lost tick would have fetched. No seller setting, nothing for anyone to flip.
+    A tick when yesterday did run, a tick later in the morning, and a floor that makes no sense stay refused, and a skip is still never
+    written down as a run day (`nightly.py`).
+    """
+    if why_the_hour_is_no_good(not_before_hour) or moment.hour >= LATE_TICK_UNTIL_HOUR:
+        return False
+    when = last.finished or last.started
+    return when.date() < (moment - timedelta(days=1)).date()
 
 
 def _too_early(moment: datetime, not_before_hour: int) -> Optional[str]:

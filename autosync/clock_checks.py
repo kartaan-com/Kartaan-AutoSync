@@ -294,6 +294,25 @@ check("a run given up on does not let the next one start early",
 check("and the next one starts at the chosen hour",
       answered(lambda: tool.why_not_now(abandoned, MORNING, 8)) is None)
 
+# **THE EVENING TICK THAT GITHUB STARTED AFTER HIS MIDNIGHT (PR1, A12; proved from the run list of 31 Oct 2026).** Ticks arrive 3.5 to 7
+# hours after the 18:00 they are set for, so some arrive at 00:06 -- under the floor, and refused as "too early" while yesterday had no run.
+LATE_AT = datetime(2026, 8, 29, 0, 6)
+ran_the_day_before_yesterday = tool.LastRun(started=datetime(2026, 8, 27, 18, 40), finished=datetime(2026, 8, 27, 18, 55))
+check("a tick at 00:06 that finds yesterday without a run is the late evening tick, and runs",
+      answered(lambda: tool.why_not_now(ran_the_day_before_yesterday, LATE_AT)) is None)
+ran_yesterday = tool.LastRun(started=datetime(2026, 8, 28, 23, 30), finished=datetime(2026, 8, 28, 23, 45))
+check("but a tick at 00:06 when yesterday did run is refused as too early",
+      "fetching is set for" in (answered(lambda: tool.why_not_now(ran_yesterday, LATE_AT)) or ""))
+check("and a tick at 07:00 is refused even though yesterday had no run (it is not a late evening tick)",
+      answered(lambda: tool.why_not_now(ran_the_day_before_yesterday, datetime(2026, 8, 29, 7, 0))) is not None)
+check("and a setting that makes no sense still stops the run, late tick or not",
+      answered(lambda: tool.why_not_now(ran_the_day_before_yesterday, LATE_AT, 25)) is not None)
+check("a first run, with nothing before it, still waits for the hour",
+      answered(lambda: tool.why_not_now(tool.LastRun(), LATE_AT)) is not None)
+gave_up_yesterday = tool.LastRun(started=datetime(2026, 8, 27, 18, 40))
+check("a run given up on that began the day before yesterday does not stop the late tick either",
+      answered(lambda: tool.why_not_now(gave_up_yesterday, LATE_AT)) is None)
+
 # **AND NOTHING ABOVE ENDED BY THROWING RATHER THAN BY ANSWERING.**
 #
 # **IT SAT SEVENTY-ONE LINES FROM THE END, with fifteen checks after it (cycle
@@ -303,7 +322,7 @@ check("and the next one starts at the chosen hour",
 # before the tally now, which is the only place it covers everything.
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 78
+EXPECTED = 78 + 6
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

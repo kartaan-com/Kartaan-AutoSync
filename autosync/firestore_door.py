@@ -210,7 +210,7 @@ def a_run_sink(transport, project: str) -> Callable[..., None]:
     return sink
 
 
-def a_ledger_sink(transport, project: str) -> Callable[..., None]:
+def a_ledger_sink(transport, project: str, version: str = "") -> Callable[..., None]:
     """Where the sales ledger is and when it was last written, into the one record the ERP reads (plan jobs 78 and 76).
 
     **REPLACED WHOLE, EVERY TIME IT IS WRITTEN** -- `one_write` sends no mask, so a field dropped here cannot linger.
@@ -219,7 +219,7 @@ def a_ledger_sink(transport, project: str) -> Callable[..., None]:
     """
 
     def sink(sheet_id: str, wrote_at, rows: int) -> None:
-        named, record = a_ledger_record(sheet_id, wrote_at, rows)
+        named, record = a_ledger_record(sheet_id, wrote_at, rows, version)
         write_them(transport, project, [one_write(project, SYNC_LEDGER, named, record)], "writing where the sales ledger is")
 
     return sink

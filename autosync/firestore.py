@@ -64,6 +64,7 @@ internet.
 """
 
 import json
+import os
 import re
 from datetime import date, datetime
 from typing import Dict, Iterator, List, Optional, Sequence, Tuple
@@ -484,8 +485,11 @@ def a_run(name: str, started_at, finished_at=None, why: str = "") -> Tuple[str, 
     return named, {"startedAt": started, "finishedAt": as_text(finished_at), "why": str(why or "")}
 
 
-def a_ledger_record(sheet_id: str, wrote_at, rows: int) -> Tuple[str, Dict]:
-    """Where the sales ledger is, when this run last wrote it, and how many rows it wrote.
+def a_ledger_record(sheet_id: str, wrote_at, rows: int, version: str = "") -> Tuple[str, Dict]:
+    """Where the sales ledger is, when this run last wrote it, how many rows it wrote, and which AutoSync wrote them.
+
+    **THE VERSION IS WHAT LETS THE ERP REFUSE AN OLD PIPELINE BY ITSELF (D842).** It is the text of `version.json` in the code that ran, and a
+    run that cannot say it writes no `autosyncVersion` at all, rather than a blank the ERP would read as an answer.
 
     **A RECORD WITH NO SHEET OR NO MOMENT, OR A COUNT THAT IS NOT A WHOLE NUMBER, IS REFUSED RATHER THAN WRITTEN.** The ERP
     reads these three to say where the seller's sales are and how fresh they are; a blank id or a count of `True` would
@@ -497,7 +501,23 @@ def a_ledger_record(sheet_id: str, wrote_at, rows: int) -> Tuple[str, Dict]:
         raise Refused("The ledger record is written by the sheet's id and the moment it was written, and one was missing.")
     if isinstance(rows, bool) or not isinstance(rows, int) or rows < 0:
         raise Refused(f"{rows!r} is not a number of rows written.")
-    return THE_LEDGER_RECORD, {"sheetId": sheet, "lastWroteAt": moment, "rows": rows}
+    record = {"sheetId": sheet, "lastWroteAt": moment, "rows": rows}
+    if str(version or "").strip():
+        record["autosyncVersion"] = str(version).strip()
+    return THE_LEDGER_RECORD, record
+
+
+def the_code_version(repository_folder) -> str:
+    """The AutoSync version of the code that is running: `version` in `version.json` at the top of the repository, or blank.
+
+    **BLANK, NEVER A GUESS, AND NEVER A STOP.** A missing or unreadable file means this run cannot say which version it is, and
+    `a_ledger_record` then writes no version at all; the night's work does not depend on it.
+    """
+    try:
+        with open(os.path.join(str(repository_folder), "version.json"), encoding="utf-8") as one:
+            return str(json.load(one).get("version") or "").strip()
+    except (OSError, ValueError, AttributeError):
+        return ""
 
 
 def a_returns_sheet_record(sheet_id: str, created_at) -> Tuple[str, Dict]:

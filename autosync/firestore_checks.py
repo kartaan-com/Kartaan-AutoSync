@@ -14,6 +14,7 @@ Run: python autosync/firestore_checks.py
 
 import re
 import sys
+import tempfile
 from datetime import date, datetime
 from pathlib import Path
 
@@ -484,6 +485,21 @@ check("and a count that is not a whole number of rows (a bool, a fraction, a neg
       all(_refused(lambda bad=bad: tool.a_ledger_record("s", datetime(2026, 10, 12), bad)) for bad in (True, 1.5, -1, "3")))
 check("and the job still may not write a collection it was not given",
       _refused(lambda: tool.where_a_document_lives(PROJECT, "businesses", "business")))
+check("a run that knows its AutoSync version writes it into the ledger record (D842), beside the other three",
+      tool.a_ledger_record("sheet-9", datetime(2026, 10, 12, 4, 30, 0), 7, "0.1.24")[1]
+      == {"sheetId": "sheet-9", "lastWroteAt": "2026-10-12T04:30:00", "rows": 7, "autosyncVersion": "0.1.24"})
+check("and one that cannot say it writes no version at all, never a blank the ERP would read as an answer",
+      "autosyncVersion" not in tool.a_ledger_record("sheet-9", datetime(2026, 10, 12), 7, "  ")[1]
+      and "autosyncVersion" not in held_ledger)
+
+with tempfile.TemporaryDirectory() as _repo:
+    Path(_repo, "version.json").write_text('{"version": "0.1.24"}', encoding="utf-8")
+    check("the version of the running code is the text of version.json at the top of the repository",
+          tool.the_code_version(_repo) == "0.1.24")
+    check("and a repository with no version.json says blank, not a guess and not a stop",
+          tool.the_code_version(Path(_repo, "nowhere")) == "")
+    Path(_repo, "version.json").write_text("not json", encoding="utf-8")
+    check("and so does one whose version.json cannot be read", tool.the_code_version(_repo) == "")
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
@@ -547,7 +563,7 @@ check("taking back with a day that is not a day, or for a report that puts no no
       _refused(lambda: tool.a_listing_note_taken_back(PROJECT, "x", "az_fee_preview", "7 Oct"))
       and _refused(lambda: tool.a_listing_note_taken_back(PROJECT, "x", "az_listings", "2026-10-07")))
 
-EXPECTED = 142 + 5 + 1
+EXPECTED = 142 + 5 + 1 + 5
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

@@ -68,6 +68,7 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
         a_board_sink, a_check_sink, a_ledger_sink, a_listing_notes_sink, a_listings_sink, a_log_sink, a_returns_sheet_held, a_returns_sheet_sink, a_returns_sink, an_ads_month_sink, the_record_sinks,
         a_run_sink, a_views_sink, an_ads_sink, both_places, what_they_chose,
     )
+    from firestore import the_code_version
     from transport import FirebaseSeller, Google, for_amazon
 
     # **ASKED BEFORE ANY CONNECTION IS OPENED (plan job 30).** Whether this run may fetch at all is Kartaan's Server's
@@ -180,7 +181,7 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
     # `ledger_sheet.WhatWasWritten` only when sales rows really were written, and a failure there is said, never raised.
     record_the_sales, could_not_write_sales = ledger_sheet.the_writing_half(
         google, read_state, save_state, say, inside=inside,
-        tally=ledger_sheet.WhatWasWritten(now, a_ledger_sink(their_login, their_project), say),
+        tally=ledger_sheet.WhatWasWritten(now, a_ledger_sink(their_login, their_project, the_code_version(Path(__file__).resolve().parent.parent)), say),
     )
 
     # **THE RETURNS SHEET, MADE ONCE AND FOUND EVERY RUN AFTER (ERP job 77 / piece 34).** All of it -- the order it looks in, the refusals, the
