@@ -1315,6 +1315,12 @@ check("and says it with the count, the money and the day history starts, not as 
       and not any(one.startswith("SALES LEDGER PAYMENT WITH NO ORDER") for one in _heard))
 check("and keeps a file of the lines for the seller's Kartaan folder, named for the report and the day",
       len(_kept) == 1 and _kept[0][0].startswith("payments-before-history-me_payments-2026-02-10-") and _kept[0][0].endswith(".txt") and "NEVER-LOADED" in _kept[0][1] and "40.50" in _kept[0][1])
+_charge_only = sales.Sale(platform="meesho", order_id="CHARGE-ONLY", sku="", charges={"otherServices": "-12.50"})
+_heard_charge = []
+_file_c = ledger.Reading(report="me_payments", on="2026-02-10", knows=("settlement",), sales=(_charge_only,), which="pay-c", only_existing=True)
+answered(lambda: tool.recording_into(LedgerDoor(PretendSheets(rows=list(THE_HEADER)), "s"), say=_heard_charge.append, keep_a_note=lambda n, t: None)([_file_c]))
+check("PR1c 7: a before-history line that states only charges adds its charges into the money total (not nought)",
+      any(one.startswith("SALES LEDGER BEFORE HISTORY") and "money adds up to -12.5" in one for one in _heard_charge))
 _waiting, _heard, _kept = _history_night("2026-03-01")
 _w2, _h2, _kept_two = _history_night("2026-02-10")
 _other_file = ledger.Reading(report="me_payments", on="2026-02-10", knows=("settlement",), sales=(_NO_SKU_LINE,), which="pay-other", only_existing=True)
@@ -1335,7 +1341,7 @@ check("the cut is the history day plus 45 days: the 14 Feb file is set aside, th
 check("and only Flipkart and Meesho payments are cut -- Amazon's lines are never held back, so never set aside",
       not ledger.is_payment_file_from_before_history("az_settlements", "2026-02-01") and not ledger.is_payment_file_from_before_history("fk_payments", "no day"))
 
-EXPECTED = 144 + 12 + 9 + 2 + 2 + 5 + 6 + 2
+EXPECTED = 144 + 12 + 9 + 2 + 2 + 5 + 6 + 2 + 1
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

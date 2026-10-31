@@ -87,6 +87,7 @@ sheet moves every row under it, so every remembered row number becomes wrong.
 import re
 from dataclasses import dataclass
 from datetime import date, timedelta
+from decimal import Decimal
 from typing import Dict, List, Optional, Sequence, Tuple
 
 # **THE ONE READER OF 'IS THIS A DAY' IN THIS PACKAGE.** A second way of
@@ -628,6 +629,16 @@ def what_the_sheet_holds(values: Sequence[Sequence[str]]):
     return held, row_of, tuple(unreadable)
 
 
+def _the_money_of(sale: Sale) -> str:
+    """The money an unmatched payment line holds: its settlement, or, for a line that states none, its charge columns added up (PR1c finding 7)."""
+    if sale.settlement not in (None, ""):
+        return str(sale.settlement)
+    by_column = dict(zip(COLUMNS, the_row_for(sale)))
+    charges = [a_decimal(str(by_column.get(c, ""))) for c in CHARGE_COLUMNS]
+    charges = [c for c in charges if c is not None]
+    return as_text(sum(charges, Decimal(0))) if charges else ""
+
+
 def _what_a_sale_says(sale: Sale, knows: Sequence[str]) -> Dict[str, str]:
     """The cells one sale is entitled to write, and no others.
 
@@ -905,7 +916,7 @@ def _put_each_on_its_row(
             if target is None:
                 said.append(Unmatched(
                     name=sale.id, why=why, from_report=reading.report, on=reading.on,
-                    from_file=reading.one_statement, amount=str(sale.settlement or ""),
+                    from_file=reading.one_statement, amount=_the_money_of(sale),
                 ))
                 continue
         if sale.sku or target not in by_fee:
