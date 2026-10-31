@@ -6,6 +6,7 @@ and a made-up `gh` runner, so nothing is read from or written to GitHub.
 import contextlib
 import io
 import os
+import re
 import runpy
 import sys
 from pathlib import Path
@@ -88,6 +89,9 @@ check("the tag reaches the script through the environment, never pasted into the
 check("two releases published together queue behind each other rather than racing",
       "concurrency:\n  group: move-group-1\n  cancel-in-progress: false" in YML)
 check("the checkout leaves no write token in the working copy", "persist-credentials: false" in YML)
+USES = re.findall(r"^\s*(?:- )?uses:\s*(\S+)", YML, re.M)  # real steps only, never a word in a comment
+check("every action it uses is pinned by a full commit, never by a tag that can be moved",
+      USES != [] and all(re.fullmatch(r"[\w.-]+/[\w.-]+@[0-9a-f]{40}", u) for u in USES))
 
 
 
@@ -131,7 +135,7 @@ finally:
         os.environ["TAG"] = real_tag
 check("run as a script, it reads TAG from the environment and exits with main's answer", exit_code == 0)
 
-EXPECTED = 22
+EXPECTED = 23
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
