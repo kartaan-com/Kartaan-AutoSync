@@ -50,12 +50,16 @@ def the_payouts_that_disagree(read: Sequence[Tuple[str, "reading.Reading"]]) -> 
 
 
 def the_orders_with_several_payouts_in_one_file(read: Sequence[Tuple[str, "reading.Reading"]]) -> List[str]:
-    """Each order and SKU a single file pays in more than one payout (PR1c finding 6): such a line carries one combined figure and several keys."""
-    return [
-        f"order line {sale.id!r} has {len(keys)} payouts in ONE file {file_name}: " + ", ".join(k[len(PAYOUT_KEY):] for k in keys)
-        for file_name, one in read for sale in one.sales
-        for keys in [[k for k in (sale.notes or "").split() if is_payout_key(k)]] if len(keys) > 1
-    ]
+    """Each order and SKU a single file pays in more than one payout (PR1c finding 6). The reader gives each payout its own line, so these are
+    counted across the file's lines for one order; the ledger adds them by key. Listed so the real count is known, not as a fault."""
+    out: List[str] = []
+    for file_name, one in read:
+        by_line: Dict[str, set] = {}
+        for sale in one.sales:
+            by_line.setdefault(sale.id, set()).update(k[len(PAYOUT_KEY):] for k in (sale.notes or "").split() if is_payout_key(k))
+        out += [f"order line {line!r} has {len(keys)} payouts in ONE file {file_name}: " + ", ".join(sorted(keys))
+                for line, keys in sorted(by_line.items()) if len(keys) > 1]
+    return out
 
 
 def the_dry_run(

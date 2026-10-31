@@ -1344,6 +1344,19 @@ def _flipkart_with_payout(header, payout):
 _paid = answered(lambda: read_as("fk_payments", "flipkart_fk_payments_2026-08-28.xlsx", _flipkart_with_payout(_with_payout, "NFT-/XUTR/AB1 ")))
 check("A10: a Flipkart line carries its payout's NEFT id as a key (spaces inside it turned to underscores, the trailing one dropped)",
       _paid is not None and _paid[0].sales[0].notes == "pay:NFT-/XUTR/AB1")
+def _flipkart_two_payouts(first, second):
+    cols = list(_with_payout)
+    sub = ["", "", "", "sub-heading"] + [""] * (len(cols) - 4)
+    rows = [a_line(cols, **{"Order ID": "OD1", "Seller SKU": "S", "Bank Settlement Value (Rs.)": figure, "NEFT ID": payout})
+            for figure, payout in ((first[0], first[1]), (second[0], second[1]))]
+    return a_spreadsheet([("Report Help", [["How to read this report"]]),
+                          ("Orders", [["Payment Details"] + [""] * (len(cols) - 1), cols, sub] + rows)])
+
+
+_two = answered(lambda: read_as("fk_payments", "flipkart_fk_payments_2026-08-28.xlsx", _flipkart_two_payouts(("196.85", "UTR-00000001"), ("-403.35", "UTR-00000002"))))
+check("PR1c 6: one order paid in TWO payouts in one file is two lines, each with its own figure and its own single key (never one merged line)",
+      _two is not None and sorted((s.settlement, s.notes) for s in _two[0].sales)
+      == [("-403.35", "pay:UTR-00000002"), ("196.85", "pay:UTR-00000001")])
 _short = answered(lambda: read_as("fk_payments", "flipkart_fk_payments_2026-08-28.xlsx", _flipkart_with_payout(_with_payout, "later")))
 check("PR1c 3: a NEFT id that does not look like one (too short, no digit) is no key", _short is not None and _short[0].sales[0].notes is None)
 _unkeyed = answered(lambda: read_as("fk_payments", "flipkart_fk_payments_2026-08-28.xlsx", _flipkart_with_payout(_with_payout[:-1] + ["Other"], "x")))
@@ -1358,7 +1371,7 @@ if failures:
     print(f"{len(failures)} FAILED: {failures}")
     sys.exit(1)
 WITHOUT = ran - real_ran
-if WITHOUT != 95 + 22 + 17 + 8 + 2 + 3 + 5 + 3 + 5 + 14 + 9 + 4 + 2 + 1 + 1 + 2 + 1:  # one 1 is N018 (AU3 #6), the other AP11 proving, the 14 are A90d proving, the 9 A90e (D581), the 6 A90f (D582)
-    print(f"FAIL  checks went missing -- {WITHOUT} ran without his files, 194 expected")
+if WITHOUT != 95 + 22 + 17 + 8 + 2 + 3 + 5 + 3 + 5 + 14 + 9 + 4 + 2 + 1 + 1 + 2 + 1 + 1:  # one 1 is N018 (AU3 #6), the other AP11 proving, the 14 are A90d proving, the 9 A90e (D581), the 6 A90f (D582)
+    print(f"FAIL  checks went missing -- {WITHOUT} ran without his files, 195 expected")
     sys.exit(1)
 print(f"all {ran} checks passed" + ("" if real_ran == HIS_FILES_GROUP else f" ({HIS_FILES_GROUP - real_ran} of his real-file checks not run -- the files are elsewhere)"))

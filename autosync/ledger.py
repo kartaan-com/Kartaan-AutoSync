@@ -864,7 +864,9 @@ def _put_each_on_its_row(
     for held_name, row in now.items():
         rows_of_order.setdefault((row.get("platform", ""), row.get("orderId", "")), []).append(held_name)
 
-    landed: Dict[str, Sale] = {}
+    # **LINES OF ONE FILE FOR ONE ROW ARE ADDED TOGETHER ONLY WHEN THEY ARE THE SAME PAYOUT (PR1c finding 6):** two payouts for one order are two
+    # separate lines for the plan, so each is added to the row's sum by its own key, never merged into one figure nobody can split again.
+    landed: Dict[Tuple[str, Tuple[str, ...]], Sale] = {}
     said: List[Unmatched] = []
     by_fee: set = set()  # rows this file reaches ONLY through a no-SKU line
     by_sku: set = set()
@@ -893,7 +895,7 @@ def _put_each_on_its_row(
                     shared_out.append(SharedCharge(
                         order_id=sale.order_id, amount=sale.settlement or "", rows=tuple(shares), from_report=reading.report, on=reading.on))
                 for share_of, share in shares.items():
-                    landed[share_of] = two_sales_of_one_row(landed[share_of], share) if share_of in landed else share
+                    landed[(share_of, ())] = two_sales_of_one_row(landed[(share_of, ())], share) if (share_of, ()) in landed else share
                     by_fee.add(share_of)
                 continue
             elif not sale.sku and there:
@@ -921,10 +923,11 @@ def _put_each_on_its_row(
                 continue
         if sale.sku or target not in by_fee:
             by_sku.add(target)
-        landed[target] = two_sales_of_one_row(landed[target], sale) if target in landed else sale
+        which = (target, tuple(sorted(k for k in (sale.notes or "").split() if is_payout_key(k))))
+        landed[which] = two_sales_of_one_row(landed[which], sale) if which in landed else sale
     if only_a_fee is not None:
         only_a_fee.update(by_fee - by_sku)
-    return list(landed.items()), said
+    return [(target, sale) for (target, _), sale in landed.items()], said
 
 
 # A fee key as the readers write it: `fee:<settlement id or dr:hash>:<line or count>`. A word he typed, like `fee:waived`, is not one.

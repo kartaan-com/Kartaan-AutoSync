@@ -891,9 +891,28 @@ _made = tool.plan(HEADER + [_legacy_sale], [_sale_paid, _return_paid], tool.What
 check("PR1c 5: but a legacy row that ends the night (one call, both payouts) with a later payout is NAMED, not counted",
       len(_made.kept) == 1 and not _made.kept_quietly and "kept the old figure 196.85" in str(_made.kept[0]))
 
+# **TWO PAYOUTS FOR ONE ORDER IN ONE FILE (PR1c finding 6; the real files have 325 such lines in 14 files).** The reader now gives each payout its own line.
+def _two_in_one_file(on="2026-10-29"):
+    return tool.Reading("fk_payments", on, payments.WHAT_PAYMENTS_KNOW,
+                        (sales.Sale(platform="flipkart", order_id="OD1", sku="S", settlement="196.85", notes="pay:UTR-0001", payments_on=on),
+                         sales.Sale(platform="flipkart", order_id="OD1", sku="S", settlement="-403.35", notes="pay:UTR-0002", payments_on=on)),
+                        "file-two", only_existing=True)
+
+
+_row, _ = _night([_two_in_one_file()])
+check("PR1c 6: two payouts for one order in one file, on a new row, add up (196.85 + -403.35 = -206.50) with both keys",
+      Decimal(_row["settlement"]) == Decimal("-206.50") and _row["notes"] == "pay:UTR-0001 pay:UTR-0002")
+_row, _ = _night([_sale_paid, _two_in_one_file()])
+check("PR1c 6: and a row that already has the first payout gets the second added, not a disagreement and not lost",
+      Decimal(_row["settlement"]) == Decimal("-206.50"))
+_row, _ = _night([_two_in_one_file(), _two_in_one_file(), _sale_paid, _return_paid])
+check("PR1c 6: and reading the same file again, or each payout's own file, changes nothing", Decimal(_row["settlement"]) == Decimal("-206.50"))
+_row, _ = _night([_two_in_one_file()], start=HEADER + [list(_wrong)])
+check("PR1c 6: a legacy row written wrong at -403.35 is re-worked to -206.50 by the file holding both payouts", Decimal(_row["settlement"]) == Decimal("-206.50"))
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-WITH_HIS_FILES = 115 + 2 + 2 + 3 + 1 + 7 + 2 + 8
+WITH_HIS_FILES = 115 + 2 + 2 + 3 + 1 + 7 + 2 + 8 + 4
 EXPECTED = WITH_HIS_FILES - (9 if not_run else 0)
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")

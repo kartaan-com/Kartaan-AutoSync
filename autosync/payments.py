@@ -340,6 +340,29 @@ def _places(columns: Sequence[str], spec: Sequence[Tuple[str, str]], **how) -> D
     return out
 
 
+class _PayoutGroups:
+    """The lines of a Flipkart file, one `_Lines` for each payout (its NEFT id), so an order paid in two payouts stays two lines (PR1c finding 6)."""
+
+    def __init__(self):
+        self._by_key: Dict[str, "_Lines"] = {}
+
+    def put(self, key: Tuple[str, str], settlement: Optional[Decimal], charges: Dict[str, Decimal], payout_key: str = "") -> None:
+        self._by_key.setdefault(payout_key, _Lines()).put(key, settlement, charges, payout_key)
+
+    def states(self, key: Tuple[str, str]) -> bool:
+        return any(group.states(key) for group in self._by_key.values())
+
+    def put_on_what_states(self, key: Tuple[str, str], settlement: Optional[Decimal], charges: Dict[str, Decimal]) -> None:
+        """A rebate has no payout of its own: it goes on the first payout (by key) that already states the order."""
+        for payout_key in sorted(self._by_key):
+            if self._by_key[payout_key].states(key):
+                self._by_key[payout_key].put(key, settlement, charges)
+                return
+
+    def sales(self, platform: str, data_date: str) -> Tuple[Sale, ...]:
+        return tuple(sale for payout_key in sorted(self._by_key) for sale in self._by_key[payout_key].sales(platform, data_date))
+
+
 def _flipkart_rebates(lines: "_Lines", found) -> List[str]:
     """Flipkart's `MP Fee Rebate` sheet added to its orders: a fee given back is money paid and a charge negated. Returns what to say."""
     if isinstance(found, str):
@@ -365,7 +388,7 @@ def _flipkart_rebates(lines: "_Lines", found) -> List[str]:
             # wins), turning a real figure into the rebate. So it is said, and the order's money is left as it is.
             said.append("rebate line(s) for an order this file does not otherwise state, left out so they cannot replace its money")
             continue
-        lines.put(key, paid, {"otherServices": -paid})
+        (lines.put_on_what_states if isinstance(lines, _PayoutGroups) else lines.put)(key, paid, {"otherServices": -paid})
     return [f"{said.count(one)} {one}" for one in sorted(set(said))]
 
 
@@ -377,7 +400,7 @@ def read_flipkart(rows: Table, data_date: str, extras: Optional[Dict[str, object
     places = _places(columns, FLIPKART_CHARGES)
     payout_at = [at for at, one in enumerate(columns) if one.strip() == FLIPKART_PAYOUT_ID]
 
-    lines = _Lines()
+    lines = _PayoutGroups()
     not_read = _the_refused(rows)
     nameless_money = 0
     for row in rows:
