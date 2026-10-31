@@ -1,0 +1,11 @@
+{
+  "record": "real_files_scan",
+  "commit": "2198a06",
+  "run_at": "31 Oct 2026 (PR1c)",
+  "tool": "tools/dry_run.py (read-only) over a COPY of his 46 Flipkart payments files (his own Drive, Rumee Kartaan folder, fk_payments), copied to D:\\pr1c\\scan2\\fk_payments (copies removed at clean-up); never written to his Drive.",
+  "invoked_as": "python tools/dry_run.py D:/pr1c/scan2",
+  "result": "46 files read, 0 refused. NO payout appears with different figures in different files (0 contradictions). 325 order lines are paid in TWO payouts inside ONE file, in 14 of the files (2026-09-16: 28, 2026-09-28: 48, 2026-09-29: 48, 2026-10-07: 27, 2026-10-08: 27, 2026-10-09: 4, 2026-10-10: 4, 2026-10-14: 46, 2026-10-16: 10, 2026-10-17: 10, 2026-10-19: 21, 2026-10-20: 21, 2026-10-26: 14, 2026-10-29: 17).",
+  "decision": "Release condition for finding 6 (several payouts for one order in one file) is FULFILLED BY FIXING IT in this round: the reader (payments._PayoutGroups) gives each payout its own line and the ledger adds them by key.",
+  "end_to_end": "The 46 real files were rebuilt through ledger.plan one file per night: in date order, in reverse order, and by an independent reviewer in 5 shuffles with night breaks, 23 files read twice and 3 runs with 16 files dropped. 956 rows, 21 NEFT ids; every row equals the sum of its distinct payouts, 0 disagreements, in every order. Script: side-session-notes verify_real.py.",
+  "not_in_the_real_files": "No MP Fee Rebate line and no blank or badly shaped NEFT id appear in the 46 files, so those two shapes are proved by checks only, not by his data."
+}

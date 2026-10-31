@@ -257,3 +257,15 @@ the file where it happened. A reviewer finding something already on this list is
 - A page loaded again after a request was pressed presses it again: a walk that has pressed anything is never reloaded for "not found" (only for the platform's own error), or Flipkart's twenty requests a day are spent twice. -- `extension/walk.js` `walkAndReloadOnce`
 - Closing "our window" closes whatever else landed in it (a link from another program, the panel): with any other tab in it only our own tab is closed. -- `extension/doors.js` `closeOurOwn`
 - A run still going has `finishedAt: null`, not 0; a check built on 0 passes while the panel shows "to never". Fixtures use what the real code writes. -- `extension/screen.js`, `extension/nightly.test.js`
+
+## Flipkart payouts and the clock (PR1c, 31 Oct 2026)
+
+- A line with no payout key never changes the money of a row summed from keyed payouts; it is said. -- `autosync/ledger.py` `pay_blind`
+- A payout key must be a word a person would never type (`fkpay:` plus an id of 8+ characters with a digit); a note like `pay:later` or `pay:15Nov2026` is not one. -- `autosync/payments.py` `is_payout_key`
+- A file's lines for one order are kept apart per payout (its NEFT id), never merged into one figure; the real files hold 325 such order lines. Merged lines cannot be split again. -- `autosync/payments.py` `_PayoutGroups`, `autosync/ledger.py` `_put_each_on_its_row`
+- A line with no key is NEVER folded into a keyed payout of the same order (it may come back under a payout of its own and be counted twice); it stays apart, goes last, and is said. -- `autosync/payments.py` `_PayoutGroups.sales`
+- A rebate is paid in a payout of its own: read its NEFT id and make it its own line. -- `autosync/payments.py` `_flipkart_rebates`
+- A restated payout is compared with the row as the reading found it, not as an earlier line of the same file left it. -- `autosync/ledger.py` `payouts_at_start`
+- Charges are stored positive where money was taken: the money of a charge-only line is the charges NEGATED. -- `autosync/ledger.py` `_the_money_of`
+- A run before 06:00 belongs to the evening before, for every floor, and is compared by when it STARTED, not when it finished. -- `autosync/clock.py` `_evening_day`
+- A scan of the seller's real files is the only thing that finds a shape the checks never imagined (several payouts per order in one file). Run it before deciding a shape "does not happen". -- `tools/dry_run.py`

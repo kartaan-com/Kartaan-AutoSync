@@ -1,21 +1,189 @@
 {
   "record": "review",
-  "commit": "d2e94b1",
-  "run_at": "31 Oct 2026 (BR1/AD1). A fresh Opus 5.5 reviewer read d2e94b1 (the first AD1 commit, on top of f22075e = v0.1.23). Its findings were fixed in be205b9 and the later commits b06cdf8 and ae7d023, each re-run in the checks.",
-  "tool": "A fresh Opus 5.5 sub-agent with no stake in the code, read-only, handed SOLVED_PROBLEMS.md; it ran extension/bridge.test.js and the other extension checks and built and ran the helper bundle.",
-  "invoked_as": "git diff origin/main..HEAD and reads of extension/bridge.js, worker.js, screen.js, panel.js, manifest.json; node extension/bridge.test.js.",
-  "ran_by": "Fresh Opus 5.5 sub-agent of BR1 (Sonnet 5.5, worker for Kartaan Control); it wrote none of the code. extension/bridge.js and its checks were written by BR1 itself (DeepSeek was not used).",
-  "scope": "f22075e (v0.1.23) to ae7d023: the AI door (extension/bridge.js), its wiring in worker.js, the 'Your AI' card in screen.js and panel.js, manifest optional permission nativeMessaging.",
+  "commit": "2198a06",
+  "run_at": "31 Oct 2026 (PR1c). Three fresh Opus 5.5 sub-agents with no stake in the code, read-only, each handed SOLVED_PROBLEMS.md and the code (not my conclusions): PR1b's review (9 findings), PR1c's first review of the money rules and clock (a HIGH in the uncommitted finding-6 work and 8 more), PR1c's second review (3 faults).",
+  "tool": "Opus 5.5 sub-agents running probe scripts against the working tree and the 46 real files.",
+  "invoked_as": "Agent (general-purpose, model opus), prompts in PR1c-progress.md notes; probes in the session scratchpad review\\ and review2\\.",
+  "ran_by": "Fresh Opus 5.5 sub-agents of PR1c (Sonnet 5.5, worker for Kartaan Control); they wrote none of the code. The fixes were written by PR1c itself, not DeepSeek (corrections to money rules that interact; small).",
+  "scope": "v0.1.24 (b697400) to 2198a06: autosync/ledger.py, payments.py, clock.py, ledger_sheet.py, nightly.py wiring, reading.py, tools/dry_run.py.",
   "found": [
-    "HIGH: the one-minute alarm that starts a waiting ask was not re-created after an extension update or browser restart, so a waiting ask could wait for ever. FIXED (keepWatching re-creates it on every waking); check added, including a cleared-alarm case.",
-    "MEDIUM: a two-website ask (Flipkart + Meesho) could be marked done in the gap between its websites. FIXED (done only 3 minutes after the last run ended and the list is empty); check added.",
-    "MEDIUM: a run started by something else in the gap was adopted as the ask's. FIXED (the night the ask's own start created is written against the ask); check added.",
-    "MEDIUM: autosync_run waited for the whole start (Kartaan's check, a portal page), holding the one-at-a-time lock and outlasting the helper's 90 s. FIXED (kept and answered at once; the start runs outside the lock); check added.",
-    "LOW: panel wording while waiting for a run; a Chrome idle error counted as 'free' for AI asks; a test that proved less than its name; ready_to_run needs the Meesho panel name even for Flipkart-only sellers (NAMED, not fixed)."
+    {
+      "n": "PR1b-1",
+      "severity": "HIGH",
+      "finding": "A Flipkart payout line with no NEFT key over a row summed from keyed payouts replaced the sum.",
+      "fixed": true,
+      "fix": "ledger.plan: a keyless line over a keyed row changes no money and is said (Disagreement).",
+      "proved_by": "ledger_checks PR1c 1 (three checks: mixed lines in both orders)",
+      "why": "Brings the A10 fault back for good if left."
+    },
+    {
+      "n": "PR1b-2",
+      "severity": "HIGH",
+      "finding": "Clock: a late catch-up run recorded on the next day made the next evening's on-time tick 'finished today' and the late tick after it 'yesterday had a run'.",
+      "fixed": true,
+      "fix": "clock._evening_day: a run before 06:00 belongs to the evening before, for every floor, and is compared by when it STARTED.",
+      "proved_by": "clock_checks PR1c (two-day, floor 0/2, run finishing after 06:00)",
+      "why": "An evening would never be fetched."
+    },
+    {
+      "n": "PR1b-3",
+      "severity": "MED",
+      "finding": "A word typed in the notes (pay:later) was taken for a payout key.",
+      "fixed": true,
+      "fix": "Keys are now fkpay:<id> with an id of 8+ characters containing a digit (payments.is_payout_key); everything else is no key.",
+      "proved_by": "ledger_checks PR1c 3, PR1c review 3; payments_checks",
+      "why": "Money doubled silently."
+    },
+    {
+      "n": "PR1b-4",
+      "severity": "MED",
+      "finding": "The same payout restated with a different figure was dropped silently.",
+      "fixed": true,
+      "fix": "Said as a Disagreement when the row holds exactly that one payout (compared with the row as the reading found it).",
+      "proved_by": "ledger_checks PR1c 4, PR1c review",
+      "why": "A restated payout is a thing the seller must know."
+    },
+    {
+      "n": "PR1b-5",
+      "severity": "MED",
+      "finding": "Thousands of 'kept old figure' lines on the repair night.",
+      "fixed": true,
+      "fix": "One count line with total; named only if the sale is nought or less or a later payout ended the night.",
+      "proved_by": "ledger_checks PR1c 5; ledger_sheet_checks PR1c proving",
+      "why": "Real lines were buried."
+    },
+    {
+      "n": "PR1b-6",
+      "severity": "MED",
+      "finding": "Several payouts for one order in one file: the second never added.",
+      "fixed": true,
+      "fix": "payments._PayoutGroups: one line per payout; ledger keeps lines of different payouts apart.",
+      "proved_by": "payments_checks PR1c 6; ledger_checks PR1c 6 (four); the 46 real files",
+      "why": "The real files have 325 such lines."
+    },
+    {
+      "n": "PR1b-7",
+      "severity": "LOW-MED",
+      "finding": "Before-history money total used the settlement only; the cut uses the file date.",
+      "fixed": true,
+      "fix": "Total includes charge-only lines (sign: charges negated). The 45-day margin on the file day is ACCEPTED for history (Control's choice).",
+      "proved_by": "ledger_sheet_checks PR1c 7",
+      "why": "Accepted limit named, total fixed."
+    },
+    {
+      "n": "PR1b-8",
+      "severity": "LOW",
+      "finding": "paymentsOn went backwards when an older payout was added.",
+      "fixed": true,
+      "fix": "Kept at the newest payments day.",
+      "proved_by": "ledger_checks PR1c 8",
+      "why": "The age check and the ERP read it."
+    },
+    {
+      "n": "PR1b-9",
+      "severity": "LOW",
+      "finding": "dry_run recorded a combined figure under each key of a merged line.",
+      "fixed": true,
+      "fix": "Reads keys with the ledger's own test; lists orders paid in several payouts in one file.",
+      "proved_by": "dry_run_checks (15)",
+      "why": "False contradictions."
+    },
+    {
+      "n": "PR1c-R2-1",
+      "severity": "HIGH",
+      "finding": "(introduced by the finding-6 fix) a keyless line of an order that also had a keyed line in the same file was set first and then replaced by the keyed one.",
+      "fixed": true,
+      "fix": "Keyless lines stay apart and go LAST, where the ledger says them instead of adding them.",
+      "proved_by": "ledger_checks PR1c review 1; payments_checks",
+      "why": "Money lost."
+    },
+    {
+      "n": "PR1c-R2-3",
+      "severity": "MED",
+      "finding": "A seller note like pay:15Nov2026 passed the key shape.",
+      "fixed": true,
+      "fix": "Prefix changed to fkpay: (keys were never released).",
+      "proved_by": "ledger_checks PR1c review 3",
+      "why": "Money doubled."
+    },
+    {
+      "n": "PR1c-R2-4",
+      "severity": "MED",
+      "finding": "Wrong sign on charge-only money in the before-history total.",
+      "fixed": true,
+      "fix": "Charges negated.",
+      "proved_by": "ledger_sheet_checks PR1c 7 (input flipped to the readers' sign)",
+      "why": "Total off by twice each charge."
+    },
+    {
+      "n": "PR1c-R2-5",
+      "severity": "MED",
+      "finding": "Clock: floors under 6 had late ticks too.",
+      "fixed": true,
+      "fix": "Evening-day is taken for every floor.",
+      "proved_by": "clock_checks PR1c review",
+      "why": "An evening skipped."
+    },
+    {
+      "n": "PR1c-R2-6",
+      "severity": "LOW-MED",
+      "finding": "Clock: a late run that finished after 06:00 was filed under the next evening.",
+      "fixed": true,
+      "fix": "Compared by start.",
+      "proved_by": "clock_checks PR1c review",
+      "why": "An evening skipped."
+    },
+    {
+      "n": "PR1c-R3-1",
+      "severity": "MED",
+      "finding": "A rebate was lost when the order already had two payouts on its row.",
+      "fixed": true,
+      "fix": "A rebate with a valid NEFT id of its own is its own line under its own key; with none it rides on the first payout that states the order.",
+      "proved_by": "payments_checks, ledger_checks PR1c review",
+      "why": "Money lost without a word."
+    },
+    {
+      "n": "PR1c-R3-2",
+      "severity": "MED",
+      "finding": "A blank-NEFT line folded into a payout it may not belong to was counted twice when it came back.",
+      "fixed": true,
+      "fix": "Not folded any more; kept apart, last, said.",
+      "proved_by": "payments_checks PR1c review 1/2",
+      "why": "Money doubled later."
+    },
+    {
+      "n": "PR1c-R3-3",
+      "severity": "LOW",
+      "finding": "A restated payout was not said when a new payout sorted before it in the same file.",
+      "fixed": true,
+      "fix": "Row's payouts and figure are taken at the start of each reading.",
+      "proved_by": "ledger_checks PR1c review",
+      "why": "Silent drop."
+    },
+    {
+      "n": "OPEN-1",
+      "severity": "MED",
+      "finding": "A late tick (00:30) fetches the day that ended 30 minutes earlier; the on-time tick would have fetched the day before. A short early file would be treated as fetched.",
+      "fixed": false,
+      "why": "Needs the run-day recording in nightly.py changed (today = moment.date()), not a payments/ledger fix; the reviewer's impact on Amazon/Flipkart data is a guess, not checked. REGISTERED as the next AutoSync round's row and a release condition to check: nothing in the 46 files or the clock says it has happened."
+    },
+    {
+      "n": "OPEN-2",
+      "severity": "LOW",
+      "finding": "A restated payout on a row holding two or more payouts cannot be compared (no per-key figure is stored); the very first run of an install refuses a late small-hours tick; a tick more than 12 hours late is refused.",
+      "fixed": false,
+      "why": "Named limits: per-key figures would change the row format; the other two cost one evening once or need a tick more than 12 hours late (never seen: 3.5 to 7 hours in 14 days of run lists)."
+    },
+    {
+      "n": "OPEN-3",
+      "severity": "LOW",
+      "finding": "A legacy row (no keys) takes the first keyed payout by REPLACING its figure, said as 'restated'; wrong if that figure came from a different payout whose file is gone.",
+      "fixed": false,
+      "why": "It is the repair mechanism for the A10 fault; the replacement is said line by line. The 46 real files rebuild correctly in every order."
+    }
   ],
   "named_gaps": [
-    "The review ran on d2e94b1, before the fixes; the fixes are covered by their own red-first checks and by the prover run on ae7d023.",
-    "A two-website ask can still be disturbed by a timed sync overwriting Run now's own queue (pre-existing in Run now)."
-  ],
-  "release_note": "31 Oct 2026, Kartaan Control: released as v0.1.24. The release commit differs from 7e33432 only by extension/manifest.json version 0.1.23 -> 0.1.24 (no code change)."
+    "The last fixes of the second review (rebate, blank NEFT, restated order) were not read again by a fourth reviewer; they are covered by red-first checks and the prover.",
+    "The whole suite on the merge: export_recipes_checks and gate_checks fail the same way on plain origin/main (older faults, not PR1c's; gate_checks' register is fixed here by naming bridge.js); gate_run_checks fails two history-walk checks on origin/main too."
+  ]
 }

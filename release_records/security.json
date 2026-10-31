@@ -1,21 +1,36 @@
 {
   "record": "security",
-  "commit": "d2e94b1",
-  "run_at": "31 Oct 2026 (BR1/AD1). A fresh Opus 5.5 security reviewer read d2e94b1 and the helper (kartaan-bridge) and Tune diffs; findings fixed in be205b9 and the later commits.",
-  "tool": "A fresh Opus 5.5 sub-agent, read-only, walking every way in: the native-messaging origin, the pipe, the MCP inputs, the extension-side validation, the AI switch (who may send 'ai-switch'), idle enforcement, the allowance, setup, leaks.",
-  "ran_by": "Fresh Opus 5.5 sub-agent of BR1; it wrote none of the code.",
-  "scope": "extension/bridge.js, worker.js wiring, panel.js, screen.js card, manifest.json; and the Kartaan Bridge helper it talks to.",
+  "commit": "2198a06",
+  "run_at": "31 Oct 2026 (PR1c). A fresh Opus 5.5 security reviewer read git diff fe1b866..4c2e3d2 (the three PR1c commits at that time) read-only.",
+  "tool": "Opus 5.5 security-review sub-agent, read-only.",
+  "invoked_as": "Agent (general-purpose, model opus): injection, parsing, regex slowdown, secrets, dry-run read-only, workflow pins.",
+  "ran_by": "Fresh Opus 5.5 sub-agent of PR1c; it wrote none of the code.",
+  "scope": "ledger.py payout rules, payments.py key shape, clock.py, ledger_sheet.py, tools/dry_run.py (read-only).",
+  "phases_not_run": "The finding-6 reader change (_PayoutGroups) and the second-review fixes came after this read; they add no input path, no file write and no new dependency (checked by the money reviewers, not by a security reader). Row S1 of the AutoSync SEC2 list (pin tag-pinned actions in pm_check.yml and extension-zip.yml) is untouched and still open.",
   "found": [
-    "No HIGH.",
-    "MEDIUM: the AI could use all 20 of Flipkart's daily reports, starving the seller's timed sync. FIXED: the AI has its own ceiling (16 requests, 12 asks a day); check added.",
-    "MEDIUM: chrome.storage.local (AI switch, waiting asks) was readable and writable by content scripts running beside portal pages; the nativeMessaging permission stayed after switch-off. FIXED: storage set to trusted contexts only (no content script uses storage), the permission is given back at switch-off, and every waiting ask is checked again at the moment of starting; checks added (a forged stored ask is refused).",
-    "LOW: Chrome's idle error counted as 'free'. FIXED for AI asks (counts as in use).",
-    "LOW: promised allowance does not count a running ask (the hard cap howManyItMaySpend still holds; worst case the second ask is skipped as not-asked, in words). NAMED, not fixed.",
-    "INFO: once a run has started it is not paused if the seller returns (same as the night run). NAMED."
-  ],
-  "named_gaps": [
-    "The security review ran before the fixes; each fix has a red-first check and the prover run covers them.",
-    "The panel-only door (answerThePanel) was read and found sound; unchanged."
-  ],
-  "release_note": "31 Oct 2026, Kartaan Control: released as v0.1.24. The release commit differs from 7e33432 only by extension/manifest.json version 0.1.23 -> 0.1.24 (no code change)."
+    {
+      "severity": "HIGH/MED",
+      "finding": "None.",
+      "why": "Every sheet write is RAW; amounts come from Decimal; the payout id regex has no nested repetition; dry_run only reads.",
+      "fixed": true
+    },
+    {
+      "severity": "LOW",
+      "finding": "A seller-typed note 8+ characters with a digit after pay: could be taken for a key.",
+      "fixed": true,
+      "why": "Prefix changed to fkpay: (PR1c review 3)."
+    },
+    {
+      "severity": "LOW",
+      "finding": "dry_run spotted keys with startswith while the ledger used the shape test.",
+      "fixed": true,
+      "why": "dry_run now uses payments.is_payout_key (commit 4c2e3d2)."
+    },
+    {
+      "severity": "INFO",
+      "finding": "dry_run prints file names without !r.",
+      "fixed": false,
+      "why": "A local tool run by the operator on a folder he chose; a name with a line break could only fake a line of that tool's own output."
+    }
+  ]
 }
