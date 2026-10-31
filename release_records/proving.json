@@ -50,5 +50,6 @@
   "named_gaps": [
     "The two nightly.py survivors and the reading.py one have weaker reasons than the rest (no check reaches the real Drive wiring; the second half of a defensive zip condition is not shown unreachable) and are named so in their own text.",
     "Live behaviour is not proved by the prover: the first live nightly run shows the note file and the payouts."
-  ]
+  ],
+  "release_note": "31 Oct 2026, Kartaan Control: released as v0.1.25 (D845). The release commit differs from 1e2c2dd only by extension/manifest.json version 0.1.24 -> 0.1.25 and this note (no code change)."
 }

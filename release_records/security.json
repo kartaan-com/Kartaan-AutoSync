@@ -32,5 +32,6 @@
       "fixed": false,
       "why": "A local tool run by the operator on a folder he chose; a name with a line break could only fake a line of that tool's own output."
     }
-  ]
+  ],
+  "release_note": "31 Oct 2026, Kartaan Control: released as v0.1.25 (D845). The release commit differs from 1e2c2dd only by extension/manifest.json version 0.1.24 -> 0.1.25 and this note (no code change)."
 }

@@ -185,5 +185,6 @@
   "named_gaps": [
     "The last fixes of the second review (rebate, blank NEFT, restated order) were not read again by a fourth reviewer; they are covered by red-first checks and the prover.",
     "The whole suite on the merge: export_recipes_checks and gate_checks fail the same way on plain origin/main (older faults, not PR1c's; gate_checks' register is fixed here by naming bridge.js); gate_run_checks fails two history-walk checks on origin/main too."
-  ]
+  ],
+  "release_note": "31 Oct 2026, Kartaan Control: released as v0.1.25 (D845). The release commit differs from 1e2c2dd only by extension/manifest.json version 0.1.24 -> 0.1.25 and this note (no code change)."
 }
