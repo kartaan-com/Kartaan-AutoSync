@@ -251,7 +251,7 @@ def _a_late_tick_catching_up(last: LastRun, moment: datetime, not_before_hour: i
     **PROVED FROM RUMEE'S RUN LIST (31 Oct 2026): GITHUB STARTS THE 18:00 TICK 3.5 TO 7 HOURS LATE** (started between 21:40 and 01:25 his
     time), so some evenings' tick arrives after midnight, when the hour is under the floor. It was refused as "too early", the day had no
     run, and the quiet alarm said two days. **A TICK IN THE SMALL HOURS THAT FINDS YESTERDAY WITHOUT A RUN IS THAT TICK, so it runs** --
-    the data date is the day that just ended, which is what the lost tick would have fetched. No seller setting, nothing for anyone to flip.
+    it fetches the evening's own day (`the_evening_of`), exactly what the lost tick would have fetched. No seller setting, nothing for anyone to flip.
     A tick when yesterday did run, a tick later in the morning, and a floor that makes no sense stay refused, and a skip is still never
     written down as a run day (`nightly.py`).
     """

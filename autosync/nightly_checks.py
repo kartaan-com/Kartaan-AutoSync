@@ -190,6 +190,8 @@ check("a tick that arrives after midnight runs", late_evening_tick.ran is True)
 check("and fetches the day the evening it belongs to would have fetched, not the day that has only just begun",
       late_evening.fetched == [("az_orders", YESTERDAY, None)])
 check("and the same tick on time fetches the same day", first.fetched == late_evening.fetched)
+check("and the run is recorded under the evening it belongs to, so the quiet alarm counts it right",
+      between_runs.read(late_evening.saved[-1]).run_days[-1] == AT.date())
 
 # ------------------------------------------- when it must not run
 
@@ -2794,7 +2796,7 @@ check("and every builder start.py hands the tick is imported there, so the first
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 394 + 3 + 6 + 1 + 1 + 3
+EXPECTED = 394 + 3 + 6 + 1 + 1 + 4
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
