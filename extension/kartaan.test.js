@@ -26,6 +26,8 @@ import {
   isARunPassSaved,
   saveTheRunPass,
   tellFinished,
+  tellFinishedAndAlert,
+  TELL_ADDRESS,
   theFailedReportsToSend,
   whatKartaanLastSaid,
   whyThatIsNotARunPass,
@@ -828,7 +830,48 @@ check('kartaan.js opens no connection of its own: it is handed one',
     !recheck(WORKER.replace('if (!said.kartaanSaid) await', 'await')));
 }
 
-const EXPECTED = 121;
+/* ------------------------- AJ9 piece 3: a failed night reaches him through the message centre */
+
+{
+  const { chrome } = installFakeChrome();
+  await withAPass(chrome);
+  const server = aServerThat((address) => (address === TELL_ADDRESS
+    ? { body: { queued: true, said: 'Kept.' } }
+    : { body: { started: true, said: 'Kartaan has started your run.', failed: [] } }));
+  const got = await tellFinishedAndAlert(chrome, server.fetch, { failed: ['fk_orders', 'me_returns'], at: 1234 });
+  const tell = server.calls.find((one) => one.address === TELL_ADDRESS);
+  const form = tell ? formOf(tell) : {};
+  check('failed reports: /finished is called as before, then /tell with the AutoSync problem kind and the pass',
+    server.calls.length === 2 && server.calls[0].address === FINISHED_ADDRESS
+    && form.source === 'autosync' && form.kind === 'problem' && form.pass === PASS && form.id === 'autosync-failed-1234');
+  check('the words name the reports as he knows them and carry nothing else',
+    JSON.parse(form.facts).text.includes('Flipkart orders, Meesho returns') && !JSON.stringify(form.facts).includes(PASS));
+  check('and the run log line says his messages were told, with the first answer kept as it was',
+    got.said.includes('Kartaan has started your run.') && got.said.includes('His messages were told which reports failed.'));
+
+  const clean = aServerThat({ body: { started: true, said: 'Kartaan has started your run.', failed: [] } });
+  await tellFinishedAndAlert(chrome, clean.fetch, { failed: [] });
+  check('nothing failed: no message to him', clean.calls.length === 1 && clean.calls[0].address === FINISHED_ADDRESS);
+
+  const refused = await tellFinishedAndAlert(chrome, aServerThat((address) => (address === TELL_ADDRESS
+    ? { status: 403, body: { queued: false, said: 'That was not proved.' } }
+    : { body: { started: true, said: 'ok', failed: [] } })).fetch, { failed: ['fk_orders'] });
+  check('a message the centre refuses is said in words, never silent, and never carries the pass',
+    refused.said.includes('His messages were not told') && refused.said.includes('not proved') && !refused.said.includes(PASS));
+
+  const down = await tellFinishedAndAlert(chrome, async () => { throw new Error('offline'); }, { failed: ['fk_orders'] });
+  check('unreachable: still plain words, never a throw', down.said.includes('His messages were not told'));
+}
+
+{
+  const { chrome } = installFakeChrome();
+  const server = aServerThat({ body: { queued: true } });
+  const got = await tellFinishedAndAlert(chrome, server.fetch, { failed: ['fk_orders'] });
+  check('no run pass: nothing is sent at all, and the line says his messages could not be told',
+    server.calls.length === 0 && got.said.includes('no run pass is saved'));
+}
+
+const EXPECTED = 121 + 7;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

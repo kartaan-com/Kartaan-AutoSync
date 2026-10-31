@@ -323,3 +323,58 @@ async function tellFinishedInWords(chrome, fetchImpl, failed, timeoutMs) {
     said: `${theirWords || `Kartaan did not start a run (status ${status}).`}${named} ${STILL_RUNS}`,
   };
 }
+
+/* ------------------------------------------- a failed night reaches him (AJ9 piece 3) */
+
+export const TELL_ADDRESS = `${KARTAAN}/tell`;
+const PLATFORM_WORDS = { fk: 'Flipkart', me: 'Meesho', az: 'Amazon' };
+
+/** A report id in the words he uses: `fk_orders` is "Flipkart orders". Only the platform prefix is known; the rest is
+ *  the id with its underscores as spaces. */
+export function aReportInWords(id) {
+  const [first, ...rest] = String(id || '').split('_');
+  const platform = PLATFORM_WORDS[first];
+  return (platform ? [platform, ...rest] : [first, ...rest]).join(' ');
+}
+
+/**
+ * Tell him, through Kartaan's message centre (`/tell`, the Server's one sender: D588/D589; Discord by default, D666),
+ * which reports of this sync failed or need him. **No new channel**: the centre already has AutoSync's `problem` kind
+ * and proves who is speaking by the run pass. The words carry report names only -- no customer data, never the pass.
+ * Answers `{ queued, said }`, **never throws**, and never changes how the sync went.
+ */
+export async function tellTheProblem(chrome, fetchImpl, { names, timeoutMs = WAIT_AT_MOST_MS, at = Date.now() } = {}) {
+  try {
+    const pass = await thePass(chrome);
+    if (!pass) {
+      return { queued: false, said: 'His messages were not told which reports failed, because no run pass is saved.' };
+    }
+    const words = names.map(aReportInWords).join(', ');
+    const facts = {
+      text: `AutoSync could not fetch: ${words}. It tries again by itself; if it keeps failing, open the AutoSync panel.`,
+    };
+    const got = await postForm(fetchImpl, TELL_ADDRESS, {
+      source: 'autosync', kind: 'problem', id: `autosync-failed-${at}`, facts: JSON.stringify(facts), pass,
+    }, timeoutMs);
+    if (got.kind === 'answered' && got.body.queued === true) {
+      return { queued: true, said: 'His messages were told which reports failed.' };
+    }
+    const why = got.kind === 'answered' && typeof got.body.said === 'string'
+      ? cleaned(got.body.said, pass) : cleaned(whyNoAnswer(got, 'his messages were not told'), pass);
+    return { queued: false, said: `His messages were not told which reports failed. ${why}` };
+  } catch (wrong) {
+    return { queued: false, said: 'His messages were not told which reports failed (something went wrong sending it).' };
+  }
+}
+
+/**
+ * `tellFinished`, and then -- only when some report failed or needs him -- the message to him. **The sentence that
+ * comes back says both**, so the run log's "Told Kartaan" line shows whether his messages were told. Never throws.
+ */
+export async function tellFinishedAndAlert(chrome, fetchImpl, { failed = [], timeoutMs = WAIT_AT_MOST_MS, at = Date.now() } = {}) {
+  const answer = await tellFinished(chrome, fetchImpl, { failed, timeoutMs, at });
+  const names = theFailedReportsToSend(failed);
+  if (!names.length) return answer;
+  const alert = await tellTheProblem(chrome, fetchImpl, { names, timeoutMs, at });
+  return { ...answer, said: `${answer.said} ${alert.said}` };
+}
