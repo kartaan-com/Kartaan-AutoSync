@@ -147,6 +147,62 @@
       "line": "if unwrapped is not body and landing.what_it_really_is(unwrapped) != landing.ZIP:",
       "occurrence": 0,
       "why": "The second half of a defensive condition: the landing's unwrapper returns a spreadsheet, and an inner plain zip is refused by the reader's next step in words anyway. Not shown unreachable by a check; the first half is killed by the zip-with-one-spreadsheet checks (PR1 A4)."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "return;",
+      "occurrence": 0,
+      "why": "The return after 'Nothing has run yet.' in showTheEvents. Without it the code goes on to the loop over the events, and that list is empty (it is the only way into that branch), so the loop draws nothing. The panel shows the one 'Nothing has run yet.' line either way; nothing written, stored or said differs (AJ9)."
+    },
+    {
+      "file": "extension/idle.js",
+      "operator": "line",
+      "line": "console.warn('Kartaan Auto-sync: could not note how the run got past the idle wait.', (error && error.message) || String(error));",
+      "occurrence": 0,
+      "why": "A warning to the extension's own console inside a catch, words only. The catch has already swallowed the failure and the start goes on either way, so without the line nothing is stored, started or shown to the seller differently (AJ9)."
+    },
+    {
+      "file": "extension/idle.js",
+      "operator": "line",
+      "line": "console.warn('Kartaan Auto-sync: could not clear the idle-wait note.', (error && error.message) || String(error));",
+      "occurrence": 0,
+      "why": "A warning to the extension's own console inside a catch, words only. The note's removal has already failed and been swallowed, and the start has already run, so without the line nothing is stored, started or shown differently (AJ9)."
+    },
+    {
+      "file": "extension/idle.js",
+      "operator": "logic",
+      "line": "console.warn('Kartaan Auto-sync: could not note how the run got past the idle wait.', (error && error.message) || String(error));",
+      "occurrence": 0,
+      "why": "Only which words of the error the console warning prints changes; the warning is inside a catch that has already swallowed the failure, so nothing is stored, started or shown to the seller differently (AJ9)."
+    },
+    {
+      "file": "extension/idle.js",
+      "operator": "logic",
+      "line": "console.warn('Kartaan Auto-sync: could not note how the run got past the idle wait.', (error && error.message) || String(error));",
+      "occurrence": 1,
+      "why": "Only which words of the error the console warning prints changes; the warning is inside a catch that has already swallowed the failure, so nothing is stored, started or shown to the seller differently (AJ9)."
+    },
+    {
+      "file": "extension/idle.js",
+      "operator": "logic",
+      "line": "console.warn('Kartaan Auto-sync: could not clear the idle-wait note.', (error && error.message) || String(error));",
+      "occurrence": 0,
+      "why": "Only which words of the error the console warning prints changes; the warning is inside a catch that has already swallowed the failure, so nothing is stored, started or shown to the seller differently (AJ9)."
+    },
+    {
+      "file": "extension/idle.js",
+      "operator": "logic",
+      "line": "console.warn('Kartaan Auto-sync: could not clear the idle-wait note.', (error && error.message) || String(error));",
+      "occurrence": 1,
+      "why": "Only which words of the error the console warning prints changes; the warning is inside a catch that has already swallowed the failure, so nothing is stored, started or shown to the seller differently (AJ9)."
+    },
+    {
+      "file": "tools/move_group_on_release.py",
+      "operator": "line",
+      "line": "sys.path.insert(0, str(Path(__file__).resolve().parent))",
+      "occurrence": 0,
+      "why": "It only makes `import move_group` find tools/. Run as a script (the workflow runs `python tools/move_group_on_release.py`), Python already puts the script's own folder first on the path, and the checks put tools/ there themselves. So the same move_group is found in every state and nothing moved, refused or said differs (AJ9)."
     }
   ],
   "cannot_load": {
@@ -173,6 +229,11 @@
     "autosync/quality.py": "Deleting the `re` import, or the line that builds a record's point from its stars, returnsPct and percent keys before a later line reads it, leaves a name undefined, so the module will not import or the first read throws a NameError before any check prints. Read off the prover's verdicts at AJ2 (2 such changes, none surviving); every other change to this file went red by name.",
     "autosync/record_reports.py": "Deleting the lines that name a report's kind, its reader, its words or its merge in the RECORD_REPORTS table leaves a name undefined or a call with the wrong arguments, so the module will not import and the checks file stops before any check prints. Read off the prover's verdicts at AJ2 (5 such changes, none surviving); every other change to this file went red by name.",
     "autosync/ledger_sheet.py": "Deleting an import line (sys, pathlib, typing, the readers' own modules) or an exported name that ledger_sheet_checks imports by name stops the checks file importing at all. Noticed by the load, not by a red check. Read off the prover's verdicts at PR1c (5 changes).",
-    "tools/dry_run.py": "Deleting an import line (sys, pathlib, typing, reading, whats_new, payments) or the ROOT / sys.path lines dry_run_checks relies on stops the checks file importing dry_run at all. Noticed by the load, not by a red check. Read off the prover's verdicts at PR1c (6 changes)."
+    "tools/dry_run.py": "Deleting an import line (sys, pathlib, typing, reading, whats_new, payments) or the ROOT / sys.path lines dry_run_checks relies on stops the checks file importing dry_run at all. Noticed by the load, not by a red check. Read off the prover's verdicts at PR1c (6 changes).",
+    "autosync/between_runs.py": "Deleting `import clock`, or the line that sets `days` that the next line reads, leaves a name undefined, so between_runs_checks.py throws a NameError the moment it records a run, before any check prints. Noticed by the load, not by a red check. Read off the prover's verdicts at AJ9 (2 changes).",
+    "autosync/nightly.py": "Deleting the line that sets `today` from `clock.the_evening_of(moment)` leaves `today` undefined for the lines below that read it, so nightly_checks.py throws a NameError on its first night, before any check prints. Noticed by the load, not by a red check. Read off the prover's verdicts at AJ9 (1 change).",
+    "extension/kartaan.js": "Deleting TELL_ADDRESS, which kartaan.js exports and kartaan.test.js imports by name, stops the checks file importing at all. Noticed by the load, not by a red check. Read off the prover's verdicts at AJ9 (1 change).",
+    "extension/nightly.js": "Deleting TAB_CLOSED_SAY, which nightly.js exports and nightly.test.js imports by name, stops the checks file importing at all. Noticed by the load, not by a red check. Read off the prover's verdicts at AJ9 (1 change).",
+    "tools/move_group_on_release.py": "Deleting an import line, GROUP, a function's own head line (decide, main), or a line that first sets a name a later line reads (wrong, tag, verdict and what, done) leaves that name undefined, so the module will not import or the function throws a NameError or ImportError the moment the checks call it (for a name only the push-refused branch reads, after the earlier checks have printed). Read off the prover's verdicts at AJ9 (13 changes, none surviving)."
   }
 }

@@ -1,37 +1,17 @@
 {
   "record": "security",
-  "commit": "2198a06",
-  "run_at": "31 Oct 2026 (PR1c). A fresh Opus 5.5 security reviewer read git diff fe1b866..4c2e3d2 (the three PR1c commits at that time) read-only.",
+  "commit": "5e09952",
+  "run_at": "1 Nov 2026 (AJ9c). A fresh Opus 5.5 security reader read git diff 53ac64d..943f377 (the whole AJ9 round) read-only; its one fixable LOW was fixed in 5e09952 and that change read again by a second fresh agent. Earlier security reads of pieces 1-4 were done in AJ9.",
   "tool": "Opus 5.5 security-review sub-agent, read-only.",
-  "invoked_as": "Agent (general-purpose, model opus): injection, parsing, regex slowdown, secrets, dry-run read-only, workflow pins.",
-  "ran_by": "Fresh Opus 5.5 sub-agent of PR1c; it wrote none of the code.",
-  "scope": "ledger.py payout rules, payments.py key shape, clock.py, ledger_sheet.py, tools/dry_run.py (read-only).",
-  "phases_not_run": "The finding-6 reader change (_PayoutGroups) and the second-review fixes came after this read; they add no input path, no file write and no new dependency (checked by the money reviewers, not by a security reader). Row S1 of the AutoSync SEC2 list (pin tag-pinned actions in pm_check.yml and extension-zip.yml) is untouched and still open.",
+  "invoked_as": "Agent (general-purpose): workflow trigger, owner guard, token, argument injection through the tag or GitHub's facts, action pinning; the run pass in notices, events, logs and storage; text-only drawing of the event list; manifest permissions; pipeline paths; secrets in the added lines.",
+  "ran_by": "Fresh Opus 5.5 sub-agent of AJ9c (Opus 5.5, worker for Kartaan Control); it wrote none of the code.",
+  "scope": "move-group-1.yml, tools/move_group_on_release.py, extension/kartaan.js, screen.js, manifest.json, autosync/clock.py, nightly.py, between_runs.py, every added line for secrets.",
   "found": [
-    {
-      "severity": "HIGH/MED",
-      "finding": "None.",
-      "why": "Every sheet write is RAW; amounts come from Decimal; the payout id regex has no nested repetition; dry_run only reads.",
-      "fixed": true
-    },
-    {
-      "severity": "LOW",
-      "finding": "A seller-typed note 8+ characters with a digit after pay: could be taken for a key.",
-      "fixed": true,
-      "why": "Prefix changed to fkpay: (PR1c review 3)."
-    },
-    {
-      "severity": "LOW",
-      "finding": "dry_run spotted keys with startswith while the ledger used the shape test.",
-      "fixed": true,
-      "why": "dry_run now uses payments.is_payout_key (commit 4c2e3d2)."
-    },
-    {
-      "severity": "INFO",
-      "finding": "dry_run prints file names without !r.",
-      "fixed": false,
-      "why": "A local tool run by the operator on a folder he chose; a name with a line break could only fake a line of that tool's own output."
-    }
+    {"severity": "HIGH/MED", "finding": "None.", "why": "The tag must fully match v<n>.<n>.<n> before any command is built and the sha comes from GitHub for the fixed repository, so the gh call cannot take extra arguments; the job runs only in kartaan-com, so not in a seller's copy; the run pass goes out only as a form field to /tell with redirects refused and is swapped for [run pass] in any words; the event list is drawn with textContent; notifications was already in the manifest; no new file reads or writes in the pipeline; no secret in the diff.", "fixed": true},
+    {"severity": "LOW", "finding": "move-group-1.yml pinned actions/checkout by the tag v4 while its token can move group-1.", "fixed": true, "why": "5e09952 pins commit 11bd719 (v4.2.2, checked against GitHub), the same as autosync.yml, and a check holds every step pinned."},
+    {"severity": "LOW", "finding": "The group-1 ruleset bypass is for the whole GitHub Actions app, so another workflow with contents write (extension-zip.yml, also on release) could move group-1.", "fixed": false, "why": "GitHub offers no per-workflow bypass; limited to group-1, which is Rumee only; written in docs/RELEASING-GROUPS.md."},
+    {"severity": "INFO", "finding": "The job runs the script at the released tag.", "fixed": false, "why": "Only people who can already publish releases can affect it."},
+    {"severity": "INFO", "finding": "kartaan.js cuts fetch's own error words to 100 characters before hiding the pass in them.", "fixed": false, "why": "Those words are the browser's, never the pass; not realistic."}
   ],
-  "release_note": "31 Oct 2026, Kartaan Control: released as v0.1.25 (D845). The release commit differs from 1e2c2dd only by extension/manifest.json version 0.1.24 -> 0.1.25 and this note (no code change)."
+  "sec2_rows": "AutoSync SEC2 rows 33, 30, 06/10, 08, 47, 48, 13 are not touched by this round. Row S1 (pin tag-pinned actions in pm_check.yml and extension-zip.yml) stays open: this round pins only its own new workflow."
 }

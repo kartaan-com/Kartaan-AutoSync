@@ -1,190 +1,27 @@
 {
   "record": "review",
-  "commit": "2198a06",
-  "run_at": "31 Oct 2026 (PR1c). Three fresh Opus 5.5 sub-agents with no stake in the code, read-only, each handed SOLVED_PROBLEMS.md and the code (not my conclusions): PR1b's review (9 findings), PR1c's first review of the money rules and clock (a HIGH in the uncommitted finding-6 work and 8 more), PR1c's second review (3 faults).",
-  "tool": "Opus 5.5 sub-agents running probe scripts against the working tree and the 46 real files.",
-  "invoked_as": "Agent (general-purpose, model opus), prompts in PR1c-progress.md notes; probes in the session scratchpad review\\ and review2\\.",
-  "ran_by": "Fresh Opus 5.5 sub-agents of PR1c (Sonnet 5.5, worker for Kartaan Control); they wrote none of the code. The fixes were written by PR1c itself, not DeepSeek (corrections to money rules that interact; small).",
-  "scope": "v0.1.24 (b697400) to 2198a06: autosync/ledger.py, payments.py, clock.py, ledger_sheet.py, nightly.py wiring, reading.py, tools/dry_run.py.",
+  "commit": "5e09952",
+  "run_at": "31 Oct - 1 Nov 2026 (AJ9, AJ9b, AJ9c). Fresh Opus 5.5 read-only review agents with no stake, each handed SOLVED_PROBLEMS.md and the code: AJ9 pieces 1-4; AJ9b pieces 3b, 5 and 6; AJ9c the proving checks, the dry-run checks without openpyxl, and the checkout pin.",
+  "tool": "Opus 5.5 general-purpose sub-agents, read-only, running the checks files and hand-made changes in scratch copies.",
+  "invoked_as": "Agent (general-purpose) from each session; prompts in the AJ9-progress.md, AJ9b-progress.md and AJ9c-progress.md side-session notes. Each code commit also carries the gate's [PM-REVIEWED] record (review_pass.json, used up by the commit hook).",
+  "ran_by": "Sub-agents of AJ9 and AJ9b (Sonnet 5.5) and AJ9c (Opus 5.5), workers for Kartaan Control; they wrote none of the code they read. Fixes were written by the sessions themselves, not DeepSeek (small pieces).",
+  "scope": "v0.1.25 (9d7d090) to 5e09952: extension/background.js, bridge.js, idle.js, kartaan.js, nightly.js, screen.js, worker.js and their tests; autosync/between_runs.py, clock.py, nightly.py, start.py; tools/move_group_on_release.py, .github/workflows/move-group-1.yml, docs/RELEASING-GROUPS.md, tools/dry_run_checks.py, tools/proven_survivors.json.",
   "found": [
-    {
-      "n": "PR1b-1",
-      "severity": "HIGH",
-      "finding": "A Flipkart payout line with no NEFT key over a row summed from keyed payouts replaced the sum.",
-      "fixed": true,
-      "fix": "ledger.plan: a keyless line over a keyed row changes no money and is said (Disagreement).",
-      "proved_by": "ledger_checks PR1c 1 (three checks: mixed lines in both orders)",
-      "why": "Brings the A10 fault back for good if left."
-    },
-    {
-      "n": "PR1b-2",
-      "severity": "HIGH",
-      "finding": "Clock: a late catch-up run recorded on the next day made the next evening's on-time tick 'finished today' and the late tick after it 'yesterday had a run'.",
-      "fixed": true,
-      "fix": "clock._evening_day: a run before 06:00 belongs to the evening before, for every floor, and is compared by when it STARTED.",
-      "proved_by": "clock_checks PR1c (two-day, floor 0/2, run finishing after 06:00)",
-      "why": "An evening would never be fetched."
-    },
-    {
-      "n": "PR1b-3",
-      "severity": "MED",
-      "finding": "A word typed in the notes (pay:later) was taken for a payout key.",
-      "fixed": true,
-      "fix": "Keys are now fkpay:<id> with an id of 8+ characters containing a digit (payments.is_payout_key); everything else is no key.",
-      "proved_by": "ledger_checks PR1c 3, PR1c review 3; payments_checks",
-      "why": "Money doubled silently."
-    },
-    {
-      "n": "PR1b-4",
-      "severity": "MED",
-      "finding": "The same payout restated with a different figure was dropped silently.",
-      "fixed": true,
-      "fix": "Said as a Disagreement when the row holds exactly that one payout (compared with the row as the reading found it).",
-      "proved_by": "ledger_checks PR1c 4, PR1c review",
-      "why": "A restated payout is a thing the seller must know."
-    },
-    {
-      "n": "PR1b-5",
-      "severity": "MED",
-      "finding": "Thousands of 'kept old figure' lines on the repair night.",
-      "fixed": true,
-      "fix": "One count line with total; named only if the sale is nought or less or a later payout ended the night.",
-      "proved_by": "ledger_checks PR1c 5; ledger_sheet_checks PR1c proving",
-      "why": "Real lines were buried."
-    },
-    {
-      "n": "PR1b-6",
-      "severity": "MED",
-      "finding": "Several payouts for one order in one file: the second never added.",
-      "fixed": true,
-      "fix": "payments._PayoutGroups: one line per payout; ledger keeps lines of different payouts apart.",
-      "proved_by": "payments_checks PR1c 6; ledger_checks PR1c 6 (four); the 46 real files",
-      "why": "The real files have 325 such lines."
-    },
-    {
-      "n": "PR1b-7",
-      "severity": "LOW-MED",
-      "finding": "Before-history money total used the settlement only; the cut uses the file date.",
-      "fixed": true,
-      "fix": "Total includes charge-only lines (sign: charges negated). The 45-day margin on the file day is ACCEPTED for history (Control's choice).",
-      "proved_by": "ledger_sheet_checks PR1c 7",
-      "why": "Accepted limit named, total fixed."
-    },
-    {
-      "n": "PR1b-8",
-      "severity": "LOW",
-      "finding": "paymentsOn went backwards when an older payout was added.",
-      "fixed": true,
-      "fix": "Kept at the newest payments day.",
-      "proved_by": "ledger_checks PR1c 8",
-      "why": "The age check and the ERP read it."
-    },
-    {
-      "n": "PR1b-9",
-      "severity": "LOW",
-      "finding": "dry_run recorded a combined figure under each key of a merged line.",
-      "fixed": true,
-      "fix": "Reads keys with the ledger's own test; lists orders paid in several payouts in one file.",
-      "proved_by": "dry_run_checks (15)",
-      "why": "False contradictions."
-    },
-    {
-      "n": "PR1c-R2-1",
-      "severity": "HIGH",
-      "finding": "(introduced by the finding-6 fix) a keyless line of an order that also had a keyed line in the same file was set first and then replaced by the keyed one.",
-      "fixed": true,
-      "fix": "Keyless lines stay apart and go LAST, where the ledger says them instead of adding them.",
-      "proved_by": "ledger_checks PR1c review 1; payments_checks",
-      "why": "Money lost."
-    },
-    {
-      "n": "PR1c-R2-3",
-      "severity": "MED",
-      "finding": "A seller note like pay:15Nov2026 passed the key shape.",
-      "fixed": true,
-      "fix": "Prefix changed to fkpay: (keys were never released).",
-      "proved_by": "ledger_checks PR1c review 3",
-      "why": "Money doubled."
-    },
-    {
-      "n": "PR1c-R2-4",
-      "severity": "MED",
-      "finding": "Wrong sign on charge-only money in the before-history total.",
-      "fixed": true,
-      "fix": "Charges negated.",
-      "proved_by": "ledger_sheet_checks PR1c 7 (input flipped to the readers' sign)",
-      "why": "Total off by twice each charge."
-    },
-    {
-      "n": "PR1c-R2-5",
-      "severity": "MED",
-      "finding": "Clock: floors under 6 had late ticks too.",
-      "fixed": true,
-      "fix": "Evening-day is taken for every floor.",
-      "proved_by": "clock_checks PR1c review",
-      "why": "An evening skipped."
-    },
-    {
-      "n": "PR1c-R2-6",
-      "severity": "LOW-MED",
-      "finding": "Clock: a late run that finished after 06:00 was filed under the next evening.",
-      "fixed": true,
-      "fix": "Compared by start.",
-      "proved_by": "clock_checks PR1c review",
-      "why": "An evening skipped."
-    },
-    {
-      "n": "PR1c-R3-1",
-      "severity": "MED",
-      "finding": "A rebate was lost when the order already had two payouts on its row.",
-      "fixed": true,
-      "fix": "A rebate with a valid NEFT id of its own is its own line under its own key; with none it rides on the first payout that states the order.",
-      "proved_by": "payments_checks, ledger_checks PR1c review",
-      "why": "Money lost without a word."
-    },
-    {
-      "n": "PR1c-R3-2",
-      "severity": "MED",
-      "finding": "A blank-NEFT line folded into a payout it may not belong to was counted twice when it came back.",
-      "fixed": true,
-      "fix": "Not folded any more; kept apart, last, said.",
-      "proved_by": "payments_checks PR1c review 1/2",
-      "why": "Money doubled later."
-    },
-    {
-      "n": "PR1c-R3-3",
-      "severity": "LOW",
-      "finding": "A restated payout was not said when a new payout sorted before it in the same file.",
-      "fixed": true,
-      "fix": "Row's payouts and figure are taken at the start of each reading.",
-      "proved_by": "ledger_checks PR1c review",
-      "why": "Silent drop."
-    },
-    {
-      "n": "OPEN-1",
-      "severity": "MED",
-      "finding": "A late tick (00:30) fetches the day that ended 30 minutes earlier; the on-time tick would have fetched the day before. A short early file would be treated as fetched.",
-      "fixed": false,
-      "why": "Needs the run-day recording in nightly.py changed (today = moment.date()), not a payments/ledger fix; the reviewer's impact on Amazon/Flipkart data is a guess, not checked. REGISTERED as the next AutoSync round's row and a release condition to check: nothing in the 46 files or the clock says it has happened."
-    },
-    {
-      "n": "OPEN-2",
-      "severity": "LOW",
-      "finding": "A restated payout on a row holding two or more payouts cannot be compared (no per-key figure is stored); the very first run of an install refuses a late small-hours tick; a tick more than 12 hours late is refused.",
-      "fixed": false,
-      "why": "Named limits: per-key figures would change the row format; the other two cost one evening once or need a tick more than 12 hours late (never seen: 3.5 to 7 hours in 14 days of run lists)."
-    },
-    {
-      "n": "OPEN-3",
-      "severity": "LOW",
-      "finding": "A legacy row (no keys) takes the first keyed payout by REPLACING its figure, said as 'restated'; wrong if that figure came from a different payout whose file is gone.",
-      "fixed": false,
-      "why": "It is the repair mechanism for the A10 fault; the replacement is said line by line. The 46 real files rebuild correctly in every order."
-    }
+    {"n": "AJ9-1..4", "severity": "MED", "finding": "Pieces 1-4 (closed tab rechecked, idle-wait line, failures told, late tick day): review findings including the run days and the run log name.", "fixed": true, "fix": "Commits 7fca9ba, ea58deb, de84d0b, b58ccd2 on aj9-stability, all carried into 2b1dfd8."},
+    {"n": "AJ9b-1", "severity": "MED", "finding": "A platform refused in the middle of a sync was not told when a later platform started.", "fixed": true, "fix": "screen.js startTheNextPlatform remembers it as not fetched at once (SOLVED line)."},
+    {"n": "AJ9b-2", "severity": "MED", "finding": "The no-pass notice was once per sync end, so hourly re-checks and Run now repeated it.", "fixed": true, "fix": "Keyed on the calendar day; a notice Chrome refuses is warned and tried again."},
+    {"n": "AJ9b-3", "severity": "MED", "finding": "The group-1 bypass on the shared groups ruleset would let any workflow move every group.", "fixed": true, "fix": "docs/RELEASING-GROUPS.md: a ruleset of its own for group-1 only."},
+    {"n": "AJ9b-4", "severity": "LOW", "finding": "Two releases at once could race the group move; the checkout left a token in the working copy.", "fixed": true, "fix": "move-group-1.yml concurrency and persist-credentials: false."},
+    {"n": "AJ9c-1", "severity": "MED", "finding": "The no-pass notice checks depended on the time zone (06:00 UTC plus two hours crosses a day in US zones).", "fixed": true, "fix": "Built from local noon; run in three zones (SOLVED line)."},
+    {"n": "AJ9c-2", "severity": "LOW", "finding": "console.warn and TAG were put back without finally; one cannot_load sentence overstated.", "fixed": true, "fix": "finally blocks; sentence made exact."},
+    {"n": "AJ9c-3", "severity": "MED", "finding": "tools/dry_run_checks.py imported openpyxl, which GitHub's runner does not have (main 53ac64d red, run 41235263269).", "fixed": true, "fix": "943f377: the test spreadsheet is a hand-made zip of XML, as the other checks files make theirs (SOLVED line)."},
+    {"n": "AJ9c-4", "severity": "LOW", "finding": "The new pin check first also read uses: inside comments.", "fixed": true, "fix": "5e09952 reads real step lines only."},
+    {"n": "AJ9c-5", "severity": "LOW", "finding": "A refusal from the message centre with no words is said as 'Kartaan could not be reached' though Kartaan answered (kartaan.js tellTheProblem).", "fixed": false, "why": "Run-log wording only, nothing lost or sent wrongly; next AutoSync round."},
+    {"n": "AJ9c-6", "severity": "LOW", "finding": "screen.test.js and bridge.test.js have no expected-count line, so a check that never runs is not noticed there.", "fixed": false, "why": "Older than this round, both files; next AutoSync round."}
   ],
-  "named_gaps": [
-    "The last fixes of the second review (rebate, blank NEFT, restated order) were not read again by a fourth reviewer; they are covered by red-first checks and the prover.",
-    "The whole suite on the merge: export_recipes_checks and gate_checks fail the same way on plain origin/main (older faults, not PR1c's; gate_checks' register is fixed here by naming bridge.js); gate_run_checks fails two history-walk checks on origin/main too."
-  ],
-  "release_note": "31 Oct 2026, Kartaan Control: released as v0.1.25 (D845). The release commit differs from 1e2c2dd only by extension/manifest.json version 0.1.24 -> 0.1.25 and this note (no code change)."
+  "known_gaps": [
+    "No test drives chrome.tabs.onRemoved itself (piece 1 wiring); whoClosedIt and thatOneIsDone are tested.",
+    "The idle line can say it started after 3 minutes idle if chrome.idle threw (computerInUse answers false).",
+    "bridge.test.js writes platforms.ready by hand; Meesho's real readiness is checked in screen.test.js."
+  ]
 }

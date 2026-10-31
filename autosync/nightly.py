@@ -280,7 +280,10 @@ def one_tick(
     # applied once, at the edge, where the machine is asked the time. Converting
     # again here would ask for the wrong day for five and a half hours out of
     # every twenty-four, and nothing would say so.
-    today = moment.date()
+    #
+    # **BUT A LATE TICK IS THE EVENING BEFORE'S (AJ9 piece 4, R121).** A GitHub tick that arrives after midnight is the
+    # previous evening's, so it fetches that evening's day -- `clock.the_evening_of` is the one place that says so.
+    today = clock.the_evening_of(moment)
 
     last = between_runs.as_the_clock_reads_it(state)
     given_up_on = clock.gave_up_on(last, moment)

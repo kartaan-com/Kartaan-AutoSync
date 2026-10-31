@@ -38,6 +38,7 @@ checkable with no Drive and no account.
 """
 
 import json
+import clock
 from dataclasses import dataclass, field, replace
 from datetime import date, datetime
 from typing import Dict, List, Optional, Sequence, Tuple
@@ -192,7 +193,7 @@ class Between:
         The day is added here too, for the same reason: `nothing_ran` asks
         whether a run HAPPENED, never whether it succeeded.
         """
-        days = tuple(sorted(set(self.run_days) | {at.date()}))[-KEEP_RUN_DAYS:]
+        days = tuple(sorted(set(self.run_days) | {clock.the_evening_of(at)}))[-KEEP_RUN_DAYS:]
         return replace(self, last_started=at, last_finished=None, run_days=days)
 
     def ran_on(self, at: datetime) -> "Between":
@@ -203,7 +204,7 @@ class Between:
         stopped before it began has nothing going: it ran, said why it stopped,
         and left every other field exactly as it found it.
         """
-        days = tuple(sorted(set(self.run_days) | {at.date()}))[-KEEP_RUN_DAYS:]
+        days = tuple(sorted(set(self.run_days) | {clock.the_evening_of(at)}))[-KEEP_RUN_DAYS:]
         return replace(self, run_days=days)
 
     def finished(self, at: datetime) -> "Between":

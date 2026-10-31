@@ -44,10 +44,10 @@ import {
   A_CAMPAIGN_ID, FAILED, TOO_BIG_TO_CARRY, theDaysOfARangeName, whyTheDayIsRefused, whyTheRangeIsRefused,
 } from './walk.js';
 import {
-  ASKS_A_RANGE, RANGE_FROM_LAST, RECHECK_ALARM, SPENDS_THE_ALLOWANCE, carryTheNightOn, rememberLastCaptured, rememberLastLanded,
+  ASKS_A_RANGE, RANGE_FROM_LAST, RECHECK_ALARM, SPENDS_THE_ALLOWANCE, TAB_CLOSED_SAY, carryTheNightOn, rememberLastCaptured, rememberLastLanded,
 } from './nightly.js';
 import { theLatestDateInside } from './unzip.js';
-import { IDLE_ALARM, askAgainIfWaiting, carryOnWaiting, startWhenFree } from './idle.js';
+import { IDLE_ALARM, askAgainIfWaiting, carryOnWaiting, computerInUse, startWhenFree } from './idle.js';
 
 /** The day landed in this file's own name, whichever of the two dated shapes
  *  it is written in (see `whyTheseAreNotNames`): the ordinary
@@ -1312,7 +1312,7 @@ export function wireUp(chrome, {
           state: FAILED,
           reportId: walk.reportId || null,
           dataDate: walk.dataDate || null,
-          say: 'The tab this report was being fetched in was closed before the walk finished.',
+          say: `${TAB_CLOSED_SAY} ${await whoClosedIt(chrome)}`,
           pageWas: '',
         },
       });
@@ -1356,6 +1356,16 @@ export function wireUp(chrome, {
    * one that catches an alarm cleared while Chrome was running, which is the
    * case neither event above covers and the one that leaves it idle for ever. */
   return bothClocks(chrome);
+}
+
+/** **AJ9 PIECE 1: WHY THE TAB WENT, IN PLAIN WORDS.** Chrome does not say who closed a tab, so the log says what is known:
+ *  whether the computer was being used at that moment (most likely closed by hand) or left alone (Chrome or the page
+ *  closed it). What happens next is said by `thatOneIsDone`, which knows whether a recheck follows. */
+export async function whoClosedIt(chrome) {
+  const used = await computerInUse(chrome);
+  return used
+    ? 'The computer was being used at that moment, so it was most likely closed by hand.'
+    : 'The computer was being left alone at that moment, so Chrome or the page closed it.';
 }
 
 /** Both alarms, asked for together. **Written once**: two places asking for one

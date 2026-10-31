@@ -54,7 +54,9 @@ import {
   CATCH_UP_REACH_DAYS,
   clearNamedNeedsYouEntries,
   theRangeOfTheDays,
+  TAB_CLOSED_SAY,
 } from './nightly.js';
+import { STARTED_AFTER_IDLE, startWhenFree } from './idle.js';
 import { NOT_AVAILABLE_YET as THE_WALKS_WORD } from './walk.js';
 
 process.on('uncaughtException', (err) => {
@@ -1245,6 +1247,87 @@ check('and three days of trying is the reference\'s own number', GIVE_UP_AFTER_D
 }
 
 {
+  /* **AJ9 PIECE 2: THE RUN LOG SAYS WHETHER THE 3-MINUTE WAIT WAS KEPT.** */
+  const waited = installFakeChrome();
+  const at = 5_000_000_000_000;
+  await waited.chrome.storage.local.set({ [STARTED_AFTER_IDLE]: { kind: 'daily', waitedMs: 7 * 60000, at: at - 1000 } });
+  const night = await startTheNight(waited.chrome, { doing: ['fk_views'], at, openAt: 'https://x/', dataDate: '2026-10-29' });
+  check('a night started after waiting carries how long it waited, and the note is spent',
+    night.idle.waitedMs === 7 * 60000 && !(await waited.chrome.storage.local.get(STARTED_AFTER_IDLE))[STARTED_AFTER_IDLE]);
+  check('the run log says it waited 7 min and started after 3 min idle',
+    theRunLog({ ...night, finishedAt: at + 1 }).text.includes('Idle wait: waited 7 min for the computer to be free, then started after 3 min idle.'));
+  /* the real flow: the idle wait lets the run start, and the night it starts carries the note */
+  const flow = installFakeChrome();
+  flow.setTheComputer('idle');
+  let flowNight = null;
+  await startWhenFree(flow.chrome, 'daily', async () => {
+    flowNight = await startTheNight(flow.chrome, { doing: ['fk_views'], at: Date.now(), openAt: 'https://x/', dataDate: '2026-10-29' });
+  });
+  check('through the real wait, the night started carries the idle note and the note is gone after',
+    flowNight.idle && flowNight.idle.kind === 'daily' && !(await flow.chrome.storage.local.get(STARTED_AFTER_IDLE))[STARTED_AFTER_IDLE]);
+  const stale = installFakeChrome();
+  await stale.chrome.storage.local.set({ [STARTED_AFTER_IDLE]: { kind: 'daily', waitedMs: 0, at: at - 3 * 3600000 } });
+  const byHand = await startTheNight(stale.chrome, { doing: ['fk_views'], at, openAt: 'https://x/', dataDate: '2026-10-29' });
+  check('a note from hours ago is not mistaken for this start, and the log says it did not go through the wait',
+    byHand.idle === undefined && theRunLog({ ...byHand, finishedAt: at + 1 }).text.includes('did not go through the 3-minute wait'));
+  const free = installFakeChrome();
+  await free.chrome.storage.local.set({ [STARTED_AFTER_IDLE]: { kind: 'daily', waitedMs: 0, at } });
+  const now = await startTheNight(free.chrome, { doing: ['fk_views'], at, openAt: 'https://x/', dataDate: '2026-10-29' });
+  check('a start that never had to wait says the computer was already free',
+    theRunLog({ ...now, finishedAt: at + 1 }).text.includes('already free when the run was due'));
+}
+
+{
+  /* **AJ9 PIECE 1 (30 Oct 01:26 UTC): A TAB CLOSED MID-WALK IS CHECKED AGAIN IN AN HOUR, FOR ANY REPORT.** fk_listings
+   * and fk_ads_search failed on "the tab was closed" with no asking phase and were not in the list above, so they were
+   * lost until the next sync. Another failure for the same report is still just a failure. */
+  const browser = installFakeChrome();
+  const c = browser.chrome;
+  const day = '2026-10-29';
+  await startTheNight(c, { doing: ['fk_listings', 'fk_ads_search'], at: 1, openAt: 'https://x/', dataDate: day });
+  const closed = await thatOneIsDone(c, {
+    reportId: 'fk_listings', state: 'failed', dataDate: day, at: 2,
+    say: `${TAB_CLOSED_SAY} The computer was being used at that moment, so it was most likely closed by hand.`,
+  });
+  check('a report whose tab was closed is checked again in an hour, not lost',
+    closed.done.at(-1).state === 'still-waiting' && closed.done.at(-1).say.includes('(1 of 3)')
+    && closed.done.at(-1).say.includes('closed by hand'));
+  const other = await thatOneIsDone(c, {
+    reportId: 'fk_ads_search', state: 'failed', dataDate: day, at: 3, say: 'Failed to fetch.',
+  });
+  check('any other failure of such a report is not swept into the hourly check',
+    other.done.at(-1).state === 'failed');
+  check('the closed-tab line says it once, and does not call a closed tab "not ready"',
+    (closed.done.at(-1).say.match(/checked again in an hour/g) || []).length === 1
+    && !closed.done.at(-1).say.includes('Not ready'));
+
+  /* Review finding 1: a request that spends Flipkart's twenty is never pressed again by a recheck of a closed tab. */
+  const spend = installFakeChrome();
+  await startTheNight(spend.chrome, { doing: ['fk_orders'], at: 1, openAt: 'https://x/', dataDate: day });
+  const orders = await thatOneIsDone(spend.chrome, {
+    reportId: 'fk_orders', state: 'failed', dataDate: day, at: 2, say: `${TAB_CLOSED_SAY} x`,
+  });
+  check('a closed tab on a report that spends the twenty, with nothing asked yet, is not rechecked',
+    orders.done.at(-1).state === 'failed' && Object.keys(await whatIsBeingRechecked(spend.chrome)).length === 0);
+
+  /* Review findings 2 and 3: tabs closed every time stay a plain failure, never "the platform has not built it". */
+  const again = installFakeChrome();
+  await startTheNight(again.chrome, {
+    doing: ['fk_listings'], at: 1, openAt: 'https://x/', dataDate: day, canGoBack: ['fk_listings'],
+  });
+  let last = null;
+  for (const at of [2, 3, 4, 5]) {
+    // eslint-disable-next-line no-await-in-loop
+    last = await thatOneIsDone(again.chrome, {
+      reportId: 'fk_listings', state: 'failed', dataDate: day, at, say: `${TAB_CLOSED_SAY} x`,
+    });
+  }
+  check('after the third recheck a closed tab is a plain failure, not "not available yet"',
+    last.done.at(-1).state === 'failed' && last.done.at(-1).say.includes('tab was closed each time')
+    && Object.keys(await whatIsBeingRechecked(again.chrome)).length === 0);
+}
+
+{
   /* **MEESHO'S OWN "SOMETHING WENT WRONG" AND AN ORDERS PAGE IN ANOTHER STATE ARE CHECKED AGAIN IN AN HOUR (his live runs of 27 Oct 2026):** returns failed on Meesho's own error twice running, and orders failed once when an
    * order had just been accepted and the page showed "No orders yet" with no date control; the same reports landed on the runs either side. Neither is the platform saying the day is not there. */
   for (const reportId of ['me_returns']) {
@@ -2173,7 +2256,23 @@ check('report table: null night gives null', theReportTable(null, () => '') === 
   check('report table: an earlier step that was not "still waiting" does not make not-built asked',
     q.status === 'toFetch' && q.word === 'Not built yet');
 }
-const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1;
+{
+  /* AJ9 proving: a night's natural end tells Kartaan once, with its failed ids and the night's own end (never the clock). */
+  const browser = installFakeChrome();
+  const walk = aWalkThat();
+  const told = [];
+  const tellKartaan = async (what) => { told.push(what); return { told: true, kind: 'ok', said: 'Kartaan heard.' }; };
+  await startTheNight(browser.chrome, { doing: ['fk_claims'], mayAskFor: 0, at: 1000, openAt: 'https://x/', dataDate: '2026-10-11' });
+  await carryTheNightOn(browser.chrome, { ...walk, tellKartaan, at: 2000 });
+  walk.itFinished({ state: 'failed', reportId: 'fk_claims', say: 'the page broke', dataDate: '2026-10-11' });
+  await carryTheNightOn(browser.chrome, { ...walk, tellKartaan, at: 3000 });
+  const ended = await theNight(browser.chrome);
+  check('AJ9: the night\'s end tells Kartaan once, naming the failed report and the night\'s own finish',
+    told.length === 1 && (told[0].failed || []).join() === 'fk_claims' && Boolean(ended) && ended.finishedAt === 3000
+    && told[0].endedAt === ended.finishedAt);
+}
+
+const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3 + 1;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

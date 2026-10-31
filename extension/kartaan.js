@@ -323,3 +323,100 @@ async function tellFinishedInWords(chrome, fetchImpl, failed, timeoutMs) {
     said: `${theirWords || `Kartaan did not start a run (status ${status}).`}${named} ${STILL_RUNS}`,
   };
 }
+
+/* ------------------------------------------- a failed night reaches him (AJ9 piece 3) */
+
+export const TELL_ADDRESS = `${KARTAAN}/tell`;
+const PLATFORM_WORDS = { fk: 'Flipkart', me: 'Meesho', az: 'Amazon' };
+
+/** A report id in the words he uses: `fk_orders` is "Flipkart orders". Only the platform prefix is known; the rest is
+ *  the id with its underscores as spaces. */
+export function aReportInWords(id) {
+  const [first, ...rest] = String(id || '').split('_');
+  const platform = PLATFORM_WORDS[first];
+  return (platform ? [platform, ...rest] : [first, ...rest]).join(' ');
+}
+
+/**
+ * Tell him, through Kartaan's message centre (`/tell`, the Server's one sender: D588/D589; Discord by default, D666),
+ * which reports of this sync failed or need him. **No new channel**: the centre already has AutoSync's `problem` kind
+ * and proves who is speaking by the run pass. The words carry report names only -- no customer data, never the pass.
+ * Answers `{ queued, said }`, **never throws**, and never changes how the sync went.
+ */
+export async function tellTheProblem(chrome, fetchImpl, { names, timeoutMs = WAIT_AT_MOST_MS, at = Date.now() } = {}) {
+  try {
+    const pass = await thePass(chrome);
+    if (!pass) {
+      return { queued: false, said: 'His messages were not told which reports failed, because no run pass is saved.' };
+    }
+    const words = names.map(aReportInWords).join(', ');
+    const facts = {
+      text: `AutoSync did not get: ${words}. Some are tried again by itself; if one is still missing tomorrow, `
+        + 'open the AutoSync panel -- a few have to be fetched by hand.',
+    };
+    /* **THE ID IS THE NIGHT'S END, NOT THE CLOCK**, so a worker restarted between the post and the note that it was told
+     * sends the same id again and the centre keeps one message (review finding). */
+    const got = await postForm(fetchImpl, TELL_ADDRESS, {
+      source: 'autosync', kind: 'problem', id: `autosync-failed-${at}`, facts: JSON.stringify(facts), pass,
+    }, timeoutMs);
+    if (got.kind === 'answered' && got.body.queued === true) {
+      return { queued: true, said: 'His messages were told which reports failed.' };
+    }
+    const why = got.kind === 'answered' && typeof got.body.said === 'string'
+      ? cleaned(got.body.said, pass) : cleaned(whyNoAnswer(got, 'his messages were not told'), pass);
+    return { queued: false, said: `His messages were not told which reports failed. ${why}` };
+  } catch (wrong) {
+    return { queued: false, said: 'His messages were not told which reports failed (something went wrong sending it).' };
+  }
+}
+
+/** The day a "save the run pass" notice was last shown for (AJ9 3b): one notice a day, never repeated that day. */
+export const THE_NO_PASS_NOTICE = 'kartaan-autosync-no-pass-notice-night';
+
+/**
+ * **WITH NO RUN PASS SAVED NOTHING CAN BE SENT, SO HE IS TOLD AT THE COMPUTER, ONCE A DAY (AJ9 3b, A12's real cause).**
+ * A browser notification in plain words saying what to press. Remembered by the calendar day of the sync's end, so a
+ * second tell the same day shows nothing. Never throws, never changes how the night went. Answers whether one was shown.
+ */
+export async function tellHimToSaveThePass(chrome, nightKey) {
+  try {
+    if (!chrome.notifications) return false;
+    /* **ONE A DAY, NOT ONE A SYNC (AJ9 review):** every hourly re-check and Run now ends a sync too, so the key is the calendar day. */
+    const day = new Date(nightKey).toDateString();
+    const done = (await chrome.storage.local.get(THE_NO_PASS_NOTICE))[THE_NO_PASS_NOTICE];
+    if (done === day) return false;
+    await chrome.storage.local.set({ [THE_NO_PASS_NOTICE]: day });
+    chrome.notifications.create(`kartaan-no-pass-${day.replace(/ /g, '-')}`, {
+      type: 'basic', iconUrl: chrome.runtime.getURL('icon128.png'), title: 'AutoSync cannot tell Kartaan yet',
+      message: 'Open the AutoSync panel, paste the run pass from Kartaan\'s page (Run pass), and press Save. '
+        + 'Until then your reports are fetched but Kartaan is not told.',
+      requireInteraction: true, priority: 2,
+    }, () => {
+      /* Chrome refused it: say so, and forget that it was shown so the next end tries again. */
+      if (chrome.runtime.lastError) {
+        console.warn('Kartaan Auto-sync: Chrome refused the save-the-run-pass notification.', chrome.runtime.lastError.message);
+        chrome.storage.local.remove(THE_NO_PASS_NOTICE).catch(() => {});
+      }
+    });
+    return true;
+  } catch (wrong) {
+    return false;
+  }
+}
+
+/**
+ * `tellFinished`, and then -- only when some report failed or needs him -- the message to him. **The sentence that
+ * comes back says both**, so the run log's "Told Kartaan" line shows whether his messages were told. Never throws.
+ */
+export async function tellFinishedAndAlert(chrome, fetchImpl, {
+  failed = [], endedAt = null, timeoutMs = WAIT_AT_MOST_MS, at = Date.now(),
+} = {}) {
+  const answer = await tellFinished(chrome, fetchImpl, { failed, timeoutMs, at });
+  if (answer.kind === 'no-pass') await tellHimToSaveThePass(chrome, Number.isFinite(endedAt) && endedAt ? endedAt : at);
+  const names = theFailedReportsToSend(failed);
+  if (!names.length) return answer;
+  const alert = await tellTheProblem(chrome, fetchImpl, {
+    names, timeoutMs, at: Number.isFinite(endedAt) && endedAt ? endedAt : at,
+  });
+  return { ...answer, said: `${answer.said} ${alert.said}` };
+}
