@@ -46,7 +46,7 @@ import {
 import { RELAY_TO_THE_PAGE } from './driver.js';
 import {
   A_DAYS_ALLOWANCE, KEPT_FOR_HIS_OWN_RUNS, PAUSED, RECHECKS, THE_NIGHT, carryTheNightOn, endTheNight, howTheNightWent, oneWasAskedFor,
-  startTheNight, thatOneIsBeingTried, theIdleLine, theNight, THE_SYNC_FAILED,
+  startTheNight, thatOneIsBeingTried, theIdleLine, theNight, theReportTable, THE_SYNC_FAILED,
 } from './nightly.js';
 import { saveTheRunPass } from './kartaan.js';
 import { MOST_DAYS_IN_A_RANGE_FILE, hasNotFinished, theWalk } from './walk.js';
@@ -57,6 +57,10 @@ import {
   THE_NIGHTS,
   THE_PANEL_ASKS,
   THROUGH_THE_BROWSER,
+  aCopyToKeep,
+  allTheEvents,
+  theRuns,
+  showTheRuns,
   alreadyCarriedOn,
   answerThePanelsQuestion,
   askingFirst,
@@ -2207,15 +2211,157 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
       ],
     },
   });
+  /* Each line now starts with its platform (his ask, 1 Nov 2026); what follows is the report as before. */
+  const unPrefixed = (one) => one.replace(/^(Flipkart|Meesho|Amazon): /, '');
   let words = [];
-  try { words = ((await howItStands(chrome, { book: BOOK, now: Date.now() })).events || []).map((one) => one.words); } catch (wrong) { words = []; }
+  try { words = ((await howItStands(chrome, { book: BOOK, now: Date.now() })).events || []).map((one) => unPrefixed(one.words)); } catch (wrong) { words = []; }
   check('AJ9: the panel\'s events name a report by its name in the book', Boolean(named) && named.name !== 'fk_orders'
     && words.some((one) => one.startsWith(`${named.name}: `)));
   check('AJ9: and a report the book does not know by its id', words.some((one) => one.startsWith('not_in_the_book: ')));
   let bare = null;
   try { bare = await howItStands(chrome, { book: { ...BOOK, reports: undefined }, now: Date.now() }); } catch (wrong) { bare = null; }
   check('AJ9: a book with no report list still names each report by its id',
-    Boolean(bare) && (bare.events || []).some((one) => one.words.startsWith('fk_orders: ')));
+    Boolean(bare) && (bare.events || []).some((one) => unPrefixed(one.words).startsWith('fk_orders: ')));
+}
+
+{
+  /* His ask, 1 Nov 2026: the Last run box holds EVERY platform of the sync, not only the last that ran. */
+  installFakeBrowser();
+  const { chrome } = installFakeChrome();
+  const fk = BOOK.reports.find((one) => one.platform === 'flipkart');
+  const me = BOOK.reports.find((one) => one.platform === 'meesho');
+  const az = BOOK.reports.find((one) => one.platform === 'amazon');
+  const aNight = (startedAt, reportId, state, extra = {}) => ({
+    startedAt, finishedAt: startedAt + 60_000, doing: null, left: [], spent: 0, why: '',
+    done: [{ reportId, state, at: startedAt + 30_000, say: `${reportId} said`, dataDate: '2026-10-31', pageWas: 'x'.repeat(900) }],
+    toldKartaan: { said: 'Kartaan was told.', told: true, pass: 'never-kept' }, ...extra,
+  });
+  /* Flipkart, then Meesho, finish and are filed; Amazon is still going. */
+  await chrome.storage.local.set({ [THE_NIGHT]: aNight(1_000_000, fk.id, 'landed') });
+  await rememberTheNight(chrome, { book: BOOK });
+  await chrome.storage.local.set({ [THE_NIGHT]: aNight(2_000_000, me.id, 'failed', { why: 'Every report was tried.' }) });
+  await rememberTheNight(chrome, { book: BOOK });
+  await chrome.storage.local.set({ [THE_NIGHT]: { ...aNight(3_000_000, az.id, 'landed'), finishedAt: null, doing: az.id } });
+  let stands = null;
+  try { stands = await howItStands(chrome, { book: BOOK, now: Date.now() }); } catch (wrong) { stands = null; }
+  const runs = (stands && stands.runs) || [];
+  check('Last run: all three platforms are in the panel\'s answer, in walking order',
+    runs.map((one) => one.platform).join(',') === 'flipkart,meesho,amazon');
+  check('Last run: the kept platforms carry their own reports; the one still going is the live night',
+    runs.length === 3 && runs[0].night.done[0].reportId === fk.id && runs[1].night.done[0].state === 'failed'
+    && runs[2].night.doing === az.id);
+  check('Last run: a kept night is cut short (page words at most 300) and keeps nothing it was not asked to',
+    runs.length === 3 && runs[0].night.done[0].pageWas.length === 300 && !('pass' in (runs[0].night.toldKartaan || {})));
+  const words = ((stands && stands.events) || []).map((one) => one.words);
+  check('What happened, in order: every platform\'s lines, each starting with its platform, in time order',
+    words.some((one) => one.startsWith(`Flipkart: ${fk.name}: fetched`))
+    && words.some((one) => one.startsWith(`Meesho: ${me.name}: `))
+    && words.some((one) => one.startsWith('Amazon: Fetching now'))
+    && words.indexOf(words.find((one) => one.startsWith('Flipkart: The run ended')))
+      < words.indexOf(words.find((one) => one.startsWith('Meesho: The run started'))));
+  const outOfOrder = allTheEvents([
+    { name: 'Meesho', night: { startedAt: 9_000, finishedAt: 9_500, done: [] } },
+    { name: 'Flipkart', night: { startedAt: 1_000, finishedAt: 1_500, done: [] } },
+  ], (id) => id);
+  check('What happened, in order: by time, not by platform -- a platform that ran first is listed first',
+    outOfOrder.length > 0 && outOfOrder[0].words.startsWith('Flipkart: ')
+    && outOfOrder[outOfOrder.length - 1].words.startsWith('Meesho: '));
+  check('What happened, in order: the line with no time (fetching now) comes last',
+    words.length > 0 && words[words.length - 1].startsWith('Amazon: Fetching now'));
+  check('What happened, in order: a kept platform still says why its run ended and what Kartaan was told',
+    words.includes('Meesho: The run ended: Every report was tried.') && words.includes('Flipkart: Kartaan: Kartaan was told.'));
+  const unnamed = theRuns(BOOK, { ...aNight(11_000_000, 'not_in_the_book', 'failed') }, {});
+  check('Last run: a night no platform can be named for is still shown, untitled',
+    unnamed.length === 1 && unnamed[0].platform === '' && unnamed[0].night.startedAt === 11_000_000);
+
+  const parts = buildThePanel(document.body, { connectTheDrive() {}, saveThePanelName() {}, runNow() {}, stop() {}, setTheHour() {} });
+  showHowItStands(parts, stands);
+  const every = (node) => [node, ...[...(node.children || [])].flatMap(every)];
+  const titles = every(parts.log).filter((one) => String(one.className || '').split(' ').includes('p-run-title'))
+    .map((one) => one.textContent);
+  check('Last run box: one table per platform, titled with each platform',
+    titles.join('|') === 'Last run: Flipkart|Last run: Meesho|Last run: Amazon');
+  const before = parts.log.firstChild;
+  showHowItStands(parts, stands);
+  check('Last run box: the same answer again is not drawn again', parts.log.firstChild === before);
+  const empty = buildThePanel(document.body, { connectTheDrive() {}, saveThePanelName() {}, runNow() {}, stop() {}, setTheHour() {} });
+  showHowItStands(empty, { ...stands, runs: [], night: null });
+  check('Last run box: with no run at all it says no sync has been run', /No sync has been run/.test(empty.log.textContent));
+
+  /* Review findings: an hourly re-check never replaces the run it re-checks; it is its own small table beside it. */
+  const fk2 = BOOK.reports.filter((one) => one.platform === 'flipkart')[1];
+  const fullRun = { ...aNight(4_000_000, fk.id, 'landed'),
+    done: [...aNight(4_000_000, fk.id, 'landed').done, { reportId: fk2.id, state: 'still-waiting', at: 4_010_000, say: '', dataDate: '2026-10-31' }] };
+  await chrome.storage.local.set({ [THE_NIGHT]: fullRun });
+  await rememberTheNight(chrome, { book: BOOK });
+  const recheck = { ...aNight(5_000_000, fk2.id, 'landed'), finishedAt: null, doing: fk2.id, done: [], idle: { kind: 'recheck', waitedMs: 0 } };
+  await chrome.storage.local.set({ [THE_NIGHT]: recheck });
+  let during = null;
+  try { during = await howItStands(chrome, { book: BOOK, now: Date.now() }); } catch (wrong) { during = null; }
+  const fkRuns = ((during && during.runs) || []).filter((one) => one.platform === 'flipkart');
+  check('Last run: a re-check going now (nothing finished yet) shows under the Flipkart run, which keeps all its rows and times',
+    fkRuns.length === 2 && fkRuns[0].night.startedAt === 4_000_000 && fkRuns[0].night.done.length === 2
+    && fkRuns[1].name === 'Flipkart (hourly re-check)' && fkRuns[1].night.doing === fk2.id);
+  await chrome.storage.local.set({ [THE_NIGHT]: { ...recheck, finishedAt: 5_060_000, doing: null,
+    done: [{ reportId: fk2.id, state: 'landed', at: 5_030_000, say: '', dataDate: '2026-10-31' }] } });
+  await rememberTheNight(chrome, { book: BOOK });
+  const keptFk = (await theNights(chrome)).byPlatform.flipkart;
+  check('Last run: once filed, the run is kept exactly as it was and the re-check is kept beside it',
+    keptFk.night.startedAt === 4_000_000 && keptFk.night.finishedAt === fullRun.finishedAt && keptFk.night.done.length === 2
+    && keptFk.recheck && keptFk.recheck.done.length === 1 && keptFk.recheck.done[0].state === 'landed');
+  let after = null;
+  try { after = await howItStands(chrome, { book: BOOK, now: Date.now() }); } catch (wrong) { after = null; }
+  check('Last run: after the re-check ends, both tables are still in the box (the run, then its re-check)',
+    ((after && after.runs) || []).filter((one) => one.platform === 'flipkart').map((one) => one.name).join('|')
+      === 'Flipkart|Flipkart (hourly re-check)');
+  await chrome.storage.local.set({ [THE_NIGHT]: { ...aNight(6_000_000, fk.id, 'landed'),
+    done: [{ reportId: fk.id, state: 'landed', at: 6_010_000, say: '', dataDate: '2026-11-01' }] } });
+  await rememberTheNight(chrome, { book: BOOK });
+  const nextDay = (await theNights(chrome)).byPlatform.flipkart;
+  check('Last run: the next run (not a re-check) replaces the run and clears its re-check',
+    nextDay.night.startedAt === 6_000_000 && nextDay.recheck === null);
+  check('Last run: after a re-check the platform card keeps the run\'s counts, so card and table agree',
+    keptFk.landed === 1 && keptFk.reached === 2 && keptFk.startedAt === 4_000_000);
+
+  /* Review finding: a re-check filed with no run before it is drawn ONCE, titled as a re-check. */
+  const lone = installFakeChrome().chrome;
+  const loneRecheck = { ...aNight(8_000_000, fk.id, 'landed'), idle: { kind: 'recheck', waitedMs: 0 } };
+  await lone.storage.local.set({ [THE_NIGHT]: loneRecheck });
+  await rememberTheNight(lone, { book: BOOK });
+  let loneStands = null;
+  try { loneStands = await howItStands(lone, { book: BOOK, now: Date.now() }); } catch (wrong) { loneStands = null; }
+  check('Last run: a re-check with no run before it is drawn once, titled as an hourly re-check',
+    ((loneStands && loneStands.runs) || []).filter((one) => one.platform === 'flipkart').map((one) => one.name).join('|')
+      === 'Flipkart (hourly re-check)');
+  await lone.storage.local.set({ [THE_NIGHT]: { ...aNight(9_000_000, me.id, 'landed') } });
+  let later = null;
+  try { later = await howItStands(lone, { book: BOOK, now: Date.now() }); } catch (wrong) { later = null; }
+  check('Last run: and once another platform is running, that kept re-check is still titled a re-check, not a full run',
+    ((later && later.runs) || []).some((one) => one.platform === 'flipkart' && one.name === 'Flipkart (hourly re-check)'));
+
+  /* A long catch-up run keeps only its newest rows. */
+  const many = Array.from({ length: 350 }, (_, i) => ({ reportId: fk.id, state: 'landed', at: i, dataDate: `d${i}`, say: '' }));
+  const keptMany = aCopyToKeep({ startedAt: 1, finishedAt: 2, done: many });
+  check('Last run: a kept run holds at most the newest 300 rows',
+    keptMany.done.length === 300 && keptMany.done[0].dataDate === 'd50' && keptMany.done[299].dataDate === 'd349');
+
+  /* An entry kept by the version before (no `night` on it) is skipped quietly; a night with no platform has a plain title. */
+  const older = installFakeChrome().chrome;
+  await older.storage.local.set({ [THE_NIGHTS]: { byPlatform: { meesho: { startedAt: 1, finishedAt: 2, reached: 1, landed: 1, failed: 0, why: '' } } } });
+  let oldStands = null;
+  try { oldStands = await howItStands(older, { book: BOOK, now: Date.now() }); } catch (wrong) { oldStands = null; }
+  check('Last run: what the older version kept (counts only) is skipped, never a crash',
+    Boolean(oldStands) && oldStands.runs.length === 0);
+  /* Review finding: the first re-check after the update keeps the older version's card counts, never its own. */
+  await older.storage.local.set({ [THE_NIGHT]: { ...aNight(10_000_000, me.id, 'landed'), idle: { kind: 'recheck', waitedMs: 0 } } });
+  await rememberTheNight(older, { book: BOOK });
+  const card = (await theNights(older)).byPlatform.meesho;
+  check('Last run: the first re-check after the update leaves the card\'s counts as they were and is kept as a re-check',
+    card.startedAt === 1 && card.reached === 1 && card.recheck && card.recheck.startedAt === 10_000_000);
+  const nameless = buildThePanel(document.body, { connectTheDrive() {}, saveThePanelName() {}, runNow() {}, stop() {}, setTheHour() {} });
+  showTheRuns(nameless.log, [{ name: '', table: theReportTable(aNight(7_000_000, 'not_in_the_book', 'failed'), (id) => id) }], new Set());
+  check('Last run box: a night no platform can be named for is titled plainly "Last run"',
+    every(nameless.log).some((one) => String(one.className || '').split(' ').includes('p-run-title') && one.textContent === 'Last run'));
 }
 
 {

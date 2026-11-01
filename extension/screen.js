@@ -358,19 +358,24 @@ export async function rememberTheNight(chrome, { book }) {
   const held = typeof book === 'function' ? await book() : book;
   const platform = thePlatformOfTheNight(held, night);
   const landed = (night.done || []).filter((one) => one.state === 'landed');
+  const before = (platform && kept.byPlatform[platform]) || {};
   const filed = {
     ...kept,
     filedNight: night.startedAt,
     byPlatform: {
       ...kept.byPlatform,
       ...(platform ? {
-        [platform]: {
+        /* **A RE-CHECK NEVER REPLACES THE RUN IT RE-CHECKS (review findings)**: the run, and the card's counts drawn
+         * from it, stay as they were, and the re-check is kept beside it as its own small table. */
+        [platform]: isARecheck(night) && (before.night || before.startedAt) ? { ...before, recheck: aCopyToKeep(night) } : {
           startedAt: night.startedAt,
           finishedAt: night.finishedAt,
           reached: (night.done || []).length,
           landed: landed.length,
           failed: (night.done || []).filter((one) => one.state === 'failed').length,
           why: String(night.why || ''),
+          night: aCopyToKeep(night),
+          recheck: null,
         },
       } : {}),
     },
@@ -384,6 +389,72 @@ export async function rememberTheNight(chrome, { book }) {
   };
   await chrome.storage.local.set({ [THE_NIGHTS]: onlyRecentDays(filed) });
   return filed;
+}
+
+/**
+ * The finished night, kept under its platform so the panel's Last run can show EVERY platform of the sync (his ask,
+ * 1 Nov 2026: the box showed only the last platform that ran). Only what the report table and the event list read;
+ * the long words are cut, because the full ones are in the run log on the Drive.
+ */
+export function aCopyToKeep(night) {
+  const cut = (text, most) => String(text || '').slice(0, most);
+  return {
+    startedAt: night.startedAt,
+    finishedAt: night.finishedAt,
+    why: cut(night.why, 400),
+    idle: night.idle || null,
+    toldKartaan: night.toldKartaan ? { said: cut(night.toldKartaan.said, 400), told: Boolean(night.toldKartaan.told) } : null,
+    /* The newest rows, at most KEEP_AT_MOST_ROWS: a long catch-up range must not make the panel read megabytes. */
+    done: (night.done || []).slice(-KEEP_AT_MOST_ROWS).map((one) => ({
+      at: one.at, reportId: one.reportId, dataDate: one.dataDate, state: one.state, size: one.size,
+      say: cut(one.say, 600), pageWas: cut(one.pageWas, 300),
+    })),
+  };
+}
+
+export const KEEP_AT_MOST_ROWS = 300;
+
+/** An hourly re-check is a night of its own, and says so: it got past the idle wait as a `recheck`. */
+export function isARecheck(night) {
+  return Boolean(night && night.idle && night.idle.kind === 'recheck');
+}
+
+export const A_RECHECK_IS_CALLED = 'hourly re-check';
+
+/**
+ * Every platform's last run, in the order a sync walks them, each followed by its latest hourly re-check if any. The
+ * night still going stands for its own platform -- beside its kept run when it is a re-check. A platform that has not
+ * run in this sync shows its last kept run (with its own date on the table).
+ */
+export function theRuns(book, night, byPlatform) {
+  const tonight = night ? thePlatformOfTheNight(book, night) : '';
+  const runs = [];
+  if (night && !tonight) runs.push({ platform: '', name: '', night });
+  for (const platform of THROUGH_THE_BROWSER) {
+    const name = CALLED[platform] || platform;
+    const kept = (byPlatform || {})[platform] || {};
+    const live = platform === tonight ? night : null;
+    /* The kept run is a run of its own only when it is not the live night itself (review finding: a re-check filed
+     * with no run before it was drawn twice). */
+    const keptRun = kept.night && !(live && kept.night.startedAt === live.startedAt) ? kept.night : null;
+    const run = live && !(isARecheck(live) && keptRun) ? live : keptRun;
+    const recheck = live && isARecheck(live) && keptRun ? live : (live ? null : kept.recheck);
+    const titled = (one) => (isARecheck(one) ? `${name} (${A_RECHECK_IS_CALLED})` : name);
+    if (run) runs.push({ platform, name: titled(run), night: run });
+    if (recheck) runs.push({ platform, name: titled(recheck), night: recheck });
+  }
+  return runs;
+}
+
+/** All the runs' events in time order, each line starting with its platform; a line with no time (fetching now) last. */
+export function allTheEvents(runs, nameOf) {
+  const all = [];
+  for (const run of runs) {
+    for (const one of theNightsEvents(run.night, nameOf)) {
+      all.push({ ...one, words: run.name ? `${run.name}: ${one.words}` : one.words });
+    }
+  }
+  return all.sort((a, b) => (a.at === null) - (b.at === null) || (a.at || 0) - (b.at || 0));
 }
 
 /**
@@ -673,6 +744,7 @@ export async function howItStands(chrome, { book, now = Date.now(), theClock = n
   const setUp = await theSetup(chrome);
   const kept = await theNights(chrome);
   const gone = askedForToday(kept, night, now);
+  const runs = theRuns(book, night, kept.byPlatform);
 
   const byReport = {};
   for (const one of (night && night.done) || []) {
@@ -733,8 +805,10 @@ export async function howItStands(chrome, { book, now = Date.now(), theClock = n
      * because his instruction on the three backfill pages the reference grew was
      * one page, one place. */
     inWords: howTheNightWent(night),
-    /* **WHAT HAPPENED, IN ORDER (AJ9 piece 6, BR1 lesson 5).** The panel used to show only the last note. */
-    events: theNightsEvents(night, (id) => ((book.reports || []).find((one) => one.id === id) || {}).name || id),
+    /* **EVERY PLATFORM OF THE SYNC, NOT ONLY THE LAST (his ask, 1 Nov 2026).** */
+    runs,
+    /* **WHAT HAPPENED, IN ORDER (AJ9 piece 6, BR1 lesson 5)** -- across all three platforms, each line naming its own. */
+    events: allTheEvents(runs, (id) => ((book.reports || []).find((one) => one.id === id) || {}).name || id),
     /* **EVERY DAY GIVEN UP ON, KEPT ACROSS NIGHTS** until a later run fetches it,
      * so the banner can name it however many runs have happened since. */
     needsYou: await whatNeedsYou(chrome),
@@ -1945,15 +2019,29 @@ function showTheRestOfIt(parts, stands) {
   parts.hourState.textContent = theClockLine(clock, stands.waitingForIdle);
 
   /* **ONE TABLE FOR THE LAST RUN, REPLACING THE WORDS BOX (AJ6).** The full words still go to the Drive; the panel draws only when the run changed, so an open row is not rebuilt for nothing. */
+  /* **ONE TABLE PER PLATFORM OF THE SYNC (his ask, 1 Nov 2026)**, Flipkart, Meesho, Amazon in walking order. */
   const names = new Map(stands.reports.map((one) => [one.id, one.name]));
-  const shown = theReportTable(stands.night, (id) => names.get(id) || '');
   const ofPlatform = (stands.night && stands.night.platform) || '';
-  const drawn = JSON.stringify([shown, ofPlatform]);
+  const runs = (stands.runs && stands.runs.length) ? stands.runs
+    : (stands.night ? [{ name: CALLED[ofPlatform] || ofPlatform, night: stands.night }] : []);
+  const shown = runs.map((run) => ({ name: run.name, table: theReportTable(run.night, (id) => names.get(id) || '') }));
+  const drawn = JSON.stringify(shown);
   if (parts.drawn !== drawn) {
     parts.drawn = drawn;
-    showTheReportTable(parts.log, shown, CALLED[ofPlatform] || ofPlatform, parts.opened);
+    showTheRuns(parts.log, shown, parts.opened);
   }
   showTheEvents(parts, stands.events || []);
+}
+
+/** Every platform's table under the one Last run box; with no run at all, the table's own "No sync has been run". */
+export function showTheRuns(into, shown, opened) {
+  into.textContent = '';
+  if (!shown.length) showTheReportTable(into, null, '', opened);
+  for (const one of shown) {
+    const box = make('div', `${OURS}run-platform`);
+    put(into, box);
+    showTheReportTable(box, one.table, one.name, opened);
+  }
 }
 
 /** The event list, redrawn only when it changed. Text nodes only: what a sentence says is never read as markup. */
@@ -1985,7 +2073,7 @@ export function showTheReportTable(into, table, platformName, opened) {
     : `${inWordsWhen(table.startedAt)} to ${inWordsWhen(table.finishedAt)} · ${table.minutes} min`;
   put(
     runHead,
-    make('span', `${OURS}run-title`, `Last run: ${platformName}`),
+    make('span', `${OURS}run-title`, platformName ? `Last run: ${platformName}` : 'Last run'),
     make('span', `${OURS}note`, whenText)
   );
 

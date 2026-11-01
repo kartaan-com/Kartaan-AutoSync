@@ -329,6 +329,18 @@ body {
   gap: 12px;
 }
 
+/* One table per platform of the sync (his ask, 1 Nov 2026), each laid out like the single one was. */
+.p-run-platform {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.p-run-platform + .p-run-platform {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
 .p-run-head {
   display: flex;
   align-items: baseline;
