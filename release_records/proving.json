@@ -1,15 +1,16 @@
 {
   "record": "proving",
-  "commit": "5e09952",
-  "run_at": "31 Oct - 1 Nov 2026 (AJ9b, AJ9c). Four runs against v0.1.25 on the LF clone D:/aj9b/final: AJ9b's first 58 survivors and 18 unexplained crashes; after AJ9c's new checks 8 survivors, 4 with reasons; after the last reasons 8 survivors all accepted (run on the staged tree); and again on the committed head 5e09952: 283 changes tried, 189 run, 161 caught by a check, 20 crashes noticed by the file failing to load (all named in cannot_load), 94 would not parse, 8 accepted survivors; the prover ended: every deliberate change was either caught or recorded with a reason.",
+  "commit": "be1c344",
+  "run_at": "31 Oct - 1 Nov 2026 (AJ9b, AJ9c). Four runs against v0.1.25 on the LF clone D:/aj9b/final: AJ9b's first 58 survivors and 18 unexplained crashes; after AJ9c's new checks 8 survivors, 4 with reasons; after the last reasons 8 survivors all accepted (run on the staged tree); and again on the committed head 5e09952: 283 changes tried, 189 run, 161 caught by a check, 20 crashes noticed by the file failing to load (all named in cannot_load), 94 would not parse, 8 accepted survivors; the prover ended: every deliberate change was either caught or recorded with a reason. Then on the be1c344 tree (1 Nov 21:0x-22:1x, D:/aj9c): first run 6 unnoticed changes in the new code (two unused fields and an unneeded return removed, checks added for the end reason, what Kartaan was told and an unnamed night); second run: 383 changes tried, 264 run, 236 caught by a check, 20 crashes (all named in cannot_load), 119 would not parse, 8 accepted survivors -- every deliberate change was either caught or recorded with a reason.",
   "tool": "tools/proving.py (AutoSync's own setup) loading the ERP's tools/prove_checks.py from D:/Kartaan-ERP.",
-  "invoked_as": "in D:/aj9b/final: KARTAAN=D:/Kartaan-ERP python tools/proving.py --against 9d7d090 --workers 2 (under D:\\Control\\long-run.lock); log D:/aj9b/proving_5e09952.log",
+  "invoked_as": "in D:/aj9c: KARTAAN=D:/Kartaan-ERP python tools/proving.py --against 9d7d090 --workers 2 (under D:\\Control\\long-run.lock)",
   "ran_by": "AJ9c (Opus 5.5, worker for Kartaan Control).",
-  "scope": "Every changed line between v0.1.25 (9d7d090) and 5e09952 in the 14 code files the prover reads (extension/*.js, autosync/*.py, tools/*.py).",
+  "scope": "Every changed line between v0.1.25 (9d7d090) and be1c344 in the 14 code files the prover reads.",
   "found": [
     "FIRST RUN (AJ9b): 58 survivors -- the message-centre answers and the no-pass notice (kartaan.js), the night's end time passed on (kartaan.js, nightly.js), the refused-ids merge, the one tell and the event card (screen.js), ready_to_run (bridge.js), the_evening_of (clock.py) and the group-1 script's words and gh call; killed by new checks in kartaan.test.js, screen.test.js, nightly.test.js, bridge.test.js, clock_checks.py and move_group_on_release_checks.py ('AJ9 proving').",
     "18 crashes with no reason recorded: each is a deleted import, exported name or def line that stops the checks file loading; now named per file in tools/proven_survivors.json cannot_load (noticed, but by the load, not by a red check).",
-    "LAST RUN on 5e09952: every deliberate change was either caught or recorded with a reason."
+    "LAST RUN on 5e09952: every deliberate change was either caught or recorded with a reason.",
+    "be1c344: 6 unnoticed changes in the new Last run code on the first run, closed by removing two unused fields and an unneeded return and by three new checks; the second run is clean."
   ],
   "survivors": [
     {
