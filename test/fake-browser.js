@@ -240,6 +240,15 @@ export class FakeNode {
     parent._detach(this);
   }
 
+  get nextElementSibling() {
+    const kin = this.parentNode ? this.parentNode.children : [];
+    return kin[kin.indexOf(this) + 1] || null;
+  }
+  get previousElementSibling() {
+    const kin = this.parentNode ? this.parentNode.children : [];
+    return kin[kin.indexOf(this) - 1] || null;
+  }
+
   contains(node) {
     if (node === this) return true;
     return this.children.some((c) => c.contains(node));

@@ -3583,7 +3583,54 @@ for (const [start, end, from, expectedMonth] of [
   check('his real Meesho orders calendar opened on November: 31 Oct is reached and pressed', said === '' && pressed.includes('2026-10-31'));
 }
 
-const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1 + 1 + 1 + 3 + 2 + 1 + 2 + 3 + 1 + 2 + 4 + 1 + 2 + 9 + 4 + 1 + 1 + 2;
+{
+  /* **HIS FLIPKART ADS CALENDAR, OPEN ON NOVEMBER (read from his Chrome, 2 Nov 2026):** the header is a control holding a picture, "November" and "2026" in two small controls, and another control holding a picture -- no label, class or word says which way either arrow turns. Days are plain cells in a table beside the header. The arrow before the heading is back. */
+  const cases = [['back is the first picture', false], ['a calendar whose first arrow turns the wrong way is refused in words', true]];
+  for (const [name, swapped] of cases) {
+    const page = aPage();
+    const door = doorOn();
+    let showing = monthKeyOf(2026, 11);
+    const pressed = [];
+    const container = thing('div');
+    const header = thing('div');
+    const first = thing('div', '', { className: 'Clickable' });
+    first.append(thing('svg'));
+    const last = thing('div', '', { className: 'Clickable' });
+    last.append(thing('svg'));
+    const badge = thing('div');
+    const monthBadge = thing('div', '', { className: 'Clickable' });
+    const yearBadge = thing('div', '', { className: 'Clickable' });
+    const monthText = thing('div');
+    const yearText = thing('div');
+    monthBadge.append(monthText);
+    yearBadge.append(yearText);
+    badge.append(monthBadge, yearBadge);
+    header.append(first, badge, last);
+    const table = thing('table');
+    const draw = () => {
+      const yy = Math.floor(showing / 12);
+      const mm = (showing % 12) + 1;
+      monthText.textContent = MONTHS_IN_FULL[mm - 1];
+      yearText.textContent = String(yy);
+      table.textContent = '';
+      for (let d = 1; d <= new Date(yy, mm, 0).getDate(); d += 1) {
+        const cell = thing('td', String(d), { className: 'Day' });
+        cell.addEventListener('click', () => pressed.push(`${yy}-${String(mm).padStart(2, '0')}-${String(d).padStart(2, '0')}`));
+        table.append(cell);
+      }
+    };
+    first.addEventListener('click', () => { showing += swapped ? 1 : -1; draw(); });
+    last.addEventListener('click', () => { showing += swapped ? -1 : 1; draw(); });
+    draw();
+    container.append(header, table);
+    page.body.append(container);
+    const said = await saidAfterWaiting(() => door.pick_range('2026-10-31', '2026-10-31'));
+    check(`Flipkart ads calendar with unlabelled arrows: ${name}`,
+      swapped ? said.includes('the wrong way') : (said === '' && pressed.includes('2026-10-31') && showing === monthKeyOf(2026, 10)));
+  }
+}
+
+const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1 + 1 + 1 + 3 + 2 + 1 + 2 + 3 + 1 + 2 + 4 + 1 + 2 + 9 + 4 + 1 + 1 + 2 + 2;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

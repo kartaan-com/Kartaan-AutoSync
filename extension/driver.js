@@ -1094,7 +1094,35 @@ function theWayToAnotherMonth(forwards) {
    * name or a page-wide "back" control further up the page can match the loose
    * words too -- and the first one found is the one pressed. */
   const sayingMonth = (node) => String(node.getAttribute('aria-label') ?? '').toLowerCase().includes('month');
+  if (found.length === 0) return theArrowsBesideTheMonthHeading(forwards);
   return [...found.filter(sayingMonth), ...found.filter((node) => !sayingMonth(node))];
+}
+
+/**
+ * The two wordless controls either side of a month heading.
+ *
+ * **READ OFF HIS OWN FLIPKART ADS CALENDAR, 2 Nov 2026 (AJ10).** Its header is
+ * a row of three: a control holding a picture, the month and year, and another
+ * control holding a picture. Neither picture has a label, a class or a word that
+ * says which way it turns, so the loose names above find nothing. Only used
+ * when they found nothing; the one before the heading is taken as back and the
+ * one after as forward, and `bringTheMonthIntoView` refuses in words if pressing
+ * it turned the calendar the wrong way.
+ */
+function theArrowsBesideTheMonthHeading(forwards) {
+  const found = [];
+  for (const heading of everyMonthOnShow()) {
+    let node = heading.node;
+    for (let level = 0; level < 3 && node; level += 1) {
+      const beside = forwards ? node.nextElementSibling : node.previousElementSibling;
+      if (beside && isPainted(beside) && !words(wordsOn(beside)) && (looksPressable(beside) || beside.children.length > 0)) {
+        found.push(beside);
+        break;
+      }
+      node = node.parentNode;
+    }
+  }
+  return found;
 }
 
 /**
@@ -1844,21 +1872,6 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
       cells = pressable.length > 0 ? pressable : [cells[0]];
     }
 
-    /* **A MONTH READ WRONG IS STEPPED PAST, NOT GIVEN UP ON (AJ10, 1 Nov 2026).**
-     * On the 1st of a month the calendar opens on the new month, holding one
-     * day, and the last day of the month before was lost with "not on the
-     * calendar" -- seven reports on the first night it happened. Whatever the
-     * reading of the month on show got wrong, a day that is not there at all is
-     * looked for the one way left: turn the calendar towards the month of the
-     * day wanted (back for a day in the past) and look again, one month at a
-     * time, with a limit. */
-    const deadArrows = new Set();
-    for (let turned = 0; cells.length === 0 && turned < MONTHS_TO_STEP_THROUGH; turned += 1) {
-      if (!(await turnOneMonthTowards(day, deadArrows))) break;
-      const again = innermostOf(everyCellNaming(iso));
-      cells = again.length > 0 ? again : everyCellShowingTheDay(day);
-    }
-
     if (cells.length === 0) {
       throw new Error(
         `${iso} is not on the calendar, and the calendar could not be turned to ${MONTHS_LONG[day.m - 1]} `
@@ -1949,34 +1962,13 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
       const nowHeaded = everyMonthOnShow().map((one) => one.key);
       const now = (nowHeaded.length > 0 ? nowHeaded : everyMonthTheCellsName()).join(',');
       if (now === before) didNothing.add(arrows[0]);
+      else if (nowHeaded.length > 0 && (forwards ? Math.max(...nowHeaded) < Math.max(...onShow) : Math.max(...nowHeaded) > Math.max(...onShow))) {
+        throw new Error(
+          `The ${forwards ? 'next' : 'previous'} month arrow turned the calendar the wrong way, `
+          + `so ${MONTHS_LONG[day.m - 1]} ${day.y} could not be reached. No dates were set.`
+        );
+      }
     }
-  }
-
-  /**
-   * Turn the calendar one month towards a day, going by the month on show.
-   *
-   * Used only when the day was not found at all and a month on the calendar CAN
-   * be read: with nothing to steer by, no arrow is pressed (it could be any
-   * "back" button on the page). The month on show already being the right one
-   * means the day is simply absent, so nothing is turned. An arrow that changed
-   * nothing is remembered in `dead` and not pressed again. Says whether an arrow
-   * was pressed.
-   */
-  async function turnOneMonthTowards(day, dead) {
-    const readOnShow = () => {
-      const headed = everyMonthOnShow().map((one) => one.key);
-      return headed.length > 0 ? headed : everyMonthTheCellsName();
-    };
-    const wanted = monthKey(day.y, day.m);
-    const onShow = readOnShow();
-    if (onShow.length === 0 || onShow.includes(wanted)) return false;
-    const forwards = Math.max(...onShow) < wanted;
-    const arrows = innermostOf(theWayToAnotherMonth(forwards)).filter((one) => !dead.has(one));
-    if (arrows.length === 0) return false;
-    pressIt(arrows[0], forwards ? 'the next month arrow' : 'the previous month arrow');
-    await rest(AFTER_A_MONTH_STEP_MS);
-    if (readOnShow().join(',') === onShow.join(',')) dead.add(arrows[0]);
-    return true;
   }
 
   /**
