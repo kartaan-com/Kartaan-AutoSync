@@ -1838,9 +1838,25 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
       cells = pressable.length > 0 ? pressable : [cells[0]];
     }
 
+    /* **A MONTH READ WRONG IS STEPPED PAST, NOT GIVEN UP ON (AJ10, 1 Nov 2026).**
+     * On the 1st of a month the calendar opens on the new month, holding one
+     * day, and the last day of the month before was lost with "not on the
+     * calendar" -- seven reports on the first night it happened. Whatever the
+     * reading of the month on show got wrong, a day that is not there at all is
+     * looked for the one way left: turn the calendar towards the month of the
+     * day wanted (back for a day in the past) and look again, one month at a
+     * time, with a limit. */
+    const deadArrows = new Set();
+    for (let turned = 0; cells.length === 0 && turned < MONTHS_TO_STEP_THROUGH; turned += 1) {
+      if (!(await turnOneMonthTowards(day, deadArrows))) break;
+      const again = innermostOf(everyCellNaming(iso));
+      cells = again.length > 0 ? again : everyCellShowingTheDay(day);
+    }
+
     if (cells.length === 0) {
       throw new Error(
-        `${iso} is not on the calendar. It was looked for as a cell naming itself `
+        `${iso} is not on the calendar, and the calendar could not be turned to ${MONTHS_LONG[day.m - 1]} `
+        + `${day.y} (the month the day is in). It was looked for as a cell naming itself `
         + `${theWaysADayIsWritten(iso).map((w) => `"${w}"`).join(' or ')}, and as the day `
         + `"${day.d}" under a heading reading `
         + `${theWaysAMonthIsHeaded(day).map((w) => `"${w}"`).join(' or ')}. No dates were set.`
@@ -1893,6 +1909,7 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
    */
   async function bringTheMonthIntoView(day) {
     const wanted = monthKey(day.y, day.m);
+    const didNothing = new Set();
     for (let step = 0; step < MONTHS_TO_STEP_THROUGH; step += 1) {
       const headed = everyMonthOnShow().map((one) => one.key);
       /* A heading comes first; the cells' own labels only when there is none. */
@@ -1905,7 +1922,7 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
        * against the whole of what is on show rather than the first heading
        * found. Every month on show earlier than the one wanted means forwards. */
       const forwards = Math.max(...onShow) < wanted;
-      const arrows = innermostOf(theWayToAnotherMonth(forwards));
+      const arrows = innermostOf(theWayToAnotherMonth(forwards)).filter((one) => !didNothing.has(one));
       if (arrows.length === 0) return;
       /* **THE FIRST ONE, AND THIS IS THE ONE PLACE HERE THAT DOES NOT REFUSE ON
        * SEVERAL.** Counting exists to stop an IRREVERSIBLE wrong action -- the
@@ -1913,10 +1930,47 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
        * cell writes a file of the wrong days. A month arrow is neither: the
        * month on show is read again at the top of this loop, so pressing the
        * wrong one is a step that gets noticed and corrected, and pressing none
-       * at all is a certain failure. The reference takes the first too. */
+       * at all is a certain failure. The reference takes the first too.
+       *
+       * **AN ARROW THAT CHANGED NOTHING IS NOT PRESSED AGAIN (AJ10).** A page
+       * can carry another arrow of its own that matches (a row of cards with a
+       * "<"), and pressing that one fourteen times looked like stepping. The
+       * month on show is compared before and after, and the next arrow is
+       * taken when it did not move. */
+      const before = onShow.join(',');
       pressIt(arrows[0], forwards ? 'the next month arrow' : 'the previous month arrow');
       await rest(AFTER_A_MONTH_STEP_MS);
+      const nowHeaded = everyMonthOnShow().map((one) => one.key);
+      const now = (nowHeaded.length > 0 ? nowHeaded : everyMonthTheCellsName()).join(',');
+      if (now === before) didNothing.add(arrows[0]);
     }
+  }
+
+  /**
+   * Turn the calendar one month towards a day, going by the month on show.
+   *
+   * Used only when the day was not found at all and a month on the calendar CAN
+   * be read: with nothing to steer by, no arrow is pressed (it could be any
+   * "back" button on the page). The month on show already being the right one
+   * means the day is simply absent, so nothing is turned. An arrow that changed
+   * nothing is remembered in `dead` and not pressed again. Says whether an arrow
+   * was pressed.
+   */
+  async function turnOneMonthTowards(day, dead) {
+    const readOnShow = () => {
+      const headed = everyMonthOnShow().map((one) => one.key);
+      return headed.length > 0 ? headed : everyMonthTheCellsName();
+    };
+    const wanted = monthKey(day.y, day.m);
+    const onShow = readOnShow();
+    if (onShow.length === 0 || onShow.includes(wanted)) return false;
+    const forwards = Math.max(...onShow) < wanted;
+    const arrows = innermostOf(theWayToAnotherMonth(forwards)).filter((one) => !dead.has(one));
+    if (arrows.length === 0) return false;
+    pressIt(arrows[0], forwards ? 'the next month arrow' : 'the previous month arrow');
+    await rest(AFTER_A_MONTH_STEP_MS);
+    if (readOnShow().join(',') === onShow.join(',')) dead.add(arrows[0]);
+    return true;
   }
 
   /**

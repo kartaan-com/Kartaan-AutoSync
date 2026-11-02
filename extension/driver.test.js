@@ -84,6 +84,8 @@ async function saidAfterWaiting(fn) {
 
 /* ---------------------------------------------------------- building a page */
 
+function monthKeyOf(y, m) { return y * 12 + (m - 1); }
+
 /** One thing on a page. `box` is where the browser painted it -- a real one
  *  gives a menu that is not showing no size at all, and that is what tells it
  *  apart from one that is. */
@@ -3473,7 +3475,75 @@ for (const [start, end, from, expectedMonth] of [
     refused.includes('is not on the calendar') && pressedInAugust.length === 0 && pressedInSeptember.length === 0);
 }
 
-const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1 + 1 + 1 + 3 + 2 + 1 + 2 + 3 + 1 + 2 + 4 + 1 + 2 + 9;
+{
+  /* **THE 1ST OF A MONTH (AJ10, 1 Nov 2026): the calendar opens on the NEW month and the last day of the month before must still be reached.** Month-ends, a year end, a leap February. */
+  const cases = [
+    ['2026-11-01 -> 31 Oct', 2026, 11, '2026-10-31', 10, 31],
+    ['2027-01-01 -> 31 Dec (year turns back too)', 2027, 1, '2026-12-31', 12, 31],
+    ['2026-03-01 -> 28 Feb (short month, not 31)', 2026, 3, '2026-02-28', 2, 28],
+    ['2028-03-01 -> 29 Feb (leap year)', 2028, 3, '2028-02-29', 2, 29],
+  ];
+  for (const [name, y, m, iso, wantM, wantD] of cases) {
+    const page = aPage();
+    const door = doorOn();
+    let showing = monthKeyOf(y, m);
+    const holder = thing('div');
+    let pressed = [];
+    const draw = () => {
+      holder.textContent = '';
+      const yy = Math.floor(showing / 12);
+      const mm = (showing % 12) + 1;
+      const panel = aMonthPanel(yy, mm, { label: meeshoOrdersLabel, days: new Date(yy, mm, 0).getDate() });
+      for (const cell of panel.children[1].children) {
+        cell.addEventListener('click', () => pressed.push(`${yy}-${String(mm).padStart(2, '0')}-${String(cell.textContent).padStart(2, '0')}`));
+      }
+      holder.append(panel);
+    };
+    const back = thing('button', '', { attrs: { 'aria-label': 'Previous month' } });
+    back.addEventListener('click', () => { showing -= 1; draw(); });
+    draw();
+    page.body.append(back, holder);
+    const said = await saidAfterWaiting(() => door.pick_range(iso, iso));
+    check(`${name}: the picker turns back and the day is pressed`,
+      said === '' && pressed.includes(iso) && showing === monthKeyOf(Number(iso.slice(0, 4)), wantM));
+  }
+}
+
+{
+  /* A "<" of the page's own comes first and changes nothing: it is dropped after one press, and the real arrow is used. */
+  const page = aPage();
+  const door = doorOn();
+  let showing = monthKeyOf(2026, 11);
+  let decoyPresses = 0;
+  const holder = thing('div');
+  const draw = () => {
+    holder.textContent = '';
+    holder.append(aMonthPanel(Math.floor(showing / 12), (showing % 12) + 1, { label: meeshoOrdersLabel, days: 31 }));
+  };
+  const decoy = thing('button', '<');
+  decoy.addEventListener('click', () => { decoyPresses += 1; });
+  const back = thing('button', '', { attrs: { 'aria-label': 'Previous month' } });
+  back.addEventListener('click', () => { showing -= 1; draw(); });
+  draw();
+  page.body.append(decoy, back, holder);
+  const said = await saidAfterWaiting(() => door.pick_range('2026-10-31', '2026-10-31'));
+  check('an arrow that changes nothing is pressed once, then the next one is used', said === '' && decoyPresses === 1 && (showing % 12) + 1 === 10);
+}
+
+{
+  /* A picker that will not turn is said in words, never given up on silently. */
+  const page = aPage();
+  const door = doorOn();
+  const holder = thing('div');
+  holder.append(aMonthPanel(2026, 11, { label: meeshoOrdersLabel, days: 30 }));
+  const back = thing('button', '', { attrs: { 'aria-label': 'Previous month' } });
+  page.body.append(back, holder);
+  const said = await saidAfterWaiting(() => door.pick_range('2026-10-31', '2026-10-31'));
+  check('a picker that refuses to turn is refused in plain words naming the month',
+    said.includes('could not be turned to October 2026'));
+}
+
+const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1 + 1 + 1 + 3 + 2 + 1 + 2 + 3 + 1 + 2 + 4 + 1 + 2 + 9 + 4 + 1 + 1;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;
