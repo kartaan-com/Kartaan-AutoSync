@@ -393,7 +393,7 @@ def _the_range_goes_in(browser, step, say, report_id, start, end):
     symptom is a step that waits quietly and then says no calendar was showing.
     """
     def put_in(patience):
-        browser.pick_range(start, end, patience, step.switched_off_days_change_the_cursor)
+        browser.pick_range(start, end, patience, step.switched_off_days_change_the_cursor, step.choose_first, step.typed_as)
         return True
 
     press = step.press_again

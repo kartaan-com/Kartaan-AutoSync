@@ -236,7 +236,7 @@ SHAPES = {
     "az_fee_preview": ((pages.GO, pages.WAIT_FOR, pages.CLICK, pages.CLICK, pages.CLICK), (pages.GO, pages.WAIT_FOR, pages.TAKE_FILE)),
     # **AMAZON RETURNS BY THE BROWSER (N018, seen live 26 Oct 2026):** open the returns report page, wait for its Request button, press it (the page opens on All Returns
     # and last day); later open it again, wait for today's row's Download, take it.
-    "az_returns": ((pages.GO, pages.WAIT_FOR, pages.CLICK), (pages.GO, pages.WAIT_FOR, pages.TAKE_FILE)),
+    "az_returns": ((pages.GO, pages.WAIT_FOR, pages.PICK_RANGE, pages.CLICK), (pages.GO, pages.WAIT_FOR, pages.TAKE_FILE)),
     # **AMAZON SAFE-T CLAIMS (N018):** open the SAFE-T report page, wait for the report-type choice, choose SAFE-T Claims, choose the dates, press Generate Report; later open it again, wait for today's row's Download, take it.
     "az_claims": ((pages.GO, pages.WAIT_FOR, pages.CLICK, pages.CLICK, pages.CLICK, pages.CLICK, pages.CLICK), (pages.GO, pages.WAIT_FOR, pages.TAKE_FILE)),
     # **AMAZON ORDERS (N018):** open All Orders, wait for the Last Updated Date choice, choose it, press Request; later take today's row's Download. **AMAZON SETTLEMENTS (N018)** are one-phase: open All Statements, wait for the table, take the statement that ended on the day.
@@ -751,19 +751,24 @@ check("Amazon's wording of a day is written down, with the measured day-first nu
 AZR = answered(lambda: tool.RECIPES["az_returns"])
 AZR_ASK = AZR.to_ask if AZR else ()
 AZR_TAKE = AZR.to_take if AZR else ()
-check("az_returns is a two-phase walk of three steps each way",
-      AZR is not None and AZR.two_phase and len(AZR_ASK) == 3 and len(AZR_TAKE) == 3)
+check("az_returns is a two-phase walk: four steps to ask (the exact day typed before Request), three to take",
+      AZR is not None and AZR.two_phase and len(AZR_ASK) == 4 and len(AZR_TAKE) == 3)
+check("az_returns asks for the exact day: it chooses Exact dates and types the day month/day/year into the two boxes, between waiting for the page and pressing Request (AJ12, R168)",
+      len(AZR_ASK) == 4 and AZR_ASK[2].do == pages.PICK_RANGE and AZR_ASK[2].choose_first == "Exact dates"
+      and AZR_ASK[2].typed_as == "{mm}/{dd}/{yyyy}" and AZR_ASK[2].range_days == 1)
 check("az_returns opens the Seller fulfilled return reports page for both phases, the address carrying nothing of the seller's own",
       bool(AZR_ASK) and bool(AZR_TAKE) and AZR_ASK[0].do == pages.GO and AZR_TAKE[0].do == pages.GO
       and AZR_ASK[0].address == AZR_TAKE[0].address == "https://sellercentral.amazon.in/returns/report")
 check("az_returns presses only the one real Request button, never a neighbour",
-      len(AZR_ASK) == 3 and AZR_ASK[2].do == pages.CLICK and AZR_ASK[2].find.how == pages.BY_ROLE_AND_TEXT and AZR_ASK[2].find.what == "Request"
-      and AZR_ASK[1].do == pages.WAIT_FOR and AZR_ASK[1].find == AZR_ASK[2].find)
-check("az_returns takes only the Download of the All Returns row requested on the run's own day, so an old row is never taken for today's",
+      len(AZR_ASK) == 4 and AZR_ASK[3].do == pages.CLICK and AZR_ASK[3].find.how == pages.BY_ROLE_AND_TEXT and AZR_ASK[3].find.what == "Request"
+      and AZR_ASK[1].do == pages.WAIT_FOR and AZR_ASK[1].find == AZR_ASK[3].find)
+# **THE ROW IS NAMED BY THE DAY IT COVERS, IN ITS ONE-DAY WORDING (AJ12, R168) -- NOT YET SEEN LIVE.** Several owed days are asked on the same run, so "made today" would name them all; and the one-day wording is the strict one, so an old
+# rolling "last day" row is never taken for the day.
+check("az_returns takes only the Download of the All Returns row that covers the day, in Amazon's one-day row wording, so an old row is never taken for the day",
       len(AZR_TAKE) == 3 and AZR_TAKE[2].do == pages.TAKE_FILE and AZR_TAKE[1].find == AZR_TAKE[2].find
       and AZR_TAKE[2].find.what == ".tsv" and AZR_TAKE[2].find.near == "{day_in_words}" and AZR_TAKE[2].find.also_saying == "All Returns"
       and AZR_TAKE[2].find.how == pages.BY_THE_LINK_ENDING
-      and AZR_TAKE[2].find.day_in_words_is == "amazon" and AZR_TAKE[2].find.day_in_words_of == pages.THE_DAY_IT_WAS_MADE)
+      and AZR_TAKE[2].find.day_in_words_is == "amazon-one-day" and AZR_TAKE[2].find.day_in_words_of == pages.THE_DAY_IT_IS_ABOUT)
 # **AMAZON'S ORDER REPORTS AND SETTLEMENT STATEMENTS DATE A ROW WITH NUMBERS ONLY (N018, seen 26 Oct 2026; Control's ruling of the same day).** Order report rows read
 # `26/10/26, 6:36:33 am India Standard Time`, and statement rows `13/10/2026 – 20/10/2026`, `6/10/2026 – 13/10/2026`, `29/9/2026 – 6/10/2026`: the DAY COMES FIRST (19/10, 20/10, 26/10
 # can only be day-first) and neither the day nor the month carries a nought on the statements. This is the MEASURED EXCEPTION to the rule against purely numeric spellings, for
@@ -773,7 +778,7 @@ check("Amazon's day-first numeric spellings are written down: dd/mm/yy (orders),
       and answered(lambda: "29/9/2026" in tool.the_days_in_words("amazon", date(2026, 9, 29))))
 check("THE NUMERIC EXCEPTION IS AMAZON'S ALONE: no other platform's wording uses the two-digit year or the nought-free month, so no other portal's row can be matched on a day/month guess",
       answered(lambda: all("{yy}" not in shape and "{m}" not in shape
-                           for whose, shapes in tool.HOW_A_DAY_IS_WRITTEN.items() if whose != "amazon" for shape in shapes))
+                           for whose, shapes in tool.HOW_A_DAY_IS_WRITTEN.items() if tool.portal_of_wording(whose) != "amazon" for shape in shapes))
       and answered(lambda: any("{yy}" in shape for shape in tool.HOW_A_DAY_IS_WRITTEN["amazon"])))
 check("Amazon writes a requested-on day with the whole month name (25 October 2026), and that spelling is one of the day's spellings",
       answered(lambda: "25 October 2026" in tool.the_days_in_words("amazon", date(2026, 10, 25))))
@@ -1165,8 +1170,19 @@ check("and every piece the shapes actually use is one this fills in",
                            for shapes in tool.HOW_A_DAY_IS_WRITTEN.values()
                            for shape in shapes)))
 # **ONE LIST OF SPELLINGS PER PORTAL, LOOKED UP BY NAME.**
-check("the three portals' wordings are written down and no others (Amazon's added by lane 1 job 8)",
-      answered(lambda: sorted(tool.HOW_A_DAY_IS_WRITTEN) == ["amazon", "flipkart", "meesho"]))
+check("the three portals' wordings are written down and no others (Amazon's added by lane 1 job 8), plus Amazon's strict one-day row wording (AJ12)",
+      answered(lambda: sorted(tool.HOW_A_DAY_IS_WRITTEN) == ["amazon", "amazon-one-day", "flipkart", "meesho"]))
+# **THE ROWS SEEN ON HIS PAGES ON 2 NOV 2026 (rolling "last day" rows) ARE NOT THE ONE-DAY ROW OF ANY DAY THEY TOUCH; the rows an exact day is expected to write ARE -- those two written from the page's own look, NOT YET SEEN.**
+_ROLLING_RETURNS_ROW = "01-Nov-2026 to 02-Nov-2026"
+check("an old rolling 'last day' row is never the one-day row of any day it touches, while a row that covers exactly the day is",
+      answered(lambda: not any(shape in _ROLLING_RETURNS_ROW for day in (date(2026, 11, 1), date(2026, 11, 2))
+                               for shape in tool.the_days_in_words("amazon-one-day", day)))
+      and answered(lambda: any(shape in "01-Nov-2026 to 01-Nov-2026" for shape in tool.the_days_in_words("amazon-one-day", date(2026, 11, 1)))))
+check("Amazon's one-day row wording belongs to Amazon, and its shape is the one strict one (returns), which is none of the looser spellings a rolling row would also carry",
+      answered(lambda: tool.portal_of_wording("amazon-one-day") == "amazon" and tool.portal_of_wording("meesho") == "meesho")
+      and answered(lambda: tool.the_days_in_words("amazon-one-day", date(2026, 11, 1))
+                   == ("01-Nov-2026 to 01-Nov-2026",))
+      and answered(lambda: not set(tool.HOW_AMAZON_WRITES_A_ONE_DAY_ROW) & set(tool.HOW_AMAZON_WRITES_A_DAY)))
 check("while a portal nobody has written a wording for is refused, by name",
       answered(lambda: "etsy" in said(lambda: tool.the_days_in_words("etsy",
                                                                     date(2026, 9, 1)))))
@@ -1683,7 +1699,7 @@ check("and the panel name was still filled into the addresses on the way",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 464
+EXPECTED = 467
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

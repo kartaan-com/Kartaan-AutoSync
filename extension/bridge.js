@@ -4,9 +4,10 @@
  * (`com.kartaan.bridge`, its own product), opened ONLY while the seller's own "AI may run AutoSync" switch on the panel is on, which is OFF
  * until he turns it on. `connectNative` appears nowhere else in this extension (a check holds that).
  *
- * **WHAT THE AI CAN DO IS THREE THINGS:** read how the reports stand (`autosync_status`), ask for a run (`autosync_run`: reports from the
- * list, a From day and a To day), read how an ask went (`autosync_result`). It cannot press anything on a portal, change a setting, connect
- * a Drive or stop a run.
+ * **WHAT THE AI CAN DO IS FOUR THINGS:** read how the reports stand (`autosync_status`), ask for a run (`autosync_run`: reports from the
+ * list, a From day and a To day), read how an ask went (`autosync_result`), and ask AutoSync to load its own files again (`autosync_reload`,
+ * D912: so a new build reaches a computer without Chrome being restarted; refused while a run or an ask is going). It cannot press anything
+ * on a portal, change a setting, connect a Drive or stop a run.
  *
  * **AN ASK GOES THROUGH THE SAME DOOR AS THE RUN NOW BUTTON** (`answerThePanelsQuestion` with `run-now`), so every rule that button has is
  * kept: Kartaan's yes or no, the Drive being connected, the Meesho panel name, one platform after another. Before it is kept at all, the
@@ -54,7 +55,9 @@ export const AI_MOST_ASKS_A_DAY = 100;
 /** A two-website ask has a gap between its websites; it is called finished only this long after its last run ended. */
 export const SETTLE_MS = 3 * 60 * 1000;
 /** The tools this extension answers, exactly as the Kartaan Bridge lists them for AutoSync (a check in the bridge repo holds the names equal). */
-export const BRIDGE_TOOLS = Object.freeze(['autosync_status', 'autosync_run', 'autosync_result']);
+export const BRIDGE_TOOLS = Object.freeze(['autosync_status', 'autosync_run', 'autosync_result', 'autosync_reload']);
+/** **WHICH CODE IS RUNNING (D912, 3 Nov 2026):** written into this file by hand with every build that changes the AI's door, so `autosync_status` can say which build is running (an old build that was never loaded again says the old one). */
+export const BUILD = 'aj12b-reload-1';
 /** At most this many asks wait at once; the newest twenty are kept for reading back. */
 export const MOST_WAITING = 5;
 export const KEEP_ASKS = 20;
@@ -193,6 +196,7 @@ async function status(chrome, parts) {
   const latest = asks.length ? asks[asks.length - 1] : null;
   const going = Boolean(stands.night && !stands.night.finishedAt);
   return {
+    build: { running: BUILD, version: (chrome.runtime.getManifest && chrome.runtime.getManifest().version) || '' },
     ready_to_run: Boolean(stands.setUp.driveConnectedAt) && (stands.platforms || []).some((one) => one.ready),
     drive_connected: Boolean(stands.setUp.driveConnectedAt),
     run_going_now: going,
@@ -262,6 +266,16 @@ async function result(chrome, parts, args) {
   return { ok: true, result: slimAsk(book, ask) };
 }
 
+/** **THE EXTENSION LOADS ITS OWN FILES AGAIN (D912), through the door the panel's reload already uses** (`reload-the-extension`), which refuses while a night or a walk is going. An ask of the AI that is running is refused here too. The
+ *  answer goes back first; the reload follows half a second later. A waiting ask is kept in storage and is still waiting afterwards. */
+async function reload(chrome, parts) {
+  const asks = await refreshTheAsks(chrome, parts);
+  if (asks.some((a) => a.state === 'running')) return { ok: false, error: 'Not reloaded: an ask from your AI is running. Wait until autosync_result says it is finished, then ask again.' };
+  const said = await parts.panelAnswer({ do: 'reload-the-extension' });
+  if (said && said.wrong) return { ok: false, error: `Not reloaded: ${said.wrong}` };
+  return { ok: true, result: { message: 'AutoSync is loading its own files again now. The helper reconnects within a minute; read autosync_status to see it is back.' } };
+}
+
 /** The one door the native port uses. Tool names are the bridge's; anything else is refused. */
 async function answerInner(chrome, parts, { tool, args }) {
   if (!(await aiIsOn(chrome))) return { ok: false, error: NEEDS_THE_SWITCH };
@@ -275,6 +289,7 @@ async function answerInner(chrome, parts, { tool, args }) {
       if (typeof given.from !== 'string' || typeof given.to !== 'string') return { ok: false, error: 'from and to must be days written like 2026-05-01.' };
       return await run(chrome, parts, given);
     }
+    if (tool === 'autosync_reload') return await reload(chrome, parts);
     if (tool === 'autosync_result') {
       if (given.ask_id !== undefined && (typeof given.ask_id !== 'string' || !/^[0-9a-f]{8,32}$/.test(given.ask_id))) return { ok: false, error: 'ask_id is the id autosync_run gave.' };
       return await result(chrome, parts, given);

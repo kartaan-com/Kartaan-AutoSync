@@ -762,13 +762,13 @@ def the_python_rows():
 
 check("the JavaScript half can be asked what it makes of a day at all",
       answered(lambda: isinstance(SAID_IN_JAVASCRIPT, dict) and bool(SAID_IN_JAVASCRIPT)))
-check("the three portals' wordings cross to the extension",
+check("the three portals' wordings cross to the extension, with Amazon's strict one-day row wording (AJ12)",
       answered(lambda: sorted(HELD["daysInWords"]) == sorted(book.HOW_A_DAY_IS_WRITTEN)
-               == ["amazon", "flipkart", "meesho"]))
-check("and each carries the month names and that portal's own spellings",
+               == ["amazon", "amazon-one-day", "flipkart", "meesho"]))
+check("and each carries the month names and that portal's own spellings (the one-day row wording has its one)",
       answered(lambda: all(one["months"] == list(book.MONTHS)
-                           and len(one["spellings"]) >= 5
-                           for one in HELD["daysInWords"].values())))
+                           and len(one["spellings"]) >= (1 if whose == "amazon-one-day" else 5)
+                           for whose, one in HELD["daysInWords"].items())))
 # **THE SPELLINGS CROSS AS SHAPES, so the JavaScript joins the parts and carries
 # no opinion of its own about noughts, month names or the order of the pieces.**
 check("and the spellings cross as shapes rather than as finished days",
@@ -849,7 +849,7 @@ check("and every one of them says whose wording it means",
       answered(lambda: all(find["dayInWordsIs"] in book.HOW_A_DAY_IS_WRITTEN
                            for _, find in named_in_words())))
 check("and each says its OWN report's portal, never the other one's",
-      answered(lambda: all(find["dayInWordsIs"] == reports_list.report(name).platform
+      answered(lambda: all(book.portal_of_wording(find["dayInWordsIs"]) == reports_list.report(name).platform
                            for name, find in named_in_words())))
 # **AND WHICH DAY IT MEANS CROSSES TOO, which is the A53 half.** Whose wording
 # answers `1 Sep` against `01 Sep` and says nothing about which day is on the

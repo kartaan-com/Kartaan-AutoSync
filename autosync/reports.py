@@ -317,10 +317,9 @@ REPORTS: Tuple[Report, ...] = (
     # **BY THE BROWSER SINCE N018 (his ruling D726):** Finance > Manage payments > All Statements, the "Download Flat File V2" of EVERY closed weekly statement the Drive does not already hold, each filed under the day it ended, so a past day is nothing special: whatever is missing is picked up (Control's ruling, 26 Oct 2026).
     Report("az_settlements", "amazon", "Amazon settlements", BROWSER, WHEN_THEY_PUBLISH_IT, "csv"),
     # **BY THE BROWSER SINCE N018 (his ruling D726, 25 Oct 2026: Amazon no longer goes through the SP-API).** Seller Central > Orders > Order reports > Seller fulfilled return
-    # reports > All Returns, last day; the file is the same tab-separated return file the reader already reads. The page asks only for "last day" (yesterday), so a past day
-    # cannot be asked for again.
-    Report("az_returns", "amazon", "Amazon returns", BROWSER, DAILY, "csv",
-           cannot_backfill="Amazon's return report page is asked for 'last day' only, so a day already gone cannot be fetched again by the run (the page itself offers Exact dates, which the walk does not use yet)."),
+    # reports > All Returns; the file is the same tab-separated return file the reader already reads. **BY EXACT DATE SINCE AJ12 (R168):** the page's "Exact dates" takes the day typed, so a missed day is owed and asked for
+    # again like every other go-back report.
+    Report("az_returns", "amazon", "Amazon returns", BROWSER, DAILY, "csv"),
     # **ONE SNAPSHOT BY THE API DOOR (v0.1.21 job 6): what Amazon hides from buyers and why.** A picture of now, asked with no dates, so
     # a past day cannot be fetched again. **`az_health` IS NOT HERE ON PURPOSE:** Amazon's page does not state its file format and
     # `landing.what_it_really_is` refuses any body that starts with `{` as "a message rather than a report", so listed here it would

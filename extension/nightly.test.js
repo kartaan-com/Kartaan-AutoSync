@@ -136,6 +136,13 @@ async function said(fn) {
     ['me_product_performance', 'me_pricing', 'fk_quality_insights', 'az_listings', 'az_fee_preview', 'az_ads'].every((one) => ONLY_ITS_NEWEST_DAY.includes(one)));
   check('while a rolling-window report is not on that list',
     !ONLY_ITS_NEWEST_DAY.includes('me_returns') && !ONLY_ITS_NEWEST_DAY.includes('me_claims'));
+  /* **AMAZON RETURNS IS ASKED BY THE EXACT DAY (AJ12, R168), SO A PAST DAY IS A REAL DAY, NOT A PICTURE OF NOW.** Left on that list, an owed day was skipped as "nothing to fetch" and settled as landed. Orders stays on it until it can be asked by the day too. */
+  check('Amazon returns is not on it: a past day of it is fetched, not skipped, while Amazon orders still is',
+    !ONLY_ITS_NEWEST_DAY.includes('az_returns') && ONLY_ITS_NEWEST_DAY.includes('az_orders')
+    && whyOnlyItsNewestDay({ latestDay: '2026-11-02' }, 'az_returns', '2026-10-30') === null
+    && whyOnlyItsNewestDay({ latestDay: '2026-11-02' }, 'az_listings', '2026-10-30') !== null);
+  check('and the shipped recipe book no longer says Amazon returns cannot be asked for again, so it can go back',
+    (book.reports.find((r) => r.id === 'az_returns') || {}).cannotBeAskedForAgain === null);
   /* **A PAST DAY OF THE ADS REPORT IS NOT WALKED AGAIN, AND IS TOLD WHY IN ITS OWN WORDS (the fresh review of 27 Oct 2026):** every run takes the saved report's last 30 days, so a day missed is already in the newest file, and a walk per owed day would pay the pause and visit the ads site again each time. */
   const adsWhy = whyOnlyItsNewestDay({ latestDay: '2026-10-27' }, 'az_ads', '2026-10-24');
   check('a past day of the Amazon ads report is left out and says the newest file already holds it', typeof adsWhy === 'string' && adsWhy.includes('30 days') && !adsWhy.includes('picture of how things stand'));
@@ -1372,6 +1379,34 @@ check('and three days of trying is the reference\'s own number', GIVE_UP_AFTER_D
 }
 
 {
+  /* **A FAILED DAY OF AMAZON RETURNS IS OWED TO THE NEXT SYNC (AJ12, R168)** -- the day that used to be lost for good, never owed, never shown. */
+  const browser = installFakeChrome();
+  const c = browser.chrome;
+  const day = '2026-11-01';
+  const oneDay = 24 * 60 * 60 * 1000;
+  const start = Date.UTC(2026, 10, 2, 3);
+  await startTheNight(c, {
+    doing: ['az_returns'], at: start, openAt: 'https://x/', dataDate: day,
+    canGoBack: ['az_returns'],
+  });
+  for (const reportId of ['az_returns']) {
+    // eslint-disable-next-line no-await-in-loop
+    const first = await thatOneIsDone(c, { reportId, state: 'failed', say: 'Download not found.', dataDate: day, at: start });
+    check(`a failed day of ${reportId} is owed to the next sync and said to be tried again`,
+      Object.values(await whatIsNotBuiltYet(c)).some((one) => one.reportId === reportId && one.dataDate === day)
+      && first.done.at(-1).say.includes('tried again on the next sync'));
+  }
+  for (const n of [1, 2]) {
+    for (const reportId of ['az_returns']) {
+      // eslint-disable-next-line no-await-in-loop
+      await thatOneIsDone(c, { reportId, state: 'failed', say: 'x', dataDate: day, at: start + n * oneDay });
+    }
+  }
+  check('and an Amazon returns day that failed on three different days needs the seller, shown under needs you',
+    (await whatNeedsYou(c)).some((one) => one.reportId === 'az_returns' && one.dataDate === day));
+}
+
+{
   /* **A REQUEST KNOWN TO HAVE GONE IS NEVER HANDED BACK LATER (review finding, 2026-10-05).** */
   const browser = installFakeChrome();
   const c = browser.chrome;
@@ -2339,7 +2374,7 @@ check('report table: null night gives null', theReportTable(null, () => '') === 
     && told[0].endedAt === ended.finishedAt);
 }
 
-const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3 + 1 + 4 + 3;
+const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3 + 1 + 4 + 3 + 2 + 2;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

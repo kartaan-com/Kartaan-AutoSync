@@ -268,8 +268,9 @@ class FakeMeesho:
         self.menu_open = False
         self.shut_since_last_opened = True
 
-    def pick_range(self, start, end, patience, also_by_the_cursor):
+    def pick_range(self, start, end, patience, also_by_the_cursor, choose_first="", typed_as=""):
         self.ranges.append((start, end))
+        self.exact_day_told = (choose_first, typed_as)
         # **WHICH CALENDAR IT IS STANDING IN FRONT OF IS KEPT TOO.** Flipkart
         # switches a day off two ways and one of them shows only in the cursor;
         # a stand-in that dropped it would let the recipe say so and the door

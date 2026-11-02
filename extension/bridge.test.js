@@ -60,6 +60,11 @@ function rig({ left = 20, driveAt = 1, panel = 'a-panel', clock = () => NOW } = 
         if (state.writesANight !== false) await chrome.storage.local.set({ [THE_NIGHT]: { startedAt: clock(), finishedAt: 0, doing: asked.reportIds[0], left: [], done: [] } });
         return { started: ['x'] };
       }
+      if (asked.do === 'reload-the-extension') {
+        state.reloads = (state.reloads || 0) + 1;
+        if (state.refuseReload) return { wrong: state.refuseReload };
+        return { reloading: true };
+      }
       return {};
     },
     openThePort: () => { state.opened = (state.opened || 0) + 1; },
@@ -80,8 +85,27 @@ const keepAsks = (r, list) => r.chrome.storage.local.set({ [AI_ASKS]: list });
 const nameOf = (id) => BOOK.reports.find((x) => x.id === id).name;
 
 {
-  check('the tools AutoSync answers are exactly the three the bridge lists', BRIDGE_TOOLS.join() === 'autosync_status,autosync_run,autosync_result');
+  check('the tools AutoSync answers are exactly the four the bridge lists', BRIDGE_TOOLS.join() === 'autosync_status,autosync_run,autosync_result,autosync_reload');
   check('the helper is the shared Kartaan Bridge host', HOST === 'com.kartaan.bridge');
+}
+
+{
+  /* **THE AI CAN ASK AUTOSYNC TO LOAD ITS OWN FILES AGAIN (D912)** -- through the panel's own reload door, never while an ask of the AI is running. */
+  const r = rig();
+  await switchedOn(r);
+  const said = await call(r, 'autosync_reload', {});
+  check('reload with the switch on goes through the reload door once and says it is loading again', said.ok === true && r.state.reloads === 1 && said.result.message.includes('loading its own files again'));
+  r.state.refuseReload = 'A run is going, so the extension was not reloaded.';
+  const refused = await call(r, 'autosync_reload', {});
+  check('and what the reload door refuses (a run going) is passed on in words, with nothing reloaded', refused.ok === false && refused.error.includes('A run is going') && r.state.reloads === 2);
+  r.state.refuseReload = '';
+  await keepAsks(r, [anAsk('aaaaaaaa11111111', { state: 'running', startedAt: NOW })]);
+  const before = r.state.reloads;
+  const running = await call(r, 'autosync_reload', {});
+  check('an ask of the AI that is running refuses the reload before the door is asked', running.ok === false && running.error.includes('ask from your AI is running') && r.state.reloads === before);
+  await keepAsks(r, [anAsk('bbbbbbbb22222222')]);
+  const waiting = await call(r, 'autosync_reload', {});
+  check('a waiting ask does not stop it: waiting asks are kept in storage and are still waiting afterwards', waiting.ok === true && (await asksOf(r)).length === 1 && (await asksOf(r))[0].state === 'waiting');
 }
 
 {
@@ -101,6 +125,7 @@ const nameOf = (id) => BOOK.reports.find((x) => x.id === id).name;
   check('status reads every report with its id, name, platform and whether it can be fetched', said.ok && said.result.reports.length === reportsOf.length
     && said.result.reports.every((x) => x.id && x.name && x.platform && x.can_be_fetched === true));
   check('status says plainly how many of Flipkart\'s twenty are left, and whether the computer is in use', said.result.flipkart_requests_left_today === 20 && said.result.computer_in_use_now === true);
+  check('status names the build that is running', typeof said.result.build.running === 'string' && said.result.build.running.length > 0);
   check('status has no ask yet', said.result.latest_ask === null && said.result.waiting_asks === 0);
   check('status is plain JSON (a Server could serve it unchanged)', JSON.stringify(JSON.parse(JSON.stringify(said))) === JSON.stringify(said));
 }

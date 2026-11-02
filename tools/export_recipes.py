@@ -69,6 +69,8 @@ AS_JAVASCRIPT_SPELLS_IT = {
     "only_if_absent": "onlyIfAbsent",
     "range_days": "rangeDays",
     "switched_off_days_change_the_cursor": "switchedOffDaysChangeTheCursor",
+    "choose_first": "chooseFirst",
+    "typed_as": "typedAs",
     "ready_in_minutes": "readyInMinutes",
     "to_ask": "toAsk",
     "to_take": "toTake",
@@ -168,6 +170,9 @@ def a_step(step):
         # every step but three.
         AS_JAVASCRIPT_SPELLS_IT["switched_off_days_change_the_cursor"]:
             step.switched_off_days_change_the_cursor,
+        # **PLAIN TEXT DATE BOXES BEHIND A DROPDOWN (AJ12).** Empty on every step but two, both on Amazon's report pages.
+        AS_JAVASCRIPT_SPELLS_IT["choose_first"]: step.choose_first,
+        AS_JAVASCRIPT_SPELLS_IT["typed_as"]: step.typed_as,
         # **A LIST DRAWN WHEN A MENU OPENS DOES NOT CHANGE WHILE IT IS OPEN**, so
         # the step says what to shut and open again between looks. Null on every
         # step but one.

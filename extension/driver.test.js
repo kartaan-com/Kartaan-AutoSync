@@ -3853,7 +3853,145 @@ for (const [start, end, from, expectedMonth] of [
   check('the same day drawn twice, both switched off: refused as not built yet and nothing pressed', Boolean(both.caught) && both.caught.dayNotAvailable === true && both.pressed.length === 0);
 }
 
-const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1 + 1 + 1 + 3 + 2 + 1 + 2 + 3 + 1 + 2 + 4 + 1 + 2 + 9 + 4 + 1 + 1 + 2 + 2 + 2 + 6 + 3 + 1 + 7;
+/* **A DROPDOWN THAT DRAWS TWO PLAIN TEXT DATE BOXES (AJ12, R168; written by DeepSeek, applied and checked here).** The page's "Exact dates" option draws a From and a To box that are plain text, labelled as dates, and a day is typed month/day/year. */
+{
+  const page = aPage();
+  const door = doorOn();
+  const heard = [];
+  const select = thing('select', '', { box: BIG });
+  select.append(thing('option', 'Last 7 days', { value: 'last7' }));
+  select.append(thing('option', 'Exact dates', { value: 'exactDates' }));
+  const selectHome = thing('div');
+  selectHome.addEventListener('change', (e) => heard.push(e.target === select ? 'select' : 'other'));
+  selectHome.append(select);
+  const from = thing('input', '', { type: 'text', attrs: { 'aria-label': 'Start date' }, box: BIG });
+  const to = thing('input', '', { type: 'text', attrs: { 'aria-label': 'End date' }, box: BIG });
+  page.body.append(selectHome, from, to);
+
+  await door.pick_range('2026-08-25', '2026-08-26', 0, false, 'Exact dates', '{mm}/{dd}/{yyyy}');
+  check('the exact dates dropdown is chosen', select.value === 'exactDates');
+  check('the two text date boxes take month/day/year', from.value === '08/25/2026' && to.value === '08/26/2026');
+  check('the page hears the dropdown change from around it', heard.includes('select'));
+}
+
+{
+  const page = aPage();
+  const door = doorOn();
+  const heard = [];
+  const select = thing('select', '', { box: BIG });
+  select.append(thing('option', 'Exact dates', { value: 'exactDates' }));
+  const selectHome = thing('div');
+  selectHome.addEventListener('change', (e) => heard.push(e.target === select ? 'select' : 'other'));
+  selectHome.append(select);
+  page.body.append(selectHome,
+    thing('input', '', { type: 'text', attrs: { 'aria-label': 'Start date' }, box: BIG }),
+    thing('input', '', { type: 'text', attrs: { 'aria-label': 'End date' }, box: BIG }));
+
+  await door.pick_range('2026-08-25', '2026-08-26', 0, false, 'Exact dates', '{mm}/{dd}/{yyyy}');
+  check('an option that is already chosen is left alone', heard.length === 0);
+}
+
+{
+  const page = aPage();
+  const door = doorOn();
+  const dropdown = () => {
+    const one = thing('select', '', { box: BIG });
+    one.append(thing('option', 'Last 7 days', { value: 'last7' }));
+    one.append(thing('option', 'Exact dates', { value: 'exactDates' }));
+    return one;
+  };
+  page.body.append(dropdown(), dropdown());
+
+  const refused = await saidAfterWaiting(() => door.pick_range('2026-08-25', '2026-08-26', 0, false, 'Exact dates'));
+  check('two dropdowns carrying the option refuse with the count, and say nothing was set',
+    refused.includes('2 dropdowns') && refused.includes('so which dropdown was meant cannot be known. No dates were set.'));
+}
+
+{
+  const page = aPage();
+  const door = doorOn();
+  const select = thing('select', '', { box: BIG });
+  select.append(thing('option', 'Last 7 days', { value: 'last7' }));
+  page.body.append(select);
+
+  const refused = await saidAfterWaiting(() => door.pick_range('2026-08-25', '2026-08-26', 0, false, 'Exact dates'));
+  check('no dropdown with the option falls back to the usual refusal', refused.includes('0 date boxes were found') && refused.includes('no dates were set'));
+  check('and the refusal says what the page had: its dropdown and that dropdown\'s options', refused.includes('1 painted dropdowns') && refused.includes('Last 7 days'));
+}
+
+{
+  const page = aPage();
+  const door = doorOn();
+  page.body.append(thing('input', '', { type: 'text', attrs: { 'aria-label': 'Start date' }, box: BIG }));
+
+  const refused = await saidAfterWaiting(() => door.pick_range('2026-08-25', '2026-08-26', 0, false, '', '{mm}/{dd}/{yyyy}'));
+  check('one text date box refuses with the count', refused.includes('1 date boxes were found'));
+}
+
+{
+  const page = aPage();
+  const door = doorOn();
+  page.body.append(
+    thing('input', '', { type: 'text', attrs: { 'aria-label': 'Start date' }, box: BIG }),
+    thing('input', '', { type: 'text', attrs: { 'aria-label': 'End date' }, box: BIG }),
+    thing('input', '', { type: 'text', attrs: { 'aria-label': 'Start date' }, box: BIG }));
+
+  const refused = await saidAfterWaiting(() => door.pick_range('2026-08-25', '2026-08-26', 0, false, '', '{mm}/{dd}/{yyyy}'));
+  check('three text date boxes refuse with the count rather than picking two', refused.includes('3 date boxes were found'));
+}
+
+{
+  const page = aPage();
+  const door = doorOn();
+  page.body.append(
+    thing('input', '', { type: 'text', attrs: { 'aria-label': 'Start date' }, box: BIG }),
+    thing('input', '', { type: 'text', attrs: { 'aria-label': 'Search' }, box: BIG }));
+
+  const refused = await saidAfterWaiting(() => door.pick_range('2026-08-25', '2026-08-26', 0, false, '', '{mm}/{dd}/{yyyy}'));
+  check('a text box that does not call itself a date is not counted', refused.includes('1 date boxes were found'));
+}
+
+{
+  /* **A FIELD ON THE SELLER'S PANEL IS SET ONCE, NEVER AGAIN (3 Nov 2026):** the HP's All Orders page put its dropdown back each time it was set, and a loop that set it on every look flickered his panel. The dropdown is set one time, then only looked at. */
+  const page = aPage();
+  const door = doorOn();
+  const heard = [];
+  const select = thing('select', '', { box: BIG });
+  select.append(thing('option', 'Last 7 days', { value: 'last7' }));
+  select.append(thing('option', 'Exact dates', { value: 'exactDates' }));
+  select.value = 'last7';
+  const selectHome = thing('div');
+  selectHome.addEventListener('change', (e) => { heard.push(e.type); select.value = 'last7'; });
+  selectHome.append(select);
+  page.body.append(selectHome);
+
+  const refused = await saidAfterWaiting(() => door.pick_range('2026-08-25', '2026-08-26', 1, false, 'Exact dates', '{mm}/{dd}/{yyyy}'));
+  check('a dropdown the page puts back is set once, however many looks follow, and the refusal then says what the page had', heard.length === 1 && refused.includes('0 date boxes were found') && refused.includes('1 painted dropdowns'));
+}
+
+{
+  const page = aPage();
+  const door = doorOn();
+  page.body.append(
+    thing('input', '', { type: 'text', attrs: { 'aria-label': 'Start date' }, box: BIG }),
+    thing('input', '', { type: 'text', attrs: { 'aria-label': 'End date' }, box: BIG }));
+
+  const refused = await saidAfterWaiting(() => door.pick_range('2026-8-25', '2026-08-26', 0, false, '', '{mm}/{dd}/{yyyy}'));
+  check('a day that is not YYYY-MM-DD is refused as not a day, and nothing was set', refused.includes('is not a day') && refused.includes('No dates were set.'));
+}
+
+{
+  const page = aPage();
+  const door = doorOn();
+  const from = thing('input', '', { type: 'date', box: BIG });
+  const to = thing('input', '', { type: 'date', box: BIG });
+  page.body.append(from, to);
+
+  await door.pick_range('2026-08-25', '2026-08-26');
+  check('without the new arguments the date boxes still take YYYY-MM-DD as before', from.value === '2026-08-25' && to.value === '2026-08-26');
+}
+
+const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1 + 1 + 1 + 3 + 2 + 1 + 2 + 3 + 1 + 2 + 4 + 1 + 2 + 9 + 4 + 1 + 1 + 2 + 2 + 2 + 6 + 3 + 1 + 7 + 13;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

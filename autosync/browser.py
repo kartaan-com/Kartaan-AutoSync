@@ -529,6 +529,11 @@ class Step:
     # fact stays in the recipe, like every other platform fact here, and the door
     # is told which calendar it is standing in front of.
     switched_off_days_change_the_cursor: bool = False
+    # **A PAGE WITH PLAIN TEXT DATE BOXES AND A DROPDOWN IN FRONT OF THEM (AJ12, Amazon's All Orders and Returns report pages).** `choose_first` is the words of the dropdown option
+    # that draws the two boxes ("Exact dates"); `typed_as` is how a day is typed into each box, in the same pieces a row's day is written in (`{mm}/{dd}/{yyyy}`). Both are platform
+    # facts, so they live on the recipe; empty on every step but two.
+    choose_first: str = ""
+    typed_as: str = ""
     # **WHAT TO CLOSE AND OPEN AGAIN BETWEEN LOOKS**, when the thing being looked
     # for is inside a menu that only draws its contents as it opens. See
     # `LookAgain`. It is on the step rather than in the door because which
@@ -730,6 +735,10 @@ def why_step_is_refused(step: Step) -> Optional[str]:
         # day somebody believed that, every ordinary label on the portal would be
         # a thing this door thought was switched off.
         return "Only a step that picks a range can say how that calendar switches a day off."
+    if step.do != PICK_RANGE and (step.choose_first or step.typed_as):
+        return "Only a step that picks a range can say which dropdown option draws its date boxes or how a day is typed into them."
+    if step.typed_as and not all(piece in step.typed_as for piece in ("{yyyy}", "{mm}", "{dd}")):
+        return "A day typed into a box has to say its year, month and day, as {yyyy}, {mm} and {dd}."
     if step.look_again is not None:
         again = step.look_again
         if step.do != TAKE_FILE:

@@ -1794,17 +1794,66 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
    * date exports the wrong days, and a file of the wrong days is worse than no
    * file, because nothing about it looks wrong afterwards.
    */
-  async function pickRange(start, end, patienceSeconds = 0, switchedOffDaysChangeTheCursor = false) {
+  /* A day typed the way a page's own text box wants it, from `YYYY-MM-DD`. Other pieces are left as they are. */
+  function theDayTyped(typedAs, iso) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(iso))) {
+      throw new Error(`${iso} is not a day. No dates were set.`);
+    }
+    const [yyyy, mm, dd] = String(iso).split('-');
+    return String(typedAs).replace(/\{yyyy\}/g, yyyy).replace(/\{mm\}/g, mm).replace(/\{dd\}/g, dd);
+  }
+
+  /* What a dropdown-and-text-boxes date picker had on the page when it refused, so a refusal on a real page says what was there (AJ12, HP test 2 Nov 2026). */
+  function whatTheDatePickerHad() {
+    const painted = everything(thePage()).filter(isPainted);
+    const named = (node) => `${String(node.tagName || '').toLowerCase()} "${String(node.getAttribute('aria-label') || node.name || '').slice(0, 40)}"`;
+    const dropdowns = painted.filter((node) => String(node.tagName || '').toLowerCase() === 'select')
+      .map((node) => `${named(node)} = ${node.value} [${Array.from(node.options || node.children).map((one) => String(one.textContent || '').trim()).join(' | ').slice(0, 120)}]`);
+    const boxes = painted.filter((node) => String(node.tagName || '').toLowerCase() === 'input')
+      .map((node) => `${named(node)} type=${node.type || ''} value="${String(node.value || '').slice(0, 12)}" class=${String(node.className || '').slice(0, 30)}`);
+    return `The page had ${dropdowns.length} painted dropdowns (${dropdowns.join('; ')}) and ${boxes.length} painted boxes (${boxes.slice(0, 6).join(', ')}).`;
+  }
+
+  async function pickRange(start, end, patienceSeconds = 0, switchedOffDaysChangeTheCursor = false, chooseFirst = '', typedAs = '') {
     const giveUpAt = Date.now() + Math.max(0, Number(patienceSeconds) || 0) * 1000;
+    let chosen = false;
     for (;;) {
+      /* **A DROPDOWN THAT DRAWS THE BOXES (AJ12).** The one painted dropdown carrying the words is set to that option ONCE, saying it changed, and never set again on a later look: a field on the seller's panel is not set over and over
+       * (it flickered his panel on the HP, 3 Nov 2026). None carrying them yet is left to the waiting below. */
+      if (chooseFirst && !chosen) {
+        const matches = [];
+        for (const select of everything(thePage()).filter((node) => String(node.tagName || '').toLowerCase() === 'select' && isPainted(node))) {
+          const option = Array.from(select.options || select.children).find(
+            (choice) => String(choice.textContent || '').trim().toLowerCase() === String(chooseFirst).toLowerCase());
+          if (option) matches.push({ select, option });
+        }
+        if (matches.length > 1) {
+          throw new Error(`${matches.length} dropdowns had "${chooseFirst}", so which dropdown was meant cannot be known. No dates were set.`);
+        }
+        if (matches.length === 1) {
+          chosen = true;
+          if (matches[0].select.value !== matches[0].option.value) {
+            /* A dropdown is set on itself, not through a text box's setter: a real browser refuses that ("Illegal invocation", HP test 2 Nov 2026). */
+            matches[0].select.value = matches[0].option.value;
+            matches[0].select.dispatchEvent(new Event('input', { bubbles: true }));
+            matches[0].select.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        }
+      }
       /* **WAITED FOR, because a date picker is drawn by the click before it.**
        * Asked the instant that click returns, neither the boxes nor the
        * calendar is there yet and the step refuses saying it found none --
        * which reads as the portal having changed and is nothing of the kind. */
-      const boxes = everything(thePage()).filter(isADateBox);
+      /* **PLAIN TEXT BOXES WHEN THE STEP SAYS HOW A DAY IS TYPED (AJ12):** painted text inputs whose own label says "date". */
+      const boxes = typedAs
+        ? everything(thePage()).filter((node) => String(node.tagName || '').toLowerCase() === 'input'
+          && ['text', ''].includes(String(node.type || '').toLowerCase())
+          && /\bdate\b/i.test(String(node.getAttribute('aria-label') || ''))
+          && isPainted(node))
+        : everything(thePage()).filter(isADateBox);
       if (boxes.length === 2) {
-        putIn(boxes[0], start);
-        putIn(boxes[1], end);
+        putIn(boxes[0], typedAs ? theDayTyped(typedAs, start) : start);
+        putIn(boxes[1], typedAs ? theDayTyped(typedAs, end) : end);
         return;
       }
       /* **A CALENDAR IS ONLY TRIED WHEN THERE ARE NO BOXES AT ALL.** One box
@@ -1821,7 +1870,7 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
        * answer. **A cell naming the day wanted is a calendar, heading or no
        * heading**, which is the reference's own order: it never asks whether a
        * calendar is showing, it looks for the day. */
-      if (boxes.length === 0
+      if (!typedAs && boxes.length === 0
         && (everyCellNaming(start).length > 0 || everyMonthOnShow().length > 0
           || everyMonthTheCellsName().length > 0)) {
         await clickTheDay(start, switchedOffDaysChangeTheCursor);
@@ -1837,6 +1886,7 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
           + `${boxes.length} date boxes were found, no cell on the page said it was `
           + `${theWaysADayIsWritten(start).map((w) => `"${w}"`).join(' or ')}, and no month `
           + 'heading was showing either, so no dates were set.'
+          + (chooseFirst || typedAs ? ` ${whatTheDatePickerHad()}` : '')
         );
       }
       await rest(LOOK_AGAIN_MS);

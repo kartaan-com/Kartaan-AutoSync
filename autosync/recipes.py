@@ -241,13 +241,28 @@ HOW_AMAZON_WRITES_A_DAY = (
     "{d}/{m}/{yyyy}",         # 6/10/2026, 29/9/2026 <- statement rows with no noughts
 )
 
+# **THE ROW OF AN EXACT-DAY REQUEST (AJ12, R168) -- STRICT ON PURPOSE, AND NOT YET SEEN FOR A SINGLE DAY.** Returns rows read their "Date range covered" as `01-Nov-2026 to 02-Nov-2026` (seen 2 Nov 2026), so a one-day
+# request is taken to read the same day at both ends; an All Orders row reads its covered range with times (`01/11/26, 4:33:07 pm ...`), so a one-day request is taken to begin at midnight. A rolling "last day" row
+# never begins at midnight or has the same day at both ends, so an old row cannot be taken for the day -- which is why this is its OWN wording and not more spellings of the one above. If the live row reads otherwise
+# nothing matches and the walk says so by name (adjust after the first HP press).
+AMAZON_ONE_DAY_ROW = "amazon-one-day"
+HOW_AMAZON_WRITES_A_ONE_DAY_ROW = (
+    "{dd}-{Mon}-{yyyy} to {dd}-{Mon}-{yyyy}",  # 01-Nov-2026 to 01-Nov-2026 <- returns, one day
+)
+
 # Whose wording is whose. **Nothing works this out from a report's name** -- a
 # name is a spelling and a spelling is not a fact (D170).
 HOW_A_DAY_IS_WRITTEN = {
     MEESHO_WRITES_IT: HOW_MEESHO_WRITES_A_DAY,
     FLIPKART_WRITES_IT: HOW_FLIPKART_WRITES_A_DAY,
     AMAZON_WRITES_IT: HOW_AMAZON_WRITES_A_DAY,
+    AMAZON_ONE_DAY_ROW: HOW_AMAZON_WRITES_A_ONE_DAY_ROW,
 }
+
+
+def portal_of_wording(whose: str) -> str:
+    """The portal a wording of a day belongs to: `amazon-one-day` is Amazon's, like `amazon`."""
+    return whose.split("-")[0]
 
 
 def a_day_written(shape: str, day) -> str:
@@ -312,7 +327,7 @@ def why_the_wording_is_wrong(report_id: str) -> Optional[str]:
         if whose not in HOW_A_DAY_IS_WRITTEN:
             return (f"{report_id} asks for a day written the way {whose!r} writes one, and no "
                     "wording of a day is written down for that.")
-        if whose != belongs_to:
+        if portal_of_wording(whose) != belongs_to:
             return (f"{report_id} is a {belongs_to} report and asks for a day written the way "
                     f"{whose} writes one. A row on {belongs_to}'s own page is never written "
                     f"the way {whose} writes it.")
@@ -1604,18 +1619,20 @@ RECIPES: Dict[str, Recipe] = {
             Step(GO, address=AMAZON_RETURNS, patience=60, why="opening Seller fulfilled return reports to ask for the returns"),
             Step(WAIT_FOR, find=Find(BY_ROLE_AND_TEXT, "Request", called="the Request button"), patience=90,
                  why="waiting for the return reports page to draw its Request button"),
-            Step(CLICK, find=Find(BY_ROLE_AND_TEXT, "Request", called="the Request button"), why="asking Amazon to build the returns for the last day"),
+            # **THE DAY ASKED FOR IS TYPED, NOT "last day" (AJ12, R168):** the page's dropdown has "Exact dates", which draws From and To text boxes (typed month/day/year, measured 2 Nov 2026, read only).
+            Step(PICK_RANGE, choose_first="Exact dates", typed_as="{mm}/{dd}/{yyyy}", patience=30, why="choosing exact dates and typing the day to fetch"),
+            Step(CLICK, find=Find(BY_ROLE_AND_TEXT, "Request", called="the Request button"), why="asking Amazon to build the returns for the day"),
         ),
         to_take=(
             Step(GO, address=AMAZON_RETURNS, patience=60, why="coming back to Seller fulfilled return reports for the returns"),
             # **EACH RETURNS ROW HAS A DOWNLOAD FOR THE XML AND ONE FOR THE TSV, today's rows both and older rows only the TSV (his Chrome, 27 Oct 2026); the TSV's address ends `.tsv`, which is what is looked for.**
             Step(WAIT_FOR, find=Find(BY_THE_LINK_ENDING, ".tsv", near="{day_in_words}", also_saying="All Returns",
-                                     day_in_words_is=AMAZON_WRITES_IT, day_in_words_of=THE_DAY_IT_WAS_MADE,
-                                     called="the Download of the All Returns row requested today"),
+                                     day_in_words_is=AMAZON_ONE_DAY_ROW, day_in_words_of=THE_DAY_IT_IS_ABOUT,
+                                     called="the Download of the All Returns row covering the day"),
                  patience=90, why="waiting for the finished returns row"),
             Step(TAKE_FILE, find=Find(BY_THE_LINK_ENDING, ".tsv", near="{day_in_words}", also_saying="All Returns",
-                                      day_in_words_is=AMAZON_WRITES_IT, day_in_words_of=THE_DAY_IT_WAS_MADE,
-                                      called="the Download of the All Returns row requested today"),
+                                      day_in_words_is=AMAZON_ONE_DAY_ROW, day_in_words_of=THE_DAY_IT_IS_ABOUT,
+                                      called="the Download of the All Returns row covering the day"),
                  patience=90, why="taking the finished returns file"),
         ),
     ),

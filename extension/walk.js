@@ -964,7 +964,7 @@ export function theWalk({
   async function theRangeGoesIn(step, reportId, start, end) {
     const putIn = async (patience) => {
       await door.pick_range(start, end, patience,
-        Boolean(step.switchedOffDaysChangeTheCursor));
+        Boolean(step.switchedOffDaysChangeTheCursor), step.chooseFirst || '', step.typedAs || '');
       return true;
     };
     const press = step.pressAgain;
@@ -1091,7 +1091,7 @@ export function theWalk({
         return `${reportId} asks for a day written the way "${whose}" writes one, and no wording `
           + 'of a day is written down for that.';
       }
-      if (belongsTo && whose !== belongsTo) {
+      if (belongsTo && whose.split('-')[0] !== belongsTo) {
         return `${reportId} is a ${belongsTo} report and asks for a day written the way ${whose} `
           + `writes one. A row on ${belongsTo}'s own page is never written the way ${whose} `
           + 'writes it.';
