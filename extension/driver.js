@@ -1082,13 +1082,19 @@ function onlyThisMonthsOwnDays(panel, cells) {
 function theWayToAnotherMonth(forwards) {
   const named = forwards ? NAMED_ON : NAMED_BACK;
   const arrows = forwards ? ARROWS_ON : ARROWS_BACK;
-  return everything(thePage()).filter((node) => {
+  const found = everything(thePage()).filter((node) => {
     if (!isPainted(node) || !looksPressable(node)) return false;
     const label = String(node.getAttribute('aria-label') ?? '').toLowerCase();
     const called = String(node.className || '').toLowerCase();
     if (named.some((word) => label.includes(word) || called.includes(word))) return true;
     return arrows.includes(words(wordsOn(node)));
   });
+  /* **AN ARROW THAT SAYS "MONTH" IN ITS OWN LABEL COMES FIRST (AJ10, 2 Nov 2026).**
+   * His Meesho names its arrows "Previous month" and "Next month", while a class
+   * name or a page-wide "back" control further up the page can match the loose
+   * words too -- and the first one found is the one pressed. */
+  const sayingMonth = (node) => String(node.getAttribute('aria-label') ?? '').toLowerCase().includes('month');
+  return [...found.filter(sayingMonth), ...found.filter((node) => !sayingMonth(node))];
 }
 
 /**

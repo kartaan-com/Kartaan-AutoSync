@@ -3522,7 +3522,7 @@ for (const [start, end, from, expectedMonth] of [
   };
   const decoy = thing('button', '<');
   decoy.addEventListener('click', () => { decoyPresses += 1; });
-  const back = thing('button', '', { attrs: { 'aria-label': 'Previous month' } });
+  const back = thing('button', '', { attrs: { 'aria-label': 'Previous' } });
   back.addEventListener('click', () => { showing -= 1; draw(); });
   draw();
   page.body.append(decoy, back, holder);
@@ -3543,7 +3543,47 @@ for (const [start, end, from, expectedMonth] of [
     said.includes('could not be turned to October 2026'));
 }
 
-const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1 + 1 + 1 + 3 + 2 + 1 + 2 + 3 + 1 + 2 + 4 + 1 + 2 + 9 + 4 + 1 + 1;
+{
+  /* **HIS REAL MEESHO ORDERS CALENDAR, OPEN ON NOVEMBER (read from his Chrome, 2 Nov 2026):** no heading text at all -- the month and the year are two dropdowns of every month name and the years 2021-2026 -- day cells are buttons labelled "Sun Nov 01 2026" (the days after today switched off), the back arrow is an icon button labelled "Previous month" with no text, and "Next month" is switched off. */
+  const page = aPage();
+  const door = doorOn();
+  let showing = monthKeyOf(2026, 11);
+  const holder = thing('div');
+  const pressed = [];
+  const draw = () => {
+    holder.textContent = '';
+    const yy = Math.floor(showing / 12);
+    const mm = (showing % 12) + 1;
+    const days = new Date(yy, mm, 0).getDate();
+    for (let d = 1; d <= days; d += 1) {
+      const off = showing === monthKeyOf(2026, 11) && d > 2;
+      const cell = thing('button', String(d), { attrs: { 'aria-label': meeshoOrdersLabel(yy, mm, d) }, disabled: off });
+      cell.addEventListener('click', () => pressed.push(`${yy}-${String(mm).padStart(2, '0')}-${String(d).padStart(2, '0')}`));
+      holder.append(cell);
+    }
+  };
+  const selects = thing('div');
+  const monthSelect = thing('select', '', { className: 'appearance-none border-none bg-transparent text-2xl' });
+  for (const name of MONTHS_IN_FULL) monthSelect.append(thing('option', name));
+  const yearSelect = thing('select', '', { className: 'appearance-none border-none bg-transparent text-2xl' });
+  for (let y = 2021; y <= 2026; y += 1) yearSelect.append(thing('option', String(y)));
+  selects.append(monthSelect, yearSelect);
+  const back = thing('button', '', { attrs: { 'aria-label': 'Previous month' } });
+  back.addEventListener('click', () => { showing -= 1; draw(); });
+  const on = thing('button', '', { attrs: { 'aria-label': 'Next month' }, disabled: true });
+  draw();
+  let decoyPresses = 0;
+  const decoy = thing('button', 'Go back', { className: 'back-link' });
+  decoy.addEventListener('click', () => { decoyPresses += 1; });
+  const modal = thing('div');
+  modal.append(decoy, selects, back, on, holder);
+  page.body.append(modal);
+  const said = await saidAfterWaiting(() => door.pick_range('2026-10-31', '2026-10-31'));
+  check('and a page-wide "Go back" control sitting before the arrow is never pressed', decoyPresses === 0);
+  check('his real Meesho orders calendar opened on November: 31 Oct is reached and pressed', said === '' && pressed.includes('2026-10-31'));
+}
+
+const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1 + 1 + 1 + 3 + 2 + 1 + 2 + 3 + 1 + 2 + 4 + 1 + 2 + 9 + 4 + 1 + 1 + 2;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;
