@@ -965,7 +965,9 @@ function everyCellNaming(iso) {
     if (!isPainted(node)) return false;
     const named = words(node.getAttribute('aria-label') ?? '').toLowerCase();
     if (named && ways.includes(named)) return true;
-    return words(node.getAttribute('data-date') ?? '') === String(iso);
+    /* **FLIPKART'S TRAFFIC CALENDAR WRITES THE DAY IN `data-date-value`, as "Mon Oct 26 2026" (AJ10, 2 Nov 2026, read from his Chrome).** */
+    return words(node.getAttribute('data-date') ?? '') === String(iso)
+      || ways.includes(words(node.getAttribute('data-date-value') ?? '').toLowerCase());
   });
 }
 
@@ -1869,6 +1871,11 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
      * none pressable is still the switched-off answer below. */
     if (cells.length > 1 && switchedOffDaysChangeTheCursor) {
       const pressable = cells.filter((cell) => !cannotBePressedAtAll(cell, true));
+      cells = pressable.length > 0 ? pressable : [cells[0]];
+    }
+    /* **THE SAME DAY DRAWN TWICE, ONE OF THEM SWITCHED OFF (AJ10, 2 Nov 2026).** Two panels side by side each draw the neighbour's days greyed, so 31 Oct is the real cell in the October panel and a switched-off copy in the next panel. A switched-off cell cannot be pressed, so when exactly one of them can, that is the day; when none can, they are all the same day not yet built. */
+    if (cells.length > 1) {
+      const pressable = cells.filter((cell) => !isSwitchedOff(cell));
       cells = pressable.length > 0 ? pressable : [cells[0]];
     }
 

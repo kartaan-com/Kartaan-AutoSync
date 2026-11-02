@@ -3626,11 +3626,125 @@ for (const [start, end, from, expectedMonth] of [
     page.body.append(container);
     const said = await saidAfterWaiting(() => door.pick_range('2026-10-31', '2026-10-31'));
     check(`Flipkart ads calendar with unlabelled arrows: ${name}`,
-      swapped ? said.includes('the wrong way') : (said === '' && pressed.includes('2026-10-31') && showing === monthKeyOf(2026, 10)));
+      swapped ? (said.includes('the wrong way') && said.includes('could not be reached')) : (said === '' && pressed.includes('2026-10-31') && showing === monthKeyOf(2026, 10)));
   }
 }
 
-const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1 + 1 + 1 + 3 + 2 + 1 + 2 + 3 + 1 + 2 + 4 + 1 + 2 + 9 + 4 + 1 + 1 + 2 + 2;
+{
+  /* **FLIPKART TRAFFIC, THE CALENDAR AFTER "CUSTOM" (read from his Chrome, 2 Nov 2026, checked by hand):** two grids with a heading each ("Nov 2026", "Dec 2026"), day cells carrying the whole day in data-date-value ("Mon Oct 26 2026"), every cell switched off while it shows Nov|Dec, and one press of the "Previous DAY" button gives Sep|Oct with September and October enabled -- each panel also drawing the neighbouring month's days switched off. */
+  const page = aPage();
+  const door = doorOn();
+  const pressed = [];
+  let left = monthKeyOf(2026, 11);
+  const root = thing('div');
+  const grids = thing('div');
+  const draw = () => {
+    grids.textContent = '';
+    for (const key of [left, left + 1]) {
+      const yy = Math.floor(key / 12);
+      const mm = (key % 12) + 1;
+      const grid = thing('div');
+      grid.append(thing('label', `${MONTHS_ABBREVIATED[mm - 1]} ${yy}`));
+      const table = thing('table');
+      const days = new Date(yy, mm, 0).getDate();
+      const cellFor = (y, m, d, off) => {
+        const cell = thing('td', String(d), { attrs: { 'data-date-value': meeshoOrdersLabel(y, m, d) }, disabled: off });
+        cell.addEventListener('click', () => pressed.push(`${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`));
+        return cell;
+      };
+      const everythingOff = left === monthKeyOf(2026, 11);
+      for (let d = 1; d <= days; d += 1) table.append(cellFor(yy, mm, d, everythingOff));
+      /* the next month's first days, greyed, drawn at the foot of this panel */
+      const next = new Date(yy, mm, 1);
+      for (let d = 1; d <= 3; d += 1) table.append(cellFor(next.getFullYear(), next.getMonth() + 1, d, true));
+      grid.append(table);
+      grids.append(grid);
+    }
+  };
+  const previous = thing('div', '', { attrs: { role: 'button', 'aria-label': 'Previous DAY', 'data-value': 'nav-left' } });
+  previous.addEventListener('click', () => { left -= 2; draw(); }); /* one press turns the pair of panels back two months, as on his page */
+  draw();
+  root.append(previous, grids);
+  page.body.append(root);
+  const said = await saidAfterWaiting(() => door.pick_range('2026-10-31', '2026-10-31'));
+  check('Flipkart traffic calendar: one press of Previous DAY and the enabled 31 Oct (not its switched-off copy in the next panel) is pressed',
+    said === '' && pressed.filter((one) => one === '2026-10-31').length === 2 && left === monthKeyOf(2026, 9));
+}
+
+{
+  /* The same calendar with the month left on Nov|Dec and no way back: 1 Nov is switched off, which is "not built yet", said in words and marked, never pressed. */
+  const page = aPage();
+  const door = doorOn();
+  const pressed = [];
+  const grids = thing('div');
+  for (const mm of [11, 12]) {
+    const grid = thing('div');
+    grid.append(thing('label', `${MONTHS_ABBREVIATED[mm - 1]} 2026`));
+    const table = thing('table');
+    for (let d = 1; d <= 30; d += 1) {
+      const cell = thing('td', String(d), { attrs: { 'data-date-value': meeshoOrdersLabel(2026, mm, d) }, disabled: true });
+      cell.addEventListener('click', () => pressed.push(d));
+      table.append(cell);
+    }
+    grid.append(table);
+    grids.append(grid);
+  }
+  page.body.append(grids);
+  let caught = null;
+  try { await door.pick_range('2026-11-01', '2026-11-01'); } catch (wrong) { caught = wrong; }
+  check('a day the portal has switched off on that calendar is refused as not built yet, and nothing is pressed',
+    Boolean(caught) && caught.dayNotAvailable === true && pressed.length === 0);
+}
+
+{
+  /* **THE UNLABELLED ARROWS BESIDE A MONTH HEADING (AJ10 proving): how far up the heading is looked from, what counts as an arrow, and what does not.** The heading sits `depth` wrappers deep; the arrow is `kind`. */
+  const run = async (depth, makeArrow, wanted) => {
+    const page = aPage();
+    const door = doorOn();
+    let showing = monthKeyOf(2026, 11);
+    const container = thing('div');
+    const header = thing('div');
+    const back = makeArrow();
+    const on = makeArrow();
+    const monthText = thing('div');
+    const yearText = thing('div');
+    let inner = thing('div');
+    inner.append(thing('div', '', { className: 'Clickable' }), thing('div', '', { className: 'Clickable' }));
+    inner.children[0].append(monthText);
+    inner.children[1].append(yearText);
+    for (let level = 1; level < depth; level += 1) {
+      const wrap = thing('div');
+      wrap.append(inner);
+      inner = wrap;
+    }
+    header.append(back, inner, on);
+    const table = thing('table');
+    const draw = () => {
+      const yy = Math.floor(showing / 12);
+      const mm = (showing % 12) + 1;
+      monthText.textContent = MONTHS_IN_FULL[mm - 1];
+      yearText.textContent = String(yy);
+      table.textContent = '';
+      for (let d = 1; d <= new Date(yy, mm, 0).getDate(); d += 1) table.append(thing('td', String(d), { className: 'Day' }));
+    };
+    back.addEventListener('click', () => { showing -= 1; draw(); });
+    draw();
+    container.append(header, table);
+    page.body.append(container);
+    const said = await saidAfterWaiting(() => door.pick_range('2026-10-31', '2026-10-31'));
+    return wanted ? (said === '' && showing === monthKeyOf(2026, 10)) : (said !== '' && showing === monthKeyOf(2026, 11));
+  };
+  const withASvg = () => { const arrow = thing('div'); arrow.append(thing('svg')); return arrow; };
+  const emptyAndPointing = () => { const arrow = thing('div'); arrow.style.cursor = 'pointer'; return arrow; };
+  check('an arrow two wrappers above the heading is found by climbing', await run(3, withASvg, true));
+  check('and one four levels up is not looked for', await run(4, withASvg, false));
+  check('an empty control with a pointer cursor is an arrow', await run(1, emptyAndPointing, true));
+  check('an empty plain box is not', await run(1, () => thing('div'), false));
+  check('a control with words on it is not a wordless arrow', await run(1, () => { const arrow = withASvg(); arrow.textContent = 'Back'; return arrow; }, false));
+  check('and one that is not painted is not taken', await run(1, () => { const arrow = withASvg(); arrow.setRect(NOT_PAINTED); return arrow; }, false));
+}
+
+const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1 + 1 + 1 + 3 + 2 + 1 + 2 + 3 + 1 + 2 + 4 + 1 + 2 + 9 + 4 + 1 + 1 + 2 + 2 + 2 + 6;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;
