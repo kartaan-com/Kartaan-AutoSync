@@ -579,6 +579,14 @@ check("and the chip matches exactly, or it would also hit 'Customer Segments'",
       answered(lambda: all(s.find.exact for s in views.to_ask
                            if s.find is not None
                            and "Listings Report" not in s.find.what and s.find.what != "Showing for duration")))
+check("the page is waited on for EITHER listings button before the look, each matched loosely, and the request press still skips only on the download button (AJ11b)",
+      answered(lambda: (lambda ask, i: ask[i].do == pages.WAIT_FOR and ask[i + 1].do == pages.CLICK
+                        and ask[i].find.what == "Request Listings Report" and not ask[i].find.exact
+                        and ask[i].or_find.what == "Download Listings Report" and not ask[i].or_find.exact
+                        and ask[i + 1].find.what == "Request Listings Report" and not ask[i + 1].find.exact
+                        and ask[i + 1].only_if_absent.what == "Download Listings Report" and not ask[i + 1].only_if_absent.exact
+                        and not any(s.only_if_absent is not None for s in views.to_take))(
+          views.to_ask, [j for j, s in enumerate(views.to_ask) if s.do == pages.WAIT_FOR and s.find is not None and s.find.what == "Request Listings Report"][0])))
 check("and still asks for the listings report, which has not changed",
       answered(lambda: any("Request Listings Report" in (s.find.what if s.find else "") for s in views.to_ask)))
 # **AND ASKS FOR ALL OF IT AS SOMETHING PRESSABLE, NEVER AS A CONTROL.**
@@ -1675,7 +1683,7 @@ check("and the panel name was still filled into the addresses on the way",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 463
+EXPECTED = 464
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

@@ -3771,7 +3771,89 @@ for (const [start, end, from, expectedMonth] of [
   check('the All chip under Others is found as exactly one thing, the label, not the other All six levels up', (await door.find(BY_PRESSABLE_TEXT, 'All', true, 0, ['Others'], '')) === 1);
 }
 
-const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1 + 1 + 1 + 3 + 2 + 1 + 2 + 3 + 1 + 2 + 4 + 1 + 2 + 9 + 4 + 1 + 1 + 2 + 2 + 2 + 6 + 3 + 1;
+{
+  /* **HOW A DAY CELL SAYS WHICH DAY IT IS (mutation prover, AJ10b): `data-date` carrying the plain day, and `data-date-value` carrying "Mon Oct 26 2026", must each be enough on their own.** No month heading and no day number is shown, so the cell is found only by what it says. */
+  const run = async (attrs) => {
+    const page = aPage();
+    const door = doorOn();
+    const pressed = [];
+    for (const [d, extra] of [[30, { 'data-date': '2026-10-30', 'data-date-value': meeshoOrdersLabel(2026, 10, 30) }], [31, attrs]]) {
+      const cell = thing('div', '', { attrs: extra });
+      cell.addEventListener('click', () => pressed.push(d));
+      page.body.append(cell);
+    }
+    const said = await saidAfterWaiting(() => door.pick_range('2026-10-31', '2026-10-31'));
+    return said === '' && pressed.length === 2 && pressed.every((one) => one === 31);
+  };
+  check('a day cell naming its day only in data-date (2026-10-31) is found and pressed', await run({ 'data-date': '2026-10-31' }));
+  check('a day cell naming its day only in data-date-value (Sat Oct 31 2026) is found and pressed', await run({ 'data-date-value': meeshoOrdersLabel(2026, 10, 31) }));
+  check('and a cell whose data-date is another day is not taken for it', !(await run({ 'data-date': '2026-10-29' })));
+}
+
+{
+  /* **ONLY THE FIRST ARROW BESIDE A MONTH HEADING IS KEPT (mutation prover, AJ10b).** The arrow beside the heading does nothing; a second wordless control one level further up (the page's own "<") would turn the calendar back. Only the nearest one beside the heading is an arrow, so the calendar is not reached and that other control is never pressed. */
+  const page = aPage();
+  const door = doorOn();
+  let showing = monthKeyOf(2026, 11);
+  let decoyPresses = 0;
+  const outer = thing('div');
+  const decoy = thing('div', '', { className: 'Clickable' });
+  decoy.append(thing('svg'));
+  const header = thing('div');
+  const first = thing('div', '', { className: 'Clickable' });
+  first.append(thing('svg'));
+  const last = thing('div', '', { className: 'Clickable' });
+  last.append(thing('svg'));
+  const badge = thing('div');
+  const monthBadge = thing('div', '', { className: 'Clickable' });
+  const yearBadge = thing('div', '', { className: 'Clickable' });
+  const monthText = thing('div');
+  const yearText = thing('div');
+  monthBadge.append(monthText);
+  yearBadge.append(yearText);
+  badge.append(monthBadge, yearBadge);
+  header.append(first, badge, last);
+  const table = thing('table');
+  const draw = () => {
+    const yy = Math.floor(showing / 12);
+    const mm = (showing % 12) + 1;
+    monthText.textContent = MONTHS_IN_FULL[mm - 1];
+    yearText.textContent = String(yy);
+    table.textContent = '';
+    for (let d = 1; d <= new Date(yy, mm, 0).getDate(); d += 1) table.append(thing('td', String(d), { className: 'Day' }));
+  };
+  decoy.addEventListener('click', () => { decoyPresses += 1; showing -= 1; draw(); });
+  draw();
+  outer.append(decoy, header);
+  page.body.append(outer, table);
+  const said = await saidAfterWaiting(() => door.pick_range('2026-10-31', '2026-10-31'));
+  check('only the nearest arrow beside the month heading is used: a farther wordless control is not pressed and the month is not reached', said !== '' && decoyPresses === 0 && showing === monthKeyOf(2026, 11));
+}
+
+{
+  /* **THE SAME DAY DRAWN TWICE, ONE SWITCHED OFF (mutation prover, AJ10b).** The enabled copy is the day, wherever it sits; with both switched off the day is "not built yet", never "ambiguous". */
+  const run = async (offFlags) => {
+    const page = aPage();
+    const door = doorOn();
+    const pressed = [];
+    offFlags.forEach((off, index) => {
+      const cell = thing('td', '', { attrs: { 'data-date-value': meeshoOrdersLabel(2026, 10, 31) }, disabled: off });
+      cell.addEventListener('click', () => pressed.push(index));
+      page.body.append(cell);
+    });
+    let caught = null;
+    try { await door.pick_range('2026-10-31', '2026-10-31'); } catch (wrong) { caught = wrong; }
+    return { caught, pressed };
+  };
+  for (const flags of [[true, false], [false, true]]) {
+    const got = await run(flags);
+    check(`the same day drawn twice, switched off ${flags[0] ? 'first' : 'second'}: only the enabled copy is pressed`, got.caught === null && got.pressed.length === 2 && got.pressed.every((one) => flags[one] === false));
+  }
+  const both = await run([true, true]);
+  check('the same day drawn twice, both switched off: refused as not built yet and nothing pressed', Boolean(both.caught) && both.caught.dayNotAvailable === true && both.pressed.length === 0);
+}
+
+const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1 + 1 + 1 + 3 + 2 + 1 + 2 + 3 + 1 + 2 + 4 + 1 + 2 + 9 + 4 + 1 + 1 + 2 + 2 + 2 + 6 + 3 + 1 + 7;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

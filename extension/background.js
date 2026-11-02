@@ -1039,7 +1039,7 @@ async function carryOut(chrome, parts, asked, tabId, pageAddress = '') {
       const body = new Uint8Array(asked.bytes || []);
       const put = await landTheFile({ reportId: asked.reportId, fileName: asked.fileName, body });
       await afterALanding(chrome, {
-        reportId: asked.reportId, fileName: asked.fileName, alreadyThere: put && put.alreadyThere,
+        reportId: asked.reportId, fileName: asked.fileName, bytes: body, alreadyThere: put && put.alreadyThere,
       });
       /* **THE SIZE THAT REALLY LANDED, NOT THE SIZE THAT WAS SENT (F15, Job 8,
        * A65, 2026-09-23).** `landTheFile` unzips a zip holding one spreadsheet

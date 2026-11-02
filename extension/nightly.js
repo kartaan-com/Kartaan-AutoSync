@@ -1476,8 +1476,7 @@ function theRangeFromFor(night, reportId, day) {
  *  after it are walked as the single days they are. */
 async function theRangeForThisWalk(chrome, night, reportId, day) {
   const range = theRangeFromFor(night, reportId, day);
-  if (range.fromDay) return { fromDay: range.fromDay, namedAsARange: true };
-  return { fromDay: '' };
+  return range.fromDay ? { fromDay: range.fromDay, namedAsARange: true } : { fromDay: '' };
 }
 
 /** Start the next report the night owes, skipping any it may not ask for. */

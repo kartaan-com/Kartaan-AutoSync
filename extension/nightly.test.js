@@ -1869,6 +1869,37 @@ async function seedLandedRangeForTest(c, reportId, from, to) {
 }
 
 {
+  /* **AJ11b: WHAT IS ALREADY KNOWN, THE REACH'S EDGE AND TONIGHT'S NEW DAYS ONLY.** */
+  const browser = installFakeChrome();
+  const c = browser.chrome;
+  await seedLandedRangeForTest(c, 'me_orders', '2026-09-01', '2026-09-01');
+  await seedLandedRangeForTest(c, 'me_orders', '2026-09-07', '2026-09-19');
+  await c.storage.local.set({ [NEEDS_YOU]: [
+    { reportId: 'me_orders', dataDate: '2026-09-02', state: 'needs-you', say: 'x' },
+    { reportId: 'me_payments', dataDate: '2026-09-03', state: 'needs-you', say: 'x' },
+    { reportId: 'me_orders', dataDate: '2026-08-20', beyondReach: true, since: '2026-09-18', say: 'older entry' },
+  ] });
+  await c.storage.local.set({ [NOT_BUILT_YET]: { a: { reportId: 'me_orders', dataDate: '2026-09-04' }, b: { reportId: 'me_payments', dataDate: '2026-09-05' } } });
+  const told = await handBeyondReachDaysToHim(c, 'me_orders', '2026-09-20', ON('2026-09-20'));
+  check('a day already known for THIS report is not written again, a day known only for another report still is',
+    told.join() === '2026-09-03,2026-09-05');
+  check('and the reach edge is exact: the day 14 days back is left to the catch-up, the day before it is told',
+    !told.includes('2026-09-06') && told.includes('2026-09-05')
+    && (await whatNeedsYou(c)).some((one) => one.dataDate === '2026-09-05' && one.reportId === 'me_orders'));
+  const walk = aWalkThat();
+  await startTheNight(c, { doing: ['me_orders'], at: ON('2026-09-20'), openAt: 'https://x/', dataDate: '2026-09-20', canGoBack: ['me_orders'] });
+  await carryTheNightOn(c, { ...walk, at: ON('2026-09-20') });
+  for (let again = 0; again < 6 && !(await theNight(c)).why; again += 1) {
+    walk.itFinished({ state: 'landed', reportId: 'me_orders', size: 10, dataDate: walk.started[walk.started.length - 1].dataDate });
+    // eslint-disable-next-line no-await-in-loop
+    await carryTheNightOn(c, { ...walk, at: ON('2026-09-20') });
+  }
+  const why = (await theNight(c)).why || '';
+  check('the end line names only the old days written that night, never an older standing entry',
+    why.includes('me_orders (2026-09-03)') && !why.includes('2026-08-20'));
+}
+
+{
   /* **AJ11b: THE DAYS INSIDE AN OLD TRAFFIC SPAN ARE NOT TOLD TO HIM.** Spans were named by their end day only, so their inner days were never recorded as landed though the data is in Drive. Only days after the span era count. */
   const browser = installFakeChrome();
   const c = browser.chrome;
@@ -2308,7 +2339,7 @@ check('report table: null night gives null', theReportTable(null, () => '') === 
     && told[0].endedAt === ended.finishedAt);
 }
 
-const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3 + 1 + 4;
+const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3 + 1 + 4 + 3;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;
