@@ -197,9 +197,9 @@ SHAPES = {
     # Everything measured on the 11th was measured on the wrong tab of the same
     # page. Rewritten with the change rather than deleted for going red.
     "fk_views": ((pages.GO, pages.WAIT_FOR, pages.CLICK, pages.WAIT_FOR, pages.CLICK,
-                  pages.PICK_RANGE, pages.CLICK, pages.CLICK),
+                  pages.PICK_RANGE, pages.CLICK, pages.WAIT_FOR, pages.CLICK),
                  (pages.GO, pages.WAIT_FOR, pages.CLICK, pages.WAIT_FOR, pages.CLICK,
-                  pages.PICK_RANGE, pages.CLICK, pages.WAIT_FOR, pages.TAKE_FILE)),
+                  pages.PICK_RANGE, pages.CLICK, pages.WAIT_FOR, pages.WAIT_FOR, pages.TAKE_FILE)),
     # **`fk_claims` LOST A STEP ON 2026-09-11: it was pressing the page's own
     # `h1`.** `SPF Claims` has no role, no control tag and `cursor: auto` --
     # measured -- so waiting for it as a control and then pressing it could never
@@ -483,10 +483,10 @@ loose = {s.find.what for r in tool.RECIPES.values()
 # containing the id (`content/flipkart.js` `_handleFkAdsOverall`). **MEASURED ON
 # HIS PAGE 2026-09-15:** the lookup found the `div.subTitle` reading `ID <id>`, the
 # one leaf holding it; several matches are still refused, never guessed between.
-check("only these seven things are matched loosely, and no others",
+check("only these eight things are matched loosely, and no others",
       answered(lambda: loose == {"successfully", "Generated", "files ready",
                                  "Request Listings Report", "Download Listings Report",
-                                 "Download", "{campaign}"}))
+                                 "Download", "{campaign}", "Showing for duration"}))
 # **TWO OF THEM ARE WORDS THE PLATFORM SAYS**, written in its own case to report
 # what has happened -- never the name of a thing to press. `Download` used to be
 # a third and is gone: read loosely on his own inventory page it found TWO -- the
@@ -557,10 +557,19 @@ check("it looks for the dropdown Flipkart actually has now",
 # match for "custom" also hits the `Customer Segments` tab sitting beside it.
 # **The two listings-report buttons are the named exceptions**, each with the
 # icon-word measured on the end of it.
+# **THE DAY CHOSEN IS READ BACK BEFORE ANYTHING IS REQUESTED OR TAKEN (AJ10, 2 Nov 2026, W7).** After `Done` the page says `Showing for duration: 31 Oct 2026`; Flipkart is known to clamp a range to the latest day it has, and a file of the wrong day is worse than none.
+check("the traffic report reads the day chosen back off the page right after Done, in both phases, in Flipkart's own wording of the day it is about",
+      answered(lambda: all(
+          phase[[i for i, s in enumerate(phase) if s.find is not None and s.find.what == "Done"][0] + 1].do == pages.WAIT_FOR
+          and phase[[i for i, s in enumerate(phase) if s.find is not None and s.find.what == "Done"][0] + 1].find.what == "Showing for duration"
+          and phase[[i for i, s in enumerate(phase) if s.find is not None and s.find.what == "Done"][0] + 1].find.near == "Showing for duration: {day_in_words}"
+          and phase[[i for i, s in enumerate(phase) if s.find is not None and s.find.what == "Done"][0] + 1].find.day_in_words_is == "flipkart"
+          and phase[[i for i, s in enumerate(phase) if s.find is not None and s.find.what == "Done"][0] + 1].find.day_in_words_of == pages.THE_DAY_IT_IS_ABOUT
+          for phase in (views.to_ask, views.to_take))))
 check("and the chip matches exactly, or it would also hit 'Customer Segments'",
       answered(lambda: all(s.find.exact for s in views.to_ask
                            if s.find is not None
-                           and "Listings Report" not in s.find.what)))
+                           and "Listings Report" not in s.find.what and s.find.what != "Showing for duration")))
 check("and still asks for the listings report, which has not changed",
       answered(lambda: any("Request Listings Report" in (s.find.what if s.find else "") for s in views.to_ask)))
 # **AND ASKS FOR ALL OF IT AS SOMETHING PRESSABLE, NEVER AS A CONTROL.**
@@ -581,7 +590,7 @@ check("and still asks for the listings report, which has not changed",
 check("every lookup on the traffic report asks for something PRESSABLE, except the tab",
       answered(lambda: all(s.find.how == pages.BY_PRESSABLE_TEXT
                            for s in (views.to_ask + views.to_take)
-                           if s.find is not None and s.find.what != "Traffic Report")))
+                           if s.find is not None and s.find.what not in ("Traffic Report", "Showing for duration"))))
 check("and the tab is asked for as the control it really is",
       answered(lambda: all(s.find.how == pages.BY_ROLE_AND_TEXT
                            for s in (views.to_ask + views.to_take)
@@ -1150,9 +1159,9 @@ def names_a_row_in_words():
 # **SEVEN SINCE 2026-09-11: `fk_listings` joined them.** Its Downloads History
 # holds four `Listing` rows from four different days, so the word alone finds
 # four and refuses -- the row has to be named by the day the file was MADE.
-check("exactly the thirteen reports that name a row by the day in words do so (Amazon's listings and fee reports joined, lane 1 job 8; returns, N018)",
+check("exactly the fourteen reports that name a row by the day in words do so (Amazon's listings and fee reports joined, lane 1 job 8; returns, N018)",
       answered(lambda: sorted(set(names_a_row_in_words()))
-               == ["az_ads", "az_claims", "az_fee_preview", "az_listings", "az_orders", "az_returns", "fk_listings", "fk_orders", "fk_payments", "fk_returns",
+               == ["az_ads", "az_claims", "az_fee_preview", "az_listings", "az_orders", "az_returns", "fk_listings", "fk_orders", "fk_payments", "fk_returns", "fk_views",
                    "me_claims", "me_returns", "me_views"]))
 # **AND THE SIXTH NAMES NO ROW AT ALL -- IT NAMES A CARD.** On his dashboard the
 # words `Orders` match twice, the sidebar item and the card, and the card carries
@@ -1167,7 +1176,7 @@ check("and the sixth is the views card, which carries its own day",
 # **SIX SINCE 2026-09-14**: returns left the Reports Centre and names its row on
 # the taking alone, like listings.
 check("the Reports Centre two name it on BOTH the wait and the taking, listings and returns on their taking",
-      answered(lambda: len([r for r in names_a_row_in_words() if r.startswith("fk_")]) == 6))
+      answered(lambda: len([r for r in names_a_row_in_words() if r.startswith("fk_")]) == 8))  # the traffic report names the day after Done in both phases (AJ10)
 check("every one of them says whose wording it means",
       answered(lambda: all(s.find.day_in_words_is
                            for r in tool.every_recipe()
@@ -1644,7 +1653,7 @@ check("and the panel name was still filled into the addresses on the way",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 459
+EXPECTED = 460
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

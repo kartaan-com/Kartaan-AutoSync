@@ -2926,6 +2926,15 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
   } } });
   const goTo = step({ do: 'go', address: 'https://seller.example.invalid/asked', why: 'opening the page' });
   const press = (what) => step({ do: 'click', find: find(what, { how: 'text', called: what }), why: `pressing ${what}` });
+  /* **A WAIT THAT NAMES A DAY IS NOT RESCUED BY A BANNER (AJ10, W7):** an old banner with the same words carries no day, and would pass the check for any day. */
+  const namesADay = step({ do: 'wait-for', find: find('Showing for duration', { how: 'text', exact: false, near: 'Showing for duration: 31 Oct 2026' }), patience: 5, why: 'checking the day shown' });
+  const saidBefore = [{ at: 1, words: 'Showing for duration: 30 Oct 2026' }];
+  check('a loose wait that names a day is not counted as done by a banner saying the same words',
+    (await aWalk(aPortal({ notOnThePage: ['Showing for duration'], banners: saidBefore }),
+      recipeOf('names_a_day', [goTo, namesADay]))('names_a_day', DAY)).state === FAILED);
+  check('while the same wait with no day named still is',
+    (await aWalk(aPortal({ notOnThePage: ['Showing for duration'], banners: saidBefore }),
+      recipeOf('names_no_day', [goTo, { ...namesADay, find: { ...namesADay.find, near: '' } }]))('names_no_day', DAY)).state === STILL_WAITING);
   /* **NEVER RIGHT AFTER OUR OWN CLICK (his sixth live run, 28 Oct 2026):** closing before every step shut the box the previous click had just opened, and Meesho's catalog, orders and payments failed. */
   const opens = aPortal({ closes: ['the box we just opened'] });
   const opened = await aWalk(opens, recipeOf('opens_then_presses', [goTo, press('Open the box'), press('Download'), press('Custom Date Range')]))('opens_then_presses', DAY);
@@ -3296,7 +3305,7 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
   check('a press narrowed to a row that sees several is still refused', narrowedClick.state === FAILED);
 }
 
-const EXPECTED = 349 + 31 + 9 + 3 + 1 + 1 + 3 + 8 + 2 + 4 + 2 + 2 + 1 + 14 + 1 + 1 + 1 + 2 + 4 + 3 + 1;
+const EXPECTED = 349 + 31 + 9 + 3 + 1 + 1 + 3 + 8 + 2 + 4 + 2 + 2 + 1 + 14 + 1 + 1 + 1 + 2 + 4 + 3 + 1 + 2;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

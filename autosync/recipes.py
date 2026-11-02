@@ -881,6 +881,15 @@ def _ads_overall() -> Recipe:
     )
 
 
+# **A FILE OF THE WRONG DAY IS WORSE THAN NO FILE (AJ10, 2 Nov 2026).** After `Done` the Traffic report says in words which day it will build: `Showing for duration: 31 Oct 2026` (read off his own Chrome; a range reads `01 - 31 Oct 2026`, and the address carries `startDate` and `endDate`). Flipkart is known to clamp a range to the latest day it has (the note in `fk_views`), so nothing is requested or taken unless the label names the day owed; otherwise the walk stops in plain words.
+_THE_DAY_CHOSEN_IS_SHOWN = Step(
+    WAIT_FOR,
+    find=Find(BY_TEXT, "Showing for duration", exact=False, near="Showing for duration: {day_in_words}",
+              day_in_words_is=FLIPKART_WRITES_IT, day_in_words_of=THE_DAY_IT_IS_ABOUT,
+              called="the line saying which day the report is for"),
+    patience=30, why="checking the page says it is showing the day asked for, before anything is requested")
+
+
 RECIPES: Dict[str, Recipe] = {
     # ---- Meesho
     "me_orders": Recipe(
@@ -1704,6 +1713,7 @@ RECIPES: Dict[str, Recipe] = {
             # is `if (doneBtn)`. A correction is owed to it (Rule 36.4).
             Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Done", called="the accept button"),
                  patience=30, why="accepting the range, which is what draws the request button"),
+            _THE_DAY_CHOSEN_IS_SHOWN,
             # **MATCHED LOOSELY, AND THAT IS MEASURED RATHER THAN CAUTIOUS.** The
             # button is a real `<button>` with a pointer cursor, and **its words
             # read `Request Listings Reportdownload`** -- the trailing word comes
@@ -1740,6 +1750,7 @@ RECIPES: Dict[str, Recipe] = {
                  why="choosing the same range the report was built for"),
             Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Done", called="the accept button"),
                  patience=30, why="accepting the range, which is what draws the download button"),
+            _THE_DAY_CHOSEN_IS_SHOWN,
             # **LOOSELY, for the same measured reason as the request button: the
             # icon inside it puts `download` on the end of its words.** And the
             # two never sit on the page together -- the same button changes from

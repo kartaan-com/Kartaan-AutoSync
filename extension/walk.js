@@ -1009,7 +1009,8 @@ export function theWalk({
    *  (for a loose wait only -- an exact wait is waiting for a thing, not a
    *  message), then the durable place the platform lists what was asked for. */
   async function whatElseCounts(step, reportId) {
-    if (step.find && step.find.exact === false && typeof door.banners_seen === 'function') {
+    /* **NOT FOR A WAIT THAT NAMES A DAY (AJ10, 2 Nov 2026).** A banner's words carry no day check, so an old banner holding the same words would pass the wait for ANY day -- which is the wrong-day file `near` exists to stop. */
+    if (step.find && step.find.exact === false && !(step.find.near && step.find.near.length) && typeof door.banners_seen === 'function') {
       try {
         const heard = (await door.banners_seen()) || [];
         const wanted = String(step.find.what || '').toLowerCase();

@@ -3744,7 +3744,18 @@ for (const [start, end, from, expectedMonth] of [
   check('and one that is not painted is not taken', await run(1, () => { const arrow = withASvg(); arrow.setRect(NOT_PAINTED); return arrow; }, false));
 }
 
-const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1 + 1 + 1 + 3 + 2 + 1 + 2 + 3 + 1 + 2 + 4 + 1 + 2 + 9 + 4 + 1 + 1 + 2 + 2 + 2 + 6;
+{
+  /* **THE LINE THE TRAFFIC REPORT SAYS THE DAY IN (read from his Chrome, 2 Nov 2026): "Showing for duration: 31 Oct 2026".** Looked for with the day written into the words around it, so a different day never counts -- not even 1 Oct against 31 Oct. */
+  const page = aPage();
+  const door = doorOn();
+  page.body.append(thing('p', 'Showing for duration: 31 Oct 2026'));
+  const seen = (day) => door.find(BY_TEXT, 'Showing for duration', false, 0, `Showing for duration: ${day}`, '');
+  check('the line naming the day chosen is found when it says the day owed', (await seen('31 Oct 2026')) === 1);
+  check('and not when it says another day', (await seen('30 Oct 2026')) === 0);
+  check('and 1 Oct is not found inside 31 Oct', (await seen('1 Oct 2026')) === 0);
+}
+
+const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1 + 1 + 1 + 3 + 2 + 1 + 2 + 3 + 1 + 2 + 4 + 1 + 2 + 9 + 4 + 1 + 1 + 2 + 2 + 2 + 6 + 3;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;
