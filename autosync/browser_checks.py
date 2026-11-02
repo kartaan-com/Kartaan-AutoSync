@@ -179,6 +179,23 @@ check("and no other step may say it",
       answered(lambda: tool.why_step_is_refused(
           tool.Step(tool.CLICK, find=tool.Find(tool.BY_TEXT, "x"),
                     switched_off_days_change_the_cursor=True, why="y")) is not None))
+# **AND WHICH DROPDOWN OPTION DRAWS THE DATE BOXES, AND HOW A DAY IS TYPED INTO THEM, ARE THE SAME KIND OF THING** (AJ12): one portal's habit, said on the one step that stands in front of its date picker.
+check("a range step may say which dropdown option draws its date boxes",
+      answered(lambda: tool.why_step_is_refused(
+          tool.Step(tool.PICK_RANGE, choose_first="Exact dates", why="y")) is None))
+check("and no other step may say it",
+      answered(lambda: tool.why_step_is_refused(
+          tool.Step(tool.CLICK, find=tool.Find(tool.BY_TEXT, "x"), choose_first="Exact dates", why="y")) is not None))
+check("nor how a day is typed",
+      answered(lambda: tool.why_step_is_refused(
+          tool.Step(tool.CLICK, find=tool.Find(tool.BY_TEXT, "x"), typed_as="{mm}/{dd}/{yyyy}", why="y")) is not None))
+check("a range step may say how a day is typed when it names the year, month and day",
+      answered(lambda: tool.why_step_is_refused(
+          tool.Step(tool.PICK_RANGE, typed_as="{mm}/{dd}/{yyyy}", why="y")) is None))
+check("and a way of typing a day that leaves out any one of them is refused",
+      answered(lambda: all(tool.why_step_is_refused(
+          tool.Step(tool.PICK_RANGE, typed_as=how, why="y")) is not None
+          for how in ("{mm}/{dd}", "{yyyy}/{dd}", "{yyyy}/{mm}", "no pieces"))))
 # ------------------------- a step that only waits, and a menu reopened
 
 # **WAITING FOR SOMETHING AND JUST WAITING ARE NOT THE SAME STEP.** Meesho builds
@@ -629,7 +646,7 @@ check("nor a failure once it has happened",
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 126 + 1
+EXPECTED = 126 + 1 + 5
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

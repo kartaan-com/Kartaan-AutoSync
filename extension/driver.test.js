@@ -3872,6 +3872,12 @@ for (const [start, end, from, expectedMonth] of [
   check('the exact dates dropdown is chosen', select.value === 'exactDates');
   check('the two text date boxes take month/day/year', from.value === '08/25/2026' && to.value === '08/26/2026');
   check('the page hears the dropdown change from around it', heard.includes('select'));
+  const kinds = [];
+  selectHome.addEventListener('input', (e) => kinds.push(e.type));
+  selectHome.addEventListener('change', (e) => kinds.push(e.type));
+  select.value = 'last7';
+  await door.pick_range('2026-08-25', '2026-08-26', 0, false, 'Exact dates', '{mm}/{dd}/{yyyy}');
+  check('and it hears an input and a change, in that order, as a real choice would give', kinds.join(',') === 'input,change');
 }
 
 {
@@ -3917,6 +3923,33 @@ for (const [start, end, from, expectedMonth] of [
   const refused = await saidAfterWaiting(() => door.pick_range('2026-08-25', '2026-08-26', 0, false, 'Exact dates'));
   check('no dropdown with the option falls back to the usual refusal', refused.includes('0 date boxes were found') && refused.includes('no dates were set'));
   check('and the refusal says what the page had: its dropdown and that dropdown\'s options', refused.includes('1 painted dropdowns') && refused.includes('Last 7 days'));
+}
+
+{
+  /* The refusal names each painted text box (label, kind, the first 12 letters of what it holds) and not the other things on the page. */
+  const page = aPage();
+  const door = doorOn();
+  const select = thing('select', '', { box: BIG });
+  select.append(thing('option', 'Last 7 days', { value: 'last7' }));
+  page.body.append(select,
+    thing('input', '', { type: 'text', value: 'abcdefghijklmnopqrstuv', attrs: { 'aria-label': 'Search' }, box: BIG }),
+    thing('button', 'Go', { box: BIG }));
+
+  const refused = await saidAfterWaiting(() => door.pick_range('2026-08-25', '2026-08-26', 0, false, 'Exact dates', '{mm}/{dd}/{yyyy}'));
+  check('the refusal counts only the painted text boxes, not a button', refused.includes('and 1 painted boxes'));
+  check('and shows each one with its label, its kind and the first twelve letters it holds', refused.includes('input "Search" type=text value="abcdefghijkl"'));
+}
+
+{
+  /* Only plain text boxes labelled as dates are date boxes: a number box with a date label beside two real ones is not a third. */
+  const page = aPage();
+  const door = doorOn();
+  const from = thing('input', '', { type: 'text', attrs: { 'aria-label': 'Start date' }, box: BIG });
+  const to = thing('input', '', { type: 'text', attrs: { 'aria-label': 'End date' }, box: BIG });
+  page.body.append(from, to, thing('input', '', { type: 'number', attrs: { 'aria-label': 'Date offset' }, box: BIG }));
+
+  await door.pick_range('2026-08-25', '2026-08-26', 0, false, '', '{mm}/{dd}/{yyyy}');
+  check('a box that is not plain text is not counted as a date box', from.value === '08/25/2026' && to.value === '08/26/2026');
 }
 
 {
@@ -3991,7 +4024,7 @@ for (const [start, end, from, expectedMonth] of [
   check('without the new arguments the date boxes still take YYYY-MM-DD as before', from.value === '2026-08-25' && to.value === '2026-08-26');
 }
 
-const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1 + 1 + 1 + 3 + 2 + 1 + 2 + 3 + 1 + 2 + 4 + 1 + 2 + 9 + 4 + 1 + 1 + 2 + 2 + 2 + 6 + 3 + 1 + 7 + 13;
+const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1 + 1 + 1 + 3 + 2 + 1 + 2 + 3 + 1 + 2 + 4 + 1 + 2 + 9 + 4 + 1 + 1 + 2 + 2 + 2 + 6 + 3 + 1 + 7 + 13 + 1 + 2 + 1;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

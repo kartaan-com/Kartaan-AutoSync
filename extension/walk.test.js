@@ -379,6 +379,18 @@ const BOOK = {
         step({ do: 'take-file', find: find('Download'), patience: 90, why: 'taking the file' }),
       ],
     },
+    fk_exact: {
+      readyInMinutes: 0,
+      toAsk: [
+        step({ do: 'go', address: 'https://seller.example.invalid/report-centre', why: 'opening the reports centre' }),
+        step({ do: 'pick-range', rangeDays: 1, chooseFirst: 'Exact dates', typedAs: '{mm}/{dd}/{yyyy}', why: 'one exact day' }),
+        step({ do: 'click', find: find('Submit'), why: 'submitting the request' }),
+      ],
+      toTake: [
+        step({ do: 'go', address: 'https://seller.example.invalid/report-centre', why: 'coming back' }),
+        step({ do: 'take-file', find: find('Download'), patience: 90, why: 'taking the file' }),
+      ],
+    },
     snapshot_no_ask: {
       readyInMinutes: 0,
       toTake: [
@@ -455,6 +467,7 @@ const BOOK = {
     snapshot_no_ask: { platform: 'meesho', extension: 'csv' },
     no_find_file: { platform: 'meesho', extension: 'csv' },
     fk_orders: { platform: 'flipkart', extension: 'xlsx' },
+    fk_exact: { platform: 'flipkart', extension: 'xlsx' },
     fk_ads_overall: { platform: 'flipkart', extension: 'csv' },
     fk_ads_daily: { platform: 'flipkart', extension: 'csv' },
     fk_keywords: { platform: 'flipkart', extension: 'csv' },
@@ -480,7 +493,7 @@ const aMoment = (ms = 0) => new Promise((done) => { setTimeout(done, ms); });
 
 function aPortal(how = {}) {
   const it = {
-    went: [], clicked: [], ranges: [], cursorToldFor: [], stepsSeen: 0, patienceTold: [],
+    went: [], clicked: [], ranges: [], cursorToldFor: [], exactTold: [], stepsSeen: 0, patienceTold: [],
     nearAsked: [], rowsAsked: [], tookFile: 0, numbersRead: [], rowsAdded: [], sweeps: [],
     handedOver: [], turns: 0, waited: [], clickedAway: 0,
     /* **THE MENU, AS MEESHO REALLY BEHAVES.** Its list of finished exports is
@@ -775,8 +788,9 @@ function aPortal(how = {}) {
      * and the door has to be told. A stand-in that dropped it would let a recipe
      * say so while the door never heard it, which is the exact shape of "the
      * comment said it and the code did not". */
-    async pick_range(from, to, patience, alsoByTheCursor) {
+    async pick_range(from, to, patience, alsoByTheCursor, chooseFirst, typedAs) {
       it.ranges.push([from, to]);
+      it.exactTold.push([chooseFirst, typedAs]);
       it.cursorToldFor.push(alsoByTheCursor);
       it.patienceTold.push(['pick_range', patience]);
       /* **A DAY THE PORTAL HAS NOT BUILT, REFUSED THE WAY THE REAL DOOR REFUSES
@@ -1714,6 +1728,13 @@ const odd = aPortal({ rows: ['Oct 13 to Oct 20 Download Flat File V2', ROW_20], 
   await aWalk(meesho)('me_orders', DAY);
   check('and a calendar that says nothing about it is told so plainly',
     JSON.stringify(meesho.cursorToldFor) === JSON.stringify([false]));
+  /* **THE DROPDOWN OPTION AND THE WAY A DAY IS TYPED REACH THE DOOR TOO** (AJ12): said in the recipe and dropped on the way, a day would be picked the old way and nothing would look wrong. */
+  const exact = aPortal();
+  await aWalk(exact)('fk_exact', DAY);
+  check('a recipe that names the dropdown option and how a day is typed has both passed on to the door',
+    JSON.stringify(exact.exactTold) === JSON.stringify([['Exact dates', '{mm}/{dd}/{yyyy}']]));
+  check('and a recipe that says neither tells the door plain empty words, not nothing',
+    JSON.stringify(meesho.exactTold) === JSON.stringify([['', '']]));
 }
 
 {
@@ -3305,7 +3326,7 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
   check('a press narrowed to a row that sees several is still refused', narrowedClick.state === FAILED);
 }
 
-const EXPECTED = 349 + 31 + 9 + 3 + 1 + 1 + 3 + 8 + 2 + 4 + 2 + 2 + 1 + 14 + 1 + 1 + 1 + 2 + 4 + 3 + 1 + 2;
+const EXPECTED = 349 + 31 + 9 + 3 + 1 + 1 + 3 + 8 + 2 + 4 + 2 + 2 + 1 + 14 + 1 + 1 + 1 + 2 + 4 + 3 + 1 + 2 + 2;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

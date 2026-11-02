@@ -126,6 +126,10 @@ const nameOf = (id) => BOOK.reports.find((x) => x.id === id).name;
     && said.result.reports.every((x) => x.id && x.name && x.platform && x.can_be_fetched === true));
   check('status says plainly how many of Flipkart\'s twenty are left, and whether the computer is in use', said.result.flipkart_requests_left_today === 20 && said.result.computer_in_use_now === true);
   check('status names the build that is running', typeof said.result.build.running === 'string' && said.result.build.running.length > 0);
+  check('status names the extension version the browser gives', said.result.build.version === '9.9.9-stand-in');
+  r.chrome.runtime.getManifest = () => ({ version: '9.8.7' });
+  const saidWithVersion = await call(r, 'autosync_status', {});
+  check('and a version the browser gives is the one status shows', saidWithVersion.result.build.version === '9.8.7');
   check('status has no ask yet', said.result.latest_ask === null && said.result.waiting_asks === 0);
   check('status is plain JSON (a Server could serve it unchanged)', JSON.stringify(JSON.parse(JSON.stringify(said))) === JSON.stringify(said));
 }
