@@ -47,10 +47,9 @@ import {
   theRecheckSync,
   whatIsBeingRechecked,
   whatIsPaused,
-  rememberLastCaptured,
-  theDayAfterTheLastCaptured,
   rememberLastLanded,
   daysNobodyTried,
+  handBeyondReachDaysToHim,
   CATCH_UP_REACH_DAYS,
   clearNamedNeedsYouEntries,
   theRangeOfTheDays,
@@ -1419,21 +1418,14 @@ check('and three days of trying is the reference\'s own number', GIVE_UP_AFTER_D
 }
 
 {
-  /* **A53: FLIPKART TRAFFIC IS ASKED FROM THE DAY AFTER THE LAST ONE CAPTURED --
-   * RUMEE'S WAY.** */
+  /* **FLIPKART TRAFFIC IS ASKED FOR ITS OWN DAY ALONE (AJ11): a span failed twice on the HP.** */
   const browser = installFakeChrome();
   const walk = aWalkThat();
-  await rememberLastCaptured(browser.chrome, 'fk_views', '2026-09-10');
-  check('the last day captured never moves backwards',
-    (await rememberLastCaptured(browser.chrome, 'fk_views', '2026-09-08')) === '2026-09-10');
   await startTheNight(browser.chrome, {
     doing: ['fk_views'], at: 1, openAt: 'https://x/', dataDate: '2026-09-14',
   });
   await carryTheNightOn(browser.chrome, { ...walk, at: 2 });
-  check('Flipkart traffic is asked from the day after the last one captured',
-    walk.started[0].fromDay === '2026-09-11');
-  check('while any other report is asked for its own day alone',
-    (await theDayAfterTheLastCaptured(browser.chrome, 'fk_ads_daily', '2026-09-14')) === '');
+  check('Flipkart traffic is asked for its own day alone, never as a span', !walk.started[0].fromDay);
 }
 
 {
@@ -1846,6 +1838,50 @@ async function seedLandedRangeForTest(c, reportId, from, to) {
   const gap = await daysNobodyTried(c, 'me_orders', '2026-09-20');
   check('the catch-up reaches back no further than the limit',
     gap.length === CATCH_UP_REACH_DAYS && gap[0] === '2026-09-06');
+}
+
+{
+  /* **R169: A DAY OLDER THAN THE REACH IS TOLD TO HIM, NOT LEFT TO VANISH.** First landed 09-01, nothing for 09-02..09-05, landed 09-06..09-19; the sync of 09-20 reaches back 14 days, so 09-02..09-05 are past it. */
+  const browser = installFakeChrome();
+  const c = browser.chrome;
+  const walk = aWalkThat();
+  await seedLandedRangeForTest(c, 'me_orders', '2026-09-01', '2026-09-01');
+  await seedLandedRangeForTest(c, 'me_orders', '2026-09-06', '2026-09-19');
+  await startTheNight(c, {
+    doing: ['me_orders'], at: ON('2026-09-20'), openAt: 'https://x/', dataDate: '2026-09-20',
+    canGoBack: ['me_orders'],
+  });
+  await carryTheNightOn(c, { ...walk, at: ON('2026-09-20') });
+  const told = (await whatNeedsYou(c)).filter((one) => one.beyondReach);
+  check('days past the reach are written as needing him, in plain words, oldest first',
+    told.map((one) => one.dataDate).join() === '2026-09-02,2026-09-03,2026-09-04,2026-09-05'
+    && told.every((one) => one.reportId === 'me_orders' && one.say.includes('older than the 14 days') && one.say.includes('by hand')));
+  await carryTheNightOn(c, { ...walk, at: ON('2026-09-20') });
+  check('and asking again does not write them twice', (await whatNeedsYou(c)).filter((one) => one.beyondReach).length === 4);
+  walk.itFinished({ state: 'landed', reportId: 'me_orders', size: 10, dataDate: '2026-09-20' });
+  await carryTheNightOn(c, { ...walk, at: ON('2026-09-20') });
+  const ended = await theNight(c);
+  check('and the night\'s end line names them', ended.why.includes('past the 14 days') && ended.why.includes('me_orders (2026-09-02)'));
+  const nothingOld = installFakeChrome();
+  await seedLandedRangeForTest(nothingOld.chrome, 'me_orders', '2026-09-06', '2026-09-19');
+  check('while a report with nothing past the reach is told nothing',
+    (await handBeyondReachDaysToHim(nothingOld.chrome, 'me_orders', '2026-09-20', ON('2026-09-20'))).length === 0);
+}
+
+{
+  /* **AJ11b: THE DAYS INSIDE AN OLD TRAFFIC SPAN ARE NOT TOLD TO HIM.** Spans were named by their end day only, so their inner days were never recorded as landed though the data is in Drive. Only days after the span era count. */
+  const browser = installFakeChrome();
+  const c = browser.chrome;
+  await seedLandedRangeForTest(c, 'fk_views', '2026-09-01', '2026-09-01');
+  await seedLandedRangeForTest(c, 'fk_views', '2026-11-16', '2026-11-29');
+  const told = await handBeyondReachDaysToHim(c, 'fk_views', '2026-11-30', ON('2026-11-30'));
+  check('only days after the span era are told for Flipkart traffic, never the days inside its old spans',
+    told[0] === '2026-11-03' && told.length === 13 && told.every((one) => one >= '2026-11-03'));
+  const other = installFakeChrome();
+  await seedLandedRangeForTest(other.chrome, 'me_orders', '2026-09-01', '2026-09-01');
+  await seedLandedRangeForTest(other.chrome, 'me_orders', '2026-09-06', '2026-09-19');
+  check('while a report that never had spans is told from its first landed day as before',
+    (await handBeyondReachDaysToHim(other.chrome, 'me_orders', '2026-09-20', ON('2026-09-20'))).join() === '2026-09-02,2026-09-03,2026-09-04,2026-09-05');
 }
 
 {
@@ -2272,7 +2308,7 @@ check('report table: null night gives null', theReportTable(null, () => '') === 
     && told[0].endedAt === ended.finishedAt);
 }
 
-const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3 + 1;
+const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3 + 1 + 4;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

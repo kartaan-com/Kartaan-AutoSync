@@ -36,6 +36,7 @@ import { MANUAL, TOOLTIPS } from './manual.js';
 import {
   theNight, endTheNight, howTheNightWent, theDay, thatOneIsDone, theReportTable, theIdleLine,
   A_DAYS_ALLOWANCE, KEPT_FOR_HIS_OWN_RUNS, inTheNightsOwnLine, spendsTheAllowance, whatNeedsYou,
+  CATCH_UP_REACH_DAYS,
 } from './nightly.js';
 import { theUpdateNotice } from './update.js';
 import { whatIsWaiting } from './idle.js';
@@ -1486,8 +1487,9 @@ export function whatTheBannerSays(stands) {
     return {
       how: 'wrong',
       said: `${needsYou.length === 1 ? 'One day needs' : `${needsYou.length} days need`} you: `
-        + `${named}. The platform never made ${needsYou.length === 1 ? 'it' : 'them'} available `
-        + `in three days of trying, so fetch ${needsYou.length === 1 ? 'it' : 'them'} by hand.`,
+        + `${named}. AutoSync could not fetch ${needsYou.length === 1 ? 'it' : 'them'}: ${needsYou.length === 1 ? 'it' : 'each'} failed or was not available `
+        + `after three days of trying, or ${needsYou.length === 1 ? 'it is' : 'is'} older than the ${CATCH_UP_REACH_DAYS} days AutoSync goes back for. `
+        + `Fetch ${needsYou.length === 1 ? 'it' : 'them'} by hand.`,
     };
   }
   if (!stands.night) {

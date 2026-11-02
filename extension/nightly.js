@@ -363,32 +363,6 @@ export const RECHECK_EVEN_WITHOUT_AN_ASK = Object.freeze(['me_views', 'az_ads', 
  *  sentence is written once, here, and `background.js` adds who-and-why after it. */
 export const TAB_CLOSED_SAY = 'The tab this report was being fetched in was closed before the walk finished.';
 
-/* **FLIPKART TRAFFIC IS ASKED FROM THE DAY AFTER THE LAST ONE CAPTURED -- RUMEE'S WAY
- * (A53, his "yes").** Rumee remembers `fk_views_last_to` from the latest date inside
- * the file, never from the request (`D:\rumee-auto-sync\content\flipkart.js:2522-2585`):
- * a file for 07-03 once held only 07-02. */
-export const LAST_CAPTURED = 'kartaan-autosync-last-captured';
-export const RANGE_FROM_LAST = Object.freeze(['fk_views']);
-
-/** Remember the last day a report's file really held. It never moves backwards. */
-export async function rememberLastCaptured(chrome, reportId, day) {
-  const held = (await chrome.storage.local.get(LAST_CAPTURED))[LAST_CAPTURED] || {};
-  if (held[reportId] && String(held[reportId]) >= String(day)) return held[reportId];
-  await chrome.storage.local.set({ [LAST_CAPTURED]: { ...held, [reportId]: String(day) } });
-  return String(day);
-}
-
-/** The day after the last one captured, when that is before this day; otherwise nothing. */
-export async function theDayAfterTheLastCaptured(chrome, reportId, day) {
-  if (!RANGE_FROM_LAST.includes(reportId)) return '';
-  const last = ((await chrome.storage.local.get(LAST_CAPTURED))[LAST_CAPTURED] || {})[reportId];
-  if (!last) return '';
-  const after = new Date(`${last}T00:00:00Z`);
-  after.setUTCDate(after.getUTCDate() + 1);
-  const from = after.toISOString().slice(0, 10);
-  return from < String(day) ? from : '';
-}
-
 /* ------------------------------------------ days nobody ever tried (A63, Job 6)
  *
  * **A DAY IN `NOT_BUILT_YET` IS A DAY SOMETHING TRIED AND THE PLATFORM REFUSED.
@@ -490,6 +464,58 @@ export async function daysNobodyTried(chrome, reportId, day) {
     cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
   return gap;
+}
+
+/** The last day a report was fetched as a span named by its end day (the days inside were never recorded as landed). */
+const SPAN_ERA_ENDED = Object.freeze({ fk_views: '2026-11-02' });
+
+/**
+ * **A DAY OLDER THAN THE REACH IS TOLD TO HIM, NEVER LEFT TO VANISH (R169, his "yes, this round", 2 Nov 2026).**
+ * `daysNobodyTried` goes back only `CATCH_UP_REACH_DAYS`; a missed day further back used to be owed to nobody and
+ * mentioned nowhere. Every day from the first one this report landed up to the reach that is neither landed nor
+ * already known is written as one that needs him (`beyondReach`), in plain words, which the panel's "needs you"
+ * and the night's end line both read. A day that later lands is taken off by the existing landed rule.
+ * Returns the days newly written.
+ */
+export async function handBeyondReachDaysToHim(chrome, reportId, day, at) {
+  const held = (await chrome.storage.local.get(LAST_LANDED))[LAST_LANDED] || {};
+  const landedDays = held[reportId];
+  if (!landedDays || !landedDays.length) return [];
+  const landed = new Set(landedDays);
+  const notBuilt = await whatIsNotBuiltYet(chrome);
+  const needsYou = await whatNeedsYou(chrome);
+  const known = new Set([
+    ...Object.values(notBuilt).filter((one) => one && one.reportId === reportId).map((one) => one.dataDate),
+    ...needsYou.filter((one) => one && one.reportId === reportId).map((one) => one.dataDate),
+  ]);
+  const reach = new Date(`${day}T00:00:00Z`);
+  reach.setUTCDate(reach.getUTCDate() - CATCH_UP_REACH_DAYS);
+  const reachDay = reach.toISOString().slice(0, 10);
+  /* **NOT BEFORE THE FIRST DAY A REAL SINGLE-DAY FILE LANDED (AJ11b).** Flipkart traffic used to be fetched as spans named by their
+   * end day only, so the days inside an old span were never recorded as landed -- though the data is in Drive. They must not
+   * become "needs you". The span era ended on the day listed; the walk is one day at a time after it. */
+  const cursor = new Date(`${[...landedDays].sort()[0]}T00:00:00Z`);
+  const spansEnded = SPAN_ERA_ENDED[reportId];
+  if (spansEnded) {
+    const after = new Date(`${spansEnded}T00:00:00Z`);
+    after.setUTCDate(after.getUTCDate() + 1);
+    if (after > cursor) cursor.setTime(after.getTime());
+  }
+  const since = theDay(at || Date.now());
+  const written = [];
+  while (cursor.toISOString().slice(0, 10) < reachDay) {
+    const one = cursor.toISOString().slice(0, 10);
+    if (!landed.has(one) && !known.has(one)) {
+      written.push({
+        reportId, dataDate: one, triedOn: [], since, beyondReach: true,
+        say: `${one} is older than the ${CATCH_UP_REACH_DAYS} days AutoSync goes back for, so it was not fetched. `
+          + 'It needs you: fetch it by hand from the platform.',
+      });
+    }
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  if (written.length) await chrome.storage.local.set({ [NEEDS_YOU]: [...needsYou, ...written] });
+  return written.map((one) => one.dataDate);
 }
 
 /** A sync paused because a platform asked to be signed in to: what to resume from. */
@@ -1447,12 +1473,11 @@ function theRangeFromFor(night, reportId, day) {
 
 /** What a walk is told about its range: `fromDay` (and, for a range asked in one request, that it also
  *  names the file), or nothing. **A RANGE ONLY FOR THE LAST DAY OF THE TYPED STRETCH** -- the owed days
- *  after it are walked as the single days they are. Flipkart traffic keeps its own way (from the day
- *  after the last captured, named by its end day). */
+ *  after it are walked as the single days they are. */
 async function theRangeForThisWalk(chrome, night, reportId, day) {
   const range = theRangeFromFor(night, reportId, day);
   if (range.fromDay) return { fromDay: range.fromDay, namedAsARange: true };
-  return { fromDay: await theDayAfterTheLastCaptured(chrome, reportId, day) };
+  return { fromDay: '' };
 }
 
 /** Start the next report the night owes, skipping any it may not ask for. */
@@ -1470,12 +1495,19 @@ async function startTheNextOne(chrome, { startAWalk, at, tellKartaan = null }) {
       // eslint-disable-next-line no-await-in-loop
       const { needsHim, failed, notAsked } = theNightsCounts(night);
       const wrong = [...needsHim, ...failed, ...notAsked];
-      const why = wrong.length
+      // eslint-disable-next-line no-await-in-loop
+      const tooOld = (await whatNeedsYou(chrome))
+        .filter((one) => one && one.beyondReach && one.since === theDay(night.startedAt || Date.now()));
+      const why = (wrong.length
         ? `${wrong.length} report${wrong.length === 1 ? '' : 's'} did not land: `
           + `${wrong.map((one) => `${one.reportId}${one.dataDate ? ` (${one.dataDate})` : ''} `
             + `${{ [NEEDS_YOU_STATE]: 'needs you', [NOT_ASKED]: 'not asked, allowance used up' }[one.state] || 'failed'}`)
           .join(', ')}.`
-        : 'Every report was reached.';
+        : 'Every report was reached.')
+        + (tooOld.length
+          ? ` ${tooOld.length} older day${tooOld.length === 1 ? ' is' : 's are'} past the ${CATCH_UP_REACH_DAYS} days AutoSync goes back for and need${tooOld.length === 1 ? 's' : ''} you: `
+            + `${tooOld.map((one) => `${one.reportId} (${one.dataDate})`).join(', ')}.`
+          : '');
       // eslint-disable-next-line no-await-in-loop
       const ended = await endTheNight(chrome, { at, why });
       /* **THIS IS THE ONE PLACE A NIGHT REACHES ITS NATURAL END, so it is the one place Kartaan is told.** Stop
@@ -1506,6 +1538,8 @@ async function startTheNextOne(chrome, { startAWalk, at, tellKartaan = null }) {
       if ((night.canGoBack || []).includes(next)) {
         // eslint-disable-next-line no-await-in-loop
         owed.push(...await daysNobodyTried(chrome, next, night.dataDate));
+        // eslint-disable-next-line no-await-in-loop
+        await handBeyondReachDaysToHim(chrome, next, night.dataDate, night.startedAt);
       }
       /* **A57, JOB 2: AND EVERY DAY A REPORT READING ITS LIST STILL OWES**, or the
        * list is never fetched for those days and they wait for ever. */

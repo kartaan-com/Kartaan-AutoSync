@@ -357,17 +357,18 @@ const refuses = async (name, args, words, setup = null) => {
   await many.chrome.storage.local.set({ [AI_SWITCH]: true });
   many.fake.setTheComputer('active');
   let blocked = null;
-  for (let i = 1; i <= 13; i += 1) {
+  for (let i = 1; i <= 101; i += 1) {
+    const day = new Date(Date.UTC(2025, 0, i)).toISOString().slice(0, 10);
     // Free reports, one day each; each batch of five is allowed to finish so the five-waiting limit is not what stops it.
     const a = await many.parts.theBook();
-    const said = await call(many, 'autosync_run', { reportIds: ['me_orders'], from: `2026-04-${String(i).padStart(2, '0')}`, to: `2026-04-${String(i).padStart(2, '0')}` });
+    const said = await call(many, 'autosync_run', { reportIds: ['me_orders'], from: day, to: day });
     if (!said.ok && /already waiting/.test(said.error)) {
       const asks = await asksOf(many);
       await many.chrome.storage.local.set({ [AI_ASKS]: asks.map((x) => ({ ...x, state: 'done' })) });
       i -= 1;
     } else if (!said.ok) { blocked = said; break; }
   }
-  check('and for at most 12 asks a day, however small', blocked && /12 is the most a day/.test(blocked.error));
+  check('and for at most 100 asks a day, however small', blocked && /100 is the most a day/.test(blocked.error));
 }
 {
   // Review M2: a run that some other start began in the gap is never adopted as the ask's.

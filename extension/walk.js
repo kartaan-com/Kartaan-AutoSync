@@ -1364,13 +1364,10 @@ export function theWalk({
      * an independent reviewer found on 2026-09-08: a value reaching a step's
      * address and its `find.near` with nothing asking anything of it. */
     panel = '', askedAlready = null, fileName = '',
-    /* **THE FIRST DAY OF THE RANGE, WHEN IT IS EARLIER THAN THE DAY (A53).** Flipkart
-     * traffic is asked from the day after the last one captured -- Rumee's way. */
+    /* **THE FIRST DAY OF THE RANGE, WHEN IT IS EARLIER THAN THE DAY (A53).** Given by a typed stretch of days. */
     fromDay = '',
     /* **WHETHER THAT RANGE ALSO NAMES THE FILE (P16).** Only a range asked for in ONE request by the
-     * hand-run night (`fk_orders`, `fk_payments`) is named `FROM_to_TO`. Flipkart traffic is also given
-     * a `fromDay` and its file is named by the END day, as it always was, so the name cannot be told
-     * from `fromDay` alone -- the caller says. */
+     * hand-run night (`fk_orders`, `fk_payments`) is named `FROM_to_TO`. */
     namedAsARange = false,
     /* **WHETHER THE ONE SIGN-IN ATTEMPT HAS ALREADY BEEN MADE FOR THIS REPORT (A53).** */
     triedSigningIn: triedAlready = false,

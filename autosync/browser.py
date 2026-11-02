@@ -570,6 +570,10 @@ class Step:
     only_if_absent: Optional[Find] = None
 
 
+# **PLACES ON A PAGE, NOT ROWS OF A LIST OF FILES (AJ11, 2 Nov 2026): a chip told from its twin by the label above it, so there is no day to name.** Each is `(what, near)` of one lookup. The rule below that makes a named row name the day is about a list of files, where an unchanged row means the same old file every night; a chip is pressed, not fetched. Kept as a short NAMED list, never as "any press".
+PLACES_NOT_ROWS = (("All", "Others"),)
+
+
 def why_step_is_refused(step: Step) -> Optional[str]:
     """What is wrong with a step, or None. Asked of every recipe by a check."""
     if not isinstance(step, Step):
@@ -615,6 +619,8 @@ def why_step_is_refused(step: Step) -> Optional[str]:
     if step.find is not None and not step.find.what:
         return "A way of finding something has to say what to look for."
     if (step.find is not None and step.find.near
+            and not (step.do == CLICK and step.find.how == BY_PRESSABLE_TEXT and step.find.exact
+                     and (step.find.what, step.find.near) in PLACES_NOT_ROWS)
             and "{day}" not in step.find.near and "{day_in_words}" not in step.find.near):
         # **A ROW NAMED BY SOMETHING THAT NEVER CHANGES IS THE SAME ROW FOR
         # EVER.** The whole point of naming a row is that today's is not

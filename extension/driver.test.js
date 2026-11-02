@@ -3755,7 +3755,23 @@ for (const [start, end, from, expectedMonth] of [
   check('and 1 Oct is not found inside 31 Oct', (await seen('1 Oct 2026')) === 0);
 }
 
-const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1 + 1 + 1 + 3 + 2 + 1 + 2 + 3 + 1 + 2 + 4 + 1 + 2 + 9 + 4 + 1 + 1 + 2 + 2 + 2 + 6 + 3;
+{
+  /* **THE `All` CHIP UNDER `Others` (read from his Dell Chrome, 2 Nov 2026): the chip is a LABEL three levels below the group holding `Others`; another leaf `All` (a DIV) sits under an ancestor six levels up that holds both.** Looked for exactly, with `Others` as the row, only the LABEL may count. */
+  const page = aPage();
+  const door = doorOn();
+  const pointing = (node) => { node.style.cursor = 'pointer'; return node; };
+  const label = pointing(thing('label', 'All', { box: BIG }));
+  const w1 = thing('div', '', { box: BIG }); w1.append(label);
+  const w2 = thing('div', '', { box: BIG }); w2.append(w1);
+  const group = thing('div', '', { box: BIG }); group.append(thing('span', 'Others', { box: BIG })); group.append(w2);
+  let wrapped = pointing(thing('div', 'All', { box: BIG }));
+  for (let up = 0; up < 5; up += 1) { const outer = thing('div', '', { box: BIG }); outer.append(wrapped); wrapped = outer; }
+  const top = thing('div', '', { box: BIG }); top.append(wrapped); top.append(group);
+  page.body.append(top);
+  check('the All chip under Others is found as exactly one thing, the label, not the other All six levels up', (await door.find(BY_PRESSABLE_TEXT, 'All', true, 0, ['Others'], '')) === 1);
+}
+
+const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1 + 1 + 1 + 3 + 2 + 1 + 2 + 3 + 1 + 2 + 4 + 1 + 2 + 9 + 4 + 1 + 1 + 2 + 2 + 2 + 6 + 3 + 1;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

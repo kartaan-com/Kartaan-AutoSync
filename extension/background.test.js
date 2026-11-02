@@ -274,22 +274,6 @@ const LATER = '2026-08-27T16:04:00.000Z';
 }
 
 {
-  /* **A53: AFTER A FLIPKART TRAFFIC FILE LANDS, ITS LAST DAY IS REMEMBERED.** A file
-   * that cannot be read falls back to the day in its name. */
-  const browser = installFakeChrome();
-  await afterALanding(browser.chrome, {
-    reportId: 'fk_views', fileName: 'flipkart_fk_views_2026-09-12.xlsx', bytes: new Uint8Array([1, 2]),
-  });
-  check('after a traffic file lands, the last day it holds is remembered',
-    (await browser.chrome.storage.local.get('kartaan-autosync-last-captured'))['kartaan-autosync-last-captured'].fk_views
-      === '2026-09-12');
-  check('and nothing is remembered for a report without that rule',
-    (await afterALanding(browser.chrome, {
-      reportId: 'fk_ads_daily', fileName: 'flipkart_fk_ads_daily_2026-09-12.csv', bytes: new Uint8Array([1]),
-    })) === null);
-}
-
-{
   /* **P16 (D424): A RANGE FILE CROSSES THE DRIVE BOUNDARY, AND ONLY IN ITS REAL SHAPE.** `reportId`
    * and `fileName` are what become a Drive folder and a Drive file name, so the range name is asked
    * for exactly: this report's own id, two real days, the first before the last, no more than one
@@ -2393,7 +2377,7 @@ check('the page relay is OFF in what ships, so no script on a portal page can dr
     alone.includes('Chrome or the page') && !alone.includes('by hand'));
 }
 
-const EXPECTED = 262 + 13 + 1 + 4 + 2 + 1 + 1 + 1 + 4 + 11 + 2;
+const EXPECTED = 262 + 13 + 1 + 4 + 2 + 1 + 1 + 1 + 4 + 11;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

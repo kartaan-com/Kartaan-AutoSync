@@ -996,6 +996,9 @@ check('and a day given up on is said as needing the seller',
   check('A DAY THAT NEEDS THE SELLER IS NAMED IN THE BANNER, even after a clean run',
     banner.how === 'wrong' && banner.said.includes('fk_orders for 2026-09-13')
       && banner.said.includes('by hand'));
+  check('and it says truthfully why: failed or not available after three days, or older than the 14 days it goes back for (AJ11)',
+    banner.said.includes('failed or was not available after three days of trying')
+      && banner.said.includes('older than the 14 days'));
 }
 check('while a run that is going is still said first',
   whatTheBannerSays({

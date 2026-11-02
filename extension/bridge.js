@@ -50,7 +50,7 @@ export const AI_SPENT = 'kartaan-autosync-ai-spent-today';
 /** **THE AI'S OWN CEILING FOR A DAY, so it can never starve the seller's timed sync of Flipkart's twenty.** It may ask for the day's twenty
  *  less the ones kept for his own runs, and for this many asks. Counted when an ask is kept. */
 export const AI_MOST_FLIPKART_A_DAY = A_DAYS_ALLOWANCE - KEPT_FOR_HIS_OWN_RUNS;
-export const AI_MOST_ASKS_A_DAY = 12;
+export const AI_MOST_ASKS_A_DAY = 100;
 /** A two-website ask has a gap between its websites; it is called finished only this long after its last run ended. */
 export const SETTLE_MS = 3 * 60 * 1000;
 /** The tools this extension answers, exactly as the Kartaan Bridge lists them for AutoSync (a check in the bridge repo holds the names equal). */

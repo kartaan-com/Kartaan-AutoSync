@@ -44,9 +44,8 @@ import {
   A_CAMPAIGN_ID, FAILED, TOO_BIG_TO_CARRY, theDaysOfARangeName, whyTheDayIsRefused, whyTheRangeIsRefused,
 } from './walk.js';
 import {
-  ASKS_A_RANGE, RANGE_FROM_LAST, RECHECK_ALARM, SPENDS_THE_ALLOWANCE, TAB_CLOSED_SAY, carryTheNightOn, rememberLastCaptured, rememberLastLanded,
+  ASKS_A_RANGE, RECHECK_ALARM, SPENDS_THE_ALLOWANCE, TAB_CLOSED_SAY, carryTheNightOn, rememberLastLanded,
 } from './nightly.js';
-import { theLatestDateInside } from './unzip.js';
 import { IDLE_ALARM, askAgainIfWaiting, carryOnWaiting, computerInUse, startWhenFree } from './idle.js';
 
 /** The day landed in this file's own name, whichever of the two dated shapes
@@ -83,10 +82,8 @@ function theDaysInAFileName(fileName) {
  * landed alone would only ever move a high-water mark forward, past the hole,
  * the same fault a single "last landed" scalar could never see round.
  */
-export async function afterALanding(chrome, { reportId, fileName, bytes, alreadyThere = [] }) {
+export async function afterALanding(chrome, { reportId, fileName, alreadyThere = [] }) {
   const days = theDaysInAFileName(fileName);
-  /* **THE LAST DAY OF THE NAME** -- the day a range file is "for", as on the Python side. */
-  const named = days.length ? days[days.length - 1] : '';
   /* **ONE AT A TIME, NOT `Promise.all`.** `rememberLastLanded` reads, adds and
    * writes back the whole record in one storage read/write; several run
    * together would each read the same starting record and the last write
@@ -99,15 +96,6 @@ export async function afterALanding(chrome, { reportId, fileName, bytes, already
     // eslint-disable-next-line no-await-in-loop
     await rememberLastLanded(chrome, reportId, day);
   }
-  if (!RANGE_FROM_LAST.includes(reportId)) return null;
-  let latest = '';
-  try {
-    latest = await theLatestDateInside(bytes);
-  } catch (couldNotRead) {
-    latest = '';
-  }
-  const upTo = latest && (!named || latest <= named) ? latest : named;
-  return upTo ? rememberLastCaptured(chrome, reportId, upTo) : null;
 }
 
 /* The reports fetched one file per campaign -- those whose recipe has
@@ -1051,7 +1039,7 @@ async function carryOut(chrome, parts, asked, tabId, pageAddress = '') {
       const body = new Uint8Array(asked.bytes || []);
       const put = await landTheFile({ reportId: asked.reportId, fileName: asked.fileName, body });
       await afterALanding(chrome, {
-        reportId: asked.reportId, fileName: asked.fileName, bytes: body, alreadyThere: put && put.alreadyThere,
+        reportId: asked.reportId, fileName: asked.fileName, alreadyThere: put && put.alreadyThere,
       });
       /* **THE SIZE THAT REALLY LANDED, NOT THE SIZE THAT WAS SENT (F15, Job 8,
        * A65, 2026-09-23).** `landTheFile` unzips a zip holding one spreadsheet

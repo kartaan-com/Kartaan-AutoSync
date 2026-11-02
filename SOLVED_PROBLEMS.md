@@ -7,6 +7,9 @@ the file where it happened. A reviewer finding something already on this list is
 ## Finding things on a portal page
 
 - A row lookup stops climbing after six levels, and the moment it takes in another match it is no longer a row. -- `extension/driver.js` `whatMatches`
+- A button that exists on only one view of a table (Flipkart traffic's `Request/Download Listings Report`, on `All` under `Others`, not on `Losing Conversion`) needs its view chosen by a step first; the page keeps the view last clicked, so "it landed before" only meant it was on the right view. `activeProductType=ALL` in the address is a different thing. -- `autosync/recipes.py` `_THE_LISTINGS_ARE_ON_ALL`
+- A failed walk reloads the page, so a screenshot taken afterwards does not show the page at the moment of failure; read the failing step's own words before blaming an earlier step. -- `extension/walk.js` (failed walk reload), AJ11
+- A report asked "from the day after the last captured" turns every one-day ask into a span once a day is missed; asked one day at a time it cannot. -- `extension/nightly.js` `RANGE_FROM_LAST` (now empty)
 - A page heading is waited for as words (`BY_TEXT`), never pressed as a control. -- `autosync/recipes.py` `fk_claims`
 - A portal menu item is pressable text (`BY_PRESSABLE_TEXT`), not a role control, until measured to be a real control. -- `autosync/recipes.py` (views chips, `Request New Report`)
 - Words are often a label: press the control or button beside them (`BY_THE_CONTROL_BESIDE`, `BY_THE_BUTTON_BESIDE`), not the words. -- `autosync/recipes.py` (Reports Centre date box, `REQUEST REPORT` rows)
@@ -287,3 +290,6 @@ the file where it happened. A reviewer finding something already on this list is
 - A checks file uses only Python's own library (or what pm_check.yml installs): GitHub's runner has nothing else, so a test spreadsheet is built by hand as a zip of XML, never with openpyxl. -- `tools/dry_run_checks.py` (AJ9c, run 41235263269 red)
 - A workflow whose token can change the repository pins every action by its full commit, never by a tag that can be moved, and a check reads its real `uses:` lines to hold it. -- `.github/workflows/move-group-1.yml` (AJ9c security read)
 - A panel box for "the last run" keeps every platform of the sync, and an hourly re-check (it says so: idle kind recheck) is kept as its own table beside the run, never merged into it or replacing it -- merging rows broke the times and counts (review). Check it with a re-check after a full run. -- `extension/screen.js` `aCopyToKeep`, `theRuns` (AJ9c, his ask 1 Nov + review)
+- A "needs you" list built from the landed record must not count days that earlier files covered under a different naming (Flipkart traffic spans named by their end day only): start after the era that naming ended, or the first night floods him with false days (`extension/nightly.js` `SPAN_ERA_ENDED`, AJ11b).
+- A look that waits only a few seconds (`only_if_absent`) is put AFTER a wait for either of the two buttons, or a slow page reads "absent" and the old failure returns (`autosync/recipes.py` fk_views, AJ11b).
+- The night's end line names only the days written tonight, never the whole standing list, or it repeats and grows every night (`extension/nightly.js`, AJ11b).

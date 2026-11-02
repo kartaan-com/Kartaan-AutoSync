@@ -889,6 +889,11 @@ _THE_DAY_CHOSEN_IS_SHOWN = Step(
               called="the line saying which day the report is for"),
     patience=30, why="checking the page says it is showing the day asked for, before anything is requested")
 
+# **THE LISTINGS TABLE IS PUT ON `All` BEFORE ITS REPORT BUTTON IS LOOKED FOR (AJ11, 2 Nov 2026, from his own screenshots).** Under the traffic chart the table has chips (`Conversion`: Losing Conversion, Conversion Gaps; `Others`: All, New, New Product Ideas). `Request Listings Report` / `Download Listings Report` are drawn on `All` only; on `Losing Conversion` there is none, and the page keeps the chip he last clicked, so the fetch landed only on the days the page happened to be on `All`. `near="Others"` tells this chip from the other `All` at the top of the page (the product selector).
+_THE_LISTINGS_ARE_ON_ALL = Step(
+    CLICK, find=Find(BY_PRESSABLE_TEXT, "All", near="Others", called="the All chip under Others"),
+    patience=30, why="choosing All under Others, the only listings view that has the report button")
+
 
 RECIPES: Dict[str, Recipe] = {
     # ---- Meesho
@@ -1714,13 +1719,23 @@ RECIPES: Dict[str, Recipe] = {
             Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Done", called="the accept button"),
                  patience=30, why="accepting the range, which is what draws the request button"),
             _THE_DAY_CHOSEN_IS_SHOWN,
+            _THE_LISTINGS_ARE_ON_ALL,
             # **MATCHED LOOSELY, AND THAT IS MEASURED RATHER THAN CAUTIOUS.** The
             # button is a real `<button>` with a pointer cursor, and **its words
             # read `Request Listings Reportdownload`** -- the trailing word comes
             # from the icon inside it. Asked for exactly, nothing matches.
+            # **THE PAGE IS LET FINISH DRAWING BEFORE THE LOOK BELOW (AJ11b):** the look waits only a few seconds and the All chip redraws the table, so on a slow page a built report's download button could be missed and the walk would wait a minute for a request button that never comes. Either button shows the page is ready.
+            Step(WAIT_FOR, find=Find(BY_PRESSABLE_TEXT, "Request Listings Report", exact=False,
+                                     called="the request button"),
+                 or_find=Find(BY_PRESSABLE_TEXT, "Download Listings Report", exact=False,
+                              called="the download button"),
+                 patience=30, why="waiting for the page to show either the request or the download button"),
             Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Request Listings Report", exact=False,
                                   called="the request button"),
-                 patience=60, why="asking Flipkart to build the report"),
+                 # **NOT ASKED AGAIN WHEN THE REPORT FOR THIS DAY IS ALREADY BUILT (AJ11, 2 Nov 2026, seen in his Chrome):** once a day's report exists the button reads `Download Listings Report` and there is no request button at all, so a walk that waited for the request button failed on every owed day an earlier run had already asked for.
+                 only_if_absent=Find(BY_PRESSABLE_TEXT, "Download Listings Report", exact=False,
+                                     called="the download button"),
+                 patience=60, why="asking Flipkart to build the report, unless it is already built"),
         ),
         to_take=(
             # Sixty for the same measured reason as the asking phase's `go`.
@@ -1751,6 +1766,7 @@ RECIPES: Dict[str, Recipe] = {
             Step(CLICK, find=Find(BY_PRESSABLE_TEXT, "Done", called="the accept button"),
                  patience=30, why="accepting the range, which is what draws the download button"),
             _THE_DAY_CHOSEN_IS_SHOWN,
+            _THE_LISTINGS_ARE_ON_ALL,
             # **LOOSELY, for the same measured reason as the request button: the
             # icon inside it puts `download` on the end of its words.** And the
             # two never sit on the page together -- the same button changes from
