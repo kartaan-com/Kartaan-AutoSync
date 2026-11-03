@@ -130,6 +130,8 @@ const TABLE_FOR = {
     kept: ['Current Stock', 'Growth in 30 days', 'Current Customer Price', 'Recommended Customer Price', 'Insights'],
     next: 'Next page',
     pageLabel: (n) => `Page ${n}`,
+    /* **A SHORT PAGE IS READ AGAIN UP TO 3 TIMES, THEN SAVED AS IT IS AND SAID TO BE INCOMPLETE (his rule, 3 Nov 2026; Meesho showed 20 and 24 rows of 25 on 31 Oct and 2 Nov even after the full wait).** */
+    savePartial: true,
     meta(page) {
       const chips = [...new Set(leavesOf(page).filter((one) => /^(All Products|Losing Orders|Losing Views|Best Priced) \(\d+\)$/.test(one)))];
       return { counts: chips.join('; ') };
@@ -186,6 +188,9 @@ function headerCellsOf(table) {
 
 /** How many times one page change is asked of the pager before it is called undrawn: the press, and two more. */
 const A_PAGE_IS_ASKED_FOR_AT_MOST = 3;
+
+/** How many times a page that shows fewer rows than it prints is gone away from and read again, for a table that may be saved part-read. */
+const A_SHORT_PAGE_IS_READ_AGAIN = 3;
 
 const isOff = (button) => !!(button && (button.disabled === true || (button.getAttribute && button.getAttribute('aria-disabled') === 'true')));
 
@@ -273,6 +278,7 @@ export async function readTheTable(page, {
     const said = leavesOf(page).map((one) => /^(\d{1,3})\s*Items?\s*\/\s*page$/i.exec(one)).find(Boolean);
     return said ? Number(said[1]) : 0;
   };
+  const incomplete = [];
   for (let guard = 0; guard < 500; guard += 1) {
     await rowsHaveStoppedArriving();
     const size = printedPageSize();
@@ -282,7 +288,38 @@ export async function readTheTable(page, {
         // eslint-disable-next-line no-await-in-loop
         await rest(500);
       }
-      if (rowsNow() < size) {
+      /* **A TABLE THAT MAY BE SAVED PART-READ GOES TO ANOTHER PAGE AND BACK, up to 3 times, to make the page draw again.** (A reload would take the reader away with the page, so the pager's own page numbers are used.) */
+      let readAgain = 0;
+      for (let again = 1; way.savePartial && again <= A_SHORT_PAGE_IS_READ_AGAIN && rowsNow() < size; again += 1) {
+        const there = pages >= 1 ? pages : 2;
+        const away = labelled(page, way.pageLabel(there));
+        const backTo = labelled(page, way.pageLabel(pages + 1));
+        if (!away || !backTo || isOff(away)) break;
+        say(`${table}: page ${pages + 1} showed ${rowsNow()} rows of ${size}, so it is read again (${again} of ${A_SHORT_PAGE_IS_READ_AGAIN}).`);
+        readAgain = again;
+        away.click();
+        // eslint-disable-next-line no-await-in-loop
+        await rest(1500);
+        // eslint-disable-next-line no-await-in-loop
+        await rowsHaveStoppedArriving();
+        (labelled(page, way.pageLabel(pages + 1)) || backTo).click();
+        // eslint-disable-next-line no-await-in-loop
+        await rest(1500);
+        // eslint-disable-next-line no-await-in-loop
+        await rowsHaveStoppedArriving();
+        for (let waited = 0; waited < Math.min(patience, 40) * 1000 && rowsNow() < size; waited += 500) {
+          // eslint-disable-next-line no-await-in-loop
+          await rest(500);
+        }
+        say(`${table}: after reading page ${pages + 1} again (${again} of ${A_SHORT_PAGE_IS_READ_AGAIN}) it shows ${rowsNow()} rows of ${size}.`);
+      }
+      if (rowsNow() < size && way.savePartial) {
+        const shown = theTableOn(page, way);
+        const names = shown ? below(shown, 'tr').filter((one) => below(one, 'td').length).map((one) => textOf(one).slice(0, 40)) : [];
+        incomplete.push({ page: pages + 1, read: rowsNow(), expected: size });
+        say(`${table}: page ${pages + 1} still showed ${rowsNow()} rows of ${size} after being read again ${readAgain} time${readAgain === 1 ? '' : 's'}, so those are saved and the file is marked incomplete. `
+          + `Its rows were: ${names.map((one, at) => `${at + 1}) ${one}`).join(' | ')}.`);
+      } else if (rowsNow() < size) {
         throw new Error(`page ${pages + 1} showed ${rowsNow()} rows, but the page prints ${size} Items / page and this is not the last page, so the rest of its rows never came and nothing was put away.`);
       }
     }
@@ -363,7 +400,9 @@ export async function readTheTable(page, {
    * with no count printed, or a count the rows do not reach, the read still fails, and now says what each page gave and what the pager showed. */
   const countOnPage = way.all ? leavesOf(page).map((one) => way.all.exec(one)).find(Boolean) : null;
   if (declared && pages !== declared) {
-    if (countOnPage && Number(countOnPage[1]) === rows.length) {
+    if (incomplete.length && pages === declared) {
+      say(`${table}: the pager lists ${declared} pages and every one was read; the read is incomplete already, so it is saved as it is.`);
+    } else if (countOnPage && Number(countOnPage[1]) === rows.length) {
       say(`${table}: the pager lists ${declared} pages and ${pages} were read, and the page counts ${countOnPage[1]} in all, which is every row read, so the table is whole.`);
     } else {
       throw new Error(`the pager lists ${declared} pages and ${pages} were read, so nothing was put away rather than a part of the table `
@@ -380,10 +419,16 @@ export async function readTheTable(page, {
   if (way.all) {
     const chip = leavesOf(page).map((one) => way.all.exec(one)).find(Boolean);
     if (!chip) say(`${table}: the page prints no count of everything to compare ${rows.length} rows against.`);
-    else if (Number(chip[1]) !== rows.length) {
+    else if (Number(chip[1]) !== rows.length
+      && !(incomplete.length && Number(chip[1]) - rows.length === incomplete.reduce((all, one) => all + one.expected - one.read, 0))) {
       throw new Error(`the page counts ${chip[1]} in all and ${rows.length} rows were read (a filtered tab, or a part of the table), `
         + 'so nothing was put away.');
     }
+  }
+  if (incomplete.length) {
+    /* **EVERY ROW CARRIES THE WARNING, so nothing reading the file can take a missing row for "no price".** */
+    const note = `INCOMPLETE: ${incomplete.map((one) => `page ${one.page} read ${one.read} of ${one.expected} rows`).join('; ')}`;
+    return { csv: theCsv([...theHeaderOf(table), 'Incomplete'], rows.map((row) => [...row, note])), rows: rows.length, pages, columns: theHeaderOf(table).length + 1, incomplete };
   }
   return { csv: theCsv(theHeaderOf(table), rows), rows: rows.length, pages, columns: theHeaderOf(table).length };
 }

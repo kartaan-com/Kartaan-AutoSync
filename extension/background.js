@@ -168,6 +168,12 @@ export function whyTheseAreNotNames(reportId, fileName) {
  * ever say so. */
 export const DAILY = 'kartaan-autosync-daily';
 
+/* **THE SECOND TIMED RUN OF THE DAY (AJ13a, his order of 3 Nov 2026, D918).** The morning run is `DAILY`, at 8:00 am unless he chose another hour; this
+ * one is at 4 pm and fetches ONLY the reports that are not ready by the morning (`THE_EVENING_REPORTS`, screen.js). Its own name, for the
+ * reason `DAILY` has one. */
+export const EVENING = 'kartaan-autosync-evening';
+export const THE_EVENING_AT = Object.freeze({ hour: 16, minute: 0 });
+
 /* Every day, and it is a period rather than a one-off on purpose: a one-off that
  * fires while Chrome is shut is simply never delivered, and nothing reschedules
  * it. */
@@ -257,6 +263,18 @@ export async function makeSureTheClockIsSet(chrome) {
   return true;
 }
 
+/** Make sure the 4 pm alarm exists, and say whether it had to be created. Its hour is fixed, so putting it back needs nothing else. */
+export async function makeSureTheEveningIsSet(chrome) {
+  const already = await chrome.alarms.get(EVENING);
+  if (already) return false;
+  await chrome.alarms.create(EVENING, {
+    when: whenThatHourNextComes(THE_EVENING_AT, Date.now()),
+    periodInMinutes: EVERY_DAY_IN_MINUTES,
+    persistAcrossSessions: true,
+  });
+  return true;
+}
+
 /* ------------------------------------------------------- the hour it runs at */
 
 /* What the chosen hour is called in storage. **Its own record rather than a
@@ -280,7 +298,7 @@ export const THE_HOUR = 'kartaan-autosync-hour';
  * nobody watching, and the reference has run at this end of the night for
  * months. A seller who chooses their own hour replaces it; nobody has to.
  */
-export const UNTIL_A_SELLER_CHOOSES = Object.freeze({ hour: 2, minute: 30 });
+export const UNTIL_A_SELLER_CHOOSES = Object.freeze({ hour: 8, minute: 0 });
 
 /** The hour the seller chose, or nothing at all when they never have. */
 export async function theHourItRuns(chrome) {
@@ -1038,9 +1056,12 @@ async function carryOut(chrome, parts, asked, tabId, pageAddress = '') {
     try {
       const body = new Uint8Array(asked.bytes || []);
       const put = await landTheFile({ reportId: asked.reportId, fileName: asked.fileName, body });
-      await afterALanding(chrome, {
-        reportId: asked.reportId, fileName: asked.fileName, bytes: body, alreadyThere: put && put.alreadyThere,
-      });
+      /* **A PARTLY READ TABLE IS SAVED BUT ITS DAY IS NOT REMEMBERED AS LANDED (AJ13a)**, so the hole-finder looks at that day again. */
+      if (asked.partial !== true) {
+        await afterALanding(chrome, {
+          reportId: asked.reportId, fileName: asked.fileName, bytes: body, alreadyThere: put && put.alreadyThere,
+        });
+      }
       /* **THE SIZE THAT REALLY LANDED, NOT THE SIZE THAT WAS SENT (F15, Job 8,
        * A65, 2026-09-23).** `landTheFile` unzips a zip holding one spreadsheet
        * before it uploads (`unzip.js` `theSpreadsheetInside`), so what Drive
@@ -1244,7 +1265,7 @@ export function answerAnExternalAsk(chrome, asked, sender) {
  * between.
  */
 export function wireUp(chrome, {
-  onDue, onRecheck = null, answer = null, whenATabGoes = null, carryOn = null, answerPanel = null,
+  onDue, onEvening = null, onRecheck = null, answer = null, whenATabGoes = null, carryOn = null, answerPanel = null,
   answerOutside = null,
 }) {
   /* **THE PANEL'S OWN WAY BACK, and a second listener rather than a wider first
@@ -1329,11 +1350,15 @@ export function wireUp(chrome, {
      * asks again starts whatever waited. Run now never comes through here. The walk being carried on above is not
      * stopped by this: only the starting of a run waits. */
     if (alarm && alarm.name === IDLE_ALARM) {
-      await carryOnWaiting(chrome, { daily: onDue, recheck: onRecheck });
+      await carryOnWaiting(chrome, { daily: onDue, evening: onEvening, recheck: onRecheck });
       return;
     }
     if (alarm && alarm.name === RECHECK_ALARM) {
       if (onRecheck) await startWhenFree(chrome, 'recheck', onRecheck);
+      return;
+    }
+    if (alarm && alarm.name === EVENING) {
+      if (onEvening) await startWhenFree(chrome, 'evening', onEvening);
       return;
     }
     if (alarm && alarm.name !== DAILY) return;
@@ -1360,7 +1385,8 @@ export async function whoClosedIt(chrome) {
  *  of them and not the other is how the missing one goes unnoticed. */
 async function bothClocks(chrome) {
   const daily = await makeSureTheClockIsSet(chrome);
+  const evening = await makeSureTheEveningIsSet(chrome);
   const awake = await makeSureTheWorkerIsWoken(chrome);
   await askAgainIfWaiting(chrome);
-  return daily || awake;
+  return daily || evening || awake;
 }

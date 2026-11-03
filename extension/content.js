@@ -386,9 +386,9 @@
       if (answer.wrong) throw new Error(answer.wrong);
       return answer.names || [];
     },
-    putTheFile: async ({ reportId, fileName, body }) => {
+    putTheFile: async ({ reportId, fileName, body, partial = false }) => {
       const answer = await chrome.runtime.sendMessage({
-        do: 'land-the-file', reportId, fileName, bytes: [...body],
+        do: 'land-the-file', reportId, fileName, bytes: [...body], ...(partial ? { partial: true } : {}),
       });
       if (!answer) {
         throw new Error('The browser half said nothing about whether the file was put away.');

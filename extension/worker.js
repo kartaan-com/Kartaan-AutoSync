@@ -536,6 +536,15 @@ wireUp(chrome, {
       if (!said.kartaanSaid) await chrome.alarms.create(RECHECK_ALARM, { delayInMinutes: 15 });
     }
   },
+  /* **THE 4 PM RUN (AJ13a):** only the reports not ready by the morning (`THE_EVENING_REPORTS`). Same start as the morning one, same rules. */
+  onEvening: async () => {
+    const said = await startTheScheduledSync(chrome, {
+      book: await theBook(), startTheNight, carryOn, fetch: kartaanFetch,
+    }, 'evening');
+    if (said.refused.length) {
+      console.warn('Kartaan Auto-sync: part of the evening sync could not start.', said.refused);
+    }
+  },
   onDue: async () => {
     /* **THE SCHEDULED SYNC STARTS HERE, AT THE SELLER'S SAVED TIME -- CONTROL'S
      * RULING FOR A53 (`D:\Control\JOBS.md`, 2026-09-15).** D107 decides where a

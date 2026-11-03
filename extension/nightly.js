@@ -993,7 +993,8 @@ export function theNightsCounts(night) {
    * BEING COLLECTED -- BOTH ARE THE PLATFORM'S OWN PACE, NOT A FAULT.** */
   const waiting = resolved.filter((one) => one.state === 'still-waiting' || one.state === NOT_AVAILABLE_YET);
   const needsHim = resolved.filter((one) => one.state === NEEDS_YOU_STATE);
-  const failed = resolved.filter((one) => one.state === 'failed');
+  /* **A PARTLY SAVED TABLE (`partial`) COUNTS WITH THE FAILED**: its file is saved but marked incomplete, so it is told to Kartaan and drawn in the counts like a report that did not fully land. */
+  const failed = resolved.filter((one) => one.state === 'failed' || one.state === 'partial');
   const nothingToFetch = resolved.filter((one) => one.state === 'nothing-to-fetch');
   const notAsked = resolved.filter((one) => one.state === NOT_ASKED);
   /* **A REPORT ALREADY TOUCHED TONIGHT IS NOT "NOT STARTED", EVEN IF IT IS
@@ -1149,6 +1150,11 @@ export function theReportTable(night, nameOf) {
     } else if (entry.state === 'not-asked') {
       status = 'toFetch';
       word = 'Not asked';
+      means = say;
+    } else if (entry.state === 'partial') {
+      status = 'failed';
+      word = 'Partial';
+      star = true;
       means = say;
     } else if (entry.state === 'failed') {
       status = 'failed';

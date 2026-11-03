@@ -2374,7 +2374,22 @@ check('report table: null night gives null', theReportTable(null, () => '') === 
     && told[0].endedAt === ended.finishedAt);
 }
 
-const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3 + 1 + 4 + 3 + 2 + 2;
+{
+  /* AJ13a: a table saved with a short page (state partial) is counted with the reports that did not fully land, and told to Kartaan with them. */
+  const browser = installFakeChrome();
+  const walk = aWalkThat();
+  const told = [];
+  const tellKartaan = async (what) => { told.push(what); return { told: true, kind: 'ok', said: 'Kartaan heard.' }; };
+  await startTheNight(browser.chrome, { doing: ['me_pricing'], mayAskFor: 0, at: 1000, openAt: 'https://x/', dataDate: '2026-10-11' });
+  await carryTheNightOn(browser.chrome, { ...walk, tellKartaan, at: 2000 });
+  walk.itFinished({ state: 'partial', reportId: 'me_pricing', say: 'PARTIAL: page 2 showed 24 of 25 rows', dataDate: '2026-10-11' });
+  await carryTheNightOn(browser.chrome, { ...walk, tellKartaan, at: 3000 });
+  const counts = (await import('./nightly.js')).theNightsCounts(await theNight(browser.chrome));
+  check('AJ13a: a partly saved table is counted with the failed and in the total', counts.failed.length === 1 && counts.landed.length === 0 && counts.total === 1);
+  check('AJ13a: and Kartaan is told it did not fully land', told.length === 1 && (told[0].failed || []).join() === 'me_pricing');
+}
+
+const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3 + 1 + 4 + 3 + 2 + 2 + 2;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

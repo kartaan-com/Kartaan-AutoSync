@@ -377,5 +377,17 @@ function check(name, passed) { ran++; console.log(`${passed ? 'PASS' : 'FAIL'}  
   check('a note that cannot be written never stops the run from starting', ran1 === true);
 }
 
+{
+  /* AJ13a: the evening run is a kind that can wait for the computer, is remembered, and starts once with its own start. */
+  const { chrome, setTheComputer } = installFakeChrome();
+  setTheComputer('active');
+  const ran2 = [];
+  await startWhenFree(chrome, 'evening', async () => { ran2.push('evening'); }, 1000);
+  check('AJ13a: an evening start waits while the computer is in use, and is remembered by its own name', ran2.length === 0 && (await whatIsWaiting(chrome)).kinds.join() === 'evening');
+  setTheComputer('idle');
+  await carryOnWaiting(chrome, { daily: async () => { ran2.push('daily'); }, evening: async () => { ran2.push('evening'); } }, 2000);
+  check('AJ13a: and once the computer is left alone it starts with the evening start and not the morning one', ran2.join() === 'evening');
+}
+
 console.log(`\n${ran - failures} of ${ran} passed`);
 process.exit(failures ? 1 : 0);

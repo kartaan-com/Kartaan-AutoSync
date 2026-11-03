@@ -155,6 +155,10 @@ export function whyThisAskIsRefused(book, { reportIds, from, to }, { now, panel,
   if (new Set(ids).size !== ids.length) return 'A report is named twice. Name each report once.';
   const tickable = theTickableReports(book);
   const unknown = ids.filter((id) => !tickable.includes(id));
+  const withAnother = unknown.filter((id) => (book.madeByAnother || {})[id]);
+  if (withAnother.length) {
+    return `${withAnother.join(', ')} cannot be asked for on its own: ${withAnother.length > 1 ? 'they are' : 'it is'} fetched together with another report. Ask for ${[...new Set(withAnother.map((id) => (book.broughtBy || {})[id] || 'the report that brings it'))].join(', ')} instead.`;
+  }
   if (unknown.length) {
     return `${unknown.join(', ')} ${unknown.length > 1 ? 'are not reports' : 'is not a report'} AutoSync can fetch. It can fetch: ${tickable.join(', ')}.`;
   }
@@ -209,7 +213,9 @@ async function status(chrome, parts) {
       id: r.id,
       name: r.name,
       platform: r.platform,
-      can_be_fetched: Boolean(r.canBeFetched),
+      /* **AGREES WITH WHAT autosync_run ACCEPTS (AJ13a):** a report fetched by another report's run (Meesho ads catalogue and summary) cannot be asked for alone, so it is not "can be fetched" here; `fetched_with` names the report to ask for. */
+      can_be_fetched: Boolean(r.canBeFetched) && !r.fetchedBy,
+      fetched_with: r.fetchedBy ? (r.broughtBy || '') : '',
       last_run: r.state ? { state: r.state, said: r.say || '' } : null,
       last_landed_day: Array.isArray(landed[r.id]) && landed[r.id].length ? [...landed[r.id]].sort().pop() : null,
     })),

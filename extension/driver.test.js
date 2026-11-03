@@ -4024,7 +4024,40 @@ for (const [start, end, from, expectedMonth] of [
   check('without the new arguments the date boxes still take YYYY-MM-DD as before', from.value === '2026-08-25' && to.value === '2026-08-26');
 }
 
-const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1 + 1 + 1 + 3 + 2 + 1 + 2 + 3 + 1 + 2 + 4 + 1 + 2 + 9 + 4 + 1 + 1 + 2 + 2 + 2 + 6 + 3 + 1 + 7 + 13 + 1 + 2 + 1;
+{
+  /* **THE SAME DAY NAMED TWICE, THE SECOND IN THE NEIGHBOUR MONTH'S PANEL (AJ13a, Flipkart claims, 3 Nov 2026: "2 things on the calendar say they are 2026-10-04").** The October panel's cell is the day. */
+  const page = aPage();
+  const door = doorOn();
+  const october = aMonthPanel(2026, 10, { label: meeshoOrdersLabel, days: 31 });
+  const november = aMonthPanel(2026, 11, { label: meeshoOrdersLabel, days: 30 });
+  const spill = thing('td', '4');
+  spill.setAttribute('aria-label', meeshoOrdersLabel(2026, 10, 4));
+  november.children[1].append(spill);
+  const holder = thing('div');
+  holder.append(october, november);
+  const pressedInOctober = watchTheDays(october, 2026, 10);
+  const pressedInNovember = watchTheDays(november, 2026, 11);
+  page.body.append(holder);
+  const said = await saidAfterWaiting(() => door.pick_range('2026-10-04', '2026-10-04'));
+  check('AJ13a: a day named in two panels is pressed in the panel of its own month, and nothing is pressed in the other',
+    said === '' && pressedInOctober.includes('2026-10-04') && pressedInNovember.length === 0);
+}
+
+{
+  /* With no heading to say which panel is which, two cells for one day are still refused, as before. */
+  const page = aPage();
+  const door = doorOn();
+  const one = thing('td', '4');
+  one.setAttribute('aria-label', meeshoOrdersLabel(2026, 10, 4));
+  const two = thing('td', '4');
+  two.setAttribute('aria-label', meeshoOrdersLabel(2026, 10, 4));
+  page.body.append(thing('div'), one, two);
+  const refused = await saidAfterWaiting(() => door.pick_range('2026-10-04', '2026-10-04'));
+  check('AJ13a: two cells for one day with no month heading to tell them apart are still refused in words',
+    refused.includes('2 things on the calendar say they are 2026-10-04'));
+}
+
+const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1 + 1 + 1 + 3 + 2 + 1 + 2 + 3 + 1 + 2 + 4 + 1 + 2 + 9 + 4 + 1 + 1 + 2 + 2 + 2 + 6 + 3 + 1 + 7 + 13 + 1 + 2 + 1 + 2;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

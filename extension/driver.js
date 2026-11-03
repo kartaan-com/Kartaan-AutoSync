@@ -1080,6 +1080,27 @@ function onlyThisMonthsOwnDays(panel, cells) {
   return kept.length > 0 ? kept : cells;
 }
 
+/**
+ * Of cells that all say they are one day, only those inside the panel under the heading of that day's month.
+ *
+ * **WALKED UP FROM THE HEADING, THE SAME WAY AS `everyCellShowingTheDay`:** the first level that holds some of the cells and no other month's heading. Nothing found, or every cell
+ * inside it, answers the cells as they came, so a page this does not understand is refused as before.
+ */
+function onlyThoseInTheMonthsOwnPanel(cells, { y, m }) {
+  const wanted = monthKey(y, m);
+  const onShow = everyMonthOnShow();
+  for (const heading of onShow.filter((one) => one.key === wanted)) {
+    let up = heading.node.parentNode;
+    for (let level = 0; level < LEVELS_UP_TO_A_MONTH_PANEL && up; level += 1) {
+      if (onShow.some((one) => one.key !== wanted && holds(up, one.node))) break;
+      const inside = cells.filter((cell) => holds(up, cell));
+      if (inside.length > 0) return inside;
+      up = up.parentNode;
+    }
+  }
+  return cells;
+}
+
 /** The arrow to the next month, or to the one before. */
 function theWayToAnotherMonth(forwards) {
   const named = forwards ? NAMED_ON : NAMED_BACK;
@@ -1928,6 +1949,8 @@ export function pageDoor({ go, takeFile, signedOutSigns } = {}) {
       const pressable = cells.filter((cell) => !isSwitchedOff(cell));
       cells = pressable.length > 0 ? pressable : [cells[0]];
     }
+    /* **THE SAME DAY NAMED TWICE, ONE OF THEM THE NEIGHBOUR MONTH'S SPILL-OVER (AJ13a, Flipkart claims, 3 Nov 2026: "2 things on the calendar say they are 2026-10-04").** When the month the day is in has its heading on show, the cell inside THAT month's panel is the day. */
+    if (cells.length > 1) cells = onlyThoseInTheMonthsOwnPanel(cells, day);
 
     if (cells.length === 0) {
       throw new Error(

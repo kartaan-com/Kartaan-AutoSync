@@ -44,6 +44,7 @@ import {
   wireUp,
 } from './background.js';
 import { RELAY_TO_THE_PAGE } from './driver.js';
+import { THE_EVENING_REPORTS, theTimedListFor } from './screen.js';
 import {
   A_DAYS_ALLOWANCE, KEPT_FOR_HIS_OWN_RUNS, PAUSED, RECHECKS, THE_NIGHT, carryTheNightOn, endTheNight, howTheNightWent, oneWasAskedFor,
   startTheNight, thatOneIsBeingTried, theIdleLine, theNight, theReportTable, THE_SYNC_FAILED,
@@ -333,13 +334,74 @@ check('a report that reads another report\'s file is fetched after it',
     Boolean(after.timed) && after.timed.said === (fresh.timed && fresh.timed.said));
   const first = await startTheScheduledSync(chrome, parts);
   check('and the timed sync runs every Flipkart report, not the one tick',
-    Boolean(first.started) && [...first.started].sort().join() === [...every('flipkart')].sort().join());
+    Boolean(first.started) && [...first.started].sort().join() === [...every('flipkart')].filter((id) => !THE_EVENING_REPORTS.includes(id)).sort().join());
+  check('AJ13a: and the morning run leaves out the reports not ready by the morning',
+    !first.started.some((id) => THE_EVENING_REPORTS.includes(id)));
   check('and the timed sync keeps a few of the twenty for his own runs, so it may spend less than all of them',
     (await theNight(chrome)).mayAskFor === A_DAYS_ALLOWANCE - KEPT_FOR_HIS_OWN_RUNS);
   await endTheNight(chrome, { at: Date.UTC(2026, 8, 16, 3, 30), why: 'Every report was reached.' });
   const second = await startTheNextPlatform(chrome, parts);
   check('then every Meesho report, though none was ticked',
-    Boolean(second.started) && [...second.started].sort().join() === [...every('meesho')].sort().join());
+    Boolean(second.started) && [...second.started].sort().join() === [...every('meesho')].filter((id) => !THE_EVENING_REPORTS.includes(id)).sort().join());
+}
+
+{
+  /* **AJ13a: THE FOUR REPORTS NOT READY IN THE MORNING ARE THE EVENING RUN'S ALONE (evidence R184-MORNING-FETCH-2026-11-03.md).** One list says it; the two runs are its two halves. */
+  check('AJ13a: the evening reports are exactly the four that were not ready at 8:30 on 3 Nov',
+    [...THE_EVENING_REPORTS].sort().join() === 'az_fee_preview,fk_orders,fk_views,me_views');
+  const whole = theTimedList(BOOK, { timed: null });
+  const evening = theTimedListFor(BOOK, { timed: null }, 'evening');
+  const morning = theTimedListFor(BOOK, { timed: null }, 'morning');
+  check('AJ13a: the evening run fetches those four and nothing else', [...evening].sort().join() === [...THE_EVENING_REPORTS].sort().join());
+  check('AJ13a: the morning run fetches every other timed report', morning.length === whole.length - evening.length && !morning.some((id) => evening.includes(id)));
+  check('AJ13a: together they are the whole timed list, so no report is left out and none is fetched twice',
+    [...morning, ...evening].sort().join() === [...whole].sort().join());
+  check('AJ13a: a list he narrowed himself narrows both runs',
+    theTimedListFor(BOOK, { timed: ['fk_claims', 'fk_orders'] }, 'morning').join() === 'fk_claims'
+    && theTimedListFor(BOOK, { timed: ['fk_claims', 'fk_orders'] }, 'evening').join() === 'fk_orders');
+  const { chrome } = installFakeChrome();
+  const started = [];
+  const parts = {
+    book: BOOK,
+    now: () => Date.UTC(2026, 8, 16, 3, 0),
+    startTheNight: async (c, how) => { started.push(how.doing); return startTheNight(c, how); },
+    carryOn: async () => {},
+  };
+  await answerThePanelsQuestion(chrome, parts, { do: 'save-the-panel-name', panel: 'xuptj' });
+  await answerThePanelsQuestion(chrome, parts, { do: 'check-the-drive' });
+  const filed = await chrome.storage.local.get(THE_NIGHTS);
+  await chrome.storage.local.set({ [THE_NIGHTS]: { ...(filed[THE_NIGHTS] || {}), flipkartAskedOn: { [theDay(parts.now())]: 10 } } });
+  const first = await startTheScheduledSync(chrome, parts, 'evening');
+  check('AJ13a: the evening run starts with a Flipkart night of fk_orders and fk_views only',
+    Boolean(first.started) && [...first.started].sort().join() === 'fk_orders,fk_views');
+  check('AJ13a: and the evening run spends from the same day\'s twenty, so the morning\'s ten already asked are taken off (20 - 10 - 4 kept for his own runs)',
+    (await theNight(chrome)).mayAskFor === A_DAYS_ALLOWANCE - 10 - KEPT_FOR_HIS_OWN_RUNS);
+  await endTheNight(chrome, { at: Date.UTC(2026, 8, 16, 3, 30), why: 'Every report was reached.' });
+  const next = await startTheNextPlatform(chrome, parts);
+  check('AJ13a: then Meesho\'s one evening report', Boolean(next.started) && next.started.join() === 'me_views');
+}
+
+{
+  /* **THE 4 PM RUN NEVER TAKES THE QUEUE OF A MORNING SYNC STILL GOING (AJ13a review).** */
+  const { chrome } = installFakeChrome();
+  const parts = {
+    book: BOOK,
+    now: () => Date.UTC(2026, 8, 16, 3, 0),
+    startTheNight,
+    carryOn: async () => {},
+  };
+  await answerThePanelsQuestion(chrome, parts, { do: 'save-the-panel-name', panel: 'xuptj' });
+  await answerThePanelsQuestion(chrome, parts, { do: 'check-the-drive' });
+  const morning = await startTheScheduledSync(chrome, parts);
+  const queuedBefore = (await chrome.storage.local.get(THE_QUEUE))[THE_QUEUE];
+  const evening = await startTheScheduledSync(chrome, parts, 'evening');
+  const queuedAfter = (await chrome.storage.local.get(THE_QUEUE))[THE_QUEUE];
+  check('AJ13a: with the morning sync still going, the evening run starts nothing and says it is waiting', Boolean(morning.started) && evening.started === null && evening.waiting === true);
+  check('AJ13a: and the morning\'s remaining platforms are all still queued, with the evening reports added behind them',
+    queuedBefore.length > 0 && queuedAfter.slice(0, queuedBefore.length).join('|') === queuedBefore.join('|')
+    && queuedAfter.flat().includes('fk_orders') && queuedAfter.flat().includes('me_views'));
+  const again = await startTheScheduledSync(chrome, parts, 'evening');
+  check('AJ13a: and asking again does not queue a report twice', (await chrome.storage.local.get(THE_QUEUE))[THE_QUEUE].flat().filter((id) => id === 'fk_orders').length === 1 && again.waiting === true);
 }
 
 {
@@ -987,6 +1049,8 @@ check('a day not built yet is said as not available yet, not as a failure',
   whatThatStateIsCalled('not-available-yet') === 'not available yet');
 check('and a day given up on is said as needing the seller',
   whatThatStateIsCalled('needs-you') === 'needs you');
+check('AJ13a: a table saved with a short page is said as partly fetched, not fetched and not failed',
+  whatThatStateIsCalled('partial') === 'partly fetched');
 {
   const banner = whatTheBannerSays({
     setUp: { done: true },
@@ -1065,8 +1129,8 @@ check('and text that is not a time at all is refused',
   check('and it still repeats every day', daily.periodInMinutes === 24 * 60);
   check('and nothing is written down about an hour nobody chose',
     (await theHourItRuns(chrome)) === null);
-  check('the default hour is in the middle of the night, when nobody is watching',
-    UNTIL_A_SELLER_CHOOSES.hour >= 0 && UNTIL_A_SELLER_CHOOSES.hour <= 5);
+  check('AJ13a: the default hour is 8:00 in the morning, his order of 3 Nov 2026 (the 4 pm run is the other one)',
+    UNTIL_A_SELLER_CHOOSES.hour === 8 && UNTIL_A_SELLER_CHOOSES.minute === 0);
 }
 
 {

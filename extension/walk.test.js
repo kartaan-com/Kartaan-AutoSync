@@ -566,11 +566,12 @@ function aPortal(how = {}) {
     if (how.heldRefuses) throw new Error(how.heldRefuses);
     return how.held || [];
   };
-  it.putTheFile = async ({ reportId, fileName, body }) => {
+  it.putTheFile = async ({ reportId, fileName, body, partial }) => {
     if (how.driveRefuses) throw new Error(how.driveRefuses);
     it.putAway.push({
       reportId,
       fileName,
+      partial: partial === true,
       size: body ? body.length : 0,
       /* **WHOSE FILE IT WAS, not just how big.** Two files of the same length
        * are not the same file, and this whole section is about one being swapped
@@ -3106,6 +3107,12 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
   const landed = await aWalk(read)('me_pricing', DAY);
   check('A TABLE READ OFF THE PAGE IS PUT AWAY AS ONE FILE, UNDER THE REPORT NAME',
     landed.state === LANDED && read.putAway.length === 1 && read.putAway[0].fileName === `meesho_me_pricing_${DAY}.csv`);
+  const part = aPortal({ table: { csv: '"Product","Incomplete"\n"x","INCOMPLETE: page 2 read 24 of 25 rows"', rows: 1, pages: 2, incomplete: [{ page: 2, read: 24, expected: 25 }] } });
+  const partly = await aWalk(part)('me_pricing', DAY);
+  check('AJ13a: a table with a short page is SAVED and the run says partial, not landed, naming the page and the rows',
+    partly.state === 'partial' && part.putAway.length === 1 && partly.say.includes('page 2 showed 24 of 25 rows') && partly.say.startsWith('PARTIAL'));
+  check('AJ13a: and the file is handed over marked partial, so its day is not remembered as landed; a whole table is not',
+    part.putAway[0].partial === true && read.putAway[0].partial === false);
   const refusing = aPortal({ tableRefuses: 'the columns are not the ones expected' });
   const refused = await aWalk(refusing)('me_pricing', DAY);
   check('while a table the reader refuses fails the walk with the reader own reason, and nothing is put away',
@@ -3326,7 +3333,7 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
   check('a press narrowed to a row that sees several is still refused', narrowedClick.state === FAILED);
 }
 
-const EXPECTED = 349 + 31 + 9 + 3 + 1 + 1 + 3 + 8 + 2 + 4 + 2 + 2 + 1 + 14 + 1 + 1 + 1 + 2 + 4 + 3 + 1 + 2 + 2;
+const EXPECTED = 349 + 31 + 9 + 3 + 1 + 1 + 3 + 8 + 2 + 4 + 2 + 2 + 1 + 14 + 1 + 1 + 1 + 2 + 4 + 3 + 1 + 2 + 2 + 1 + 1;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

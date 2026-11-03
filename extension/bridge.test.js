@@ -510,10 +510,21 @@ const refuses = async (name, args, words, setup = null) => {
   await r.chrome.storage.local.set({ [LAST_LANDED]: { fk_orders: ['2026-05-02', '2026-05-30', '2026-05-10'], fk_returns: [] } });
   const s = (await call(r, 'autosync_status', {})).result;
   check('BR1: status says each report\'s id, name, platform, whether it can be fetched, its last run and the last day that landed', same(s.reports, [
-    { id: 'fk_orders', name: 'FK Orders', platform: 'flipkart', can_be_fetched: true, last_run: { state: 'landed', said: 'fine' }, last_landed_day: '2026-05-30' },
-    { id: 'fk_returns', name: 'FK Returns', platform: 'flipkart', can_be_fetched: false, last_run: { state: 'failed', said: '' }, last_landed_day: null },
-    { id: 'me_orders', name: 'ME Orders', platform: 'meesho', can_be_fetched: true, last_run: null, last_landed_day: null },
+    { id: 'fk_orders', name: 'FK Orders', platform: 'flipkart', can_be_fetched: true, fetched_with: '', last_run: { state: 'landed', said: 'fine' }, last_landed_day: '2026-05-30' },
+    { id: 'fk_returns', name: 'FK Returns', platform: 'flipkart', can_be_fetched: false, fetched_with: '', last_run: { state: 'failed', said: '' }, last_landed_day: null },
+    { id: 'me_orders', name: 'ME Orders', platform: 'meesho', can_be_fetched: true, fetched_with: '', last_run: null, last_landed_day: null },
   ]));
+  r.state.reports = [
+    { id: 'me_ads', name: 'ME Ads', platform: 'meesho', canBeFetched: true, state: '' },
+    { id: 'me_ads_catalog', name: 'ME Ads catalogue', platform: 'meesho', canBeFetched: true, fetchedBy: 'Fetched by the Meesho ads sweep.', broughtBy: 'me_ads', state: '' },
+  ];
+  const together = (await call(r, 'autosync_status', {})).result;
+  check('AJ13a: a report fetched by another report\'s run is not listed as fetchable alone, and says which report brings it',
+    together.reports[0].can_be_fetched === true && together.reports[0].fetched_with === ''
+    && together.reports[1].can_be_fetched === false && together.reports[1].fetched_with === 'me_ads');
+  check('AJ13a: and asking for it alone is refused, saying which report to ask for instead',
+    whyThisAskIsRefused({ ...BOOK, madeByAnother: { me_ads_catalog: 'x' }, broughtBy: { me_ads_catalog: 'me_ads' }, recipes: { ...BOOK.recipes } }, { reportIds: ['me_ads_catalog'], from: '2026-10-30', to: '2026-10-30' },
+      { now: NOW, panel: 'p', leftToday: 20, spentByOthers: 0, waitingCount: 0 }).includes('Ask for me_ads instead'));
   check('BR1: status lists what cannot be fetched with its reason, and nothing else about it', same(s.cannot_be_fetched, [{ id: 'x', name: 'X', why: 'because' }]));
   check('BR1: status top fields', s.ready_to_run === true && s.drive_connected === true && s.run_going_now === false && s.waiting_asks === 0
     && s.computer_in_use_now === true && s.flipkart_requests_left_today === 20 && s.flipkart_requests_a_day === 20

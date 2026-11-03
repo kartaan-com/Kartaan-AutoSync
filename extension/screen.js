@@ -208,6 +208,16 @@ export async function theSetup(chrome) {
  * the first run of 15 Oct fetched both because Run now opened with every report ticked, this pair included. */
 const OFF_THE_TIMED_LIST = Object.freeze(['fk_keywords', 'fk_ads_kw']);
 
+/** **THE REPORTS THAT ARE NOT READY IN THE MORNING (AJ13a, his order of 3 Nov 2026, evidence `R184-MORNING-FETCH-2026-11-03.md`).** The 4 pm run fetches
+ *  ONLY these; the morning run fetches every other timed report. **The split is this one list -- moving a report to the other run is one line here.** A
+ *  report on this list is not a failure when the morning run does not fetch it. */
+export const THE_EVENING_REPORTS = Object.freeze(['fk_orders', 'fk_views', 'az_fee_preview', 'me_views']);
+
+/** What ONE of the two timed runs fetches: the evening list, or every other timed report. */
+export function theTimedListFor(book, setUp, run) {
+  return theTimedList(book, setUp).filter((id) => THE_EVENING_REPORTS.includes(id) === (run === 'evening'));
+}
+
 export function theTimedList(book, setUp) {
   const every = (book.reports || [])
     .filter((one) => THROUGH_THE_BROWSER.includes(one.platform) && (book.recipes || {})[one.id]
@@ -373,7 +383,7 @@ export async function rememberTheNight(chrome, { book }) {
           finishedAt: night.finishedAt,
           reached: (night.done || []).length,
           landed: landed.length,
-          failed: (night.done || []).filter((one) => one.state === 'failed').length,
+          failed: (night.done || []).filter((one) => one.state === 'failed' || one.state === 'partial').length,
           why: String(night.why || ''),
           night: aCopyToKeep(night),
           recheck: null,
@@ -1109,14 +1119,24 @@ export const PLATFORM_ORDER = Object.freeze(['flipkart', 'meesho', 'amazon']);
  * sync adds those itself); one sync, one platform at a time, never side by side; a
  * platform that is signed out stops only itself.
  */
-export async function startTheScheduledSync(chrome, parts) {
+export async function startTheScheduledSync(chrome, parts, run = 'morning') {
   const { book } = parts;
-  const timed = theTimedList(book, await theSetup(chrome));
+  const timed = theTimedListFor(book, await theSetup(chrome), run);
   const byPlatform = PLATFORM_ORDER
     .map((platform) => timed.filter(
       (id) => (book.recipes || {})[id] && thePlatformOf(book, id) === platform,
     ))
     .filter((ids) => ids.length);
+  /* **A RUN STARTED WHILE ANOTHER NIGHT IS STILL GOING ADDS TO THE QUEUE AND NEVER REPLACES IT (AJ13a review: the 4 pm run must not take the morning's remaining platforms).** What is
+   * already queued is kept; a report already queued is not queued twice. */
+  const going = await theNight(chrome);
+  if (going && !going.finishedAt) {
+    const queued = ((await chrome.storage.local.get(THE_QUEUE))[THE_QUEUE] || []).map((entry) => (Array.isArray(entry) ? entry : entry.reportIds));
+    const already = new Set([...queued.flat(), ...(going.left || []), ...(going.doing ? [going.doing] : [])]);
+    const added = byPlatform.map((ids) => ids.filter((id) => !already.has(id))).filter((ids) => ids.length);
+    await chrome.storage.local.set({ [THE_QUEUE]: [...((await chrome.storage.local.get(THE_QUEUE))[THE_QUEUE] || []), ...added] });
+    return { started: null, waiting: true, refused: [] };
+  }
   await chrome.storage.local.set({ [THE_QUEUE]: byPlatform });
   return startTheNextPlatform(chrome, parts);
 }
@@ -1387,6 +1407,7 @@ export function whatThatStateIsCalled(state) {
   return ({
     landed: 'fetched',
     failed: 'failed',
+    partial: 'partly fetched',
     fetching: 'fetching now',
     waiting: 'waiting',
     'nothing-to-fetch': 'skipped',
@@ -1434,7 +1455,7 @@ export function theSyncSummary(night) {
   if (!night || !night.finishedAt) return null;
   const done = night.done || [];
   const landed = done.filter((one) => one.state === 'landed').length;
-  const failed = done.filter((one) => one.state === 'failed');
+  const failed = done.filter((one) => one.state === 'failed' || one.state === 'partial');
   const needsYou = done.filter((one) => one.state === 'needs-you');
   const notAsked = done.filter((one) => one.state === 'not-asked');
   const failures = failed.length
@@ -1495,7 +1516,7 @@ export function whatTheBannerSays(stands) {
   if (!stands.night) {
     return { how: 'idle', said: 'No runs yet. Tick what you want and press Run now.' };
   }
-  const failed = stands.night.done.filter((one) => one.state === 'failed').length;
+  const failed = stands.night.done.filter((one) => one.state === 'failed' || one.state === 'partial').length;
   if (failed) {
     return {
       how: 'wrong',

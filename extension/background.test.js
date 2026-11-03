@@ -24,6 +24,8 @@
 import { installFakeChrome } from '../test/fake-chrome.js';
 import {
   DAILY,
+  EVENING,
+  THE_EVENING_AT,
   EVERY_DAY_IN_MINUTES,
   EVERY_TWO_MINUTES,
   STAY_AWAKE,
@@ -779,6 +781,16 @@ const LATER = '2026-08-27T16:04:00.000Z';
   const held = await browser.aPageAsked({ do: 'what-is-held', reportId: 'me_orders' });
   check('THE BACKGROUND ANSWERS WHICH FILE NAMES THE DRIVE ALREADY HOLDS FOR A REPORT',
     Boolean(held) && Array.isArray(held.names) && held.names.join() === 'meesho_me_orders_2026-10-13.csv');
+  const partlyPut = await browser.aPageAsked({
+    do: 'land-the-file', reportId: 'me_pricing',
+    fileName: 'meesho_me_pricing_2026-09-05.csv', bytes: [1, 2, 3], partial: true,
+  });
+  const afterPartly = (await browser.chrome.storage.local.get(LAST_LANDED))[LAST_LANDED] || {};
+  check('AJ13a: a partly read table is put in the Drive but its day is NOT remembered as landed',
+    Boolean(partlyPut) && partlyPut.put === 'an-id-from-drive' && afterPartly.me_pricing === undefined);
+  await browser.aPageAsked({ do: 'land-the-file', reportId: 'me_pricing', fileName: 'meesho_me_pricing_2026-09-05.csv', bytes: [1, 2, 3] });
+  const afterWhole = (await browser.chrome.storage.local.get(LAST_LANDED))[LAST_LANDED] || {};
+  check('and the same file put whole is remembered', JSON.stringify(afterWhole.me_pricing) === JSON.stringify(['2026-09-05']));
   const heldNothing = await browser.aPageAsked({ do: 'what-is-held', reportId: 'me_claims' });
   check('and a report with nothing there answers an empty list, not a refusal', Boolean(heldNothing) && Array.isArray(heldNothing.names) && heldNothing.names.length === 0);
   const heldBadName = await browser.aPageAsked({ do: 'what-is-held', reportId: '../../etc' });
@@ -2377,7 +2389,42 @@ check('the page relay is OFF in what ships, so no script on a portal page can dr
     alone.includes('Chrome or the page') && !alone.includes('by hand'));
 }
 
-const EXPECTED = 262 + 13 + 1 + 4 + 2 + 1 + 1 + 1 + 4 + 11;
+{
+  /* **THE SECOND TIMED RUN (AJ13a, his order of 3 Nov 2026): a 4 pm alarm of its own, starting only the evening run.** */
+  const browser = installFakeChrome();
+  let due = 0;
+  let evening = 0;
+  await wireUp(browser.chrome, { onDue: async () => { due += 1; }, onEvening: async () => { evening += 1; } });
+  const four = theAlarm(browser, EVENING);
+  check('AJ13a: wiring up sets a 4 pm alarm of its own, repeating every day',
+    four !== null && THE_EVENING_AT.hour === 16 && THE_EVENING_AT.minute === 0
+    && new Date(four.when).getHours() === 16 && new Date(four.when).getMinutes() === 0 && four.periodInMinutes === EVERY_DAY_IN_MINUTES);
+  check('AJ13a: and the morning alarm is a different alarm', theAlarm(browser, DAILY) !== null && EVENING !== DAILY);
+  browser.forgetTheAlarms();
+  await browser.chrome.runtime.onStartup.happened();
+  check('AJ13a: a cleared 4 pm alarm is put back with the morning one', theAlarm(browser, EVENING) !== null && theAlarm(browser, DAILY) !== null);
+  await browser.chrome.alarms.onAlarm.happened({ name: EVENING });
+  check('AJ13a: the 4 pm alarm starts the evening run and not the morning one', evening === 1 && due === 0);
+  await browser.chrome.alarms.onAlarm.happened({ name: DAILY });
+  check('AJ13a: the morning alarm starts the morning run and not the evening one', evening === 1 && due === 1);
+}
+
+{
+  /* The evening run waits for 3 minutes of the computer being left alone, like the others, and starts once. */
+  const browser = installFakeChrome();
+  let due = 0;
+  let evening = 0;
+  await wireUp(browser.chrome, { onDue: async () => { due += 1; }, onEvening: async () => { evening += 1; } });
+  browser.setTheComputer('active');
+  await browser.chrome.alarms.onAlarm.happened({ name: EVENING });
+  check('AJ13a: the evening run does not start while the computer is in use, and the wait names it',
+    evening === 0 && (await whatIsWaiting(browser.chrome)).kinds.join() === 'evening');
+  browser.setTheComputer('idle');
+  await browser.chrome.alarms.onAlarm.happened({ name: IDLE_ALARM });
+  check('AJ13a: once the computer is left alone the evening run starts, once, and the morning one does not', evening === 1 && due === 0);
+}
+
+const EXPECTED = 262 + 13 + 1 + 4 + 2 + 1 + 1 + 1 + 4 + 11 + 7 + 2;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

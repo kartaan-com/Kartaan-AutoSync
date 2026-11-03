@@ -49,6 +49,8 @@ export const LANDED = 'landed';
 export const NOTHING_TO_FETCH = 'nothing-to-fetch';
 export const STILL_WAITING = 'still-waiting';
 export const FAILED = 'failed';
+/** A table was read but a page of it was short: the rows read are saved, in a file that says it is incomplete. */
+export const PARTIAL = 'partial';
 /* **AND ONE THAT IS NEITHER "IT WORKED" NOR "IT BROKE" -- HIS RULING, 2026-09-14.**
  * *"There will be scenarios when a report will not be available for a date...
  * Rumee AutoSync used to mark that as not available and moves ahead."* A day the
@@ -1822,14 +1824,24 @@ export function theWalk({
           });
         }
         const body = new TextEncoder().encode(read.csv);
+        const partly = Boolean(read.incomplete && read.incomplete.length);
         try {
-          await putTheFile({ reportId, fileName: called, body });
+          /* **A PARTLY READ TABLE'S DAY IS NEVER REMEMBERED AS LANDED** (`partial: true`), so the next sync looks at it again. */
+          await putTheFile({ reportId, fileName: called, body, partial: partly });
         } catch (wrong) {
           return anAnswer(FAILED, reportId, dataDate, {
             fileName: called,
             size: body.length,
             say: `${body.length} bytes of the table could not be put in the seller's Drive: `
               + `${(wrong && wrong.message) || wrong}`,
+          });
+        }
+        if (partly) {
+          return anAnswer(PARTIAL, reportId, dataDate, {
+            fileName: called,
+            size: body.length,
+            say: `PARTIAL: read ${read.rows} rows over ${read.pages} page(s), but ${read.incomplete.map((one) => `page ${one.page} showed ${one.read} of ${one.expected} rows`).join('; ')} `
+              + `even after being read again. The ${body.length} bytes were saved in the seller's Drive as ${called}, every row marked INCOMPLETE.`,
           });
         }
         return anAnswer(LANDED, reportId, dataDate, {
