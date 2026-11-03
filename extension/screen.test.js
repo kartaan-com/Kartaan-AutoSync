@@ -1337,11 +1337,14 @@ function panelParts(chrome, held = {}) {
   check('the panel is told the hour that is saved and when it next wakes',
     told.stands.clock.chosen === '03:45' && told.stands.clock.nextAt === set.when);
   check('and it says so in words a seller reads',
-    whenItNextWakes(told.stands.clock).startsWith('Next wakes'));
+    whenItNextWakes(told.stands.clock).startsWith('Next morning run wakes'));
   check('an hour saved with no clock behind it is called out, not shown as fine',
     whenItNextWakes({ chosen: '03:45', nextAt: null }).includes('nothing will start by itself'));
   check('and an hour nobody ever chose says what happens instead',
-    whenItNextWakes(null).includes('half past two'));
+    whenItNextWakes(null).includes('8:00'));
+  check('AJ13a: the clock line names both runs when the 4 pm alarm is set, and the morning one alone as before when it is not',
+    whenItNextWakes({ chosen: '08:00', nextAt: Date.now() + 3600000, eveningAt: Date.now() + 7200000 }).includes('The 4 pm run wakes')
+    && !whenItNextWakes({ chosen: '08:00', nextAt: Date.now() + 3600000 }).includes('4 pm'));
 
   /* **AJ8 (his N063): THE PANEL SAYS PLAINLY WHEN A RUN IS WAITING FOR THE COMPUTER TO BE LEFT ALONE.** */
   check('the panel is told nothing waits when nothing does', told.stands.waitingForIdle === null);

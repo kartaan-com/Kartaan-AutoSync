@@ -3111,6 +3111,14 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
   const partly = await aWalk(part)('me_pricing', DAY);
   check('AJ13a: a table with a short page is SAVED and the run says partial, not landed, naming the page and the rows',
     partly.state === 'partial' && part.putAway.length === 1 && partly.say.includes('page 2 showed 24 of 25 rows') && partly.say.startsWith('PARTIAL'));
+  const held = aPortal({ held: [`meesho_me_pricing_${DAY}.csv`], table: { csv: 'x', rows: 1, pages: 2, incomplete: [{ page: 2, read: 24, expected: 25 }] } });
+  const notReplaced = await aWalk(held)('me_pricing', DAY);
+  check('AJ13a: a partly read table is NOT written when the Drive already holds a file of that name, and says so',
+    notReplaced.state === 'partial' && held.putAway.length === 0 && notReplaced.say.includes('NOT saved') && notReplaced.say.includes('already holds'));
+  const blind = aPortal({ heldRefuses: 'no answer', table: { csv: 'x', rows: 1, pages: 2, incomplete: [{ page: 2, read: 24, expected: 25 }] } });
+  const notAsked = await aWalk(blind)('me_pricing', DAY);
+  check('and when the Drive cannot be asked what it holds it is not written either',
+    notAsked.state === 'partial' && blind.putAway.length === 0 && notAsked.say.includes('could not be asked'));
   check('AJ13a: and the file is handed over marked partial, so its day is not remembered as landed; a whole table is not',
     part.putAway[0].partial === true && read.putAway[0].partial === false);
   const refusing = aPortal({ tableRefuses: 'the columns are not the ones expected' });
@@ -3333,7 +3341,7 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
   check('a press narrowed to a row that sees several is still refused', narrowedClick.state === FAILED);
 }
 
-const EXPECTED = 349 + 31 + 9 + 3 + 1 + 1 + 3 + 8 + 2 + 4 + 2 + 2 + 1 + 14 + 1 + 1 + 1 + 2 + 4 + 3 + 1 + 2 + 2 + 1 + 1;
+const EXPECTED = 349 + 31 + 9 + 3 + 1 + 1 + 3 + 8 + 2 + 4 + 2 + 2 + 1 + 14 + 1 + 1 + 1 + 2 + 4 + 3 + 1 + 2 + 2 + 1 + 1 + 2;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

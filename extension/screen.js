@@ -2185,12 +2185,13 @@ export function showTheReportTable(into, table, platformName, opened) {
 
 /** When the extension next wakes by itself, in the seller's own words. */
 export function whenItNextWakes(clock) {
-  if (!clock || !clock.chosen) return 'No time saved yet, so it wakes at half past two in the morning.';
+  const evening = clock && clock.eveningAt ? ` The 4 pm run wakes ${inWordsWhen(clock.eveningAt)}.` : '';
+  if (!clock || !clock.chosen) return `No time saved yet, so the morning run wakes at 8:00.${evening}`;
   if (!clock.nextAt) {
     return `Saved as ${clock.chosen}, but its clock is not set -- nothing will start by itself. `
-      + 'Press Save again.';
+      + `Press Save again.${evening}`;
   }
-  return `Next wakes ${inWordsWhen(clock.nextAt)}.`;
+  return `Next morning run wakes ${inWordsWhen(clock.nextAt)}.${evening}`;
 }
 
 /** Say something back to whoever pressed a button, or take the message away. */

@@ -13,7 +13,7 @@
  */
 
 import {
-  DAILY, THE_PANEL, THE_WALK, aFreshSecret, answerAnExternalAsk, answerThePage, answerThePanel, setTheHour, startAWalk,
+  DAILY, EVENING, THE_PANEL, THE_WALK, aFreshSecret, answerAnExternalAsk, answerThePage, answerThePanel, setTheHour, startAWalk,
   theHourItRuns, whyThatIsNotATimeOfDay, wireUp,
 } from './background.js';
 import {
@@ -450,11 +450,13 @@ const answerThePanelsAsk = async (asked) => answerThePanelsQuestion(chrome, {
   theClock: async () => {
     const chosen = await theHourItRuns(chrome);
     const clock = await chrome.alarms.get(DAILY);
+    const evening = await chrome.alarms.get(EVENING);
     return {
       chosen: chosen
         ? `${String(chosen.hour).padStart(2, '0')}:${String(chosen.minute).padStart(2, '0')}`
         : '',
       nextAt: (clock && (clock.scheduledTime || clock.when)) || null,
+      eveningAt: (evening && (evening.scheduledTime || evening.when)) || null,
     };
   },
 }, asked);

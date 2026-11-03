@@ -2403,6 +2403,9 @@ check('the page relay is OFF in what ships, so no script on a portal page can dr
   browser.forgetTheAlarms();
   await browser.chrome.runtime.onStartup.happened();
   check('AJ13a: a cleared 4 pm alarm is put back with the morning one', theAlarm(browser, EVENING) !== null && theAlarm(browser, DAILY) !== null);
+  browser.forgetTheAlarms();
+  await browser.chrome.runtime.onInstalled.happened({ reason: 'update' });
+  check('AJ13a: an update puts the 4 pm alarm in place without anything being saved in the panel', theAlarm(browser, EVENING) !== null);
   await browser.chrome.alarms.onAlarm.happened({ name: EVENING });
   check('AJ13a: the 4 pm alarm starts the evening run and not the morning one', evening === 1 && due === 0);
   await browser.chrome.alarms.onAlarm.happened({ name: DAILY });
@@ -2424,7 +2427,7 @@ check('the page relay is OFF in what ships, so no script on a portal page can dr
   check('AJ13a: once the computer is left alone the evening run starts, once, and the morning one does not', evening === 1 && due === 0);
 }
 
-const EXPECTED = 262 + 13 + 1 + 4 + 2 + 1 + 1 + 1 + 4 + 11 + 7 + 2;
+const EXPECTED = 262 + 13 + 1 + 4 + 2 + 1 + 1 + 1 + 4 + 11 + 7 + 2 + 1;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

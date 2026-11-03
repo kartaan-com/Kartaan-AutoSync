@@ -1825,6 +1825,22 @@ export function theWalk({
         }
         const body = new TextEncoder().encode(read.csv);
         const partly = Boolean(read.incomplete && read.incomplete.length);
+        if (partly) {
+          /* **A PARTLY READ TABLE NEVER REPLACES A FILE OF THE SAME DAY (his rule, 3 Nov 2026).** If the Drive already holds that name, or cannot be asked, it is not written. */
+          let heldNow = null;
+          try {
+            heldNow = typeof whatIsHeld === 'function' ? await whatIsHeld({ reportId }) : null;
+          } catch (wrong) {
+            heldNow = null;
+          }
+          if (!Array.isArray(heldNow) || heldNow.includes(called)) {
+            return anAnswer(PARTIAL, reportId, dataDate, {
+              fileName: called,
+              say: `PARTIAL: read ${read.rows} rows over ${read.pages} page(s), but ${read.incomplete.map((one) => `page ${one.page} showed ${one.read} of ${one.expected} rows`).join('; ')} `
+                + `even after being read again. NOT saved: ${Array.isArray(heldNow) ? `the Drive already holds ${called}` : 'the Drive could not be asked what it holds'}, and a partly read file is never put over a file of the same day.`,
+            });
+          }
+        }
         try {
           /* **A PARTLY READ TABLE'S DAY IS NEVER REMEMBERED AS LANDED** (`partial: true`), so the next sync looks at it again. */
           await putTheFile({ reportId, fileName: called, body, partial: partly });
