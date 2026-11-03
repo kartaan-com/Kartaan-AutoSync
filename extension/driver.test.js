@@ -4057,7 +4057,81 @@ for (const [start, end, from, expectedMonth] of [
     refused.includes('2 things on the calendar say they are 2026-10-04'));
 }
 
-const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1 + 1 + 1 + 3 + 2 + 1 + 2 + 3 + 1 + 2 + 4 + 1 + 2 + 9 + 4 + 1 + 1 + 2 + 2 + 2 + 6 + 3 + 1 + 7 + 13 + 1 + 2 + 1 + 2;
+{
+  /* **THE CLIMB FROM A MONTH'S HEADING (AJ13a, proving of 3 Nov 2026):** how far it goes, that it goes at all, and where it stops. */
+  const monthWhoseHeadingIsDeep = (y, m, deep, withTheDays = true) => {
+    const panel = thing('div');
+    let inner = thing('div', `${MONTHS_IN_FULL[m - 1]} ${y}`);
+    for (let level = 0; level < deep; level += 1) {
+      const wrap = thing('div');
+      wrap.append(inner);
+      inner = wrap;
+    }
+    panel.append(inner);
+    if (withTheDays) {
+      const grid = thing('div');
+      for (let d = 1; d <= 30; d += 1) {
+        const cell = thing('td', String(d));
+        cell.setAttribute('aria-label', meeshoOrdersLabel(y, m, d));
+        grid.append(cell);
+      }
+      panel.append(grid);
+    }
+    return panel;
+  };
+  const withASpill = (panel) => {
+    const spill = thing('td', '4');
+    spill.setAttribute('aria-label', meeshoOrdersLabel(2026, 10, 4));
+    panel.children[panel.children.length - 1].append(spill);
+  };
+  const tryIt = async (october, november, extra = []) => {
+    const page = aPage();
+    const door = doorOn();
+    const holder = thing('div');
+    holder.append(october, november);
+    const pressedInOctober = watchTheDays(october, 2026, 10);
+    const pressedInNovember = watchTheDays(november, 2026, 11);
+    page.body.append(holder, ...extra);
+    const said = await saidAfterWaiting(() => door.pick_range('2026-10-04', '2026-10-04'));
+    return { said, pressedInOctober, pressedInNovember };
+  };
+  {
+    const november = monthWhoseHeadingIsDeep(2026, 11, 0);
+    withASpill(november);
+    const got = await tryIt(monthWhoseHeadingIsDeep(2026, 10, 3), november);
+    check('AJ13a: the climb goes up one level at a time from a heading that is a few levels below its panel, and presses the day there',
+      got.said === '' && got.pressedInOctober.includes('2026-10-04') && got.pressedInNovember.length === 0);
+  }
+  {
+    const november = monthWhoseHeadingIsDeep(2026, 11, 0);
+    withASpill(november);
+    const got = await tryIt(monthWhoseHeadingIsDeep(2026, 10, 7), november);
+    check('and it does climb all 8 levels: a panel as far up as that is found and the day pressed there',
+      got.said === '' && got.pressedInOctober.includes('2026-10-04') && got.pressedInNovember.length === 0);
+  }
+  {
+    const november = monthWhoseHeadingIsDeep(2026, 11, 0);
+    withASpill(november);
+    const got = await tryIt(monthWhoseHeadingIsDeep(2026, 10, 8), november);
+    check('and it climbs no more than 8 levels: a panel further up than that is not found, so the two cells are refused as before',
+      got.said.includes('2 things on the calendar say they are 2026-10-04') && got.pressedInOctober.length === 0 && got.pressedInNovember.length === 0);
+  }
+  {
+    /* October's heading sits alone in its own wrapper, its days elsewhere on the page; the first level holding the other month's heading is where the climb stops. */
+    const october = monthWhoseHeadingIsDeep(2026, 10, 0, false);
+    const november = monthWhoseHeadingIsDeep(2026, 11, 0);
+    withASpill(november);
+    const farDay = thing('td', '4');
+    farDay.setAttribute('aria-label', meeshoOrdersLabel(2026, 10, 4));
+    const elsewhere = thing('div');
+    elsewhere.append(farDay);
+    const got = await tryIt(october, november, [elsewhere]);
+    check('AJ13a: the climb stops at the first level that also holds another month\'s heading, so it never settles on a day that is in the other month\'s panel',
+      got.said.includes('2 things on the calendar say they are 2026-10-04') && got.pressedInNovember.length === 0);
+  }
+}
+
+const EXPECTED = 325 + 3 + 2 + 4 + 5 + 4 + 2 + 1 + 11 + 1 + 2 + 1 + 3 + 2 + 3 + 1 + 1 + 1 + 3 + 2 + 1 + 2 + 3 + 1 + 2 + 4 + 1 + 2 + 9 + 4 + 1 + 1 + 2 + 2 + 2 + 6 + 3 + 1 + 7 + 13 + 1 + 2 + 1 + 2 + 4;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

@@ -405,6 +405,44 @@ check('a report that reads another report\'s file is fetched after it',
 }
 
 {
+  /* **WHAT THE GOING NIGHT HAS ALREADY TAKEN IS NOT QUEUED AGAIN BEHIND IT (AJ13a proving): the report it is on, and the ones it has left.** */
+  const asked = async (night) => {
+    const { chrome } = installFakeChrome();
+    const parts = { book: BOOK, now: () => Date.UTC(2026, 8, 16, 3, 0), startTheNight, carryOn: async () => {} };
+    await answerThePanelsQuestion(chrome, parts, { do: 'save-the-panel-name', panel: 'xuptj' });
+    await answerThePanelsQuestion(chrome, parts, { do: 'check-the-drive' });
+    await chrome.storage.local.set({ [THE_NIGHT]: { startedAt: Date.now(), finishedAt: 0, spent: 0, mayAskFor: 3, done: [], ...night }, [THE_QUEUE]: [] });
+    await startTheScheduledSync(chrome, parts, 'evening');
+    return ((await chrome.storage.local.get(THE_QUEUE))[THE_QUEUE] || []).map((entry) => (Array.isArray(entry) ? entry : entry.reportIds)).flat();
+  };
+  const withLeft = await asked({ doing: null, left: ['fk_views'] });
+  check('AJ13a: an evening report the going night still has left is not queued again', !withLeft.includes('fk_views') && withLeft.includes('fk_orders'));
+  const withDoing = await asked({ doing: 'fk_orders', left: [] });
+  check('and the one it is on now is not queued again either', !withDoing.includes('fk_orders') && withDoing.includes('fk_views'));
+}
+
+{
+  /* A night whose reports include a partly saved table files it with the failed, so the card does not say it all went well. */
+  const { chrome } = installFakeChrome();
+  const began = Date.now() - 2 * 3600000;
+  await chrome.storage.local.set({
+    [THE_NIGHT]: {
+      startedAt: began, finishedAt: began + 3600000, left: [], doing: null, spent: 0, mayAskFor: 3, spentOn: {}, why: '',
+      done: [{ reportId: 'me_pricing', state: 'partial', say: 'PARTIAL' }, { reportId: 'me_orders', state: 'landed', size: 10 }],
+    },
+  });
+  await rememberTheNight(chrome, { book: BOOK });
+  const filed = (await theNights(chrome)).byPlatform.meesho;
+  check('AJ13a: a partly saved table is filed with the failed, not with the landed, in the night\'s card', filed.failed === 1 && filed.landed === 1);
+}
+
+check('AJ13a: with no time saved, the clock line still names the 4 pm run, and a clock that is not set says to press Save again and names it too',
+  whenItNextWakes(null).includes('8:00') && !whenItNextWakes(null).includes('4 pm')
+  && whenItNextWakes({ chosen: '08:00', nextAt: null, eveningAt: Date.now() + 3600000 }).includes('Press Save again. The 4 pm run wakes')
+  && whenItNextWakes(null).startsWith('No time saved yet')
+  && whenItNextWakes({ chosen: '', eveningAt: Date.now() + 3600000 }).includes('The 4 pm run wakes'));
+
+{
   /* **TWO STARTERS AT ONCE CANNOT BOTH START A NIGHT (review finding, 2026-10-05).** The timed alarm and Run now
    * used to read "no night going" together and each write a night over the other's. */
   const { chrome } = installFakeChrome();

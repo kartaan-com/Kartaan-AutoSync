@@ -25,6 +25,7 @@ import { installFakeChrome } from '../test/fake-chrome.js';
 import {
   DAILY,
   EVENING,
+  makeSureTheEveningIsSet,
   THE_EVENING_AT,
   EVERY_DAY_IN_MINUTES,
   EVERY_TWO_MINUTES,
@@ -2427,7 +2428,27 @@ check('the page relay is OFF in what ships, so no script on a portal page can dr
   check('AJ13a: once the computer is left alone the evening run starts, once, and the morning one does not', evening === 1 && due === 0);
 }
 
-const EXPECTED = 262 + 13 + 1 + 4 + 2 + 1 + 1 + 1 + 4 + 11 + 7 + 2 + 1;
+{
+  /* **THE 4 PM ALARM'S OWN SETTING-UP (AJ13a proving, 3 Nov 2026).** */
+  const browser = installFakeChrome();
+  const made = await makeSureTheEveningIsSet(browser.chrome);
+  check('AJ13a: the 4 pm alarm is made when there is none, and it is asked to survive a browser restart',
+    made === true && theAlarm(browser, EVENING).persistAcrossSessions === true);
+  const again = await makeSureTheEveningIsSet(browser.chrome);
+  check('and asking again makes no second one and says it had nothing to make', again === false && browser.alarms().filter((one) => one.name === EVENING).length === 1);
+  await wireUp(browser.chrome, { onDue: async () => {}, onEvening: async () => {} });
+  await browser.chrome.alarms.clear(EVENING);
+  const putBack = await wireUp(browser.chrome, { onDue: async () => {}, onEvening: async () => {} });
+  await browser.chrome.alarms.clear(DAILY);
+  const dailyBack = await wireUp(browser.chrome, { onDue: async () => {}, onEvening: async () => {} });
+  await browser.chrome.alarms.clear(STAY_AWAKE);
+  const awakeBack = await wireUp(browser.chrome, { onDue: async () => {}, onEvening: async () => {} });
+  check('and it says so when only the morning alarm, or only the waking alarm, had to be put back', dailyBack === true && awakeBack === true);
+  const nothingToDo = await wireUp(browser.chrome, { onDue: async () => {}, onEvening: async () => {} });
+  check('and it says so when only the 4 pm alarm had to be put back, and says nothing was set when all are there', putBack === true && nothingToDo === false);
+}
+
+const EXPECTED = 262 + 13 + 1 + 4 + 2 + 1 + 1 + 1 + 4 + 11 + 7 + 2 + 1 + 4;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

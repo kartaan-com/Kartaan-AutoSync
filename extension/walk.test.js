@@ -3119,6 +3119,12 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
   const notAsked = await aWalk(blind)('me_pricing', DAY);
   check('and when the Drive cannot be asked what it holds it is not written either',
     notAsked.state === 'partial' && blind.putAway.length === 0 && notAsked.say.includes('could not be asked'));
+  check('AJ13a: the saved partial answer names the file, its size, how many rows over how many pages, and that every row is marked',
+    partly.fileName === `meesho_me_pricing_${DAY}.csv` && partly.size === part.putAway[0].size
+    && partly.say.includes('read 1 rows over 2 page(s)') && partly.say.includes(`The ${partly.size} bytes were saved in the seller's Drive as meesho_me_pricing_${DAY}.csv, every row marked INCOMPLETE.`));
+  check('and the two answers that did not save it name the file too, and give the pages and rows read',
+    notReplaced.fileName === `meesho_me_pricing_${DAY}.csv` && notAsked.fileName === `meesho_me_pricing_${DAY}.csv`
+    && notReplaced.say.includes('the Drive already holds meesho_me_pricing_') && notReplaced.say.includes('read 1 rows over 2 page(s)'));
   check('AJ13a: and the file is handed over marked partial, so its day is not remembered as landed; a whole table is not',
     part.putAway[0].partial === true && read.putAway[0].partial === false);
   const refusing = aPortal({ tableRefuses: 'the columns are not the ones expected' });
@@ -3341,7 +3347,7 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
   check('a press narrowed to a row that sees several is still refused', narrowedClick.state === FAILED);
 }
 
-const EXPECTED = 349 + 31 + 9 + 3 + 1 + 1 + 3 + 8 + 2 + 4 + 2 + 2 + 1 + 14 + 1 + 1 + 1 + 2 + 4 + 3 + 1 + 2 + 2 + 1 + 1 + 2;
+const EXPECTED = 349 + 31 + 9 + 3 + 1 + 1 + 3 + 8 + 2 + 4 + 2 + 2 + 1 + 14 + 1 + 1 + 1 + 2 + 4 + 3 + 1 + 2 + 2 + 1 + 1 + 2 + 2;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

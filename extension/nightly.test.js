@@ -2389,7 +2389,15 @@ check('report table: null night gives null', theReportTable(null, () => '') === 
   check('AJ13a: and Kartaan is told it did not fully land', told.length === 1 && (told[0].failed || []).join() === 'me_pricing');
 }
 
-const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3 + 1 + 4 + 3 + 2 + 2 + 2;
+{
+  const night = { startedAt: 0, finishedAt: 60000, doing: null, left: [], done: [{ reportId: 'rp', state: 'partial', say: 'PARTIAL: page 2 showed 24 of 25 rows', size: 5, at: 1000, dataDate: '2026-01-02' }] };
+  const table = theReportTable(night, (id) => id);
+  const row = table.rows[0];
+  check('AJ13a: a partly saved table has its own row in the night table: word Partial, counted as failed, starred, with the words said',
+    table.rows.length === 1 && row.word === 'Partial' && row.status === 'failed' && row.star === true && row.means === 'PARTIAL: page 2 showed 24 of 25 rows' && table.counts.failed === 1);
+}
+
+const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3 + 1 + 4 + 3 + 2 + 2 + 2 + 1;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

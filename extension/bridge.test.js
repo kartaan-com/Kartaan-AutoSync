@@ -785,6 +785,12 @@ const refuses = async (name, args, words, setup = null) => {
     slimAsk(BOOK, (await asksOf(r))[0]).results.find((x) => x.report === 'me_ads').state === 'unrecorded');
   const partlyAsk = slimAsk(BOOK, anAsk('e5555555', { state: 'done', results: [{ report: 'me_pricing', day: '', state: 'partial', said: 'PARTIAL' }, { report: 'fk_orders', day: '', state: 'landed', said: '' }] }));
   check('AJ13a: a partly fetched report is counted as partly, not as landed or failed', partlyAsk.message === 'Finished: 1 landed, 0 did not, 0 had nothing to fetch, 1 partly fetched.');
+  const more = slimAsk(BOOK, anAsk('e5555556', { state: 'done', results: [{ report: 'a', state: 'partial' }, { report: 'b', state: 'landed' }, { report: 'c', state: 'landed' }, { report: 'd', state: 'failed' }] }));
+  check('and the partly fetched are counted as themselves when the landed are not the same number', more.message === 'Finished: 2 landed, 1 did not, 0 had nothing to fetch, 1 partly fetched.');
+  check('and a finished ask with none partly says nothing about partly', !slim.message.includes('partly'));
+  check('AJ13a: the words said for a report named from its file, and for one with no outcome, are plain',
+    slim.results.find((x) => x.report === 'fk_returns').said === 'Its file flipkart_fk_returns_2026-11-02.xlsx landed.'
+    && b.results.find((x) => x.report === 'fk_returns').said === 'AutoSync recorded no outcome for this report.');
 }
 
 {

@@ -105,6 +105,7 @@ function aPage({ headers, pages, tableText = "", extra = [], pager }) {
 }
 
 const noWaiting = () => Promise.resolve();
+const TIMES_HALF_A_SECOND = 0;
 const PAGER = (n) => [
   { label: 'Previous page' }, ...Array.from({ length: n }, (_, i) => ({ label: `Page ${i + 1}` })), { label: 'Next page' },
 ];
@@ -777,8 +778,16 @@ const aMeeshoQualityPage = ({
   {
     const built = withSize([priceRows('A', 24), priceRows('B', 5)], 29, PAGER(2));
     const said = [];
-    const got = await readTheTable(built.page, { table: 'meesho-pricing', rest: noWaiting, patience: 5, say: (line) => said.push(line) });
+    const spent = [];
+    const got = await readTheTable(built.page, { table: 'meesho-pricing', rest: (ms) => { spent.push(ms); return Promise.resolve(); }, patience: 5, say: (line) => said.push(line) });
     const lines = got.csv.split('\n');
+    const pageOne = built.buttons.find((one) => one.getAttribute('aria-label') === 'Page 1');
+    check('AJ13a: each of the 3 readings says it is being read again, and the answer says it was read again 3 times',
+      [1, 2, 3].every((n) => said.some((line) => line.includes(`so it is read again (${n} of 3)`))) && said.some((line) => line.includes('after being read again 3 times')));
+    check('and each goes to the other page and BACK to the short one (the way back is pressed 3 times too)', pageOne.clicks === 3 && built.state.at === 1);
+    check('and each reading waits for the page: 1.5 s after each press, the rows to stop arriving twice, then the patience for the rows',
+      spent.filter((ms) => ms === 1500).length === 6 && spent.filter((ms) => ms === 500).length === 57);
+    check('and each wait is the half second asked for: 10 looks before the first reading, 2 + 2 + 10 in each of the 3', spent.length === 63);
     check('and each reading says how many rows the page then showed, for the next round to read',
       [1, 2, 3].every((n) => said.some((line) => line.includes(`(${n} of 3) it shows 24 rows of 25`))));
     const pageTwo = built.buttons.find((one) => one.getAttribute('aria-label') === 'Page 2');
@@ -799,10 +808,26 @@ const aMeeshoQualityPage = ({
   {
     /* Rows missing that the page's own count shows (here 40 counted, 29 read, only 1 explained by a short page) are saved as incomplete too -- never nothing -- and the file says how many are missing. */
     const built = withSize([priceRows('A', 24), priceRows('B', 5)], 40, PAGER(2));
-    const got = await readTheTable(built.page, { table: 'meesho-pricing', rest: noWaiting, patience: 5 });
-    check('AJ13a: when the page counts more than the rows read and the short pages explain only some of it, the rest is named as missing and the rows are saved',
-      got.rows === 29 && got.incomplete.length === 2 && got.incomplete.reduce((all, one) => all + one.expected - one.read, 0) === 11);
-    check('and the file says so on every row', got.csv.split('\n').slice(1).every((one) => one.includes('INCOMPLETE:')));
+    const said = [];
+    const got = await readTheTable(built.page, { table: 'meesho-pricing', rest: noWaiting, patience: 5, say: (line) => said.push(line) });
+    check('AJ13a: when the page counts more than the rows read and the short pages explain only some of it, the rest is named as missing on the last page and the rows are saved',
+      got.rows === 29 && JSON.stringify(got.incomplete) === JSON.stringify([{ page: 1, read: 24, expected: 25 }, { page: 2, read: 5, expected: 15 }]));
+    check('and the file says so on every row, with both pages named', got.csv.split('\n').slice(1).every((one) => one.endsWith('INCOMPLETE: page 1 read 24 of 25 rows; page 2 read 5 of 15 rows"')));
+    check('and the run says how many more are missing than the short pages explain', said.some((line) => line.includes('the page counts 40 in all and 29 rows were read; 10 more are missing')));
+    const fewer = withSize([priceRows('A', 24), priceRows('B', 5)], 20, PAGER(2));
+    check('while a page that counts FEWER than the rows read is a filtered tab or the wrong table, and is refused',
+      (await thrown(() => readTheTable(fewer.page, { table: 'meesho-pricing', rest: noWaiting, patience: 5 }))).includes('counts 20 in all'));
+  }
+  {
+    /* With no button to go back to the short page by, it is not read again (and not pressed blind): saved as it is. */
+    const built = aPage({
+      headers: PRICE_HEADERS, pages: [priceRows('A', 24), priceRows('B', 5)], pager: [{ label: 'Previous page' }, { label: 'Page 2' }, { label: 'Next page' }],
+      extra: [p('All Products (30)'), p('Losing Orders (0)'), p('25 Items / page')],
+    });
+    const said = [];
+    const got = await readTheTable(built.page, { table: 'meesho-pricing', rest: noWaiting, patience: 2, say: (line) => said.push(line) });
+    check('AJ13a: a short page with no button to come back to it by is saved incomplete without being read again',
+      got.rows === 29 && got.incomplete.length === 1 && !said.some((line) => line.includes('read again (')) && built.state.at === 1);
   }
   {
     /* **HIS HP RUN OF 3 NOV 2026: "the page counts 154 in all and 136 rows were read", nothing put away.** A page that shows no "25 Items / page" at that moment is not checked at all; the size last seen is used. */
@@ -814,7 +839,7 @@ const aMeeshoQualityPage = ({
     const before = next.onClick;
     next.onClick = () => { before(); built.page.children = built.page.children.filter((one) => one.textContent.trim() !== '25 Items / page'); };
     const got = await readTheTable(built.page, { table: 'meesho-pricing', rest: noWaiting, patience: 1 });
-    check('AJ13a: rows missing from a page that printed no size are still saved as incomplete, naming the page', got.rows === 75 && Boolean(got.incomplete) && got.incomplete.some((one) => one.read < one.expected));
+    check('AJ13a: rows missing from a page that printed no size are still saved as incomplete, naming the page', got.rows === 75 && JSON.stringify(got.incomplete) === JSON.stringify([{ page: 2, read: 20, expected: 25 }]));
   }
   {
     /* The page draws all its rows when it is gone to again: read whole, once, with nothing marked. */
@@ -840,7 +865,7 @@ const aMeeshoQualityPage = ({
 }
 
 console.log(failures ? `\n${failures} FAILED (${ran} checks)` : `\nall ${ran} checks passed`);
-const EXPECTED = 52 + 1 + 4 + 5 + 10 + 1 + 3 + 2 + 4 + 3 + 1 + 1 + 1 + 1 + 1 + 7 + 1 + 4 + 5 + 1 + 2;
+const EXPECTED = 52 + 1 + 4 + 5 + 10 + 1 + 3 + 2 + 4 + 3 + 1 + 1 + 1 + 1 + 1 + 7 + 1 + 4 + 5 + 1 + 2 + 7;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   process.exit(1);
