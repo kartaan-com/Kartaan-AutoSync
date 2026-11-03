@@ -1,5 +1,5 @@
 {
-  "version": "0.1.26",
+  "version": "0.1.27",
   "url": "https://github.com/kartaan-com/Kartaan-AutoSync/releases/latest/download/kartaan-autosync-extension.zip",
-  "notes": "Flipkart traffic day by day, days older than 14 told to you, Amazon returns by exact day, the AI can reload AutoSync"
+  "notes": "Two timed runs (8:00 and 4 pm), a short Meesho pricing page read again then saved marked incomplete, Flipkart claims calendar fix, every report named in an AI ask result"
 }

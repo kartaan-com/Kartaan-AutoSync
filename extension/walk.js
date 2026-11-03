@@ -1830,9 +1830,7 @@ export function theWalk({
           let heldNow = null;
           try {
             heldNow = typeof whatIsHeld === 'function' ? await whatIsHeld({ reportId }) : null;
-          } catch (wrong) {
-            heldNow = null;
-          }
+          } catch (wrong) { /* it stays null: the Drive could not be asked */ }
           if (!Array.isArray(heldNow) || heldNow.includes(called)) {
             return anAnswer(PARTIAL, reportId, dataDate, {
               fileName: called,
