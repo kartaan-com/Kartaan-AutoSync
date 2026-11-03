@@ -1,5 +1,5 @@
 {
-  "version": "0.1.25",
+  "version": "0.1.26",
   "url": "https://github.com/kartaan-com/Kartaan-AutoSync/releases/latest/download/kartaan-autosync-extension.zip",
-  "notes": "Nightly fixes: Flipkart payments, unreadable files, late runs (extension unchanged)"
+  "notes": "Flipkart traffic day by day, days older than 14 told to you, Amazon returns by exact day, the AI can reload AutoSync"
 }
