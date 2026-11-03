@@ -122,8 +122,9 @@ export function slimAsk(book, ask) {
     running: 'AutoSync is fetching these now.',
     done: ask.results.length
       ? `Finished: ${ask.results.filter((r) => r.state === 'landed').length} landed, `
-        + `${ask.results.filter((r) => r.state !== 'landed' && r.state !== 'nothing-to-fetch').length} did not, `
-        + `${ask.results.filter((r) => r.state === 'nothing-to-fetch').length} had nothing to fetch.`
+        + `${ask.results.filter((r) => !['landed', 'nothing-to-fetch', 'partial'].includes(r.state)).length} did not, `
+        + `${ask.results.filter((r) => r.state === 'nothing-to-fetch').length} had nothing to fetch`
+        + `${ask.results.some((r) => r.state === 'partial') ? `, ${ask.results.filter((r) => r.state === 'partial').length} partly fetched` : ''}.`
       : 'Finished, with nothing recorded against the reports.',
     refused: ask.why || 'Refused.',
     failed: ask.why || 'Did not finish.',
@@ -337,6 +338,16 @@ export async function refreshTheAsks(chrome, parts) {
     const twoSites = new Set(running.reportIds.map((id) => thePlatformOf(book, id))).size > 1;
     const settled = !twoSites || now - night.finishedAt >= SETTLE_MS;
     if (night.finishedAt && settled && !(Array.isArray(queue) && queue.length)) {
+      /* **EVERY REPORT ASKED IS NAMED IN THE RESULT (AJ13a, the HP run of 3 Nov 2026):** the night keeps only the latest run's list, so a first website's report can be gone from it
+       * by the time the ask ends. Its landed file says it landed; with neither, it is said to be unrecorded -- never left out of the count. */
+      for (const id of running.reportIds) {
+        if (running.results.some((r) => r.report === id)) continue;
+        const file = running.files.find((one) => new RegExp(`_${id}_\\d{4}-\\d{2}-\\d{2}`).test(one));
+        running.results.push({
+          report: id, day: '', state: file ? 'landed' : 'unrecorded',
+          said: file ? `Its file ${file} landed.` : 'AutoSync recorded no outcome for this report.',
+        });
+      }
       running.state = 'done';
       running.finishedAt = night.finishedAt;
     }

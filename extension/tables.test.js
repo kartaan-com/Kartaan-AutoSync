@@ -797,10 +797,24 @@ const aMeeshoQualityPage = ({
     check('and a whole read has no incomplete mark and no extra column', !got.incomplete && !got.csv.split('\n')[0].includes('Incomplete'));
   }
   {
-    /* A short page on a FILTERED tab (the page counts more than the rows read plus the shortfall) is still refused, not saved as incomplete. */
+    /* Rows missing that the page's own count shows (here 40 counted, 29 read, only 1 explained by a short page) are saved as incomplete too -- never nothing -- and the file says how many are missing. */
     const built = withSize([priceRows('A', 24), priceRows('B', 5)], 40, PAGER(2));
-    const why = await thrown(() => readTheTable(built.page, { table: 'meesho-pricing', rest: noWaiting, patience: 5 }));
-    check('AJ13a: a short page whose total does not match the page\'s own count by exactly the shortfall is refused, nothing put away', why.includes('counts 40 in all'));
+    const got = await readTheTable(built.page, { table: 'meesho-pricing', rest: noWaiting, patience: 5 });
+    check('AJ13a: when the page counts more than the rows read and the short pages explain only some of it, the rest is named as missing and the rows are saved',
+      got.rows === 29 && got.incomplete.length === 2 && got.incomplete.reduce((all, one) => all + one.expected - one.read, 0) === 11);
+    check('and the file says so on every row', got.csv.split('\n').slice(1).every((one) => one.includes('INCOMPLETE:')));
+  }
+  {
+    /* **HIS HP RUN OF 3 NOV 2026: "the page counts 154 in all and 136 rows were read", nothing put away.** A page that shows no "25 Items / page" at that moment is not checked at all; the size last seen is used. */
+    const built = aPage({
+      headers: PRICE_HEADERS, pages: [priceRows('A', 25), priceRows('B', 20), priceRows('C', 25), priceRows('D', 5)], pager: PAGER(4),
+      extra: [p('All Products (80)'), p('Losing Orders (0)'), p('25 Items / page')],
+    });
+    const next = built.buttons.find((one) => one.getAttribute('aria-label') === 'Next page');
+    const before = next.onClick;
+    next.onClick = () => { before(); built.page.children = built.page.children.filter((one) => one.textContent.trim() !== '25 Items / page'); };
+    const got = await readTheTable(built.page, { table: 'meesho-pricing', rest: noWaiting, patience: 1 });
+    check('AJ13a: rows missing from a page that printed no size are still saved as incomplete, naming the page', got.rows === 75 && Boolean(got.incomplete) && got.incomplete.some((one) => one.read < one.expected));
   }
   {
     /* The page draws all its rows when it is gone to again: read whole, once, with nothing marked. */
@@ -826,7 +840,7 @@ const aMeeshoQualityPage = ({
 }
 
 console.log(failures ? `\n${failures} FAILED (${ran} checks)` : `\nall ${ran} checks passed`);
-const EXPECTED = 52 + 1 + 4 + 5 + 10 + 1 + 3 + 2 + 4 + 3 + 1 + 1 + 1 + 1 + 1 + 7 + 1 + 4 + 5 + 1;
+const EXPECTED = 52 + 1 + 4 + 5 + 10 + 1 + 3 + 2 + 4 + 3 + 1 + 1 + 1 + 1 + 1 + 7 + 1 + 4 + 5 + 1 + 2;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   process.exit(1);

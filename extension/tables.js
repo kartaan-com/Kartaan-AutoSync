@@ -279,9 +279,12 @@ export async function readTheTable(page, {
     return said ? Number(said[1]) : 0;
   };
   const incomplete = [];
+  let lastSize = 0;
   for (let guard = 0; guard < 500; guard += 1) {
     await rowsHaveStoppedArriving();
-    const size = printedPageSize();
+    /* **A PAGE THAT PRINTS NO SIZE AT THIS MOMENT USES THE LAST ONE IT PRINTED** (HP run, 3 Nov 2026), so it is not left unchecked. */
+    const size = printedPageSize() || lastSize;
+    lastSize = size;
     const notTheLast = () => { const named = pagesNamed(); return named > 0 && pages + 1 < named; };
     if (size && notTheLast()) {
       for (let waited = 0; waited < patience * 1000 && rowsNow() < size; waited += 500) {
@@ -400,9 +403,7 @@ export async function readTheTable(page, {
    * with no count printed, or a count the rows do not reach, the read still fails, and now says what each page gave and what the pager showed. */
   const countOnPage = way.all ? leavesOf(page).map((one) => way.all.exec(one)).find(Boolean) : null;
   if (declared && pages !== declared) {
-    if (incomplete.length && pages === declared) {
-      say(`${table}: the pager lists ${declared} pages and every one was read; the read is incomplete already, so it is saved as it is.`);
-    } else if (countOnPage && Number(countOnPage[1]) === rows.length) {
+    if (countOnPage && Number(countOnPage[1]) === rows.length) {
       say(`${table}: the pager lists ${declared} pages and ${pages} were read, and the page counts ${countOnPage[1]} in all, which is every row read, so the table is whole.`);
     } else {
       throw new Error(`the pager lists ${declared} pages and ${pages} were read, so nothing was put away rather than a part of the table `
@@ -418,9 +419,18 @@ export async function readTheTable(page, {
    * Orders) lists fewer, and so does a short read. A count that is not on the page is said, not guessed. */
   if (way.all) {
     const chip = leavesOf(page).map((one) => way.all.exec(one)).find(Boolean);
+    /* **ROWS THE PAGE COUNTS BUT THE READ DID NOT GET, that no short page explains, are named and saved (his D919; HP run of 3 Nov 2026: "154 in all and 136 read", nothing saved).**
+     * A table that may be saved part-read never ends as nothing: the last page carries what is unexplained, so the note says how many rows are missing. */
+    const explained = () => incomplete.reduce((all, one) => all + one.expected - one.read, 0);
+    if (chip && way.savePartial && Number(chip[1]) > rows.length + explained() && perPage.length) {
+      const missing = Number(chip[1]) - rows.length - explained();
+      const sameLast = incomplete.find((one) => one.page === pages);
+      if (sameLast) sameLast.expected += missing;
+      else incomplete.push({ page: pages, read: perPage[pages - 1], expected: perPage[pages - 1] + missing });
+      say(`${table}: the page counts ${chip[1]} in all and ${rows.length} rows were read; ${missing} more are missing than the short pages explain, so those are saved and the file is marked incomplete.`);
+    }
     if (!chip) say(`${table}: the page prints no count of everything to compare ${rows.length} rows against.`);
-    else if (Number(chip[1]) !== rows.length
-      && !(incomplete.length && Number(chip[1]) - rows.length === incomplete.reduce((all, one) => all + one.expected - one.read, 0))) {
+    else if (Number(chip[1]) !== rows.length && !(incomplete.length && Number(chip[1]) - rows.length === explained())) {
       throw new Error(`the page counts ${chip[1]} in all and ${rows.length} rows were read (a filtered tab, or a part of the table), `
         + 'so nothing was put away.');
     }

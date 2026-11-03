@@ -753,11 +753,38 @@ const refuses = async (name, args, words, setup = null) => {
   await switchedOn(r, 'idle');
   await call(r, 'autosync_run', FK);
   await settle();
-  await r.chrome.storage.local.set({ [THE_NIGHT]: { startedAt: NOW, finishedAt: NOW + 1000, doing: null, left: [], done: [{ reportId: 'fk_returns', state: 'failed' }] } });
+  await r.chrome.storage.local.set({ [THE_NIGHT]: { startedAt: NOW, finishedAt: NOW + 1000, doing: null, left: [], done: [{ reportId: 'fk_orders', state: 'failed' }] } });
   await processTheAsks(r.chrome, r.parts);
   const a = (await asksOf(r))[0];
-  check('BR1: a result with no day and no words reads as an empty day and empty words', a.state === 'done' && same(a.results, [{ report: 'fk_returns', day: '', state: 'failed', said: '' }]) && a.finishedAt === NOW + 1000);
+  check('BR1: a result with no day and no words reads as an empty day and empty words', a.state === 'done' && same(a.results, [{ report: 'fk_orders', day: '', state: 'failed', said: '' }]) && a.finishedAt === NOW + 1000);
   check('BR1: and the ask says how it went in words', slimAsk(BOOK, a).message === 'Finished: 0 landed, 1 did not, 0 had nothing to fetch.');
+}
+
+{
+  // AJ13a: a report that landed but is missing from the night's list is still named, and counted.
+  const r = rig();
+  await switchedOn(r, 'idle');
+  await keepAsks(r, [anAsk('c3333333', {
+    state: 'running', startedAt: NOW, nightStartedAt: NOW, reportIds: ['fk_orders', 'fk_returns'], files: ['flipkart_fk_returns_2026-11-02.xlsx'],
+  })]);
+  await r.chrome.storage.local.set({ [THE_NIGHT]: { startedAt: NOW, finishedAt: NOW + 1000, doing: null, left: [], done: [{ reportId: 'fk_orders', state: 'failed', say: 'no', dataDate: '2026-05-02' }] } });
+  await processTheAsks(r.chrome, r.parts);
+  const a = (await asksOf(r))[0];
+  const slim = slimAsk(BOOK, a);
+  check('AJ13a: every report asked is in the results; one with a landed file but no night entry reads as landed',
+    a.state === 'done' && slim.results.length === 2 && slim.results.find((x) => x.report === 'fk_returns').state === 'landed');
+  check('AJ13a: and the words count it: 1 landed, 1 did not', slim.message === 'Finished: 1 landed, 1 did not, 0 had nothing to fetch.');
+  await keepAsks(r, [anAsk('d4444444', { state: 'running', startedAt: NOW, nightStartedAt: NOW, reportIds: ['fk_orders', 'fk_returns'] })]);
+  await processTheAsks(r.chrome, r.parts);
+  const b = slimAsk(BOOK, (await asksOf(r))[0]);
+  check('AJ13a: a report with neither a night entry nor a file is named as unrecorded, and counts as not landed',
+    b.results.find((x) => x.report === 'fk_returns').state === 'unrecorded' && /0 landed, 2 did not/.test(b.message));
+  await keepAsks(r, [anAsk('f6666666', { state: 'running', startedAt: NOW, nightStartedAt: NOW, reportIds: ['me_ads'], files: ['meesho_me_ads_summary_2026-11-02.csv'] })]);
+  await processTheAsks(r.chrome, r.parts);
+  check('AJ13a: a landed file of a report whose id only starts the same (me_ads_summary) is not taken for this one (me_ads)',
+    slimAsk(BOOK, (await asksOf(r))[0]).results.find((x) => x.report === 'me_ads').state === 'unrecorded');
+  const partlyAsk = slimAsk(BOOK, anAsk('e5555555', { state: 'done', results: [{ report: 'me_pricing', day: '', state: 'partial', said: 'PARTIAL' }, { report: 'fk_orders', day: '', state: 'landed', said: '' }] }));
+  check('AJ13a: a partly fetched report is counted as partly, not as landed or failed', partlyAsk.message === 'Finished: 1 landed, 0 did not, 0 had nothing to fetch, 1 partly fetched.');
 }
 
 {
