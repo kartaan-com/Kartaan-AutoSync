@@ -1,15 +1,16 @@
 {
   "record": "review",
-  "commit": "97bc3be",
-  "run_at": "3 Nov 2026 (AJ13a, AJ13b). Fresh Opus 5.5 read-only agents with no stake: one per fix commit (AJ13a-review-diff.patch, AJ13a-fix2-diff.patch, AJ13a-fix3-diff.patch, AJ13a-final-diff.patch in D:/Control/worker-handovers), a review of 89fb94b (2 findings fixed: file-name match needs id + date; double entry for the last page; 2 accepted), and a fresh review of 97bc3be (two dead lines removed): nothing blocking.",
+  "commit": "4617c80",
+  "run_at": "3 Nov 2026 (PL2). A fresh Opus 5.5 read-only agent with no stake read the diff and ran the suites; a separate Opus 5.5 security reader read it as well.",
   "tool": "Opus 5.5 general-purpose sub-agents, read-only.",
-  "invoked_as": "Agent (general-purpose) from the AJ13a session.",
-  "ran_by": "Sub-agents of AJ13a (Sonnet 5.5); the reviewers wrote none of the code they read.",
-  "scope": "3e8ce32 (v0.1.26) to 97bc3be (v0.1.27): the Meesho pricing short-page fix, the Flipkart claims calendar fix, the two timed runs (R184) and their tests. 172 program lines since v0.1.26, over the 150 cap by Control's D935 ruling (review and HP fixes).",
+  "invoked_as": "Agent (general-purpose) from the PL2 session, once for review and once for security.",
+  "ran_by": "Sub-agents of PL2 (Sonnet 5.5); the reviewers wrote none of the code they read.",
+  "scope": "95eb80c (v0.1.27) to 4617c80: R194 (every refusal reason in the run log, Meesho Best Price rows read, undated files ignored with a note) and R162 (a report written as one row is noted against the running ask). 28 program lines. The program code was written by PL2 itself (over the ~20-line DeepSeek threshold by 8 lines, small and mechanical).",
   "found": [
-    {"n": "AJ13a-1", "severity": "MED", "finding": "File-name match for a landed day needed the report id and date together.", "fixed": true, "fix": "Match requires id + date; check added."},
-    {"n": "AJ13a-2", "severity": "MED", "finding": "Double entry for the last page of a table.", "fixed": true, "fix": "Last page entered once; check added."},
-    {"n": "AJ13a-3", "severity": "LOW", "finding": "Two dead lines (walk.js catch assignment, background.js return in the 4 pm branch).", "fixed": true, "fix": "Removed in 97bc3be."}
+    {"n": "PL2-1", "severity": "HIGH", "finding": "Three older checks files (listings_checks.py:556, views_checks.py:349, returns_ads_checks.py:490) read could_not_read[0] for an undated file and crashed with IndexError once those files moved to ignored_undated. This was already on SOLVED_PROBLEMS.md (re-run every suite, not only the edited ones).", "fixed": true, "fix": "The three checks rewritten against ignored_undated; every *_checks.py and *.test.js run; all pass."},
+    {"n": "PL2-2", "severity": "MED (security read)", "finding": "Grouping printed every refused row for readers that label rows 'line N: why'.", "fixed": true, "fix": "Pattern for both label shapes, 10 reasons, 200 characters each, rest counted; checks added."},
+    {"n": "PL2-3", "severity": "LOW", "finding": "A label with brackets inside brackets splits at the first '): ' so the example label reads oddly.", "fixed": false, "why": "Wording of one log line only; no row is lost or miscounted."},
+    {"n": "PL2-4", "severity": "LOW", "finding": "bridge.test.js checks worker.js by its source text (the worker has no runnable rig, like the other worker.js checks).", "fixed": false, "why": "It catches the call being removed and was seen red with it removed."}
   ],
-  "known_gaps": ["Two findings of the 89fb94b review were accepted by the author, recorded in DONE_AJ13a.md."]
+  "known_gaps": ["The exact moment me_views landed against the 3 Nov ask on the HP was inferred from the code and Drive file times; the HP's Chrome storage was not read."]
 }

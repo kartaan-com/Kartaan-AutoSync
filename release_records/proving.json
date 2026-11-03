@@ -1,18 +1,17 @@
 {
   "record": "proving",
-  "commit": "97bc3be",
-  "run_at": "3 Nov 2026 (AJ13a). Final run on GitHub's machines, run 41606733150, against v0.1.26 (3e8ce32): 177 changes caught, 0 survived. The earlier run found 42 unnoticed changes; closed by tests only (2fbcf3d), then one more survivor (f748295).",
-  "tool": "tools/proving.py with the ERP's prove_checks.py (vendored copy, hash-checked), run in parts and joined by tools/proving_join.py (workflow proving.yml, hand-started).",
-  "invoked_as": "GitHub Actions run 41606733150 (proving workflow) --against 3e8ce32",
-  "ran_by": "AJ13a (Sonnet 5.5, worker for Kartaan Control).",
-  "scope": "Every changed line between 3e8ce32 (v0.1.26) and 97bc3be (v0.1.27).",
+  "commit": "4617c80",
+  "run_at": "3 Nov 2026 (PL2). Run on the Dell with the ERP's prover (KARTAAN=D:/Kartaan-ERP), because the GitHub proving workflow cannot run it for this round: its baseline step runs autosync/listings_checks.py, which reads the ERP's committed listing-files.js, and the vendored ERP folder on GitHub's machines holds only the prover (run 41660157444: 'listings_checks.py does not pass with nothing changed', not one change tried).",
+  "tool": "tools/proving.py with the ERP's tools/prove_checks.py, a clean clone with Unix line endings (core.autocrlf=false, core.eol=lf), --workers 2.",
+  "invoked_as": "KARTAAN=D:/Kartaan-ERP python tools/proving.py --against 95eb80c40122c337269694936655a4e15b59f5ea --workers 2, at 4617c80.",
+  "ran_by": "PL2 (Sonnet 5.5, worker for Kartaan Control).",
+  "scope": "Every changed line between 95eb80c (v0.1.27) and 4617c80: 29 deliberate changes across 7 files.",
   "found": [
-    "42 survivors in the first run: closed by tests only (2fbcf3d, no program line changed).",
-    "1 survivor on the way back to a short pricing page: closed by f748295.",
-    "Final run: 177 caught, 0 survived."
+    "First run (2303a7d): 29 tried, 22 run, 18 caught, 3 crashed (noticed by the file failing to load), 7 would not parse, 1 survived: autosync/reading.py:1312, the 'rows not read' line of the listing traffic/ads reader.",
+    "Closed by tests only (4617c80, a check in autosync/views_checks.py; no program line changed).",
+    "Final run (4617c80): 29 tried, 22 run, 19 caught, 3 crashed (noticed), 7 would not parse, 0 hung, 0 survived. 'every deliberate change was either caught or recorded with a reason'."
   ],
-  "stopped_by_time": [
-    {"part": 9, "where": "extension/tables.js:296", "reason": "The read-again loop condition: changing it makes the loop endless; the tool's hang rule stops it and counts it as caught. Two such changes, both at this line. Control accepted them as caught."}
-  ],
-  "survivors": []
+  "stopped_by_time": [],
+  "survivors": [],
+  "after_this_record": "The version move (extension/manifest.json, extension/bridge.js BUILD) and the merge of main's commit 5de0cdd change no line the prover tries."
 }

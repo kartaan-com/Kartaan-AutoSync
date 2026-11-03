@@ -1,16 +1,16 @@
 {
   "record": "security",
-  "commit": "97bc3be",
-  "run_at": "3 Nov 2026 (AJ13b).",
-  "tool": "Opus 5.5 general-purpose sub-agent, read-only, over git diff 3e8ce32 97bc3be (extension, autosync, src) plus the release zip workflow and file list.",
-  "invoked_as": "Agent (general-purpose) from the AJ13b session.",
-  "ran_by": "AJ13b (Sonnet 5.5, worker for Kartaan Control); the reader wrote none of the code.",
-  "scope": "3e8ce32 (v0.1.26) to 97bc3be (v0.1.27), all added lines, and the contents of kartaan-autosync-extension.zip.",
+  "commit": "4617c80",
+  "run_at": "3 Nov 2026 (PL2).",
+  "tool": "Opus 5.5 general-purpose sub-agent, read-only, over the whole PL2 diff (autosync/listing_notes.py, autosync/reading.py, extension/worker.js and tests) with the question: what is held, sent, logged or stored differently.",
+  "invoked_as": "Agent (general-purpose) from the PL2 session.",
+  "ran_by": "PL2 (Sonnet 5.5, worker for Kartaan Control); the reader wrote none of the code.",
+  "scope": "95eb80c (v0.1.27) to 4617c80, all added lines; the version move after it changes the version string and BUILD name only.",
   "found": [
-    {"severity": "HIGH/MED", "finding": "None.", "fixed": true, "why": "manifest.json changed only in its version number: no new permission, host access or content-script match. No secret added anywhere. No eval, innerHTML or remote code. No new message handler; content.js:389 adds an optional 'partial' flag to the existing internal message, which can only cause a re-fetch."},
-    {"severity": "LOW", "finding": "extension/tables.js:455-458 writes the first 40 characters of each row's text from the seller's own panel into the run log.", "fixed": false, "why": "No HTML sink; only log clutter."},
-    {"severity": "LOW", "finding": "extension/bridge.js:154 builds a pattern from a report id without escaping it.", "fixed": false, "why": "Ids are first checked against the known report list (bridge.js:157), so not exploitable; tidier to escape in a later round."},
-    {"severity": "INFO", "finding": "Release zip: extension-zip.yml zips extension/ without *.test.js; no secrets.js, .pem, .env or credentials file in the repo. extension/from-the-erp/tokens.css is styling only.", "fixed": false, "why": "Nothing secret in the zip."}
+    {"severity": "MED", "finding": "The new run-log grouping split row reasons only on 'line N (who): why'. Readers that write 'line N: why' (orders, returns, claims, ads, views) would each print every refused row, so a changed platform format could put thousands of cell values (order ids, SKUs, campaign names) into the Actions log.", "fixed": true, "fix": "autosync/reading.py _every_reason: a pattern for both label shapes, at most 10 reasons, each cut at 200 characters, with a count of the rest; two checks including a 5000-row flood."},
+    {"severity": "LOW", "finding": "A could-not-read entry is moved to 'ignored' on the phrase 'has no day in its name'; a file whose own name contains that phrase and failed for another reason would be hidden.", "fixed": false, "why": "Needs a name chosen by an attacker inside the seller's own Drive, and the file is still never read; a Drive file name is already shown in the log."},
+    {"severity": "LOW", "finding": "extension/worker.js noteAFile(chrome, fileName): fileName comes from the recipe inside the extension, not from page input; it is cut at 200 characters, at most 200 files, and surfaces only in the ask's files_landed as landed files already do.", "fixed": false, "why": "Nothing new is stored or exposed; no code is built from it."}
   ],
+  "checked_no_finding": ["No secret, token or address added.", "manifest.json permissions unchanged (only the version string moves).", "The dash fix blanks only the recommended price; a dash for the current price is still refused.", "No new log line carries a customer name, phone or address: reasons, row labels (line, SKU, catalogue id or product title) and a Drive file name only."],
   "sec2_rows": "AutoSync SEC2 rows untouched by this round. Row S1 (pin tag-pinned actions in pm_check.yml and extension-zip.yml) stays open."
 }
