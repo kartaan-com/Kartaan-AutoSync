@@ -43,19 +43,22 @@ THE_SHEET_IS_CALLED = "Kartaan returns sheet"
 THE_RECEIPTS_TAB = "Receipts"
 THE_LOG_TAB = "Log"
 
-# **COPIED EXACTLY FROM THE ERP'S `return-scan.js` (RECEIPT_COLUMNS, KARTAAN_ID_COLUMN, LOG_COLUMNS).** A to J are his; `Kartaan id` is
-# the one column Kartaan adds, at the end (K). `returns_sheet_checks.py` holds these against that file.
+# **COPIED EXACTLY FROM THE ERP'S `return-scan.js` (RECEIPT_COLUMNS, RECEIPT_EXTRA_COLUMNS, LOG_COLUMNS, LOG_EXTRA_COLUMNS).** A to J are his;
+# Kartaan adds `Kartaan id`, `Scanned by`, `On shelf` after them (K, L, M) and `Kartaan id` after the Log's three (D) -- the ERP's own app
+# made the 13 and 4 since 22 Oct, and a header this file called "changed" every night was the ERP being right. `returns_sheet_checks.py` holds these against that file.
 RECEIPT_COLUMNS = (
     "Scan Date/Time", "Platform", "Courier Partner", "Order ID", "AWB", "Return Type",
     "Earring Intact", "Box Intact", "Packet QR", "Chain Intact",
 )
 KARTAAN_ID_COLUMN = "Kartaan id"
+RECEIPT_EXTRA_COLUMNS = (KARTAAN_ID_COLUMN, "Scanned by", "On shelf")
 LOG_COLUMNS = ("Timestamp", "Event", "Details")
+LOG_EXTRA_COLUMNS = (KARTAAN_ID_COLUMN,)
 
 # **THE TWO TABS AND THEIR ROW 1, IN ORDER, AND THE ONLY PLACE THEY ARE LISTED.** Creating, checking and filling all walk this, so they cannot drift.
 THE_TABS = (
-    (THE_RECEIPTS_TAB, RECEIPT_COLUMNS + (KARTAAN_ID_COLUMN,)),
-    (THE_LOG_TAB, LOG_COLUMNS),
+    (THE_RECEIPTS_TAB, RECEIPT_COLUMNS + RECEIPT_EXTRA_COLUMNS),
+    (THE_LOG_TAB, LOG_COLUMNS + LOG_EXTRA_COLUMNS),
 )
 
 
@@ -129,7 +132,7 @@ def _the_headers(ask: Callable, which: str, tabs: List[str], say: Callable[[str]
                 f"where there were {len(header)}; the first that differs is column {_first_difference(row, header)}). It has been left exactly as it is; nothing was written to it."
             )
     if to_fill:
-        end = lambda n: chr(ord("A") + n - 1)  # noqa: E731 - the widest header is eleven, so A..K
+        end = lambda n: chr(ord("A") + n - 1)  # noqa: E731 - the widest header is thirteen, so A..M
         ask(
             "POST",
             f"/v4/spreadsheets/{which}/values:batchUpdate",

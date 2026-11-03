@@ -168,8 +168,8 @@ def has(said, text):
     return any(text in line for line in said)
 
 
-HEADER_A = list(real.RECEIPT_COLUMNS) + ["Kartaan id"]
-HEADER_B = ["Timestamp", "Event", "Details"]
+HEADER_A = list(real.RECEIPT_COLUMNS) + ["Kartaan id", "Scanned by", "On shelf"]
+HEADER_B = ["Timestamp", "Event", "Details", "Kartaan id"]
 
 
 # ------------------------------------------------------------------ the scenarios, each one a rule. Each takes a module so a PROOF can hand it a broken copy.
@@ -182,8 +182,8 @@ def first_run(m):
     return {
         "made one sheet": w.made == 1 and got == "SHEET-1",
         "exactly the two tabs, in order": list(w.sheets["SHEET-1"]) == ["Receipts", "Log"],
-        "Receipts row 1 is A-K exactly": w.sheets["SHEET-1"]["Receipts"] == HEADER_A and len(HEADER_A) == 11,
-        "Log row 1 is the three columns": w.sheets["SHEET-1"]["Log"] == HEADER_B,
+        "Receipts row 1 is A-M exactly": w.sheets["SHEET-1"]["Receipts"] == HEADER_A and len(HEADER_A) == 13,
+        "Log row 1 is the four columns": w.sheets["SHEET-1"]["Log"] == HEADER_B,
         "it sits in the Kartaan folder": w.files["SHEET-1"]["parents"] == [KARTAAN],
         "one record, exactly sheetId and createdAt": rec is not None and set(rec) == {"sheetId", "createdAt"} and db.writes == 1,
         "the record names the sheet and the creation time in his clock": rec is not None and rec["sheetId"] == "SHEET-1" and rec["createdAt"] == "2026-10-12T10:00:00",
@@ -341,8 +341,9 @@ def the_erp_file():
     if os.environ.get("KARTAAN"):
         named.append(str(Path(os.environ["KARTAAN"]) / "src/shared/definitions/return-scan.js"))
     named.append(r"D:\Kartaan-ERP\.claude\worktrees\interesting-mclean-1c64ce\src\shared\definitions\return-scan.js")
+    named.append(r"D:\Kartaan-ERP-gr1\src\shared\definitions\return-scan.js")
     named.append(r"D:\Kartaan-ERP\src\shared\definitions\return-scan.js")
-    return next((p for p in named if p and Path(p).is_file()), None)
+    return [p for p in named if p and Path(p).is_file()]
 
 
 def strings_of(source, constant):
@@ -350,19 +351,32 @@ def strings_of(source, constant):
     return re.findall(r"'([^']*)'", found.group(1)) if found else None
 
 
-erp = the_erp_file()
-if erp is not None and strings_of(Path(erp).read_text(encoding="utf-8"), "LOG_COLUMNS") is None:
-    print(f"SKIP  {erp} does not carry the receipt/log column lists (an ERP checkout from before E87); set KARTAAN_ERP_RETURN_SCAN")
-    erp = None
+def names_in(source, constant):
+    """The identifiers inside an ERP list such as `[KARTAAN_ID_COLUMN, SCANNED_BY_COLUMN]`, each turned into the string it stands for."""
+    found = re.search(r"export const " + constant + r"\s*=\s*\[(.*?)\];", source, re.S)
+    if not found:
+        return None
+    out = []
+    for one in re.findall(r"[A-Z_]+", found.group(1)):
+        value = strings_of(source, one)
+        out.append(value[0] if value else None)
+    return out
+
+
+# The first ERP file that really carries the lists: an older checkout found first must not hide the live one (AS1 review).
+erp = next((p for p in the_erp_file() if strings_of(Path(p).read_text(encoding="utf-8"), "LOG_COLUMNS") is not None), None)
 if erp is None:
     print("SKIP  the headers were NOT compared with the ERP's return-scan.js: that file is not on this machine (set KARTAAN or KARTAAN_ERP_RETURN_SCAN)")
     check("headers vs the ERP file: Receipts SKIPPED (said above)", True)
     check("headers vs the ERP file: Log SKIPPED (said above)", True)
 else:
     js = Path(erp).read_text(encoding="utf-8")
-    check("headers vs the ERP file: Receipts is RECEIPT_COLUMNS then Kartaan id",
-          list(dict(real.THE_TABS)["Receipts"]) == strings_of(js, "RECEIPT_COLUMNS") + strings_of(js, "KARTAAN_ID_COLUMN"))
-    check("headers vs the ERP file: Log is LOG_COLUMNS", list(dict(real.THE_TABS)["Log"]) == strings_of(js, "LOG_COLUMNS"))
+    check("headers vs the ERP file: Receipts is RECEIPT_COLUMNS then the ERP's own RECEIPT_EXTRA_COLUMNS",
+          None not in (names_in(js, "RECEIPT_EXTRA_COLUMNS") or [None])
+          and list(dict(real.THE_TABS)["Receipts"]) == strings_of(js, "RECEIPT_COLUMNS") + names_in(js, "RECEIPT_EXTRA_COLUMNS"))
+    check("headers vs the ERP file: Log is LOG_COLUMNS then the ERP's own LOG_EXTRA_COLUMNS",
+          None not in (names_in(js, "LOG_EXTRA_COLUMNS") or [None])
+          and list(dict(real.THE_TABS)["Log"]) == strings_of(js, "LOG_COLUMNS") + names_in(js, "LOG_EXTRA_COLUMNS"))
     print(f"      (compared with {erp})")
 
 check("the tab names are exactly Receipts and Log", [t for t, _ in real.THE_TABS] == ["Receipts", "Log"] and real.THE_SHEET_IS_CALLED == "Kartaan returns sheet")
