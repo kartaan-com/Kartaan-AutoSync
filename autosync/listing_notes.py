@@ -129,7 +129,8 @@ PRICING_COLUMNS = ("Product", "Catalog ID", "SKU ID", "Current Customer Price", 
 def _first_piece_amount(said: str, what: str) -> Optional[object]:
     """The amount in the first piece of a price cell, or None for a blank cell. Raises ValueError saying what it read when that is not an amount."""
     first = (said or "").split("|")[0].strip()
-    if not first:
+    # Meesho writes `'-` (a dash, with Excel's text mark) where it has no recommendation: a "Best Price" row. That is a blank, not a wrong amount.
+    if not first or first.lstrip("'") == "-":
         return None
     # **PLAINLY AN AMOUNT AND NOTHING ELSE**: an optional rupee sign, digits (commas as thousands), at most two decimals, below ten million -- so no percentage, no exponent, no words.
     if not _AN_AMOUNT.match(first):

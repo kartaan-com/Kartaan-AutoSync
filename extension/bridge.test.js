@@ -944,6 +944,8 @@ const refuses = async (name, args, words, setup = null) => {
   check('nativeMessaging is an OPTIONAL permission (an update never switches the extension off), asked for at the switch', !manifest.permissions.includes('nativeMessaging')
     && manifest.optional_permissions.includes('nativeMessaging') && /permissions\.request\(\{ permissions: \['nativeMessaging'\] \}\)/.test(readFileSync(new URL('panel.js', here), 'utf8')));
   const worker = readFileSync(new URL('worker.js', here), 'utf8');
+  check('a day written as one row (me_views, az_health) is kept against the running ask like a landed file, so its result does not say "no outcome" (R162)',
+    /addARowTo\(chrome[^\n]*\n\s*(\/\*[^*]*\*\/\s*)?await noteAFile\(chrome, fileName\);/.test(worker));
   check('the AI switch is a panel-only ask, answered by the panel door', /mayAsk: \[\.\.\.THE_PANEL_ASKS, 'ai-switch'\]/.test(worker));
   const bridge = readFileSync(new URL('bridge.js', here), 'utf8');
   check('the AI door goes through the Run now door and never calls a walk, a Drive or a portal itself', /panelAnswer\(\{ do: 'run-now'/.test(bridge) && !/tabs\.|scripting\.|fetch\(/.test(bridge));

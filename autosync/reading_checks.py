@@ -356,8 +356,9 @@ no_day = Folder(
 was = no_day.go()
 check("A FILE WITH NO DAY IN ITS NAME IS REFUSED, NEVER DATED TONIGHT",
       was is not None and was.files_read == () and no_day.recorded == [])
-check("and the refusal says why the day matters",
-      "newer or older" in "  ".join(was.could_not_read))
+check("and it is said as ignored for having no day (R194), not counted among the files that could not be read",
+      was.ignored_undated == ("meesho_me_orders.csv",) and was.could_not_read == ()
+      and "ignored: no day in the name: meesho_me_orders.csv" in was.says())
 
 a_page = Folder(
     files={"me_orders": [a_file("id-1", "meesho_me_orders_2026-08-01.csv")]},

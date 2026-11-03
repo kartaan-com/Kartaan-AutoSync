@@ -80,6 +80,7 @@ Google account and no internet.
 
 import csv
 import io
+import re
 from dataclasses import dataclass, replace
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
@@ -308,6 +309,8 @@ class WhatTheNightRead:
     let_go_of: Tuple[str, ...] = ()
     # Why a file could not be read, by name. **Never a count on its own.**
     could_not_read: Tuple[str, ...] = ()
+    # Files left alone because their name carries no day (R194): said in one line each, and not counted as unreadable.
+    ignored_undated: Tuple[str, ...] = ()
     # Why the LEDGER refused a file, by name. **Kept apart from the one above,
     # and that separation is the whole of `is_a_defect` below.** A file that will
     # not parse is the platform's doing; a file the ledger refuses is OURS.
@@ -474,6 +477,8 @@ class WhatTheNightRead:
             said += f"  A folder could not be listed: {why}"
         for why in self.could_not_read:
             said += f"  {why}"
+        for name in self.ignored_undated:
+            said += f"  ignored: no day in the name: {name}"
         # **SAID SEPARATELY, AND SAID AS OURS.** A reader seeing these among the
         # platform's would go and look at the platform.
         for why in self.the_ledger_refused:
@@ -481,6 +486,29 @@ class WhatTheNightRead:
         for why in self.the_database_refused:
             said += f"  THE SELLER'S DATABASE REFUSED A LISTING RECORD (publish the ERP's rules to this project, then run again): {why}"
         return said
+
+
+# The words every reader uses when a file's name has no day in it.
+_NO_DAY = "has no day in its name"
+# A row's label is "line N" or "line N (who)", then ": " and the reason.
+_A_ROW_LABEL = re.compile(r"^(line \d+(?: \([^)]*\))?): (.*)$", re.DOTALL)
+_MOST_REASONS = 10
+_LONGEST_REASON = 200
+
+
+def _every_reason(not_read) -> str:
+    """Every reason rows were not read, each with how many rows and one example -- never only the first (R194).
+    A reason is the text after the row's "line N (name): " label, so rows refused for the same cause are one entry."""
+    groups: Dict[str, List[str]] = {}
+    for one in not_read:
+        found = _A_ROW_LABEL.match(str(one))
+        label, why = (found.group(1), found.group(2)) if found else ("", str(one))
+        groups.setdefault(why[:_LONGEST_REASON], []).append(label)
+    # **AT MOST A FEW REASONS ARE PRINTED**: a changed format can refuse thousands of rows, each with its own cell values in its words.
+    parts = [f"{len(rows)} x {why} (e.g. {rows[0]})" if rows[0] else f"{len(rows)} x {why}" for why, rows in list(groups.items())[:_MOST_REASONS]]
+    if len(groups) > _MOST_REASONS:
+        parts.append(f"{len(groups) - _MOST_REASONS} other reason(s) not listed")
+    return f"{len(not_read)} row(s) not read: " + "; ".join(parts)
 
 
 def what_this_can_read(can_be_read: Sequence[HowToRead] = WHAT_CAN_BE_READ) -> Tuple[str, ...]:
@@ -1157,7 +1185,7 @@ def read_what_is_new(
             rows_refused += len(said.not_read)
             if said.not_read:
                 could_not_read.append(
-                    f"{one.name or one.which}: {len(said.not_read)} row(s) not read, the first being {said.not_read[0]}"
+                    f"{one.name or one.which}: {_every_reason(said.not_read)}"
                 )
             reads.append(manifest.Read(
                 data_date=landing.data_date_in(one.name), report_id=how.report_id, file_name=one.name or one.which,
@@ -1189,7 +1217,7 @@ def read_what_is_new(
             rows_refused += len(said.not_read)
             if said.not_read:
                 could_not_read.append(
-                    f"{one.name or one.which}: {len(said.not_read)} row(s) not read, the first being {said.not_read[0]}"
+                    f"{one.name or one.which}: {_every_reason(said.not_read)}"
                 )
             reads.append(manifest.Read(
                 data_date=landing.data_date_in(one.name), report_id=how.report_id, file_name=one.name or one.which,
@@ -1230,7 +1258,7 @@ def read_what_is_new(
             rows_refused += len(said.not_read)
             if said.not_read:
                 could_not_read.append(
-                    f"{one.name or one.which}: {len(said.not_read)} row(s) not read, the first being {said.not_read[0]}"
+                    f"{one.name or one.which}: {_every_reason(said.not_read)}"
                 )
             reads.append(manifest.Read(
                 data_date=landing.data_date_in(one.name), report_id=how.report_id, file_name=one.name or one.which,
@@ -1257,7 +1285,7 @@ def read_what_is_new(
             read_tonight.append(one)
             rows_refused += len(said_not_read)
             if said_not_read:
-                could_not_read.append(f"{one.name or one.which}: {len(said_not_read)} row(s) not read, the first being {said_not_read[0]}")
+                could_not_read.append(f"{one.name or one.which}: {_every_reason(said_not_read)}")
             reads.append(manifest.Read(
                 data_date=when, report_id=how.report_id, file_name=one.name or one.which,
                 into=f"{record_reports.RECORD_REPORTS[how.report_id].kind.what}s", rows_in_file=len(made) + len(said_not_read), rows_read=len(made),
@@ -1281,7 +1309,7 @@ def read_what_is_new(
             rows_refused += len(said.not_read)
             if said.not_read:
                 could_not_read.append(
-                    f"{one.name or one.which}: {len(said.not_read)} row(s) not read, the first being {said.not_read[0]}"
+                    f"{one.name or one.which}: {_every_reason(said.not_read)}"
                 )
             the_day = landing.data_date_in(one.name)
             if the_day is not None:
@@ -1364,7 +1392,8 @@ def read_what_is_new(
         sales=how_many_sales,
         rows_refused=rows_refused,
         let_go_of=let_go_of,
-        could_not_read=tuple(could_not_read),
+        could_not_read=tuple(w for w in could_not_read if _NO_DAY not in w),
+        ignored_undated=tuple(w.split(": ", 1)[0] for w in could_not_read if _NO_DAY in w),
         the_ledger_refused=tuple(the_ledger_refused),
         the_database_refused=tuple(the_database_refused),
         could_not_list=tuple(could_not_list),

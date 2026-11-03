@@ -552,8 +552,8 @@ hopeless = Night({"me_catalog": [a_file("m2", "meesho_me_catalog_2026-10-04.xlsx
 check("a file in which no row could be read is NOT marked read, since it would never be opened again",
       hopeless is not None and hopeless.read_tonight == () and "no row of" in hopeless.could_not_read[0])
 nameless = Night({"me_catalog": [a_file("m3", "catalog.xlsx")]}, {"m3": meesho_file}).go()
-check("a file with no day in its name is refused like every other reader's",
-      nameless is not None and nameless.read_tonight == () and "no day in its name" in nameless.could_not_read[0])
+check("a file with no day in its name is ignored with a note (R194), not read",
+      nameless is not None and nameless.read_tonight == () and nameless.could_not_read == () and nameless.ignored_undated != ())
 check("every report is still read or says why it is not", reading.why_a_report_has_no_decision() == ""
       and {o.report_id for o in reading.WHAT_LISTINGS_CAN_BE_READ} == {"fk_listings", "me_catalog", "az_listings"}
       and not ({"fk_listings", "me_catalog", "az_listings"} & set(reading.WHAT_IS_FETCHED_AND_NOT_READ_YET)))

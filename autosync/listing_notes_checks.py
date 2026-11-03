@@ -286,7 +286,20 @@ check("a file with one bad row is read and the bad row is said by line",
 hopeless = Night(FILES, {"s1": a_file([a_row("", "B0AAAAAAA4")])}).go()
 check("a file in which no row could be read is NOT marked read", hopeless is not None and hopeless.read_tonight == () and "no row of" in hopeless.could_not_read[0])
 nameless = Night({"az_suppressed": [whats_new.InTheFolder(which="s2", name="suppressed.txt", size=100)]}, {"s2": GOOD}).go()
-check("a file with no day in its name is refused like every other reader's", nameless is not None and nameless.read_tonight == () and "no day in its name" in nameless.could_not_read[0])
+check("a file with no day in its name is not read, and is said as ignored in one line, not counted as unreadable (R194)",
+      nameless is not None and nameless.read_tonight == () and nameless.could_not_read == () and nameless.ignored_undated == ("suppressed.txt",)
+      and "ignored: no day in the name: suppressed.txt" in nameless.says() and "0 file(s) could not be read" in nameless.says())
+many = Night(FILES, {"s1": a_file([a_row("", "B0AAAAAAA4"), a_row("", "B0AAAAAAA5"), a_row("OK-2", "B0AAAAAAA6")])}).go()
+check("every reason rows were refused for is said, with how many and one example, not only the first (R194)",
+      many is not None and "2 row(s) not read" in many.could_not_read[0] and many.could_not_read[0].count(" x ") >= 1 and "(e.g. line " in many.could_not_read[0])
+check("rows refused for different reasons are separate entries with their own counts (R194)",
+      reading._every_reason(["line 2 (a): one cause", "line 3 (b): one cause", "line 4 (c): other cause"])
+      == "3 row(s) not read: 2 x one cause (e.g. line 2 (a)); 1 x other cause (e.g. line 4 (c))")
+check("rows labelled only 'line N: why' (orders, returns, ads...) are grouped by the why too (R194 review)",
+      reading._every_reason(["line 2: bad day", "line 3: bad day"]) == "2 row(s) not read: 2 x bad day (e.g. line 2)")
+_flood = reading._every_reason([f"line {n}: bad value {n}" for n in range(1, 5001)])
+check("thousands of rows with a different reason each print at most ten reasons and say how many were left out (R194 review)",
+      _flood.startswith("5000 row(s) not read: ") and _flood.count(" x ") == 10 and _flood.endswith("4990 other reason(s) not listed") and len(_flood) < 1500)
 check("az_suppressed is read now and no longer says it is not",
       reading.why_a_report_has_no_decision() == "" and "az_suppressed" not in reading.WHAT_IS_FETCHED_AND_NOT_READ_YET
       and [o.report_id for o in reading.WHAT_NOTES_CAN_BE_READ] == ["az_suppressed", "az_fee_preview", "me_pricing"])
@@ -591,8 +604,16 @@ bare = answered(lambda: tool.read_pricing(a_price_file(
 check("a listing with no SKU and no catalogue id is not found by a row that says the word None",
       bare is not None and not bare.notes and len(bare.not_read) == 2)
 
+dash = answered(lambda: tool.read_pricing(a_price_file(
+    a_price_row("Gold Jhumka", "555", "DJ-1", RUPEE_SIGN + "300 | Bank Transfer: " + RUPEE_SIGN + "200", "'-", "Best Price")), "f", SHOP))
+check("Meesho's \"'-\" in the recommended column means no recommendation: the row is read with a null recommended price (R194)",
+      dash is not None and not dash.not_read and dash.notes[L_DJ1] == {"currentPrice": 300, "recommendedPrice": None, "priceLabel": "Best Price"})
+dash_current = answered(lambda: tool.read_pricing(a_price_file(a_price_row("Gold Jhumka", "555", "DJ-1", "'-", RUPEE_SIGN + "280")), "f", SHOP))
+check("but a dash for the CURRENT price is still refused: there is no price to put on a listing (R194)",
+      dash_current is not None and not dash_current.notes and "no current price" in dash_current.not_read[0])
+
 check("nothing above ended by throwing rather than by answering -- " + str(THREW), not THREW)
-EXPECTED = 49 + 7 + 5 + 4 + 1 + 25 + 2
+EXPECTED = 49 + 7 + 5 + 4 + 1 + 25 + 2 + 6
 check(f"checks went missing -- {ran + 1} ran, {EXPECTED} expected", ran + 1 == EXPECTED)
 
 if failures:

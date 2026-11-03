@@ -331,6 +331,8 @@ const addOneRow = async ({ reportId, fileName, header, row, forTheDay }) => {
   const layout = await theLayout();
   const inside = await theKartaanFolder(chrome, ask, layout);
   const added = await addARowTo(chrome, ask, { reportId, fileName, inside, header, row, forTheDay, layout });
+  /* R162: the day's file is kept against the AI's ask that is running, as a landed file is, so its result can say the report landed. */
+  await noteAFile(chrome, fileName);
   /* **A RUNNING LIST IS RECORDED PER DAY BY LOOKING INSIDE IT** -- the days the file now holds, not the day
    * it was last touched (the old extension did exactly this). */
   await writeItDown(ask, layout, inside, theLinesFor({

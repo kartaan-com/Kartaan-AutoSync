@@ -345,8 +345,8 @@ check("a file in which no row could be read is NOT marked read, since it would n
 
 nameless = Night({"fk_views": [a_file("v3", "views.xlsx")]}, {"v3": XLSX})
 was = nameless.go()
-check("a file with no day in its name is refused like every other reader's",
-      was is not None and was.read_tonight == () and "no day in its name" in was.could_not_read[0])
+check("a file with no day in its name is ignored with a note (R194), not read",
+      was is not None and was.read_tonight == () and was.could_not_read == () and was.ignored_undated != ())
 
 # ------------------------------------------------------------ Amazon traffic by child item (lane 1 job 7)
 

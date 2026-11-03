@@ -486,8 +486,8 @@ hopeless = Night({"fk_returns": [a_file("h", "flipkart_fk_returns_2026-10-11.csv
 check("a file in which no row could be read is NOT marked read, since it would never be opened again",
       hopeless is not None and hopeless.read_tonight == () and "no row of" in hopeless.could_not_read[0])
 nameless = Night({"fk_returns": [a_file("n", "returns.csv")]}, {"n": BODIES["r1"]}).go()
-check("a file with no day in its name is refused, since which of two files is newer decides a record",
-      nameless is not None and nameless.read_tonight == () and "no day in its name" in nameless.could_not_read[0])
+check("a file with no day in its name is ignored with a note (R194), not read, since which of two files is newer decides a record",
+      nameless is not None and nameless.read_tonight == () and nameless.could_not_read == () and nameless.ignored_undated != ())
 moved = Night({"fk_returns": [a_file("m", "flipkart_fk_returns_2026-10-11.csv")]}, {"m": csv('"Order ID","Return ID"', '"OD1","1"')}).go()
 check("a file whose columns have moved stops, in words, and is left to be read again",
       moved is not None and moved.read_tonight == () and "no column called" in moved.could_not_read[0].lower())

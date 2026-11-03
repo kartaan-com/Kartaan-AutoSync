@@ -1,37 +1,33 @@
 {
-  "written_by": "AJ13b (Sonnet 5.5 worker for Kartaan Control)",
-  "reviewer": "Fresh Opus subagents started by AJ13a and AJ13b that did not write the code (see release_records/review.json and security.json); this commit adds only release records and merges main",
+  "written_by": "PL2 (Sonnet 5.5 worker for Kartaan Control)",
+  "reviewer": "Fresh Opus 5.5 read-only sub-agent (no stake, wrote none of this code), plus a separate Opus 5.5 security reader",
   "independent": true,
   "if_not_independent_why": "",
   "read": [
-    "release_records/proving.json",
-    "release_records/review.json",
-    "release_records/security.json",
-    "review_pass.json",
-    ".gitattributes",
-    ".github/workflows/proving.yml",
-    "tools/proving.py",
-    "tools/proving_checks.py",
-    "tools/proving_join.py",
-    "tools/proving_join_checks.py",
-    "tools/work.json",
-    "vendor/kartaan-erp/PROVER-SHA256.txt",
-    "vendor/kartaan-erp/tools/prove_checks.py"
+    "SOLVED_PROBLEMS.md",
+    "autosync/listing_notes.py",
+    "autosync/listing_notes_checks.py",
+    "autosync/listings_checks.py",
+    "autosync/reading.py",
+    "autosync/reading_checks.py",
+    "autosync/returns_ads_checks.py",
+    "autosync/views_checks.py",
+    "extension/bridge.test.js",
+    "extension/worker.js"
   ],
   "checked_against_decision_log": true,
-  "decisions_followed": [
-    "D932 + D933: release once every record is clean",
-    "D935: 172 program lines since v0.1.26 are review/HP fixes; this commit adds none",
-    "D841: security read of v0.1.26..v0.1.27 recorded before the tag"
-  ],
+  "decisions_followed": ["D741", "D757 small rounds", "D933 standing release yes"],
   "deviation": null,
   "found": [
-    "The merge of main brings in only the PV1 proving tool (workflow, tools, vendored prover): no file under extension/, autosync/ or src/ changes, so no live AutoSync line is added.",
-    "The three release records now name 97bc3be (v0.1.27) instead of 3e8ce32; their contents were checked against DONE_AJ13a.md, the proving run 41606733150 and the independent security read.",
-    "The nine proving-tool files above were read in full by PV1's independent Opus reviewer on main (51e03db: 3 fixes found and closed, see PV1's review_pass.json as committed there); AJ13b re-read the merge stat and confirmed they are the only files the merge brings in. This is a read of that review, not a second line-by-line read by me.",
-    "Records hold no secret, token or key."
+    "HIGH (fixed): three older checks files (listings, views, returns_ads) read could_not_read[0] for an undated file and crashed once undated files moved to ignored_undated; rewritten against ignored_undated and every *_checks.py re-run, all pass.",
+    "MED from the security read (fixed): grouping split only 'line N (who): why' labels, so readers that write 'line N: why' printed every refused row; now a pattern for both label shapes, at most 10 reasons of 200 characters, with a count of the rest; two new checks including a 5000-row flood.",
+    "LOW (accepted): a row label with brackets inside brackets splits at the first '): ', which changes only the wording of one log line, no row is lost.",
+    "LOW (accepted): bridge.test.js checks worker.js by its source text, like the other worker.js checks (the worker has no runnable rig); it catches the call being removed, and was seen red with it removed.",
+    "Looked for and not found: undated files hidden from is_a_defect (it never read could_not_read), a row reason carrying the phrase 'has no day in its name', noteAFile throwing or noting twice, az_health broken by the same change, a dash accepted as a current price."
   ],
-  "security": "Records and a merge of already-reviewed proving tools only; nothing is sent or held. The earlier security read of the v0.1.27 code found no HIGH or MED issue.",
-  "could_not_be_checked": [],
-  "verify_instruction": "Compare release_records/*.json with worker-handovers/DONE_AJ13a.md and GitHub run 41606733150."
+  "security": "Nothing new is held, sent or stored. The new log lines print reasons, row labels (line number plus SKU, catalogue id or product title) and a Drive file name; they are capped at 10 reasons of 200 characters. noteAFile stores a recipe-fixed file name (cut at 200, at most 200 files) in the extension's existing ask list. No manifest, permission, secret or address change.",
+  "could_not_be_checked": [
+    "The HP's own Chrome storage for 3 Nov was not readable from here, so the exact moment me_views landed against the ask is inferred from the code and the Drive file times, not read."
+  ],
+  "verify_instruction": "After the next night, the run log lists every reason rows were refused, the 96 Meesho Best Price rows are read, and the HP answer to an ask names me_views as landed."
 }
