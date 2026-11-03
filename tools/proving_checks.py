@@ -4,6 +4,7 @@ What is AutoSync's here is asked of it directly: which files are sources, which 
 written down as unproven, and that a change of line endings alone is not a change to prove. The prover itself is the
 ERP's and is held by the ERP's own checks. Nothing here needs the ERP checkout.
 """
+import hashlib
 import os
 import shutil
 import stat
@@ -134,7 +135,50 @@ check("A CHECKS FILE THAT FELL OVER (failed with no FAIL line) CATCHES NOTHING; 
 shutil.rmtree(where, onerror=lambda remove, name, _: (os.chmod(name, stat.S_IWRITE), remove(name)))
 check("and the scratch repository is gone again", not where.exists())
 
-EXPECTED = 14 + 4
+# --part i/N: one share of the changed lines (PV1), so N machines try the same changes between them.
+check("--part 2/4 is taken out of the arguments and the rest are left for the ERP's prover",
+      pc.the_part_asked_for(["--against", "abc", "--part", "2/4", "--workers", "1"]) == ((2, 4), ["--against", "abc", "--workers", "1"])
+      and pc.the_part_asked_for(["--part=3/3"]) == ((3, 3), []) and pc.the_part_asked_for(["--changed"]) == (None, ["--changed"]))
+check("a share that is not i/N with 1 <= i <= N stops in words",
+      all("--part wants i/N" in stops_with(lambda given=given: pc.the_part_asked_for(["--part", given]))
+          for given in ("0/4", "5/4", "x", "2", "2/0", "")))
+_erp = type(sys)("erp"), sys.modules.get(pc.NAME)
+_erp[0]._the_erps_changed_lines = lambda relpath, against: None if relpath == "gone.py" else set(range(1, 13))
+sys.modules[pc.NAME] = _erp[0]
+try:
+    shares = []
+    for _one in (1, 2, 3, 4):
+        pc.PART = (_one, 4)
+        shares.append(pc._changed_lines("a.py", "x"))
+    pc.PART = None
+    whole = pc._changed_lines("a.py", "x")
+    pc.PART = (1, 4)
+    unknown = pc._changed_lines("gone.py", "x")
+finally:
+    pc.PART = None
+    if _erp[1] is None:
+        del sys.modules[pc.NAME]
+    else:
+        sys.modules[pc.NAME] = _erp[1]
+check("the shares together are every changed line exactly once, no line in two, and none empty for a change this size",
+      sorted(n for one in shares for n in one) == sorted(whole) == list(range(1, 13)) and all(len(one) == 3 for one in shares))
+check("no share asked for is the whole run, and git failing to answer is still 'could not ask' (None), never an empty share",
+      whole == set(range(1, 13)) and unknown is None)
+
+# The code to prove can be named (PROVING_CODE), and the ERP's prover held here as a copy is the file whose hash is written down (PV1).
+named = subprocess.run([sys.executable, "-c", "import proving; print(proving.HERE)"], capture_output=True, text=True, cwd=str(Path(__file__).resolve().parent),
+                       env={**os.environ, "PROVING_CODE": str(Path(tempfile.gettempdir()))}).stdout.strip()
+check("PROVING_CODE names the code to prove; unset, it is this checkout", named == str(Path(tempfile.gettempdir()).resolve()) and pc.HERE == Path(__file__).resolve().parent.parent)
+_copy = pc.HERE / "vendor" / "kartaan-erp"
+_body = (_copy / "tools" / "prove_checks.py").read_bytes().split(b"\n", 1)
+check("THE ERP PROVER COPY HAS ITS RECORDED HASH, and a first line naming the ERP file as its source",
+      hashlib.sha256(_body[1]).hexdigest() == (_copy / "PROVER-SHA256.txt").read_text().strip() and b"Kartaan-ERP/tools/prove_checks.py" in _body[0])
+_erp = os.environ.get("KARTAAN", "").strip()
+if _erp:
+    check("and it is the ERP's own file, line endings aside (KARTAAN is set, so the two can be compared)",
+          (Path(_erp) / "tools" / "prove_checks.py").read_bytes().replace(b"\r\n", b"\n") == _body[1])
+
+EXPECTED = 14 + 4 + 4 + 2 + (1 if _erp else 0)
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

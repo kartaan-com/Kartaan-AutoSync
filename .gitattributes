@@ -42,3 +42,7 @@ extension/catch-early.js text eol=lf
 # Windows machine, though nothing differed (AJ9 piece 7).
 extension/recipes.json text eol=lf
 src/shared/definitions/reports.json text eol=lf
+
+# The ERP prover copy for the public proving run (PV1): checked out the same on every machine so its hash is the same.
+vendor/kartaan-erp/tools/prove_checks.py text eol=lf
+vendor/kartaan-erp/PROVER-SHA256.txt text eol=lf

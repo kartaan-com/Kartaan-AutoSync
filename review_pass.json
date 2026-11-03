@@ -1,0 +1,34 @@
+{
+  "written_by": "PV1 (Sonnet 5.5 worker for Kartaan Control)",
+  "reviewer": "A fresh Opus subagent started by PV1 that did not write the code",
+  "independent": true,
+  "if_not_independent_why": "",
+  "read": [
+    ".gitattributes",
+    ".github/workflows/proving.yml",
+    "tools/proving.py",
+    "tools/proving_checks.py",
+    "tools/proving_join.py",
+    "tools/proving_join_checks.py",
+    "tools/work.json",
+    "vendor/kartaan-erp/PROVER-SHA256.txt",
+    "vendor/kartaan-erp/tools/prove_checks.py"
+  ],
+  "checked_against_decision_log": true,
+  "decisions_followed": ["D807 shared first: the existing prover is used and its copy is hash-checked", "D135 narrowest permission: contents read only", "D101 proving runs as a queue off to the side, on a frozen commit, not a branch", "D82: the ERP stays private; only its stand-alone prover file is copied, with his yes of 3 Nov (R186)"],
+  "deviation": null,
+  "found": [
+    "Looked for a share split that drops or doubles a changed line: each line n goes to share n % N + 1, once, and the split is only applied in changed_lines in the main process; checked by a test over 12 lines and 4 parts.",
+    "Looked for a join that adds up to a smaller passing run: a missing log, a log with no counts, or a part stopped by the clock is a part that did not run; all-zero totals fail. Found that a checks-only change and an empty share were mishandled, and that whole-file findings were counted once per part; all three fixed with checks.",
+    "Looked for shell injection from the three workflow inputs: they pass through env and are quoted; found the grep guard accepted a two-line value, now matched whole with bash [[ =~ ]]; and a commit id from a fork is now refused unless it is on one of the repository's own branches.",
+    "Found a part job ended red when its share held no change, so the run looked failed though the join passed; the prove step is now continue-on-error and the join is the only verdict, and it prints which tool commit proved which commit.",
+    "Found isdigit accepts non-ASCII digits and would crash instead of stopping in words; now an ASCII-only pattern.",
+    "Checked the vendored prover for web addresses, emails, tokens, keys, drive paths, business names and numbers: none. Its hash matches the ERP's file apart from the one header line."
+  ],
+  "security": "Workflow has contents: read only, no secrets, persist-credentials false, started by hand by one account in the kartaan-com repository only (a seller copy skips every job), and nothing in it can push, tag or release. The repository is copied into sellers' accounts, so they will also hold the workflow (inert there) and the public copy of the ERP prover, which holds no credentials or business data.",
+  "could_not_be_checked": [
+    "The workflow itself has not run on GitHub yet; the comparison with the Dell's 3e8ce32 run settles that.",
+    "The recorded hash proves the copy equals its hash file, not that it equals the private ERP file on GitHub; the local check compares them only where the ERP checkout is present."
+  ],
+  "verify_instruction": "Open the Actions tab of Kartaan-AutoSync, run Proving, and compare the joined counts with the Dell's 304 tried, 209 caught, 0 survived."
+}
