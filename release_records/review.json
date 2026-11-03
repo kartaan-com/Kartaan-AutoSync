@@ -1,135 +1,49 @@
 {
   "record": "review",
-  "commit": "be1c344",
-  "run_at": "31 Oct - 1 Nov 2026 (AJ9, AJ9b, AJ9c). Fresh Opus 5.5 read-only review agents with no stake, each handed SOLVED_PROBLEMS.md and the code: AJ9 pieces 1-4; AJ9b pieces 3b, 5 and 6; AJ9c the proving checks, the dry-run checks without openpyxl, and the checkout pin. Then 1 Nov evening (AJ9c, his ask): the Last run box for every platform, read by four more fresh Opus 5.5 agents, each after the previous round's fixes.",
-  "tool": "Opus 5.5 general-purpose sub-agents, read-only, running the checks files and hand-made changes in scratch copies.",
-  "invoked_as": "Agent (general-purpose) from each session; prompts in the AJ9-progress.md, AJ9b-progress.md and AJ9c-progress.md side-session notes. Each code commit also carries the gate's [PM-REVIEWED] record (review_pass.json, used up by the commit hook).",
-  "ran_by": "Sub-agents of AJ9 and AJ9b (Sonnet 5.5) and AJ9c (Opus 5.5), workers for Kartaan Control; they wrote none of the code they read. Fixes were written by the sessions themselves, not DeepSeek (small pieces).",
-  "scope": "v0.1.25 (9d7d090) to 5e09952: extension/background.js, bridge.js, idle.js, kartaan.js, nightly.js, screen.js, worker.js and their tests; autosync/between_runs.py, clock.py, nightly.py, start.py; tools/move_group_on_release.py, .github/workflows/move-group-1.yml, docs/RELEASING-GROUPS.md, tools/dry_run_checks.py, tools/proven_survivors.json. Plus be1c344: extension/screen.js (aCopyToKeep, isARecheck, theRuns, allTheEvents, showTheRuns), screen.test.js, panel.css.",
+  "commit": "3e8ce32",
+  "run_at": "2-3 Nov 2026 (AJ11, AJ11b, AJ12, AJ12b). Fresh Opus 5.5 read-only agents with no stake, each handed SOLVED_PROBLEMS.md: AJ11 read the one-day / All-chip diff (twice for the dropped span version); AJ11b's fresh agent read the days-older-than-14 code, the end line, the screen wording and the request skip; AJ12b's fresh agent read the exact-day returns diff (see DONE_AJ12.md). Each code commit also carries the gate's review record.",
+  "tool": "Opus 5.5 general-purpose sub-agents, read-only.",
+  "invoked_as": "Agent (general-purpose) from each session.",
+  "ran_by": "Sub-agents of AJ11, AJ11b (Sonnet 5.5) and AJ12/AJ12b; they wrote none of the code they read.",
+  "scope": "dba4d4c to 3e8ce32: extension/nightly.js, screen.js, background.js, walk.js, driver.js, bridge.js, autosync/recipes.py, recipes_checks.py, browser.py, extension/recipes.json and their tests.",
   "found": [
     {
-      "n": "AJ9-1..4",
+      "n": "AJ11b-1",
       "severity": "MED",
-      "finding": "Pieces 1-4 (closed tab rechecked, idle-wait line, failures told, late tick day): review findings including the run days and the run log name.",
+      "finding": "Days from the ended span era were falsely told as 'needs you'.",
       "fixed": true,
-      "fix": "Commits 7fca9ba, ea58deb, de84d0b, b58ccd2 on aj9-stability, all carried into 2b1dfd8."
+      "fix": "SPAN_ERA_ENDED for fk_views; checks added."
     },
     {
-      "n": "AJ9b-1",
+      "n": "AJ11b-2",
       "severity": "MED",
-      "finding": "A platform refused in the middle of a sync was not told when a later platform started.",
+      "finding": "The night's end line repeated old needs-you days every night.",
       "fixed": true,
-      "fix": "screen.js startTheNextPlatform remembers it as not fetched at once (SOLVED line)."
+      "fix": "End line lists only days first told tonight."
     },
     {
-      "n": "AJ9b-2",
+      "n": "AJ11b-3",
       "severity": "MED",
-      "finding": "The no-pass notice was once per sync end, so hourly re-checks and Run now repeated it.",
+      "finding": "On a slow page the request press was looked for before the page had either button.",
       "fixed": true,
-      "fix": "Keyed on the calendar day; a notice Chrome refuses is warned and tried again."
+      "fix": "A wait for either button before the look; check on the step."
     },
     {
-      "n": "AJ9b-3",
-      "severity": "MED",
-      "finding": "The group-1 bypass on the shared groups ruleset would let any workflow move every group.",
-      "fixed": true,
-      "fix": "docs/RELEASING-GROUPS.md: a ruleset of its own for group-1 only."
-    },
-    {
-      "n": "AJ9b-4",
+      "n": "AJ11b-4",
       "severity": "LOW",
-      "finding": "Two releases at once could race the group move; the checkout left a token in the working copy.",
+      "finding": "Plural wording in the needs-you text; stale comments; dead code left after the span was dropped.",
       "fixed": true,
-      "fix": "move-group-1.yml concurrency and persist-credentials: false."
+      "fix": "Wording fixed; RANGE_FROM_LAST, LAST_CAPTURED, rememberLastCaptured, theDayAfterTheLastCaptured and the background.js branch removed with their tests."
     },
     {
-      "n": "AJ9c-1",
-      "severity": "MED",
-      "finding": "The no-pass notice checks depended on the time zone (06:00 UTC plus two hours crosses a day in US zones).",
-      "fixed": true,
-      "fix": "Built from local noon; run in three zones (SOLVED line)."
-    },
-    {
-      "n": "AJ9c-2",
+      "n": "AJ11b-5",
       "severity": "LOW",
-      "finding": "console.warn and TAG were put back without finally; one cannot_load sentence overstated.",
-      "fixed": true,
-      "fix": "finally blocks; sentence made exact."
-    },
-    {
-      "n": "AJ9c-3",
-      "severity": "MED",
-      "finding": "tools/dry_run_checks.py imported openpyxl, which GitHub's runner does not have (main 53ac64d red, run 41235263269).",
-      "fixed": true,
-      "fix": "943f377: the test spreadsheet is a hand-made zip of XML, as the other checks files make theirs (SOLVED line)."
-    },
-    {
-      "n": "AJ9c-4",
-      "severity": "LOW",
-      "finding": "The new pin check first also read uses: inside comments.",
-      "fixed": true,
-      "fix": "5e09952 reads real step lines only."
-    },
-    {
-      "n": "AJ9c-5",
-      "severity": "LOW",
-      "finding": "A refusal from the message centre with no words is said as 'Kartaan could not be reached' though Kartaan answered (kartaan.js tellTheProblem).",
+      "finding": "No way to clear a needs-you entry except the console; the double-write guard check is weak.",
       "fixed": false,
-      "why": "Run-log wording only, nothing lost or sent wrongly; next AutoSync round."
-    },
-    {
-      "n": "AJ9c-6",
-      "severity": "LOW",
-      "finding": "screen.test.js and bridge.test.js have no expected-count line, so a check that never runs is not noticed there.",
-      "fixed": false,
-      "why": "Older than this round, both files; next AutoSync round."
-    },
-    {
-      "n": "LR-1",
-      "severity": "MED",
-      "finding": "A later small run (an hourly re-check) replaced the platform's whole table.",
-      "fixed": true,
-      "fix": "be1c344: a re-check is kept beside the run as its own table."
-    },
-    {
-      "n": "LR-2",
-      "severity": "MED",
-      "finding": "Merging re-check rows into the run broke the seconds per report and the run's time span; a re-check with nothing finished blanked the table.",
-      "fixed": true,
-      "fix": "Merge removed; re-check recognised by its idle kind and kept apart."
-    },
-    {
-      "n": "LR-3",
-      "severity": "MED",
-      "finding": "A re-check with no run before it was drawn twice; the platform card's counts disagreed with the table.",
-      "fixed": true,
-      "fix": "Kept night compared with the live one by start time; a re-check keeps the run's card counts; rows capped at the newest 300."
-    },
-    {
-      "n": "LR-4",
-      "severity": "MED",
-      "finding": "The first re-check after the update overwrote the older version's card counts.",
-      "fixed": true,
-      "fix": "A re-check keeps any earlier card counts, old record or new."
-    },
-    {
-      "n": "LR-5",
-      "severity": "LOW",
-      "finding": "A re-check whose idle note failed to write is taken as a full run; a kept run over 300 rows shows 300 while the card counts all.",
-      "fixed": false,
-      "why": "Degrades to the old behaviour; next AutoSync round."
-    },
-    {
-      "n": "BR-HP",
-      "severity": "MED",
-      "finding": "On his HP, after the AI switch is turned on and Chrome grants the helper permission, the running background part keeps saying connectNative is not a function until the extension is reloaded.",
-      "fixed": false,
-      "why": "Seen 1 Nov on his machine (read over SSH); older Bridge code (BR1), not this round; next AutoSync round."
+      "why": "Not new in this round; next AutoSync round."
     }
   ],
   "known_gaps": [
-    "No test drives chrome.tabs.onRemoved itself (piece 1 wiring); whoClosedIt and thatOneIsDone are tested.",
-    "The idle line can say it started after 3 minutes idle if chrome.idle threw (computerInUse answers false).",
-    "bridge.test.js writes platforms.ready by hand; Meesho's real readiness is checked in screen.test.js."
+    "AJ12b's own review findings are in worker-handovers/DONE_AJ12.md."
   ]
 }

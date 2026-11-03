@@ -1,73 +1,15 @@
 {
   "record": "proving",
-  "commit": "be1c344",
-  "run_at": "31 Oct - 1 Nov 2026 (AJ9b, AJ9c). Four runs against v0.1.25 on the LF clone D:/aj9b/final: AJ9b's first 58 survivors and 18 unexplained crashes; after AJ9c's new checks 8 survivors, 4 with reasons; after the last reasons 8 survivors all accepted (run on the staged tree); and again on the committed head 5e09952: 283 changes tried, 189 run, 161 caught by a check, 20 crashes noticed by the file failing to load (all named in cannot_load), 94 would not parse, 8 accepted survivors; the prover ended: every deliberate change was either caught or recorded with a reason. Then on the be1c344 tree (1 Nov 21:0x-22:1x, D:/aj9c): first run 6 unnoticed changes in the new code (two unused fields and an unneeded return removed, checks added for the end reason, what Kartaan was told and an unnamed night); second run: 383 changes tried, 264 run, 236 caught by a check, 20 crashes (all named in cannot_load), 119 would not parse, 8 accepted survivors -- every deliberate change was either caught or recorded with a reason.",
+  "commit": "3e8ce32",
+  "run_at": "3 Nov 2026 (AJ11b). First run on 554efad: 14 unnoticed changes, all in AJ12b's exact-day returns / Bridge build lines (browser.py:740, bridge.js:199, driver.js:1812-1850, walk.js:967); AJ12b closed them with tests only (3e8ce32). Final run on 3e8ce32: 304 changes tried, 213 run, 209 caught by a check, 4 crashes noticed by the file failing to load, 91 would not parse, 1 hung and stopped (counted as caught), 0 survived. The prover ended: every deliberate change was either caught or recorded with a reason. (Before that, AJ11b's own first run found 18 unnoticed changes in the Flipkart traffic round; closed by real checks in 63a2f70.)",
   "tool": "tools/proving.py (AutoSync's own setup) loading the ERP's tools/prove_checks.py from D:/Kartaan-ERP.",
-  "invoked_as": "in D:/aj9c: KARTAAN=D:/Kartaan-ERP python tools/proving.py --against 9d7d090 --workers 2 (under D:\\Control\\long-run.lock)",
-  "ran_by": "AJ9c (Opus 5.5, worker for Kartaan Control).",
-  "scope": "Every changed line between v0.1.25 (9d7d090) and be1c344 in the 14 code files the prover reads.",
+  "invoked_as": "in D:/Kartaan-AutoSync-aj10b: KARTAAN=D:/Kartaan-ERP python tools/proving.py --against dba4d4c --workers 1 (under D:\\Control\\long-run.lock)",
+  "ran_by": "AJ11b (Sonnet 5.5, worker for Kartaan Control).",
+  "scope": "Every changed line between dba4d4c (the AJ9 release records, be1c344 code) and 3e8ce32: the Flipkart one-day round, days older than 14 told to him, the Amazon returns exact-day round, and the Bridge reload/build line.",
   "found": [
-    "FIRST RUN (AJ9b): 58 survivors -- the message-centre answers and the no-pass notice (kartaan.js), the night's end time passed on (kartaan.js, nightly.js), the refused-ids merge, the one tell and the event card (screen.js), ready_to_run (bridge.js), the_evening_of (clock.py) and the group-1 script's words and gh call; killed by new checks in kartaan.test.js, screen.test.js, nightly.test.js, bridge.test.js, clock_checks.py and move_group_on_release_checks.py ('AJ9 proving').",
-    "18 crashes with no reason recorded: each is a deleted import, exported name or def line that stops the checks file loading; now named per file in tools/proven_survivors.json cannot_load (noticed, but by the load, not by a red check).",
-    "LAST RUN on 5e09952: every deliberate change was either caught or recorded with a reason.",
-    "be1c344: 6 unnoticed changes in the new Last run code on the first run, closed by removing two unused fields and an unneeded return and by three new checks; the second run is clean."
+    "AJ11b first run: 18 unnoticed changes (span-era start, known-day filter, reach edge, end line, driver date matching); closed by new checks in nightly.test.js, driver.test.js, recipes_checks.py (63a2f70).",
+    "554efad run: 14 unnoticed changes, all in AJ12b's lines; closed by AJ12b with tests only (3e8ce32).",
+    "3e8ce32 run: 0 survivors, 0 accepted survivors."
   ],
-  "survivors": [
-    {
-      "file": "extension/screen.js",
-      "operator": "line",
-      "line": "return;",
-      "occurrence": 0,
-      "why": "The return after 'Nothing has run yet.' in showTheEvents. Without it the code goes on to the loop over the events, and that list is empty (it is the only way into that branch), so the loop draws nothing. The panel shows the one 'Nothing has run yet.' line either way; nothing written, stored or said differs (AJ9)."
-    },
-    {
-      "file": "extension/idle.js",
-      "operator": "line",
-      "line": "console.warn('Kartaan Auto-sync: could not note how the run got past the idle wait.', (error && error.message) || String(error));",
-      "occurrence": 0,
-      "why": "A warning to the extension's own console inside a catch, words only. The catch has already swallowed the failure and the start goes on either way, so without the line nothing is stored, started or shown to the seller differently (AJ9)."
-    },
-    {
-      "file": "extension/idle.js",
-      "operator": "line",
-      "line": "console.warn('Kartaan Auto-sync: could not clear the idle-wait note.', (error && error.message) || String(error));",
-      "occurrence": 0,
-      "why": "A warning to the extension's own console inside a catch, words only. The note's removal has already failed and been swallowed, and the start has already run, so without the line nothing is stored, started or shown differently (AJ9)."
-    },
-    {
-      "file": "extension/idle.js",
-      "operator": "logic",
-      "line": "console.warn('Kartaan Auto-sync: could not note how the run got past the idle wait.', (error && error.message) || String(error));",
-      "occurrence": 0,
-      "why": "Only which words of the error the console warning prints changes; the warning is inside a catch that has already swallowed the failure, so nothing is stored, started or shown to the seller differently (AJ9)."
-    },
-    {
-      "file": "extension/idle.js",
-      "operator": "logic",
-      "line": "console.warn('Kartaan Auto-sync: could not note how the run got past the idle wait.', (error && error.message) || String(error));",
-      "occurrence": 1,
-      "why": "Only which words of the error the console warning prints changes; the warning is inside a catch that has already swallowed the failure, so nothing is stored, started or shown to the seller differently (AJ9)."
-    },
-    {
-      "file": "extension/idle.js",
-      "operator": "logic",
-      "line": "console.warn('Kartaan Auto-sync: could not clear the idle-wait note.', (error && error.message) || String(error));",
-      "occurrence": 0,
-      "why": "Only which words of the error the console warning prints changes; the warning is inside a catch that has already swallowed the failure, so nothing is stored, started or shown to the seller differently (AJ9)."
-    },
-    {
-      "file": "extension/idle.js",
-      "operator": "logic",
-      "line": "console.warn('Kartaan Auto-sync: could not clear the idle-wait note.', (error && error.message) || String(error));",
-      "occurrence": 1,
-      "why": "Only which words of the error the console warning prints changes; the warning is inside a catch that has already swallowed the failure, so nothing is stored, started or shown to the seller differently (AJ9)."
-    },
-    {
-      "file": "tools/move_group_on_release.py",
-      "operator": "line",
-      "line": "sys.path.insert(0, str(Path(__file__).resolve().parent))",
-      "occurrence": 0,
-      "why": "It only makes `import move_group` find tools/. Run as a script (the workflow runs `python tools/move_group_on_release.py`), Python already puts the script's own folder first on the path, and the checks put tools/ there themselves. So the same move_group is found in every state and nothing moved, refused or said differs (AJ9)."
-    }
-  ]
+  "survivors": []
 }
