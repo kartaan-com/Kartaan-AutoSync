@@ -343,6 +343,12 @@ was = hopeless.go()
 check("a file in which no row could be read is NOT marked read, since it would never be opened again",
       was is not None and was.read_tonight == () and "no row of" in was.could_not_read[0])
 
+partly = Night({"fk_views": [a_file("v4", "flipkart_fk_views_2026-10-04.xlsx")]},
+               {"v4": an_xlsx([FK_VIEWS_HEADER.split(","), "2026-10-04,SKU-A,1,1,1,1".split(","), "04-10-2026,SKU-B,1,1,1,1".split(","), "04-10-2026,SKU-C,1,1,1,1".split(",")])})
+was = partly.go()
+check("a traffic file with some rows refused says how many and every reason, not only the first (R194)",
+      was is not None and was.read_tonight == ("v4",) and was.rows_refused == 2 and "2 row(s) not read: 2 x " in was.could_not_read[0])
+
 nameless = Night({"fk_views": [a_file("v3", "views.xlsx")]}, {"v3": XLSX})
 was = nameless.go()
 check("a file with no day in its name is ignored with a note (R194), not read",
@@ -402,7 +408,7 @@ check("and they write no ledger column", all(o.knows == () for o in reading.WHAT
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 70
+EXPECTED = 71
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
