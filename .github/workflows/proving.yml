@@ -1,0 +1,164 @@
+name: Proving
+
+# **THE HEAVY PROVING RUN, ON GITHUB'S MACHINES INSTEAD OF THE DELL (PV1, R186).** `tools/proving.py` breaks the code on purpose, one
+# change at a time, and requires a check to go red. On one PC that takes hours; here the changes are shared out by line number over
+# several machines at once (`--part i/N`) and `tools/proving_join.py` adds the answers into the one block a whole run prints.
+#
+# **STARTED BY HAND ONLY, BY HIS OWN ACCOUNT.** No schedule, no push, no pull request: nothing a stranger can set off. The commit to
+# prove and the commit to prove it against are typed in; each is checked to be a full commit id before it goes anywhere near a shell.
+#
+# **IT CAN CHANGE NOTHING.** `contents: read` is the only permission; there are no secrets in this file and none are needed (the
+# repository is public and so is everything the run reads); nothing here pushes, tags or writes a release. The answer is in the log
+# and in the one artifact the last job keeps.
+#
+# **THE ERP'S PROVER IS A COPY, AND SAYS SO.** `vendor/kartaan-erp/tools/prove_checks.py` is the ERP's file, with one header line added; the ERP is
+# private and a public run cannot fetch it. The first step of every part refuses a copy whose hash differs from the one written in
+# `vendor/kartaan-erp/PROVER-SHA256.txt` (the hash of the copy without its one header line), which is changed only together with the ERP's file.
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+    inputs:
+      prove:
+        description: 'Full commit id to prove (40 hex characters)'
+        required: true
+      against:
+        description: 'Full commit id to prove against: only lines changed since it are tried (40 hex characters)'
+        required: true
+      parts:
+        description: 'How many machines to share the changes over (1 to 20)'
+        required: true
+        default: '8'
+
+jobs:
+  plan:
+    # Only kartaan-com's own repository, and only his account: a copy of this workflow in a seller's repository does nothing.
+    if: github.repository_owner == 'kartaan-com' && github.triggering_actor == 'Jaiswalmagic1'
+    runs-on: ubuntu-latest
+    outputs:
+      parts: ${{ steps.matrix.outputs.parts }}
+    steps:
+      - name: Refuse anything that is not what it should be, and write out the parts
+        id: matrix
+        env:
+          PROVE: ${{ inputs.prove }}
+          AGAINST: ${{ inputs.against }}
+          PARTS: ${{ inputs.parts }}
+        run: |
+          set -eu
+          # [[ =~ ]] matches the WHOLE value; grep would pass a value whose first line fits and whose second line is anything.
+          [[ "$PROVE" =~ ^[0-9a-f]{40}$ ]] || { echo "prove must be a full 40-character commit id"; exit 1; }
+          [[ "$AGAINST" =~ ^[0-9a-f]{40}$ ]] || { echo "against must be a full 40-character commit id"; exit 1; }
+          [[ "$PARTS" =~ ^([1-9]|1[0-9]|20)$ ]] || { echo "parts must be a whole number from 1 to 20"; exit 1; }
+          echo "parts=$(seq -s, 1 "$PARTS" | sed 's/^/[/; s/$/]/')" >> "$GITHUB_OUTPUT"
+
+  part:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      # One part failing must not stop the others: the join says which parts did not answer.
+      fail-fast: false
+      matrix:
+        part: ${{ fromJSON(needs.plan.outputs.parts) }}
+    steps:
+      # The tool is this workflow's own commit; the code being proved is the commit typed in. They are different checkouts on purpose.
+      - uses: actions/checkout@v4
+        with:
+          path: tool
+          persist-credentials: false
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.prove }}
+          path: code
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: The parser the gate's own checks need
+        run: python -m pip install --quiet pyyaml
+
+      - name: The ERP's prover must be the file written down, byte for byte
+        working-directory: tool/vendor/kartaan-erp
+        run: |
+          got="$(tail -n +2 tools/prove_checks.py | sha256sum | cut -d" " -f1)"
+          want="$(cat PROVER-SHA256.txt)"
+          if [ "$got" != "$want" ]; then echo "prove_checks.py hash $got is not the recorded $want"; exit 1; fi
+
+      # A full commit id can name a commit that exists only in a fork: refuse anything not on one of this repository's own branches.
+      - name: The commits must be this repository's own
+        env:
+          PROVE: ${{ inputs.prove }}
+          AGAINST: ${{ inputs.against }}
+        run: |
+          for one in "$PROVE" "$AGAINST"; do
+            [ -n "$(git -C code branch -r --contains "$one")" ] || { echo "$one is on none of this repository's branches"; exit 1; }
+          done
+
+      # The join below gives the only verdict. A part ends red when its share held no change to try, which is not a failure of the run.
+      - name: Prove this part
+        continue-on-error: true
+        env:
+          AGAINST: ${{ inputs.against }}
+          PART: ${{ matrix.part }}
+          PARTS: ${{ inputs.parts }}
+          PROVING_CODE: ${{ github.workspace }}/code
+          KARTAAN: ${{ github.workspace }}/tool/vendor/kartaan-erp
+        run: |
+          mkdir -p out
+          python tool/tools/proving.py --against "$AGAINST" --part "$PART/$PARTS" --workers 2 --json "out/survivors-$PART.json" 2>&1 | tee "out/part-$PART.log"
+          # tee keeps the log; the prover's own answer is the first command's
+          exit "${PIPESTATUS[0]}"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: part-${{ matrix.part }}
+          path: out/
+          if-no-files-found: ignore
+
+  join:
+    needs: [plan, part]
+    # Runs after the parts whatever they did: a part that fell over must show up in the sum as missing, not as no run at all.
+    if: always() && needs.plan.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: parts
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Add the parts up
+        env:
+          PARTS: ${{ inputs.parts }}
+          PROVE: ${{ inputs.prove }}
+          AGAINST: ${{ inputs.against }}
+        run: |
+          mkdir -p logs
+          for f in parts/part-*/part-*.log; do if [ -f "$f" ]; then cp "$f" logs/; fi; done
+          # The tool and the code proved are different commits; the answer says which.
+          echo "proving tool: $GITHUB_SHA  proved: $PROVE  against: $AGAINST  parts: $PARTS" | tee proving-joined.log
+          python tools/proving_join.py logs "$PARTS" | tee -a proving-joined.log
+          exit "${PIPESTATUS[0]}"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: proving-joined
+          path: proving-joined.log

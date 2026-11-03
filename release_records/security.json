@@ -1,36 +1,16 @@
 {
   "record": "security",
-  "commit": "3e8ce32",
-  "run_at": "3 Nov 2026 (AJ11b, AJ12b).",
-  "tool": "Opus 5.5 read-only reads of the added lines, by each round's session.",
-  "invoked_as": "Agent (general-purpose) from each session.",
-  "ran_by": "AJ11b and AJ12b sessions (workers for Kartaan Control); the readers wrote none of the code.",
-  "scope": "dba4d4c to 3e8ce32, all added lines.",
+  "commit": "97bc3be",
+  "run_at": "3 Nov 2026 (AJ13b).",
+  "tool": "Opus 5.5 general-purpose sub-agent, read-only, over git diff 3e8ce32 97bc3be (extension, autosync, src) plus the release zip workflow and file list.",
+  "invoked_as": "Agent (general-purpose) from the AJ13b session.",
+  "ran_by": "AJ13b (Sonnet 5.5, worker for Kartaan Control); the reader wrote none of the code.",
+  "scope": "3e8ce32 (v0.1.26) to 97bc3be (v0.1.27), all added lines, and the contents of kartaan-autosync-extension.zip.",
   "found": [
-    {
-      "severity": "HIGH/MED",
-      "finding": "None.",
-      "fixed": true,
-      "why": "No new permission and nothing new leaves in either round."
-    },
-    {
-      "severity": "INFO",
-      "finding": "Flipkart traffic: one new press (the 'All' chip on Flipkart's own page), a conditional skip of the request press, and 'needs you' entries kept in the browser's own storage.",
-      "fixed": false,
-      "why": "Within the page the seller already uses; nothing sent anywhere."
-    },
-    {
-      "severity": "INFO",
-      "finding": "Amazon returns: an exact-day pick on Amazon's own page. The Bridge can ask the extension to reload itself (autosync_reload) and status names the build; only the local Bridge can ask it, refused while a run or asks are going.",
-      "fixed": false,
-      "why": "Local only; no new permission (AJ12b's note, DONE_AJ12.md)."
-    },
-    {
-      "severity": "INFO",
-      "finding": "The Bridge's daily ask cap is 100 (was 12) for testing.",
-      "fixed": false,
-      "why": "Raised on his yes of 3 Nov (R175); asks still wait for 3 minutes idle."
-    }
+    {"severity": "HIGH/MED", "finding": "None.", "fixed": true, "why": "manifest.json changed only in its version number: no new permission, host access or content-script match. No secret added anywhere. No eval, innerHTML or remote code. No new message handler; content.js:389 adds an optional 'partial' flag to the existing internal message, which can only cause a re-fetch."},
+    {"severity": "LOW", "finding": "extension/tables.js:455-458 writes the first 40 characters of each row's text from the seller's own panel into the run log.", "fixed": false, "why": "No HTML sink; only log clutter."},
+    {"severity": "LOW", "finding": "extension/bridge.js:154 builds a pattern from a report id without escaping it.", "fixed": false, "why": "Ids are first checked against the known report list (bridge.js:157), so not exploitable; tidier to escape in a later round."},
+    {"severity": "INFO", "finding": "Release zip: extension-zip.yml zips extension/ without *.test.js; no secrets.js, .pem, .env or credentials file in the repo. extension/from-the-erp/tokens.css is styling only.", "fixed": false, "why": "Nothing secret in the zip."}
   ],
-  "sec2_rows": "AutoSync SEC2 rows are not touched by this round except as above. Row S1 (pin tag-pinned actions in pm_check.yml and extension-zip.yml) stays open."
+  "sec2_rows": "AutoSync SEC2 rows untouched by this round. Row S1 (pin tag-pinned actions in pm_check.yml and extension-zip.yml) stays open."
 }

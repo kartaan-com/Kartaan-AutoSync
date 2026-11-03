@@ -8,6 +8,9 @@ either changed, so this file loads it from the ERP checkout named by `KARTAAN` a
   - WHICH files are sources and which checks are named for each (`sources`, `COVERED_BY`, `NOT_PROVEN`) -- this
     repository's layout, not the ERP's: `autosync/*.py` and `tools/*.py` beside `<name>_checks.py`, `extension/*.js`
     and `test/*.js` beside `<name>.test.js`, and a `*_checks.py` with no source of its own is checks, never a source;
+  - **ONE SHARE OF THE CHANGES** (`--part 2/4`, PV1): the changed lines are shared out by line number, so N machines each try a
+    quarter of the same changes and `tools/proving_join.py` adds their answers. Added so the long run can go to GitHub's machines;
+    without it the run is whole, as before.
   - **A CHANGE OF LINE ENDINGS ONLY IS NOT A CHANGE TO PROVE** (`_diff_args`). On 23 Oct the ERP's prover run on
     77705cd --against 49d8deb tried every line of walk.js, screen.js, background.js, drive.js and xls.py, because
     those files changed from one line ending to the other between the two commits, and reported 1485 survivors --
@@ -28,14 +31,19 @@ import subprocess
 import sys
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent.parent
+# **THE CODE TO PROVE IS THIS FILE'S OWN CHECKOUT, unless `PROVING_CODE` names another.** The GitHub run (`.github/workflows/proving.yml`)
+# proves an older commit with the tool of a newer one: the older commit has no `--part`, and overlaying the tool onto it would show the
+# tool itself as a changed file to prove.
+HERE = Path(os.environ.get("PROVING_CODE") or Path(__file__).resolve().parent.parent).resolve()
 # **A NAME OF ITS OWN IN `sys.modules`.** The prover's workers are new processes; each loads this file again as the
 # main module before it is handed a change, and finds the ERP's prover under this name, set up the same way.
 NAME = "kartaan_erp_prove_checks"
 # Every name of the ERP's prover this file replaces or calls. **A NAME THE ERP RENAMES MUST STOP THIS IN WORDS** (AP11 review): assigning over
 # a name the module no longer has adds an attribute nothing reads, and the run would quietly measure the ERP's own files its own way.
 THE_ERPS_NAMES = ("ROOT", "SURVIVORS_FILE", "COVERED_BY", "NOT_PROVEN", "sources", "_diff_args", "_try_one", "baseline_passes", "stage",
-                  "runner_for", "away_from_the_real_repository", "TIMEOUT_SECONDS", "main")
+                  "runner_for", "away_from_the_real_repository", "TIMEOUT_SECONDS", "changed_lines", "main")
+# (which share, of how many) when the run was asked for one share of the changes; None for the whole run.
+PART = None
 
 
 def the_erps_prover(where: Path = None):
@@ -137,6 +145,33 @@ def _diff_args(against):
             ["diff", "--cached", "--name-only", "--ignore-cr-at-eol", "HEAD", "--"])
 
 
+def the_part_asked_for(argv):
+    """`--part i/N` taken out of the arguments: (i, N) counting from 1, and the arguments the ERP's prover is left with."""
+    rest, part, at = [], None, 0
+    while at < len(argv):
+        if argv[at] == "--part" or argv[at].startswith("--part="):
+            if argv[at] == "--part":
+                at += 1
+            given = argv[at].split("=", 1)[1] if argv[at].startswith("--part=") else (argv[at] if at < len(argv) else "")
+            one, _, many = given.partition("/")
+            if not (re.fullmatch(r"[0-9]+", one) and re.fullmatch(r"[0-9]+", many) and 1 <= int(one) <= int(many)):
+                raise SystemExit(f"proving: --part wants i/N with 1 <= i <= N (for example 2/4), not {given!r}.")
+            part = (int(one), int(many))
+        else:
+            rest.append(argv[at])
+        at += 1
+    return part, rest
+
+
+def _changed_lines(relpath, against):
+    """The ERP's changed lines for one file, cut down to this run's share when `--part` was given; line n belongs to share n % N + 1."""
+    lines = sys.modules[NAME]._the_erps_changed_lines(relpath, against)
+    if lines is None or PART is None:
+        return lines
+    one, many = PART
+    return {number for number in lines if number % many == one - 1}
+
+
 def also_proved_by(relpath: str):
     """The OTHER checks files that import this Python module by name, besides the one named for it.
 
@@ -207,6 +242,8 @@ def set_up(prover):
     if not hasattr(prover, "_the_erps_try_one"):
         prover._the_erps_try_one = prover._try_one
         prover._try_one = _try_one
+        prover._the_erps_changed_lines = prover.changed_lines
+        prover.changed_lines = _changed_lines
         the_erps_baseline = prover.baseline_passes
 
         # **THE OTHER CHECKS FILES MUST PASS WITH NOTHING CHANGED TOO**, or every change put to one failing for its own reason would read as caught.
@@ -223,4 +260,5 @@ if __name__ == "__main__" or __name__ == "__mp_main__":
     PROVER = set_up(the_erps_prover())
 
 if __name__ == "__main__":
+    PART, sys.argv[1:] = the_part_asked_for(sys.argv[1:])
     sys.exit(PROVER.main())

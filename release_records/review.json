@@ -1,49 +1,15 @@
 {
   "record": "review",
-  "commit": "3e8ce32",
-  "run_at": "2-3 Nov 2026 (AJ11, AJ11b, AJ12, AJ12b). Fresh Opus 5.5 read-only agents with no stake, each handed SOLVED_PROBLEMS.md: AJ11 read the one-day / All-chip diff (twice for the dropped span version); AJ11b's fresh agent read the days-older-than-14 code, the end line, the screen wording and the request skip; AJ12b's fresh agent read the exact-day returns diff (see DONE_AJ12.md). Each code commit also carries the gate's review record.",
+  "commit": "97bc3be",
+  "run_at": "3 Nov 2026 (AJ13a, AJ13b). Fresh Opus 5.5 read-only agents with no stake: one per fix commit (AJ13a-review-diff.patch, AJ13a-fix2-diff.patch, AJ13a-fix3-diff.patch, AJ13a-final-diff.patch in D:/Control/worker-handovers), a review of 89fb94b (2 findings fixed: file-name match needs id + date; double entry for the last page; 2 accepted), and a fresh review of 97bc3be (two dead lines removed): nothing blocking.",
   "tool": "Opus 5.5 general-purpose sub-agents, read-only.",
-  "invoked_as": "Agent (general-purpose) from each session.",
-  "ran_by": "Sub-agents of AJ11, AJ11b (Sonnet 5.5) and AJ12/AJ12b; they wrote none of the code they read.",
-  "scope": "dba4d4c to 3e8ce32: extension/nightly.js, screen.js, background.js, walk.js, driver.js, bridge.js, autosync/recipes.py, recipes_checks.py, browser.py, extension/recipes.json and their tests.",
+  "invoked_as": "Agent (general-purpose) from the AJ13a session.",
+  "ran_by": "Sub-agents of AJ13a (Sonnet 5.5); the reviewers wrote none of the code they read.",
+  "scope": "3e8ce32 (v0.1.26) to 97bc3be (v0.1.27): the Meesho pricing short-page fix, the Flipkart claims calendar fix, the two timed runs (R184) and their tests. 172 program lines since v0.1.26, over the 150 cap by Control's D935 ruling (review and HP fixes).",
   "found": [
-    {
-      "n": "AJ11b-1",
-      "severity": "MED",
-      "finding": "Days from the ended span era were falsely told as 'needs you'.",
-      "fixed": true,
-      "fix": "SPAN_ERA_ENDED for fk_views; checks added."
-    },
-    {
-      "n": "AJ11b-2",
-      "severity": "MED",
-      "finding": "The night's end line repeated old needs-you days every night.",
-      "fixed": true,
-      "fix": "End line lists only days first told tonight."
-    },
-    {
-      "n": "AJ11b-3",
-      "severity": "MED",
-      "finding": "On a slow page the request press was looked for before the page had either button.",
-      "fixed": true,
-      "fix": "A wait for either button before the look; check on the step."
-    },
-    {
-      "n": "AJ11b-4",
-      "severity": "LOW",
-      "finding": "Plural wording in the needs-you text; stale comments; dead code left after the span was dropped.",
-      "fixed": true,
-      "fix": "Wording fixed; RANGE_FROM_LAST, LAST_CAPTURED, rememberLastCaptured, theDayAfterTheLastCaptured and the background.js branch removed with their tests."
-    },
-    {
-      "n": "AJ11b-5",
-      "severity": "LOW",
-      "finding": "No way to clear a needs-you entry except the console; the double-write guard check is weak.",
-      "fixed": false,
-      "why": "Not new in this round; next AutoSync round."
-    }
+    {"n": "AJ13a-1", "severity": "MED", "finding": "File-name match for a landed day needed the report id and date together.", "fixed": true, "fix": "Match requires id + date; check added."},
+    {"n": "AJ13a-2", "severity": "MED", "finding": "Double entry for the last page of a table.", "fixed": true, "fix": "Last page entered once; check added."},
+    {"n": "AJ13a-3", "severity": "LOW", "finding": "Two dead lines (walk.js catch assignment, background.js return in the 4 pm branch).", "fixed": true, "fix": "Removed in 97bc3be."}
   ],
-  "known_gaps": [
-    "AJ12b's own review findings are in worker-handovers/DONE_AJ12.md."
-  ]
+  "known_gaps": ["Two findings of the 89fb94b review were accepted by the author, recorded in DONE_AJ13a.md."]
 }
