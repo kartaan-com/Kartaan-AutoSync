@@ -819,6 +819,29 @@ const aMeeshoQualityPage = ({
       (await thrown(() => readTheTable(fewer.page, { table: 'meesho-pricing', rest: noWaiting, patience: 5 }))).includes('counts 20 in all'));
   }
   {
+    /* The page redraws its "Page 1" button while the reader is away: the way back is pressed on the button as it stands NOW, not on the one held from before. */
+    const built = withSize([priceRows('A', 24), priceRows('B', 5)], 29, PAGER(2));
+    const stale = built.buttons.find((one) => one.getAttribute('aria-label') === 'Page 1');
+    const away = built.buttons.find((one) => one.getAttribute('aria-label') === 'Page 2');
+    const fresh = el('button', 'Page 1', [], { 'aria-label': 'Page 1' });
+    fresh.onClick = stale.onClick;
+    const wentAway = away.onClick;
+    away.onClick = () => { wentAway(); built.page.children = built.page.children.map((one) => (one === stale ? fresh : one)); };
+    await readTheTable(built.page, { table: 'meesho-pricing', rest: noWaiting, patience: 5 });
+    check('AJ13a: the way back to the short page is pressed on the button the page shows now, not on the one it showed before it redrew',
+      fresh.clicks === 3 && stale.clicks === 0);
+  }
+  {
+    /* And while the reader is away the page shows no "Page 1" at all: the one held from before is pressed, rather than nothing. */
+    const built = withSize([priceRows('A', 24), priceRows('B', 5)], 29, PAGER(2));
+    const held = built.buttons.find((one) => one.getAttribute('aria-label') === 'Page 1');
+    const away = built.buttons.find((one) => one.getAttribute('aria-label') === 'Page 2');
+    const wentAway = away.onClick;
+    away.onClick = () => { wentAway(); built.page.children = built.page.children.filter((one) => one !== held); };
+    await readTheTable(built.page, { table: 'meesho-pricing', rest: noWaiting, patience: 5 });
+    check('and with no such button on the page at that moment the held one is pressed (and with it gone, the next round stops)', held.clicks === 1);
+  }
+  {
     /* With no button to go back to the short page by, it is not read again (and not pressed blind): saved as it is. */
     const built = aPage({
       headers: PRICE_HEADERS, pages: [priceRows('A', 24), priceRows('B', 5)], pager: [{ label: 'Previous page' }, { label: 'Page 2' }, { label: 'Next page' }],
@@ -865,7 +888,7 @@ const aMeeshoQualityPage = ({
 }
 
 console.log(failures ? `\n${failures} FAILED (${ran} checks)` : `\nall ${ran} checks passed`);
-const EXPECTED = 52 + 1 + 4 + 5 + 10 + 1 + 3 + 2 + 4 + 3 + 1 + 1 + 1 + 1 + 1 + 7 + 1 + 4 + 5 + 1 + 2 + 7;
+const EXPECTED = 52 + 1 + 4 + 5 + 10 + 1 + 3 + 2 + 4 + 3 + 1 + 1 + 1 + 1 + 1 + 7 + 1 + 4 + 5 + 1 + 2 + 9;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   process.exit(1);
