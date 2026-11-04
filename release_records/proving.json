@@ -1,15 +1,15 @@
 {
   "record": "proving",
-  "commit": "c595ae6",
-  "run_at": "4 Nov 2026 (AS3 round A), on GitHub: Proving workflow run 41763608289 (first run 41762331445 on 78a7554 found 9 survivors, closed by tests only in c595ae6).",
+  "commit": "e6af9ec",
+  "run_at": "4 Nov 2026 (AS1 round 1, released by AS3), on GitHub: Proving workflow run 41768323053 (first run 41766898867 on 417d2fb had 4 unrecorded crashes, closed in e6af9ec).",
   "tool": "tools/proving.py with the ERP's tools/prove_checks.py (vendor copy), 4 parts, shared out by line number, joined by tools/proving_join.py.",
-  "invoked_as": "gh workflow run proving.yml --ref as3 -f prove=<c595ae6 full id> -f against=f37931e2f557ec7c13cc30de6004b23b53358c63 -f parts=4",
+  "invoked_as": "gh workflow run proving.yml --ref as1r1 -f prove=<e6af9ec full id> -f against=11c0f9e8a1aa34d5f65add981d5260a28c2e585e -f parts=4",
   "ran_by": "AS3 (Sonnet 5.5, worker for Kartaan Control), started with the owner login.",
-  "scope": "Every changed line between f37931e (v0.1.28) and c595ae6.",
+  "scope": "Every changed line between 11c0f9e (v0.1.29) and e6af9ec.",
   "found": [
-    "First run (78a7554, run 41762331445): 36 tried, 27 run, 15 caught, 9 would not parse, 9 survived: the nine middle fault words of autosync/nightly.py:653-661, deleted one at a time with no check noticing.",
-    "Closed by tests only (c595ae6, one check in autosync/nightly_checks.py; no program line changed).",
-    "Final run (c595ae6, run 41763608289): 36 tried, 27 run, 24 caught, 9 would not parse, 0 hung, 0 survived. 'every deliberate change was either caught or recorded with a reason'."
+    "First run (417d2fb): 5 tried, 4 crashed the checks file with no recorded reason (returns_sheet.py:54, 56, 60, 61).",
+    "Closed by tests and the survivor list only (e6af9ec): 54 and 56 recorded under cannot_load (NameError at import); 60 and 61 now turn named checks red.",
+    "Final run (e6af9ec, run 41768323053): 5 tried, 3 caught, 2 ended in a recorded crash, 0 survived. 'every deliberate change was either caught or recorded with a reason'."
   ],
   "stopped_by_time": [],
   "survivors": [],

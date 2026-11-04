@@ -1,22 +1,22 @@
 {
   "record": "security",
-  "commit": "c595ae6",
-  "run_at": "4 Nov 2026 (AS3 round A).",
-  "tool": "Opus 5.5 general-purpose sub-agent, read-only, cso lens, over git diff f37931e..78a7554 (autosync/nightly.py, ledger_sheet.py, start.py, their checks, pm_check.yml); c595ae6 after it is a checks-only commit.",
+  "commit": "e6af9ec",
+  "run_at": "4 Nov 2026 (AS1 round 1, item 4, released by AS3).",
+  "tool": "Opus 5.5 general-purpose sub-agent, read-only, cso lens, over git diff 11c0f9e..417d2fb (autosync/returns_sheet.py, returns_sheet_checks.py, SOLVED_PROBLEMS.md); e6af9ec after it changes checks and the survivor list only. An earlier read by AS1's own reader found nothing.",
   "invoked_as": "Agent (general-purpose) from the AS3 session.",
   "ran_by": "AS3 (Sonnet 5.5, worker for Kartaan Control); the reader wrote none of the code.",
-  "scope": "f37931e (v0.1.28) to c595ae6, all added lines; the version move after it changes the version string and BUILD name only.",
+  "scope": "11c0f9e (v0.1.29) to e6af9ec, all added lines; the version move after it changes the version string and BUILD name only.",
   "found": [
-    {"severity": "LOW", "finding": "what_needs_a_look counts FAULT_WORDS anywhere in the night's lines, so a data value containing one can inflate a count or make the run yellow.", "fixed": false, "why": "Output is fixed constants plus integers only; no data text reaches the ::warning:: line, so nothing can be forged. Worst case is a false yellow."},
-    {"severity": "LOW", "finding": "Lines printed straight to the screen (ALARM, how_the_night_ends) are not in `said`, so a fault word printed only there is not counted.", "fixed": false, "why": "Coverage, not security; same as before this round."}
+    {"severity": "LOW", "finding": "returns_sheet_checks.py adds a fixed machine path (D:\\Kartaan-ERP-gr1) to the ERP files compared; a stale copy there could be the one compared.", "fixed": false, "why": "Checks only; no runtime effect; the check takes the first file that really carries the lists."},
+    {"severity": "LOW", "finding": "returns_sheet.py column letter from chr(ord('A')+n-1) only holds up to 26 columns.", "fixed": false, "why": "The header is 13 columns; not reachable by data."}
   ],
   "checked_no_finding": [
-    "No secret, token, customer name, phone, address or order content in any new line: kind words and counts only, shape enforced by a check.",
-    "::warning:: text built only from constants and integers; no injection via newline or ::.",
-    "No new Drive or network read/write; tidy_the_drive unchanged, only its return value kept.",
-    "Exit code unchanged: the block prints after code is final and never changes it.",
-    "The OLDER line keeps the same row text as before, now once per file (less exposure); typed-over rows are still listed one by one.",
-    "pm_check.yml: one exact full-sha line added to the accepted list; permissions and actions untouched (read by a separate reviewer: clean)."
+    "The only write is row 1, and only when every cell of row 1 is blank; scanner columns (Receipts K-M, Log D) in rows 2 and down are never written, overwritten or cleared.",
+    "A non-matching row 1 is reported and left untouched, as before.",
+    "No new Drive or Sheets call; same read of row 1, same conditional write; a newly made sheet is sized 13/4 columns from THE_TABS.",
+    "Log messages unchanged: tab names, counts and column positions only; no secret, token or customer data.",
+    "No permission, scope or sharing change.",
+    "The checks only read local ERP files and match the lists by pattern; no ERP code is run."
   ],
   "sec2_rows": "AutoSync SEC2 rows untouched by this round. Row S1 (pin tag-pinned actions in pm_check.yml and extension-zip.yml) stays open."
 }
