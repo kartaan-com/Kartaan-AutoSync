@@ -313,7 +313,7 @@ REPORTS: Tuple[Report, ...] = (
     # ---- can break by being touched.
     # **BY THE BROWSER SINCE N018 (his ruling D726).** Orders > Order reports > All Orders, by Last Updated date, last day; the same tab-separated order file the reader already reads. A rolling day from the
     # request, so a past day cannot be asked for again by the run.
-    # **AS7b (D947/D949): THE NIGHTLY RUN ASKS FOR IT BY THE API WHERE THE SELLER'S KEYS ALLOW THIS REPORT; where Amazon refuses them (HTTP 403) the day stays owed and the browser walk takes it.** Same file name either way. The newest day only, as the browser walk.
+    # **AS7b (D947/D949): THE NIGHTLY RUN ASKS FOR IT BY THE API WHERE THE SELLER'S KEYS ALLOW THIS REPORT; a day the API did not bring has no verified line, so the extension's browser walk takes it.** Same file name either way. The newest day only, as the browser walk.
     Report("az_orders", "amazon", "Amazon orders", API, DAILY, "csv",
            cannot_backfill="Amazon's All Orders page is asked for the last day only, so a day already gone cannot be fetched again by the run (the page itself offers exact dates, which the walk does not use yet)."),
     # **AMAZON MAKES THIS ONE ITSELF AND THERE IS NO WAY TO ASK FOR IT.** Its own

@@ -1,18 +1,18 @@
 {
-  "written_by": "AS7 (Sonnet 5.5) wrote the AS7b code; AS8 (Sonnet 5.5) removed the 403 handling after reading Amazon's official table",
-  "reviewer": "AS8 read the diff against Amazon's official createReport error table; a fresh independent reader and the security read run on the pushed branch alongside proving",
-  "independent": false,
-  "if_not_independent_why": "This is the committed-for-safety step (D630); the fresh Opus reader and the security read are run on the pushed branch at the same time as proving and their findings are fixed in follow-up commits before any tag.",
-  "read": ["autosync/amazon_checks.py", "autosync/amazon_door_checks.py", "autosync/manifest.py", "autosync/manifest_checks.py", "autosync/nightly.py", "autosync/nightly_checks.py", "autosync/recipes_checks.py", "autosync/reports.py", "autosync/reports_checks.py", "autosync/runner.py", "autosync/runner_checks.py", "extension/nightly.js", "extension/nightly.test.js", "extension/recipes.json", "tools/export_recipes_checks.py", "tools/export_recipes.py"],
+  "written_by": "AS8 (Sonnet 5.5) fixing the findings of the fresh Opus reader of AS7b",
+  "reviewer": "A fresh Opus 5.5 read-only reader (no code written by it) found the HIGH below; AS8 fixed and re-read it",
+  "independent": true,
+  "if_not_independent_why": "",
+  "read": ["autosync/nightly.py", "autosync/nightly_checks.py", "autosync/reports.py", "autosync/runner.py", "SOLVED_PROBLEMS.md"],
   "checked_against_decision_log": true,
   "decisions_followed": ["D947", "D948", "D949"],
   "deviation": null,
   "found": [
-    "Amazon's official createReport model lists 403 as access denied, unauthorized, expired token or invalid signature, so reading 403 as 'report not covered' would hide an expired key: that handling (NotAllowed, not-allowed state, browser_keeps) was removed and 403 is a plain failure again; checks updated and counts corrected.",
-    "Looked for a day marked by=api that this run did not land: with_how_it_came marks only files this run landed or the same file already credited.",
-    "Looked at the two reports moved to the API door: the browser recipes stay as the fallback, and the extension fetches any day with no verified line."
+    "HIGH: by=api could never be written because the run handed the manifest (report, day) pairs while the record looks up (day, report); fixed in nightly.py and a whole-night check now reads the written line (shown red with the old order, green with the fix).",
+    "LOW: an unused NOT_ALLOWED constant was left in runner.py after the 403 handling was removed; deleted.",
+    "LOW: a comment in reports.py still said a 403 sends the day to the browser; reworded to say a day the API did not bring has no verified line."
   ],
-  "security": "No key, token or customer data is added to any file or log; the new manifest field 'by' holds api or browser only and is refused if anything else.",
-  "could_not_be_checked": ["Real API files for orders and returns are not seen until the first live night; the first night asks up to 14 days of returns, one ask a minute."],
-  "verify_instruction": "After the first night the Drive pipeline record lines for orders and returns say by api."
+  "security": "No secret or customer data added; a security reader passed the whole round (one low note on trusting the Drive pipeline file, accepted: it needs write access to the seller's own Drive).",
+  "could_not_be_checked": ["The reader's MED (returns days with no data are asked again every night, up to 14 per night at one ask a minute) is not changed here: the spread already holds long catch-ups over to later nights; Control to watch the first live night."],
+  "verify_instruction": "After the first night the pipeline file lines for orders and returns say by api."
 }

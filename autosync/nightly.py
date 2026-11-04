@@ -557,7 +557,7 @@ def one_tick(
         try:
             standing = manifest.read_record(read_manifest())
             fresh = manifest.with_how_it_came(
-                manifest.lines_for(which, arrivals, today, checked_on=today), standing.lines, set(happened.landed_days))
+                manifest.lines_for(which, arrivals, today, checked_on=today), standing.lines, {(day, report) for report, day in happened.landed_days})
             # **WHAT WAS READ TONIGHT GOES IN THE SAME RECORD (job 38)**, stamped with the day it was read.
             # Only this run writes reads, and only to its own file, so nothing the extension writes is touched.
             read_now = tuple(

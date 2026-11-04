@@ -49,7 +49,6 @@ LANDED = "landed"
 NOTHING_TO_FETCH = "nothing-to-fetch"
 STILL_WAITING = "still-waiting"
 FAILED = "failed"
-NOT_ALLOWED = "not-allowed"  # AS7b: the keys do not cover THIS report; the browser walk keeps it
 
 # AS4: how many nights an ask of a snapshot report is kept for collecting; older, the picture is stale or stuck, and it is asked afresh.
 SNAPSHOT_ASK_KEPT_DAYS = 3
