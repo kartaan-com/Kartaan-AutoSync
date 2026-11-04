@@ -1,5 +1,5 @@
 {
-  "version": "0.1.27",
+  "version": "0.1.33",
   "url": "https://github.com/kartaan-com/Kartaan-AutoSync/releases/latest/download/kartaan-autosync-extension.zip",
-  "notes": "Two timed runs (8:00 and 4 pm), a short Meesho pricing page read again then saved marked incomplete, Flipkart claims calendar fix, every report named in an AI ask result"
+  "notes": "Stops cleanly when the database allowance is used up; status shows the last landed day from Drive; one-row reports remember their days; a late night tick says the evening already ran; Amazon suppressed listings collected every night"
 }
