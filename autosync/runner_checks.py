@@ -127,6 +127,8 @@ door = a_door()
 what = answered(lambda: tool.do_a_run("run-1", [ORDERS], door, nothing_arrived, flight, sink, Tick(), TODAY, look_back_days=2))
 check("a run tries everything that is owed", answered(lambda: what.tried == 2))
 check("and says what landed", answered(lambda: len(what.landed) == 2))
+check("AS7d: and which (report, day) landed, so the manifest can say which way each came",
+      answered(lambda: len(what.landed_days) == 2 and {r for r, _ in what.landed_days} == {ORDERS.id} and len({d for _, d in what.landed_days}) == 2))
 check("and how many it tried, not only how many worked", answered(lambda: "2 tried" in what.summary()))
 check("and the evidence got out", answered(lambda: len(sink.lines) > 0))
 check("including that the run finished", answered(lambda: any("finished" in l.message for l in sink.lines)))
@@ -638,7 +640,7 @@ check("J288: forgetting one saves nothing extra (the run's end saves that)", len
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 103 + 2
+EXPECTED = 103 + 2 + 1
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
