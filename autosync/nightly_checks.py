@@ -2809,9 +2809,17 @@ check("every fault word is really printed by the code (a word that drifted from 
 check("and start.py hands the block the night's lines, the tick's summary and the tidy faults",
       "what_needs_a_look([*said, tick.summary()" in _START_RAW)
 
+_WORDS_THAT_MUST_COUNT = (
+    "RETURNS SHEET HEADER CHANGED", "RETURNS SHEET HEADER NOT CHECKED", "RETURNS SHEET TAB MISSING", "RETURNS SHEET NOT READY",
+    "RETURNS SHEET RECORD NOT WRITTEN", "THE SELLER'S DATABASE REFUSED", "KARTAAN'S OWN LEDGER REFUSED", "SALES LEDGER DISAGREEMENT",
+    "SALES LEDGER UNREADABLE ROW", "SALES LEDGER RECORD NOT WRITTEN", "TIDY FAULT",
+)
+check("each of the eleven fault kinds, said alone, makes a block that names it (a kind dropped from the list would hide that fault again)",
+      all(f"  {w}: 1 time(s)" in tool.what_needs_a_look([f"{w}  x"]) for w in _WORDS_THAT_MUST_COUNT) and len(tool.FAULT_WORDS) == len(_WORDS_THAT_MUST_COUNT))
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 394 + 3 + 6 + 1 + 1 + 4 + 6
+EXPECTED = 394 + 3 + 6 + 1 + 1 + 4 + 6 + 1
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
