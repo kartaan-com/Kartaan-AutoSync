@@ -1,18 +1,18 @@
 {
-  "written_by": "AS8 (Sonnet 5.5): takes the manifest `by` label back out of AS7b on Kartaan Control's order (the label returns with AS7d)",
-  "reviewer": "A fresh Opus 5.5 reader and a Sonnet security reader read the larger AS7b change (including everything left in); this commit only removes code from it",
+  "written_by": "AS8 (Sonnet 5.5): answers the GitHub proving run 41868827006 on c931da4",
+  "reviewer": "AS8 read the survivors the prover named against the code lines; a fresh Opus reader and a Sonnet security reader read the AS7b change earlier",
   "independent": false,
-  "if_not_independent_why": "The commit removes the `by` label (manifest.py, nightly.py wiring, landed_days) and its checks, putting those files back exactly as v0.1.36; no new program line is added, so the earlier independent reads still cover everything that remains.",
-  "read": ["autosync/manifest.py", "autosync/manifest_checks.py", "autosync/nightly.py", "autosync/nightly_checks.py", "autosync/runner.py", "SOLVED_PROBLEMS.md"],
+  "if_not_independent_why": "This commit adds only checks and one recorded reason (no program line changes); the prover re-runs on it and is the independent test of whether the checks catch the changes.",
+  "read": ["autosync/runner_checks.py", "extension/nightly.test.js", "tools/proven_survivors.json"],
   "checked_against_decision_log": true,
-  "decisions_followed": ["D947", "D948", "D949"],
+  "decisions_followed": ["D947", "D949"],
   "deviation": null,
   "found": [
-    "Checked that manifest.py and nightly.py are byte-for-byte the v0.1.36 files again, so the pipeline file format is unchanged.",
-    "Checked nothing is left that mentions landed_days or by=api in the program files.",
-    "Two checks that were edited for the API door (the nightly default fetch list, the manifest's two halves) were kept in their AS7b form."
+    "runner.py:177 survivor: a browser snapshot test report was not marked snapshot, so dropping the door condition went unnoticed; the test report is now a real snapshot, so the condition matters.",
+    "nightly.js:733 survivor: nothing proved that the extension's own landed days and the pipeline's days are joined for a range; two checks now cover a range split between them, a half covered range and the pipeline covering all of it.",
+    "reports.py:103 crash: deleting the new Report field stops the module loading; recorded with its reason in proven_survivors.json as the repository does for the same shape."
   ],
-  "security": "Removes a field and its wiring; nothing new is held or sent.",
-  "could_not_be_checked": ["The first real API files for orders and returns are not seen until the first live night."],
-  "verify_instruction": "Nothing visible changes; orders and returns arrive in Drive as before."
+  "security": "Checks and a JSON note only; nothing held or sent.",
+  "could_not_be_checked": [],
+  "verify_instruction": "The next proving run reports 0 survivors."
 }

@@ -542,7 +542,7 @@ answered(lambda: tool.do_a_run("snap-3", [SNAP], door3, nothing_arrived, flight,
 check("it is collected the third night", answered(lambda: door3.asked[0]["asked_already"] == "amz-1"))
 check("and forgotten once it has landed, whatever day it was asked under", answered(lambda: not flight.asked))
 # A BROWSER snapshot must NOT be given yesterday's note: its asked_already means "collect from the page".
-BROWSER_SNAP = Report("me_pay", "meesho", "x", BROWSER, DAILY, "csv", cannot_backfill="a picture of now")
+BROWSER_SNAP = Report("me_pay", "meesho", "x", BROWSER, DAILY, "csv", cannot_backfill="a picture of now", snapshot=True)
 flight = tool.InFlight()
 flight.remember("me_pay", TODAY - timedelta(days=2), "old")  # within the kept nights: only the door rule keeps it away
 door4 = a_door()

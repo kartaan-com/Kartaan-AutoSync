@@ -2523,6 +2523,16 @@ check('report table: null night gives null', theReportTable(null, () => '') === 
     && whyAlreadyLanded(noBack, 'az_orders', '2026-11-02', [], true, ['2026-11-02'], ['2026-11-02']) === null
     && whyAlreadyLanded(noBack, 'az_orders', '2026-11-04', [], false, ['2026-11-04'], ['2026-11-04']) === null
     && whyAlreadyLanded(noBack, 'az_orders', '2026-11-02', [], false, ['2026-11-02']) === null);
+  /* a report that goes back, over a typed range: the extension's own landed days and the pipeline's together cover it, neither alone does */
+  const goes = { latestDay: '2026-11-03', canGoBack: ['fk_claims'] };
+  const range = ['2026-11-01', '2026-11-02'];
+  check('AS7b: for a report that goes back, a range is skipped when the extension landed part and the pipeline brought the rest',
+    whyAlreadyLanded(goes, 'fk_claims', '2026-11-02', ['2026-11-01'], false, range, ['2026-11-02']) !== null
+    && whyAlreadyLanded(goes, 'fk_claims', '2026-11-02', ['2026-11-02'], false, range, ['2026-11-01']) !== null);
+  check('AS7b: but not when only part of the range is covered by either, or when the pipeline alone covers all of it',
+    whyAlreadyLanded(goes, 'fk_claims', '2026-11-02', ['2026-11-01'], false, range, []) === null
+    && whyAlreadyLanded(goes, 'fk_claims', '2026-11-02', [], false, range, ['2026-11-02']) === null
+    && whyAlreadyLanded(goes, 'fk_claims', '2026-11-02', [], false, range, range) !== null);
   const orders = installFakeChrome();
   const walkOrders = aWalkThat();
   await startTheNight(orders.chrome, {
@@ -2533,7 +2543,7 @@ check('report table: null night gives null', theReportTable(null, () => '') === 
     walkOrders.started.length === 0 && (await theNight(orders.chrome)).done.some((one) => one.reportId === 'az_orders' && String(one.say).includes('nightly pipeline')));
 }
 
-const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3 + 1 + 4 + 3 + 2 + 2 + 2 + 1 + 8 + 3 + 13;
+const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3 + 1 + 4 + 3 + 2 + 2 + 2 + 1 + 8 + 3 + 13 + 2;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;
