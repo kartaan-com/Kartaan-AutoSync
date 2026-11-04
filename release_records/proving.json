@@ -1,14 +1,15 @@
 {
   "record": "proving",
-  "commit": "f6b7850",
-  "run_at": "4 Nov 2026 (AS7/AS8), on GitHub: Proving workflow run 41846515179 (8 parts) on f6b7850; earlier runs 41839053073 and 41843229960 found survivors that were answered by checks or by removing redundant lines.",
-  "tool": "tools/proving.py with the ERP's prove_checks.py, joined by tools/proving_join.py.",
-  "invoked_as": "gh workflow run proving.yml (as7-a, parts=8)",
-  "ran_by": "AS7 started it; AS8 (Sonnet 5.5) read the result.",
-  "scope": "Every changed line between 539900a (v0.1.35) to f6b7850.",
+  "commit": "6c1952c",
+  "run_at": "5 Nov 2026 (AS8), on GitHub: Proving workflow run 41871101978 (8 parts) on 6c1952c, against d263a82 (v0.1.36).",
+  "tool": "tools/proving.py with the ERP's prove_checks.py (vendor copy), joined by tools/proving_join.py.",
+  "invoked_as": "gh workflow run proving.yml --ref as7b -f prove=6c1952c... -f against=d263a82... -f parts=8",
+  "ran_by": "AS8 (Sonnet 5.5, worker for Kartaan Control).",
+  "scope": "Every changed line between v0.1.36 (d263a82) and 6c1952c.",
   "found": [
-    "160 tried, 129 run, 129 caught by a check, 0 crash, 31 would not parse, 1 hung and stopped, 0 survived, 0 accepted. No NOT PROVEN line in any part."
+    "Run 41868827006 (c931da4): 32 tried, 2 survived (runner.py:177 snapshot door condition, nightly.js:733 own+pipeline day join) and 1 crash (the new Report field). Answered by a real snapshot test report, two extension checks, and a recorded cannot_load reason for reports.py.",
+    "Run 41871101978 (6c1952c): 32 tried, 30 run, 29 caught by a check, 1 ended in a load crash (recorded in proven_survivors.json), 2 would not parse, 0 hung, 0 survived, 0 accepted."
   ],
   "survivors": [],
-  "after_this_record": "The version move (manifest.json, bridge.js BUILD) changes no line the prover tries."
+  "after_this_record": "The version move (extension/manifest.json, extension/bridge.js BUILD) changes no line the prover tries."
 }

@@ -1,33 +1,16 @@
 {
   "record": "review",
-  "commit": "f6b7850",
-  "run_at": "4 Nov 2026 (AS7).",
-  "tool": "Fresh Opus 5.5 general-purpose read-only sub-agents, two readers.",
-  "invoked_as": "Agent, by AS7.",
-  "ran_by": "Sub-agents; they wrote none of the code.",
-  "scope": "539900a (v0.1.35) to f6b7850: the extension skips a report-day the pipeline verified in Drive (thePipelineVerified, theVerifiedDaysIn, theDaysThePipelineVerified, whyAlreadyLanded).",
+  "commit": "6c1952c",
+  "run_at": "5 Nov 2026 (AS8).",
+  "tool": "A fresh Opus 5.5 general-purpose read-only sub-agent.",
+  "invoked_as": "Agent, by AS8, on 7950520 (the larger change, including the manifest label later removed).",
+  "ran_by": "Sub-agent; it wrote none of the code.",
+  "scope": "v0.1.36 to 6c1952c: Amazon orders and returns asked of the API first (reports.py door, snapshot flag, runner.py), the extension skips a day the pipeline brought for any report with a pipeline line (nightly.js), onTheApiDoor lists only reports with no browser recipe (export_recipes.py). The manifest `by` label the reader reviewed was removed by Control's order and returns with AS7d.",
   "found": [
-    {
-      "severity": "HIGH",
-      "finding": "Wrong skip on a damaged pipeline record.",
-      "fixed": true,
-      "fix": "Record refused for every reason the Python read_record refuses it."
-    },
-    {
-      "severity": "MED",
-      "finding": "Reads list not checked.",
-      "fixed": true
-    },
-    {
-      "severity": "LOW",
-      "finding": "Size and byte-order-mark not handled.",
-      "fixed": true
-    },
-    {
-      "severity": "NOTE",
-      "finding": "After AS7a alone nothing changes live (pipeline only records az_suppressed, a snapshot); matters with AS7b.",
-      "fixed": false,
-      "why": "Known and stated."
-    }
-  ]
+    {"severity": "HIGH", "finding": "by=api could never be written (key order).", "fixed": true, "fix": "Moot: the whole label was removed; manifest.py and nightly.py are v0.1.36 again."},
+    {"severity": "MED", "finding": "Returns days with no data are asked again every night (up to 14 asks a night, one a minute).", "fixed": false, "why": "Stated; the run spreads long catch-ups over nights. Control to watch the first live night."},
+    {"severity": "LOW", "finding": "Dead NOT_ALLOWED constant.", "fixed": true},
+    {"severity": "LOW", "finding": "A seller whose keys do not cover orders or returns shows a failed row each night.", "fixed": false, "why": "Loud on purpose: Amazon's official 403 text includes expired token and invalid signature, so it must not be read as 'not covered'."}
+  ],
+  "known_gaps": ["The first real API files for orders and returns are not seen until the first live night."]
 }

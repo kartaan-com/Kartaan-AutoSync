@@ -1,21 +1,13 @@
 {
   "record": "security",
-  "commit": "f6b7850",
-  "run_at": "4 Nov 2026 (AS7).",
-  "tool": "Sonnet 5.5 sub-agent, read-only, security lens (cso-style read of the diff).",
-  "invoked_as": "Agent, by AS7.",
-  "ran_by": "Sub-agent; wrote none of the code.",
-  "scope": "539900a (v0.1.35) to f6b7850",
+  "commit": "6c1952c",
+  "run_at": "5 Nov 2026 (AS8).",
+  "tool": "Sonnet 5.5 sub-agent, read-only, security lens (cso-style read of the diff), on 7950520.",
+  "invoked_as": "Agent, by AS8.",
+  "ran_by": "Sub-agent; it wrote none of the code.",
+  "scope": "v0.1.36 to 7950520; later commits only remove the manifest label and add checks.",
   "found": [
-    {
-      "severity": "PASS",
-      "finding": "No secret, token or customer data read or written; a new read of one Drive file the Python made; anything unreadable means fetch as before.",
-      "fixed": true
-    },
-    {
-      "severity": "MED",
-      "finding": "Storage quota use by the read.",
-      "fixed": true
-    }
+    {"severity": "PASS", "finding": "No secret, token or customer data in any added line; Amazon error text is never put into a message (only the status); no new network call or Drive scope.", "fixed": true},
+    {"severity": "LOW", "finding": "Anyone who can write the seller's own Drive pipeline file could mark a day verified for orders or returns and the extension would skip it (a missed day only).", "fixed": false, "why": "Needs write access to the seller's own Drive; the reader refuses damaged, duplicated and oversize files."}
   ]
 }
