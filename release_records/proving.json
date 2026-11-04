@@ -1,15 +1,15 @@
 {
   "record": "proving",
-  "commit": "706e381",
-  "run_at": "4 Nov 2026 (AS3 round B, released by AS4), on the Dell: the GitHub Proving run 41772105466 on 512426a tried nothing (listings_checks needs the ERP's private listing-files.js, not in the vendor copy), so the local prover was run, one long run at a time under D:\Control\long-run.lock.",
-  "tool": "tools/proving.py with the ERP's tools/prove_checks.py (KARTAAN=D:/Kartaan-ERP-gr1), whole run, 2 workers, from a clone with Unix line endings.",
-  "invoked_as": "KARTAAN=D:/Kartaan-ERP-gr1 python tools/proving.py --against 5c32f439a989608b38b4ca3b30204e90733a9579 --workers 2",
-  "ran_by": "AS4 (Opus 5.5, worker for Kartaan Control).",
-  "scope": "Every changed line between 5c32f43 (v0.1.30) and 706e381.",
+  "commit": "57f75ee",
+  "run_at": "4 Nov 2026 (AS3 round D + PS1 item 11 + PS1-1, released by AS4), on GitHub: Proving workflow run 41780554854 (first run 41778316677 on 3029fa8 had 1 survivor, closed in 57f75ee).",
+  "tool": "tools/proving.py with the ERP's tools/prove_checks.py (vendor copy), 4 parts, shared out by line number, joined by tools/proving_join.py.",
+  "invoked_as": "gh workflow run proving.yml --ref as4-d2 -f prove=57f75ee9cadf8c907e509a97dbb706e5350917d5 -f against=e77ed07e7b2662a7b9f27d73c1d1a8ffd7500da0 -f parts=4",
+  "ran_by": "AS4 (Opus 5.5, worker for Kartaan Control), started with the owner login.",
+  "scope": "Every changed line between e77ed07 (v0.1.31) and 57f75ee.",
   "found": [
-    "First run (512426a): 72 tried, 50 run, 44 caught, 1 recorded crash, 5 survived (nightly.py:1070-1071 retry line; reading.py:499 marker; reading.py:1193 equality and logic) -- the checks that saw them sat in files not named for reading.py.",
-    "Closed by checks and a behaviour-identical refactor (706e381): reading_checks +3, nightly_checks +2; re-read by the reviewer, READY.",
-    "Final run (706e381): 74 tried, 51 run, 49 caught, 2 ended in a crash noticed by the file failing to load, 23 would not parse, 0 survived. 'every deliberate change was either caught or recorded with a reason'."
+    "First run (3029fa8): 30 tried, 18 caught, 11 would not parse, 1 survived: extension/bridge.js:205, a typeof guard the try/catch below already covered.",
+    "Closed by removing that dead line (57f75ee).",
+    "Final run (57f75ee, run 41780554854): 28 tried, 17 caught, 11 would not parse, 0 survived. 'every deliberate change was either caught or recorded with a reason'."
   ],
   "stopped_by_time": [],
   "survivors": [],

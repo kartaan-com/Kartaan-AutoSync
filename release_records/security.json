@@ -1,22 +1,22 @@
 {
   "record": "security",
-  "commit": "706e381",
-  "run_at": "4 Nov 2026 (AS3 round B, released by AS4).",
-  "tool": "Sonnet 5.5 general-purpose sub-agent, read-only, cso lens, over the staged diff 5c32f43..(Round B); the AS4 fix after it (is_a_defect, 3 lines) changes which night is red only and was re-read by the reviewer. AS3's own Opus security reader on v0.1.28 found nothing HIGH or MED.",
+  "commit": "57f75ee",
+  "run_at": "4 Nov 2026 (AS3 round D + PS1 item 11 + PS1-1, released by AS4).",
+  "tool": "Sonnet 5.5 general-purpose sub-agent, read-only, cso lens, over git diff v0.1.30..(Round D + PS1 item 11) in the extension; the later PS1-1 clock wording and the removed dead guard change no input, output or permission. AS3's Opus re-review found no path that can create or upload anything.",
   "invoked_as": "Agent (general-purpose) from the AS4 session.",
   "ran_by": "AS4 (Opus 5.5, worker for Kartaan Control); the reader wrote none of the code.",
-  "scope": "5c32f43 (v0.1.30) to 706e381, all added lines; 706e381 after 512426a moves one condition into a named function (same logic) and adds checks only.",
+  "scope": "e77ed07 (v0.1.31) to 57f75ee, all added lines.",
   "found": [
-    {"severity": "LOW", "finding": "Retry and 'Tidied' log lines are printed without workflow-command escaping.", "fixed": false, "why": "They start with fixed text; GitHub reads a command only at line start; pre-existing."},
-    {"severity": "LOW", "finding": "The 429 line carries up to 200 characters of Google's error body.", "fixed": false, "why": "Same as the 403/404 lines already do; no header or token is in it."},
-    {"severity": "LOW", "finding": "The allowance line names the report file name.", "fixed": false, "why": "File names from the seller's own Drive; no row content."},
-    {"severity": "LOW", "finding": "Tidy retries sleep up to ~15 s in the worst case.", "fixed": false, "why": "Bounded: 3 tries, then 1; no loop."}
+    {"severity": "LOW", "finding": "The 10-minute answer store lives in worker memory; the worker sleeps after ~30 s, so calls far apart repeat the Drive look.", "fixed": false, "why": "Bounded by the reports with an empty notebook and by Drive's own quota; slower, not unsafe."},
+    {"severity": "LOW", "finding": "Someone who can write in the seller's Drive could name a file with a false date and make status show it.", "fixed": false, "why": "Spoofing a date in the seller's own Drive; no injection; nothing is acted on from it."},
+    {"severity": "LOW", "finding": "addOneRow writes storage once per day in the file.", "fixed": false, "why": "Bounded at 60 days per report; dates only (YYYY-MM-DD)."}
   ],
   "checked_no_finding": [
-    "No secret, token, credential or customer row reaches a log or warning.",
-    "The ::warning:: text escapes %, CR and LF as GitHub requires.",
-    "The first 429 stops further database calls that night: less traffic, not more.",
-    "Nothing new is written or deleted on Drive; a retried tidy cannot bin a file twice."
+    "No path from the AI's status call can create, upload or delete on Drive: every request on it is a GET list; no folder is made.",
+    "No sign-in window: the Drive token is asked for non-interactively; a missing token gives null.",
+    "Only a YYYY-MM-DD date leaves Drive into the answer; no file name, id or error text.",
+    "Crafted file names never reach a Drive query, a path or a regex input; query values are quoted.",
+    "No token, secret or customer data added to any log or answer."
   ],
   "verdict": "SECURITY PASS",
   "sec2_rows": "AutoSync SEC2 rows untouched by this round. Row S1 (pin tag-pinned actions in pm_check.yml and extension-zip.yml) stays open."

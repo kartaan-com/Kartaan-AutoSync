@@ -1,17 +1,19 @@
 {
   "record": "review",
-  "commit": "706e381",
-  "run_at": "4 Nov 2026 (AS3 round B, replayed on 0.1.30 and released by AS4). AS3's fresh Opus reviewer read the round on v0.1.28 (5 LOW, all fixed); AS4's fresh Opus reviewer read it again on v0.1.30 (1 MED + 1 LOW fixed) and then re-read the fix (READY).",
+  "commit": "57f75ee",
+  "run_at": "4 Nov 2026 (AS3 round D + PS1 item 11 + PS1-1, released by AS4). AS3's fresh Opus readers reviewed Round D twice on v0.1.28 (2 MED fixed, 5 LOW accepted); AS4's fresh Opus reader reviewed the whole round on v0.1.30, then re-read two fixes (READY).",
   "tool": "Opus 5.5 general-purpose sub-agents, read-only.",
   "invoked_as": "Agent (general-purpose), by AS3 and by AS4.",
   "ran_by": "Sub-agents; the reviewers wrote none of the code they read.",
-  "scope": "5c32f43 (v0.1.30) to 512426a: Round B (R119): a 429 from the seller's database stops the asking for the night (files stay unread, one line counts them, the night is yellow not red, D108); Drive tidy tries each place 3 times (5 s, 10 s), later places 1 try after one used all 3; a surviving tidy fault is a ::warning::. About 70 program lines (AS3 wrote them without DeepSeek, not callable from that session; AS4's fix is 3 lines).",
+  "scope": "e77ed07 (v0.1.31) to 57f75ee: status takes last_landed_day from Drive's own file names when the extension's notebook is empty (look-only, folder found once, answers kept 10 min); one-row reports (az_health, me_views) remember the days they write (PS1 item 11); a small-hours tick of an evening that already ran says so instead of 'too early' (PS1-1). About 45 program lines (AS3 ~25 without DeepSeek, not callable from that session; AS4 ~15, under the 20-line threshold).",
   "found": [
-    {"n": "AS4-B1", "severity": "MED", "finding": "A 429 still made is_a_defect true, so the night went red with a 'could not list' line whose list was empty.", "fixed": true, "fix": "Refusals marked as a used-up allowance are not our defect; a real refusal beside one still is; 2 checks in listings_checks."},
-    {"n": "AS4-B2", "severity": "LOW", "finding": "The 429 check read only the words, not the kind the stop depends on.", "fixed": true, "fix": "isinstance check on TheirDatabaseHasNoAllowanceLeft (firestore_door_checks)."},
-    {"n": "AS4-B3", "severity": "LOW", "finding": "The stop is proved for listings only.", "fixed": false, "why": "One code path decides every database kind (_NEEDS_THE_DATABASE)."},
-    {"n": "AS4-B4", "severity": "LOW", "finding": "On a 429 night the DATABASE REFUSED kind is counted twice in the end-of-run list.", "fixed": false, "why": "Counts only; no line is hidden."},
-    {"n": "AS3-B1..5", "severity": "LOW", "finding": "Claims writing records not skipped after a 429; wording matched by text; a dead Drive cost ~9 min; tidy warning not escaped; stale comment.", "fixed": true, "fix": "All fixed by AS3 before the replay (see DONE_AS3.md Round B)."}
+    {"n": "AS3-D1", "severity": "MED", "finding": "Status could CREATE the Kartaan folder (theKartaanFolder makes it).", "fixed": true, "fix": "Look-only theKartaanFolderIfThere."},
+    {"n": "AS3-D2", "severity": "MED", "finding": "~150 Drive calls per status with an empty notebook.", "fixed": true, "fix": "Folder found once per call; answers kept 10 minutes."},
+    {"n": "AS3-D3", "severity": "LOW", "finding": "The first date in a range name won.", "fixed": true, "fix": "The last date is taken."},
+    {"n": "AS4-D1", "severity": "MED", "finding": "The PS1-1 words fired for a bad hour setting and for a daytime tick after a hand run.", "fixed": true, "fix": "Only a small-hours tick with a good setting; 2 checks."},
+    {"n": "AS4-D2", "severity": "LOW", "finding": "A storage failure after the row was written made addOneRow throw.", "fixed": true, "fix": "try/catch with a warning."},
+    {"n": "AS4-D3", "severity": "LOW (found by GitHub proving run 41778316677)", "finding": "bridge.js typeof guard was dead code: no check could notice its removal.", "fixed": true, "fix": "Removed; the try already answers null."},
+    {"n": "AS4-D4", "severity": "LOW", "finding": "Running lists over 60 days cost extra storage writes; the PS1 item 11 check is a source match; undated names stay null until their next row.", "fixed": false, "why": "Speed only; bounded at 60 days; the behaviour is covered by the status checks."}
   ],
-  "known_gaps": ["A real 429 is seen only on a real night that hits the allowance."]
+  "known_gaps": ["Seen working only on the HP after install (az_health last_landed_day)."]
 }
