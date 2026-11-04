@@ -1041,6 +1041,17 @@ TWO = answered(lambda: manifest.read_record(two_numbers_held["body"]))
 check("a file with one row nobody could read is recorded as holding two and giving one",
       TWO is not None and len(TWO.reads) == 1 and (TWO.reads[0].rows_in_file, TWO.reads[0].rows_read) == (2, 1))
 
+# AS7d (AS7b review HIGH): the line for a day the API landed tonight says so. The run hands over (report, day) and the record keys by (day, report).
+by_held = {"body": None}
+by_night = Harness()
+by_night.arrivals = lambda report_id: [Arrived(name=file_name_for(report(report_id), YESTERDAY - timedelta(days=n)), size=100) for n in range(0 if by_night.fetched else 1, 20)]
+by_night.go(read_manifest=lambda: by_held["body"], save_manifest=lambda body: by_held.__setitem__("body", body))
+BY = answered(lambda: manifest.read_record(by_held["body"]))
+check("AS7d: a day this night's API run landed is written with by=api",
+      BY is not None and [one.by for one in BY.lines if one.report_id == "az_orders" and one.data_date == YESTERDAY] == ["api"])
+check("AS7d: and a day it did not land is written without a word",
+      BY is not None and {one.by for one in BY.lines if one.data_date != YESTERDAY} <= {None})
+
 # ------------------------------------------- job 37: FILES READ UNDER OLDER RULES ARE READ ONCE MORE
 
 # **THE FIVE CANCELLED ORDERS ALREADY IN HIS LEDGER ARE CORRECTED BY THE SAME RUN, NOT BY HAND.** A file
@@ -2862,7 +2873,7 @@ check("start.py hands the tick the report-list writer, built by the real builder
       isinstance(HANDED_TO_THE_TICK.get("save_reports"), ast.Call)
       and getattr(HANDED_TO_THE_TICK["save_reports"].func, "id", "") == "a_reports_sink")
 
-EXPECTED = 394 + 3 + 6 + 1 + 1 + 4 + 2 + 6 + 1 + 2 + 1 + 3
+EXPECTED = 394 + 3 + 6 + 1 + 1 + 4 + 2 + 6 + 1 + 2 + 1 + 3 + 2
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
