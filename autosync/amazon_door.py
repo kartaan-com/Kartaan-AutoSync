@@ -37,9 +37,23 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
+import re
+
 import amazon
 from landing import file_name_for
 from reports import report as kartaan_report
+
+# AS4 (security, AS1-r2 read): an id read back from the saved state or from Amazon's answer goes into a request path only if it is
+# letters, digits, dot, dash or underscore and starts with a letter or digit -- never a slash, '..', '?' or '#'.
+_AN_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,199}")
+
+
+def an_id_fit_for_a_path(given) -> str:
+    """The id, or a refusal that names no part of it."""
+    if not isinstance(given, str) or not _AN_ID.fullmatch(given):
+        raise RuntimeError("Amazon's report id is not one that can be asked about (not letters, digits, '.', '-' or '_').")
+    return given
+
 
 # What a fetch came to. Four outcomes, and only one of them is a failure.
 LANDED = "landed"
@@ -198,7 +212,7 @@ class AmazonDoor:
 
     def where_it_got(self, amazon_report_id: str) -> amazon.WhereItGot:
         """Ask how a report is getting on. Cheap: two a second."""
-        answer = self._call("GET", amazon.REPORT_PATH.format(report_id=amazon_report_id))
+        answer = self._call("GET", amazon.REPORT_PATH.format(report_id=an_id_fit_for_a_path(amazon_report_id)))
         if answer.status == 429:
             raise Throttled("Amazon is rate-limiting status checks.")
         if answer.status != 200 or not answer.json:
@@ -242,7 +256,7 @@ class AmazonDoor:
         minutes; anything that fetched it and queued the download for later would
         work in testing and fail on a slow day.
         """
-        answer = self._call("GET", amazon.DOCUMENT_PATH.format(document_id=document_id))
+        answer = self._call("GET", amazon.DOCUMENT_PATH.format(document_id=an_id_fit_for_a_path(document_id)))
         if answer.status == 429:
             raise Throttled("Amazon is rate-limiting document links.")
         if answer.status != 200 or not answer.json or not answer.json.get("url"):

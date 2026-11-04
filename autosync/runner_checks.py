@@ -515,10 +515,101 @@ check("a person who names the days gets exactly those days",
       [a["day"] for a in door.asked] == [DAY("2026-09-01")])
 
 
+# ------------------ A SNAPSHOT ASKED LAST NIGHT IS COLLECTED TONIGHT, NOT ASKED AGAIN (az_suppressed: asked every night 28 Oct to 3 Nov, never collected)
+
+from reports import API  # noqa: E402
+
+SNAP = Report("az_suppressed", "amazon", "Amazon suppressed listings", API, DAILY, "csv", cannot_backfill="a picture of now")
+flight = tool.InFlight()
+door = a_door(by_report={"az_suppressed": Answered(tool.STILL_WAITING, say="building", their_id="amz-1")})
+tool.do_a_run("snap-1", [SNAP], door, nothing_arrived, flight, collect(), Tick(), TODAY)
+door2 = a_door(by_report={"az_suppressed": Answered(tool.STILL_WAITING, say="building", their_id="amz-1")})
+tool.do_a_run("snap-2", [SNAP], door2, nothing_arrived, flight, collect(), Tick(), TODAY + timedelta(days=1))
+check("a snapshot asked last night is handed back to the door tonight", answered(lambda: door2.asked[0]["asked_already"] == "amz-1"))
+check("and never sits under two days at once", answered(lambda: len(flight.asked) == 1))
+door3 = a_door(by_report={"az_suppressed": Answered(tool.LANDED, say="landed")})
+tool.do_a_run("snap-3", [SNAP], door3, nothing_arrived, flight, collect(), Tick(), TODAY + timedelta(days=2))
+check("it is collected the third night", answered(lambda: door3.asked[0]["asked_already"] == "amz-1"))
+check("and forgotten once it has landed, whatever day it was asked under", answered(lambda: not flight.asked))
+# A BROWSER snapshot must NOT be given yesterday's note: its asked_already means "collect from the page".
+BROWSER_SNAP = Report("me_pay", "meesho", "x", BROWSER, DAILY, "csv", cannot_backfill="a picture of now")
+flight = tool.InFlight()
+flight.remember("me_pay", TODAY - timedelta(days=5), "old")
+door4 = a_door()
+tool.do_a_run("snap-4", [BROWSER_SNAP], door4, nothing_arrived, flight, collect(), Tick(), TODAY)
+check("a browser snapshot is not handed a day-old note", answered(lambda: door4.asked[0]["asked_already"] is None))
+
+# AS4 (AS1-r2 review MED): a snapshot collected from last night's ask is asked for afresh in the same run, so it lands every night.
+def a_door_in_turn(answers):
+    """A door that gives its answers one call after another, and records what it was asked."""
+    asked, left = [], list(answers)
+
+    def fetch(report_id, data_date, asked_already=None):
+        asked.append({"report": report_id, "day": data_date, "asked_already": asked_already})
+        return left.pop(0)
+
+    fetch.asked = asked
+    return fetch
+
+
+flight = tool.InFlight()
+flight.remember("az_suppressed", TODAY - timedelta(days=2), "amz-1")  # a run owes the day before it
+door5 = a_door_in_turn([Answered(tool.LANDED, say="landed"), Answered(tool.STILL_WAITING, say="building", their_id="amz-2")])
+tool.do_a_run("snap-5", [SNAP], door5, nothing_arrived, flight, collect(), Tick(), TODAY)
+check("AS4: after collecting last night's picture, tonight's is asked for in the same run, with no old id",
+      answered(lambda: len(door5.asked) == 2 and door5.asked[0]["asked_already"] == "amz-1" and door5.asked[1]["asked_already"] is None))
+check("AS4: and the new ask is remembered under tonight, the old one gone", answered(lambda: flight.asked == {("az_suppressed", (TODAY - timedelta(days=1)).isoformat()): "amz-2"}))
+door6 = a_door_in_turn([Answered(tool.LANDED, say="landed")])
+tool.do_a_run("snap-6", [SNAP], door6, nothing_arrived, flight, collect(), Tick(), TODAY)
+check("AS4: an ask made tonight that lands tonight is not asked again", answered(lambda: len(door6.asked) == 1 and not flight.asked))
+# The same ask still building keeps the night it was made, so a stuck one is asked afresh after SNAPSHOT_ASK_KEPT_DAYS.
+flight = tool.InFlight()
+flight.remember("az_suppressed", TODAY - timedelta(days=2), "amz-3")
+tool.do_a_run("snap-7", [SNAP], a_door_in_turn([Answered(tool.STILL_WAITING, say="in queue", their_id="amz-3")]), nothing_arrived, flight, collect(), Tick(), TODAY)
+check("AS4: the same ask still building keeps the night it was made", answered(lambda: flight.asked == {("az_suppressed", (TODAY - timedelta(days=2)).isoformat()): "amz-3"}))
+door8 = a_door_in_turn([Answered(tool.STILL_WAITING, say="building", their_id="amz-4")])
+tool.do_a_run("snap-8", [SNAP], door8, nothing_arrived, flight, collect(), Tick(), TODAY + timedelta(days=tool.SNAPSHOT_ASK_KEPT_DAYS - 1))
+check("AS4: an ask older than the kept nights is not collected but asked afresh, and replaced",
+      answered(lambda: door8.asked[0]["asked_already"] is None and flight.asked == {("az_suppressed", (TODAY + timedelta(days=tool.SNAPSHOT_ASK_KEPT_DAYS - 2)).isoformat()): "amz-4"}))
+flight = tool.InFlight()
+flight.remember("az_suppressed", TODAY - timedelta(days=2), "amz-5")
+tool.do_a_run("snap-9", [SNAP], a_door_in_turn([Answered(tool.NOTHING_TO_FETCH, say="cancelled")]), nothing_arrived, flight, collect(), Tick(), TODAY)
+check("AS4: nothing to fetch clears an ask kept under an older night", answered(lambda: not flight.asked))
+# AS4 review MED: a stale ask, asked afresh tonight, that lands at once has spent tonight's ask: the door is not asked twice.
+flight = tool.InFlight()
+flight.remember("az_suppressed", TODAY - timedelta(days=tool.SNAPSHOT_ASK_KEPT_DAYS + 2), "amz-6")
+door10 = a_door_in_turn([Answered(tool.LANDED, say="landed")])
+tool.do_a_run("snap-10", [SNAP], door10, nothing_arrived, flight, collect(), Tick(), TODAY)
+check("AS4: a stale ask asked afresh that lands at once is not asked a second time", answered(lambda: len(door10.asked) == 1 and not flight.asked))
+
+
+def a_door_that_falls_over_second():
+    asked = []
+
+    def fetch(report_id, data_date, asked_already=None):
+        asked.append(asked_already)
+        if len(asked) == 2:
+            raise RuntimeError("Amazon fell over")
+        return Answered(tool.LANDED, say="landed")
+
+    fetch.asked = asked
+    return fetch
+
+
+for _second, _name in ((None, "an exception"), (Answered(tool.FAILED, say="refused"), "a failure")):
+    flight = tool.InFlight()
+    flight.remember("az_suppressed", TODAY - timedelta(days=2), "amz-7")
+    _said = collect()
+    _door = a_door_that_falls_over_second() if _second is None else a_door_in_turn([Answered(tool.LANDED, say="landed"), _second])
+    _got = answered(lambda: tool.do_a_run("snap-11", [SNAP], _door, nothing_arrived, flight, _said, Tick(), TODAY))
+    check(f"AS4: {_name} when asking for the next picture is said in the log, and tonight's picture still counts as landed",
+          _got is not None and _got.landed == ("az_suppressed",) and not _got.failed and not flight.asked
+          and any("asking for the next picture" in str(line) for line in _said.lines))
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 85
+EXPECTED = 99
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

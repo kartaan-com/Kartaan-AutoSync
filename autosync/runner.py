@@ -38,7 +38,7 @@ from typing import Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 import runlog
 from board import Row, nothing_ran, rows_for, files_nothing_can_find
 from alarms import Alarm, alarms_for, what_changed, Changes
-from reports import ONLY_WHEN_ASKED, Report
+from reports import API, ONLY_WHEN_ASKED, Report
 from schedule import (
     Owed, days_beyond_reach, spread_the_catch_up, what_could_not_be_fetched_said, what_is_owed,
 )
@@ -49,6 +49,9 @@ LANDED = "landed"
 NOTHING_TO_FETCH = "nothing-to-fetch"
 STILL_WAITING = "still-waiting"
 FAILED = "failed"
+
+# AS4: how many nights an ask of a snapshot report is kept for collecting; older, the picture is stale or stuck, and it is asked afresh.
+SNAPSHOT_ASK_KEPT_DAYS = 3
 
 
 @dataclass
@@ -76,6 +79,16 @@ class InFlight:
 
     def forget(self, report_id: str, data_date: date) -> None:
         self.asked.pop(self.key(report_id, data_date), None)
+
+    def newest_day_asked(self, report_id: str) -> Optional[date]:
+        """The day the newest ask of a SNAPSHOT report was made under. **A snapshot's day is always today**, so an ask made last night
+        sat under a day nobody looks up again and was asked for afresh every night, never collected (`az_suppressed`, 28 Oct to 3 Nov)."""
+        days = sorted(day for (one, day) in self.asked if one == report_id)
+        return date.fromisoformat(days[-1]) if days else None
+
+    def forget_every_day(self, report_id: str) -> None:
+        for key in [k for k in self.asked if k[0] == report_id]:
+            del self.asked[key]
 
 
 @dataclass(frozen=True)
@@ -156,6 +169,24 @@ def do_a_run(
     failed: List[str] = []
     tried = 0
 
+    # **ONLY THE API DOOR'S SNAPSHOTS:** the browser door's `asked_already` means "collect from the page", which a day-old note must not trigger.
+    api_snapshots = {r.id for r in reports if r.door == API and r.cannot_backfill is not None}
+
+    def asked_for_it(report_id: str, data_date: date) -> Optional[str]:
+        if report_id in api_snapshots:
+            # AS4: an ask older than SNAPSHOT_ASK_KEPT_DAYS is not collected (a stale picture, or one stuck in Amazon's queue): asked afresh.
+            day = in_flight.newest_day_asked(report_id)
+            if day is None or (today - day).days > SNAPSHOT_ASK_KEPT_DAYS:
+                return None
+            return in_flight.what_was_asked(report_id, day)
+        return in_flight.what_was_asked(report_id, data_date)
+
+    def let_go(one) -> None:
+        if one.report_id in api_snapshots:
+            in_flight.forget_every_day(one.report_id)
+        else:
+            in_flight.forget(one.report_id, one.data_date)
+
     with runlog.Run(name, sink, now) as run:
         named_by_hand = asked_for is not None
         owed = (list(asked_for) if named_by_hand
@@ -167,7 +198,7 @@ def do_a_run(
         if not named_by_hand:
             owed, held_over = spread_the_catch_up(
                 owed, today,
-                already_asked=lambda one: in_flight.what_was_asked(one.report_id, one.data_date) is not None,
+                already_asked=lambda one: asked_for_it(one.report_id, one.data_date) is not None,
             )
             for said_lost in what_could_not_be_fetched_said(
                 days_beyond_reach(reports, arrivals, today, look_back_days=look_back_days)
@@ -204,11 +235,12 @@ def do_a_run(
             # **EACH REPORT IS ITS OWN ATTEMPT.** One failing must never stop the
             # rest -- the reference's queue died at the first login prompt and
             # abandoned every report behind it.
+            handed = asked_for_it(one.report_id, one.data_date)
             try:
                 got = fetch(
                     one.report_id,
                     one.data_date,
-                    asked_already=in_flight.what_was_asked(one.report_id, one.data_date),
+                    asked_already=handed,
                 )
             except Exception as wrong:  # noqa: BLE001 - recorded against its own report, never swallowed
                 failed.append(one.report_id)
@@ -221,27 +253,47 @@ def do_a_run(
 
             if state == LANDED:
                 landed.append(one.report_id)
+                # AS4: a snapshot collected from an ask of an earlier night is asked for afresh NOW, or with one run a day it lands every second night.
+                # Only when an old ask was really handed to the door: a stale one asked afresh tonight has already spent tonight's ask.
+                asked_on = in_flight.newest_day_asked(one.report_id) if one.report_id in api_snapshots and handed is not None else None
                 # **FORGOTTEN ONLY ONCE IT HAS LANDED.** Forgotten earlier, a run
                 # that fell over between asking and collecting would ask again.
-                in_flight.forget(one.report_id, one.data_date)
+                let_go(one)
                 run.log.done(one.report_id, f"{one.data_date}: {said}", now())
+                if asked_on is not None and asked_on != one.data_date:
+                    try:
+                        again = fetch(one.report_id, one.data_date, asked_already=None)
+                    except Exception as wrong:  # noqa: BLE001 - tonight's picture landed; the fresh ask is tried again tomorrow
+                        run.log.warning(one.report_id, f"{one.data_date}: landed; asking for the next picture failed: {wrong}", now())
+                    else:
+                        if getattr(again, "state", None) == STILL_WAITING and getattr(again, "their_id", None):
+                            in_flight.remember(one.report_id, one.data_date, str(again.their_id))
+                            run.log.working(one.report_id, f"{one.data_date}: landed; the next picture is asked for", now())
+                        else:
+                            run.log.warning(one.report_id, f"{one.data_date}: landed; asking for the next picture came to "
+                                            f"{getattr(again, 'state', FAILED)}: {getattr(again, 'say', '') or ''}", now())
             elif state == STILL_WAITING:
                 waiting.append(one.report_id)
                 if their_id:
                     # **WRITTEN DOWN NOW, not at the end.** A run that stops here
                     # must still leave the next one able to collect it.
-                    in_flight.remember(one.report_id, one.data_date, str(their_id))
+                    if one.report_id not in api_snapshots:
+                        in_flight.remember(one.report_id, one.data_date, str(their_id))
+                    # AS4: the same ask still building keeps the day it was made, so its age counts and a stuck one is asked afresh.
+                    elif asked_for_it(one.report_id, one.data_date) != str(their_id):
+                        in_flight.forget_every_day(one.report_id)
+                        in_flight.remember(one.report_id, one.data_date, str(their_id))
                 run.log.working(one.report_id, f"{one.data_date}: {said}", now())
             elif state == NOTHING_TO_FETCH:
                 nothing.append(one.report_id)
-                in_flight.forget(one.report_id, one.data_date)
+                let_go(one)
                 # **NOT A FAILURE AND NOT A SUCCESS.** Recorded as a warning so it
                 # is visible without putting a reason against the report -- a
                 # `done` here would clear a real failure standing from before.
                 run.log.warning(one.report_id, f"{one.data_date}: {said}", now())
             else:
                 failed.append(one.report_id)
-                in_flight.forget(one.report_id, one.data_date)
+                let_go(one)
                 run.log.failed(one.report_id, f"{one.data_date}: {said}", now())
 
         # **TAKEN OUT OF THE RUN BEFORE IT ENDS.** The log clears a reason the

@@ -630,13 +630,30 @@ done = tool.fetch_one(a_door(FakeAmazon()), "az_orders", DAY, landed_into({}), s
 check("a landed report is finished with and carries no id to chase", answered(lambda: done.their_id is None))
 
 
+def _refused(work):
+    """The words of a refusal, or "" when there was none."""
+    try:
+        work()
+    except RuntimeError as wrong:
+        return str(wrong) or "refused"
+    return ""
+
+
+# AS4 (security): an id goes into a request path only if it is plain letters, digits, '.', '-', '_'.
+check("AS4: report-looking and document-looking ids pass unchanged",
+      tool.an_id_fit_for_a_path("50123019999") == "50123019999" and tool.an_id_fit_for_a_path("doc.1.4.eu.0dbc6a24-1b2c_x") == "doc.1.4.eu.0dbc6a24-1b2c_x")
+check("AS4: an id with a slash, '..', a query, a space, too long or none at all is refused",
+      all(_refused(lambda bad=bad: tool.an_id_fit_for_a_path(bad)) for bad in ["../../x", "a/b", "..", "a?b=1", "a#b", "a b", "", None, "a" * 201]))
+check("AS4: and the refusal does not repeat the id", "evil-path" not in _refused(lambda: tool.an_id_fit_for_a_path("evil-path/..")))
+
+
 # **AND NOTHING ABOVE ENDED BY THROWING RATHER THAN BY ANSWERING.** Answering
 # with nothing keeps the run alive; this is what stops a check phrased as "this
 # word is NOT in what it said" going green because there was nothing to look in.
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 106
+EXPECTED = 109
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
