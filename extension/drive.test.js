@@ -870,9 +870,22 @@ check('the same day written again replaces its row, never adds a second (R20 pro
   await again();
   await again();
   check('R166: a file put in the bin since is not counted: the day is put again', binned.put.filter((p) => p.how === 'POST').length === 2);
+  /* Once Drive's listing shows the file, the memory of it is not counted a second time (that would read as two files and stop the land). */
+  const caughtHolds = [...theFoldersFor('me_catalog')];
+  const caught = aDrive({ holds: caughtHolds });
+  const caughtBrowser = installFakeChrome();
+  const third = () => landTheFile(caughtBrowser.chrome, caught.ask, {
+    reportId: 'me_catalog', fileName: 'caught_2026-11-01.csv', inside: 'kartaan', layout: LAYOUT, body: new Uint8Array([1, 2, 3]),
+  });
+  await third();
+  caught.asked.length = 0;
+  const holdsNow = [{ id: 'landed-1', name: 'caught_2026-11-01.csv', parents: ['f1'], size: '9' }];
+  caughtHolds.push(...holdsNow);
+  const outcome = await said(() => third());
+  check('R166: a listing that has caught up is not read as two files', !outcome.includes('more than one'));
 }
 
-const EXPECTED = 88 + 4 + 2 + 3 + 3 + 4;
+const EXPECTED = 88 + 4 + 2 + 3 + 3 + 5;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

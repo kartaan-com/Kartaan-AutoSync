@@ -2561,6 +2561,7 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   const panel = buildThePanel(document.body, { clearNeedsYou: (days) => done.push(JSON.stringify(days)) });
   check('J016: the button starts hidden and sits among the run buttons', panel.clearNeedsYou.hidden === true
     && [...panel.actions.children].includes(panel.clearNeedsYou));
+  check('J016: it is a plain button, not a form submit', panel.clearNeedsYou.type === 'button');
   check('J016: the panel may ask for it', THE_PANEL_ASKS.includes('clear-needs-you'));
   const stands = await howItStands(chrome, { book: BOOK, now: Date.now() });
   const said = 'Kartaan was not told this sync finished, because no run pass is saved. The run still runs on its own schedule.';
