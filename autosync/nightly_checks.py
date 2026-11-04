@@ -2847,7 +2847,22 @@ check("each of the eleven fault kinds, said alone, makes a block that names it (
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 394 + 3 + 6 + 1 + 1 + 4 + 2 + 6 + 1 + 2 + 1
+# ----- DT1a / R203: the report list the run ran with
+listed = {"got": None, "when": []}
+Harness().go(save_reports=lambda rows, when: (listed.__setitem__("got", [r.id for r in rows]), listed["when"].append(when)))
+check("the run hands the whole report list, and today's day, to the ERP's Data tab record",
+      listed["got"] == [r.id for r in tool.REPORTS] and listed["when"] == [AT.date()])
+def _list_fails(rows, when):
+    raise RuntimeError("database said no")
+failed_list = Harness().go(save_reports=_list_fails)
+check("a list that cannot be written is said and costs the night nothing else",
+      any("list of reports" in f for f in failed_list.our_faults))
+
+check("start.py hands the tick the report-list writer, built by the real builder",
+      isinstance(HANDED_TO_THE_TICK.get("save_reports"), ast.Call)
+      and getattr(HANDED_TO_THE_TICK["save_reports"].func, "id", "") == "a_reports_sink")
+
+EXPECTED = 394 + 3 + 6 + 1 + 1 + 4 + 2 + 6 + 1 + 2 + 1 + 3
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

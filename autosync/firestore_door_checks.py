@@ -327,6 +327,22 @@ check("a sink told its AutoSync version writes it into the ledger record, replac
 check("a 403 from the seller's database is thrown in words that name the likeliest cause",
       "Security Rules" in _why(lambda: tool.a_ledger_sink(Transport([Reply(403, {})]), PROJECT)("s", AT, 1)))
 
+# ------------------------------------------- DT1a / R203: the report list the run ran with
+
+import reports as _reports  # noqa: E402
+
+list_there = Transport()
+answered(lambda: tool.a_reports_sink(list_there, PROJECT, "0.1.37")(_reports.REPORTS, AT))
+_list = list_there.posts[0]["json"]["writes"][0]["update"] if list_there.posts else {}
+check("the report list goes to sync_reports/list in the seller's own project, replaced whole",
+      _list.get("name") == f"projects/{PROJECT}/databases/(default)/documents/sync_reports/list"
+      and "updateMask" not in list_there.posts[0]["json"]["writes"][0])
+_held_ids = [v["mapValue"]["fields"]["id"]["stringValue"] for v in _list.get("fields", {}).get("reports", {}).get("arrayValue", {}).get("values", [])]
+check("it holds every report in reports.py, in order, and the version that wrote it",
+      _held_ids == [r.id for r in _reports.REPORTS] and _list["fields"]["autosyncVersion"] == {"stringValue": "0.1.37"})
+check("an empty list is refused rather than written as 'no reports'",
+      "missing" in _why(lambda: tool.a_reports_sink(Transport(), PROJECT)((), AT)))
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 # ------------------------------------------- the cross-check for the ERP's Data tab (job 19)
@@ -397,7 +413,7 @@ _held = answered(lambda: tool._what_is_held_of(_RealBytes(), "p", "listings_seen
 check("a batchGet list reply, as the real transport reads it, is read as records and not refused", _held is not None)
 check("and only the record that was found is held", _held is not None and list(_held) == ["L1"])
 
-EXPECTED = 56 + 5 + 2 + 1 + 1 + 1
+EXPECTED = 56 + 5 + 2 + 1 + 1 + 1 + 3
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

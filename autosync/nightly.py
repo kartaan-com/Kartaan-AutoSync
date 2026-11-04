@@ -57,7 +57,7 @@ import runlog
 import layout
 import runner
 from landing import Arrived
-from reports import API, Report, on_the_api_door
+from reports import API, REPORTS, Report, on_the_api_door
 
 @dataclass(frozen=True)
 class Tick:
@@ -216,6 +216,8 @@ def one_tick(
     # Both or neither -- one without the other has nothing to put together or nowhere to put it.
     read_extensions: Optional[Callable[[], Sequence[bytes]]] = None,
     save_check: Optional[Callable[[Sequence, date], int]] = None,
+    # **THE REPORT LIST THE RUN RAN WITH, FOR THE ERP's DATA TAB (DT1a / R203):** the list and the moment in, one record written out.
+    save_reports: Optional[Callable[[Sequence, object], None]] = None,
     # **WHERE THE RETURNED LINES AND THE AD RECORDS GO (A78).**
     record_returns: Optional[Callable[[str, str, dict], int]] = None,
     record_ads: Optional[Callable[[str, str, str, str, dict], int]] = None,
@@ -588,6 +590,14 @@ def one_tick(
             save_check(manifest.cross_check(kept_standing, installs), today)
         except Exception as wrong:  # noqa: BLE001 - recorded, never swallowed
             faults.append(f"What landed against what was read could not be written down for the ERP: {wrong}")
+
+    # **THE REPORT LIST THE RUN RAN WITH (DT1a / R203)**, straight from `reports.REPORTS` (the whole list the board is kept against, not only the API door), so the ERP's Data tab keeps no list of its own. Its own step with
+    # its own refusal: said if it fails, and the next run writes it again.
+    if save_reports is not None:
+        try:
+            save_reports(REPORTS, today)
+        except Exception as wrong:  # noqa: BLE001 - recorded, never swallowed
+            faults.append(f"The list of reports the run ran with could not be written down for the ERP: {wrong}")
 
     # **EACH MONTH OF ADS IS SUMMED INTO ONE RECORD (D463).** Its own step with its own refusal, like the cross-check above: a month that cannot be written
     # costs the reading nothing, is said, and is rebuilt whole by the next run.
