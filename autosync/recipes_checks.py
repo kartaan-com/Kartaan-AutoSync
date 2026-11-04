@@ -982,7 +982,7 @@ check("the prefixes are written down rather than derived from the name",
 # nobody will ever notice is missing.
 DECLARED_ON_THE_BROWSER_DOOR = {
     rid for rid, r in KARTAAN_REPORTS.items() if r.door == NEEDS_A_BROWSER
-}
+} | {"az_orders", "az_returns"}  # AS7b: asked of the API first, and the browser walk keeps them where the keys do not cover them
 # **THREE ANSWERS NOW, NOT TWO.** A report has a recipe, or is written down as
 # one this door cannot reach, or is fetched by a different report's run -- the ads
 # sweep writes three files from one pair of calls. **A report in none of the three

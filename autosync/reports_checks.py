@@ -228,7 +228,10 @@ check("every report is on one door or the other",
       answered(lambda: len(api) + len(browser) == len(tool.REPORTS)))
 check("and none is on both", answered(lambda: not set(api) & set(browser)))
 check("the Amazon reports on it are the nine on it: ads, account health, orders, settlements, returns and SAFE-T claims (N018), traffic, All Listings, Referral Fee Preview (lane 1 jobs 7 and 8)",
-      answered(lambda: [r.id for r in browser if r.platform == "amazon"] == ["az_orders", "az_settlements", "az_returns", "az_traffic", "az_claims", "az_health", "az_ads", "az_listings", "az_fee_preview"]))
+      answered(lambda: [r.id for r in browser if r.platform == "amazon"] == ["az_settlements", "az_traffic", "az_claims", "az_health", "az_ads", "az_listings", "az_fee_preview"]))
+check("AS7b: the Amazon reports asked of the API first are orders, returns and suppressed listings; only suppressed is a snapshot",
+      answered(lambda: [r.id for r in api if r.platform == "amazon"] == ["az_orders", "az_returns", "az_suppressed"]
+               and [r.id for r in tool.REPORTS if r.snapshot] == ["az_suppressed"]))
 check(
     "every Meesho report is on the browser door, because Meesho has no API",
     answered(lambda: all(r.door == tool.BROWSER for r in tool.REPORTS if r.platform == "meesho")),
@@ -402,7 +405,7 @@ check("Amazon's SAFE-T claims report says in words why a day already gone cannot
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 98 + 1  # 88 on the base, lane 2 added 1, lane 1 added 5, AJ2 proving added 1
+EXPECTED = 98 + 1 + 1 # 88 on the base, lane 2 added 1, lane 1 added 5, AJ2 proving added 1
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

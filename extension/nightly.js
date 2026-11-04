@@ -723,11 +723,15 @@ export function whyOnlyItsNewestDay(night, reportId, day) {
  * -- inventory, listings, pricing -- are not), only a day up to the newest closed one (never the day still being filled), and never a report
  * being collected from an ask already made. `landedDays` is what `rememberLastLanded` keeps for the report. Answers the words, or null.
  */
-export function whyAlreadyLanded(night, reportId, day, landedDays, collecting = false, needed = [day]) {
+export function whyAlreadyLanded(night, reportId, day, landedDays, collecting = false, needed = [day], pipelineDays = []) {
   if (collecting || !night || !night.latestDay || !day) return null;
-  if (!(night.canGoBack || []).includes(reportId) || String(day) > String(night.latestDay)) return null;
+  if (String(day) > String(night.latestDay)) return null;
   /* A typed range is one walk for all its days (`needed`): skipped only when EVERY day of it has landed. */
-  if (!needed.every((one) => (landedDays || []).includes(String(one)))) return null;
+  const has = (list) => needed.every((one) => (list || []).includes(String(one)));
+  /* **AS7b (D947): A DAY THE NIGHTLY PIPELINE BROUGHT IS SKIPPED FOR ANY REPORT IT WROTE A LINE FOR** -- Amazon orders cannot go back by day in
+   * the browser walk and the pipeline can still have brought yesterday's. The extension's own landed days count only for a report that goes back. */
+  const own = (night.canGoBack || []).includes(reportId) && has([...(landedDays || []), ...(pipelineDays || [])]);
+  if (!own && !has(pipelineDays)) return null;
   return `${reportId} for ${day} was already fetched (it landed in your Drive, or the platform had nothing for it), so it was not fetched again.`;
 }
 
@@ -1632,14 +1636,14 @@ async function startTheNextOne(chrome, { startAWalk, at, tellKartaan = null, the
     }
     // eslint-disable-next-line no-await-in-loop
     const typedRange = ASKS_A_RANGE.includes(next) ? theRangeOfTheDays(night.days) : null;
-    /* Drive is asked only for a report that goes back day by day: nothing else is ever skipped on the pipeline's word. */
+    /* The pipeline's record is read once a night (kept against it) and holds lines only for reports the pipeline fetches. */
     // eslint-disable-next-line no-await-in-loop
-    const pipelineDays = (night.canGoBack || []).includes(next) ? await theDaysThePipelineVerified(chrome, night, thePipelineVerified) : {};
+    const pipelineDays = await theDaysThePipelineVerified(chrome, night, thePipelineVerified);
     // eslint-disable-next-line no-await-in-loop
     const ownDays = ((await chrome.storage.local.get(LAST_LANDED))[LAST_LANDED] || {})[next] || [];
     const alreadyThere = whyAlreadyLanded(
-      night, next, day, [...ownDays, ...(pipelineDays[next] || [])], Boolean(askedAlready),
-      typedRange && day === typedRange.to ? night.days : [day],
+      night, next, day, ownDays, Boolean(askedAlready),
+      typedRange && day === typedRange.to ? night.days : [day], pipelineDays[next] || [],
     );
     if (alreadyThere) {
       const byThePipeline = (pipelineDays[next] || []).includes(day) && !ownDays.includes(day);

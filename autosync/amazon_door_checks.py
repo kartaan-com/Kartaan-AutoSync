@@ -106,6 +106,8 @@ class FakeAmazon:
         if method == "POST" and url.endswith(amazon.REPORTS_PATH):
             if self.b.get("throttle_create"):
                 return tool.Answer(429, {}, {})
+            if self.b.get("create_status"):
+                return tool.Answer(self.b["create_status"], {}, {"errors": [{"message": "a message that is never repeated"}]})
             if self.b.get("create_says_nothing"):
                 return tool.Answer(202, {}, {})
             if self.b.get("create_bad_status_with_body"):
@@ -337,6 +339,13 @@ got = answered(lambda: tool.fetch_one(a_door(fake), "az_orders", DAY, landed_int
 check("a file with nothing in it does not land", answered(lambda: got.state == tool.FAILED and store == {}))
 
 # ------------------------------- THE LINK LASTS FIVE MINUTES, and it is used at once
+
+# AS7b (Amazon's official createReport table: 403 = access denied, unauthorized, EXPIRED TOKEN or invalid signature): every refusal is a
+# failure, loud, never read as "report not covered". The extension takes the day because no verified line exists.
+for status in (403, 401, 500, 400):
+    store = {}
+    got = answered(lambda: tool.fetch_one(a_door(FakeAmazon(create_status=status)), "az_orders", DAY, landed_into(store), say))
+    check(f"AS7b: HTTP {status} on asking for a report is a failure and lands nothing", answered(lambda: got.state == tool.FAILED and store == {}))
 
 fake = FakeAmazon()
 door = a_door(fake)
@@ -652,7 +661,7 @@ check("AS4: and the refusal does not repeat the id", "evil-path" not in _refused
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 109
+EXPECTED = 109 + 4
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

@@ -11,6 +11,7 @@ Run: python autosync/manifest_checks.py
 """
 
 import json
+from dataclasses import replace as _replace
 import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -736,10 +737,31 @@ check("SETTLEMENTS ARE PUBLISHED WEEKLY: a day with no statement is no day owed,
 check("the streams written as records say what they made in the manifest's own words (the reads line): claims, account health, product quality and the ads days",
       all(one in _record_reports.RECORD_REPORTS and _record_reports.RECORD_REPORTS[one].kind.what for one in ("az_claims", "az_health", "me_quality"))
      )
-check("and the manifest's two halves still keep each new browser stream to the extension's half, never the nightly job's",
-      set(tool.mine(BROWSER, _new)) == set(THE_NEW_STREAMS) and tool.mine(API, _new) == ())
+check("and the manifest's two halves keep each new browser stream to the extension's half, never the nightly job's -- except orders and returns, which the nightly job asks the API for first (AS7b)",
+      set(tool.mine(BROWSER, _new)) == set(THE_NEW_STREAMS) - {"az_orders", "az_returns"} and tool.mine(API, _new) == ("az_orders", "az_returns"))
 
-EXPECTED = 66 + 22 + 5
+# ------------------------------------------------ AS7b: which way a file came (D948 point 8)
+_f = "amazon_az_orders_2026-09-09.csv"
+_v = lambda by=None, name=_f: tool.Line(data_date=YESTERDAY, report_id="az_orders", state=tool.VERIFIED, file_name=name, file_size=900, by=by)
+_m = tool.Line(data_date=YESTERDAY, report_id="az_orders", state=tool.MISSING)
+check("AS7b: a line says by the API when it was, and the word survives writing and reading",
+      answered(lambda: tool.read(tool.write([_v(API)]))[0].by == API))
+check("AS7b: a line with no word reads with none, as every record written before does, and writes no `by` at all",
+      answered(lambda: tool.read(tool.write([_v()]))[0].by is None and b'"by"' not in tool.write([_v()])))
+check("AS7b: a word that is not a way a file comes is refused when written and when read",
+      _refused(lambda: tool.write([_v("carrier-pigeon")]))
+      and _refused(lambda: tool.read(tool.write([_v(API)]).replace(b'"by": "api"', b'"by": "carrier-pigeon"'))))
+check("AS7b: a file this run brought is marked api", answered(lambda: tool.with_how_it_came([_v()], [], {(YESTERDAY, "az_orders")})[0].by == API))
+check("AS7b: a file the record already credited to the API, the same file, keeps the word",
+      answered(lambda: tool.with_how_it_came([_v()], [_v(API)], set())[0].by == API))
+check("AS7b: but a different file under the same day does not inherit it",
+      answered(lambda: tool.with_how_it_came([_v(name="amazon_az_orders_2026-09-09_b.csv")], [_v(API)], set())[0].by is None))
+check("AS7b: a file nobody said brought is left without a word, and a missing line never gets one",
+      answered(lambda: tool.with_how_it_came([_v()], [], set())[0].by is None and tool.with_how_it_came([_m], [_v(API)], {(YESTERDAY, "az_orders")})[0].by is None))
+check("AS7b: a standing missing line does not hand its word to a file that has since landed by another way",
+      answered(lambda: tool.with_how_it_came([_v()], [_replace(_m, by=API)], set())[0].by is None))
+
+EXPECTED = 66 + 22 + 5 + 8
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

@@ -529,7 +529,7 @@ from reports import API  # noqa: E402
 
 KEPT = getattr(tool, "SNAPSHOT_ASK_KEPT_DAYS", 3)
 check("AS4: a snapshot's ask is kept for collecting three nights", getattr(tool, "SNAPSHOT_ASK_KEPT_DAYS", None) == 3)
-SNAP = Report("az_suppressed", "amazon", "Amazon suppressed listings", API, DAILY, "csv", cannot_backfill="a picture of now")
+SNAP = Report("az_suppressed", "amazon", "Amazon suppressed listings", API, DAILY, "csv", cannot_backfill="a picture of now", snapshot=True)
 flight = tool.InFlight()
 door = a_door(by_report={"az_suppressed": Answered(tool.STILL_WAITING, say="building", their_id="amz-1")})
 answered(lambda: tool.do_a_run("snap-1", [SNAP], door, nothing_arrived, flight, collect(), Tick(), TODAY))

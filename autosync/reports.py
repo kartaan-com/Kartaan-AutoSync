@@ -97,6 +97,10 @@ class Report:
     depends_on: Tuple[str, ...] = field(default_factory=tuple)
     # It needs somebody sitting there. Almost nothing should be this.
     needs_a_person: bool = False
+    # **A PICTURE OF NOW, ASKED OF THE API (AS7b).** Told apart from `cannot_backfill`, which is true of Amazon orders too (the browser page
+    # takes the last day only) though the API takes an exact day: the runner's snapshot handling (an ask kept for days, a fresh ask after a
+    # landing) is for pictures of now and must not reach a day-keyed report.
+    snapshot: bool = False
 
 
 def why_report_is_refused(report) -> Optional[str]:
@@ -309,7 +313,8 @@ REPORTS: Tuple[Report, ...] = (
     # ---- can break by being touched.
     # **BY THE BROWSER SINCE N018 (his ruling D726).** Orders > Order reports > All Orders, by Last Updated date, last day; the same tab-separated order file the reader already reads. A rolling day from the
     # request, so a past day cannot be asked for again by the run.
-    Report("az_orders", "amazon", "Amazon orders", BROWSER, DAILY, "csv",
+    # **AS7b (D947/D949): THE NIGHTLY RUN ASKS FOR IT BY THE API WHERE THE SELLER'S KEYS ALLOW THIS REPORT; where Amazon refuses them (HTTP 403) the day stays owed and the browser walk takes it.** Same file name either way. The newest day only, as the browser walk.
+    Report("az_orders", "amazon", "Amazon orders", API, DAILY, "csv",
            cannot_backfill="Amazon's All Orders page is asked for the last day only, so a day already gone cannot be fetched again by the run (the page itself offers exact dates, which the walk does not use yet)."),
     # **AMAZON MAKES THIS ONE ITSELF AND THERE IS NO WAY TO ASK FOR IT.** Its own
     # documentation: settlement reports cannot be requested. So a day it did not
@@ -319,13 +324,14 @@ REPORTS: Tuple[Report, ...] = (
     # **BY THE BROWSER SINCE N018 (his ruling D726, 25 Oct 2026: Amazon no longer goes through the SP-API).** Seller Central > Orders > Order reports > Seller fulfilled return
     # reports > All Returns; the file is the same tab-separated return file the reader already reads. **BY EXACT DATE SINCE AJ12 (R168):** the page's "Exact dates" takes the day typed, so a missed day is owed and asked for
     # again like every other go-back report.
-    Report("az_returns", "amazon", "Amazon returns", BROWSER, DAILY, "csv"),
+    # **AS7b (D947/D949): by the API where the keys allow this report, the browser walk where they do not (see az_orders).**
+    Report("az_returns", "amazon", "Amazon returns", API, DAILY, "csv"),
     # **ONE SNAPSHOT BY THE API DOOR (v0.1.21 job 6): what Amazon hides from buyers and why.** A picture of now, asked with no dates, so
     # a past day cannot be fetched again. **`az_health` IS NOT HERE ON PURPOSE:** Amazon's page does not state its file format and
     # `landing.what_it_really_is` refuses any body that starts with `{` as "a message rather than a report", so listed here it would
     # cost two rationed requests a night and land nothing. It joins this list with the landing rule once the first real file (plan
     # sample A5) shows the bytes. The door side (`amazon.py`) is ready.
-    Report("az_suppressed", "amazon", "Amazon suppressed listings", API, DAILY, "csv", cannot_backfill=_SNAPSHOT),
+    Report("az_suppressed", "amazon", "Amazon suppressed listings", API, DAILY, "csv", cannot_backfill=_SNAPSHOT, snapshot=True),
     # **THE ONE AMAZON REPORT FETCHED BY WALKING THE PAGE (AutoSync v0.1.21 lane 1 job 7, his preference: the browser walk, so it works for every seller, with or
     # without API keys).** Business Reports > By ASIN > Detail Page Sales and Traffic by Child Item, one day, Download (.csv). Amazon takes a past day, so it
     # can be asked for again.

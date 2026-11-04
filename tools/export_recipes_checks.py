@@ -599,8 +599,7 @@ check("no browser report is left out of all three lists",
                            for one in HELD["reports"]
                            if one["platform"] in THROUGH_THE_BROWSER and one["id"] not in HELD["onTheApiDoor"])))
 check("the reports that come in by the API door are carried, so the panel never calls Amazon's one 'cannot be fetched' (az_suppressed, until its browser page is found; the rest left for the browser, N018)",
-      answered(lambda: HELD["onTheApiDoor"] == ["az_suppressed"]
-               and not set(HELD["onTheApiDoor"]) & set(HELD["recipes"])))
+      answered(lambda: HELD["onTheApiDoor"] == ["az_suppressed"] and not set(HELD["onTheApiDoor"]) & set(HELD["recipes"])))  # AS7b: orders and returns keep their browser recipes as the fallback, so the panel still ticks them
 # **AND EACH OF THE THIRD LIST NAMES A REPORT THE PRODUCT DECLARES**, the same
 # question already asked of the second. A reason written against a report nobody
 # declares is a sentence nothing will ever show.

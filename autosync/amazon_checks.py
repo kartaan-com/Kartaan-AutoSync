@@ -379,6 +379,34 @@ odd = _said(lambda: tool.is_gzipped({"compressionAlgorithm": "BROTLI"}))
 check("an unknown compression is named in the refusal", answered(lambda: "BROTLI" in odd))
 check("and it says why nothing was written", answered(lambda: "worse than a missing one" in odd))
 
+# **AS7b (D948 point 5, THE DOCUMENTARY HALF): THE COLUMNS AMAZON'S OWN PAGES LIST FOR THE TWO API FILES CONTAIN EVERY COLUMN THE READERS NEED.**
+# The lists are copied from Amazon's pages as Kartaan Control read them on 4 Nov 2026 (`worker-handovers/AMAZON-SPAPI-ORDERS-RETURNS-DOCS-2026-11-04.md`:
+# developer-docs.amazon.com/sp-api/docs/report-type-values-order, ...-returns). The other half -- the same check against a real BROWSER
+# file in Drive, column by column -- needs one real API file and is the first look after the first night the API brings these.
+import orders as _orders  # noqa: E402
+import returns as _returns  # noqa: E402
+
+_DOCS_ORDER_COLUMNS = (
+    "amazon-order-id, merchant-order-id, purchase-date, last-updated-date, order-status, order-item-id, fulfillment-channel, sales-channel, "
+    "order-channel, ship-service-level, product-name, sku, asin, item-status, quantity, currency, item-price, item-tax, shipping-price, "
+    "shipping-tax, gift-wrap-price, gift-wrap-tax, item-promotion-discount, ship-promotion-discount, ship-city, ship-state, ship-postal-code, "
+    "ship-country, promotion-ids, cpf, is-business-order, purchase-order-number, price-designation"
+).split(", ")
+_DOCS_RETURN_COLUMNS = (
+    "Order ID, Order date, Return request date, Return request status, Amazon RMA ID, Merchant RMA ID, Label type, Label cost, Currency code, "
+    "Return carrier, Tracking ID, Label to be paid by, A-to-Z Claim, Is prime, ASIN, Merchant SKU, Item Name, Return quantity, Return Reason, "
+    "In policy, Return type, Resolution, Invoice number, Return delivery date, Order Amount, Order quantity, SafeT Action reason, SafeT claim id, "
+    "SafeT claim state, SafeT claim creation time, SafeT claim reimbursement amount, Refunded Amount, Order Item ID"
+).split(", ")
+_mapping = _orders.FROM_AMAZON
+check("AS7b: every column the orders reader needs is a column Amazon's page lists for the by-last-update orders file",
+      answered(lambda: {_mapping.order_id, _mapping.sku, _mapping.qty, _mapping.on, _mapping.their_word, _mapping.gmv} <= set(_DOCS_ORDER_COLUMNS)))
+check("AS7b: every column the returns reader needs is a column Amazon's page lists for the by-return-date returns file (compared as the reader does, lower case)",
+      answered(lambda: set(_returns.WAYS["az_returns"].columns.values()) <= {c.lower() for c in _DOCS_RETURN_COLUMNS}))
+check("AS7b: the report types the door asks for are the ones those pages name",
+      answered(lambda: tool.amazon_report("az_orders").report_type == "GET_FLAT_FILE_ALL_ORDERS_DATA_BY_LAST_UPDATE_GENERAL"
+               and tool.amazon_report("az_returns").report_type == "GET_FLAT_FILE_RETURNS_DATA_BY_RETURN_DATE"))
+
 
 # **AND NOTHING ABOVE ENDED BY THROWING RATHER THAN BY ANSWERING.** Answering
 # with nothing keeps the run alive; this is what stops a check phrased as "this
@@ -386,7 +414,7 @@ check("and it says why nothing was written", answered(lambda: "worse than a miss
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 129
+EXPECTED = 129 + 3
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

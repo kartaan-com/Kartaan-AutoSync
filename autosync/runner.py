@@ -49,6 +49,7 @@ LANDED = "landed"
 NOTHING_TO_FETCH = "nothing-to-fetch"
 STILL_WAITING = "still-waiting"
 FAILED = "failed"
+NOT_ALLOWED = "not-allowed"  # AS7b: the keys do not cover THIS report; the browser walk keeps it
 
 # AS4: how many nights an ask of a snapshot report is kept for collecting; older, the picture is stale or stuck, and it is asked afresh.
 SNAPSHOT_ASK_KEPT_DAYS = 3
@@ -125,6 +126,8 @@ class WhatHappened:
     # read for the same reason: a run ends, and what it knew ends with it unless
     # something takes it out.
     reasons: Mapping[str, str] = field(default_factory=dict)
+    # **WHICH DAYS LANDED, not only which reports (AS7b)**: the manifest marks a line `by="api"` only for a file this run really brought.
+    landed_days: Tuple[Tuple[str, date], ...] = ()
 
     def summary(self) -> str:
         """One sentence. **It says how many were TRIED**, not only how many worked
@@ -168,13 +171,14 @@ def do_a_run(
     ends.** That is the 25 August fault, closed at the level it happened.
     """
     landed: List[str] = []
+    landed_days: List[Tuple[str, date]] = []
     waiting: List[str] = []
     nothing: List[str] = []
     failed: List[str] = []
     tried = 0
 
     # **ONLY THE API DOOR'S SNAPSHOTS:** the browser door's `asked_already` means "collect from the page", which a day-old note must not trigger.
-    api_snapshots = {r.id for r in reports if r.door == API and r.cannot_backfill is not None}
+    api_snapshots = {r.id for r in reports if r.door == API and r.snapshot}
 
     def asked_for_it(report_id: str, data_date: date) -> Optional[str]:
         if report_id in api_snapshots:
@@ -257,6 +261,7 @@ def do_a_run(
 
             if state == LANDED:
                 landed.append(one.report_id)
+                landed_days.append((one.report_id, one.data_date))
                 # AS4: a snapshot collected from an ask of an earlier night is asked for afresh NOW, or with one run a day it lands every second night.
                 # Only when an old ask was really handed to the door: a stale one asked afresh tonight has already spent tonight's ask.
                 asked_on = in_flight.newest_day_asked(one.report_id) if one.report_id in api_snapshots and handed is not None else None
@@ -318,6 +323,7 @@ def do_a_run(
         # **CARRIED OUT OF THE RUN, or the board's "why" column stays blank.**
         # Read inside the block, because this is the run's own record of it.
         reasons=said_why,
+        landed_days=tuple(landed_days),
     )
 
 

@@ -2511,16 +2511,29 @@ check('report table: null night gives null', theReportTable(null, () => '') === 
   await carryTheNightOn(both.chrome, { ...aWalkThat(), at: 2, thePipelineVerified: async () => ({ days: { fk_claims: ['2026-11-02'] } }) });
   check('AS7a: a day landed by the extension itself is not credited to the pipeline',
     (await theNight(both.chrome)).done.some((one) => one.reportId === 'fk_claims' && String(one.say).includes('already fetched') && !String(one.say).includes('pipeline')));
-  const noGoBack = installFakeChrome();
-  let askedAnyway = 0;
-  await startTheNight(noGoBack.chrome, {
-    doing: ['fk_keywords'], mayAskFor: 0, at: 1, openAt: 'https://x/', dataDate: '2026-11-02', canGoBack: [], latestDay: '2026-11-03',
+  /* AS7b: Amazon orders cannot go back by day in the browser walk, yet a day the pipeline brought is skipped; one it did not bring, or not for
+   * that report, or a day still being filled, is walked. */
+  const { whyAlreadyLanded } = await import('./nightly.js');
+  const noBack = { latestDay: '2026-11-03', canGoBack: [] };
+  check('AS7b: a report that cannot go back is skipped when the pipeline brought that day, and the words say so for the caller',
+    String(whyAlreadyLanded(noBack, 'az_orders', '2026-11-02', [], false, ['2026-11-02'], ['2026-11-02'])).includes('az_orders'));
+  check('AS7b: but not for another day, another report, nothing brought, a collection, or a day still being filled',
+    whyAlreadyLanded(noBack, 'az_orders', '2026-11-02', [], false, ['2026-11-02'], ['2026-11-01']) === null
+    && whyAlreadyLanded(noBack, 'az_orders', '2026-11-02', ['2026-11-02'], false, ['2026-11-02'], []) === null
+    && whyAlreadyLanded(noBack, 'az_orders', '2026-11-02', [], true, ['2026-11-02'], ['2026-11-02']) === null
+    && whyAlreadyLanded(noBack, 'az_orders', '2026-11-04', [], false, ['2026-11-04'], ['2026-11-04']) === null
+    && whyAlreadyLanded(noBack, 'az_orders', '2026-11-02', [], false, ['2026-11-02']) === null);
+  const orders = installFakeChrome();
+  const walkOrders = aWalkThat();
+  await startTheNight(orders.chrome, {
+    doing: ['az_orders'], mayAskFor: 0, at: 1, openAt: 'https://x/', dataDate: '2026-11-03', canGoBack: [], latestDay: '2026-11-03',
   });
-  await carryTheNightOn(noGoBack.chrome, { ...aWalkThat(), at: 2, thePipelineVerified: async () => { askedAnyway += 1; return null; } });
-  check('AS7a: Drive is not asked for a report that cannot go back by day', askedAnyway === 0);
+  await carryTheNightOn(orders.chrome, { ...walkOrders, at: 2, thePipelineVerified: async () => ({ days: { az_orders: ['2026-11-03'] } }) });
+  check('AS7b: Amazon orders the pipeline brought are not walked, and the line says the nightly pipeline brought them',
+    walkOrders.started.length === 0 && (await theNight(orders.chrome)).done.some((one) => one.reportId === 'az_orders' && String(one.say).includes('nightly pipeline')));
 }
 
-const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3 + 1 + 4 + 3 + 2 + 2 + 2 + 1 + 8 + 3 + 11;
+const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3 + 1 + 4 + 3 + 2 + 2 + 2 + 1 + 8 + 3 + 13;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

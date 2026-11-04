@@ -151,7 +151,7 @@ rule below be driven with no Google account, no token and no internet.
 
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, timedelta
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
@@ -273,6 +273,9 @@ class Line:
     file_name: Optional[str] = None
     file_size: int = 0
     checked_on: Optional[date] = None
+    # **WHICH WAY THE FILE CAME (AS7b, D948 point 8): "api" when the nightly run brought it, nothing when it did not say.** The extension's own
+    # record is all browser, so a line there needs no word. Like `checked_on` it is a label: nothing here decides anything by it.
+    by: Optional[str] = None
 
     @property
     def key(self) -> Tuple[date, str]:
@@ -337,6 +340,8 @@ def why_a_line_is_refused(line) -> Optional[str]:
             "which file. A verdict with nothing behind it is the thing this record exists "
             "to replace."
         )
+    if line.by not in (None, API, BROWSER):
+        return f"{line.report_id} for {line.data_date}: {line.by!r} is not a way a file comes. It is {API!r} or {BROWSER!r}, or left out."
     if line.state == VERIFIED and int(line.file_size or 0) <= 0:
         return (
             f"{line.report_id} for {line.data_date}: says the file is there and that it has "
@@ -441,6 +446,26 @@ def lines_for(
                 out.append(what_it_says(a_report, day, got, checked_on=checked_on))
             day += timedelta(days=1)
     out.sort(key=lambda one: (one.data_date, one.report_id))
+    return out
+
+
+def with_how_it_came(fresh: Sequence[Line], standing: Sequence[Line], landed_now) -> List[Line]:
+    """AS7b: the lines, each verified one marked `by="api"` when this run brought its file, or when the line already standing said so for the SAME file.
+
+    **THE FOLDER CANNOT SAY WHO PUT A FILE THERE, SO THIS NEVER GUESSES:** a verified line for a file this run did not bring, and that the record
+    did not already credit to the API for that same file name, is left without a word. `landed_now` is the (data date, report) pairs this run landed.
+    """
+    was = {one.key: one for one in standing or ()}
+    out: List[Line] = []
+    for one in fresh or ():
+        by = None
+        if one.state == VERIFIED:
+            old = was.get(one.key)
+            if one.key in landed_now:
+                by = API
+            elif old is not None and old.state == VERIFIED and old.file_name == one.file_name:
+                by = old.by
+        out.append(replace(one, by=by) if by else one)
     return out
 
 
@@ -660,6 +685,7 @@ def write(lines: Sequence[Line], reads: Sequence[Read] = ()) -> bytes:
                     "fileName": one.file_name or "",
                     "fileSize": int(one.file_size or 0),
                     "checkedOn": one.checked_on.isoformat() if one.checked_on else "",
+                    **({"by": one.by} if one.by else {}),
                 }
                 for one in ordered
             ],
@@ -765,6 +791,7 @@ def read_record(body: Optional[bytes]) -> Standing:
             file_name=str(row.get("fileName") or "") or None,
             file_size=how_big,
             checked_on=when,
+            by=str(row["by"]) if row.get("by") else None,
         )
         wrong = why_a_line_is_refused(line)
         if wrong:
