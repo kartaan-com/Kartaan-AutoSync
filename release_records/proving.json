@@ -1,15 +1,15 @@
 {
   "record": "proving",
-  "commit": "501ab94",
-  "run_at": "5 Nov 2026 00:20 IST (DT1), on the local machine; the GitHub runner cannot prove this change because firestore_checks and listings_checks read the ERP's sync.js, which is not on the runner.",
-  "tool": "tools/proving.py with the ERP's prove_checks.py, KARTAAN=D:/Kartaan-ERP, 2 workers, under long-run.lock.",
-  "invoked_as": "python tools/proving.py --against 5da3dea --workers 2 (run first against e7c9ac4 on the pre-rebase commit e805993, then again after the rebase onto v0.1.37).",
-  "ran_by": "DT1 (Sonnet 5.5, worker for Kartaan Control).",
-  "scope": "Every changed line between v0.1.37 (5da3dea) and 501ab94: firestore.py, firestore_door.py, nightly.py, start.py and their checks.",
+  "commit": "643ae48",
+  "run_at": "5 Nov 2026 (PN2), on GitHub: Proving workflow run 41900105706 (8 parts) on 643ae48, against 9d10b9c (v0.1.38).",
+  "tool": "tools/proving.py with the ERP's prove_checks.py (vendor copy), joined by tools/proving_join.py.",
+  "invoked_as": "gh workflow run proving.yml -f prove=643ae485f49c3fe1e9c0c6d6bdcdadb344e92de8 -f against=9d10b9c... -f parts=8",
+  "ran_by": "PN2 (Sonnet 5.5, worker for Kartaan Control).",
+  "scope": "Every changed line between v0.1.38 (9d10b9c) and 643ae48: the panel's needs-you box, the toolbar count, the Download button and the version check on open (screen.js, panel.js, panel.css, update.js, nightly.js, worker.js).",
   "found": [
-    "Both runs: 37 tried, 23 run, 11 caught by a check, 12 ended in a load crash, 14 would not parse, 0 hung, 0 survived, 0 accepted.",
-    "All 48 autosync/*_checks.py files pass on 501ab94.",
-    "The 12 load crashes: the prover ends with 'every deliberate change was either caught or recorded with a reason' and lists no unexplained crash, because it refuses a crash in any file with no written reason in tools/proven_survivors.json (cannot_load). The five changed files with a crash reason are: autosync/firestore.py ('Deleting NOTE_TEXT, which NOTE_FIELDS is built from on the next line, stops the module at import'), autosync/firestore_door.py ('Deleting the typing import leaves the annotations undefined at import'), autosync/nightly.py ('Deleting the line that sets today leaves it undefined for the lines below, a NameError on the first night before any check prints'). The same reason covers a new line of the same kind (a deleted name or import the module or its checks need at load). autosync/start.py has no entry and no crash was reported there. The prover does not print which of the 12 lines each was; the per-change list was not saved."
+    "First run 41888813835 (c819b3e): 93 tried, 75 run, 48 caught, 27 survived. Answered by 16 new checks (screen.test.js, nightly.test.js, update.test.js) and removal of one dead guard line.",
+    "Second run 41897242863 (249e27d, rebased on 0.1.38): 91 tried, 73 run, 71 caught, 2 survived, both on the folder lookup in screen.js; the line was simplified.",
+    "Third run 41900105706 (643ae48): 91 tried, 73 run, 73 caught, 0 survived, 0 crashed, 0 hung, 0 accepted; no NOT PROVEN line in any of the 8 parts."
   ],
   "survivors": [],
   "after_this_record": "The version move (extension/manifest.json, extension/bridge.js BUILD) changes no line the prover tries."

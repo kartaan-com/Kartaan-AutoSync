@@ -1,12 +1,13 @@
 {
   "record": "security",
-  "commit": "501ab94",
-  "run_at": "4 Nov 2026 (DT1).",
-  "tool": "Sonnet 5.5 sub-agent, read-only, security lens (cso-style read of the diff), on e805993.",
-  "invoked_as": "Agent, by DT1.",
+  "commit": "643ae48",
+  "run_at": "4 Nov 2026 (PN2).",
+  "tool": "Sonnet 5.5 sub-agent, read-only, security lens (cso-style read of the diff), on c819b3e.",
+  "invoked_as": "Agent, by PN2.",
   "ran_by": "Sub-agent; it wrote none of the code.",
-  "scope": "v0.1.37 to 501ab94.",
+  "scope": "v0.1.38 to 643ae48. Later commits add checks and simplify one line; nothing held, sent or permitted changed.",
   "found": [
-    {"severity": "PASS", "finding": "The record holds only report ids, platform, plain names, door word, schedule word, a switched-off flag, the run's day and the AutoSync version; no key, token, file content or customer data. The collection is added to the pinned list of what the run may write (seventeen).", "fixed": true}
+    {"severity": "PASS", "finding": "No secrets or seller data; the box is built with textContent only; the Download link accepts only https github.com/kartaan-com/Kartaan-AutoSync/releases/ addresses; the open-time check fetches only the fixed version.json address and sends nothing; the badge reads only the needs-you list; I placed it clears only exactly named report-days and never during a run; manifest permissions are unchanged.", "fixed": true},
+    {"severity": "LOW", "finding": "The version file is fetched on every panel open, deferred in a background tab; accepted.", "fixed": false}
   ]
 }

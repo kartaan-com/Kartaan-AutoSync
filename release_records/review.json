@@ -1,14 +1,16 @@
 {
   "record": "review",
-  "commit": "501ab94",
-  "run_at": "4 Nov 2026 (DT1).",
-  "tool": "A fresh Opus 5.5 general-purpose read-only sub-agent.",
-  "invoked_as": "Agent, by DT1, on e805993 (the same change before the rebase onto v0.1.37).",
+  "commit": "643ae48",
+  "run_at": "4 Nov 2026 (PN2).",
+  "tool": "A fresh general-purpose read-only sub-agent (Sonnet), on the staged change c819b3e.",
+  "invoked_as": "Agent, by PN2.",
   "ran_by": "Sub-agent; it wrote none of the code.",
-  "scope": "v0.1.37 to 501ab94: the nightly writes sync_reports/list, the report list it ran with (firestore.py, firestore_door.py, nightly.py, start.py and checks).",
+  "scope": "v0.1.38 to 643ae48: the needs-you box with per-row and all-at-once I placed it, the red count on the toolbar icon, the Download button, the version check on every panel open. Later commits add checks and simplify one line (the folder lookup).",
   "found": [
-    {"severity": "LOW", "finding": "A docstring said wroteAt was a moment; it is the run's day as text.", "fixed": true},
-    {"severity": "PASS", "finding": "The write sits in its own try/except, so a failed write adds a fault line and never stops the night; the record is replaced whole and built from reports.REPORTS with nothing retyped.", "fixed": true}
+    {"severity": "LOW", "finding": "The box rebuild key left out the report name and folder, so changed text could stay stale.", "fixed": true},
+    {"severity": "LOW", "finding": "The open-time version check was lost when the panel opened in a background tab.", "fixed": true},
+    {"severity": "INFO", "finding": "A double click sends the clear twice; harmless, the clear matches report and day exactly.", "fixed": false},
+    {"severity": "PASS", "finding": "No lost clicks on redraw, no clearing beyond the named days, all text through textContent, no secrets, no tests that cannot fail, no CRLF damage.", "fixed": true}
   ],
-  "known_gaps": ["That the live Firestore rules let the owner write sync_reports/list is proved only by the first live night; if refused, the night says so and carries on."]
+  "known_gaps": ["Not opened in real Chrome before release; the live check after release covers the look of the box and the toolbar number."]
 }
