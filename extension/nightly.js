@@ -509,7 +509,7 @@ export async function handBeyondReachDaysToHim(chrome, reportId, day, at) {
       written.push({
         reportId, dataDate: one, triedOn: [], since, beyondReach: true,
         say: `${one} is older than the ${CATCH_UP_REACH_DAYS} days AutoSync goes back for, so it was not fetched. `
-          + 'It needs you: fetch it by hand from the platform.',
+          + 'It needs you: download it by hand from the platform and place it in the folder for that report in your Kartaan folder on Drive.',
       });
     }
     cursor.setUTCDate(cursor.getUTCDate() + 1);
@@ -602,7 +602,7 @@ async function rememberWhatIsNotBuilt(chrome, {
     const told = `${day} ${state === 'failed' ? 'still failed' : 'was still not available'} `
       + `after being tried on ${GIVE_UP_AFTER_DAYS} `
       + `different days (${triedOn.join(', ')}), so it will not be tried again. `
-      + 'It needs you: fetch it by hand from the platform.';
+      + 'It needs you: download it by hand from the platform and place it in the folder for that report in your Kartaan folder on Drive.';
     await chrome.storage.local.set({
       [NOT_BUILT_YET]: without,
       [NEEDS_YOU]: [
@@ -691,6 +691,18 @@ export function whyOnlyItsNewestDay(night, reportId, day) {
   }
   return `${reportId} is a picture of how things stand now -- the platform keeps no history `
     + `to ask for -- so ${day} is not available and was not asked for.`;
+}
+
+/**
+ * **R165: A CLOSED DAY THAT ALREADY LANDED WHOLE IS NOT FETCHED AGAIN.** Only a report that goes back day by day (`canGoBack`; the snapshots
+ * -- inventory, listings, pricing -- are not), only a day up to the newest closed one (never the day still being filled), and never a report
+ * being collected from an ask already made. `landedDays` is what `rememberLastLanded` keeps for the report. Answers the words, or null.
+ */
+export function whyAlreadyLanded(night, reportId, day, landedDays, collecting = false) {
+  if (collecting || !night || !night.latestDay || !day) return null;
+  if (!(night.canGoBack || []).includes(reportId) || String(day) > String(night.latestDay)) return null;
+  if (!(landedDays || []).includes(String(day))) return null;
+  return `${reportId} for ${day} is already in your Drive, so it was not fetched again.`;
 }
 
 export function whyItCannotBeAskedFor(night, reportId, collecting = false) {
@@ -1588,6 +1600,18 @@ async function startTheNextOne(chrome, { startAWalk, at, tellKartaan = null }) {
       // eslint-disable-next-line no-await-in-loop
       await thatOneIsDone(chrome, {
         reportId: next, state: 'nothing-to-fetch', say: onlyNewest, at, dataDate: day,
+      });
+      // eslint-disable-next-line no-await-in-loop
+      continue;
+    }
+    // eslint-disable-next-line no-await-in-loop
+    const alreadyThere = whyAlreadyLanded(
+      night, next, day, ((await chrome.storage.local.get(LAST_LANDED))[LAST_LANDED] || {})[next], Boolean(askedAlready),
+    );
+    if (alreadyThere) {
+      // eslint-disable-next-line no-await-in-loop
+      await thatOneIsDone(chrome, {
+        reportId: next, state: 'nothing-to-fetch', say: alreadyThere, at, dataDate: day,
       });
       // eslint-disable-next-line no-await-in-loop
       continue;

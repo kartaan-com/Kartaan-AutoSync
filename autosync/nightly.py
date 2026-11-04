@@ -363,6 +363,15 @@ def one_tick(
     which = list(reports if reports is not None else on_the_api_door())
     in_flight = between_runs.carried_in_flight(state)
 
+    def keep_the_asks() -> None:
+        # J288: each ask's id is saved the moment it is made, so a run that dies later still leaves it for the next one to collect.
+        try:
+            save_state(between_runs.write(between_runs.with_in_flight(state, in_flight)))
+        except Exception as wrong:  # noqa: BLE001 - said, and saved again when the run ends
+            faults.append(f"An ask was made but its id could not be saved at once: {wrong}. It is saved when the run ends.")
+
+    in_flight.kept = keep_the_asks
+
     # **THE RUN IS WRITTEN DOWN BEFORE IT FETCHES ANYTHING (D114), and that is the
     # whole point of writing it down at all.** A run that started and never
     # finished is the case the reference could not report -- four days in

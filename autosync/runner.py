@@ -67,6 +67,8 @@ class InFlight:
     """
 
     asked: Dict[Tuple[str, str], str] = field(default_factory=dict)
+    # J288: called the moment an ask is remembered, so the record can be saved NOW and not only when the run ends. It must never raise.
+    kept: Optional[Callable[[], None]] = None
 
     def key(self, report_id: str, data_date: date) -> Tuple[str, str]:
         return (report_id, data_date.isoformat())
@@ -76,6 +78,8 @@ class InFlight:
 
     def remember(self, report_id: str, data_date: date, their_id: str) -> None:
         self.asked[self.key(report_id, data_date)] = their_id
+        if self.kept is not None:
+            self.kept()
 
     def forget(self, report_id: str, data_date: date) -> None:
         self.asked.pop(self.key(report_id, data_date), None)

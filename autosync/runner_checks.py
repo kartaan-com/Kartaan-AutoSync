@@ -626,10 +626,19 @@ for _second, _name in ((None, "an exception"), (Answered(tool.FAILED, say="refus
           _got is not None and _got.landed == ("az_suppressed",) and not _got.failed and not flight.asked
           and any("asking for the next picture" in str(line) for line in _said.lines))
 
+kept_when = []
+flight = tool.InFlight()
+flight.kept = lambda: kept_when.append(dict(flight.asked))
+flight.remember("me_orders", TODAY, "amz-1")
+check("J288: an ask is handed to the saver the moment it is remembered, with the id already in it",
+      kept_when == [{("me_orders", TODAY.isoformat()): "amz-1"}])
+flight.forget("me_orders", TODAY)
+check("J288: forgetting one saves nothing extra (the run's end saves that)", len(kept_when) == 1)
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 103
+EXPECTED = 103 + 2
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

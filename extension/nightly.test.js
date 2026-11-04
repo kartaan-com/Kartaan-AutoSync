@@ -959,7 +959,7 @@ check('and three days of trying is the reference\'s own number', GIVE_UP_AFTER_D
     !(await whatIsNotBuiltYet(browser.chrome))['fk_views|2026-09-13']);
   const given = (await theNight(browser.chrome)).done.find((one) => one.dataDate === '2026-09-13');
   check('and that run writes it down as needing the seller, in words they can act on',
-    Boolean(given) && given.state === NEEDS_YOU_STATE && given.say.includes('fetch it by hand'));
+    Boolean(given) && given.state === NEEDS_YOU_STATE && given.say.includes('download it by hand'));
   /* **JOB 8, PART 2 (A65, 2026-09-23): THE NIGHT THAT ESCALATED A DAY TO
    * "NEEDS YOU" DOES NOT END SAYING "EVERY REPORT WAS REACHED".** This is the
    * exact shape his words named: three tries, needing him, and the log's
@@ -2397,7 +2397,32 @@ check('report table: null night gives null', theReportTable(null, () => '') === 
     table.rows.length === 1 && row.word === 'Partial' && row.status === 'failed' && row.star === true && row.means === 'PARTIAL: page 2 showed 24 of 25 rows' && table.counts.failed === 1);
 }
 
-const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3 + 1 + 4 + 3 + 2 + 2 + 2 + 1;
+{
+  /* R165: a closed day that already landed whole is not fetched again; a snapshot, a day still being filled, and a collection are. */
+  const { whyAlreadyLanded, LAST_LANDED } = await import('./nightly.js');
+  const night = { latestDay: '2026-11-03', canGoBack: ['fk_claims'] };
+  check('R165: a closed day already landed is not asked again, and the words say why',
+    String(whyAlreadyLanded(night, 'fk_claims', '2026-11-02', ['2026-11-02'])).includes('already in your Drive'));
+  check('R165: a day that has not landed is asked', whyAlreadyLanded(night, 'fk_claims', '2026-11-02', ['2026-11-01']) === null);
+  check('R165: a report that cannot go back (a snapshot) is asked again', whyAlreadyLanded(night, 'az_inventory', '2026-11-02', ['2026-11-02']) === null);
+  check('R165: a day after the newest closed day is asked again', whyAlreadyLanded(night, 'fk_claims', '2026-11-04', ['2026-11-04']) === null);
+  check('R165: a collection from an ask already made goes ahead', whyAlreadyLanded(night, 'fk_claims', '2026-11-02', ['2026-11-02'], true) === null);
+  check('R165: no list of landed days, or no newest day, asks as before',
+    whyAlreadyLanded(night, 'fk_claims', '2026-11-02', undefined) === null && whyAlreadyLanded({ canGoBack: ['fk_claims'] }, 'fk_claims', '2026-11-02', ['2026-11-02']) === null);
+
+  const browser = installFakeChrome();
+  const walk = aWalkThat();
+  await browser.chrome.storage.local.set({ [LAST_LANDED]: { fk_claims: ['2026-11-02'] } });
+  await startTheNight(browser.chrome, {
+    doing: ['fk_claims'], mayAskFor: 0, at: 1, openAt: 'https://x/', dataDate: '2026-11-02', canGoBack: ['fk_claims'], latestDay: '2026-11-03',
+  });
+  await carryTheNightOn(browser.chrome, { ...walk, at: 2 });
+  const second = await theNight(browser.chrome);
+  check('R165: a second run for a landed day starts no walk and says why',
+    walk.started.length === 0 && second.done.some((one) => one.reportId === 'fk_claims' && String(one.say).includes('already in your Drive')));
+}
+
+const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3 + 1 + 4 + 3 + 2 + 2 + 2 + 1 + 7;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

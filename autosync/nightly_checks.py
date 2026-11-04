@@ -280,6 +280,8 @@ waiting.go()
 kept = between_runs.read(waiting.saved[-1])
 check("a report still being built is written down for the next run",
       kept.in_flight == {("az_orders", YESTERDAY.isoformat()): "R-2"})
+check("J288: and it was written down the moment it was asked for, before the run ended",
+      any(between_runs.read(one).in_flight == {("az_orders", YESTERDAY.isoformat()): "R-2"} for one in waiting.saved[:-1]))
 
 landed_now = Harness(a_record(in_flight={("az_orders", YESTERDAY.isoformat()): "R-1"}))
 landed_now.go()
@@ -2844,7 +2846,7 @@ check("each of the eleven fault kinds, said alone, makes a block that names it (
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 394 + 3 + 6 + 1 + 1 + 4 + 2 + 6 + 1 + 2
+EXPECTED = 394 + 3 + 6 + 1 + 1 + 4 + 2 + 6 + 1 + 2 + 1
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
