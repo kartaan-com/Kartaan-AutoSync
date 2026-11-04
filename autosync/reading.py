@@ -499,6 +499,13 @@ _NO_DAY = "has no day in its name"
 _ALLOWANCE_MARK = "[allowance] "
 # The kinds of file whose reading writes to the seller's database (the sales and payments go to Sheets and are never stopped by its allowance).
 _NEEDS_THE_DATABASE = frozenset({"listings", "notes", "returns", "ads", "records", "views"})
+
+
+def _needs_the_database(how) -> bool:
+    """Whether reading this kind of file writes to the seller's database (claims only when their report keeps records)."""
+    return how.kind in _NEEDS_THE_DATABASE or (how.kind == "claims" and how.report_id in record_reports.RECORD_REPORTS)
+
+
 # A row's label is "line N" or "line N (who)", then ": " and the reason.
 _A_ROW_LABEL = re.compile(r"^(line \d+(?: \([^)]*\))?): (.*)$", re.DOTALL)
 _MOST_REASONS = 10
@@ -1190,7 +1197,7 @@ def read_what_is_new(
         the_database_refused.append(f"{one.name or one.which}: {wrong}")
 
     for how, one in _oldest_first(listed, can_be_read, remembered):
-        if no_allowance[0] and (how.kind in _NEEDS_THE_DATABASE or (how.kind == "claims" and how.report_id in record_reports.RECORD_REPORTS)):
+        if no_allowance[0] and _needs_the_database(how):
             left_for_tomorrow += 1
             continue
         if how.kind == "listings":

@@ -1177,7 +1177,20 @@ check("Amazon's 'Pending - Waiting for Pick Up' is a known word: the order is st
       orders_reader.what_happened("Pending - Waiting for Pick Up") is None)
 check("and an unknown word still reads 'not understood yet'", orders_reader.what_happened("Pending - Made Up Word") == orders_reader.NOT_UNDERSTOOD_YET)
 
-EXPECTED = 122 + 5 + 1 + 1 + 2 + 5
+# AS4 proving (Round B): which files a used-up database allowance stops, and that a used-up allowance alone is not our defect (D108).
+_way = lambda report_id, kind: tool.HowToRead(report_id, tool.WHAT_CLAIMS_KNOW, kind=kind)  # noqa: E731
+check("AS4: after a 429, listings and claims that keep records are stopped; claims that keep none, orders and payments are read",
+      tool._needs_the_database(_way("fk_listings", "listings")) and tool._needs_the_database(_way("me_claims", "claims"))
+      and not tool._needs_the_database(_way("fk_claims", "claims")) and not tool._needs_the_database(_way("me_claims", "orders"))
+      and not tool._needs_the_database(_way("fk_payments", "payments")))
+_only_429 = answered(lambda: tool.WhatTheNightRead(the_database_refused=(tool._ALLOWANCE_MARK + "f.xls: no allowance left (429)",)))
+check("AS4: a night refused only for a used-up allowance is not red, is said as one, and never shows the marker",
+      _only_429 is not None and tool._ALLOWANCE_MARK.strip() != "" and not _only_429.is_a_defect
+      and "daily allowance is used up" in _only_429.says() and tool._ALLOWANCE_MARK not in _only_429.says())
+check("AS4: and a night with a real refusal is still red",
+      answered(lambda: tool.WhatTheNightRead(the_database_refused=("f.xls: 403",)).is_a_defect) is True)
+
+EXPECTED = 122 + 5 + 1 + 1 + 2 + 5 + 3
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

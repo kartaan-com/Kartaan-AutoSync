@@ -2594,6 +2594,10 @@ check("a Drive that will not take a file to the bin is said, one fault for each 
 
 check("a Drive that will not bin a file is tried three times with a pause before it is a fault (AS3), 2 pauses for the first place, none after (the Drive is down)",
       len(_pauses) == 2)
+_said_awkward = []
+answered(lambda: tool.tidy_the_drive(awkward, INSIDE, TODAY, _said_awkward.append, pause=lambda s: None))
+check("AS4 proving: a retry is said only before a try that follows it, never after the last (2 for the first place, none after)",
+      sum("trying again" in one for one in _said_awkward) == 2)
 _flaky = DriveThatWillNotBinAFile()
 _flaky_logs = tool._drive_folder(_flaky, INSIDE, tool.layout.LOGS)
 _flaky.file("autosync-log-2020-01-01.txt", _flaky_logs, b"old")
@@ -2609,6 +2613,8 @@ _flaky.patch = lambda url, params=None, headers=None, json=None, data=None: Fake
 check("one Drive hiccup is tried again and the tidy then goes through with no fault (the 21 Oct 500)",
       answered(lambda: tool.tidy_the_drive(_flaky, INSIDE, TODAY, told_again.append, pause=lambda s: None)) == []
       and "autosync-log-2020-01-01.txt" not in {one["name"] for one in _flaky.things.values()})
+check("AS4 proving: and the retry is said in the log, since a try that half worked bins a file unseen",
+      any("was refused" in one and "trying again" in one and "Internal Error 500" in one for one in told_again))
 
 check("the night is tidied after it is done, and a tidy fault is a warning, not a red night, without stopping anything",
       any(isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and n.func.attr == "tidy_the_drive"
@@ -2838,7 +2844,7 @@ check("each of the eleven fault kinds, said alone, makes a block that names it (
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 394 + 3 + 6 + 1 + 1 + 4 + 2 + 6 + 1
+EXPECTED = 394 + 3 + 6 + 1 + 1 + 4 + 2 + 6 + 1 + 2
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
