@@ -906,9 +906,20 @@ check('the same day written again replaces its row, never adds a second (R20 pro
   check('AS7a: a damaged record is null, not an empty list', await thePipelineVerified(browser.chrome, broken.ask, { inside: 'kartaan', layout: LAYOUT }) === null);
   const big = aDrive({ holds: [system, { ...mine, size: String(3 * 1024 * 1024) }] });
   check('AS7a: a record over 2 MB is not read: null', await thePipelineVerified(browser.chrome, big.ask, { inside: 'kartaan', layout: LAYOUT }) === null);
+  /* A record that starts with a byte-order mark, or is not UTF-8, is refused by the Python, so it is null here. */
+  for (const [what, bytes] of [['a byte-order mark', [0xEF, 0xBB, 0xBF, ...new TextEncoder().encode(record)]], ['bytes that are not UTF-8', [0xFF, 0xFE, 0x41]]]) {
+    const asBytes = async (args) => (args.address.includes('alt=media')
+      ? { ok: true, status: 200, headers: { get: () => null }, async arrayBuffer() { return new Uint8Array(bytes).buffer; }, async text() { return ''; } }
+      : drive.ask(args));
+    check(`AS7a: ${what} in the record is null`, await thePipelineVerified(browser.chrome, asBytes, { inside: 'kartaan' }) === null);
+  }
+  const clean = async (args) => (args.address.includes('alt=media')
+    ? { ok: true, status: 200, headers: { get: () => null }, async arrayBuffer() { return new TextEncoder().encode(record).buffer; }, async text() { return ''; } }
+    : drive.ask(args));
+  check('AS7a: the same record as plain UTF-8 bytes is read', (await thePipelineVerified(browser.chrome, clean, { inside: 'kartaan' })).days.az_orders.join() === '2026-11-01');
 }
 
-const EXPECTED = 88 + 4 + 2 + 3 + 3 + 5 + 7;
+const EXPECTED = 88 + 4 + 2 + 3 + 3 + 5 + 10;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

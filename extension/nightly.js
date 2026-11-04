@@ -1632,9 +1632,10 @@ async function startTheNextOne(chrome, { startAWalk, at, tellKartaan = null, the
     }
     // eslint-disable-next-line no-await-in-loop
     const typedRange = ASKS_A_RANGE.includes(next) ? theRangeOfTheDays(night.days) : null;
-    // eslint-disable-next-line no-await-in-loop
     /* Drive is asked only for a report that goes back day by day: nothing else is ever skipped on the pipeline's word. */
+    // eslint-disable-next-line no-await-in-loop
     const pipelineDays = (night.canGoBack || []).includes(next) ? await theDaysThePipelineVerified(chrome, night, thePipelineVerified) : {};
+    // eslint-disable-next-line no-await-in-loop
     const ownDays = ((await chrome.storage.local.get(LAST_LANDED))[LAST_LANDED] || {})[next] || [];
     const alreadyThere = whyAlreadyLanded(
       night, next, day, [...ownDays, ...(pipelineDays[next] || [])], Boolean(askedAlready),

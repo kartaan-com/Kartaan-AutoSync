@@ -142,8 +142,21 @@ export function theVerifiedDaysIn(text) {
     if (one.fileSize !== undefined && one.fileSize !== null && !Number.isFinite(one.fileSize)) return null;
     if (one.checkedOn && !aRealDay(one.checkedOn)) return null;
     if (one.state === 'verified') {
-      if (!one.fileName || typeof one.fileName !== 'string' || !(one.fileSize > 0)) return null;
+      if (!one.fileName || typeof one.fileName !== 'string' || !(Math.trunc(one.fileSize) > 0)) return null;
       (days[one.reportId] = days[one.reportId] || []).push(one.dataDate);
+    }
+  }
+  /* `reads` is held to what `manifest.read_record` holds it to: a list of records each with a real day, a report, a file, where it went, whole
+   * row counts with 0 <= read <= in file, and none twice. A bad one makes the whole record "nobody has checked". */
+  if (said.reads !== undefined && said.reads !== null) {
+    if (!Array.isArray(said.reads) || said.reads.length > 50000) return null;
+    const readSeen = new Set();
+    for (const r of said.reads) {
+      if (!r || !aRealDay(r.dataDate) || typeof r.reportId !== 'string' || !r.reportId || !r.fileName || !r.into) return null;
+      if (!Number.isInteger(r.rowsInFile) || !Number.isInteger(r.rowsRead) || r.rowsRead < 0 || r.rowsRead > r.rowsInFile) return null;
+      if (r.readOn && !aRealDay(r.readOn)) return null;
+      if (readSeen.has(`${r.dataDate}|${r.reportId}`)) return null;
+      readSeen.add(`${r.dataDate}|${r.reportId}`);
     }
   }
   return { days };

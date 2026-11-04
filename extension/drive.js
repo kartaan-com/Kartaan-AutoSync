@@ -791,7 +791,18 @@ export async function thePipelineVerified(chrome, ask, { inside }) {
   /* A record over 2 MB is not read: it is "nobody has checked" and the report is fetched as before. */
   if (files.length !== 1 || Number(files[0].size) > 2 * 1024 * 1024) return null;
   const got = await ask({ address: `${FILES}/${encodeURIComponent(files[0].id)}?alt=media` });
-  const text = await (await answered(chrome, got, `reading ${THE_PIPELINES_RECORD}`)).text();
+  const reply = await answered(chrome, got, `reading ${THE_PIPELINES_RECORD}`);
+  /* Read as the Python reads it: bytes that are not UTF-8, or that start with a byte-order mark, are a record it refuses. */
+  let text;
+  if (typeof reply.arrayBuffer === 'function') {
+    try {
+      text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(await reply.arrayBuffer());
+    } catch (wrong) {
+      return null;
+    }
+  } else {
+    text = await reply.text();
+  }
   return theVerifiedDaysIn(text);
 }
 

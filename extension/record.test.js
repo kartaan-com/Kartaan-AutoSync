@@ -152,9 +152,21 @@ check('no text at all is a first landing, which is not damage', theLinesIn(null)
   for (const [what, lines] of wrongs) {
     check(`AS7a: ${what} is a record the Python calls damaged: null`, theVerifiedDaysIn(JSON.stringify({ shape: 2, lines })) === null);
   }
+  const okRead = { dataDate: day, reportId: 'a', fileName: 'x', into: 'sheet', rowsInFile: 3, rowsRead: 3 };
+  const withReads = (reads) => JSON.stringify({ shape: 2, lines: [line(day, 'a', 'verified')], reads });
+  check('AS7a: a good reads list is kept and the day is read', theVerifiedDaysIn(withReads([okRead])).days.a.join() === day);
+  for (const [what, reads] of [
+    ['a read that is junk', [{ junk: 1 }]], ['reads that is not a list', 5],
+    ['more rows read than in the file', [{ ...okRead, rowsRead: 4 }]], ['a read counted in fractions', [{ ...okRead, rowsInFile: 2.5, rowsRead: 1 }]],
+    ['the same read twice', [okRead, okRead]], ['a read that says nowhere it went', [{ ...okRead, into: '' }]],
+  ]) {
+    check(`AS7a: ${what} is a record the Python calls damaged: null`, theVerifiedDaysIn(withReads(reads)) === null);
+  }
+  check('AS7a: a fractional size that the Python reads as nought is null',
+    theVerifiedDaysIn(JSON.stringify({ shape: 2, lines: [{ ...line(day, 'a', 'verified'), fileSize: 0.5 }] })) === null);
 }
 
-const EXPECTED = 37;
+const EXPECTED = 45;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;
