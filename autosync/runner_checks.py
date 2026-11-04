@@ -124,7 +124,7 @@ def collect():
 sink = collect()
 flight = tool.InFlight()
 door = a_door()
-what = tool.do_a_run("run-1", [ORDERS], door, nothing_arrived, flight, sink, Tick(), TODAY, look_back_days=2)
+what = answered(lambda: tool.do_a_run("run-1", [ORDERS], door, nothing_arrived, flight, sink, Tick(), TODAY, look_back_days=2))
 check("a run tries everything that is owed", answered(lambda: what.tried == 2))
 check("and says what landed", answered(lambda: len(what.landed) == 2))
 check("and how many it tried, not only how many worked", answered(lambda: "2 tried" in what.summary()))
@@ -136,21 +136,21 @@ check("a report only owed once is only asked for once per day",
 # Nothing owed is a real state and is said, rather than the run looking empty.
 sink = collect()
 have = lambda _r: [Arrived(f"meesho_me_orders_2026-08-{d}.csv", 900) for d in range(20, 27)]
-what = tool.do_a_run("run-none", [ORDERS], a_door(), have, tool.InFlight(), sink, Tick(), TODAY, look_back_days=2)
+what = answered(lambda: tool.do_a_run("run-none", [ORDERS], a_door(), have, tool.InFlight(), sink, Tick(), TODAY, look_back_days=2))
 check("a run with nothing owed tries nothing", answered(lambda: what.tried == 0))
 check("and says so out loud", answered(lambda: any("Nothing is owed" in l.message for l in sink.lines)))
 check("and still records that it ran", answered(lambda: any("started" in l.message for l in sink.lines)))
 
 # A report that only runs when asked is never picked up by itself.
 ASKED_ONLY = Report("fk_extra", "flipkart", "Only when asked", BROWSER, ONLY_WHEN_ASKED, "csv")
-what = tool.do_a_run("run-2", [ASKED_ONLY], a_door(), nothing_arrived, tool.InFlight(), collect(), Tick(), TODAY)
+what = answered(lambda: tool.do_a_run("run-2", [ASKED_ONLY], a_door(), nothing_arrived, tool.InFlight(), collect(), Tick(), TODAY))
 check("a report that only runs when asked is left alone", answered(lambda: what.tried == 0))
 
 # --------------------------------- ONE REPORT FAILING NEVER STOPS THE REST
 
 sink = collect()
 door = a_door(by_report={"me_orders": Answered(tool.FAILED, say="button not found")})
-what = tool.do_a_run("run-3", [ORDERS, RETURNS], door, nothing_arrived, tool.InFlight(), sink, Tick(), TODAY, look_back_days=1)
+what = answered(lambda: tool.do_a_run("run-3", [ORDERS, RETURNS], door, nothing_arrived, tool.InFlight(), sink, Tick(), TODAY, look_back_days=1))
 check("one report failing does not stop the other", answered(lambda: len(what.landed) == 1))
 check("and the failure is recorded against its own report", answered(lambda: len(what.failed) == 1))
 check("both were tried", answered(lambda: what.tried == 2))
@@ -158,7 +158,7 @@ check("both were tried", answered(lambda: what.tried == 2))
 # **EVEN WHEN THE DOOR ITSELF FALLS OVER.** The reference's queue died here.
 sink = collect()
 door = a_door(throw_for={"me_orders"})
-what = tool.do_a_run("run-4", [ORDERS, RETURNS], door, nothing_arrived, tool.InFlight(), sink, Tick(), TODAY, look_back_days=1)
+what = answered(lambda: tool.do_a_run("run-4", [ORDERS, RETURNS], door, nothing_arrived, tool.InFlight(), sink, Tick(), TODAY, look_back_days=1))
 check("a door that throws on one report does not stop the run", answered(lambda: len(what.landed) == 1))
 check("the one that threw is recorded as failed", answered(lambda: what.failed == ("me_orders",)))
 check("and what it threw is in the log, not swallowed",
@@ -171,13 +171,13 @@ check("and it is recorded against that report, not the system",
 sink = collect()
 flight = tool.InFlight()
 door = a_door(by_report={"me_orders": Answered(tool.STILL_WAITING, say="still building", their_id="report-1")})
-tool.do_a_run("run-5", [ORDERS], door, nothing_arrived, flight, sink, Tick(), TODAY, look_back_days=1)
+answered(lambda: tool.do_a_run("run-5", [ORDERS], door, nothing_arrived, flight, sink, Tick(), TODAY, look_back_days=1))
 check("a report still being built is remembered", answered(lambda: flight.what_was_asked("me_orders", DAY("2026-08-26")) == "report-1"))
 check("and the first run was told nothing was already asked", answered(lambda: door.asked[0]["asked_already"] is None))
 
 # The next run must hand that id back to the door.
 door2 = a_door(by_report={"me_orders": Answered(tool.LANDED, say="landed at last")})
-tool.do_a_run("run-6", [ORDERS], door2, nothing_arrived, flight, collect(), Tick(), TODAY, look_back_days=1)
+answered(lambda: tool.do_a_run("run-6", [ORDERS], door2, nothing_arrived, flight, collect(), Tick(), TODAY, look_back_days=1))
 check("the NEXT run hands the door what was already asked for", answered(lambda: door2.asked[0]["asked_already"] == "report-1"))
 # **FORGOTTEN ONLY ONCE IT HAS LANDED**, so a run that fell over between asking
 # and collecting does not ask again.
@@ -198,14 +198,14 @@ check("forgetting one that is not there is not an error", answered(lambda: fligh
 # so the next run must ask, rather than wait for something it cannot name.
 flight = tool.InFlight()
 door = a_door(by_report={"me_orders": Answered(tool.STILL_WAITING, say="waiting", their_id=None)})
-tool.do_a_run("run-7", [ORDERS], door, nothing_arrived, flight, collect(), Tick(), TODAY, look_back_days=1)
+answered(lambda: tool.do_a_run("run-7", [ORDERS], door, nothing_arrived, flight, collect(), Tick(), TODAY, look_back_days=1))
 check("a wait with no id to collect by remembers nothing", answered(lambda: flight.what_was_asked("me_orders", DAY("2026-08-26")) is None))
 
 # ------------------------------------- nothing-to-fetch is not a failure
 
 sink = collect()
 door = a_door(by_report={"me_orders": Answered(tool.NOTHING_TO_FETCH, say="Amazon had no data for that day")})
-what = tool.do_a_run("run-8", [ORDERS], door, nothing_arrived, tool.InFlight(), sink, Tick(), TODAY, look_back_days=1)
+what = answered(lambda: tool.do_a_run("run-8", [ORDERS], door, nothing_arrived, tool.InFlight(), sink, Tick(), TODAY, look_back_days=1))
 check("a day with nothing to fetch is not a failure", answered(lambda: what.failed == ()))
 check("it is counted as its own thing", answered(lambda: len(what.nothing_to_fetch) == 1))
 # **RECORDED AS A WARNING, NOT AS DONE.** A `done` line clears any real failure
@@ -236,6 +236,8 @@ try:
     tool.do_a_run("run-9", [ORDERS, RETURNS], door_that_dies, nothing_arrived, flight, sink, Tick(), TODAY, look_back_days=1)
 except KeyboardInterrupt:
     stopped = True
+except Exception as wrong:  # noqa: BLE001 - a run that throws instead is a red check, not a checks file that stops (AS4 proving)
+    THREW.append(repr(wrong))
 
 check("a run stopped by something outside it really stops", answered(lambda: stopped is True))
 # **AND ITS EVIDENCE STILL GOT OUT.** This is what the reference lost.
@@ -311,8 +313,8 @@ door = a_door(by_report={
     "me_orders": Answered(tool.NOTHING_TO_FETCH, say="no data that day"),
     "me_returns": Answered(tool.FAILED, say="button not found"),
 })
-what = tool.do_a_run("run-summary", [ORDERS, RETURNS], door, nothing_arrived, tool.InFlight(), sink, Tick(), TODAY, look_back_days=1)
-line = what.summary()
+what = answered(lambda: tool.do_a_run("run-summary", [ORDERS, RETURNS], door, nothing_arrived, tool.InFlight(), sink, Tick(), TODAY, look_back_days=1))
+line = answered(lambda: what.summary()) or ""
 check("the summary says how many landed", answered(lambda: "0 landed" in line))
 check("and how many are still coming", answered(lambda: "0 still coming" in line))
 check("and how many had nothing to fetch", answered(lambda: "1 had nothing" in line))
@@ -322,7 +324,7 @@ check("and how many failed", answered(lambda: "1 failed" in line))
 # report was still being built looks identical to one that did nothing.
 sink = collect()
 door = a_door(by_report={"me_orders": Answered(tool.STILL_WAITING, say="still building", their_id="r-9")})
-what = tool.do_a_run("run-wait", [ORDERS], door, nothing_arrived, tool.InFlight(), sink, Tick(), TODAY, look_back_days=1)
+what = answered(lambda: tool.do_a_run("run-wait", [ORDERS], door, nothing_arrived, tool.InFlight(), sink, Tick(), TODAY, look_back_days=1))
 check("a report still being built is counted as waiting", answered(lambda: what.waiting == ("me_orders",)))
 check("and is not counted as landed or failed", answered(lambda: what.landed == () and what.failed == ()))
 check("and it is said in the log, against its own report",
@@ -332,23 +334,23 @@ check("and it is said in the log, against its own report",
 # remembered, every later run would wait for a report that will never arrive.
 flight = tool.InFlight()
 flight.remember("me_orders", DAY("2026-08-26"), "r-old")
-tool.do_a_run("run-none-left", [ORDERS],
+answered(lambda: tool.do_a_run("run-none-left", [ORDERS],
               a_door(by_report={"me_orders": Answered(tool.NOTHING_TO_FETCH, say="no data")}),
-              nothing_arrived, flight, collect(), Tick(), TODAY, look_back_days=1)
+              nothing_arrived, flight, collect(), Tick(), TODAY, look_back_days=1))
 check("a day with nothing to fetch stops being waited for", answered(lambda: flight.what_was_asked("me_orders", DAY("2026-08-26")) is None))
 
 flight = tool.InFlight()
 flight.remember("me_orders", DAY("2026-08-26"), "r-old")
-tool.do_a_run("run-failed", [ORDERS],
+answered(lambda: tool.do_a_run("run-failed", [ORDERS],
               a_door(by_report={"me_orders": Answered(tool.FAILED, say="fatal")}),
-              nothing_arrived, flight, collect(), Tick(), TODAY, look_back_days=1)
+              nothing_arrived, flight, collect(), Tick(), TODAY, look_back_days=1))
 check("and so does one that failed outright", answered(lambda: flight.what_was_asked("me_orders", DAY("2026-08-26")) is None))
 
 # A failure is recorded against its own report, so the reason stands against it.
 sink = collect()
-tool.do_a_run("run-said", [ORDERS],
+answered(lambda: tool.do_a_run("run-said", [ORDERS],
               a_door(by_report={"me_orders": Answered(tool.FAILED, say="Custom Dates button not found")}),
-              nothing_arrived, tool.InFlight(), sink, Tick(), TODAY, look_back_days=1)
+              nothing_arrived, tool.InFlight(), sink, Tick(), TODAY, look_back_days=1))
 check("a failure is recorded against its own report with its own words",
       answered(lambda: any(l.report == "me_orders" and l.level == runlog.FAILED and "Custom Dates" in l.message for l in sink.lines)))
 check("and the day it was about is in the line", answered(lambda: any("2026-08-26" in l.message for l in sink.lines)))
@@ -365,8 +367,8 @@ sink = collect()
 door = a_door()
 by_hand, refused = asked_for_by_hand([ORDERS], [ORDERS.id],
                                      TODAY - timedelta(days=4), TODAY - timedelta(days=2), TODAY)
-what = tool.do_a_run("by-hand", [ORDERS], door, nothing_arrived, tool.InFlight(), sink,
-                     Tick(), TODAY, asked_for=by_hand, refused=refused)
+what = answered(lambda: tool.do_a_run("by-hand", [ORDERS], door, nothing_arrived, tool.InFlight(), sink,
+                     Tick(), TODAY, asked_for=by_hand, refused=refused))
 check("a run told which days fetches exactly those",
       answered(lambda: what.tried == len(by_hand) and what.tried == 3))
 check("and it is the days that were named, not yesterday",
@@ -388,9 +390,9 @@ check("nothing else is fetched alongside them",
 # asked for six reports and got five sees why -- rather than reading a clean run
 # and wondering where the sixth went.
 sink2 = collect()
-what2 = tool.do_a_run("by-hand-refused", [ORDERS], a_door(), nothing_arrived, tool.InFlight(),
+what2 = answered(lambda: tool.do_a_run("by-hand-refused", [ORDERS], a_door(), nothing_arrived, tool.InFlight(),
                       sink2, Tick(), TODAY, asked_for=[],
-                      refused=["me_payments: it can only ever be caught on the day."])
+                      refused=["me_payments: it can only ever be caught on the day."]))
 check("what could not be asked for is said in the log",
       answered(lambda: any("only ever be caught on the day" in l.message for l in sink2.lines)))
 check("and it is recorded as a failure, not as a passing remark",
@@ -426,14 +428,14 @@ lost = answered(lambda: tool.do_a_run(
     arrivals=lambda report_id: [], in_flight=tool.InFlight(), sink=_refuses,
     now=Tick(), today=TODAY))
 check("a run whose log could not be got out says so", bool(lost and lost.could_not_flush))
-check("and says what stopped it", "Drive would not take the log" in (lost.could_not_flush or ""))
-check("and its summary says it too", "out of the building" in lost.summary())
+check("and says what stopped it", answered(lambda: "Drive would not take the log" in (lost.could_not_flush or "")))
+check("and its summary says it too", answered(lambda: "out of the building" in lost.summary()))
 kept = answered(lambda: tool.do_a_run(
     name="r2", reports=[ORDERS], fetch=lambda *a, **k: Answered("landed", "Landed."),
     arrivals=lambda report_id: [], in_flight=tool.InFlight(), sink=lambda lines: None,
     now=Tick(), today=TODAY))
-check("and a run whose log got out says nothing about it", kept.could_not_flush is None)
-check("and its summary says nothing about it either", "out of the building" not in kept.summary())
+check("and a run whose log got out says nothing about it", answered(lambda: kept.could_not_flush is None) is True)
+check("and its summary says nothing about it either", answered(lambda: "out of the building" not in kept.summary()) is True)
 
 # ------------------- why a report failed, carried out of the run (R2#6)
 
@@ -466,12 +468,12 @@ check("a run where everything worked carries no reasons at all",
 # handed them, it says nothing -- which is what was shipping.
 rows_with, _ = answered(lambda: tool.look(
     reports=[ORDERS], arrivals=nothing_arrived, run_days=[TODAY], today=TODAY,
-    reason_for=broke.reasons.get, failed_ids=broke.failed))
+    reason_for=broke.reasons.get, failed_ids=broke.failed)) or ([], None)
 check("the board's rows carry the reason when they are given it",
       any("Amazon would not." in (row.why_not or "") for row in rows_with))
 rows_without, _ = answered(lambda: tool.look(
     reports=[ORDERS], arrivals=nothing_arrived, run_days=[TODAY], today=TODAY,
-    failed_ids=broke.failed))
+    failed_ids=broke.failed)) or ([], None)
 check("and say nothing at all when they are not -- which is what was shipping",
       all((row.why_not or "") == "" for row in rows_without))
 
@@ -491,6 +493,12 @@ check("and the fortnight's floor is asked in full",
 check("while the older days past it are spread over runs, and the run SAYS so",
       DAY("2026-09-16") not in asked_days
       and any("wait for the next run" in l.message for l in sink.lines))
+_building = tool.InFlight()
+_building.remember("me_orders", DAY("2026-09-16"), "me-16")
+door = a_door()
+answered(lambda: tool.do_a_run("run-pause-asked", [ORDERS], door, ends_8th, _building, collect(), Tick(), PAUSED))
+check("AS4 proving: but an older day the platform is already building is collected, past the floor (collecting costs no request)",
+      any(a["day"] == DAY("2026-09-16") and a["asked_already"] == "me-16" for a in door.asked))
 
 # A day the platform can no longer give is named in the run's own words.
 schedule.REACH_BACK_DAYS["me_orders"] = 20
@@ -519,25 +527,35 @@ check("a person who names the days gets exactly those days",
 
 from reports import API  # noqa: E402
 
+KEPT = getattr(tool, "SNAPSHOT_ASK_KEPT_DAYS", 3)
+check("AS4: a snapshot's ask is kept for collecting three nights", getattr(tool, "SNAPSHOT_ASK_KEPT_DAYS", None) == 3)
 SNAP = Report("az_suppressed", "amazon", "Amazon suppressed listings", API, DAILY, "csv", cannot_backfill="a picture of now")
 flight = tool.InFlight()
 door = a_door(by_report={"az_suppressed": Answered(tool.STILL_WAITING, say="building", their_id="amz-1")})
-tool.do_a_run("snap-1", [SNAP], door, nothing_arrived, flight, collect(), Tick(), TODAY)
+answered(lambda: tool.do_a_run("snap-1", [SNAP], door, nothing_arrived, flight, collect(), Tick(), TODAY))
 door2 = a_door(by_report={"az_suppressed": Answered(tool.STILL_WAITING, say="building", their_id="amz-1")})
-tool.do_a_run("snap-2", [SNAP], door2, nothing_arrived, flight, collect(), Tick(), TODAY + timedelta(days=1))
+answered(lambda: tool.do_a_run("snap-2", [SNAP], door2, nothing_arrived, flight, collect(), Tick(), TODAY + timedelta(days=1)))
 check("a snapshot asked last night is handed back to the door tonight", answered(lambda: door2.asked[0]["asked_already"] == "amz-1"))
 check("and never sits under two days at once", answered(lambda: len(flight.asked) == 1))
 door3 = a_door(by_report={"az_suppressed": Answered(tool.LANDED, say="landed")})
-tool.do_a_run("snap-3", [SNAP], door3, nothing_arrived, flight, collect(), Tick(), TODAY + timedelta(days=2))
+answered(lambda: tool.do_a_run("snap-3", [SNAP], door3, nothing_arrived, flight, collect(), Tick(), TODAY + timedelta(days=2)))
 check("it is collected the third night", answered(lambda: door3.asked[0]["asked_already"] == "amz-1"))
 check("and forgotten once it has landed, whatever day it was asked under", answered(lambda: not flight.asked))
 # A BROWSER snapshot must NOT be given yesterday's note: its asked_already means "collect from the page".
 BROWSER_SNAP = Report("me_pay", "meesho", "x", BROWSER, DAILY, "csv", cannot_backfill="a picture of now")
 flight = tool.InFlight()
-flight.remember("me_pay", TODAY - timedelta(days=5), "old")
+flight.remember("me_pay", TODAY - timedelta(days=2), "old")  # within the kept nights: only the door rule keeps it away
 door4 = a_door()
-tool.do_a_run("snap-4", [BROWSER_SNAP], door4, nothing_arrived, flight, collect(), Tick(), TODAY)
+answered(lambda: tool.do_a_run("snap-4", [BROWSER_SNAP], door4, nothing_arrived, flight, collect(), Tick(), TODAY))
 check("a browser snapshot is not handed a day-old note", answered(lambda: door4.asked[0]["asked_already"] is None))
+# AS4 proving: nor is an API report that is NOT a snapshot (its days are its own).
+API_DAILY = Report("az_orders", "amazon", "x", API, DAILY, "csv")
+flight = tool.InFlight()
+flight.remember("az_orders", TODAY - timedelta(days=2), "old")
+door4b = a_door()
+answered(lambda: tool.do_a_run("snap-4b", [API_DAILY], door4b, nothing_arrived, flight, collect(), Tick(), TODAY))
+check("AS4: an API report that is not a snapshot is not handed another day's note",
+      answered(lambda: [a["asked_already"] for a in door4b.asked if a["day"] == TODAY - timedelta(days=1)] == [None]))
 
 # AS4 (AS1-r2 review MED): a snapshot collected from last night's ask is asked for afresh in the same run, so it lands every night.
 def a_door_in_turn(answers):
@@ -555,31 +573,33 @@ def a_door_in_turn(answers):
 flight = tool.InFlight()
 flight.remember("az_suppressed", TODAY - timedelta(days=2), "amz-1")  # a run owes the day before it
 door5 = a_door_in_turn([Answered(tool.LANDED, say="landed"), Answered(tool.STILL_WAITING, say="building", their_id="amz-2")])
-tool.do_a_run("snap-5", [SNAP], door5, nothing_arrived, flight, collect(), Tick(), TODAY)
+_said5 = collect()
+answered(lambda: tool.do_a_run("snap-5", [SNAP], door5, nothing_arrived, flight, _said5, Tick(), TODAY))
 check("AS4: after collecting last night's picture, tonight's is asked for in the same run, with no old id",
       answered(lambda: len(door5.asked) == 2 and door5.asked[0]["asked_already"] == "amz-1" and door5.asked[1]["asked_already"] is None))
+check("AS4 proving: and the run says the next picture is asked for", any("the next picture is asked for" in l.message for l in _said5.lines))
 check("AS4: and the new ask is remembered under tonight, the old one gone", answered(lambda: flight.asked == {("az_suppressed", (TODAY - timedelta(days=1)).isoformat()): "amz-2"}))
 door6 = a_door_in_turn([Answered(tool.LANDED, say="landed")])
-tool.do_a_run("snap-6", [SNAP], door6, nothing_arrived, flight, collect(), Tick(), TODAY)
+answered(lambda: tool.do_a_run("snap-6", [SNAP], door6, nothing_arrived, flight, collect(), Tick(), TODAY))
 check("AS4: an ask made tonight that lands tonight is not asked again", answered(lambda: len(door6.asked) == 1 and not flight.asked))
 # The same ask still building keeps the night it was made, so a stuck one is asked afresh after SNAPSHOT_ASK_KEPT_DAYS.
 flight = tool.InFlight()
 flight.remember("az_suppressed", TODAY - timedelta(days=2), "amz-3")
-tool.do_a_run("snap-7", [SNAP], a_door_in_turn([Answered(tool.STILL_WAITING, say="in queue", their_id="amz-3")]), nothing_arrived, flight, collect(), Tick(), TODAY)
+answered(lambda: tool.do_a_run("snap-7", [SNAP], a_door_in_turn([Answered(tool.STILL_WAITING, say="in queue", their_id="amz-3")]), nothing_arrived, flight, collect(), Tick(), TODAY))
 check("AS4: the same ask still building keeps the night it was made", answered(lambda: flight.asked == {("az_suppressed", (TODAY - timedelta(days=2)).isoformat()): "amz-3"}))
 door8 = a_door_in_turn([Answered(tool.STILL_WAITING, say="building", their_id="amz-4")])
-tool.do_a_run("snap-8", [SNAP], door8, nothing_arrived, flight, collect(), Tick(), TODAY + timedelta(days=tool.SNAPSHOT_ASK_KEPT_DAYS - 1))
+answered(lambda: tool.do_a_run("snap-8", [SNAP], door8, nothing_arrived, flight, collect(), Tick(), TODAY + timedelta(days=KEPT - 1)))
 check("AS4: an ask older than the kept nights is not collected but asked afresh, and replaced",
-      answered(lambda: door8.asked[0]["asked_already"] is None and flight.asked == {("az_suppressed", (TODAY + timedelta(days=tool.SNAPSHOT_ASK_KEPT_DAYS - 2)).isoformat()): "amz-4"}))
+      answered(lambda: door8.asked[0]["asked_already"] is None and flight.asked == {("az_suppressed", (TODAY + timedelta(days=KEPT - 2)).isoformat()): "amz-4"}))
 flight = tool.InFlight()
 flight.remember("az_suppressed", TODAY - timedelta(days=2), "amz-5")
-tool.do_a_run("snap-9", [SNAP], a_door_in_turn([Answered(tool.NOTHING_TO_FETCH, say="cancelled")]), nothing_arrived, flight, collect(), Tick(), TODAY)
+answered(lambda: tool.do_a_run("snap-9", [SNAP], a_door_in_turn([Answered(tool.NOTHING_TO_FETCH, say="cancelled")]), nothing_arrived, flight, collect(), Tick(), TODAY))
 check("AS4: nothing to fetch clears an ask kept under an older night", answered(lambda: not flight.asked))
 # AS4 review MED: a stale ask, asked afresh tonight, that lands at once has spent tonight's ask: the door is not asked twice.
 flight = tool.InFlight()
-flight.remember("az_suppressed", TODAY - timedelta(days=tool.SNAPSHOT_ASK_KEPT_DAYS + 2), "amz-6")
+flight.remember("az_suppressed", TODAY - timedelta(days=KEPT + 2), "amz-6")
 door10 = a_door_in_turn([Answered(tool.LANDED, say="landed")])
-tool.do_a_run("snap-10", [SNAP], door10, nothing_arrived, flight, collect(), Tick(), TODAY)
+answered(lambda: tool.do_a_run("snap-10", [SNAP], door10, nothing_arrived, flight, collect(), Tick(), TODAY))
 check("AS4: a stale ask asked afresh that lands at once is not asked a second time", answered(lambda: len(door10.asked) == 1 and not flight.asked))
 
 
@@ -596,7 +616,7 @@ def a_door_that_falls_over_second():
     return fetch
 
 
-for _second, _name in ((None, "an exception"), (Answered(tool.FAILED, say="refused"), "a failure")):
+for _second, _name in ((None, "an exception"), (Answered(tool.FAILED, say="refused", their_id="amz-x"), "a failure (even one carrying an id)")):
     flight = tool.InFlight()
     flight.remember("az_suppressed", TODAY - timedelta(days=2), "amz-7")
     _said = collect()
@@ -609,7 +629,7 @@ for _second, _name in ((None, "an exception"), (Answered(tool.FAILED, say="refus
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
 
-EXPECTED = 99
+EXPECTED = 103
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

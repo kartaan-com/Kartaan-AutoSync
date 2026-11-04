@@ -303,7 +303,7 @@ check("being rate-limited raises its own kind of problem", answered(lambda: _rai
 store = {}
 fake = FakeAmazon()
 door = a_door(fake)
-got = tool.fetch_one(door, "az_orders", DAY, landed_into(store), say)
+got = answered(lambda: tool.fetch_one(door, "az_orders", DAY, landed_into(store), say))
 check("a whole fetch lands the file", answered(lambda: got.state == tool.LANDED))
 check("named for its platform, report and day", answered(lambda: got.file_name == "amazon_az_orders_2026-08-26.csv"))
 check("and the bytes really arrived", answered(lambda: store[got.file_name].startswith(b"order-id")))
@@ -312,20 +312,20 @@ check("and it says what it did", answered(lambda: "Landed" in got.say and str(go
 # Zipped files are opened.
 store = {}
 fake = FakeAmazon(gzip=True)
-got = tool.fetch_one(a_door(fake), "az_orders", DAY, landed_into(store), say)
+got = answered(lambda: tool.fetch_one(a_door(fake), "az_orders", DAY, landed_into(store), say))
 check("a gzipped file is unzipped before it lands", answered(lambda: store[got.file_name].startswith(b"order-id")))
 
 # **A COMPRESSION NOBODY KNOWS STOPS EVERYTHING**, and nothing is written.
 store = {}
 fake = FakeAmazon(odd_compression=True)
-got = tool.fetch_one(a_door(fake), "az_orders", DAY, landed_into(store), say)
+got = answered(lambda: tool.fetch_one(a_door(fake), "az_orders", DAY, landed_into(store), say))
 check("a compression nobody knows is a failure", answered(lambda: got.state == tool.FAILED))
 check("and NOTHING was written", answered(lambda: store == {}))
 
 # A file that says it is zipped and is not must not land half-read.
 store = {}
 fake = FakeAmazon(gzip=True, broken_gzip=True)
-got = tool.fetch_one(a_door(fake), "az_orders", DAY, landed_into(store), say)
+got = answered(lambda: tool.fetch_one(a_door(fake), "az_orders", DAY, landed_into(store), say))
 check("a file that will not unzip is a failure", answered(lambda: got.state == tool.FAILED))
 check("and nothing was written for it either", answered(lambda: store == {}))
 check("and it says nothing was written", answered(lambda: "Nothing has been written" in got.say))
@@ -333,14 +333,14 @@ check("and it says nothing was written", answered(lambda: "Nothing has been writ
 # A file of nothing is not an arrival.
 store = {}
 fake = FakeAmazon(bytes=b"")
-got = tool.fetch_one(a_door(fake), "az_orders", DAY, landed_into(store), say)
+got = answered(lambda: tool.fetch_one(a_door(fake), "az_orders", DAY, landed_into(store), say))
 check("a file with nothing in it does not land", answered(lambda: got.state == tool.FAILED and store == {}))
 
 # ------------------------------- THE LINK LASTS FIVE MINUTES, and it is used at once
 
 fake = FakeAmazon()
 door = a_door(fake)
-body = door.download("doc-1")
+body = answered(lambda: door.download("doc-1"))
 check("the link is used the moment it is given", answered(lambda: body.startswith(b"order-id")))
 # Proving the fake really does expire it -- otherwise the check above proves nothing.
 fake2 = FakeAmazon()
@@ -359,13 +359,13 @@ for status, expected in (
     ({"processingStatus": "FATAL"}, tool.FAILED),
 ):
     store = {}
-    got = tool.fetch_one(a_door(FakeAmazon(status=status)), "az_orders", DAY, landed_into(store), say)
+    got = answered(lambda: tool.fetch_one(a_door(FakeAmazon(status=status)), "az_orders", DAY, landed_into(store), say))
     check(f"{status['processingStatus']} comes to {expected}", answered(lambda: got.state == expected))
     check(f"and nothing is written for {status['processingStatus']}", answered(lambda: store == {}))
 
 # **THE ONE THAT MATTERS: cancelled is not a failure.** On a quiet day it is the
 # ordinary answer, and a board that reds every quiet day is a board nobody reads.
-quiet = tool.fetch_one(a_door(FakeAmazon(status={"processingStatus": "CANCELLED"})), "az_orders", DAY, landed_into({}), say)
+quiet = answered(lambda: tool.fetch_one(a_door(FakeAmazon(status={"processingStatus": "CANCELLED"})), "az_orders", DAY, landed_into({}), say))
 check("a cancelled report is NOT reported as a failure", answered(lambda: quiet.state != tool.FAILED))
 check("and says it normally means there was no data", answered(lambda: "no data" in quiet.say))
 
@@ -374,7 +374,7 @@ check("and says it normally means there was no data", answered(lambda: "no data"
 SAID.clear()
 fake = FakeAmazon(status={"processingStatus": "IN_PROGRESS"})
 door = a_door(fake)
-first = tool.fetch_one(door, "az_orders", DAY, landed_into({}), say)
+first = answered(lambda: tool.fetch_one(door, "az_orders", DAY, landed_into({}), say))
 check("a report still being built is reported as waiting", answered(lambda: first.state == tool.STILL_WAITING))
 # **THE TOKEN CALL IS A POST TOO.** Counting bare POSTs counted it as a
 # request for a report, which is exactly the thing being checked.
@@ -386,7 +386,7 @@ fake = FakeAmazon(status={"processingStatus": "DONE", "reportDocumentId": "doc-1
 door = a_door(fake)
 store = {}
 SAID.clear()
-again = tool.fetch_one(door, "az_orders", DAY, landed_into(store), say, asked_already="report-1")
+again = answered(lambda: tool.fetch_one(door, "az_orders", DAY, landed_into(store), say, asked_already="report-1"))
 check("the next run collects it without asking again", answered(lambda: again.state == tool.LANDED))
 check("and made NO new request at all", answered(lambda: len([c for c in fake.calls if c["method"] == "POST" and c["url"].endswith(amazon.REPORTS_PATH)]) == 0))
 check("and said so, so the log shows why no request was made", answered(lambda: any("waiting rather than asking again" in s for s in SAID)))
@@ -395,7 +395,7 @@ check("and said so, so the log shows why no request was made", answered(lambda: 
 
 fake = FakeAmazon(page_one=[{"createdTime": "2026-08-26T01:00:00Z", "processingStatus": "DONE", "reportDocumentId": "doc-1"}])
 door = a_door(fake)
-found = door.find_the_newest("az_settlements", DAY, DAY)
+found = answered(lambda: door.find_the_newest("az_settlements", DAY, DAY))
 check("a settlement report Amazon made is found", answered(lambda: found["reportDocumentId"] == "doc-1"))
 asked = [c for c in fake.calls if c["method"] == "GET" and c["url"].endswith(amazon.REPORTS_PATH)][0]
 check("by asking for its type", answered(lambda: asked["params"]["reportTypes"][0].endswith("FLAT_FILE_V2")))
@@ -406,14 +406,14 @@ fake = FakeAmazon(
     page_two=[{"createdTime": "2026-08-26T01:00:00Z", "processingStatus": "DONE", "reportDocumentId": "new"}],
 )
 door = a_door(fake)
-found = door.find_the_newest("az_settlements", DAY, DAY)
+found = answered(lambda: door.find_the_newest("az_settlements", DAY, DAY))
 check("paging works, and the newest across pages wins", answered(lambda: found["reportDocumentId"] == "new"))
 second = [c for c in fake.calls if c["method"] == "GET" and c["url"].endswith(amazon.REPORTS_PATH)][1]
 check("and the second page was asked for with the token ALONE", answered(lambda: list(second["params"].keys()) == ["nextToken"]))
 
 # Nothing published is not a failure -- settlements arrive on Amazon's own cycle.
 fake = FakeAmazon(page_one=[])
-got = tool.fetch_one(a_door(fake), "az_settlements", DAY, landed_into({}), say)
+got = answered(lambda: tool.fetch_one(a_door(fake), "az_settlements", DAY, landed_into({}), say))
 check("no settlement published for that day is not a failure", answered(lambda: got.state == tool.NOTHING_TO_FETCH))
 check("and it says why", answered(lambda: "own cycle" in got.say))
 check("and no request was ever made for it", answered(lambda: not any(c["method"] == "POST" and c["url"].endswith(amazon.REPORTS_PATH) for c in fake.calls)))
@@ -421,14 +421,14 @@ check("and no request was ever made for it", answered(lambda: not any(c["method"
 # A settlement Amazon HAS made is fetched all the way.
 store = {}
 fake = FakeAmazon(page_one=[{"createdTime": "2026-08-26T01:00:00Z", "processingStatus": "DONE", "reportDocumentId": "doc-1"}])
-got = tool.fetch_one(a_door(fake), "az_settlements", DAY, landed_into(store), say)
+got = answered(lambda: tool.fetch_one(a_door(fake), "az_settlements", DAY, landed_into(store), say))
 check("a settlement Amazon has made lands", answered(lambda: got.state == tool.LANDED))
 check("named as a settlement file", answered(lambda: got.file_name == "amazon_az_settlements_2026-08-26.csv"))
 
 # ------------------------------------------------- busy is not broken
 
 fake = FakeAmazon(throttle_create=True)
-got = tool.fetch_one(a_door(fake), "az_orders", DAY, landed_into({}), say)
+got = answered(lambda: tool.fetch_one(a_door(fake), "az_orders", DAY, landed_into({}), say))
 check("being rate-limited is reported as still waiting, not as broken", answered(lambda: got.state == tool.STILL_WAITING))
 check("and never as a failure", answered(lambda: got.state != tool.FAILED))
 
@@ -439,7 +439,7 @@ check("and never as a failure", answered(lambda: got.state != tool.FAILED))
 # report it is already building. **A rationed request spent, and two reports
 # where there should be one.**
 slowed = FakeAmazon(throttle_status=True)
-after_asking = tool.fetch_one(a_door(slowed), "az_orders", DAY, landed_into({}), say)
+after_asking = answered(lambda: tool.fetch_one(a_door(slowed), "az_orders", DAY, landed_into({}), say))
 check("being slowed down after asking is still only waiting",
       answered(lambda: after_asking.state == tool.STILL_WAITING))
 check("and Amazon's own id for the report comes back with it",
@@ -511,7 +511,7 @@ check("and it says the link lasts five minutes", answered(lambda: "five" in mess
 check("and to ask for a new one rather than trying again", answered(lambda: "ask for a new one" in message))
 
 # A token Amazon will not give, seen from the whole flow rather than from token().
-got = tool.fetch_one(a_door(FakeAmazon(refuse_token=True)), "az_orders", DAY, landed_into({}), say)
+got = answered(lambda: tool.fetch_one(a_door(FakeAmazon(refuse_token=True)), "az_orders", DAY, landed_into({}), say))
 check("credentials that do not work come out as a failure of the fetch", answered(lambda: got.state == tool.FAILED))
 check("and the reason names the three things it could be", answered(lambda: "refresh token" in got.say))
 
@@ -526,17 +526,17 @@ check("and names which report", answered(lambda: "az_orders" in message))
 
 # The empty-file sentence.
 store = {}
-got = tool.fetch_one(a_door(FakeAmazon(bytes=b"")), "az_orders", DAY, landed_into(store), say)
+got = answered(lambda: tool.fetch_one(a_door(FakeAmazon(bytes=b"")), "az_orders", DAY, landed_into(store), say))
 check("an empty file says nothing has been written", answered(lambda: "nothing has been written" in got.say.lower()))
 
 # The zipped-but-broken sentence names what went wrong.
-got = tool.fetch_one(a_door(FakeAmazon(gzip=True, broken_gzip=True)), "az_orders", DAY, landed_into({}), say)
+got = answered(lambda: tool.fetch_one(a_door(FakeAmazon(gzip=True, broken_gzip=True)), "az_orders", DAY, landed_into({}), say))
 check("a file that will not unzip says Amazon said it was zipped", answered(lambda: "said the file was zipped" in got.say))
 
 # **THE LOG LINE WHEN A REPORT IS ASKED FOR.** Without it, a run that asked for
 # five reports and collected none looks identical to a run that did nothing.
 SAID.clear()
-tool.fetch_one(a_door(FakeAmazon(status={"processingStatus": "IN_QUEUE"})), "az_orders", DAY, landed_into({}), say)
+answered(lambda: tool.fetch_one(a_door(FakeAmazon(status={"processingStatus": "IN_QUEUE"})), "az_orders", DAY, landed_into({}), say))
 check("asking for a report is said in the log", answered(lambda: any("asked Amazon for it" in line for line in SAID)))
 check("and it names the report", answered(lambda: any("az_orders" in line for line in SAID)))
 
@@ -613,20 +613,19 @@ check("and one with no time on it does not beat one that has",
 # **THE DOOR MUST SAY WHAT AMAZON CALLS THE REPORT IT IS BUILDING.** Without it
 # the runner has nothing to remember, and every run spends a rationed request on
 # a report Amazon is already making. Found by wiring the runner to this door.
-still = tool.fetch_one(a_door(FakeAmazon(status={"processingStatus": "IN_QUEUE"})), "az_orders", DAY, landed_into({}), say)
+still = answered(lambda: tool.fetch_one(a_door(FakeAmazon(status={"processingStatus": "IN_QUEUE"})), "az_orders", DAY, landed_into({}), say))
 check("a report still being built comes back with Amazon's own id for it", answered(lambda: still.their_id == "report-1"))
 check("so the next run has something to collect it by", answered(lambda: still.their_id is not None))
 
 # And when it was already in flight, the SAME id comes back -- not a new one.
-carried = tool.fetch_one(
+carried = answered(lambda: tool.fetch_one(
     a_door(FakeAmazon(status={"processingStatus": "IN_PROGRESS"})),
-    "az_orders", DAY, landed_into({}), say, asked_already="report-from-yesterday",
-)
+    "az_orders", DAY, landed_into({}), say, asked_already="report-from-yesterday"))
 check("one already in flight carries the id it was asked under", answered(lambda: carried.their_id == "report-from-yesterday"))
 check("and it is NOT replaced with a new one", answered(lambda: carried.their_id != "report-1"))
 
 # A landed one needs no id -- it is finished with.
-done = tool.fetch_one(a_door(FakeAmazon()), "az_orders", DAY, landed_into({}), say)
+done = answered(lambda: tool.fetch_one(a_door(FakeAmazon()), "az_orders", DAY, landed_into({}), say))
 check("a landed report is finished with and carries no id to chase", answered(lambda: done.their_id is None))
 
 
