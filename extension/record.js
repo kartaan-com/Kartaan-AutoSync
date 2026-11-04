@@ -123,11 +123,11 @@ export const THE_PIPELINES_RECORD = 'autosync-manifest.json';
  * an empty answer: "nobody has checked" and "checked, nothing landed" are different, and the first one is what a damaged file means.
  */
 export function theVerifiedDaysIn(text) {
-  let said;
+  let said = null; // text that is not JSON stays null and is refused just below
   try {
     said = JSON.parse(text);
   } catch (wrong) {
-    return null;
+    said = null;
   }
   if (!said || typeof said !== 'object' || !Array.isArray(said.lines) || (said.shape !== 1 && said.shape !== THE_RECORDS_SHAPE)) return null;
   if (said.lines.length > 50000) return null;

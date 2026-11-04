@@ -136,7 +136,8 @@ check('no text at all is a first landing, which is not damage', theLinesIn(null)
   check('AS7a: one line that is not the pipeline\'s (an unknown state) makes the whole record null',
     theVerifiedDaysIn(JSON.stringify({ shape: 2, lines: [line('2026-11-01', 'a', 'verified'), line('2026-11-01', 'b', 'maybe')] })) === null);
   check('AS7a: a record of over 50000 lines, or a report id that is not text, is null',
-    theVerifiedDaysIn(JSON.stringify({ shape: 2, lines: new Array(50001).fill(line('2026-11-01', 'a', 'verified')) })) === null
+    theVerifiedDaysIn(JSON.stringify({ shape: 2, lines: Array.from({ length: 50001 }, (_, n) => line('2026-11-01', `r${n}`, 'missing')) })) === null
+    && theVerifiedDaysIn(JSON.stringify({ shape: 2, lines: Array.from({ length: 50000 }, (_, n) => line('2026-11-01', `r${n}`, 'missing')) })) !== null
     && theVerifiedDaysIn(JSON.stringify({ shape: 2, lines: [{ ...line('2026-11-01', 'a', 'verified'), reportId: { x: 1 } }] })) === null);
   check('AS7a: a report id like __proto__ is only a key, and pollutes nothing',
     theVerifiedDaysIn(JSON.stringify({ shape: 2, lines: [line('2026-11-01', '__proto__', 'verified')] })).days.__proto__.join() === '2026-11-01'
@@ -164,9 +165,20 @@ check('no text at all is a first landing, which is not damage', theLinesIn(null)
   }
   check('AS7a: a fractional size that the Python reads as nought is null',
     theVerifiedDaysIn(JSON.stringify({ shape: 2, lines: [{ ...line(day, 'a', 'verified'), fileSize: 0.5 }] })) === null);
+  /* each part of the first guard on its own, so none can be dropped unnoticed */
+  const oneLine = (change) => theVerifiedDaysIn(JSON.stringify({ shape: 2, lines: [{ ...line(day, 'a', 'missing'), ...change }] }));
+  check('AS7a: a line that is nothing, a bad day, a report id that is empty or a number, or a state of no kind: each null',
+    theVerifiedDaysIn('{"shape":2,"lines":[null]}') === null && oneLine({ dataDate: '2026-13-45' }) === null && oneLine({ reportId: '' }) === null
+    && oneLine({ reportId: 7 }) === null && oneLine({ state: 'maybe' }) === null && oneLine({}) !== null);
+  check('AS7a: a missing line may have no size or a null one, but not a size that is text',
+    oneLine({ fileSize: null }) !== null && oneLine({ fileSize: undefined }) !== null && oneLine({ fileSize: 'big' }) === null);
+  check('AS7a: JSON null, a number, a list, or lines that are not a list: each null; shape 1 is read',
+    theVerifiedDaysIn('null') === null && theVerifiedDaysIn('5') === null && theVerifiedDaysIn('[]') === null
+    && theVerifiedDaysIn('{"shape":2,"lines":{}}') === null && theVerifiedDaysIn('{"shape":1,"lines":[]}') !== null
+    && theVerifiedDaysIn('{"shape":3,"lines":[]}') === null && theVerifiedDaysIn('{"shape":"2","lines":[]}') === null);
 }
 
-const EXPECTED = 45;
+const EXPECTED = 48;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

@@ -913,13 +913,22 @@ check('the same day written again replaces its row, never adds a second (R20 pro
       : drive.ask(args));
     check(`AS7a: ${what} in the record is null`, await thePipelineVerified(browser.chrome, asBytes, { inside: 'kartaan' }) === null);
   }
+  const nowhere = aDrive({ holds: [system, mine] });
+  check('AS7a: with no Kartaan folder given nothing is asked of Drive and the answer is null',
+    await thePipelineVerified(browser.chrome, nowhere.ask, {}) === null && nowhere.asked.length === 0);
+  const others = aDrive({ holds: [system, { id: 'x1', name: 'extension-manifest-0a1b2c3d.json', parents: ['sys'], contents: '{}' }, { id: 'x2', name: 'autosync-state.json', parents: ['sys'], contents: '' }] });
+  check('AS7a: other files in System are not the pipeline record: null',
+    await thePipelineVerified(browser.chrome, others.ask, { inside: 'kartaan' }) === null);
+  const beside = aDrive({ holds: [system, mine, { id: 'x1', name: 'extension-manifest-0a1b2c3d.json', parents: ['sys'], contents: '{}' }] });
+  check('AS7a: the record is read although other files sit beside it',
+    (await thePipelineVerified(browser.chrome, beside.ask, { inside: 'kartaan' })).days.az_orders.join() === '2026-11-01');
   const clean = async (args) => (args.address.includes('alt=media')
     ? { ok: true, status: 200, headers: { get: () => null }, async arrayBuffer() { return new TextEncoder().encode(record).buffer; }, async text() { return ''; } }
     : drive.ask(args));
   check('AS7a: the same record as plain UTF-8 bytes is read', (await thePipelineVerified(browser.chrome, clean, { inside: 'kartaan' })).days.az_orders.join() === '2026-11-01');
 }
 
-const EXPECTED = 88 + 4 + 2 + 3 + 3 + 5 + 10;
+const EXPECTED = 88 + 4 + 2 + 3 + 3 + 5 + 13;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

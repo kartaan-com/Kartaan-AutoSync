@@ -2487,6 +2487,30 @@ check('report table: null night gives null', theReportTable(null, () => '') === 
   });
   await carryTheNightOn(readTwice.chrome, { ...aWalkThat(), at: 6, thePipelineVerified: reader });
   check('AS7a: a new night reads the record again', asked === 2);
+  /* the reader's answers one by one, so none of the guards can be dropped unnoticed */
+  const { theDaysThePipelineVerified, PIPELINE_VERIFIED } = await import('./nightly.js');
+  const spy = installFakeChrome();
+  let spied = 0;
+  const counted = async () => { spied += 1; return { days: { a: ['2026-11-02'] } }; };
+  check('AS7a: with no reader, or no night, nothing is read and nothing is kept',
+    JSON.stringify(await theDaysThePipelineVerified(spy.chrome, { startedAt: 1 }, null)) === '{}'
+    && JSON.stringify(await theDaysThePipelineVerified(spy.chrome, null, counted)) === '{}' && spied === 0
+    && (await spy.chrome.storage.local.get(PIPELINE_VERIFIED))[PIPELINE_VERIFIED] === undefined);
+  check('AS7a: a reader that answers no days, or nothing, gives no days; a good answer is kept for the night',
+    JSON.stringify(await theDaysThePipelineVerified(spy.chrome, { startedAt: 7 }, async () => ({}))) === '{}'
+    && JSON.stringify(await theDaysThePipelineVerified(spy.chrome, { startedAt: 8 }, async () => null)) === '{}'
+    && (await theDaysThePipelineVerified(spy.chrome, { startedAt: 9 }, counted)).a[0] === '2026-11-02'
+    && (await theDaysThePipelineVerified(spy.chrome, { startedAt: 9 }, async () => ({ days: {} }))).a[0] === '2026-11-02');
+  /* a day the extension landed itself, and the pipeline also lists, is told in the extension's own words */
+  const both = installFakeChrome();
+  const { LAST_LANDED } = await import('./nightly.js');
+  await both.chrome.storage.local.set({ [LAST_LANDED]: { fk_claims: ['2026-11-02'] } });
+  await startTheNight(both.chrome, {
+    doing: ['fk_claims'], mayAskFor: 0, at: 1, openAt: 'https://x/', dataDate: '2026-11-02', canGoBack: ['fk_claims'], latestDay: '2026-11-03',
+  });
+  await carryTheNightOn(both.chrome, { ...aWalkThat(), at: 2, thePipelineVerified: async () => ({ days: { fk_claims: ['2026-11-02'] } }) });
+  check('AS7a: a day landed by the extension itself is not credited to the pipeline',
+    (await theNight(both.chrome)).done.some((one) => one.reportId === 'fk_claims' && String(one.say).includes('already fetched') && !String(one.say).includes('pipeline')));
   const noGoBack = installFakeChrome();
   let askedAnyway = 0;
   await startTheNight(noGoBack.chrome, {
@@ -2496,7 +2520,7 @@ check('report table: null night gives null', theReportTable(null, () => '') === 
   check('AS7a: Drive is not asked for a report that cannot go back by day', askedAnyway === 0);
 }
 
-const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3 + 1 + 4 + 3 + 2 + 2 + 2 + 1 + 8 + 3 + 8;
+const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3 + 1 + 4 + 3 + 2 + 2 + 2 + 1 + 8 + 3 + 11;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;
