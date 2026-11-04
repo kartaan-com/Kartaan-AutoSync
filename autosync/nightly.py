@@ -644,6 +644,39 @@ def how_the_night_ends(
         ), 1
     return (), 1 if tick.is_a_defect else 0
 
+
+# **WHAT A GREEN NIGHT MUST NOT HIDE (AS3, ST2 item 5).** The words below are the ones a real fault prints; a night that printed one
+# and still ended green sat unread for days. The block names each KIND and how often -- never the line itself, which can hold a
+# row's contents -- so a person knows where to look in the log.
+FAULT_WORDS = (
+    "RETURNS SHEET HEADER CHANGED",
+    "RETURNS SHEET HEADER NOT CHECKED",
+    "RETURNS SHEET TAB MISSING",
+    "RETURNS SHEET NOT READY",
+    "RETURNS SHEET RECORD NOT WRITTEN",
+    "THE SELLER'S DATABASE REFUSED",
+    "KARTAAN'S OWN LEDGER REFUSED",
+    "SALES LEDGER DISAGREEMENT",
+    "SALES LEDGER UNREADABLE ROW",
+    "SALES LEDGER RECORD NOT WRITTEN",
+    "TIDY FAULT",
+)
+
+
+def what_needs_a_look(lines: Sequence[str]) -> Tuple[str, ...]:
+    """The end-of-run block, or nothing when the night said none of `FAULT_WORDS`. One GitHub `::warning::` makes the run yellow."""
+    text = "\n".join(lines)
+    found = [(word, text.count(word)) for word in FAULT_WORDS if word in text]
+    if not found:
+        return ()
+    total = sum(n for _, n in found)
+    return (
+        f"THINGS THAT NEED A LOOK: {total}",
+        *(f"  {word}: {n} time(s)" for word, n in found),
+        f"::warning::AutoSync finished, but {total} thing(s) need a look: " + ", ".join(word for word, _ in found) + " (see the log above)",
+    )
+
+
 def _try(faults: List[str], doing, called: str, *what) -> None:
     """Do one thing that writes a record for a screen, and never let it stop the run.
 

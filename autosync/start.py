@@ -284,9 +284,13 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
     # **TIDYING COMES LAST AND NEVER STOPS A NIGHT (job 40):** logs past sixty days and report files
     # past the GST period go to his bin, each one said. A fault in it is printed and makes the job red
     # -- after everything else is done, never instead of it.
-    for one in nightly.tidy_the_drive(google, inside, today, print):
+    tidy_faults = nightly.tidy_the_drive(google, inside, today, print)
+    for one in tidy_faults:
         print(f"TIDY FAULT  {one}")
         code = code or 1
+    # **THE LAST THING SAID: WHAT A GREEN TICK WOULD HIDE (AS3).** Counted from every line this run printed, the tick's own summary and the tidy faults.
+    for one in nightly.what_needs_a_look([*said, tick.summary(), *(f"TIDY FAULT  {f}" for f in tidy_faults)]):
+        print(one)
     return code
 
 

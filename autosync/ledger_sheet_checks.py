@@ -1388,7 +1388,24 @@ check("the cut is the history day plus 45 days: the 14 Feb file is set aside, th
 check("and only Flipkart and Meesho payments are cut -- Amazon's lines are never held back, so never set aside",
       not ledger.is_payment_file_from_before_history("az_settlements", "2026-02-01") and not ledger.is_payment_file_from_before_history("fk_payments", "no day"))
 
-EXPECTED = 144 + 12 + 9 + 2 + 2 + 5 + 6 + 2 + 1 + 5 + 3
+# ---- AS3: A FILE'S OLDER ROWS ARE SAID ONCE, NOT ONCE PER ROW (the 1 Nov catch-up said it 1,516 times)
+class _Old:
+    def __init__(self, text, bad=False):
+        self.text, self.the_row_cannot_be_read = text, bad
+
+    def __str__(self):
+        return self.text
+
+
+check("many older rows in one file are ONE line, with the count and the first row as the example",
+      tool.the_older_lines([_Old("a"), _Old("b"), _Old("c")]) == ["SALES LEDGER OLDER THAN THE ROW  a  (3 row(s) in this file, first shown)"])
+check("and a single older row is said exactly as before, with no count",
+      tool.the_older_lines([_Old("a")]) == ["SALES LEDGER OLDER THAN THE ROW  a"])
+check("a row whose cell somebody typed over is named by itself even when it is not the first (A32: a person must put it back)",
+      tool.the_older_lines([_Old("a"), _Old("b"), _Old("BAD", True)])
+      == ["SALES LEDGER OLDER THAN THE ROW  BAD", "SALES LEDGER OLDER THAN THE ROW  a  (2 row(s) in this file, first shown)"])
+
+EXPECTED = 144 + 12 + 9 + 2 + 2 + 5 + 6 + 2 + 1 + 5 + 3 + 3
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

@@ -473,6 +473,21 @@ def the_ledger(
     return door, which
 
 
+def the_older_lines(left_alone) -> list:
+    """The lines for a file's rows that an older file was not allowed to undo (AS3).
+
+    **A ROW WHOSE CELL SOMEBODY TYPED OVER IS NAMED ONE BY ONE (A32)** because a person has to put it back; the ordinary rows (rule 2
+    working) are ONE line with the first as the example and the count.
+    """
+    must_be_named = [one for one in left_alone if one.the_row_cannot_be_read]
+    ordinary = [one for one in left_alone if not one.the_row_cannot_be_read]
+    lines = [f"SALES LEDGER OLDER THAN THE ROW  {one}" for one in must_be_named]
+    if ordinary:
+        more = f"  ({len(ordinary)} row(s) in this file, first shown)" if len(ordinary) > 1 else ""
+        lines.append(f"SALES LEDGER OLDER THAN THE ROW  {ordinary[0]}{more}")
+    return lines
+
+
 class WhatWasWritten:
     """What this run has written into the seller's ledger, and the one record that says so (plan job 78).
 
@@ -572,8 +587,10 @@ def recording_into(
         # backfill (D110) is a deliberately old file somebody fetched on
         # purpose, so a night that ignored one in silence would look exactly
         # like a night that applied it.
-        for one in what.left_alone:
-            speak(f"SALES LEDGER OLDER THAN THE ROW  {one}")
+        # **ONE LINE PER FILE, NOT PER ROW (AS3):** a catch-up night said this 1,516 times and buried the real faults. The first row is
+        # the example; the count says how many more.
+        for line in the_older_lines(what.left_alone):
+            speak(line)
         for one in what.unreadable:
             speak(f"SALES LEDGER UNREADABLE ROW  {one}")
         # **MONEY THAT HAS NO ORDER TO GO ON IS SAID, ONE LINE EACH (job 36).** A payment for an order the ledger does not hold

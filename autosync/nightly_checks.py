@@ -2794,9 +2794,24 @@ check("and every builder start.py hands the tick is imported there, so the first
       all(getattr(v.func, "id", None) in _IMPORTED_BY_START for v in HANDED_TO_THE_TICK.values()
           if isinstance(v, ast.Call) and isinstance(v.func, ast.Name) and v.func.id.startswith(("a_", "an_", "the_"))))
 
+# ---- AS3: A GREEN TICK MUST NOT HIDE A REAL FAULT (ST2 item 5; the 1 Nov run was green with "RETURNS SHEET HEADER CHANGED" twice)
+_quiet = tool.what_needs_a_look(["Sales ledger: 3 added, 0 changed.", "SALES LEDGER OLDER THAN THE ROW  x"])
+check("a night that said no fault word gets no block and no warning", _quiet == ())
+_loud = tool.what_needs_a_look(["RETURNS SHEET HEADER CHANGED  row 1 of the Receipts tab", "x", "RETURNS SHEET HEADER CHANGED  again", "TIDY FAULT  a"])
+check("a fault word makes a block that counts each kind", _loud[0] == "THINGS THAT NEED A LOOK: 3" and "  RETURNS SHEET HEADER CHANGED: 2 time(s)" in _loud)
+check("and ends with one ::warning:: line so the run shows yellow", _loud[-1].startswith("::warning::") and sum(l.startswith("::warning::") for l in _loud) == 1)
+_shape = re.compile(r"^(THINGS THAT NEED A LOOK: \d+|  (" + "|".join(re.escape(w) for w in tool.FAULT_WORDS) + r"): \d+ time\(s\)|::warning::AutoSync finished.*)$")
+check("and the block has only that fixed shape, never the line itself (it can hold a row's contents)", all(_shape.match(l) for l in _loud))
+_printed_by = "\n".join(p.read_text(encoding="utf-8") for p in Path(__file__).resolve().parent.glob("*.py")
+                       if not p.name.endswith("_checks.py") and p.name != "nightly.py")
+check("every fault word is really printed by the code (a word that drifted from its message would hide that fault again)",
+      all(w in _printed_by or w == "TIDY FAULT" for w in tool.FAULT_WORDS) and "TIDY FAULT" in _START_RAW)
+check("and start.py hands the block the night's lines, the tick's summary and the tidy faults",
+      "what_needs_a_look([*said, tick.summary()" in _START_RAW)
+
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 394 + 3 + 6 + 1 + 1 + 4
+EXPECTED = 394 + 3 + 6 + 1 + 1 + 4 + 6
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

@@ -250,6 +250,7 @@ jobs:
           1e2c2dd725e1f7c1dbb09f8d2f424a771a80ab64 v0.1.25-the-records-themselves
           9d7d0902df7ed3b1708b649c86be56179aa29a6c v0.1.25-release-version-only
           899a09d5c7a41c74eab957cdb27eb15e1d030427 v0.1.25-announce-version-only
+          f37931e2f557ec7c13cc30de6004b23b53358c63 v0.1.28-merge-of-main-into-pl2-refusals
           '
           MISSING=0
           for sha in $(git rev-list "${{ steps.changed.outputs.range }}"); do
