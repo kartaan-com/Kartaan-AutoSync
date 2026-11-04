@@ -1,18 +1,19 @@
 {
   "record": "proving",
-  "commit": "bc08ae5",
-  "run_at": "4 Nov 2026 (AS6 round 2), on GitHub: Proving workflow run 41821708721 (earlier runs 41818310079 on 08b5776 and 41820427434 on 334f4e0, closed in 334f4e0 and bc08ae5).",
-  "tool": "tools/proving.py with the ERP's tools/prove_checks.py (vendor copy), 4 parts, shared out by line number, joined by tools/proving_join.py.",
-  "invoked_as": "gh workflow run proving.yml --ref as6-r2b -f prove=bc08ae52abe549b83c266d902e9c22605a116923 -f against=d9ea6fbaf7f3295f2a3c409659e0086627c4626d -f parts=4",
+  "commit": "64b2bf4",
+  "run_at": "4 Nov 2026 (AS6 round 3a), on GitHub: Proving workflow runs 41828163200 (d6cbd11), 41830039018 (64b2bf4, 8 parts) and 41830920469 (64b2bf4, 16 parts).",
+  "tool": "tools/proving.py with the ERP's tools/prove_checks.py (vendor copy), shared out by line number, joined by tools/proving_join.py.",
+  "invoked_as": "gh workflow run proving.yml --ref as6-r3 -f prove=64b2bf44e61a889a18ae51beca26f62bbf0aa6ec -f against=7fab4d4efd19df3b3b21dc5e5f1f759d0cba1e09 -f parts=16",
   "ran_by": "AS6 (Sonnet 5.5, worker for Kartaan Control), started with the owner login.",
-  "scope": "Every changed line between d9ea6fb (v0.1.33) and bc08ae5.",
+  "scope": "Every changed line between 7fab4d4 (v0.1.34) and 64b2bf4.",
   "found": [
-    "First run (08b5776): 76 tried, 14 survived (drive.js 581/605/652/656; screen.js 907/1676/1677/1792/1902).",
-    "Closed (334f4e0): wiring checks for the button; the prune, a delete before an overwrite, a never-read size and a refresh after a replace were dead and removed.",
-    "Second run (334f4e0): 3 survived (drive.js:597 equality and logic, screen.js:1675); closed by two checks (bc08ae5), the drive one shown red by hand with the guard removed.",
-    "Final run (bc08ae5, run 41821708721): 70 tried, 57 run, 57 caught, 13 would not parse, 0 survived."
+    "First run (d6cbd11): 45 tried, 5 survived (3 on the typed-range condition, nightly.js:1611) and 1 hung and stopped.",
+    "Closed (64b2bf4): the range is judged by theRangeOfTheDays; three whole-night checks; one shown red by hand with the condition replaced.",
+    "Runs on 64b2bf4 (8 parts and 16 parts, same answer): 44 tried, 29 run, 27 caught by a check, 2 ended in a failure to load, 15 would not parse, 1 hung and stopped, 0 survived."
   ],
-  "stopped_by_time": [],
+  "stopped_by_time": [
+    "1 change of the 29 run was stopped by the 240 s time limit rather than noticed by a check (counted as caught by the prover; it makes the tool print a COVERAGE line). Same in every run, so deterministic. The artifact does not name it; it is one of the four program lines in that share (autosync/nightly.py:369, autosync/runner.py:81, extension/nightly.js:705 or :1617). Not identified; recorded here rather than hidden."
+  ],
   "survivors": [],
   "after_this_record": "The version move (extension/manifest.json, extension/bridge.js BUILD) changes no line the prover tries."
 }

@@ -1,18 +1,17 @@
 {
   "record": "review",
-  "commit": "bc08ae5",
-  "run_at": "4 Nov 2026 (AS6 round 2).",
+  "commit": "64b2bf4",
+  "run_at": "4 Nov 2026 (AS6 round 3a).",
   "tool": "Opus 5.5 general-purpose sub-agents, read-only.",
   "invoked_as": "Agent (general-purpose), by AS6: a first reader, then a second fresh reader for the fixes.",
   "ran_by": "Sub-agents; the reviewers wrote none of the code they read.",
-  "scope": "d9ea6fb (v0.1.33) to bc08ae5: the panel no longer shows a stale 'no run pass is saved' line beside a saved pass; the AI-helper note clears when the helper answers; two lands of one Drive file name create one file; an 'I placed these by hand' panel button clears exactly the shown needs-you days and marks them landed. About 35 program lines, written by AS6 (accepted by Kartaan Control).",
+  "scope": "7fab4d4 (v0.1.34) to 64b2bf4: a second Run now does not fetch a closed day that already landed (only reports that go back day by day, only up to the newest closed day, never a collection, a typed range only when every day of it landed); each ask's id is saved the moment it is made (J288); the needs-you line says to download by hand and where to place the file. About 45 program lines, written by AS6 (each piece under 20 lines).",
   "found": [
-    {"n": "AS6-R1", "severity": "MED", "finding": "The clear ask cleared whatever was on the list at click time, not the days the panel showed.", "fixed": true, "fix": "The panel sends the exact days; only those are cleared; a check that a later day stays."},
-    {"n": "AS6-R2", "severity": "MED", "finding": "The ask could cross with a running night's own writes to the same lists.", "fixed": true, "fix": "Refused while a run is going; check added."},
-    {"n": "AS6-R3", "severity": "MED", "finding": "The 5-minute memory of a put file could count a file the seller had since deleted or put in the bin.", "fixed": true, "fix": "The remembered id is checked with Drive (trashed or gone = not counted); check added for a binned file."},
-    {"n": "AS6-R4", "severity": "LOW", "finding": "Unpruned maps; a lost space in 'Kartaan, <when>'.", "fixed": true, "fix": "Space restored; the unproven prune and a never-read size removed."},
-    {"n": "AS6-R5", "severity": "MED (found by GitHub proving runs 41818310079, 41820427434)", "finding": "17 changes no check noticed (button wiring lines, dead lines).", "fixed": true, "fix": "Checks added for each wiring line and shown red when the line is removed; dead lines removed."},
-    {"n": "AS6-R6", "severity": "LOW", "finding": "The queue key is report + file name while the memory key is folder + file name; a run starting between the 'run going' check and the write could cross.", "fixed": false, "why": "Two reports never share a folder and file name; the crossing window is milliseconds and loses at worst a noise entry."}
+    {"n": "AS6-3a-R1", "severity": "HIGH", "finding": "A typed range was skipped whole when only its last day had landed.", "fixed": true, "fix": "Skipped only when every day of the range landed; later judged by theRangeOfTheDays (the second reader's LOW); whole-night checks added, one shown red by hand."},
+    {"n": "AS6-3a-R2", "severity": "HIGH", "finding": "The J288 nightly check passed with the new save removed.", "fixed": true, "fix": "It now looks at the save before the finishing one and goes red without the wiring (shown by hand; the second reader repeated it)."},
+    {"n": "AS6-3a-R3", "severity": "LOW", "finding": "A settled day was told as 'already in your Drive'.", "fixed": true, "fix": "The words say fetched, or nothing there."},
+    {"n": "AS6-3a-R4", "severity": "MED", "finding": "There is no way to fetch a landed day again from the panel, and yesterday counts as closed, so a first early fetch of yesterday cannot be refreshed by a second Run now.", "fixed": false, "why": "Asked for by the build (a second Run now fetches nothing for a landed day); put to Kartaan Control in DONE_AS6.md whether an override is wanted."},
+    {"n": "AS6-3a-R5", "severity": "LOW", "finding": "A range the platform had nothing for records only its last day, so a second identical Run now is not skipped.", "fixed": false, "why": "Pre-existing behaviour, costs at most one request."}
   ],
-  "known_gaps": ["Why two claims files were written 15 s apart was not proven; the fix removes the cause visible in the code (list-then-put with no waiting, listing lag)."]
+  "known_gaps": ["Forgetting an ask is not saved mid-run: a run that dies after a collect repeats one fetch, spends no ask."]
 }

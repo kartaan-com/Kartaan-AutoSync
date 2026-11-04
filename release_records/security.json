@@ -1,14 +1,13 @@
 {
   "record": "security",
-  "commit": "bc08ae5",
-  "run_at": "4 Nov 2026 (AS6 round 2).",
-  "tool": "Sonnet 5.5 general-purpose sub-agent, read-only, security lens, over the round's diff (extension/screen.js, panel.js, bridge.js, drive.js + checks). Later commits add checks and remove code only (the remembered put keeps a file id and a time, no size).",
+  "commit": "64b2bf4",
+  "run_at": "4 Nov 2026 (AS6 round 3a).",
+  "tool": "Sonnet 5.5 general-purpose sub-agent, read-only, security lens, over the round's diff (extension/nightly.js, autosync/runner.py, autosync/nightly.py + checks). Later commits tighten one condition and add checks only.",
   "invoked_as": "Agent (general-purpose) from the AS6 session.",
   "ran_by": "AS6 (Sonnet 5.5, worker for Kartaan Control); the reader wrote none of the code.",
-  "scope": "v0.1.33 (d9ea6fb) to bc08ae5, all added lines.",
+  "scope": "v0.1.34 (7fab4d4) to 64b2bf4, all added lines.",
   "found": [
-    {"severity": "PASS", "finding": "No secret, customer name, phone or address in any new text. The new panel ask 'clear-needs-you' is reachable only from the extension's own panel page (sender id, top frame and panel.html checked in background.js; not in the relay list or the AI bridge list). No new network call except, later, one Drive GET of a file id this install just put (fields id,size,trashed).", "fixed": true, "why": "n/a"},
-    {"severity": "LOW", "finding": "The in-memory maps in drive.js were never pruned.", "fixed": false, "why": "Bounded by the distinct report+file names per worker lifetime, which is small, and lost when the worker sleeps; the prune line was removed as unprovable dead weight."},
-    {"severity": "LOW", "finding": "The button marks every shown day as landed, so a mistaken click stops those days being fetched again.", "fixed": false, "why": "Panel-only, labelled in words, and the exact days shown are the only ones cleared."}
+    {"severity": "PASS", "finding": "No secret, token, customer name, phone or address in any new text or log line. The mid-run save writes the same fields to the same place as the end-of-run save (no new field; the callback is not saved). The extension skip takes its report id and day only from the night's own list; nothing outside can supply them. No new network call.", "fixed": true, "why": "n/a"},
+    {"severity": "LOW", "finding": "If the mid-run save keeps failing, its fault line repeats once per ask and carries the save's own error text.", "fixed": false, "why": "Log noise only; same exposure as the existing fault lines of the same shape; the save handles no customer data."}
   ]
 }
