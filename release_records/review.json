@@ -1,16 +1,17 @@
 {
   "record": "review",
-  "commit": "4617c80",
-  "run_at": "3 Nov 2026 (PL2). A fresh Opus 5.5 read-only agent with no stake read the diff and ran the suites; a separate Opus 5.5 security reader read it as well.",
+  "commit": "c595ae6",
+  "run_at": "4 Nov 2026 (AS3 round A). A fresh Opus 5.5 read-only agent with no stake read the diff; later fresh agents read the pm_check.yml line and the proving-fix check.",
   "tool": "Opus 5.5 general-purpose sub-agents, read-only.",
-  "invoked_as": "Agent (general-purpose) from the PL2 session, once for review and once for security.",
-  "ran_by": "Sub-agents of PL2 (Sonnet 5.5); the reviewers wrote none of the code they read.",
-  "scope": "95eb80c (v0.1.27) to 4617c80: R194 (every refusal reason in the run log, Meesho Best Price rows read, undated files ignored with a note) and R162 (a report written as one row is noted against the running ask). 28 program lines. The program code was written by PL2 itself (over the ~20-line DeepSeek threshold by 8 lines, small and mechanical).",
+  "invoked_as": "Agent (general-purpose) from the AS3 session, three times (round A code, pm_check.yml line, proving-fix check) plus one security reader.",
+  "ran_by": "Sub-agents of AS3 (Sonnet 5.5); the reviewers wrote none of the code they read.",
+  "scope": "f37931e (v0.1.28) to c595ae6: round A of ST2, the run says the truth: an end-of-run THINGS THAT NEED A LOOK block with counts, one yellow ::warning::, one OLDER line per file (rows a person must fix stay one each), the accepted-merge line for f37931e (his D939 yes), and a check that pins all eleven fault words. About 45 program lines written by AS3 itself (over the ~20-line DeepSeek threshold; DeepSeek is not callable from a worker session).",
   "found": [
-    {"n": "PL2-1", "severity": "HIGH", "finding": "Three older checks files (listings_checks.py:556, views_checks.py:349, returns_ads_checks.py:490) read could_not_read[0] for an undated file and crashed with IndexError once those files moved to ignored_undated. This was already on SOLVED_PROBLEMS.md (re-run every suite, not only the edited ones).", "fixed": true, "fix": "The three checks rewritten against ignored_undated; every *_checks.py and *.test.js run; all pass."},
-    {"n": "PL2-2", "severity": "MED (security read)", "finding": "Grouping printed every refused row for readers that label rows 'line N: why'.", "fixed": true, "fix": "Pattern for both label shapes, 10 reasons, 200 characters each, rest counted; checks added."},
-    {"n": "PL2-3", "severity": "LOW", "finding": "A label with brackets inside brackets splits at the first '): ' so the example label reads oddly.", "fixed": false, "why": "Wording of one log line only; no row is lost or miscounted."},
-    {"n": "PL2-4", "severity": "LOW", "finding": "bridge.test.js checks worker.js by its source text (the worker has no runnable rig, like the other worker.js checks).", "fixed": false, "why": "It catches the call being removed and was seen red with it removed."}
+    {"n": "AS3-A1", "severity": "HIGH", "finding": "Collapsing the OLDER lines to one per file hid the rows whose cell cannot be read and needs a person (A32).", "fixed": true, "fix": "Those rows stay one line each, only ordinary rows collapse; a check where the bad row is not first."},
+    {"n": "AS3-A2", "severity": "MED", "finding": "Four real returns-sheet fault lines (TAB MISSING, NOT READY, HEADER NOT CHECKED, RECORD NOT WRITTEN) were missing from the fault words.", "fixed": true, "fix": "All added."},
+    {"n": "AS3-A3", "severity": "LOW", "finding": "Checks fed typed strings rather than the real messages.", "fixed": true, "fix": "A check that every fault word is printed by the code, that start.py hands the block the lines, and that the block keeps its fixed shape."},
+    {"n": "AS3-A4", "severity": "MED (found by GitHub proving, run 41762331445)", "finding": "9 of 11 fault words could be deleted from FAULT_WORDS and no check noticed, because the checks compared the list with itself.", "fixed": true, "fix": "One check types the eleven words out and requires each to be named; a reviewer deleted and renamed each line on a scratch copy: all 22 versions turn red."},
+    {"n": "AS3-A5", "severity": "LOW", "finding": "A duplicate word added to FAULT_WORDS would pass the length check; a fault printed straight to the screen (ALARM) is not counted.", "fixed": false, "why": "Harmless; coverage the same as before this round."}
   ],
-  "known_gaps": ["The exact moment me_views landed against the 3 Nov ask on the HP was inferred from the code and Drive file times; the HP's Chrome storage was not read."]
+  "known_gaps": ["The exact look of the yellow run on GitHub is seen only on the next night that has a fault."]
 }

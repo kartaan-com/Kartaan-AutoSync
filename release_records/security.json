@@ -1,16 +1,22 @@
 {
   "record": "security",
-  "commit": "4617c80",
-  "run_at": "3 Nov 2026 (PL2).",
-  "tool": "Opus 5.5 general-purpose sub-agent, read-only, over the whole PL2 diff (autosync/listing_notes.py, autosync/reading.py, extension/worker.js and tests) with the question: what is held, sent, logged or stored differently.",
-  "invoked_as": "Agent (general-purpose) from the PL2 session.",
-  "ran_by": "PL2 (Sonnet 5.5, worker for Kartaan Control); the reader wrote none of the code.",
-  "scope": "95eb80c (v0.1.27) to 4617c80, all added lines; the version move after it changes the version string and BUILD name only.",
+  "commit": "c595ae6",
+  "run_at": "4 Nov 2026 (AS3 round A).",
+  "tool": "Opus 5.5 general-purpose sub-agent, read-only, cso lens, over git diff f37931e..78a7554 (autosync/nightly.py, ledger_sheet.py, start.py, their checks, pm_check.yml); c595ae6 after it is a checks-only commit.",
+  "invoked_as": "Agent (general-purpose) from the AS3 session.",
+  "ran_by": "AS3 (Sonnet 5.5, worker for Kartaan Control); the reader wrote none of the code.",
+  "scope": "f37931e (v0.1.28) to c595ae6, all added lines; the version move after it changes the version string and BUILD name only.",
   "found": [
-    {"severity": "MED", "finding": "The new run-log grouping split row reasons only on 'line N (who): why'. Readers that write 'line N: why' (orders, returns, claims, ads, views) would each print every refused row, so a changed platform format could put thousands of cell values (order ids, SKUs, campaign names) into the Actions log.", "fixed": true, "fix": "autosync/reading.py _every_reason: a pattern for both label shapes, at most 10 reasons, each cut at 200 characters, with a count of the rest; two checks including a 5000-row flood."},
-    {"severity": "LOW", "finding": "A could-not-read entry is moved to 'ignored' on the phrase 'has no day in its name'; a file whose own name contains that phrase and failed for another reason would be hidden.", "fixed": false, "why": "Needs a name chosen by an attacker inside the seller's own Drive, and the file is still never read; a Drive file name is already shown in the log."},
-    {"severity": "LOW", "finding": "extension/worker.js noteAFile(chrome, fileName): fileName comes from the recipe inside the extension, not from page input; it is cut at 200 characters, at most 200 files, and surfaces only in the ask's files_landed as landed files already do.", "fixed": false, "why": "Nothing new is stored or exposed; no code is built from it."}
+    {"severity": "LOW", "finding": "what_needs_a_look counts FAULT_WORDS anywhere in the night's lines, so a data value containing one can inflate a count or make the run yellow.", "fixed": false, "why": "Output is fixed constants plus integers only; no data text reaches the ::warning:: line, so nothing can be forged. Worst case is a false yellow."},
+    {"severity": "LOW", "finding": "Lines printed straight to the screen (ALARM, how_the_night_ends) are not in `said`, so a fault word printed only there is not counted.", "fixed": false, "why": "Coverage, not security; same as before this round."}
   ],
-  "checked_no_finding": ["No secret, token or address added.", "manifest.json permissions unchanged (only the version string moves).", "The dash fix blanks only the recommended price; a dash for the current price is still refused.", "No new log line carries a customer name, phone or address: reasons, row labels (line, SKU, catalogue id or product title) and a Drive file name only."],
+  "checked_no_finding": [
+    "No secret, token, customer name, phone, address or order content in any new line: kind words and counts only, shape enforced by a check.",
+    "::warning:: text built only from constants and integers; no injection via newline or ::.",
+    "No new Drive or network read/write; tidy_the_drive unchanged, only its return value kept.",
+    "Exit code unchanged: the block prints after code is final and never changes it.",
+    "The OLDER line keeps the same row text as before, now once per file (less exposure); typed-over rows are still listed one by one.",
+    "pm_check.yml: one exact full-sha line added to the accepted list; permissions and actions untouched (read by a separate reviewer: clean)."
+  ],
   "sec2_rows": "AutoSync SEC2 rows untouched by this round. Row S1 (pin tag-pinned actions in pm_check.yml and extension-zip.yml) stays open."
 }
