@@ -190,6 +190,40 @@ body {
   border-color: var(--danger-border);
 }
 
+/* PN2a: the "needs you" box. Amber from the ERP's own warn tokens; the count is the danger red. */
+.p-needs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px;
+  border: 1px solid var(--warn);
+  border-radius: var(--radius);
+  background: var(--warn-bg);
+}
+
+.p-count {
+  min-width: 22px;
+  padding: 0 7px;
+  border-radius: 11px;
+  background: var(--danger);
+  color: var(--on-danger);
+  font-weight: 700;
+  text-align: center;
+}
+
+.p-hint {
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--text-muted);
+  border-radius: 50%;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-style: italic;
+  line-height: 18px;
+  text-align: center;
+  cursor: help;
+}
+
 .p-actions {
   display: flex;
   flex-wrap: wrap;

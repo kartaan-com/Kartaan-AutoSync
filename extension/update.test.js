@@ -92,6 +92,12 @@ check('and so is another account releases on GitHub, which the banner would lend
   await theUpdateNotice(chrome, { installed: '0.1.17', fetch: counting, now: 20 + CHECK_EVERY_MS });
   await new Promise((resolve) => setTimeout(resolve, 20));
   check('and a day later it asks again', asks === 2);
+  await theUpdateNotice(chrome, { installed: '0.1.17', fetch: counting, now: 30 + CHECK_EVERY_MS });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  check('PN2a: a fresh answer is NOT asked for again on an ordinary poll', asks === 2);
+  await theUpdateNotice(chrome, { installed: '0.1.17', fetch: counting, now: 40 + CHECK_EVERY_MS, opened: true });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  check('PN2a: but it is asked again every time the panel is opened', asks === 3);
 }
 
 {
@@ -126,7 +132,7 @@ check('and so is another account releases on GitHub, which the banner would lend
   check('and three numbered install lines follow it', /\n1\. .+\n2\. .+\n3\. .+/.test(top));
 }
 
-const EXPECTED = 26;
+const EXPECTED = 28;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;
