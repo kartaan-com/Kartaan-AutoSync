@@ -2402,13 +2402,17 @@ check('report table: null night gives null', theReportTable(null, () => '') === 
   const { whyAlreadyLanded, LAST_LANDED } = await import('./nightly.js');
   const night = { latestDay: '2026-11-03', canGoBack: ['fk_claims'] };
   check('R165: a closed day already landed is not asked again, and the words say why',
-    String(whyAlreadyLanded(night, 'fk_claims', '2026-11-02', ['2026-11-02'])).includes('already in your Drive'));
+    String(whyAlreadyLanded(night, 'fk_claims', '2026-11-02', ['2026-11-02'])).includes('already fetched'));
   check('R165: a day that has not landed is asked', whyAlreadyLanded(night, 'fk_claims', '2026-11-02', ['2026-11-01']) === null);
   check('R165: a report that cannot go back (a snapshot) is asked again', whyAlreadyLanded(night, 'az_inventory', '2026-11-02', ['2026-11-02']) === null);
   check('R165: a day after the newest closed day is asked again', whyAlreadyLanded(night, 'fk_claims', '2026-11-04', ['2026-11-04']) === null);
   check('R165: a collection from an ask already made goes ahead', whyAlreadyLanded(night, 'fk_claims', '2026-11-02', ['2026-11-02'], true) === null);
   check('R165: no list of landed days, or no newest day, asks as before',
     whyAlreadyLanded(night, 'fk_claims', '2026-11-02', undefined) === null && whyAlreadyLanded({ canGoBack: ['fk_claims'] }, 'fk_claims', '2026-11-02', ['2026-11-02']) === null);
+
+  check('R165: a typed range is skipped only when every day of it has landed',
+    whyAlreadyLanded(night, 'fk_claims', '2026-11-02', ['2026-11-02'], false, ['2026-10-31', '2026-11-01', '2026-11-02']) === null
+    && whyAlreadyLanded(night, 'fk_claims', '2026-11-02', ['2026-10-31', '2026-11-01', '2026-11-02'], false, ['2026-10-31', '2026-11-01', '2026-11-02']) !== null);
 
   const browser = installFakeChrome();
   const walk = aWalkThat();
@@ -2419,10 +2423,10 @@ check('report table: null night gives null', theReportTable(null, () => '') === 
   await carryTheNightOn(browser.chrome, { ...walk, at: 2 });
   const second = await theNight(browser.chrome);
   check('R165: a second run for a landed day starts no walk and says why',
-    walk.started.length === 0 && second.done.some((one) => one.reportId === 'fk_claims' && String(one.say).includes('already in your Drive')));
+    walk.started.length === 0 && second.done.some((one) => one.reportId === 'fk_claims' && String(one.say).includes('already fetched')));
 }
 
-const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3 + 1 + 4 + 3 + 2 + 2 + 2 + 1 + 7;
+const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3 + 1 + 4 + 3 + 2 + 2 + 2 + 1 + 8;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

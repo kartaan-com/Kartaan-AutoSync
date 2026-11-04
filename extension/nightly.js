@@ -698,11 +698,12 @@ export function whyOnlyItsNewestDay(night, reportId, day) {
  * -- inventory, listings, pricing -- are not), only a day up to the newest closed one (never the day still being filled), and never a report
  * being collected from an ask already made. `landedDays` is what `rememberLastLanded` keeps for the report. Answers the words, or null.
  */
-export function whyAlreadyLanded(night, reportId, day, landedDays, collecting = false) {
+export function whyAlreadyLanded(night, reportId, day, landedDays, collecting = false, needed = [day]) {
   if (collecting || !night || !night.latestDay || !day) return null;
   if (!(night.canGoBack || []).includes(reportId) || String(day) > String(night.latestDay)) return null;
-  if (!(landedDays || []).includes(String(day))) return null;
-  return `${reportId} for ${day} is already in your Drive, so it was not fetched again.`;
+  /* A typed range is one walk for all its days (`needed`): skipped only when EVERY day of it has landed. */
+  if (!needed.every((one) => (landedDays || []).includes(String(one)))) return null;
+  return `${reportId} for ${day} was already fetched (it landed in your Drive, or the platform had nothing for it), so it was not fetched again.`;
 }
 
 export function whyItCannotBeAskedFor(night, reportId, collecting = false) {
@@ -1607,6 +1608,7 @@ async function startTheNextOne(chrome, { startAWalk, at, tellKartaan = null }) {
     // eslint-disable-next-line no-await-in-loop
     const alreadyThere = whyAlreadyLanded(
       night, next, day, ((await chrome.storage.local.get(LAST_LANDED))[LAST_LANDED] || {})[next], Boolean(askedAlready),
+      ASKS_A_RANGE.includes(next) && (night.days || []).length > 1 && day === [...night.days].sort().pop() ? night.days : [day],
     );
     if (alreadyThere) {
       // eslint-disable-next-line no-await-in-loop

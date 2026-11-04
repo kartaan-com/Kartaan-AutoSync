@@ -281,7 +281,8 @@ kept = between_runs.read(waiting.saved[-1])
 check("a report still being built is written down for the next run",
       kept.in_flight == {("az_orders", YESTERDAY.isoformat()): "R-2"})
 check("J288: and it was written down the moment it was asked for, before the run ended",
-      any(between_runs.read(one).in_flight == {("az_orders", YESTERDAY.isoformat()): "R-2"} for one in waiting.saved[:-1]))
+      len(waiting.saved) >= 3 and between_runs.read(waiting.saved[1]).in_flight == {("az_orders", YESTERDAY.isoformat()): "R-2"}
+      and between_runs.read(waiting.saved[1]).last_finished == between_runs.read(waiting.saved[0]).last_finished)
 
 landed_now = Harness(a_record(in_flight={("az_orders", YESTERDAY.isoformat()): "R-1"}))
 landed_now.go()
