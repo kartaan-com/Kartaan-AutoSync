@@ -17,7 +17,7 @@ import {
   theHourItRuns, whyThatIsNotATimeOfDay, wireUp,
 } from './background.js';
 import {
-  RECHECK_ALARM, carryTheNightOn, clearNamedNeedsYouEntries, howTheNightWent, setTheRecheckClock,
+  RECHECK_ALARM, carryTheNightOn, clearNamedNeedsYouEntries, howTheNightWent, rememberLastLanded, setTheRecheckClock,
   startTheNight, theDay, theNight, theRecheckSync, theRunLog, whatIsBeingRechecked, whatIsPaused,
   whatNeedsYou,
 } from './nightly.js';
@@ -25,7 +25,7 @@ import {
   WALK_IN_HIS_OWN_WINDOW, closeOurOwn, goTo, routeInThePage, takeTheFile, watchForDownloads,
 } from './doors.js';
 import {
-  aDriveToken, aWayOfAsking, addARowTo, landTheFile, recordWhatLanded, theKartaanFolder, whatIsHeldFor,
+  aDriveToken, aWayOfAsking, addARowTo, landTheFile, recordWhatLanded, theKartaanFolder, theKartaanFolderIfThere, whatIsHeldFor,
 } from './drive.js';
 import { tellFinishedAndAlert } from './kartaan.js';
 import { AI_ALARM, aiState, keepWatching, makeThePort, noteAFile, setTheSwitch } from './bridge.js';
@@ -333,6 +333,15 @@ const addOneRow = async ({ reportId, fileName, header, row, forTheDay }) => {
   const added = await addARowTo(chrome, ask, { reportId, fileName, inside, header, row, forTheDay, layout });
   /* R162: the day's file is kept against the AI's ask that is running, as a landed file is, so its result can say the report landed. */
   await noteAFile(chrome, fileName);
+  /* PS1 item 11: the days the file now holds are remembered as landed, as `afterALanding` does for a fetched file, or status says "never landed" (az_health, me_views on the HP 4 Nov). One at a time: see `afterALanding`. */
+  try {
+    // eslint-disable-next-line no-await-in-loop
+    for (const day of added.days || []) await rememberLastLanded(chrome, reportId, day);
+  } catch (wrong) {
+    // The row is already in Drive: a storage hiccup here must not turn a written day into a failure.
+    // eslint-disable-next-line no-console
+    console.warn(`The days written could not be remembered in the extension's own record: ${wrong && wrong.message}`);
+  }
   /* **A RUNNING LIST IS RECORDED PER DAY BY LOOKING INSIDE IT** -- the days the file now holds, not the day
    * it was last touched (the old extension did exactly this). */
   await writeItDown(ask, layout, inside, theLinesFor({
@@ -348,6 +357,19 @@ const heldOnes = async ({ reportId }) => {
   const layout = await theLayout();
   const inside = await theKartaanFolder(chrome, ask, layout);
   return whatIsHeldFor(chrome, ask, { reportId, inside, layout });
+};
+
+/* **THE STATUS'S OWN LOOK AT DRIVE (AS3 round D): never makes the Kartaan folder, finds it once, and keeps what Drive said for ten minutes**, so an AI asking for the status often costs Drive one sweep, not one per call. A refusal is not kept. */
+let heldQuietly = { at: 0, inside: undefined, byReport: new Map() };
+const heldOnesForStatus = async ({ reportId }) => {
+  if (Date.now() - heldQuietly.at > 10 * 60 * 1000) heldQuietly = { at: Date.now(), inside: undefined, byReport: new Map() };
+  if (heldQuietly.byReport.has(reportId)) return heldQuietly.byReport.get(reportId);
+  const ask = aWayOfAsking(chrome, { fetch: (...args) => fetch(...args) });
+  const layout = await theLayout();
+  if (heldQuietly.inside === undefined) heldQuietly.inside = await theKartaanFolderIfThere(chrome, ask, layout);
+  const names = heldQuietly.inside ? await whatIsHeldFor(chrome, ask, { reportId, inside: heldQuietly.inside, layout }) : [];
+  heldQuietly.byReport.set(reportId, names);
+  return names;
 };
 
 /* **THE RECIPE BOOK, READ OUT OF THE EXTENSION'S OWN FILE.** The page half
@@ -468,6 +490,7 @@ const answerThePanelsAsk = async (asked) => answerThePanelsQuestion(chrome, {
 const theBridgeParts = {
   theBook,
   panelAnswer: answerThePanelsAsk,
+  whatIsHeld: heldOnesForStatus,
   openThePort: () => thePort.open(),
   closeThePort: () => thePort.close(),
   isConnected: () => thePort.isOpen(),

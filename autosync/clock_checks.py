@@ -305,8 +305,8 @@ ran_the_day_before_yesterday = tool.LastRun(started=datetime(2026, 8, 27, 18, 40
 check("a tick at 00:06 that finds yesterday without a run is the late evening tick, and runs",
       answered(lambda: tool.why_not_now(ran_the_day_before_yesterday, LATE_AT)) is None)
 ran_yesterday = tool.LastRun(started=datetime(2026, 8, 28, 23, 30), finished=datetime(2026, 8, 28, 23, 45))
-check("but a tick at 00:06 when yesterday did run is refused as too early",
-      "fetching is set for" in (answered(lambda: tool.why_not_now(ran_yesterday, LATE_AT)) or ""))
+check("but a tick at 00:06 when yesterday did run is refused, saying that evening already ran (PS1-1: no longer 'too early')",
+      "already ran (finished 23:45)" in (answered(lambda: tool.why_not_now(ran_yesterday, LATE_AT)) or ""))
 check("and a tick at 07:00 is refused even though yesterday had no run (it is not a late evening tick)",
       answered(lambda: tool.why_not_now(ran_the_day_before_yesterday, datetime(2026, 8, 29, 7, 0))) is not None)
 check("and a setting that makes no sense still stops the run, late tick or not",
@@ -325,6 +325,14 @@ check("after a late run on 2 Nov at 00:30, the on-time tick of 2 Nov at 22:00 ru
 check("after a late run on 2 Nov at 00:30, a second tick at 00:50 the same night is refused",
       answered(lambda: tool.why_not_now(late_run, datetime(2026, 11, 2, 0, 50))) is not None)
 ran_2nd_evening = tool.LastRun(started=datetime(2026, 11, 2, 22, 0), finished=datetime(2026, 11, 2, 22, 20))
+check("PS1-1: and it says that evening already ran, when it finished, and that nothing is to be done -- not 'too early'",
+      (lambda said: "2026-11-02 evening's tick" in said and "already ran (finished 22:20)" in said and "Nothing to do" in said)(
+          answered(lambda: tool.why_not_now(ran_2nd_evening, datetime(2026, 11, 3, 0, 40))) or ""))
+check("PS1-1 review: a setting that makes no sense is still said as such, not as a late tick",
+      "started late by GitHub" not in (answered(lambda: tool.why_not_now(ran_2nd_evening, datetime(2026, 11, 3, 0, 40), 25)) or "started late by GitHub"))
+_ran_by_hand = tool.LastRun(started=datetime(2026, 11, 2, 15, 0), finished=datetime(2026, 11, 2, 15, 10))
+check("PS1-1 review: and a daytime tick before the hour after a hand run is the plain answer, not a late tick",
+      "started late by GitHub" not in (answered(lambda: tool.why_not_now(_ran_by_hand, datetime(2026, 11, 2, 16, 0), 18)) or "started late by GitHub"))
 check("after 2 Nov's 22:00 run, a late tick at 00:40 on 3 Nov (the same evening's second tick) is refused",
       answered(lambda: tool.why_not_now(ran_2nd_evening, datetime(2026, 11, 3, 0, 40))) is not None)
 check("after a late run on 2 Nov at 00:30, a late tick at 00:40 on 3 Nov (2 Nov's evening never ran) runs",
@@ -363,7 +371,7 @@ check("and a run at 22:00 on 2 Nov is for 2 Nov",
 # before the tally now, which is the only place it covers everything.
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 78 + 6 + 7 + 1 + 3 + 2
+EXPECTED = 78 + 6 + 7 + 1 + 3 + 2 + 1 + 2
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

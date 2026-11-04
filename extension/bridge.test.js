@@ -85,6 +85,32 @@ const keepAsks = (r, list) => r.chrome.storage.local.set({ [AI_ASKS]: list });
 const nameOf = (id) => BOOK.reports.find((x) => x.id === id).name;
 
 {
+  // AS3 round D: an empty notebook falls back to Drive's own file names; a full one is believed and Drive is not asked.
+  const r = rig();
+  await switchedOn(r);
+  r.state.reports = [
+    { id: 'az_health', name: 'AZ Health', platform: 'amazon', canBeFetched: true, state: '' },
+    { id: 'me_views', name: 'ME Views', platform: 'meesho', canBeFetched: true, state: '' },
+    { id: 'fk_orders', name: 'FK Orders', platform: 'flipkart', canBeFetched: true, state: '' },
+    { id: 'me_orders', name: 'ME Orders', platform: 'meesho', canBeFetched: true, state: '' },
+  ];
+  await r.chrome.storage.local.set({ [LAST_LANDED]: { fk_orders: ['2026-05-30'] } });
+  const asked = [];
+  r.parts.whatIsHeld = async ({ reportId }) => {
+    asked.push(reportId);
+    if (reportId === 'me_orders') throw new Error('Drive said no');
+    return reportId === 'az_health' ? ['amazon_az_health_2026-10-22.csv', 'amazon_az_health_2026-10-01_to_2026-11-02.csv', 'notes.txt'] : ['meesho_me_views.csv'];
+  };
+  const s = (await call(r, 'autosync_status', {})).result;
+  const day = (id) => s.reports.find((x) => x.id === id).last_landed_day;
+  check('AS3D: an empty notebook shows the newest day in the Drive file names', day('az_health') === '2026-11-02');
+  check('AS3D: a Drive name with no day, or a Drive refusal, leaves it null (never a crash)', day('me_views') === null && day('me_orders') === null);
+  check('AS3D: a report the notebook knows is believed and Drive is not asked about it', day('fk_orders') === '2026-05-30' && !asked.includes('fk_orders'));
+  delete r.parts.whatIsHeld;
+  check('AS3D: with no way to look at Drive the status still answers', (await call(r, 'autosync_status', {})).result.reports.length === 4);
+}
+
+{
   check('the tools AutoSync answers are exactly the four the bridge lists', BRIDGE_TOOLS.join() === 'autosync_status,autosync_run,autosync_result,autosync_reload');
   check('the helper is the shared Kartaan Bridge host', HOST === 'com.kartaan.bridge');
 }
@@ -946,6 +972,9 @@ const refuses = async (name, args, words, setup = null) => {
   const worker = readFileSync(new URL('worker.js', here), 'utf8');
   check('a day written as one row (me_views, az_health) is kept against the running ask like a landed file, so its result does not say "no outcome" (R162)',
     /addARowTo\(chrome[^\n]*\n\s*(\/\*[^*]*\*\/\s*)?await noteAFile\(chrome, fileName\);/.test(worker));
+  check('a day written as one row is remembered as landed for every day the file holds, so status does not say "never landed" (PS1 item 11)',
+    /await noteAFile\(chrome, fileName\);[\s\S]{0,400}try \{[\s\S]{0,80}for \(const day of added\.days \|\| \[\]\) await rememberLastLanded\(chrome, reportId, day\);\s*\} catch/.test(worker)
+    && /\brememberLastLanded\b[^;]*\} from '\.\/nightly\.js'/.test(worker));
   check('the AI switch is a panel-only ask, answered by the panel door', /mayAsk: \[\.\.\.THE_PANEL_ASKS, 'ai-switch'\]/.test(worker));
   const bridge = readFileSync(new URL('bridge.js', here), 'utf8');
   check('the AI door goes through the Run now door and never calls a walk, a Drive or a portal itself', /panelAnswer\(\{ do: 'run-now'/.test(bridge) && !/tabs\.|scripting\.|fetch\(/.test(bridge));

@@ -200,6 +200,20 @@ async function status(chrome, parts) {
   const asks = await refreshTheAsks(chrome, parts);
   const latest = asks.length ? asks[asks.length - 1] : null;
   const going = Boolean(stands.night && !stands.night.finishedAt);
+  /* **THE NOTEBOOK CAN BE EMPTY WHILE DRIVE HOLDS THE FILES (ST2 item 11, seen on the HP 4 Nov: az_health and me_views read "never landed").** Only then, Drive's own file names say the newest day. Looks only; one report's Drive refusal leaves that one at null. */
+  const newestInDrive = async (reportId) => {
+    if (typeof parts.whatIsHeld !== 'function') return null;
+    try {
+      const days = (await parts.whatIsHeld({ reportId })).map((n) => (String(n).match(/\d{4}-\d{2}-\d{2}/g) || []).pop()).filter(Boolean).sort();
+      return days.length ? days.pop() : null;
+    } catch { return null; }
+  };
+  const lastLanded = {};
+  for (const r of stands.reports) {
+    const held = landed[r.id];
+    // eslint-disable-next-line no-await-in-loop
+    lastLanded[r.id] = Array.isArray(held) && held.length ? [...held].sort().pop() : await newestInDrive(r.id);
+  }
   return {
     build: { running: BUILD, version: (chrome.runtime.getManifest && chrome.runtime.getManifest().version) || '' },
     ready_to_run: Boolean(stands.setUp.driveConnectedAt) && (stands.platforms || []).some((one) => one.ready),
@@ -218,7 +232,7 @@ async function status(chrome, parts) {
       can_be_fetched: Boolean(r.canBeFetched) && !r.fetchedBy,
       fetched_with: r.fetchedBy ? (r.broughtBy || '') : '',
       last_run: r.state ? { state: r.state, said: r.say || '' } : null,
-      last_landed_day: Array.isArray(landed[r.id]) && landed[r.id].length ? [...landed[r.id]].sort().pop() : null,
+      last_landed_day: lastLanded[r.id],
     })),
     cannot_be_fetched: (stands.cannotBeFetched || []).map((c) => ({ id: c.id, name: c.name, why: c.why })),
     latest_ask: latest ? slimAsk(book, latest) : null,

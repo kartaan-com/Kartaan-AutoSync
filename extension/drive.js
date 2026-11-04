@@ -759,3 +759,11 @@ export async function recordWhatLanded(chrome, ask, { layout, inside, lines, fil
 export async function theKartaanFolder(chrome, ask, layout) {
   return oneFolder(chrome, ask, layout, layout.kartaan, 'root');
 }
+
+/** **THE KARTAAN FOLDER IF IT IS THERE, AND NEVER MADE BY ASKING (AS3 round D, for the status).** Null when there is none; two of them is refused as `oneFolder` refuses it. */
+export async function theKartaanFolderIfThere(chrome, ask, layout) {
+  const looking = `name = '${asAQuotedValue(layout.kartaan)}' and mimeType = '${FOLDER}' and 'root' in parents and trashed = false`;
+  const found = await everyFile(chrome, ask, looking, `looking for the ${layout.kartaan} folder`);
+  if (found.length > 1) throw new DriveSaidNo(`There are ${found.length} folders called ${layout.kartaan} in the seller's Drive, so nothing was looked at.`);
+  return found.length ? found[0].id : null;
+}

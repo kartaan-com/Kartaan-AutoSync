@@ -233,8 +233,14 @@ def why_not_now(last: LastRun, moment: datetime, not_before_hour: int = NOT_BEFO
         # **ASKED OF THE DAY, NEVER OF HOW LONG AGO.** Twenty-four hours from the
         # last finish walks the floor forward every night by however long the run
         # took, and the night it walks past the tick, the day is lost.
+        if too_early and not why_the_hour_is_no_good(not_before_hour) and moment.hour < LATE_TICK_UNTIL_HOUR:
+            # PS1-1: a late tick (small hours) of an evening that already ran says so, not "too early" (the 3 Nov 01:14 tick).
+            return (
+                f"This is the {_evening_day(moment).isoformat()} evening's tick, started late by GitHub; "
+                f"that evening already ran (finished {last.finished.strftime('%H:%M')}). Nothing to do."
+            )
         if too_early:
-            # A late tick (small hours) of an evening that already ran: the plain "too early" answer, as before.
+            # A bad setting, or a daytime tick before the hour: the plain answer, as before.
             return too_early
         return (
             f"The last run finished at {last.finished.isoformat()}, "

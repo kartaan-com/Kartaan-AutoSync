@@ -49,6 +49,7 @@ import {
   whatIsAlreadyThere,
   whatIsHeldFor,
   theKartaanFolder,
+  theKartaanFolderIfThere,
   thePathFor,
   whatToDoAbout,
   whyItCannotBePut,
@@ -661,6 +662,18 @@ check('and other files in the folder are none of its business',
 }
 
 {
+  /* AS3 round D: the status looks for the Kartaan folder and never makes it. */
+  const browser = installFakeChrome();
+  const none = aDrive({ holds: [] });
+  check('AS3D: looking for the Kartaan folder on a Drive without one finds null and makes nothing',
+    (await theKartaanFolderIfThere(browser.chrome, none.ask, LAYOUT)) === null && none.made.length === 0);
+  const one = aDrive({ holds: [{ id: 'k1', name: 'Kartaan', mimeType: FOLDER, parents: ['root'] }] });
+  check('AS3D: and finds the one that is there', (await theKartaanFolderIfThere(browser.chrome, one.ask, LAYOUT)) === 'k1' && one.made.length === 0);
+  const two = aDrive({ holds: [{ id: 'a', name: 'Kartaan', mimeType: FOLDER, parents: ['root'] }, { id: 'b', name: 'Kartaan', mimeType: FOLDER, parents: ['root'] }] });
+  check('AS3D: and two of them is refused, not guessed', (await said(() => theKartaanFolderIfThere(browser.chrome, two.ask, LAYOUT))).includes('There are 2 folders'));
+}
+
+{
   const browser = installFakeChrome();
   const drive = aDrive({
     holds: [
@@ -834,7 +847,7 @@ check('the same day written again replaces its row, never adds a second (R20 pro
     notThere.length === 0 && almost.asked.length === thePathFor(LAYOUT, 'me_catalog').length);
 }
 
-const EXPECTED = 88 + 4 + 2 + 3;
+const EXPECTED = 88 + 4 + 2 + 3 + 3;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;
