@@ -1,13 +1,21 @@
 {
   "record": "security",
-  "commit": "64b2bf4",
-  "run_at": "4 Nov 2026 (AS6 round 3a).",
-  "tool": "Sonnet 5.5 general-purpose sub-agent, read-only, security lens, over the round's diff (extension/nightly.js, autosync/runner.py, autosync/nightly.py + checks). Later commits tighten one condition and add checks only.",
-  "invoked_as": "Agent (general-purpose) from the AS6 session.",
-  "ran_by": "AS6 (Sonnet 5.5, worker for Kartaan Control); the reader wrote none of the code.",
-  "scope": "v0.1.34 (7fab4d4) to 64b2bf4, all added lines.",
+  "commit": "f6b7850",
+  "run_at": "4 Nov 2026 (AS7).",
+  "tool": "Sonnet 5.5 sub-agent, read-only, security lens (cso-style read of the diff).",
+  "invoked_as": "Agent, by AS7.",
+  "ran_by": "Sub-agent; wrote none of the code.",
+  "scope": "539900a (v0.1.35) to f6b7850",
   "found": [
-    {"severity": "PASS", "finding": "No secret, token, customer name, phone or address in any new text or log line. The mid-run save writes the same fields to the same place as the end-of-run save (no new field; the callback is not saved). The extension skip takes its report id and day only from the night's own list; nothing outside can supply them. No new network call.", "fixed": true, "why": "n/a"},
-    {"severity": "LOW", "finding": "If the mid-run save keeps failing, its fault line repeats once per ask and carries the save's own error text.", "fixed": false, "why": "Log noise only; same exposure as the existing fault lines of the same shape; the save handles no customer data."}
+    {
+      "severity": "PASS",
+      "finding": "No secret, token or customer data read or written; a new read of one Drive file the Python made; anything unreadable means fetch as before.",
+      "fixed": true
+    },
+    {
+      "severity": "MED",
+      "finding": "Storage quota use by the read.",
+      "fixed": true
+    }
   ]
 }

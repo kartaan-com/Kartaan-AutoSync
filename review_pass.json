@@ -1,0 +1,18 @@
+{
+  "written_by": "AS8 (Sonnet 5.5 worker for Kartaan Control) for the version move; AS7 wrote the code being released",
+  "reviewer": "Two fresh Opus 5.5 read-only readers (AS7a code) plus Sonnet 5.5 security reader; AS8 checked the records and the proving result",
+  "independent": false,
+  "if_not_independent_why": "This commit only moves the version number 0.1.35 to 0.1.36 and writes the release records; the code released was read by fresh readers (see release_records/review.json) and proved on GitHub run 41846515179 with 0 survivors.",
+  "read": ["extension/manifest.json", "extension/bridge.js", "release_records/proving.json", "release_records/review.json", "release_records/security.json"],
+  "checked_against_decision_log": true,
+  "decisions_followed": ["D947", "D948", "D933"],
+  "deviation": null,
+  "found": [
+    "Looked for any change besides the version string in manifest.json and bridge.js BUILD: only the one line each moved from 0.1.35 to 0.1.36.",
+    "Looked for a mismatch between manifest version and BUILD: both read 0.1.36.",
+    "Looked at the proving run: 160 tried, 129 caught, 0 survived, no NOT PROVEN line in any part."
+  ],
+  "security": "Nothing new is held or sent by this commit: a version number and three release records with no key, token or customer data.",
+  "could_not_be_checked": ["Whether the extension can see the pipeline file under its drive.file sign-in (not seen live yet); if not, AS7a does nothing and fetches as before."],
+  "verify_instruction": "After the install the AutoSync panel shows version 0.1.36."
+}

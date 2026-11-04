@@ -1,19 +1,14 @@
 {
   "record": "proving",
-  "commit": "64b2bf4",
-  "run_at": "4 Nov 2026 (AS6 round 3a), on GitHub: Proving workflow runs 41828163200 (d6cbd11), 41830039018 (64b2bf4, 8 parts) and 41830920469 (64b2bf4, 16 parts).",
-  "tool": "tools/proving.py with the ERP's tools/prove_checks.py (vendor copy), shared out by line number, joined by tools/proving_join.py.",
-  "invoked_as": "gh workflow run proving.yml --ref as6-r3 -f prove=64b2bf44e61a889a18ae51beca26f62bbf0aa6ec -f against=7fab4d4efd19df3b3b21dc5e5f1f759d0cba1e09 -f parts=16",
-  "ran_by": "AS6 (Sonnet 5.5, worker for Kartaan Control), started with the owner login.",
-  "scope": "Every changed line between 7fab4d4 (v0.1.34) and 64b2bf4.",
+  "commit": "f6b7850",
+  "run_at": "4 Nov 2026 (AS7/AS8), on GitHub: Proving workflow run 41846515179 (8 parts) on f6b7850; earlier runs 41839053073 and 41843229960 found survivors that were answered by checks or by removing redundant lines.",
+  "tool": "tools/proving.py with the ERP's prove_checks.py, joined by tools/proving_join.py.",
+  "invoked_as": "gh workflow run proving.yml (as7-a, parts=8)",
+  "ran_by": "AS7 started it; AS8 (Sonnet 5.5) read the result.",
+  "scope": "Every changed line between 539900a (v0.1.35) to f6b7850.",
   "found": [
-    "First run (d6cbd11): 45 tried, 5 survived (3 on the typed-range condition, nightly.js:1611) and 1 hung and stopped.",
-    "Closed (64b2bf4): the range is judged by theRangeOfTheDays; three whole-night checks; one shown red by hand with the condition replaced.",
-    "Runs on 64b2bf4 (8 parts and 16 parts, same answer): 44 tried, 29 run, 27 caught by a check, 2 ended in a failure to load, 15 would not parse, 1 hung and stopped, 0 survived."
-  ],
-  "stopped_by_time": [
-    "1 change of the 29 run was stopped by the 240 s time limit rather than noticed by a check (counted as caught by the prover; it makes the tool print a COVERAGE line). Same in every run, so deterministic. The artifact does not name it; it is one of the four program lines in that share (autosync/nightly.py:369, autosync/runner.py:81, extension/nightly.js:705 or :1617). Not identified; recorded here rather than hidden."
+    "160 tried, 129 run, 129 caught by a check, 0 crash, 31 would not parse, 1 hung and stopped, 0 survived, 0 accepted. No NOT PROVEN line in any part."
   ],
   "survivors": [],
-  "after_this_record": "The version move (extension/manifest.json, extension/bridge.js BUILD) changes no line the prover tries."
+  "after_this_record": "The version move (manifest.json, bridge.js BUILD) changes no line the prover tries."
 }
