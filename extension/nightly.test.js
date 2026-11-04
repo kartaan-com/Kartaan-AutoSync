@@ -2426,7 +2426,34 @@ check('report table: null night gives null', theReportTable(null, () => '') === 
     walk.started.length === 0 && second.done.some((one) => one.reportId === 'fk_claims' && String(one.say).includes('already fetched')));
 }
 
-const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3 + 1 + 4 + 3 + 2 + 2 + 2 + 1 + 8;
+{
+  /* R165 through the whole night: a typed range of a range report is walked unless EVERY day of it has landed. */
+  const { LAST_LANDED } = await import('./nightly.js');
+  const days = ['2026-10-31', '2026-11-01', '2026-11-02'];
+  for (const [landed, walks, name] of [
+    [['2026-11-02'], 1, 'only its last day landed: walked'],
+    [days, 0, 'every day landed: not walked'],
+  ]) {
+    const browser = installFakeChrome();
+    const walk = aWalkThat();
+    await browser.chrome.storage.local.set({ [LAST_LANDED]: { me_orders: landed } });
+    await startTheNight(browser.chrome, {
+      doing: ['me_orders'], mayAskFor: 0, at: 1, openAt: 'https://x/', panel: 'xuptj', dataDate: '2026-11-02', days, canGoBack: ['me_orders'], latestDay: '2026-11-03',
+    });
+    await carryTheNightOn(browser.chrome, { ...walk, at: 2 });
+    check(`R165: a typed range of three days, ${name}`, walk.started.length === walks);
+  }
+  const apart = installFakeChrome();
+  const walkApart = aWalkThat();
+  await apart.chrome.storage.local.set({ [LAST_LANDED]: { me_orders: ['2026-11-02'] } });
+  await startTheNight(apart.chrome, {
+    doing: ['me_orders'], mayAskFor: 0, at: 1, openAt: 'https://x/', panel: 'xuptj', dataDate: '2026-11-02', days: ['2026-10-30', '2026-11-02'], canGoBack: ['me_orders'], latestDay: '2026-11-03',
+  });
+  await carryTheNightOn(apart.chrome, { ...walkApart, at: 2 });
+  check('R165: two typed days that are not a range are each looked at on their own: the landed one is skipped', walkApart.started.every((one) => one.dataDate !== '2026-11-02'));
+}
+
+const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3 + 1 + 4 + 3 + 2 + 2 + 2 + 1 + 8 + 3;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

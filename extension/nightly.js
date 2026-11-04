@@ -1606,9 +1606,10 @@ async function startTheNextOne(chrome, { startAWalk, at, tellKartaan = null }) {
       continue;
     }
     // eslint-disable-next-line no-await-in-loop
+    const typedRange = ASKS_A_RANGE.includes(next) ? theRangeOfTheDays(night.days) : null;
     const alreadyThere = whyAlreadyLanded(
       night, next, day, ((await chrome.storage.local.get(LAST_LANDED))[LAST_LANDED] || {})[next], Boolean(askedAlready),
-      ASKS_A_RANGE.includes(next) && (night.days || []).length > 1 && day === [...night.days].sort().pop() ? night.days : [day],
+      typedRange && day === typedRange.to ? night.days : [day],
     );
     if (alreadyThere) {
       // eslint-disable-next-line no-await-in-loop
