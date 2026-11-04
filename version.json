@@ -1,5 +1,5 @@
 {
-  "version": "0.1.35",
+  "version": "0.1.36",
   "url": "https://github.com/kartaan-com/Kartaan-AutoSync/releases/latest/download/kartaan-autosync-extension.zip",
-  "notes": "Panel no longer shows a stale run-pass line; one claims file per name; an 'I placed these by hand' button; a second Run now skips a closed day that already landed; each Amazon ask's id is saved when made"
+  "notes": "The extension skips a day the nightly pipeline already brought to your Drive."
 }
