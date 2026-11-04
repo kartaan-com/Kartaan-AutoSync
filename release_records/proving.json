@@ -1,14 +1,15 @@
 {
   "record": "proving",
-  "commit": "6c1952c",
-  "run_at": "5 Nov 2026 (AS8), on GitHub: Proving workflow run 41871101978 (8 parts) on 6c1952c, against d263a82 (v0.1.36).",
-  "tool": "tools/proving.py with the ERP's prove_checks.py (vendor copy), joined by tools/proving_join.py.",
-  "invoked_as": "gh workflow run proving.yml --ref as7b -f prove=6c1952c... -f against=d263a82... -f parts=8",
-  "ran_by": "AS8 (Sonnet 5.5, worker for Kartaan Control).",
-  "scope": "Every changed line between v0.1.36 (d263a82) and 6c1952c.",
+  "commit": "501ab94",
+  "run_at": "5 Nov 2026 00:20 IST (DT1), on the local machine; the GitHub runner cannot prove this change because firestore_checks and listings_checks read the ERP's sync.js, which is not on the runner.",
+  "tool": "tools/proving.py with the ERP's prove_checks.py, KARTAAN=D:/Kartaan-ERP, 2 workers, under long-run.lock.",
+  "invoked_as": "python tools/proving.py --against 5da3dea --workers 2 (run first against e7c9ac4 on the pre-rebase commit e805993, then again after the rebase onto v0.1.37).",
+  "ran_by": "DT1 (Sonnet 5.5, worker for Kartaan Control).",
+  "scope": "Every changed line between v0.1.37 (5da3dea) and 501ab94: firestore.py, firestore_door.py, nightly.py, start.py and their checks.",
   "found": [
-    "Run 41868827006 (c931da4): 32 tried, 2 survived (runner.py:177 snapshot door condition, nightly.js:733 own+pipeline day join) and 1 crash (the new Report field). Answered by a real snapshot test report, two extension checks, and a recorded cannot_load reason for reports.py.",
-    "Run 41871101978 (6c1952c): 32 tried, 30 run, 29 caught by a check, 1 ended in a load crash (recorded in proven_survivors.json), 2 would not parse, 0 hung, 0 survived, 0 accepted."
+    "Both runs: 37 tried, 23 run, 11 caught by a check, 12 ended in a load crash, 14 would not parse, 0 hung, 0 survived, 0 accepted.",
+    "All 48 autosync/*_checks.py files pass on 501ab94.",
+    "The 12 load crashes: the prover ends with 'every deliberate change was either caught or recorded with a reason' and lists no unexplained crash, because it refuses a crash in any file with no written reason in tools/proven_survivors.json (cannot_load). The five changed files with a crash reason are: autosync/firestore.py ('Deleting NOTE_TEXT, which NOTE_FIELDS is built from on the next line, stops the module at import'), autosync/firestore_door.py ('Deleting the typing import leaves the annotations undefined at import'), autosync/nightly.py ('Deleting the line that sets today leaves it undefined for the lines below, a NameError on the first night before any check prints'). The same reason covers a new line of the same kind (a deleted name or import the module or its checks need at load). autosync/start.py has no entry and no crash was reported there. The prover does not print which of the 12 lines each was; the per-change list was not saved."
   ],
   "survivors": [],
   "after_this_record": "The version move (extension/manifest.json, extension/bridge.js BUILD) changes no line the prover tries."
