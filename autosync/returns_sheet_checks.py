@@ -182,8 +182,8 @@ def first_run(m):
     return {
         "made one sheet": w.made == 1 and got == "SHEET-1",
         "exactly the two tabs, in order": list(w.sheets["SHEET-1"]) == ["Receipts", "Log"],
-        "Receipts row 1 is A-M exactly": w.sheets["SHEET-1"]["Receipts"] == HEADER_A and len(HEADER_A) == 13,
-        "Log row 1 is the four columns": w.sheets["SHEET-1"]["Log"] == HEADER_B,
+        "Receipts row 1 is A-M exactly": w.sheets["SHEET-1"].get("Receipts") == HEADER_A and len(HEADER_A) == 13,
+        "Log row 1 is the four columns": w.sheets["SHEET-1"].get("Log") == HEADER_B,
         "it sits in the Kartaan folder": w.files["SHEET-1"]["parents"] == [KARTAAN],
         "one record, exactly sheetId and createdAt": rec is not None and set(rec) == {"sheetId", "createdAt"} and db.writes == 1,
         "the record names the sheet and the creation time in his clock": rec is not None and rec["sheetId"] == "SHEET-1" and rec["createdAt"] == "2026-10-12T10:00:00",
