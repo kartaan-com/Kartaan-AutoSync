@@ -1,21 +1,14 @@
 {
   "record": "security",
-  "commit": "3c578a5",
-  "run_at": "4 Nov 2026 (AS1 round 2, released by AS4).",
-  "tool": "Sonnet 5.5 general-purpose sub-agent, read-only, cso lens, over the round's diff (autosync/runner.py, amazon_door.py + checks); later commits change checks and the survivor list only, plus the second-ask log lines and the `handed` guard, which add no input or output beyond the run log's own fixed words. AS1's own security reader found the unchecked id in a request path (fixed here).",
-  "invoked_as": "Agent (general-purpose) from the AS4 session.",
-  "ran_by": "AS4 (Opus 5.5, worker for Kartaan Control); the reader wrote none of the code.",
-  "scope": "11e6f18 (v0.1.32) to 3c578a5, all added lines.",
+  "commit": "bc08ae5",
+  "run_at": "4 Nov 2026 (AS6 round 2).",
+  "tool": "Sonnet 5.5 general-purpose sub-agent, read-only, security lens, over the round's diff (extension/screen.js, panel.js, bridge.js, drive.js + checks). Later commits add checks and remove code only (the remembered put keeps a file id and a time, no size).",
+  "invoked_as": "Agent (general-purpose) from the AS6 session.",
+  "ran_by": "AS6 (Sonnet 5.5, worker for Kartaan Control); the reader wrote none of the code.",
+  "scope": "v0.1.33 (d9ea6fb) to bc08ae5, all added lines.",
   "found": [
-    {"severity": "LOW", "finding": "The download link Amazon returns is fetched without checking its host or scheme.", "fixed": false, "why": "Pre-existing, not in this diff; no auth header is sent to it; it is Amazon's pre-signed link."},
-    {"severity": "LOW", "finding": "An id Amazon returns is stored unchecked and checked only when used.", "fixed": false, "why": "Safe: checked before every path; a bad one repeats its refusal until the ask expires (3 nights)."}
-  ],
-  "checked_no_finding": [
-    "an_id_fit_for_a_path is applied at both places an id is formatted into a path (REPORT_PATH, DOCUMENT_PATH); no other URL is built from an id.",
-    "The pattern is ASCII-only with fullmatch: no slash, '..', '?', '#', '%', space or newline; a non-string is refused first.",
-    "The refusal names no part of the id; no secret, token or customer data in any new log line.",
-    "The second ask runs once, only for an API snapshot that just landed from an earlier night's ask; it replaces the fresh ask the old code made every night, so rationed calls per night are the same."
-  ],
-  "verdict": "SECURITY PASS",
-  "sec2_rows": "AutoSync SEC2: 'Amazon report ids validated before any request path' closed by this round. Row S1 (pin tag-pinned actions in pm_check.yml and extension-zip.yml) stays open."
+    {"severity": "PASS", "finding": "No secret, customer name, phone or address in any new text. The new panel ask 'clear-needs-you' is reachable only from the extension's own panel page (sender id, top frame and panel.html checked in background.js; not in the relay list or the AI bridge list). No new network call except, later, one Drive GET of a file id this install just put (fields id,size,trashed).", "fixed": true, "why": "n/a"},
+    {"severity": "LOW", "finding": "The in-memory maps in drive.js were never pruned.", "fixed": false, "why": "Bounded by the distinct report+file names per worker lifetime, which is small, and lost when the worker sleeps; the prune line was removed as unprovable dead weight."},
+    {"severity": "LOW", "finding": "The button marks every shown day as landed, so a mistaken click stops those days being fetched again.", "fixed": false, "why": "Panel-only, labelled in words, and the exact days shown are the only ones cleared."}
+  ]
 }

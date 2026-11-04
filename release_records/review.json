@@ -1,18 +1,18 @@
 {
   "record": "review",
-  "commit": "3c578a5",
-  "run_at": "4 Nov 2026 (AS1 round 2, R120 az_suppressed, released by AS4). AS1's independent reviewer and security reader read AS1's patch; AS4's fresh Opus reader reviewed the round with AS4's fixes on v0.1.30, re-read the fix, then verified the proving fixes by deleting lines on a scratch copy.",
+  "commit": "bc08ae5",
+  "run_at": "4 Nov 2026 (AS6 round 2).",
   "tool": "Opus 5.5 general-purpose sub-agents, read-only.",
-  "invoked_as": "Agent (general-purpose), by AS1 and by AS4.",
+  "invoked_as": "Agent (general-purpose), by AS6: a first reader, then a second fresh reader for the fixes.",
   "ran_by": "Sub-agents; the reviewers wrote none of the code they read.",
-  "scope": "11e6f18 (v0.1.32) to 3c578a5: a snapshot report asked one night (az_suppressed) is looked up by report, collected the next night and asked again in the same run; an ask older than 3 nights is asked afresh; the same ask still building keeps its own night; Amazon report and document ids pass a strict pattern before any request path. About 65 program lines (AS1 ~25; AS4 ~40 in pieces each under the 20-line threshold).",
+  "scope": "d9ea6fb (v0.1.33) to bc08ae5: the panel no longer shows a stale 'no run pass is saved' line beside a saved pass; the AI-helper note clears when the helper answers; two lands of one Drive file name create one file; an 'I placed these by hand' panel button clears exactly the shown needs-you days and marks them landed. About 35 program lines, written by AS6 (accepted by Kartaan Control).",
   "found": [
-    {"n": "AS1-R1", "severity": "MED", "finding": "One run a day: ask, collect, ask -> the snapshot landed every second night.", "fixed": true, "fix": "After collecting an earlier night's ask, tonight's is asked in the same run."},
-    {"n": "AS1-R2", "severity": "LOW", "finding": "Re-remembering under today reset the ask's age, so a stuck ask was never asked again.", "fixed": true, "fix": "The same ask keeps its own night; older than SNAPSHOT_ASK_KEPT_DAYS (3) it is asked afresh."},
-    {"n": "AS4-R1", "severity": "MED", "finding": "A stale ask asked afresh that landed at once set off a second ask.", "fixed": true, "fix": "The second ask only when an old ask was really handed to the door; check added."},
-    {"n": "AS4-R2", "severity": "LOW", "finding": "The second ask's outcome was not logged.", "fixed": true, "fix": "A working or warning line; 2 checks."},
-    {"n": "AS4-R3", "severity": "MED (found by GitHub proving runs 41784678946, 41786813080)", "finding": "4 changes no check noticed and 15 that crashed the checks files with no recorded reason (bare run and door calls in the checks).", "fixed": true, "fix": "Every run and door call in the checks wrapped so a throwing one turns a check red; 6 checks added; the two real import crashes (runner.py `from reports import`, amazon_door.py `import re`) recorded under cannot_load after a reviewer tried them on a scratch copy."},
-    {"n": "AS4-R4", "severity": "LOW", "finding": "A cancelled or failed old ask is not asked again the same night; read_status does not compare the returned reportType; `import re` sits in its own group.", "fixed": false, "why": "One night without the picture at worst; no wrong data; style only."}
+    {"n": "AS6-R1", "severity": "MED", "finding": "The clear ask cleared whatever was on the list at click time, not the days the panel showed.", "fixed": true, "fix": "The panel sends the exact days; only those are cleared; a check that a later day stays."},
+    {"n": "AS6-R2", "severity": "MED", "finding": "The ask could cross with a running night's own writes to the same lists.", "fixed": true, "fix": "Refused while a run is going; check added."},
+    {"n": "AS6-R3", "severity": "MED", "finding": "The 5-minute memory of a put file could count a file the seller had since deleted or put in the bin.", "fixed": true, "fix": "The remembered id is checked with Drive (trashed or gone = not counted); check added for a binned file."},
+    {"n": "AS6-R4", "severity": "LOW", "finding": "Unpruned maps; a lost space in 'Kartaan, <when>'.", "fixed": true, "fix": "Space restored; the unproven prune and a never-read size removed."},
+    {"n": "AS6-R5", "severity": "MED (found by GitHub proving runs 41818310079, 41820427434)", "finding": "17 changes no check noticed (button wiring lines, dead lines).", "fixed": true, "fix": "Checks added for each wiring line and shown red when the line is removed; dead lines removed."},
+    {"n": "AS6-R6", "severity": "LOW", "finding": "The queue key is report + file name while the memory key is folder + file name; a run starting between the 'run going' check and the write could cross.", "fixed": false, "why": "Two reports never share a folder and file name; the crossing window is milliseconds and loses at worst a noise entry."}
   ],
-  "known_gaps": ["Whether Amazon India answers az_suppressed at all is seen only on the next real nights."]
+  "known_gaps": ["Why two claims files were written 15 s apart was not proven; the fix removes the cause visible in the code (list-then-put with no waiting, listing lag)."]
 }
