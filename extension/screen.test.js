@@ -2558,7 +2558,10 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   installFakeBrowser();
   const { chrome } = installFakeChrome();
   const done = [];
-  const panel = buildThePanel(document.body, { clearNeedsYou: () => done.push('clear') });
+  const panel = buildThePanel(document.body, { clearNeedsYou: (days) => done.push(JSON.stringify(days)) });
+  check('J016: the button starts hidden and sits among the run buttons', panel.clearNeedsYou.hidden === true
+    && [...panel.actions.children].includes(panel.clearNeedsYou));
+  check('J016: the panel may ask for it', THE_PANEL_ASKS.includes('clear-needs-you'));
   const stands = await howItStands(chrome, { book: BOOK, now: Date.now() });
   const said = 'Kartaan was not told this sync finished, because no run pass is saved. The run still runs on its own schedule.';
   showHowItStands(panel, { ...stands, kartaan: { saved: true, last: { at: 1, kind: 'finished', said } } });
@@ -2570,7 +2573,15 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   showHowItStands(panel, { ...stands, needsYou: [{ reportId: 'fk_claims', dataDate: '2026-10-01', beyondReach: true }] });
   check('J016: with a day that needs him, the button shows', panel.clearNeedsYou.hidden === false);
   panel.clearNeedsYou.click();
-  check('J016: and pressing it asks', done.join() === 'clear');
+  check('J016: and pressing it asks, naming exactly the days that were shown',
+    done.join() === '[{"reportId":"fk_claims","dataDate":"2026-10-01"}]');
+  showHowItStands(panel, { ...stands, needsYou: undefined });
+  panel.clearNeedsYou.click();
+  check('J016: with no list shown, it names no days', done[1] === '[]');
+  const bare = buildThePanel(document.body, {});
+  let threw = false;
+  try { bare.clearNeedsYou.click(); } catch (wrong) { threw = true; }
+  check('J016: a panel with nothing wired to the button does not fall over when it is pressed', !threw);
 
   const parts = { book: BOOK, now: () => Date.UTC(2026, 10, 4, 3, 0), carryOn: async () => {} };
   await chrome.storage.local.set({

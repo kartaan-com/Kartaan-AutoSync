@@ -578,7 +578,6 @@ export function landTheFile(chrome, ask, one) {
   const done = (queued.get(key) || Promise.resolve()).then(() => landOneFile(chrome, ask, one));
   const tail = done.catch(() => undefined);
   queued.set(key, tail);
-  tail.then(() => { if (queued.get(key) === tail) queued.delete(key); });
   return done;
 }
 const queued = new Map();
@@ -602,7 +601,6 @@ async function landOneFile(chrome, ask, { reportId, fileName, inside, body: give
       there = await (await answered(chrome, await ask({ address: `${FILES}/${encodeURIComponent(recent.id)}?fields=id,size,trashed`, how: 'GET' }), 'checking the file just put')).json();
     } catch (ignored) { /* gone or unreadable: not counted */ }
     if (there && there.trashed === false) already.push({ id: recent.id, name: fileName, size: there.size });
-    else justPut.delete(`${folderId}/${fileName}`);
   }
   const doWhat = whatToDoAbout(fileName, already);
   if (doWhat === 'somebody has to look') {
@@ -649,11 +647,10 @@ async function landOneFile(chrome, ask, { reportId, fileName, inside, body: give
       body,
     });
     const landed = await (await answered(chrome, reply, `replacing ${fileName}`)).json();
-    if (landed && landed.id) justPut.set(`${folderId}/${fileName}`, { id: landed.id, size: landed.size, at: Date.now() });
     return { ...landed, alreadyThere: already };
   }
   const put = await putTheFile(chrome, ask, landing, body);
-  if (put && put.id) justPut.set(`${folderId}/${fileName}`, { id: put.id, size: put.size, at: Date.now() });
+  justPut.set(`${folderId}/${fileName}`, { id: put.id, at: Date.now() });
   return { ...put, alreadyThere: already };
 }
 
