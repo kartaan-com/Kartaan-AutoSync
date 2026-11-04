@@ -1,5 +1,5 @@
 {
-  "version": "0.1.33",
+  "version": "0.1.35",
   "url": "https://github.com/kartaan-com/Kartaan-AutoSync/releases/latest/download/kartaan-autosync-extension.zip",
-  "notes": "Stops cleanly when the database allowance is used up; status shows the last landed day from Drive; one-row reports remember their days; a late night tick says the evening already ran; Amazon suppressed listings collected every night"
+  "notes": "Panel no longer shows a stale run-pass line; one claims file per name; an 'I placed these by hand' button; a second Run now skips a closed day that already landed; each Amazon ask's id is saved when made"
 }
