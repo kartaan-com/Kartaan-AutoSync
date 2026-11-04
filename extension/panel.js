@@ -75,6 +75,11 @@ const parts = buildThePanel(document.body, {
     saySomething(parts, (said && said.wrong) || 'Resumed.');
     await refresh();
   },
+  clearNeedsYou: async (days) => {
+    const said = await ask({ do: 'clear-needs-you', days });
+    saySomething(parts, (said && said.wrong) || `${(said && said.cleared) || 0} day${said && said.cleared === 1 ? '' : 's'} marked as placed by hand.`);
+    await refresh();
+  },
   saveTheTicks: async (reportIds) => {
     const said = await ask({ do: 'save-the-ticks', reportIds });
     if (said && said.wrong) saySomething(parts, said.wrong);

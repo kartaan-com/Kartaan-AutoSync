@@ -571,12 +571,39 @@ async function inTwoRequests(chrome, ask, landing, body) {
  * Drive and a report that reached the browser are the same report, and the
  * runner reads one list.
  */
-export async function landTheFile(chrome, ask, { reportId, fileName, inside, body: given, layout }) {
+export function landTheFile(chrome, ask, one) {
+  /* **R166: ONE FILE NAME LANDS ONE AT A TIME.** Two lands of one name used to both list the folder before either had put, and both put
+   * (two claims files 15 s apart). The second now waits for the first, and also knows what the first put (see `justPut`). */
+  const key = `${one.reportId}/${one.fileName}`;
+  const done = (queued.get(key) || Promise.resolve()).then(() => landOneFile(chrome, ask, one));
+  const tail = done.catch(() => undefined);
+  queued.set(key, tail);
+  tail.then(() => { if (queued.get(key) === tail) queued.delete(key); });
+  return done;
+}
+const queued = new Map();
+/** What this install put a moment ago, kept for FIVE MINUTES: Drive's folder listing can lag behind a put, so a second land of the same name
+ *  that listed nothing would put a second file. Remembered by folder and name. */
+const justPut = new Map();
+const REMEMBERED_FOR_MS = 5 * 60 * 1000;
+
+async function landOneFile(chrome, ask, { reportId, fileName, inside, body: given, layout }) {
   /* **A ZIP HOLDING ONE SPREADSHEET IS OPENED FOR REAL BEFORE IT LANDS -- HIS RULING,
    * 2026-09-16** (see `unzip.js`). Every file that reaches the Drive passes here. */
   const body = await theSpreadsheetInside(fileName, given);
   const folderId = await folderAt(chrome, ask, layout, thePathFor(layout, reportId), inside);
   const already = await whatIsAlreadyThere(chrome, ask, folderId);
+  const recent = justPut.get(`${folderId}/${fileName}`);
+  if (recent && Date.now() - recent.at >= REMEMBERED_FOR_MS) justPut.delete(`${folderId}/${fileName}`);
+  else if (recent && !already.some((one) => one.name === fileName)) {
+    /* The remembered file counts only if Drive still has it and it is not in the bin (the seller may have deleted it since). */
+    let there = null;
+    try {
+      there = await (await answered(chrome, await ask({ address: `${FILES}/${encodeURIComponent(recent.id)}?fields=id,size,trashed`, how: 'GET' }), 'checking the file just put')).json();
+    } catch (ignored) { /* gone or unreadable: not counted */ }
+    if (there && there.trashed === false) already.push({ id: recent.id, name: fileName, size: there.size });
+    else justPut.delete(`${folderId}/${fileName}`);
+  }
   const doWhat = whatToDoAbout(fileName, already);
   if (doWhat === 'somebody has to look') {
     /* **NOT TIDIED UP SILENTLY.** Replacing one of them leaves the others, and
@@ -622,9 +649,11 @@ export async function landTheFile(chrome, ask, { reportId, fileName, inside, bod
       body,
     });
     const landed = await (await answered(chrome, reply, `replacing ${fileName}`)).json();
+    if (landed && landed.id) justPut.set(`${folderId}/${fileName}`, { id: landed.id, size: landed.size, at: Date.now() });
     return { ...landed, alreadyThere: already };
   }
   const put = await putTheFile(chrome, ask, landing, body);
+  if (put && put.id) justPut.set(`${folderId}/${fileName}`, { id: put.id, size: put.size, at: Date.now() });
   return { ...put, alreadyThere: already };
 }
 

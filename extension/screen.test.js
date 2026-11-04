@@ -2552,6 +2552,52 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
     !threw && fresh.events.children.length === 1 && /Nothing has run yet/.test(fresh.events.children[0].textContent));
 }
 
+/* ------------------------------------------------- AS6 round 2: R160, R166 / J016 */
+
+{
+  installFakeBrowser();
+  const { chrome } = installFakeChrome();
+  const done = [];
+  const panel = buildThePanel(document.body, { clearNeedsYou: () => done.push('clear') });
+  const stands = await howItStands(chrome, { book: BOOK, now: Date.now() });
+  const said = 'Kartaan was not told this sync finished, because no run pass is saved. The run still runs on its own schedule.';
+  showHowItStands(panel, { ...stands, kartaan: { saved: true, last: { at: 1, kind: 'finished', said } } });
+  check('R160: a "no run pass is saved" line is not shown beside a pass that is saved', panel.kartaanSaid.textContent === '');
+  showHowItStands(panel, { ...stands, kartaan: { saved: false, last: { at: 1, kind: 'finished', said } } });
+  check('R160: and is shown when no pass is saved', panel.kartaanSaid.textContent.includes('no run pass is saved'));
+  showHowItStands(panel, { ...stands, needsYou: [] });
+  check('J016: with nothing that needs him, the "placed by hand" button is hidden', panel.clearNeedsYou.hidden === true);
+  showHowItStands(panel, { ...stands, needsYou: [{ reportId: 'fk_claims', dataDate: '2026-10-01', beyondReach: true }] });
+  check('J016: with a day that needs him, the button shows', panel.clearNeedsYou.hidden === false);
+  panel.clearNeedsYou.click();
+  check('J016: and pressing it asks', done.join() === 'clear');
+
+  const parts = { book: BOOK, now: () => Date.UTC(2026, 10, 4, 3, 0), carryOn: async () => {} };
+  await chrome.storage.local.set({
+    'kartaan-autosync-needs-you': [
+      { reportId: 'fk_claims', dataDate: '2026-10-01', beyondReach: true, since: '2026-11-04' },
+      { reportId: 'fk_orders', dataDate: '2026-10-02', triedOn: [], since: '2026-11-03' },
+    ],
+  });
+  const shown = [{ reportId: 'fk_claims', dataDate: '2026-10-01' }, { reportId: 'fk_orders', dataDate: '2026-10-02' }];
+  await chrome.storage.local.set({ 'kartaan-autosync-needs-you': [
+    { reportId: 'fk_claims', dataDate: '2026-10-01', beyondReach: true, since: '2026-11-04' },
+    { reportId: 'fk_orders', dataDate: '2026-10-02', triedOn: [], since: '2026-11-03' },
+    { reportId: 'fk_orders', dataDate: '2026-10-03', triedOn: [], since: '2026-11-04' },
+  ] });
+  const going = await chrome.storage.local.get('kartaan-autosync-night');
+  await chrome.storage.local.set({ 'kartaan-autosync-night': { startedAt: 1, finishedAt: null, done: [], left: [] } });
+  const refused = await answerThePanelsQuestion(chrome, parts, { do: 'clear-needs-you', days: shown });
+  check('J016: not while a run is going', String(refused.wrong).includes('A run is going') && (await chrome.storage.local.get('kartaan-autosync-needs-you'))['kartaan-autosync-needs-you'].length === 3);
+  await chrome.storage.local.remove('kartaan-autosync-night');
+  const got = await answerThePanelsQuestion(chrome, parts, { do: 'clear-needs-you', days: shown });
+  const left = (await chrome.storage.local.get('kartaan-autosync-needs-you'))['kartaan-autosync-needs-you'];
+  const landedDays = (await chrome.storage.local.get('kartaan-autosync-last-landed'))['kartaan-autosync-last-landed'] || {};
+  check('J016: the ask clears only the days named, not one that came after the panel drew', got.cleared === 2 && left.length === 1 && left[0].dataDate === '2026-10-03');
+  check('J016: and marks each as landed so the next night does not write it back',
+    (landedDays.fk_claims || []).includes('2026-10-01') && (landedDays.fk_orders || []).includes('2026-10-02'));
+}
+
 reachedTheEnd = true;
 console.log(`\n${ran} checks, ${failures} failed.`);
 process.exit(failures ? 1 : 0);

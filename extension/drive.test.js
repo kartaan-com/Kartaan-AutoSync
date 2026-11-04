@@ -143,6 +143,8 @@ function aDrive({ holds = [], pageAt = 0, refuseWith = 0, noLocation = false } =
 
     /* **A FILE READ BACK BY ITS ID, AND CONTENTS REPLACED IN PLACE** -- what `recordWhatLanded` does to the
      * extension's own record. The stand-in keeps each file's text so what was written can be read again. */
+    const byId = !uploading && how === 'GET' && address.match(/\/drive\/v3\/files\/([^?/]+)\?fields=id,size,trashed/);
+    if (byId) { const there = holds.find((one) => one.id === byId[1]); return reply(200, { id: byId[1], size: '9', trashed: there ? Boolean(there.trashed) : false }); }
     const readingOne = !uploading && how === 'GET' && address.match(/\/drive\/v3\/files\/([^?/]+)\?alt=media/);
     if (readingOne) {
       const there = holds.find((one) => one.id === readingOne[1]);
@@ -847,7 +849,30 @@ check('the same day written again replaces its row, never adds a second (R20 pro
     notThere.length === 0 && almost.asked.length === thePathFor(LAYOUT, 'me_catalog').length);
 }
 
-const EXPECTED = 88 + 4 + 2 + 3 + 3;
+{
+  /* R166: two lands of one name at once (or 15 s apart while Drive's listing lags) leave ONE new file, the second replacing the first. */
+  const browser = installFakeChrome();
+  const drive = aDrive({ holds: [...theFoldersFor('me_catalog')] });
+  const one = () => landTheFile(browser.chrome, drive.ask, {
+    reportId: 'me_catalog', fileName: 'twice_2026-11-01.csv', inside: 'kartaan', layout: LAYOUT, body: new Uint8Array([1, 2, 3]),
+  });
+  const both = await Promise.all([one(), one()]);
+  check('R166: two quick lands of one name create one file, not two', drive.put.filter((p) => p.how === 'POST').length === 1);
+  check('R166: and the second is answered with the first file, not a new one', both[1].id === 'landed-1');
+  await one();
+  check('R166: a third land a moment later still creates nothing new', drive.put.filter((p) => p.how === 'POST').length === 1);
+  /* The seller put the file in the bin within the five minutes: it no longer counts, so the day is put again, visibly. */
+  const binned = aDrive({ holds: [...theFoldersFor('me_catalog'), { id: 'landed-1', name: 'x', parents: [], trashed: true }] });
+  const binBrowser = installFakeChrome();
+  const again = () => landTheFile(binBrowser.chrome, binned.ask, {
+    reportId: 'me_catalog', fileName: 'binned_2026-11-01.csv', inside: 'kartaan', layout: LAYOUT, body: new Uint8Array([1, 2, 3]),
+  });
+  await again();
+  await again();
+  check('R166: a file put in the bin since is not counted: the day is put again', binned.put.filter((p) => p.how === 'POST').length === 2);
+}
+
+const EXPECTED = 88 + 4 + 2 + 3 + 3 + 4;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

@@ -499,7 +499,11 @@ export function makeThePort(chrome, parts) {
     p.onMessage.addListener((msg) => {
       queue = queue.then(async () => {
         const answered = await answerTheBridge(chrome, parts, { tool: msg && msg.tool, args: msg && msg.args });
-        if (port === p) p.postMessage({ id: (msg && msg.id) ?? null, ...answered });
+        if (port === p) {
+          p.postMessage({ id: (msg && msg.id) ?? null, ...answered });
+          /* R160: the helper has answered, so a line saying it closed or could not be opened is no longer true. */
+          if ((await chrome.storage.local.get(AI_NOTE))[AI_NOTE]) await note(chrome, '');
+        }
       }).catch(() => {});
     });
     p.onDisconnect.addListener(async () => {

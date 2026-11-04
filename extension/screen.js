@@ -36,7 +36,7 @@ import { MANUAL, TOOLTIPS } from './manual.js';
 import {
   theNight, endTheNight, howTheNightWent, theDay, thatOneIsDone, theReportTable, theIdleLine,
   A_DAYS_ALLOWANCE, KEPT_FOR_HIS_OWN_RUNS, inTheNightsOwnLine, spendsTheAllowance, whatNeedsYou,
-  CATCH_UP_REACH_DAYS,
+  CATCH_UP_REACH_DAYS, clearNamedNeedsYouEntries, rememberLastLanded,
 } from './nightly.js';
 import { theUpdateNotice } from './update.js';
 import { whatIsWaiting } from './idle.js';
@@ -904,7 +904,7 @@ function whatTheTimedSyncFetches(book, timed) {
 export const THE_PANEL_ASKS = Object.freeze([
   'how-it-stands', 'connect-the-drive', 'check-the-drive', 'save-the-panel-name',
   'run-now', 'stop', 'set-the-hour', 'reload-the-extension', 'save-the-ticks', 'resume',
-  'save-the-run-pass',
+  'save-the-run-pass', 'clear-needs-you',
 ]);
 
 /**
@@ -1100,6 +1100,17 @@ export async function answerThePanelsQuestion(chrome, parts, asked) {
     const said = await startASync(chrome, parts, { reportIds: paused.reportIds, day: paused.dataDate });
     if (said && said.started) await chrome.storage.local.remove(PAUSED);
     return said;
+  }
+
+  if (asked.do === 'clear-needs-you') {
+    /* J016: "I placed these by hand." Only the days the panel showed him (named exactly, never a wildcard) are cleared AND marked as landed,
+     * so the next night does not write them back. Not while a run is going: its own writes to the same lists could cross with this one. */
+    const night = await theNight(chrome);
+    if (night && !night.finishedAt) return { wrong: 'A run is going now. Press this again when it has finished.' };
+    const named = (Array.isArray(asked.days) ? asked.days : []).map((one) => ({ reportId: String(one && one.reportId), dataDate: String(one && one.dataDate) }));
+    const cleared = await clearNamedNeedsYouEntries(chrome, named);
+    for (const one of cleared) await rememberLastLanded(chrome, one.reportId, one.dataDate);
+    return { cleared: cleared.length };
   }
 
   return { wrong: `The panel asked for "${asked.do}", which is not something it may ask for.` };
@@ -1660,7 +1671,10 @@ export function buildThePanel(into, doing) {
   parts.resume.hidden = true;
   parts.said = make('p', `${OURS}said`, '');
   parts.said.hidden = true;
-  put(parts.actions, parts.runNow, parts.resume, parts.stop);
+  parts.clearNeedsYou = make('button', 'k-button k-button--ordinary', 'I placed these by hand');
+  parts.clearNeedsYou.type = 'button';
+  parts.clearNeedsYou.hidden = true;
+  put(parts.actions, parts.runNow, parts.resume, parts.stop, parts.clearNeedsYou);
   put(body, parts.actions, parts.said);
 
   /* --------------------------------------------------------------- platforms */
@@ -1775,6 +1789,7 @@ export function buildThePanel(into, doing) {
   ));
   parts.stop.addEventListener('click', () => doing.stop());
   parts.resume.addEventListener('click', () => doing.resume && doing.resume());
+  parts.clearNeedsYou.addEventListener('click', () => doing.clearNeedsYou && doing.clearNeedsYou(parts.shownNeedsYou || []));
   parts.saveHour.addEventListener('click', () => doing.setTheHour(parts.hour.value));
   parts.selectAll.addEventListener('click', () => tickAll(parts));
 
@@ -1884,6 +1899,8 @@ export function showHowItStands(parts, stands) {
     parts.version.textContent = installed ? `AutoSync ${installed}` : '';
   }
   if (parts.resume) parts.resume.hidden = !stands.paused;
+  parts.shownNeedsYou = (stands.needsYou || []).map((one) => ({ reportId: one.reportId, dataDate: one.dataDate }));
+  if (parts.clearNeedsYou) parts.clearNeedsYou.hidden = !(stands.needsYou && stands.needsYou.length);
   if (parts.aiSwitch) {
     const ai = stands.ai || { on: false, note: '', asks: [] };
     parts.aiOn = Boolean(ai.on);
@@ -1904,7 +1921,9 @@ export function showHowItStands(parts, stands) {
   if (parts.runPassState) {
     const kartaan = stands.kartaan || { saved: false, last: null };
     parts.runPassState.textContent = kartaan.saved ? 'saved' : 'not saved';
-    parts.kartaanSaid.textContent = kartaan.last && kartaan.last.said
+    /* R160: a "no run pass is saved" line is not shown beside a pass that is saved now -- it was true when said, and is not now. */
+    const stale = kartaan.saved && kartaan.last && kartaan.last.said.includes('no run pass is saved');
+    parts.kartaanSaid.textContent = kartaan.last && kartaan.last.said && !stale
       ? `Kartaan, ${inWordsWhen(kartaan.last.at)}: ${kartaan.last.said}` : '';
   }
 

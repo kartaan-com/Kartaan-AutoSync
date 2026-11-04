@@ -952,6 +952,10 @@ const refuses = async (name, args, words, setup = null) => {
   await Promise.all(listeners.msg.map((f) => f({ id: 9, tool: 'autosync_run', args: FK })));
   await settle();
   check('BR1: a tool call carries its own arguments', sent.length === 1 && sent[0].id === 9 && sent[0].ok === true && sent[0].result.state === 'waiting');
+  await r.chrome.storage.local.set({ [AI_NOTE]: 'The AI helper closed (old). It is opened again within a minute while the switch is on.' });
+  await Promise.all(listeners.msg.map((f) => f({ id: 11, tool: 'autosync_status', args: {} })));
+  await settle();
+  check('R160: once the helper answers, the old "helper closed" line is gone', (await aiState(r.chrome, r.parts)).note === '');
   const tooLate = listeners;
   thePort.close();
   sent.length = 0;
