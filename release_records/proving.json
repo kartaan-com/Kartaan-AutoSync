@@ -1,15 +1,16 @@
 {
   "record": "proving",
-  "commit": "57f75ee",
-  "run_at": "4 Nov 2026 (AS3 round D + PS1 item 11 + PS1-1, released by AS4), on GitHub: Proving workflow run 41780554854 (first run 41778316677 on 3029fa8 had 1 survivor, closed in 57f75ee).",
+  "commit": "3c578a5",
+  "run_at": "4 Nov 2026 (AS1 round 2, released by AS4), on GitHub: Proving workflow run 41788004814 (earlier runs 41784678946 on 5ed853f and 41786813080 on aebebda, closed in aebebda and 3c578a5).",
   "tool": "tools/proving.py with the ERP's tools/prove_checks.py (vendor copy), 4 parts, shared out by line number, joined by tools/proving_join.py.",
-  "invoked_as": "gh workflow run proving.yml --ref as4-d2 -f prove=57f75ee9cadf8c907e509a97dbb706e5350917d5 -f against=e77ed07e7b2662a7b9f27d73c1d1a8ffd7500da0 -f parts=4",
+  "invoked_as": "gh workflow run proving.yml --ref as4-r2b -f prove=3c578a5947ae71e065960614a6fa7ca71abe278a -f against=11e6f185404349a165a77da6d8ee1bfb0a7d1554 -f parts=4",
   "ran_by": "AS4 (Opus 5.5, worker for Kartaan Control), started with the owner login.",
-  "scope": "Every changed line between e77ed07 (v0.1.31) and 57f75ee.",
+  "scope": "Every changed line between 11e6f18 (v0.1.32) and 3c578a5.",
   "found": [
-    "First run (3029fa8): 30 tried, 18 caught, 11 would not parse, 1 survived: extension/bridge.js:205, a typeof guard the try/catch below already covered.",
-    "Closed by removing that dead line (57f75ee).",
-    "Final run (57f75ee, run 41780554854): 28 tried, 17 caught, 11 would not parse, 0 survived. 'every deliberate change was either caught or recorded with a reason'."
+    "First run (5ed853f): 71 tried, 4 survived (runner.py:173, 201, 269, 271) and 14 crashed the checks files with no recorded reason (bare run and door calls).",
+    "Closed by checks (aebebda): every run and door call in the checks wrapped; 6 checks added; runner.py's import line recorded under cannot_load after a reviewer tried each deletion on a scratch copy.",
+    "Second run (aebebda): 0 survived, 1 unrecorded crash (amazon_door.py `import re`, needed at load); recorded (3c578a5).",
+    "Final run (3c578a5, run 41788004814): 71 tried, 48 caught, 2 ended in a recorded crash, 21 would not parse, 0 survived. 'every deliberate change was either caught or recorded with a reason'."
   ],
   "stopped_by_time": [],
   "survivors": [],

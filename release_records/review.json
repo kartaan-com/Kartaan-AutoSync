@@ -1,19 +1,18 @@
 {
   "record": "review",
-  "commit": "57f75ee",
-  "run_at": "4 Nov 2026 (AS3 round D + PS1 item 11 + PS1-1, released by AS4). AS3's fresh Opus readers reviewed Round D twice on v0.1.28 (2 MED fixed, 5 LOW accepted); AS4's fresh Opus reader reviewed the whole round on v0.1.30, then re-read two fixes (READY).",
+  "commit": "3c578a5",
+  "run_at": "4 Nov 2026 (AS1 round 2, R120 az_suppressed, released by AS4). AS1's independent reviewer and security reader read AS1's patch; AS4's fresh Opus reader reviewed the round with AS4's fixes on v0.1.30, re-read the fix, then verified the proving fixes by deleting lines on a scratch copy.",
   "tool": "Opus 5.5 general-purpose sub-agents, read-only.",
-  "invoked_as": "Agent (general-purpose), by AS3 and by AS4.",
+  "invoked_as": "Agent (general-purpose), by AS1 and by AS4.",
   "ran_by": "Sub-agents; the reviewers wrote none of the code they read.",
-  "scope": "e77ed07 (v0.1.31) to 57f75ee: status takes last_landed_day from Drive's own file names when the extension's notebook is empty (look-only, folder found once, answers kept 10 min); one-row reports (az_health, me_views) remember the days they write (PS1 item 11); a small-hours tick of an evening that already ran says so instead of 'too early' (PS1-1). About 45 program lines (AS3 ~25 without DeepSeek, not callable from that session; AS4 ~15, under the 20-line threshold).",
+  "scope": "11e6f18 (v0.1.32) to 3c578a5: a snapshot report asked one night (az_suppressed) is looked up by report, collected the next night and asked again in the same run; an ask older than 3 nights is asked afresh; the same ask still building keeps its own night; Amazon report and document ids pass a strict pattern before any request path. About 65 program lines (AS1 ~25; AS4 ~40 in pieces each under the 20-line threshold).",
   "found": [
-    {"n": "AS3-D1", "severity": "MED", "finding": "Status could CREATE the Kartaan folder (theKartaanFolder makes it).", "fixed": true, "fix": "Look-only theKartaanFolderIfThere."},
-    {"n": "AS3-D2", "severity": "MED", "finding": "~150 Drive calls per status with an empty notebook.", "fixed": true, "fix": "Folder found once per call; answers kept 10 minutes."},
-    {"n": "AS3-D3", "severity": "LOW", "finding": "The first date in a range name won.", "fixed": true, "fix": "The last date is taken."},
-    {"n": "AS4-D1", "severity": "MED", "finding": "The PS1-1 words fired for a bad hour setting and for a daytime tick after a hand run.", "fixed": true, "fix": "Only a small-hours tick with a good setting; 2 checks."},
-    {"n": "AS4-D2", "severity": "LOW", "finding": "A storage failure after the row was written made addOneRow throw.", "fixed": true, "fix": "try/catch with a warning."},
-    {"n": "AS4-D3", "severity": "LOW (found by GitHub proving run 41778316677)", "finding": "bridge.js typeof guard was dead code: no check could notice its removal.", "fixed": true, "fix": "Removed; the try already answers null."},
-    {"n": "AS4-D4", "severity": "LOW", "finding": "Running lists over 60 days cost extra storage writes; the PS1 item 11 check is a source match; undated names stay null until their next row.", "fixed": false, "why": "Speed only; bounded at 60 days; the behaviour is covered by the status checks."}
+    {"n": "AS1-R1", "severity": "MED", "finding": "One run a day: ask, collect, ask -> the snapshot landed every second night.", "fixed": true, "fix": "After collecting an earlier night's ask, tonight's is asked in the same run."},
+    {"n": "AS1-R2", "severity": "LOW", "finding": "Re-remembering under today reset the ask's age, so a stuck ask was never asked again.", "fixed": true, "fix": "The same ask keeps its own night; older than SNAPSHOT_ASK_KEPT_DAYS (3) it is asked afresh."},
+    {"n": "AS4-R1", "severity": "MED", "finding": "A stale ask asked afresh that landed at once set off a second ask.", "fixed": true, "fix": "The second ask only when an old ask was really handed to the door; check added."},
+    {"n": "AS4-R2", "severity": "LOW", "finding": "The second ask's outcome was not logged.", "fixed": true, "fix": "A working or warning line; 2 checks."},
+    {"n": "AS4-R3", "severity": "MED (found by GitHub proving runs 41784678946, 41786813080)", "finding": "4 changes no check noticed and 15 that crashed the checks files with no recorded reason (bare run and door calls in the checks).", "fixed": true, "fix": "Every run and door call in the checks wrapped so a throwing one turns a check red; 6 checks added; the two real import crashes (runner.py `from reports import`, amazon_door.py `import re`) recorded under cannot_load after a reviewer tried them on a scratch copy."},
+    {"n": "AS4-R4", "severity": "LOW", "finding": "A cancelled or failed old ask is not asked again the same night; read_status does not compare the returned reportType; `import re` sits in its own group.", "fixed": false, "why": "One night without the picture at worst; no wrong data; style only."}
   ],
-  "known_gaps": ["Seen working only on the HP after install (az_health last_landed_day)."]
+  "known_gaps": ["Whether Amazon India answers az_suppressed at all is seen only on the next real nights."]
 }

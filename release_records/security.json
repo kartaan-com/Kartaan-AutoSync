@@ -1,23 +1,21 @@
 {
   "record": "security",
-  "commit": "57f75ee",
-  "run_at": "4 Nov 2026 (AS3 round D + PS1 item 11 + PS1-1, released by AS4).",
-  "tool": "Sonnet 5.5 general-purpose sub-agent, read-only, cso lens, over git diff v0.1.30..(Round D + PS1 item 11) in the extension; the later PS1-1 clock wording and the removed dead guard change no input, output or permission. AS3's Opus re-review found no path that can create or upload anything.",
+  "commit": "3c578a5",
+  "run_at": "4 Nov 2026 (AS1 round 2, released by AS4).",
+  "tool": "Sonnet 5.5 general-purpose sub-agent, read-only, cso lens, over the round's diff (autosync/runner.py, amazon_door.py + checks); later commits change checks and the survivor list only, plus the second-ask log lines and the `handed` guard, which add no input or output beyond the run log's own fixed words. AS1's own security reader found the unchecked id in a request path (fixed here).",
   "invoked_as": "Agent (general-purpose) from the AS4 session.",
   "ran_by": "AS4 (Opus 5.5, worker for Kartaan Control); the reader wrote none of the code.",
-  "scope": "e77ed07 (v0.1.31) to 57f75ee, all added lines.",
+  "scope": "11e6f18 (v0.1.32) to 3c578a5, all added lines.",
   "found": [
-    {"severity": "LOW", "finding": "The 10-minute answer store lives in worker memory; the worker sleeps after ~30 s, so calls far apart repeat the Drive look.", "fixed": false, "why": "Bounded by the reports with an empty notebook and by Drive's own quota; slower, not unsafe."},
-    {"severity": "LOW", "finding": "Someone who can write in the seller's Drive could name a file with a false date and make status show it.", "fixed": false, "why": "Spoofing a date in the seller's own Drive; no injection; nothing is acted on from it."},
-    {"severity": "LOW", "finding": "addOneRow writes storage once per day in the file.", "fixed": false, "why": "Bounded at 60 days per report; dates only (YYYY-MM-DD)."}
+    {"severity": "LOW", "finding": "The download link Amazon returns is fetched without checking its host or scheme.", "fixed": false, "why": "Pre-existing, not in this diff; no auth header is sent to it; it is Amazon's pre-signed link."},
+    {"severity": "LOW", "finding": "An id Amazon returns is stored unchecked and checked only when used.", "fixed": false, "why": "Safe: checked before every path; a bad one repeats its refusal until the ask expires (3 nights)."}
   ],
   "checked_no_finding": [
-    "No path from the AI's status call can create, upload or delete on Drive: every request on it is a GET list; no folder is made.",
-    "No sign-in window: the Drive token is asked for non-interactively; a missing token gives null.",
-    "Only a YYYY-MM-DD date leaves Drive into the answer; no file name, id or error text.",
-    "Crafted file names never reach a Drive query, a path or a regex input; query values are quoted.",
-    "No token, secret or customer data added to any log or answer."
+    "an_id_fit_for_a_path is applied at both places an id is formatted into a path (REPORT_PATH, DOCUMENT_PATH); no other URL is built from an id.",
+    "The pattern is ASCII-only with fullmatch: no slash, '..', '?', '#', '%', space or newline; a non-string is refused first.",
+    "The refusal names no part of the id; no secret, token or customer data in any new log line.",
+    "The second ask runs once, only for an API snapshot that just landed from an earlier night's ask; it replaces the fresh ask the old code made every night, so rationed calls per night are the same."
   ],
   "verdict": "SECURITY PASS",
-  "sec2_rows": "AutoSync SEC2 rows untouched by this round. Row S1 (pin tag-pinned actions in pm_check.yml and extension-zip.yml) stays open."
+  "sec2_rows": "AutoSync SEC2: 'Amazon report ids validated before any request path' closed by this round. Row S1 (pin tag-pinned actions in pm_check.yml and extension-zip.yml) stays open."
 }
