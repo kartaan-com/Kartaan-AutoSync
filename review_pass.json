@@ -1,18 +1,18 @@
 {
-  "written_by": "AS8 (Sonnet 5.5) fixing the findings of the fresh Opus reader of AS7b",
-  "reviewer": "A fresh Opus 5.5 read-only reader (no code written by it) found the HIGH below; AS8 fixed and re-read it",
-  "independent": true,
-  "if_not_independent_why": "",
-  "read": ["autosync/nightly.py", "autosync/nightly_checks.py", "autosync/reports.py", "autosync/runner.py", "SOLVED_PROBLEMS.md"],
+  "written_by": "AS8 (Sonnet 5.5): takes the manifest `by` label back out of AS7b on Kartaan Control's order (the label returns with AS7d)",
+  "reviewer": "A fresh Opus 5.5 reader and a Sonnet security reader read the larger AS7b change (including everything left in); this commit only removes code from it",
+  "independent": false,
+  "if_not_independent_why": "The commit removes the `by` label (manifest.py, nightly.py wiring, landed_days) and its checks, putting those files back exactly as v0.1.36; no new program line is added, so the earlier independent reads still cover everything that remains.",
+  "read": ["autosync/manifest.py", "autosync/manifest_checks.py", "autosync/nightly.py", "autosync/nightly_checks.py", "autosync/runner.py", "SOLVED_PROBLEMS.md"],
   "checked_against_decision_log": true,
   "decisions_followed": ["D947", "D948", "D949"],
   "deviation": null,
   "found": [
-    "HIGH: by=api could never be written because the run handed the manifest (report, day) pairs while the record looks up (day, report); fixed in nightly.py and a whole-night check now reads the written line (shown red with the old order, green with the fix).",
-    "LOW: an unused NOT_ALLOWED constant was left in runner.py after the 403 handling was removed; deleted.",
-    "LOW: a comment in reports.py still said a 403 sends the day to the browser; reworded to say a day the API did not bring has no verified line."
+    "Checked that manifest.py and nightly.py are byte-for-byte the v0.1.36 files again, so the pipeline file format is unchanged.",
+    "Checked nothing is left that mentions landed_days or by=api in the program files.",
+    "Two checks that were edited for the API door (the nightly default fetch list, the manifest's two halves) were kept in their AS7b form."
   ],
-  "security": "No secret or customer data added; a security reader passed the whole round (one low note on trusting the Drive pipeline file, accepted: it needs write access to the seller's own Drive).",
-  "could_not_be_checked": ["The reader's MED (returns days with no data are asked again every night, up to 14 per night at one ask a minute) is not changed here: the spread already holds long catch-ups over to later nights; Control to watch the first live night."],
-  "verify_instruction": "After the first night the pipeline file lines for orders and returns say by api."
+  "security": "Removes a field and its wiring; nothing new is held or sent.",
+  "could_not_be_checked": ["The first real API files for orders and returns are not seen until the first live night."],
+  "verify_instruction": "Nothing visible changes; orders and returns arrive in Drive as before."
 }

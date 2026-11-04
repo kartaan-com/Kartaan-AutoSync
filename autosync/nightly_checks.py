@@ -1041,17 +1041,6 @@ TWO = answered(lambda: manifest.read_record(two_numbers_held["body"]))
 check("a file with one row nobody could read is recorded as holding two and giving one",
       TWO is not None and len(TWO.reads) == 1 and (TWO.reads[0].rows_in_file, TWO.reads[0].rows_read) == (2, 1))
 
-# AS7b (review HIGH): the line for a day the API landed tonight says so. The run hands over (report, day) and the record keys by (day, report).
-by_held = {"body": None}
-by_night = Harness()
-by_night.arrivals = lambda report_id: [Arrived(name=file_name_for(report(report_id), YESTERDAY - timedelta(days=n)), size=100) for n in range(0 if by_night.fetched else 1, 20)]
-by_night.go(read_manifest=lambda: by_held["body"], save_manifest=lambda body: by_held.__setitem__("body", body))
-BY = answered(lambda: manifest.read_record(by_held["body"]))
-check("AS7b: a day this night's API run landed is written with by=api",
-      BY is not None and [one.by for one in BY.lines if one.report_id == "az_orders" and one.data_date == YESTERDAY] == ["api"])
-check("AS7b: and a day it did not land is written without a word",
-      BY is not None and {one.by for one in BY.lines if one.data_date != YESTERDAY} <= {None})
-
 # ------------------------------------------- job 37: FILES READ UNDER OLDER RULES ARE READ ONCE MORE
 
 # **THE FIVE CANCELLED ORDERS ALREADY IN HIS LEDGER ARE CORRECTED BY THE SAME RUN, NOT BY HAND.** A file
@@ -2858,7 +2847,7 @@ check("each of the eleven fault kinds, said alone, makes a block that names it (
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 394 + 3 + 6 + 1 + 1 + 4 + 2 + 6 + 1 + 2 + 1 + 2
+EXPECTED = 394 + 3 + 6 + 1 + 1 + 4 + 2 + 6 + 1 + 2 + 1
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
