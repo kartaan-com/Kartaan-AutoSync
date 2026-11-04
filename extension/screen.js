@@ -330,7 +330,8 @@ export function thePlatformOf(book, reportId) {
 export function theNeedsYouRow(book, one) {
   const report = ((book && book.reports) || []).find((each) => each.id === one.reportId) || {};
   const platform = thePlatformOf(book, one.reportId);
-  const path = book && book.folders && Object.hasOwn(book.folders, one.reportId) ? book.folders[one.reportId] : null;
+  const { folders = {} } = book || {};
+  const path = Object.hasOwn(folders, one.reportId) ? folders[one.reportId] : null;
   return {
     ...one,
     name: report.name || one.reportId,
