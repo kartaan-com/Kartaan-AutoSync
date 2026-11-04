@@ -1,5 +1,5 @@
 {
-  "version": "0.1.36",
+  "version": "0.1.37",
   "url": "https://github.com/kartaan-com/Kartaan-AutoSync/releases/latest/download/kartaan-autosync-extension.zip",
-  "notes": "The extension skips a day the nightly pipeline already brought to your Drive."
+  "notes": "Amazon orders and returns now come by the API first; the browser stays the fallback."
 }
