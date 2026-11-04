@@ -38,6 +38,7 @@ import {
   NOT_AVAILABLE_YET,
   NEEDS_YOU_STATE,
   NEEDS_YOU,
+  showTheCountOnTheIcon,
   GIVE_UP_AFTER_DAYS,
   whatIsNotBuiltYet,
   whatNeedsYou,
@@ -2547,6 +2548,17 @@ const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3 + 1 
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;
+}
+
+{
+  const browser = installFakeChrome();
+  const seen = [];
+  const icon = { setBadgeText: async (a) => seen.push(a.text), setBadgeBackgroundColor: async () => {} };
+  const chrome = { storage: browser.chrome.storage, action: icon };
+  await showTheCountOnTheIcon(chrome);
+  await chrome.storage.local.set({ [NEEDS_YOU]: [{ reportId: 'fk_orders', dataDate: '2026-10-02' }, { reportId: 'fk_views', dataDate: '2026-10-02' }] });
+  await showTheCountOnTheIcon(chrome);
+  check('PN2a: no number on the icon with nothing to do, and the count of open days when there are some', seen[0] === '' && seen[1] === '2');
 }
 
 reachedTheEnd = true;

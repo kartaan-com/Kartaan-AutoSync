@@ -44,7 +44,7 @@ import {
   wireUp,
 } from './background.js';
 import { RELAY_TO_THE_PAGE } from './driver.js';
-import { THE_EVENING_REPORTS, theTimedListFor } from './screen.js';
+import { THE_EVENING_REPORTS, theTimedListFor, theNeedsYouRow } from './screen.js';
 import {
   A_DAYS_ALLOWANCE, KEPT_FOR_HIS_OWN_RUNS, PAUSED, RECHECKS, THE_NIGHT, carryTheNightOn, endTheNight, howTheNightWent, oneWasAskedFor,
   startTheNight, thatOneIsBeingTried, theIdleLine, theNight, theReportTable, THE_SYNC_FAILED,
@@ -1751,7 +1751,7 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   showHowItStands(panel, asked.stands);
   check('A82: it then shows the version, the note and the download link',
     panel.update.hidden === false && panel.update.textContent.includes('0.1.18')
-    && panel.update.textContent.includes('Fixed.') && panel.update.textContent.includes('Download it'));
+    && panel.update.textContent.includes('Fixed.') && panel.update.textContent.includes('Download 0.1.18'));
   const same = await answerThePanelsQuestion(chrome, {
     book: BOOK, now: () => Date.now(), installed: '0.1.18',
   }, { do: 'how-it-stands' });
@@ -2559,9 +2559,6 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   const { chrome } = installFakeChrome();
   const done = [];
   const panel = buildThePanel(document.body, { clearNeedsYou: (days) => done.push(JSON.stringify(days)) });
-  check('J016: the button starts hidden and sits among the run buttons', panel.clearNeedsYou.hidden === true
-    && [...panel.actions.children].includes(panel.clearNeedsYou));
-  check('J016: it is a plain button, not a form submit', panel.clearNeedsYou.type === 'button');
   check('J016: the panel may ask for it', THE_PANEL_ASKS.includes('clear-needs-you'));
   const stands = await howItStands(chrome, { book: BOOK, now: Date.now() });
   const said = 'Kartaan was not told this sync finished, because no run pass is saved. The run still runs on its own schedule.';
@@ -2569,20 +2566,35 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   check('R160: a "no run pass is saved" line is not shown beside a pass that is saved', panel.kartaanSaid.textContent === '');
   showHowItStands(panel, { ...stands, kartaan: { saved: false, last: { at: 1, kind: 'finished', said } } });
   check('R160: and is shown when no pass is saved', panel.kartaanSaid.textContent.includes('no run pass is saved'));
+  check('PN2a: the box starts hidden and is the first thing in the body', panel.needs.hidden === true);
+  const two = [
+    { reportId: 'fk_claims', dataDate: '2026-10-01', beyondReach: true, name: 'Claims', platformName: 'Flipkart', folder: 'Kartaan > Flipkart > Claims' },
+    { reportId: 'fk_orders', dataDate: '2026-10-02', triedOn: ['a', 'b', 'c'], name: 'Orders', platformName: 'Flipkart', folder: '' },
+  ];
   showHowItStands(panel, { ...stands, needsYou: [] });
-  check('J016: with nothing that needs him, the "placed by hand" button is hidden', panel.clearNeedsYou.hidden === true);
-  showHowItStands(panel, { ...stands, needsYou: [{ reportId: 'fk_claims', dataDate: '2026-10-01', beyondReach: true }] });
-  check('J016: with a day that needs him, the button shows', panel.clearNeedsYou.hidden === false);
-  panel.clearNeedsYou.click();
-  check('J016: and pressing it asks, naming exactly the days that were shown',
-    done.join() === '[{"reportId":"fk_claims","dataDate":"2026-10-01"}]');
+  check('PN2a: with nothing that needs him, the box is hidden', panel.needs.hidden === true);
+  showHowItStands(panel, { ...stands, needsYou: [two[0]] });
+  check('PN2a: one day: the box shows, names platform, report, day and folder, and has no "I placed all"',
+    panel.needs.hidden === false && panel.needs.textContent.includes('Flipkart · Claims · 2026-10-01')
+    && panel.needs.textContent.includes('Put it in: Kartaan > Flipkart > Claims') && !panel.needs.textContent.includes('I placed all'));
+  const allIn = (node) => [node, ...node.children.flatMap(allIn)];
+  const buttons = (words, on = panel) => allIn(on.needs).filter((one) => one.tagName === 'button' && one.textContent === words);
+  buttons('I placed it')[0].click();
+  check('PN2a: "I placed it" names exactly that one day', done.join() === '[{"reportId":"fk_claims","dataDate":"2026-10-01"}]');
+  showHowItStands(panel, { ...stands, needsYou: two });
+  check('PN2a: two days: a row each, the tries counted, and "I placed all" appears',
+    buttons('I placed it').length === 2 && buttons('I placed all').length === 1 && panel.needs.textContent.includes('tried 3 times'));
+  buttons('I placed all')[0].click();
+  check('PN2a: "I placed all" names both days and no other', done[1] === JSON.stringify(two.map((one) => ({ reportId: one.reportId, dataDate: one.dataDate }))));
   showHowItStands(panel, { ...stands, needsYou: undefined });
-  panel.clearNeedsYou.click();
-  check('J016: with no list shown, it names no days', done[1] === '[]');
+  check('PN2a: with no list the box is hidden again', panel.needs.hidden === true);
   const bare = buildThePanel(document.body, {});
+  showHowItStands(bare, { ...stands, needsYou: two });
   let threw = false;
-  try { bare.clearNeedsYou.click(); } catch (wrong) { threw = true; }
-  check('J016: a panel with nothing wired to the button does not fall over when it is pressed', !threw);
+  try { buttons('I placed it', bare)[0].click(); } catch (wrong) { threw = true; }
+  check('PN2a: a panel with nothing wired to the button does not fall over when it is pressed', !threw);
+  const row = theNeedsYouRow(BOOK, { reportId: 'fk_orders', dataDate: '2026-10-02' });
+  check('PN2a: the row is given its platform and report name', row.platformName === 'Flipkart' && row.name.length > 0);
 
   const parts = { book: BOOK, now: () => Date.UTC(2026, 10, 4, 3, 0), carryOn: async () => {} };
   await chrome.storage.local.set({

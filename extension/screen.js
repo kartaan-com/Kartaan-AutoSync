@@ -326,6 +326,19 @@ export function thePlatformOf(book, reportId) {
   return (declared && declared.platform) || '';
 }
 
+/** PN2a: one "needs you" day with what the box prints: platform, report name and the Drive folder to put the file in. */
+export function theNeedsYouRow(book, one) {
+  const report = ((book && book.reports) || []).find((each) => each.id === one.reportId) || {};
+  const platform = thePlatformOf(book, one.reportId);
+  const path = book && book.folders && Object.hasOwn(book.folders, one.reportId) ? book.folders[one.reportId] : null;
+  return {
+    ...one,
+    name: report.name || one.reportId,
+    platformName: CALLED[platform] || platform,
+    folder: Array.isArray(path) ? [(book && book.kartaan) || 'Kartaan', ...path].join(' > ') : '',
+  };
+}
+
 /** Which platform a whole night belongs to. One platform per night is already
  *  the rule -- one portal page is where every walk in it starts. */
 export function thePlatformOfTheNight(book, night) {
@@ -822,7 +835,7 @@ export async function howItStands(chrome, { book, now = Date.now(), theClock = n
     events: allTheEvents(runs, (id) => ((book.reports || []).find((one) => one.id === id) || {}).name || id),
     /* **EVERY DAY GIVEN UP ON, KEPT ACROSS NIGHTS** until a later run fetches it,
      * so the banner can name it however many runs have happened since. */
-    needsYou: await whatNeedsYou(chrome),
+    needsYou: (await whatNeedsYou(chrome)).map((one) => theNeedsYouRow(book, one)),
     paused: await whatIsPaused(chrome),
     /* **WHETHER A RUN PASS IS SAVED AND WHAT KARTAAN LAST SAID -- NEVER THE PASS (plan job 30).** */
     kartaan: await whatKartaanLastSaid(chrome),
@@ -922,7 +935,7 @@ export async function answerThePanelsQuestion(chrome, parts, asked) {
       stands: {
         ...await howItStands(chrome, { book, now: now(), theClock: parts.theClock }),
         update: await theUpdateNotice(chrome, {
-          installed: parts.installed, fetch: parts.fetchTheVersion, now: now(),
+          installed: parts.installed, fetch: parts.fetchTheVersion, now: now(), opened: asked.opened === true,
         }),
       },
     };
@@ -1567,6 +1580,12 @@ export function buildThePanel(into, doing) {
   const body = make('div', `${OURS}body`);
   put(page, body);
 
+  /* ----------------------------------------------- PN2a: needs you, at the very top */
+  parts.doing = doing;
+  parts.needs = make('section', `${OURS}needs`);
+  parts.needs.hidden = true;
+  put(body, parts.needs);
+
   /* ------------------------------------------------------- setting up, once */
   parts.setup = make('section', `${OURS}card`);
   put(parts.setup, make('h2', `${OURS}title`, 'Set up, once'));
@@ -1671,10 +1690,7 @@ export function buildThePanel(into, doing) {
   parts.resume.hidden = true;
   parts.said = make('p', `${OURS}said`, '');
   parts.said.hidden = true;
-  parts.clearNeedsYou = make('button', 'k-button k-button--ordinary', 'I placed these by hand');
-  parts.clearNeedsYou.type = 'button';
-  parts.clearNeedsYou.hidden = true;
-  put(parts.actions, parts.runNow, parts.resume, parts.stop, parts.clearNeedsYou);
+  put(parts.actions, parts.runNow, parts.resume, parts.stop);
   put(body, parts.actions, parts.said);
 
   /* --------------------------------------------------------------- platforms */
@@ -1789,7 +1805,6 @@ export function buildThePanel(into, doing) {
   ));
   parts.stop.addEventListener('click', () => doing.stop());
   parts.resume.addEventListener('click', () => doing.resume && doing.resume());
-  parts.clearNeedsYou.addEventListener('click', () => doing.clearNeedsYou && doing.clearNeedsYou(parts.shownNeedsYou || []));
   parts.saveHour.addEventListener('click', () => doing.setTheHour(parts.hour.value));
   parts.selectAll.addEventListener('click', () => tickAll(parts));
 
@@ -1872,6 +1887,47 @@ function tickAll(parts) {
  * once, the first time a list arrives, and only their state changes after that
  * -- so a tick a seller made two seconds ago is still there.
  */
+/** PN2a: the small download arrow on the newer-version button (a plain character, so it needs no image). */
+function downloadIcon() {
+  const arrow = make('span', '', '⬇ ');
+  arrow.setAttribute('aria-hidden', 'true');
+  return arrow;
+}
+
+/** PN2a: the amber box at the very top: one row per report-day he has to fetch by hand. Rebuilt only when the list changes, so a press is never lost to a redraw. */
+function showTheNeedsYou(parts, list) {
+  if (!parts.needs) return;
+  const key = JSON.stringify(list.map((one) => [one.reportId, one.dataDate, (one.triedOn || []).length, one.name, one.folder]));
+  parts.needs.hidden = !list.length;
+  if (parts.needsKey === key) return;
+  parts.needsKey = key;
+  parts.needs.textContent = '';
+  if (!list.length) return;
+  const place = (days) => parts.doing && parts.doing.clearNeedsYou && parts.doing.clearNeedsYou(days);
+  const head = make('div', `${OURS}row`);
+  const hint = make('span', `${OURS}hint`, 'i');
+  hint.title = 'AutoSync could not fetch these. Download each one yourself from the platform, put it in your Kartaan folder in Drive, inside that report\'s own folder (named on its row), then press I placed it. Nothing is asked for again after that.';
+  put(head, make('h2', `${OURS}title`, 'Needs you: download by hand'), make('span', `${OURS}count`, String(list.length)), hint);
+  if (list.length > 1) {
+    const all = make('button', 'k-button k-button--ordinary', 'I placed all');
+    all.type = 'button';
+    all.addEventListener('click', () => place(list.map((one) => ({ reportId: one.reportId, dataDate: one.dataDate }))));
+    put(head, all);
+  }
+  put(parts.needs, head);
+  for (const one of list) {
+    const tries = (one.triedOn || []).length;
+    const row = make('div', `${OURS}row`);
+    const where = one.folder ? ` Put it in: ${one.folder}` : '';
+    const button = make('button', 'k-button k-button--ordinary', 'I placed it');
+    button.type = 'button';
+    button.addEventListener('click', () => place([{ reportId: one.reportId, dataDate: one.dataDate }]));
+    put(row, make('span', `${OURS}label`, `${one.platformName || ''} · ${one.name || one.reportId} · ${one.dataDate}`),
+      make('span', `${OURS}note`, `${tries ? `tried ${tries} time${tries === 1 ? '' : 's'}` : 'too old for AutoSync to fetch'}.${where}`), button);
+    put(parts.needs, row);
+  }
+}
+
 function showTheUpdate(parts, update) {
   if (!parts.update) return;
   const out = Boolean(update && update.updateAvailable);
@@ -1881,7 +1937,8 @@ function showTheUpdate(parts, update) {
   put(parts.update, make('span', '',
     `A newer version is out: ${update.latest} (this one is ${update.installed}).${update.notes ? ` ${update.notes}` : ''} `));
   if (update.url) {
-    const link = make('a', '', 'Download it');
+    const link = make('a', 'k-button k-button--main');
+    put(link, downloadIcon(), make('span', '', `Download ${update.latest}`));
     link.href = update.url;
     link.target = '_blank';
     link.rel = 'noopener';
@@ -1899,8 +1956,7 @@ export function showHowItStands(parts, stands) {
     parts.version.textContent = installed ? `AutoSync ${installed}` : '';
   }
   if (parts.resume) parts.resume.hidden = !stands.paused;
-  parts.shownNeedsYou = (stands.needsYou || []).map((one) => ({ reportId: one.reportId, dataDate: one.dataDate }));
-  if (parts.clearNeedsYou) parts.clearNeedsYou.hidden = !(stands.needsYou && stands.needsYou.length);
+  showTheNeedsYou(parts, stands.needsYou || []);
   if (parts.aiSwitch) {
     const ai = stands.ai || { on: false, note: '', asks: [] };
     parts.aiOn = Boolean(ai.on);

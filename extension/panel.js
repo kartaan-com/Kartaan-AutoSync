@@ -119,12 +119,17 @@ const parts = buildThePanel(document.body, {
   },
 });
 
-async function refresh() {
+/* PN2a: the open-time version check is owed until a refresh really asks (a panel opened in a background tab asks later). */
+let owesTheOpenCheck = false;
+
+async function refresh(opened = false) {
+  if (opened === true) owesTheOpenCheck = true;
   /* **NOTHING IS ASKED WHILE NOBODY IS LOOKING.** Every question wakes a service
    * worker Chrome shuts down after thirty seconds of quiet, and a panel left open
    * in a background tab would wake it for ever, for nobody. */
   if (document.hidden) return;
-  const said = await ask({ do: 'how-it-stands' });
+  const said = await ask({ do: 'how-it-stands', opened: owesTheOpenCheck });
+  owesTheOpenCheck = false;
   if (said && said.stands) showHowItStands(parts, said.stands);
   else if (said && said.wrong) saySomething(parts, said.wrong);
 }
@@ -132,6 +137,6 @@ async function refresh() {
 /* **THE DRIVE IS ASKED ABOUT ONCE, WHEN THIS OPENS, AND QUIETLY.** Asked on
  * every poll it would be a Google call every two seconds; asked interactively it
  * would put an account chooser in front of somebody who pressed nothing. */
-ask({ do: 'check-the-drive' }).then(refresh);
-setInterval(refresh, EVERY_TWO_SECONDS);
-document.addEventListener('visibilitychange', refresh);
+ask({ do: 'check-the-drive' }).then(() => refresh(true));
+setInterval(() => refresh(), EVERY_TWO_SECONDS);
+document.addEventListener('visibilitychange', () => refresh());
