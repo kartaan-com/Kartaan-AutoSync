@@ -202,8 +202,7 @@ async function status(chrome, parts) {
   const going = Boolean(stands.night && !stands.night.finishedAt);
   /* **THE NOTEBOOK CAN BE EMPTY WHILE DRIVE HOLDS THE FILES (ST2 item 11, seen on the HP 4 Nov: az_health and me_views read "never landed").** Only then, Drive's own file names say the newest day. Looks only; one report's Drive refusal leaves that one at null. */
   const newestInDrive = async (reportId) => {
-    if (typeof parts.whatIsHeld !== 'function') return null;
-    try {
+    try { // with no way to look at Drive (no `whatIsHeld`), the call throws here and the answer is null
       const days = (await parts.whatIsHeld({ reportId })).map((n) => (String(n).match(/\d{4}-\d{2}-\d{2}/g) || []).pop()).filter(Boolean).sort();
       return days.length ? days.pop() : null;
     } catch { return null; }
