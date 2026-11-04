@@ -303,6 +303,14 @@ export async function whatIsNotBuiltYet(chrome) {
   return (record && typeof record === 'object') ? record : {};
 }
 
+/** PN2a: the red number on the toolbar icon while any report-day needs him by hand; none, no number. */
+export async function showTheCountOnTheIcon(chrome) {
+  const count = (await whatNeedsYou(chrome)).length;
+  await chrome.action.setBadgeText({ text: count ? String(count) : '' });
+  /* The toolbar badge takes a plain colour, not a page token: it is the danger red of tokens.css. */
+  if (count) await chrome.action.setBadgeBackgroundColor({ color: '#A32D2D' });
+}
+
 /** Every report-day given up on, for the seller to fetch by hand. */
 export async function whatNeedsYou(chrome) {
   const held = await chrome.storage.local.get(NEEDS_YOU);

@@ -18,6 +18,7 @@ import {
 } from './background.js';
 import {
   RECHECK_ALARM, carryTheNightOn, clearNamedNeedsYouEntries, howTheNightWent, rememberLastLanded, setTheRecheckClock,
+  showTheCountOnTheIcon, NEEDS_YOU,
   startTheNight, theDay, theNight, theRecheckSync, theRunLog, whatIsBeingRechecked, whatIsPaused,
   whatNeedsYou,
 } from './nightly.js';
@@ -456,6 +457,12 @@ async function showThePanel() {
 }
 
 chrome.action.onClicked.addListener(showThePanel);
+
+/* **PN2a: THE RED NUMBER ON THE ICON** follows the "needs you" list, at start and whenever the list changes. */
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes[NEEDS_YOU]) showTheCountOnTheIcon(chrome).catch(() => {});
+});
+showTheCountOnTheIcon(chrome).catch(() => {});
 
 /* **EVERYTHING THE PANEL MAY ASK, answered by `screen.js`** (moved here unchanged from inside `wireUp` so the AI door below can ask the very same
  * question the Run now button asks -- AD1). */

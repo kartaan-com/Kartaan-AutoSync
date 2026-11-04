@@ -76,9 +76,10 @@ export async function checkForUpdate(chrome, { fetch, now = Date.now() }) {
  * the answer is a day old. **WORKED OUT AGAIN AGAINST THE VERSION INSTALLED NOW**, or somebody who has just updated is
  * told for a day that the version they are running is available.
  */
-export async function theUpdateNotice(chrome, { installed, fetch = null, now = Date.now() }) {
+export async function theUpdateNotice(chrome, { installed, fetch = null, now = Date.now(), opened = false }) {
   const kept = (await chrome.storage.local.get(THE_UPDATE))[THE_UPDATE] || {};
-  if (fetch && (!kept.checkedAt || now - kept.checkedAt >= CHECK_EVERY_MS)) {
+  /* PN2a: asked again every time the panel is opened (`opened`), and still once a day while it stays open. */
+  if (fetch && (opened || !kept.checkedAt || now - kept.checkedAt >= CHECK_EVERY_MS)) {
     checkForUpdate(chrome, { fetch, now }).catch(() => {});
   }
   return {
