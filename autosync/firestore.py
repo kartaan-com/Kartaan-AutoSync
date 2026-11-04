@@ -142,9 +142,13 @@ QUALITY = "platform_quality"
 # **AND SIXTEENTH, FROM A87 / D473: A WHOLE-SHOP FIGURE FOR A DAY** (`platform_shop_days/<platform>__<day>`: Meesho's dashboard views and orders), one record per day,
 # written only by `a_record_write`. It belongs to no listing. The ERP's rules must let the run write it as the owner.
 SHOP_DAYS = "platform_shop_days"
+# **AND SEVENTEENTH, FROM DT1a / R203: THE REPORT LIST THE RUN RAN WITH.** ONE record, `sync_reports/list`, written whole as the owner each night from
+# `reports.py` and nothing else, so the ERP's Data tab holds no list of its own. Names and states only. Written only by `a_reports_record`.
+SYNC_REPORTS = "sync_reports"
+THE_REPORTS_RECORD = "list"
 WHAT_IT_MAY_WRITE = (
     LOG, BOARD, RUNS, LISTING_VIEWS, LISTINGS_SEEN, CHECK, RETURNS, ADS_DAYS, ADS_DETAIL, SYNC_LEDGER, RETURNS_SHEET, CLAIMS, PERFORMANCE, ADS_MONTH,
-    QUALITY, SHOP_DAYS,
+    QUALITY, SHOP_DAYS, SYNC_REPORTS,
 )
 
 # Where the seller's own business record lives, and the one field this job reads
@@ -483,6 +487,27 @@ def a_run(name: str, started_at, finished_at=None, why: str = "") -> Tuple[str, 
     if not named or not started:
         raise Refused("A run is written down by name and by when it started, and one was missing.")
     return named, {"startedAt": started, "finishedAt": as_text(finished_at), "why": str(why or "")}
+
+
+def a_reports_record(reports, wrote_at, version: str = "") -> Tuple[str, Dict]:
+    """The list of reports the run ran with: `{reports: [{id, platform, name, door, every, switchedOff}], wroteAt (the run's day, as text), autosyncVersion?}` (DT1a / R203).
+
+    **READ STRAIGHT FROM `reports.REPORTS`, NEVER RETYPED.** The ERP's Data tab draws its rows from this and the day board, so a report added,
+    moved to the API or dropped shows the next morning. An empty list or a moment-less write is refused: an empty list would read as "no reports".
+    """
+    moment = as_text(wrote_at)
+    if not reports or not moment:
+        raise Refused("The report list is written with at least one report and the moment it was written, and one was missing.")
+    record = {
+        "reports": [
+            {"id": r.id, "platform": r.platform, "name": r.name, "door": r.door, "every": r.every, "switchedOff": bool(r.needs_a_person)}
+            for r in reports
+        ],
+        "wroteAt": moment,
+    }
+    if str(version or "").strip():
+        record["autosyncVersion"] = str(version).strip()
+    return THE_REPORTS_RECORD, record
 
 
 def a_ledger_record(sheet_id: str, wrote_at, rows: int, version: str = "") -> Tuple[str, Dict]:

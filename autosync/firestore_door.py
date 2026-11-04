@@ -39,9 +39,11 @@ from firestore import (
     RETURNS_SHEET,
     RUNS,
     SYNC_LEDGER,
+    SYNC_REPORTS,
     a_board_row,
     a_check_row,
     a_ledger_record,
+    a_reports_record,
     a_returns_sheet_record,
     a_log_line,
     a_run,
@@ -200,6 +202,17 @@ def a_check_sink(transport, project: str) -> Callable[[Sequence, date], int]:
             transport, project, [firestore.one_delete(project, CHECK, name) for name in old],
             "clearing the cross-check rows older than sixty days")
         return sent
+
+    return sink
+
+
+def a_reports_sink(transport, project: str, version: str = "") -> Callable[..., None]:
+    """The list of reports tonight's run ran with, into the one record the ERP's Data tab reads (DT1a / R203): `sync_reports/list`, replaced whole."""
+
+    def sink(reports: Sequence, wrote_at) -> None:
+        named, record = a_reports_record(reports, wrote_at, version)
+        write = {"update": {"name": firestore.where_a_document_lives(project, SYNC_REPORTS, named), "fields": {k: firestore.a_deep(v) for k, v in record.items()}}}
+        write_them(transport, project, [write], "writing the report list the run ran with")
 
     return sink
 

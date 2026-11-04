@@ -131,10 +131,10 @@ check("and it is written in the same base", "held.toString(36)" in THE_PAGES_OWN
 
 # ------------------------------------- what it may write, and what it may not
 
-check("there are exactly sixteen things it may write", len(tool.WHAT_IT_MAY_WRITE) == 16)
-check("and they are the three D114 named, how each listing is doing (job 86 part A), the listings a listing file names (job 41), the cross-check (job 19), the returns and ads (A78), where the sales ledger and the returns sheet are (plan jobs 78, 77), the claims, how each Meesho product did in its week (A87, D459) a month of ads in one record (D463) each listing's quality (A87) and the shop's figures for a day (D473)",
+check("there are exactly seventeen things it may write", len(tool.WHAT_IT_MAY_WRITE) == 17)
+check("and they are the three D114 named, how each listing is doing (job 86 part A), the listings a listing file names (job 41), the cross-check (job 19), the returns and ads (A78), where the sales ledger and the returns sheet are (plan jobs 78, 77), the claims, how each Meesho product did in its week (A87, D459) a month of ads in one record (D463) each listing's quality (A87) and the shop's figures for a day (D473) and the report list the run ran with (DT1a)",
       set(tool.WHAT_IT_MAY_WRITE) == {tool.LOG, tool.BOARD, tool.RUNS, tool.LISTING_VIEWS, tool.LISTINGS_SEEN, tool.CHECK,
-                                      tool.RETURNS, tool.ADS_DAYS, tool.ADS_DETAIL, tool.SYNC_LEDGER, tool.RETURNS_SHEET, tool.CLAIMS, tool.PERFORMANCE, tool.ADS_MONTH, tool.QUALITY, tool.SHOP_DAYS})
+                                      tool.RETURNS, tool.ADS_DAYS, tool.ADS_DETAIL, tool.SYNC_LEDGER, tool.RETURNS_SHEET, tool.CLAIMS, tool.PERFORMANCE, tool.ADS_MONTH, tool.QUALITY, tool.SHOP_DAYS, tool.SYNC_REPORTS})
 
 check("the run log can be written",
       answered(lambda: tool.where_a_document_lives(PROJECT, tool.LOG, "r1"))
@@ -469,6 +469,16 @@ check("and it is read off the business record the rules name",
 
 # ------------------------------------- plan job 78: the one record that says where the sales ledger is
 
+named_list, held_list = tool.a_reports_record(
+    __import__("reports").REPORTS, datetime(2026, 11, 4, 3, 0, 0), "0.1.37")
+check("the report list is one fixed record in sync_reports, with the ids, the moment and the version",
+      tool.SYNC_REPORTS == "sync_reports" and named_list == "list" and tool.SYNC_REPORTS in tool.WHAT_IT_MAY_WRITE
+      and held_list["wroteAt"] == "2026-11-04T03:00:00" and held_list["autosyncVersion"] == "0.1.37"
+      and [r["id"] for r in held_list["reports"]][:2] == ["fk_orders", "fk_returns"]
+      and set(held_list["reports"][0]) == {"id", "platform", "name", "door", "every", "switchedOff"})
+check("a report list with no reports or no moment is refused",
+      _refused(lambda: tool.a_reports_record((), datetime(2026, 11, 4))) and _refused(lambda: tool.a_reports_record(__import__("reports").REPORTS, None)))
+
 named_ledger, held_ledger = tool.a_ledger_record("sheet-9", datetime(2026, 10, 12, 4, 30, 0), 7)
 check("the ledger record is one fixed name in a collection called sync_ledger",
       tool.SYNC_LEDGER == "sync_ledger"
@@ -563,7 +573,7 @@ check("taking back with a day that is not a day, or for a report that puts no no
       _refused(lambda: tool.a_listing_note_taken_back(PROJECT, "x", "az_fee_preview", "7 Oct"))
       and _refused(lambda: tool.a_listing_note_taken_back(PROJECT, "x", "az_listings", "2026-10-07")))
 
-EXPECTED = 142 + 5 + 1 + 5
+EXPECTED = 142 + 5 + 1 + 5 + 2
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")
