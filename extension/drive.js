@@ -33,7 +33,7 @@
  * no internet.
  */
 
-import { theRecordWith } from './record.js';
+import { THE_PIPELINES_RECORD, theRecordWith, theVerifiedDaysIn } from './record.js';
 import { theSpreadsheetInside } from './unzip.js';
 
 /* The one scope this asks for. **`drive.file` and nothing wider**: it reaches
@@ -774,6 +774,25 @@ export async function recordWhatLanded(chrome, ask, { layout, inside, lines, fil
     }, body);
   }
   return { written: lines.length };
+}
+
+/**
+ * **AS7a (D947): WHICH REPORT-DAYS THE NIGHTLY PIPELINE HAS VERIFIED, read out of its record `Kartaan / System / autosync-manifest.json`.**
+ * Answers `{ days: { reportId: [day, ...] } }`, or `null` when nobody has checked: no `System` folder, no file, two files, a file that cannot be
+ * read, or a line that is not one of the pipeline's. **NEVER AN EMPTY ANSWER FOR A DAMAGED FILE** -- the caller reads `null` as "fetch as usual",
+ * and an empty list as "checked, and nothing landed" would say the same only by accident. Only LOOKS: nothing is made or written.
+ */
+export async function thePipelineVerified(chrome, ask, { inside }) {
+  if (!inside) return null;
+  const folders = await everyFile(chrome, ask,
+    `name = 'System' and mimeType = '${FOLDER}' and '${asAQuotedValue(inside)}' in parents and trashed = false`, 'looking for the System folder');
+  if (folders.length !== 1) return null;
+  const files = (await whatIsAlreadyThere(chrome, ask, folders[0].id)).filter((one) => one && one.name === THE_PIPELINES_RECORD);
+  /* A record over 2 MB is not read: it is "nobody has checked" and the report is fetched as before. */
+  if (files.length !== 1 || Number(files[0].size) > 2 * 1024 * 1024) return null;
+  const got = await ask({ address: `${FILES}/${encodeURIComponent(files[0].id)}?alt=media` });
+  const text = await (await answered(chrome, got, `reading ${THE_PIPELINES_RECORD}`)).text();
+  return theVerifiedDaysIn(text);
 }
 
 /** The seller's own `Kartaan` folder at the top of their Drive, made if it is not there yet.

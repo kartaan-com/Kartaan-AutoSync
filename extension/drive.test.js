@@ -885,7 +885,30 @@ check('the same day written again replaces its row, never adds a second (R20 pro
   check('R166: a listing that has caught up is not read as two files', !outcome.includes('more than one'));
 }
 
-const EXPECTED = 88 + 4 + 2 + 3 + 3 + 5;
+/* ------------------------------------------------------ AS7a: what the pipeline verified, read from Drive */
+{
+  const { thePipelineVerified } = await import('./drive.js');
+  const record = JSON.stringify({ shape: 2, reads: [], lines: [{ dataDate: '2026-11-01', reportId: 'az_orders', state: 'verified', fileName: 'x', fileSize: 5, checkedOn: '2026-11-02' }] });
+  const system = { id: 'sys', name: 'System', mimeType: FOLDER, parents: ['kartaan'] };
+  const mine = { id: 'rec', name: 'autosync-manifest.json', parents: ['sys'], contents: record };
+  const browser = installFakeChrome();
+  const drive = aDrive({ holds: [system, mine] });
+  const got = await thePipelineVerified(browser.chrome, drive.ask, { inside: 'kartaan', layout: LAYOUT });
+  check('AS7a: the pipeline record is found beside the others and its verified day is read', got && got.days.az_orders.join() === '2026-11-01');
+  check('AS7a: reading only looks: nothing was made, nothing was put', drive.made.length === 0 && drive.put.length === 0);
+  const none = await thePipelineVerified(browser.chrome, aDrive({ holds: [system] }).ask, { inside: 'kartaan', layout: LAYOUT });
+  check('AS7a: no record yet is "nobody has checked" (null)', none === null);
+  const noSystem = aDrive({ holds: [] });
+  check('AS7a: no System folder is null and the folder is not made by asking', await thePipelineVerified(browser.chrome, noSystem.ask, { inside: 'kartaan', layout: LAYOUT }) === null && noSystem.made.length === 0);
+  const two = aDrive({ holds: [system, mine, { ...mine, id: 'rec2' }] });
+  check('AS7a: two copies of the record is null: which holds the history cannot be known', await thePipelineVerified(browser.chrome, two.ask, { inside: 'kartaan', layout: LAYOUT }) === null);
+  const broken = aDrive({ holds: [system, { ...mine, contents: '{not a record' }] });
+  check('AS7a: a damaged record is null, not an empty list', await thePipelineVerified(browser.chrome, broken.ask, { inside: 'kartaan', layout: LAYOUT }) === null);
+  const big = aDrive({ holds: [system, { ...mine, size: String(3 * 1024 * 1024) }] });
+  check('AS7a: a record over 2 MB is not read: null', await thePipelineVerified(browser.chrome, big.ask, { inside: 'kartaan', layout: LAYOUT }) === null);
+}
+
+const EXPECTED = 88 + 4 + 2 + 3 + 3 + 5 + 7;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

@@ -466,6 +466,31 @@ export async function daysNobodyTried(chrome, reportId, day) {
   return gap;
 }
 
+/**
+ * **AS7a (D947): THE DAYS THE NIGHTLY PIPELINE VERIFIED, read from Drive ONCE PER NIGHT and kept against that night.** `read` is what the worker
+ * hands in (`drive.js` `thePipelineVerified`): `{ days }`, or `null` when nobody has checked. A read that throws or answers `null` is kept as
+ * NO days -- never as "everything landed" -- so a damaged or unseen record can only mean the report is fetched as before. Asked again next night.
+ */
+export const PIPELINE_VERIFIED = 'kartaan-autosync-pipeline-verified';
+export async function theDaysThePipelineVerified(chrome, night, read) {
+  if (!read || !night) return {};
+  const kept = (await chrome.storage.local.get(PIPELINE_VERIFIED))[PIPELINE_VERIFIED];
+  if (kept && kept.night === night.startedAt) return kept.days;
+  let days = {};
+  try {
+    const got = await read();
+    if (got && got.days) days = got.days;
+  } catch (wrong) {
+    // Not readable: no days, so the report is fetched as before.
+  }
+  try {
+    await chrome.storage.local.set({ [PIPELINE_VERIFIED]: { night: night.startedAt, days } });
+  } catch (wrong) {
+    // Not kept (quota): the days are still used for this report, and the record is read again for the next one.
+  }
+  return days;
+}
+
 /** The last day a report was fetched as a span named by its end day (the days inside were never recorded as landed). */
 const SPAN_ERA_ENDED = Object.freeze({ fk_views: '2026-11-02' });
 
@@ -1328,7 +1353,7 @@ export function inTheNightsOwnLine(job) {
 }
 
 async function carryItOn(chrome, {
-  theWalkNow, startAWalk, endTheWalkNow, tellKartaan = null, at = Date.now(),
+  theWalkNow, startAWalk, endTheWalkNow, tellKartaan = null, at = Date.now(), thePipelineVerified = null,
 }) {
   const night = await theNight(chrome);
   if (!night || night.finishedAt) return null;
@@ -1340,7 +1365,7 @@ async function carryItOn(chrome, {
    * without walking anything. Cleared, not booked. */
   if (walk && walk.answer && Number(walk.startedAt) < Number(night.startedAt)) {
     await endTheWalkNow();
-    return startTheNextOne(chrome, { startAWalk, at, tellKartaan });
+    return startTheNextOne(chrome, { startAWalk, at, tellKartaan, thePipelineVerified });
   }
   /* **A WALK STILL GOING IS LEFT ALONE.** One at a time: two walks share one tab
    * and one armed download-cancel, and the file that came down could belong to
@@ -1400,7 +1425,7 @@ async function carryItOn(chrome, {
     }
   }
 
-  return startTheNextOne(chrome, { startAWalk, at, tellKartaan });
+  return startTheNextOne(chrome, { startAWalk, at, tellKartaan, thePipelineVerified });
 }
 
 /** The platforms still queued for the scheduled sync (also exported by screen.js as THE_QUEUE). */
@@ -1499,7 +1524,7 @@ async function theRangeForThisWalk(chrome, night, reportId, day) {
 }
 
 /** Start the next report the night owes, skipping any it may not ask for. */
-async function startTheNextOne(chrome, { startAWalk, at, tellKartaan = null }) {
+async function startTheNextOne(chrome, { startAWalk, at, tellKartaan = null, thePipelineVerified = null }) {
   for (;;) {
     // eslint-disable-next-line no-await-in-loop
     const night = await theNight(chrome);
@@ -1607,14 +1632,20 @@ async function startTheNextOne(chrome, { startAWalk, at, tellKartaan = null }) {
     }
     // eslint-disable-next-line no-await-in-loop
     const typedRange = ASKS_A_RANGE.includes(next) ? theRangeOfTheDays(night.days) : null;
+    // eslint-disable-next-line no-await-in-loop
+    /* Drive is asked only for a report that goes back day by day: nothing else is ever skipped on the pipeline's word. */
+    const pipelineDays = (night.canGoBack || []).includes(next) ? await theDaysThePipelineVerified(chrome, night, thePipelineVerified) : {};
+    const ownDays = ((await chrome.storage.local.get(LAST_LANDED))[LAST_LANDED] || {})[next] || [];
     const alreadyThere = whyAlreadyLanded(
-      night, next, day, ((await chrome.storage.local.get(LAST_LANDED))[LAST_LANDED] || {})[next], Boolean(askedAlready),
+      night, next, day, [...ownDays, ...(pipelineDays[next] || [])], Boolean(askedAlready),
       typedRange && day === typedRange.to ? night.days : [day],
     );
     if (alreadyThere) {
+      const byThePipeline = (pipelineDays[next] || []).includes(day) && !ownDays.includes(day);
       // eslint-disable-next-line no-await-in-loop
       await thatOneIsDone(chrome, {
-        reportId: next, state: 'nothing-to-fetch', say: alreadyThere, at, dataDate: day,
+        reportId: next, state: 'nothing-to-fetch', at, dataDate: day,
+        say: byThePipeline ? `${next} for ${day} was already brought by the nightly pipeline (it is in your Drive), so it was not fetched again.` : alreadyThere,
       });
       // eslint-disable-next-line no-await-in-loop
       continue;

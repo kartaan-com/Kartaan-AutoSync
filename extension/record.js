@@ -113,6 +113,42 @@ export function theLinesIn(text) {
   return said.lines;
 }
 
+/** The nightly pipeline's own record, beside the extension's: the same words as `manifest.FILE_NAME` in the Python. */
+export const THE_PIPELINES_RECORD = 'autosync-manifest.json';
+
+/**
+ * **AS7a: THE DAYS THE PIPELINE'S RECORD SAYS ARE VERIFIED, per report -- or `null` when it cannot be read as the pipeline's record.**
+ * The pipeline's record may hold `missing` lines (this install's own never does), so it is not read by `theLinesIn`. Any text that is
+ * not that record -- not JSON, no `lines`, a shape this does not know, a line without a real day and a report -- gives `null`, never
+ * an empty answer: "nobody has checked" and "checked, nothing landed" are different, and the first one is what a damaged file means.
+ */
+export function theVerifiedDaysIn(text) {
+  let said;
+  try {
+    said = JSON.parse(text);
+  } catch (wrong) {
+    return null;
+  }
+  if (!said || typeof said !== 'object' || !Array.isArray(said.lines) || (said.shape !== 1 && said.shape !== THE_RECORDS_SHAPE)) return null;
+  if (said.lines.length > 50000) return null;
+  const days = Object.create(null);
+  const seen = new Set();
+  for (const one of said.lines) {
+    if (!one || !aRealDay(one.dataDate) || typeof one.reportId !== 'string' || !one.reportId || !['verified', 'missing'].includes(one.state)) return null;
+    /* The Python refuses these as damaged (`manifest.read_record`), so they are "nobody has checked" here too: a day twice, a verified line
+     * with no file name or a file of nothing, a size that is not a number, a check date that is not a day. */
+    if (seen.has(`${one.dataDate}|${one.reportId}`)) return null;
+    seen.add(`${one.dataDate}|${one.reportId}`);
+    if (one.fileSize !== undefined && one.fileSize !== null && !Number.isFinite(one.fileSize)) return null;
+    if (one.checkedOn && !aRealDay(one.checkedOn)) return null;
+    if (one.state === 'verified') {
+      if (!one.fileName || typeof one.fileName !== 'string' || !(one.fileSize > 0)) return null;
+      (days[one.reportId] = days[one.reportId] || []).push(one.dataDate);
+    }
+  }
+  return { days };
+}
+
 /**
  * The record's text with these lines put in place, and nothing else moved.
  *

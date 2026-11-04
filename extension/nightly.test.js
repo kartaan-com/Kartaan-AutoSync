@@ -2453,7 +2453,50 @@ check('report table: null night gives null', theReportTable(null, () => '') === 
   check('R165: two typed days that are not a range are each looked at on their own: the landed one is skipped', walkApart.started.every((one) => one.dataDate !== '2026-11-02'));
 }
 
-const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3 + 1 + 4 + 3 + 2 + 2 + 2 + 1 + 8 + 3;
+{
+  /* AS7a: a report-day the nightly pipeline verified in Drive is not walked; a record that cannot be read fetches as before. */
+  for (const [pipeline, walks, name] of [
+    [async () => ({ days: { fk_claims: ['2026-11-02'] } }), 0, 'a verified day: not walked'],
+    [async () => ({ days: { fk_claims: ['2026-11-01'] } }), 1, 'another day verified: walked'],
+    [async () => null, 1, 'nobody has checked (damaged or missing record): walked'],
+    [async () => { throw new Error('Drive said no'); }, 1, 'Drive refuses: walked'],
+  ]) {
+    const browser = installFakeChrome();
+    const walk = aWalkThat();
+    await startTheNight(browser.chrome, {
+      doing: ['fk_claims'], mayAskFor: 0, at: 1, openAt: 'https://x/', dataDate: '2026-11-02', canGoBack: ['fk_claims'], latestDay: '2026-11-03',
+    });
+    await carryTheNightOn(browser.chrome, { ...walk, at: 2, thePipelineVerified: pipeline });
+    check(`AS7a: ${name}`, walk.started.length === walks);
+  }
+  /* The first report is skipped on the pipeline's word, so the loop goes on to the second WITHIN ONE CALL: the record is read once, not twice. */
+  const readTwice = installFakeChrome();
+  const walkTwo = aWalkThat();
+  let asked = 0;
+  const reader = async () => { asked += 1; return { days: { fk_claims: ['2026-11-02'] } }; };
+  await startTheNight(readTwice.chrome, {
+    doing: ['fk_claims', 'fk_returns'], mayAskFor: 0, at: 1, openAt: 'https://x/', dataDate: '2026-11-02', canGoBack: ['fk_claims', 'fk_returns'], latestDay: '2026-11-03',
+  });
+  await carryTheNightOn(readTwice.chrome, { ...walkTwo, at: 2, thePipelineVerified: reader });
+  const night = await theNight(readTwice.chrome);
+  check('AS7a: the pipeline record is read once for the night, not once per report', asked === 1 && walkTwo.started.length === 1);
+  check('AS7a: the skipped report says the nightly pipeline brought it',
+    night.done.some((one) => one.reportId === 'fk_claims' && String(one.say).includes('nightly pipeline')));
+  await startTheNight(readTwice.chrome, {
+    doing: ['fk_claims'], mayAskFor: 0, at: 5, openAt: 'https://x/', dataDate: '2026-11-02', canGoBack: ['fk_claims'], latestDay: '2026-11-03',
+  });
+  await carryTheNightOn(readTwice.chrome, { ...aWalkThat(), at: 6, thePipelineVerified: reader });
+  check('AS7a: a new night reads the record again', asked === 2);
+  const noGoBack = installFakeChrome();
+  let askedAnyway = 0;
+  await startTheNight(noGoBack.chrome, {
+    doing: ['fk_keywords'], mayAskFor: 0, at: 1, openAt: 'https://x/', dataDate: '2026-11-02', canGoBack: [], latestDay: '2026-11-03',
+  });
+  await carryTheNightOn(noGoBack.chrome, { ...aWalkThat(), at: 2, thePipelineVerified: async () => { askedAnyway += 1; return null; } });
+  check('AS7a: Drive is not asked for a report that cannot go back by day', askedAnyway === 0);
+}
+
+const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3 + 1 + 4 + 3 + 2 + 2 + 2 + 1 + 8 + 3 + 8;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

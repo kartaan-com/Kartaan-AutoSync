@@ -25,7 +25,7 @@ import {
   WALK_IN_HIS_OWN_WINDOW, closeOurOwn, goTo, routeInThePage, takeTheFile, watchForDownloads,
 } from './doors.js';
 import {
-  aDriveToken, aWayOfAsking, addARowTo, landTheFile, recordWhatLanded, theKartaanFolder, theKartaanFolderIfThere, whatIsHeldFor,
+  aDriveToken, aWayOfAsking, addARowTo, landTheFile, recordWhatLanded, theKartaanFolder, theKartaanFolderIfThere, thePipelineVerified, whatIsHeldFor,
 } from './drive.js';
 import { tellFinishedAndAlert } from './kartaan.js';
 import { AI_ALARM, aiState, keepWatching, makeThePort, noteAFile, setTheSwitch } from './bridge.js';
@@ -205,6 +205,12 @@ const theNightsParts = {
   /* **A NIGHT THAT REACHES ITS NATURAL END TELLS KARTAAN (plan jobs 30 and 48).** `nightly.js` decides when, once,
    * and keeps the answer on the night; it never throws and never changes how the night went. */
   tellKartaan: async ({ failed, endedAt }) => tellFinishedAndAlert(chrome, kartaanFetch, { failed, endedAt }),
+  /* **AS7a (D947): WHAT THE NIGHTLY PIPELINE HAS ALREADY VERIFIED IN THE SELLER'S DRIVE**, asked once a night by `nightly.js`; it only looks, and an
+   * answer it cannot give is read there as "fetch as usual". */
+  thePipelineVerified: async () => {
+    const ask = aWayOfAsking(chrome, { fetch: (...args) => fetch(...args) });
+    return thePipelineVerified(chrome, ask, { inside: await theKartaanFolderIfThere(chrome, ask, await theLayout()) });
+  },
 };
 
 /* **THE TWO HANDLES A NIGHT IS RUN AND READ BY, until there is a screen for

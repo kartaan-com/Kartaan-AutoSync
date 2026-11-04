@@ -122,7 +122,39 @@ check('a shape-1 record (before reads existed) is read and kept',
   theLinesIn('{"shape": 1, "lines": []}').length === 0);
 check('no text at all is a first landing, which is not damage', theLinesIn(null).length === 0 && theLinesIn('').length === 0);
 
-const EXPECTED = 25;
+/* ---------------------------------------------------- AS7a: the pipeline's own record, read for what it verified */
+{
+  const { THE_PIPELINES_RECORD, theVerifiedDaysIn } = await import('./record.js');
+  const line = (day, report, state) => ({ dataDate: day, reportId: report, state, fileName: 'x', fileSize: 5, checkedOn: day });
+  const mixed = JSON.stringify({ shape: 2, reads: [], lines: [line('2026-11-01', 'az_suppressed', 'verified'), line('2026-11-02', 'az_suppressed', 'missing')] });
+  check('AS7a: the pipeline record is named as the Python names it', THE_PIPELINES_RECORD === 'autosync-manifest.json'
+    && readFileSync(new URL('../autosync/manifest.py', import.meta.url), 'utf8').includes(`FILE_NAME = "${THE_PIPELINES_RECORD}"`));
+  const read = theVerifiedDaysIn(mixed);
+  check('AS7a: a verified day is read, a missing line is not counted as landed', read && read.days.az_suppressed.join() === '2026-11-01');
+  check('AS7a: text that is not JSON is "nobody has checked" (null), never an empty answer', theVerifiedDaysIn('{not a record') === null && theVerifiedDaysIn('') === null);
+  check('AS7a: a record in a shape this does not know, or without lines, is null', theVerifiedDaysIn('{"shape": 99, "lines": []}') === null && theVerifiedDaysIn('{"shape": 2}') === null);
+  check('AS7a: one line that is not the pipeline\'s (an unknown state) makes the whole record null',
+    theVerifiedDaysIn(JSON.stringify({ shape: 2, lines: [line('2026-11-01', 'a', 'verified'), line('2026-11-01', 'b', 'maybe')] })) === null);
+  check('AS7a: a record of over 50000 lines, or a report id that is not text, is null',
+    theVerifiedDaysIn(JSON.stringify({ shape: 2, lines: new Array(50001).fill(line('2026-11-01', 'a', 'verified')) })) === null
+    && theVerifiedDaysIn(JSON.stringify({ shape: 2, lines: [{ ...line('2026-11-01', 'a', 'verified'), reportId: { x: 1 } }] })) === null);
+  check('AS7a: a report id like __proto__ is only a key, and pollutes nothing',
+    theVerifiedDaysIn(JSON.stringify({ shape: 2, lines: [line('2026-11-01', '__proto__', 'verified')] })).days.__proto__.join() === '2026-11-01'
+    && ({}).polluted === undefined && Object.getPrototypeOf(theVerifiedDaysIn('{"shape":2,"lines":[]}').days) === null);
+  const day = '2026-11-01';
+  const wrongs = [
+    ['the same day and report twice', [line(day, 'a', 'missing'), line(day, 'a', 'verified')]],
+    ['a verified file of nothing', [{ ...line(day, 'a', 'verified'), fileSize: 0 }]],
+    ['a verified line with no file name', [{ ...line(day, 'a', 'verified'), fileName: '' }]],
+    ['a size that is not a number', [{ ...line(day, 'a', 'verified'), fileSize: 'big' }]],
+    ['a check date that is not a day', [{ ...line(day, 'a', 'verified'), checkedOn: 'yesterday' }]],
+  ];
+  for (const [what, lines] of wrongs) {
+    check(`AS7a: ${what} is a record the Python calls damaged: null`, theVerifiedDaysIn(JSON.stringify({ shape: 2, lines })) === null);
+  }
+}
+
+const EXPECTED = 37;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;
