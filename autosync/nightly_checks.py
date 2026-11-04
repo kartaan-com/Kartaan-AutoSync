@@ -2572,7 +2572,8 @@ LOGS_AWKWARD = tool._drive_folder(awkward, INSIDE, tool.layout.LOGS)
 awkward.file("autosync-log-2020-01-01.txt", LOGS_AWKWARD, b"old")
 ORDERS_AWKWARD = tool._drive_folder(awkward, INSIDE, "az_orders")
 awkward.file("amazon_az_orders_2017-08-01.csv", ORDERS_AWKWARD, b"far too old")
-faults_awkward = answered(lambda: tool.tidy_the_drive(awkward, INSIDE, TODAY, told_again.append))
+_pauses = []
+faults_awkward = answered(lambda: tool.tidy_the_drive(awkward, INSIDE, TODAY, told_again.append, pause=_pauses.append))
 tidy_drive.file("backup_2017-08-01_final.xlsx", ORDERS_HERE, b"somebody's own copy")
 tidy_drive._add("amazon_az_orders_2017-01-01.csv", [ORDERS_HERE], FOLDER_KIND, b"")
 check("a file of somebody's own with a date in its name is left, and so is a folder inside a report folder",
@@ -2591,11 +2592,29 @@ check("a log name is matched from its start, so a name that merely ends like a l
 check("a Drive that will not take a file to the bin is said, one fault for each place, and the rest is still tidied",
       faults_awkward is not None and len(faults_awkward) == 2 and "run logs" in faults_awkward[0])
 
-check("the night is tidied after it is done, and a tidy fault turns it red without stopping anything",
+check("a Drive that will not bin a file is tried three times with a pause before it is a fault (AS3), 2 pauses for the first place, none after (the Drive is down)",
+      len(_pauses) == 2)
+_flaky = DriveThatWillNotBinAFile()
+_flaky_logs = tool._drive_folder(_flaky, INSIDE, tool.layout.LOGS)
+_flaky.file("autosync-log-2020-01-01.txt", _flaky_logs, b"old")
+_calls = []
+_flaky_get = _flaky.get
+def _get_once_broken(url, params=None, headers=None):
+    _calls.append(1)
+    if len(_calls) == 1:
+        raise RuntimeError("Internal Error 500")
+    return _flaky_get(url, params=params, headers=headers)
+_flaky.get = _get_once_broken
+_flaky.patch = lambda url, params=None, headers=None, json=None, data=None: FakeDrive.patch(_flaky, url, params=params, headers=headers, json=json, data=data)
+check("one Drive hiccup is tried again and the tidy then goes through with no fault (the 21 Oct 500)",
+      answered(lambda: tool.tidy_the_drive(_flaky, INSIDE, TODAY, told_again.append, pause=lambda s: None)) == []
+      and "autosync-log-2020-01-01.txt" not in {one["name"] for one in _flaky.things.values()})
+
+check("the night is tidied after it is done, and a tidy fault is a warning, not a red night, without stopping anything",
       any(isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and n.func.attr == "tidy_the_drive"
           for n in ast.walk(START))
       and _START_RAW.index("how_the_night_ends") < _START_RAW.index("tidy_the_drive")
-      and "        code = code or 1" in _START_RAW[_START_RAW.index("tidy_the_drive"):])
+      and "::warning::TIDY FAULT" in _START_RAW[_START_RAW.index("tidy_the_drive"):])
 
 # **JOB 34: THE RUN'S FOLDER IS HIS ONE `Kartaan` FOLDER, FOUND BY NAME, AND THE LEDGER IS MADE INSIDE IT.**
 # Asked of the parsed file, like the tick above: a line nothing watches fail has not been proved.
@@ -2819,7 +2838,7 @@ check("each of the eleven fault kinds, said alone, makes a block that names it (
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 394 + 3 + 6 + 1 + 1 + 4 + 6 + 1
+EXPECTED = 394 + 3 + 6 + 1 + 1 + 4 + 2 + 6 + 1
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

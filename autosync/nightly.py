@@ -44,6 +44,7 @@ does this:
 
 import os
 import re
+import time
 from dataclasses import dataclass, replace
 from datetime import date, datetime
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
@@ -1022,7 +1023,11 @@ def _a_log_that_is_too_old(file_name: str, today: date) -> bool:
     return (today - day).days > LOGS_ARE_KEPT_DAYS
 
 
-def tidy_the_drive(transport, inside: str, today: date, say: Callable[[str], None]) -> List[str]:
+TIDY_TRIES = 3
+TIDY_PAUSE_SECONDS = 5
+
+
+def tidy_the_drive(transport, inside: str, today: date, say: Callable[[str], None], pause: Callable[[float], None] = time.sleep) -> List[str]:
     """Take the run's logs past sixty days, and report files past the GST period, to the seller's bin.
 
     **TO THE BIN, NEVER A PERMANENT DELETE (Golden Rule 9), AND EVERY ONE IS SAID.** Answers the faults
@@ -1040,21 +1045,31 @@ def tidy_the_drive(transport, inside: str, today: date, say: Callable[[str], Non
     faults: List[str] = []
 
     def go_through(path, why_it_goes, kind_of_file):
-        try:
-            folder = look_for_the_folder_at(transport, path, inside)
-            if not folder:
+        # **THREE TRIES WITH A PAUSE (AS3, ST2 item 3):** Google's Drive answered "500 Internal Error" once and the whole night went red
+        # for a tidy that loses nothing. A file already put in the bin is not listed again, so a second try does not repeat it.
+        # Once one place has used all its tries, the Drive is down: the others get ONE try each, so a dead Drive costs seconds, not minutes.
+        tries = 1 if faults else TIDY_TRIES
+        for attempt in range(tries):
+            try:
+                folder = look_for_the_folder_at(transport, path, inside)
+                if not folder:
+                    return
+                for one in what_is_in(transport, folder):
+                    if one.get("mimeType") == FOLDER:
+                        continue  # a folder somebody made inside is not the run's to tidy
+                    name = str(one.get("name") or "")
+                    why = why_it_goes(name)
+                    if not why:
+                        continue
+                    trash_the_file(transport, str(one["id"]), name)
+                    say(f"Tidied: {name} put in the bin -- {why}.")
                 return
-            for one in what_is_in(transport, folder):
-                if one.get("mimeType") == FOLDER:
-                    continue  # a folder somebody made inside is not the run's to tidy
-                name = str(one.get("name") or "")
-                why = why_it_goes(name)
-                if not why:
-                    continue
-                trash_the_file(transport, str(one["id"]), name)
-                say(f"Tidied: {name} put in the bin -- {why}.")
-        except Exception as wrong:  # noqa: BLE001 - recorded, never swallowed
-            faults.append(f"tidying {kind_of_file}: {wrong}")
+            except Exception as wrong:  # noqa: BLE001 - recorded, never swallowed
+                if attempt + 1 == tries:
+                    faults.append(f"tidying {kind_of_file}: {wrong} (after {tries} {'try' if tries == 1 else 'tries'})")
+                else:
+                    say(f"Tidy of {kind_of_file} was refused ({wrong}); trying again.")  # said, since a try that half worked bins a file unseen
+                    pause(TIDY_PAUSE_SECONDS * (attempt + 1))
 
     go_through(
         layout.LOGS,

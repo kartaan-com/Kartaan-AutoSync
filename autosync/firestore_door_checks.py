@@ -55,6 +55,15 @@ def _why(work):
     return ""
 
 
+def _caught(work):
+    """The refusal itself, so a check can ask what KIND it is."""
+    try:
+        work()
+    except Exception as wrong:  # noqa: BLE001
+        return wrong
+    return None
+
+
 PROJECT = "seller-project-1"
 AT = datetime(2026, 8, 29, 2, 15, 30)
 
@@ -197,6 +206,8 @@ THREW.clear()
 # **THE LIKELIEST CAUSE IS NAMED**, because it is documented and it is silent.
 words = _why(lambda: tool.a_log_sink(Transport([Reply(403, "no")]), PROJECT)([LINE]))
 check("and a 403 names the seller's Security Rules as the likeliest cause", "Security Rules" in words)
+check("AS3: a 429 is its own kind, saying the daily allowance is used up", "no allowance left" in _why(lambda: tool.a_log_sink(Transport([Reply(429, "quota")]), PROJECT)([LINE])))
+check("AS4: and the 429 is raised as TheirDatabaseHasNoAllowanceLeft, which reading.py's stop depends on", isinstance(_caught(lambda: tool.a_log_sink(Transport([Reply(429, "quota")]), PROJECT)([LINE])), tool.TheirDatabaseHasNoAllowanceLeft))
 check("and it says what was being done at the time", "writing the run log down" in words)
 check("a 404 says the record or the project is wrong",
       "project id" in _why(lambda: tool.a_log_sink(Transport([Reply(404, "no")]), PROJECT)([LINE])))
@@ -386,7 +397,7 @@ _held = answered(lambda: tool._what_is_held_of(_RealBytes(), "p", "listings_seen
 check("a batchGet list reply, as the real transport reads it, is read as records and not refused", _held is not None)
 check("and only the record that was found is held", _held is not None and list(_held) == ["L1"])
 
-EXPECTED = 56 + 5 + 2 + 1
+EXPECTED = 56 + 5 + 2 + 1 + 1 + 1
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

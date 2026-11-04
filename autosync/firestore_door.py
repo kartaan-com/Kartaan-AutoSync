@@ -68,6 +68,14 @@ class TheirDatabaseSaidNo(RuntimeError):
     """
 
 
+class TheirDatabaseHasNoAllowanceLeft(TheirDatabaseSaidNo):
+    """The seller's database said 429: today's free allowance of reads or writes is used up (AS3, ST2 item 2).
+
+    **ITS OWN KIND SO THE RUN CAN STOP ASKING.** Every further file would be refused the same way, 67 times on 31 Oct; the run says it once
+    and leaves the rest unread, which is what a refusal already does, so tomorrow reads them.
+    """
+
+
 def _answered(reply, doing: str):
     """What came back, or a refusal naming what was being done.
 
@@ -87,6 +95,8 @@ def _answered(reply, doing: str):
                 "write for the seller's own sign-in, or the Firebase sign-in handed to the run "
                 "belongs to a different project. " + said[:200]
             )
+        if code == 429:
+            raise TheirDatabaseHasNoAllowanceLeft(f"{doing}: the seller's database has no allowance left for today (429). " + said[:200])
         if code == 404:
             raise TheirDatabaseSaidNo(
                 f"{doing}: there is nothing at that name in the seller's database (404). "

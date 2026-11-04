@@ -99,7 +99,7 @@ import sheet
 import table
 import views
 import whats_new
-from firestore_door import TheirDatabaseSaidNo
+from firestore_door import TheirDatabaseHasNoAllowanceLeft, TheirDatabaseSaidNo
 import ledger
 from ledger import LedgerRefused, Reading, which_markers
 from reports import report as the_report
@@ -378,7 +378,9 @@ class WhatTheNightRead:
         single file was refused by our own rule would report GREEN while the
         seller's files piled up unread for ever -- **found by an independent
         reviewer, and it is Golden Rule 29 exactly.**"""
-        return bool(self.could_not_list or self.the_ledger_refused or self.the_database_refused)
+        # AS4: a used-up daily allowance (429) is not ours (D108): the files stay unread and are read tomorrow; the end-of-run list shows it.
+        return bool(self.could_not_list or self.the_ledger_refused
+                    or any(not why.startswith(_ALLOWANCE_MARK) for why in self.the_database_refused))
 
     def wrote(self, report_id: str) -> int:
         """How many records of this report were written tonight."""
@@ -484,12 +486,19 @@ class WhatTheNightRead:
         for why in self.the_ledger_refused:
             said += f"  KARTAAN'S OWN LEDGER REFUSED A FILE: {why}"
         for why in self.the_database_refused:
+            if why.startswith(_ALLOWANCE_MARK):  # AS3: not a rules fault; nothing to publish, the rest is read tomorrow
+                said += f"  THE SELLER'S DATABASE REFUSED (its daily allowance is used up, the rest is read tomorrow): {why[len(_ALLOWANCE_MARK):]}"
+                continue
             said += f"  THE SELLER'S DATABASE REFUSED A LISTING RECORD (publish the ERP's rules to this project, then run again): {why}"
         return said
 
 
 # The words every reader uses when a file's name has no day in it.
 _NO_DAY = "has no day in its name"
+# AS3: marks a refusal that is the database's used-up daily allowance (429), kept apart from the text of any message.
+_ALLOWANCE_MARK = "[allowance] "
+# The kinds of file whose reading writes to the seller's database (the sales and payments go to Sheets and are never stopped by its allowance).
+_NEEDS_THE_DATABASE = frozenset({"listings", "notes", "returns", "ads", "records", "views"})
 # A row's label is "line N" or "line N (who)", then ": " and the reason.
 _A_ROW_LABEL = re.compile(r"^(line \d+(?: \([^)]*\))?): (.*)$", re.DOTALL)
 _MOST_REASONS = 10
@@ -1167,7 +1176,23 @@ def read_what_is_new(
     # order Drive answered a listing in, the last file to be recorded is the last
     # one Drive happened to name -- and the last one recorded is the one whose
     # figures stand. See `_oldest_first`.
+    # **THE FIRST "NO ALLOWANCE LEFT" ENDS THE ASKING (AS3, ST2 item 2):** the seller's database has a daily allowance; once it says 429 every
+    # further file that needs it would be refused the same way (67 paragraphs on 31 Oct). Those files are left unread, as a refusal leaves them,
+    # and ONE line says how many.
+    no_allowance = [False]
+    left_for_tomorrow = 0
+
+    def database_said_no(one, wrong) -> None:
+        if isinstance(wrong, TheirDatabaseHasNoAllowanceLeft):
+            no_allowance[0] = True
+            the_database_refused.append(f"{_ALLOWANCE_MARK}{one.name or one.which}: {wrong}")
+            return
+        the_database_refused.append(f"{one.name or one.which}: {wrong}")
+
     for how, one in _oldest_first(listed, can_be_read, remembered):
+        if no_allowance[0] and (how.kind in _NEEDS_THE_DATABASE or (how.kind == "claims" and how.report_id in record_reports.RECORD_REPORTS)):
+            left_for_tomorrow += 1
+            continue
         if how.kind == "listings":
             if record_listings is None:
                 listings_waiting += 1
@@ -1176,7 +1201,7 @@ def read_what_is_new(
                 said, the_day = a_listings_reading(how, one, bring_it_back(one.which))
                 listings_written += record_listings(how.report_id, the_day, said.records)
             except TheirDatabaseSaidNo as wrong:
-                the_database_refused.append(f"{one.name or one.which}: {wrong}")
+                database_said_no(one, wrong)
                 continue
             except Exception as wrong:  # noqa: BLE001 - named, never swallowed
                 could_not_read.append(f"{one.name or one.which}: {wrong}")
@@ -1208,7 +1233,7 @@ def read_what_is_new(
                 notes_skipped += skipped
                 notes_taken_back += taken_back
             except TheirDatabaseSaidNo as wrong:
-                the_database_refused.append(f"{one.name or one.which}: {wrong}")
+                database_said_no(one, wrong)
                 continue
             except Exception as wrong:  # noqa: BLE001 - named, never swallowed
                 could_not_read.append(f"{one.name or one.which}: {wrong}")
@@ -1246,7 +1271,7 @@ def read_what_is_new(
                     ads_written += record(how.report_id, said.platform, said.kind, the_day, said.records)
                     ads_months.update((said.platform, str(one["day"])[:7]) for one in said.records.values() if one.get("day"))
             except TheirDatabaseSaidNo as wrong:
-                the_database_refused.append(f"{one.name or one.which}: {wrong}")
+                database_said_no(one, wrong)
                 continue
             except LedgerRefused as wrong:
                 the_ledger_refused.append(f"{one.name or one.which}: {wrong}")
@@ -1277,7 +1302,7 @@ def read_what_is_new(
                 made, said_not_read, wrote = write_the_records(how, one, bring_it_back(one.which), when.isoformat(), sink, listed, bring_it_back)
                 records_written[how.report_id] = records_written.get(how.report_id, 0) + wrote
             except TheirDatabaseSaidNo as wrong:
-                the_database_refused.append(f"{one.name or one.which}: {wrong}")
+                database_said_no(one, wrong)
                 continue
             except Exception as wrong:  # noqa: BLE001 - named, never swallowed
                 could_not_read.append(f"{one.name or one.which}: {wrong}")
@@ -1299,7 +1324,7 @@ def read_what_is_new(
                 said = a_views_reading(how, one, bring_it_back(one.which))
                 record_views(said.platform, said.records)
             except TheirDatabaseSaidNo as wrong:
-                the_database_refused.append(f"{one.name or one.which}: {wrong}")
+                database_said_no(one, wrong)
                 continue
             except Exception as wrong:  # noqa: BLE001 - named, never swallowed
                 could_not_read.append(f"{one.name or one.which}: {wrong}")
@@ -1339,7 +1364,7 @@ def read_what_is_new(
             # having happened.
             lines_waiting = record_the_sales([reading]) or 0
         except TheirDatabaseSaidNo as wrong:
-            the_database_refused.append(f"{one.name or one.which}: {wrong}")
+            database_said_no(one, wrong)
             continue
         except LedgerRefused as wrong:
             # **OUR OWN FAULT, KEPT APART FROM THE PLATFORM'S.** See
@@ -1395,7 +1420,10 @@ def read_what_is_new(
         could_not_read=tuple(w for w in could_not_read if _NO_DAY not in w),
         ignored_undated=tuple(w.split(": ", 1)[0] for w in could_not_read if _NO_DAY in w),
         the_ledger_refused=tuple(the_ledger_refused),
-        the_database_refused=tuple(the_database_refused),
+        the_database_refused=tuple(the_database_refused) + (
+            (f"{_ALLOWANCE_MARK}the database's allowance for today is used up; {left_for_tomorrow} more file(s) were not tried and will be read tomorrow",)
+            if left_for_tomorrow else ()
+        ),
         could_not_list=tuple(could_not_list),
         refused_to_forget=refused_to_forget,
         reads=tuple(reads),

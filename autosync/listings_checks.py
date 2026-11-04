@@ -12,6 +12,7 @@ columns, help-text marker, selling word and Shopsy prefix must be the ones writt
 Run: python autosync/listings_checks.py
 """
 
+import dataclasses
 import re
 import sys
 import zipfile
@@ -502,10 +503,11 @@ def a_file(which, name, size=100):
 
 class Night:
     def __init__(self, files, bodies, record=True, error=None):
-        self.files, self.bodies, self.written, self.error = files, bodies, [], error
+        self.files, self.bodies, self.written, self.error, self.asked = files, bodies, [], error, 0
         self.record = self.write if record else None
 
     def write(self, report_id, day, found):
+        self.asked += 1
         if self.error:
             raise self.error
         self.written.append((report_id, day, found))
@@ -543,6 +545,17 @@ check("a database that fails leaves the files unread and says why, by name",
 refusing = Night(FILES, BODIES, error=firestore_door.TheirDatabaseSaidNo("403")).go()
 check("a database that says no is OUR defect and the files stay unread",
       refusing is not None and refusing.is_a_defect and len(refusing.the_database_refused) == 2 and refusing.read_tonight == ())
+out_of_allowance = Night(FILES, BODIES, error=firestore_door.TheirDatabaseHasNoAllowanceLeft("writing: the seller's database has no allowance left for today (429)"))
+used_up = out_of_allowance.go()
+check("AS3: the first 'no allowance left' ends the asking: the database is asked once, the other file is left unread and counted",
+      used_up is not None and out_of_allowance.asked == 1 and used_up.read_tonight == () and len(used_up.the_database_refused) == 2
+      and "1 more file(s) were not tried and will be read tomorrow" in used_up.the_database_refused[1])
+check("AS3: and it is said as a used-up allowance, not as a rules fault to publish",
+      "daily allowance is used up" in used_up.says() and "publish the ERP's rules" not in used_up.says())
+check("AS4: a used-up allowance alone is not our defect (D108): the night is not red, the files stay unread", not used_up.is_a_defect)
+check("AS4: but a used-up allowance beside a real refusal still is", dataclasses.replace(used_up, the_database_refused=used_up.the_database_refused + ("x: 403",)).is_a_defect)
+check("AS3: an ordinary refusal still asks for every file (the stop is only for 429)",
+      len(refusing.the_database_refused) == 2 and "not tried" not in " ".join(refusing.the_database_refused))
 partly = Night({"fk_listings": [a_file("f2", "flipkart_fk_listings_2026-10-02.xls")]},
                {"f2": xls_checks.an_old_spreadsheet(xls_checks.a_workbook({"d": FK_ROWS + [fk_row("D", "")]}))}).go()
 check("a file with one bad row is read, marked read, and the bad row is said by line",
@@ -559,7 +572,7 @@ check("every report is still read or says why it is not", reading.why_a_report_h
       and not ({"fk_listings", "me_catalog", "az_listings"} & set(reading.WHAT_IS_FETCHED_AND_NOT_READ_YET)))
 
 check("nothing above ended by throwing rather than by answering -- " + str(THREW), not THREW)
-EXPECTED = 102
+EXPECTED = 107
 check(f"checks went missing -- {ran + 1} ran, {EXPECTED} expected", ran + 1 == EXPECTED)
 
 if failures:

@@ -282,12 +282,13 @@ def main() -> int:  # pragma: no cover - the only part that opens a connection
     for one in lines:
         print(one)
     # **TIDYING COMES LAST AND NEVER STOPS A NIGHT (job 40):** logs past sixty days and report files
-    # past the GST period go to his bin, each one said. A fault in it is printed and makes the job red
+    # past the GST period go to his bin, each one said. A fault in it is printed as a yellow warning (AS3)
     # -- after everything else is done, never instead of it.
     tidy_faults = nightly.tidy_the_drive(google, inside, today, print)
     for one in tidy_faults:
-        print(f"TIDY FAULT  {one}")
-        code = code or 1
+        # **A WARNING, NOT A RED NIGHT (AS3):** tidying loses nothing and was tried three times; the night's own work is done.
+        # GitHub's own escaping, so a line break in a Drive error cannot cut the warning short.
+        print("::warning::TIDY FAULT  " + one.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A"))
     # **THE LAST THING SAID: WHAT A GREEN TICK WOULD HIDE (AS3).** Counted from every line this run printed, the tick's own summary and the tidy faults.
     for one in nightly.what_needs_a_look([*said, tick.summary(), *(f"TIDY FAULT  {f}" for f in tidy_faults)]):
         print(one)
