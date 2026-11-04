@@ -1752,6 +1752,10 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   check('A82: it then shows the version, the note and the download link',
     panel.update.hidden === false && panel.update.textContent.includes('0.1.18')
     && panel.update.textContent.includes('Fixed.') && panel.update.textContent.includes('Download 0.1.18'));
+  const downloadLink = panel.update.children[1];
+  check('PN2a: the download is a real button with a hidden arrow and the version in its words',
+    downloadLink.className.includes('k-button') && downloadLink.children[0].getAttribute('aria-hidden') === 'true'
+    && downloadLink.children[1].textContent === 'Download 0.1.18');
   const same = await answerThePanelsQuestion(chrome, {
     book: BOOK, now: () => Date.now(), installed: '0.1.18',
   }, { do: 'how-it-stands' });
@@ -2588,6 +2592,49 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   check('PN2a: "I placed all" names both days and no other', done[1] === JSON.stringify(two.map((one) => ({ reportId: one.reportId, dataDate: one.dataDate }))));
   showHowItStands(panel, { ...stands, needsYou: undefined });
   check('PN2a: with no list the box is hidden again', panel.needs.hidden === true);
+  const fresh = buildThePanel(document.body, {});
+  check('PN2a: a new panel has the box hidden, empty and first in the body', fresh.needs.hidden === true && fresh.needs.textContent === '' && fresh.needs.parentNode.children[0] === fresh.needs);
+  const mine = buildThePanel(document.body, { clearNeedsYou() {} });
+  check('PN2a: the run buttons are Run now, Resume and Stop and nothing else', mine.actions.children.length === 3);
+  showHowItStands(mine, { ...stands, needsYou: two });
+  const firstButton = buttons('I placed it', mine)[0];
+  showHowItStands(mine, { ...stands, needsYou: two });
+  check('PN2a: the same list drawn again does not rebuild the rows', buttons('I placed it', mine)[0] === firstButton);
+  showHowItStands(mine, { ...stands, needsYou: [two[0], { ...two[1], folder: 'Kartaan > Elsewhere' }] });
+  check('PN2a: a changed folder does rebuild them', buttons('I placed it', mine)[0] !== firstButton && mine.needs.textContent.includes('Kartaan > Elsewhere'));
+  showHowItStands(mine, { ...stands, needsYou: [] });
+  check('PN2a: an emptied list leaves nothing in the box', mine.needs.textContent === '' && mine.needs.hidden === true);
+  showHowItStands(mine, { ...stands, needsYou: two });
+  check('PN2a: the i tells him what to do', mine.needs.find('p-hint').title.includes('I placed it') && mine.needs.find('p-hint').title.includes('Drive'));
+  check('PN2a: the count shows how many', mine.needs.find('p-count').textContent === '2');
+  check('PN2a: the buttons are plain buttons, not form submits',
+    buttons('I placed it', mine).every((one) => one.type === 'button') && buttons('I placed all', mine)[0].type === 'button');
+  const tiny = { kartaan: 'Mine', reports: [{ id: 'zz_a', name: 'A report', platform: 'flipkart' }], folders: { zz_a: ['Flipkart', 'Things'] } };
+  const r1 = theNeedsYouRow(tiny, { reportId: 'zz_a', dataDate: '2026-10-02', triedOn: ['x'] });
+  check('PN2a: the row gets its report name, platform and folder, and keeps what it had',
+    r1.name === 'A report' && r1.platformName === 'Flipkart' && r1.folder === 'Mine > Flipkart > Things' && r1.triedOn.length === 1 && r1.dataDate === '2026-10-02');
+  const r2 = theNeedsYouRow({ reports: [], folders: {} }, { reportId: 'zz_b', dataDate: 'd' });
+  check('PN2a: an unknown report shows its id and no folder', r2.name === 'zz_b' && r2.folder === '');
+  check('PN2a: with no Kartaan folder name the word Kartaan is used', theNeedsYouRow({ folders: { zz_c: ['A'] } }, { reportId: 'zz_c' }).folder === 'Kartaan > A');
+  await chrome.storage.local.set({ 'kartaan-autosync-needs-you': [{ reportId: 'fk_orders', dataDate: '2026-10-02', triedOn: [] }] });
+  const standing = await howItStands(chrome, { book: BOOK, now: Date.now() });
+  await chrome.storage.local.remove('kartaan-autosync-needs-you');
+  check('PN2a: what the panel is told carries the report name and folder', standing.needsYou[0].name.length > 0 && standing.needsYou[0].folder.includes(' > '));
+  const waited = () => new Promise((resolve) => setTimeout(resolve, 20));
+  let asksMade = 0;
+  await chrome.storage.local.set({ 'kartaan-autosync-update': { checkedAt: 5000, latest: '0.1.1', url: '', notes: '', error: '' } });
+  const counting = async () => { asksMade += 1; return { ok: true, status: 200, json: async () => ({ version: '0.1.1' }) }; };
+  const overOpen = { book: BOOK, now: () => 6000, installed: '0.1.1', fetchTheVersion: counting };
+  await answerThePanelsQuestion(chrome, overOpen, { do: 'how-it-stands' });
+  await waited();
+  check('PN2a: an ordinary poll does not ask for the version file again', asksMade === 0);
+  await answerThePanelsQuestion(chrome, overOpen, { do: 'how-it-stands', opened: true });
+  await waited();
+  check('PN2a: opening the panel does', asksMade === 1);
+  await answerThePanelsQuestion(chrome, overOpen, { do: 'how-it-stands', opened: 'yes' });
+  await waited();
+  check('PN2a: only a plain true counts as opening', asksMade === 1);
+  await chrome.storage.local.remove('kartaan-autosync-update');
   const bare = buildThePanel(document.body, {});
   showHowItStands(bare, { ...stands, needsYou: two });
   let threw = false;

@@ -1896,7 +1896,6 @@ function downloadIcon() {
 
 /** PN2a: the amber box at the very top: one row per report-day he has to fetch by hand. Rebuilt only when the list changes, so a press is never lost to a redraw. */
 function showTheNeedsYou(parts, list) {
-  if (!parts.needs) return;
   const key = JSON.stringify(list.map((one) => [one.reportId, one.dataDate, (one.triedOn || []).length, one.name, one.folder]));
   parts.needs.hidden = !list.length;
   if (parts.needsKey === key) return;

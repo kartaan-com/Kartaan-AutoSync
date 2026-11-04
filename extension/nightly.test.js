@@ -2553,12 +2553,14 @@ if (ran !== EXPECTED) {
 {
   const browser = installFakeChrome();
   const seen = [];
-  const icon = { setBadgeText: async (a) => seen.push(a.text), setBadgeBackgroundColor: async () => {} };
+  const colours = [];
+  const icon = { setBadgeText: async (a) => seen.push(a.text), setBadgeBackgroundColor: async (a) => colours.push(a.color) };
   const chrome = { storage: browser.chrome.storage, action: icon };
   await showTheCountOnTheIcon(chrome);
   await chrome.storage.local.set({ [NEEDS_YOU]: [{ reportId: 'fk_orders', dataDate: '2026-10-02' }, { reportId: 'fk_views', dataDate: '2026-10-02' }] });
   await showTheCountOnTheIcon(chrome);
   check('PN2a: no number on the icon with nothing to do, and the count of open days when there are some', seen[0] === '' && seen[1] === '2');
+  check('PN2a: and the number is red, only when there is one', colours.length === 1 && colours[0] === '#A32D2D');
 }
 
 reachedTheEnd = true;
