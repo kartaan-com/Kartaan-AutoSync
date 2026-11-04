@@ -913,6 +913,14 @@ check('the same day written again replaces its row, never adds a second (R20 pro
       : drive.ask(args));
     check(`AS7a: ${what} in the record is null`, await thePipelineVerified(browser.chrome, asBytes, { inside: 'kartaan' }) === null);
   }
+  /* bytes that are not UTF-8 INSIDE an otherwise good record: a lenient decoder would repair them and accept it, the Python refuses it */
+  const [head, tail] = record.split('"fileName":"x"');
+  const damagedInside = [...new TextEncoder().encode(`${head}"fileName":"x`), 0xFF, ...new TextEncoder().encode(`"${tail}`)];
+  const brokenText = async (args) => (args.address.includes('alt=media')
+    ? { ok: true, status: 200, headers: { get: () => null }, async arrayBuffer() { return new Uint8Array(damagedInside).buffer; }, async text() { return ''; } }
+    : drive.ask(args));
+  check('AS7a: a good record with one byte that is not UTF-8 inside it is null, not repaired',
+    await thePipelineVerified(browser.chrome, brokenText, { inside: 'kartaan' }) === null);
   const nowhere = aDrive({ holds: [system, mine] });
   check('AS7a: with no Kartaan folder given nothing is asked of Drive and the answer is null',
     await thePipelineVerified(browser.chrome, nowhere.ask, {}) === null && nowhere.asked.length === 0);
@@ -928,7 +936,7 @@ check('the same day written again replaces its row, never adds a second (R20 pro
   check('AS7a: the same record as plain UTF-8 bytes is read', (await thePipelineVerified(browser.chrome, clean, { inside: 'kartaan' })).days.az_orders.join() === '2026-11-01');
 }
 
-const EXPECTED = 88 + 4 + 2 + 3 + 3 + 5 + 13;
+const EXPECTED = 88 + 4 + 2 + 3 + 3 + 5 + 14;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

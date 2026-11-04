@@ -793,12 +793,12 @@ export async function thePipelineVerified(chrome, ask, { inside }) {
   const got = await ask({ address: `${FILES}/${encodeURIComponent(files[0].id)}?alt=media` });
   const reply = await answered(chrome, got, `reading ${THE_PIPELINES_RECORD}`);
   /* Read as the Python reads it: bytes that are not UTF-8, or that start with a byte-order mark, are a record it refuses. */
-  let text;
+  let text = null;
   if (typeof reply.arrayBuffer === 'function') {
     try {
       text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(await reply.arrayBuffer());
     } catch (wrong) {
-      return null;
+      // not UTF-8: `text` stays null and the reader refuses it
     }
   } else {
     text = await reply.text();

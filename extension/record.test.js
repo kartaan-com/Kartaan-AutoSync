@@ -163,6 +163,15 @@ check('no text at all is a first landing, which is not damage', theLinesIn(null)
   ]) {
     check(`AS7a: ${what} is a record the Python calls damaged: null`, theVerifiedDaysIn(withReads(reads)) === null);
   }
+  /* each part of the reads guards on its own */
+  for (const [what, change] of [
+    ['nothing at all', null], ['a bad day', { dataDate: '2026-13-45' }], ['a report id that is a number', { reportId: 7 }], ['an empty report id', { reportId: '' }],
+    ['no file name', { fileName: '' }], ['a negative count read', { rowsRead: -1 }], ['a count read in fractions', { rowsRead: 1.5 }],
+    ['a count in the file that is text', { rowsInFile: '3' }], ['a read-on date that is not a day', { readOn: 'soon' }],
+  ]) {
+    check(`AS7a: a read with ${what} makes the record null`, theVerifiedDaysIn(withReads([change === null ? null : { ...okRead, ...change }])) === null);
+  }
+  check('AS7a: a read with a real read-on day is kept', theVerifiedDaysIn(withReads([{ ...okRead, readOn: day }])) !== null);
   check('AS7a: a fractional size that the Python reads as nought is null',
     theVerifiedDaysIn(JSON.stringify({ shape: 2, lines: [{ ...line(day, 'a', 'verified'), fileSize: 0.5 }] })) === null);
   /* each part of the first guard on its own, so none can be dropped unnoticed */
@@ -178,7 +187,7 @@ check('no text at all is a first landing, which is not damage', theLinesIn(null)
     && theVerifiedDaysIn('{"shape":3,"lines":[]}') === null && theVerifiedDaysIn('{"shape":"2","lines":[]}') === null);
 }
 
-const EXPECTED = 48;
+const EXPECTED = 58;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;
