@@ -1,22 +1,23 @@
 {
   "record": "security",
-  "commit": "e6af9ec",
-  "run_at": "4 Nov 2026 (AS1 round 1, item 4, released by AS3).",
-  "tool": "Opus 5.5 general-purpose sub-agent, read-only, cso lens, over git diff 11c0f9e..417d2fb (autosync/returns_sheet.py, returns_sheet_checks.py, SOLVED_PROBLEMS.md); e6af9ec after it changes checks and the survivor list only. An earlier read by AS1's own reader found nothing.",
-  "invoked_as": "Agent (general-purpose) from the AS3 session.",
-  "ran_by": "AS3 (Sonnet 5.5, worker for Kartaan Control); the reader wrote none of the code.",
-  "scope": "11c0f9e (v0.1.29) to e6af9ec, all added lines; the version move after it changes the version string and BUILD name only.",
+  "commit": "706e381",
+  "run_at": "4 Nov 2026 (AS3 round B, released by AS4).",
+  "tool": "Sonnet 5.5 general-purpose sub-agent, read-only, cso lens, over the staged diff 5c32f43..(Round B); the AS4 fix after it (is_a_defect, 3 lines) changes which night is red only and was re-read by the reviewer. AS3's own Opus security reader on v0.1.28 found nothing HIGH or MED.",
+  "invoked_as": "Agent (general-purpose) from the AS4 session.",
+  "ran_by": "AS4 (Opus 5.5, worker for Kartaan Control); the reader wrote none of the code.",
+  "scope": "5c32f43 (v0.1.30) to 706e381, all added lines; 706e381 after 512426a moves one condition into a named function (same logic) and adds checks only.",
   "found": [
-    {"severity": "LOW", "finding": "returns_sheet_checks.py adds a fixed machine path (D:\\Kartaan-ERP-gr1) to the ERP files compared; a stale copy there could be the one compared.", "fixed": false, "why": "Checks only; no runtime effect; the check takes the first file that really carries the lists."},
-    {"severity": "LOW", "finding": "returns_sheet.py column letter from chr(ord('A')+n-1) only holds up to 26 columns.", "fixed": false, "why": "The header is 13 columns; not reachable by data."}
+    {"severity": "LOW", "finding": "Retry and 'Tidied' log lines are printed without workflow-command escaping.", "fixed": false, "why": "They start with fixed text; GitHub reads a command only at line start; pre-existing."},
+    {"severity": "LOW", "finding": "The 429 line carries up to 200 characters of Google's error body.", "fixed": false, "why": "Same as the 403/404 lines already do; no header or token is in it."},
+    {"severity": "LOW", "finding": "The allowance line names the report file name.", "fixed": false, "why": "File names from the seller's own Drive; no row content."},
+    {"severity": "LOW", "finding": "Tidy retries sleep up to ~15 s in the worst case.", "fixed": false, "why": "Bounded: 3 tries, then 1; no loop."}
   ],
   "checked_no_finding": [
-    "The only write is row 1, and only when every cell of row 1 is blank; scanner columns (Receipts K-M, Log D) in rows 2 and down are never written, overwritten or cleared.",
-    "A non-matching row 1 is reported and left untouched, as before.",
-    "No new Drive or Sheets call; same read of row 1, same conditional write; a newly made sheet is sized 13/4 columns from THE_TABS.",
-    "Log messages unchanged: tab names, counts and column positions only; no secret, token or customer data.",
-    "No permission, scope or sharing change.",
-    "The checks only read local ERP files and match the lists by pattern; no ERP code is run."
+    "No secret, token, credential or customer row reaches a log or warning.",
+    "The ::warning:: text escapes %, CR and LF as GitHub requires.",
+    "The first 429 stops further database calls that night: less traffic, not more.",
+    "Nothing new is written or deleted on Drive; a retried tidy cannot bin a file twice."
   ],
+  "verdict": "SECURITY PASS",
   "sec2_rows": "AutoSync SEC2 rows untouched by this round. Row S1 (pin tag-pinned actions in pm_check.yml and extension-zip.yml) stays open."
 }

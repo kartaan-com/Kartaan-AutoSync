@@ -1,15 +1,17 @@
 {
   "record": "review",
-  "commit": "e6af9ec",
-  "run_at": "4 Nov 2026 (AS1 round 1, released by AS3). AS1's independent Opus reviewer read the round (2 MED found and fixed); a fresh Opus reader then read the proving fix.",
+  "commit": "706e381",
+  "run_at": "4 Nov 2026 (AS3 round B, replayed on 0.1.30 and released by AS4). AS3's fresh Opus reviewer read the round on v0.1.28 (5 LOW, all fixed); AS4's fresh Opus reviewer read it again on v0.1.30 (1 MED + 1 LOW fixed) and then re-read the fix (READY).",
   "tool": "Opus 5.5 general-purpose sub-agents, read-only.",
-  "invoked_as": "Agent (general-purpose), by AS1 and by AS3.",
+  "invoked_as": "Agent (general-purpose), by AS3 and by AS4.",
   "ran_by": "Sub-agents; the reviewers wrote none of the code they read.",
-  "scope": "11c0f9e (v0.1.29) to e6af9ec: AS1 round 1 (item 4): the returns sheet's header the pipeline checks is now 13 Receipts columns and 4 Log columns, as the ERP makes them, so RETURNS SHEET HEADER CHANGED stops firing every night; plus a proving fix. About 10 program lines written by AS1 (under the ~20-line DeepSeek threshold).",
+  "scope": "5c32f43 (v0.1.30) to 512426a: Round B (R119): a 429 from the seller's database stops the asking for the night (files stay unread, one line counts them, the night is yellow not red, D108); Drive tidy tries each place 3 times (5 s, 10 s), later places 1 try after one used all 3; a surviving tidy fault is a ::warning::. About 70 program lines (AS3 wrote them without DeepSeek, not callable from that session; AS4's fix is 3 lines).",
   "found": [
-    {"n": "AS1-1", "severity": "MED", "finding": "Two MED findings in AS1's review of the header change.", "fixed": true, "fix": "Both fixed in the committed code (see DONE_AS1.md round 1)."},
-    {"n": "AS3-B1", "severity": "MED (found by GitHub proving run 41766898867)", "finding": "Deleting lines 54 or 56 of returns_sheet.py crashes the checks file at import with no recorded reason; deleting lines 60 or 61 crashed inside a check dictionary before any check could name the fault.", "fixed": true, "fix": "54 and 56 recorded under cannot_load with the reason; 60 and 61 now turn real, named checks red (.get instead of []); a reviewer deleted each line on a scratch copy and confirmed; run 41768323053: 5 tried, 3 caught, 2 recorded crashes, 0 survived."},
-    {"n": "AS1-2", "severity": "LOW", "finding": "Column letters from chr() hold only to 26; a fixed ERP checkout path in the checks.", "fixed": false, "why": "Not reachable by data; checks only."}
+    {"n": "AS4-B1", "severity": "MED", "finding": "A 429 still made is_a_defect true, so the night went red with a 'could not list' line whose list was empty.", "fixed": true, "fix": "Refusals marked as a used-up allowance are not our defect; a real refusal beside one still is; 2 checks in listings_checks."},
+    {"n": "AS4-B2", "severity": "LOW", "finding": "The 429 check read only the words, not the kind the stop depends on.", "fixed": true, "fix": "isinstance check on TheirDatabaseHasNoAllowanceLeft (firestore_door_checks)."},
+    {"n": "AS4-B3", "severity": "LOW", "finding": "The stop is proved for listings only.", "fixed": false, "why": "One code path decides every database kind (_NEEDS_THE_DATABASE)."},
+    {"n": "AS4-B4", "severity": "LOW", "finding": "On a 429 night the DATABASE REFUSED kind is counted twice in the end-of-run list.", "fixed": false, "why": "Counts only; no line is hidden."},
+    {"n": "AS3-B1..5", "severity": "LOW", "finding": "Claims writing records not skipped after a 429; wording matched by text; a dead Drive cost ~9 min; tidy warning not escaped; stale comment.", "fixed": true, "fix": "All fixed by AS3 before the replay (see DONE_AS3.md Round B)."}
   ],
-  "known_gaps": ["The header comparison with the ERP's return-scan.js is skipped on GitHub (that private file is not there); it ran on AS1's machine against the ERP v0.1.29 file."]
+  "known_gaps": ["A real 429 is seen only on a real night that hits the allowance."]
 }

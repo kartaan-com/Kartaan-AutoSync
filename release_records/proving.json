@@ -1,15 +1,15 @@
 {
   "record": "proving",
-  "commit": "e6af9ec",
-  "run_at": "4 Nov 2026 (AS1 round 1, released by AS3), on GitHub: Proving workflow run 41768323053 (first run 41766898867 on 417d2fb had 4 unrecorded crashes, closed in e6af9ec).",
-  "tool": "tools/proving.py with the ERP's tools/prove_checks.py (vendor copy), 4 parts, shared out by line number, joined by tools/proving_join.py.",
-  "invoked_as": "gh workflow run proving.yml --ref as1r1 -f prove=<e6af9ec full id> -f against=11c0f9e8a1aa34d5f65add981d5260a28c2e585e -f parts=4",
-  "ran_by": "AS3 (Sonnet 5.5, worker for Kartaan Control), started with the owner login.",
-  "scope": "Every changed line between 11c0f9e (v0.1.29) and e6af9ec.",
+  "commit": "706e381",
+  "run_at": "4 Nov 2026 (AS3 round B, released by AS4), on the Dell: the GitHub Proving run 41772105466 on 512426a tried nothing (listings_checks needs the ERP's private listing-files.js, not in the vendor copy), so the local prover was run, one long run at a time under D:\Control\long-run.lock.",
+  "tool": "tools/proving.py with the ERP's tools/prove_checks.py (KARTAAN=D:/Kartaan-ERP-gr1), whole run, 2 workers, from a clone with Unix line endings.",
+  "invoked_as": "KARTAAN=D:/Kartaan-ERP-gr1 python tools/proving.py --against 5c32f439a989608b38b4ca3b30204e90733a9579 --workers 2",
+  "ran_by": "AS4 (Opus 5.5, worker for Kartaan Control).",
+  "scope": "Every changed line between 5c32f43 (v0.1.30) and 706e381.",
   "found": [
-    "First run (417d2fb): 5 tried, 4 crashed the checks file with no recorded reason (returns_sheet.py:54, 56, 60, 61).",
-    "Closed by tests and the survivor list only (e6af9ec): 54 and 56 recorded under cannot_load (NameError at import); 60 and 61 now turn named checks red.",
-    "Final run (e6af9ec, run 41768323053): 5 tried, 3 caught, 2 ended in a recorded crash, 0 survived. 'every deliberate change was either caught or recorded with a reason'."
+    "First run (512426a): 72 tried, 50 run, 44 caught, 1 recorded crash, 5 survived (nightly.py:1070-1071 retry line; reading.py:499 marker; reading.py:1193 equality and logic) -- the checks that saw them sat in files not named for reading.py.",
+    "Closed by checks and a behaviour-identical refactor (706e381): reading_checks +3, nightly_checks +2; re-read by the reviewer, READY.",
+    "Final run (706e381): 74 tried, 51 run, 49 caught, 2 ended in a crash noticed by the file failing to load, 23 would not parse, 0 survived. 'every deliberate change was either caught or recorded with a reason'."
   ],
   "stopped_by_time": [],
   "survivors": [],
