@@ -1,17 +1,25 @@
 {
   "record": "review",
-  "commit": "2796aab",
-  "run_at": "5 Nov 2026 (AS8, AS7d).",
-  "tool": "A fresh Opus general-purpose read-only sub-agent given only the diff, on the uncommitted change that became 97deb35.",
-  "invoked_as": "Agent, by AS8.",
-  "ran_by": "Sub-agent; it wrote none of the code.",
-  "scope": "v0.1.39 to 2796aab: the manifest `by` label (manifest.py, nightly.py, runner.py and their checks). Later commits add one runner check and a recorded reason, and the rebase onto 0.1.39 touches extension files only.",
+  "commit": "781d631",
+  "run_at": "5 Nov 2026 (PN2r).",
+  "tool": "Round 1 (PN2, 4-5 Nov): a fresh read-only sub-agent on the PN2b change when it was 570aa60. Round 2 (PN2r): a second fresh read-only sub-agent (Sonnet) on the rebase only.",
+  "invoked_as": "Agent, by PN2 and by PN2r.",
+  "ran_by": "Sub-agents; they wrote none of the code.",
+  "scope": "v0.1.40 to 781d631: PN2b run controls at the top, instant download row, three platform buttons (extension/screen.js, panel.css, screen.test.js). 781d631 is the same three commits as 570aa60 moved onto 0.1.40; git range-diff shows all three unchanged and no file was touched by both sides.",
   "found": [
-    {"severity": "PASS", "finding": "Key order between the run's (report, day) and the record's (day, report) is right; undoing the swap fails the nightly check. Old records read as before; nothing decides by the label.", "fixed": true},
-    {"severity": "MED", "finding": "The label went on the day even when the line named a browser range file; now it needs the one-day file the API writes (new check).", "fixed": true},
-    {"severity": "LOW", "finding": "A same-name file replaced by the browser with another size kept the word; now it needs the same size (new check). A redundant verified condition was removed.", "fixed": true},
-    {"severity": "LOW", "finding": "If Drive lists the file late the label is not given back later; it is only a note.", "fixed": false},
-    {"severity": "LOW", "finding": "The extension reader accepts a bad word that the Python reader refuses; the extension never writes it.", "fixed": false}
+    {
+      "severity": "LOW",
+      "finding": "Round 1: last-run table filtered by platform, not by name; 'Tick all' ticked every platform; counts refreshed late.",
+      "fixed": true
+    },
+    {
+      "severity": "PASS",
+      "finding": "Round 2 (rebase): range-diff all '='; 570aa60 vs 781d631 differ only by the 13 files 0.1.40 changed; panel.js, screen.js and worker.js identical byte for byte; nothing in 0.1.40 touches the panel.",
+      "fixed": true
+    }
   ],
-  "known_gaps": ["No real live API file seen yet; the first live night shows api on the Amazon orders and returns days in the manifest."]
+  "known_gaps": [
+    "Not opened in real Chrome before release; the live check after release covers the look.",
+    "R201 re-download pop-up not built (own round)."
+  ]
 }

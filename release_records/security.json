@@ -1,14 +1,16 @@
 {
   "record": "security",
-  "commit": "2796aab",
-  "run_at": "5 Nov 2026 (AS8, AS7d).",
-  "tool": "Sonnet 5.5 sub-agent, read-only, security lens, on the diff of autosync and tools against main.",
-  "invoked_as": "Agent, by AS8.",
-  "ran_by": "Sub-agent; it wrote none of the code.",
-  "scope": "v0.1.39 to 2796aab (the `by` label in the seller's own Drive manifest).",
+  "commit": "781d631",
+  "run_at": "5 Nov 2026 (PN2r).",
+  "tool": "Round 1: security read of PN2b at 570aa60 (PASS). Round 2: sub-agent security lens on the diff 94911d2..781d631.",
+  "invoked_as": "Agent, by PN2 and by PN2r.",
+  "ran_by": "Sub-agents; they wrote none of the code.",
+  "scope": "v0.1.40 to 781d631 (panel.css, screen.js, screen.test.js only).",
   "found": [
-    {"severity": "PASS", "finding": "The only new data is the fixed word api; no token, URL or seller data written or logged; no new network call, permission or file; a hostile label is refused on reading and a file name is only compared, never opened.", "fixed": true},
-    {"severity": "LOW", "finding": "The refusal message repeats a hostile label (escaped, so no log forging); worst case a long log line. Accepted.", "fixed": false},
-    {"severity": "LOW", "finding": "One bad label makes the whole manifest read as damaged, like every other bad field; needs write access to the seller's own Drive file. Accepted.", "fixed": false}
+    {
+      "severity": "PASS",
+      "finding": "No secret, token or URL with credentials; no new permission, network call, eval or innerHTML with data; manifest permissions unchanged.",
+      "fixed": true
+    }
   ]
 }
