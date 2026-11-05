@@ -1,11 +1,11 @@
 {
   "record": "security",
-  "commit": "643ae48",
+  "commit": "09d3736",
   "run_at": "4 Nov 2026 (PN2).",
   "tool": "Sonnet 5.5 sub-agent, read-only, security lens (cso-style read of the diff), on c819b3e.",
   "invoked_as": "Agent, by PN2.",
   "ran_by": "Sub-agent; it wrote none of the code.",
-  "scope": "v0.1.38 to 643ae48. Later commits add checks and simplify one line; nothing held, sent or permitted changed.",
+  "scope": "v0.1.38 to 09d3736. Later commits add checks and simplify one line; nothing held, sent or permitted changed.",
   "found": [
     {"severity": "PASS", "finding": "No secrets or seller data; the box is built with textContent only; the Download link accepts only https github.com/kartaan-com/Kartaan-AutoSync/releases/ addresses; the open-time check fetches only the fixed version.json address and sends nothing; the badge reads only the needs-you list; I placed it clears only exactly named report-days and never during a run; manifest permissions are unchanged.", "fixed": true},
     {"severity": "LOW", "finding": "The version file is fetched on every panel open, deferred in a background tab; accepted.", "fixed": false}

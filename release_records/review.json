@@ -1,11 +1,11 @@
 {
   "record": "review",
-  "commit": "643ae48",
+  "commit": "09d3736",
   "run_at": "4 Nov 2026 (PN2).",
   "tool": "A fresh general-purpose read-only sub-agent (Sonnet), on the staged change c819b3e.",
   "invoked_as": "Agent, by PN2.",
   "ran_by": "Sub-agent; it wrote none of the code.",
-  "scope": "v0.1.38 to 643ae48: the needs-you box with per-row and all-at-once I placed it, the red count on the toolbar icon, the Download button, the version check on every panel open. Later commits add checks and simplify one line (the folder lookup).",
+  "scope": "v0.1.38 to 09d3736: the needs-you box with per-row and all-at-once I placed it, the red count on the toolbar icon, the Download button, the version check on every panel open. Later commits add checks and simplify one line (the folder lookup).",
   "found": [
     {"severity": "LOW", "finding": "The box rebuild key left out the report name and folder, so changed text could stay stale.", "fixed": true},
     {"severity": "LOW", "finding": "The open-time version check was lost when the panel opened in a background tab.", "fixed": true},

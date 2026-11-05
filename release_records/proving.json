@@ -1,15 +1,15 @@
 {
   "record": "proving",
-  "commit": "643ae48",
-  "run_at": "5 Nov 2026 (PN2), on GitHub: Proving workflow run 41900105706 (8 parts) on 643ae48, against 9d10b9c (v0.1.38).",
+  "commit": "09d3736",
+  "run_at": "5 Nov 2026 (PN2), on GitHub: Proving workflow run 41900105706 (8 parts) on this tree, before the rebase onto the 0.1.38 Announce line, against 9d10b9c (v0.1.38).",
   "tool": "tools/proving.py with the ERP's prove_checks.py (vendor copy), joined by tools/proving_join.py.",
-  "invoked_as": "gh workflow run proving.yml -f prove=643ae485f49c3fe1e9c0c6d6bdcdadb344e92de8 -f against=9d10b9c... -f parts=8",
+  "invoked_as": "gh workflow run proving.yml -f prove=<the commit before the rebase onto the 0.1.38 Announce line; same tree as 09d3736> -f against=9d10b9c... -f parts=8",
   "ran_by": "PN2 (Sonnet 5.5, worker for Kartaan Control).",
-  "scope": "Every changed line between v0.1.38 (9d10b9c) and 643ae48: the panel's needs-you box, the toolbar count, the Download button and the version check on open (screen.js, panel.js, panel.css, update.js, nightly.js, worker.js).",
+  "scope": "Every changed line between v0.1.38 (9d10b9c) and this commit: the panel's needs-you box, the toolbar count, the Download button and the version check on open (screen.js, panel.js, panel.css, update.js, nightly.js, worker.js).",
   "found": [
     "First run 41888813835 (c819b3e): 93 tried, 75 run, 48 caught, 27 survived. Answered by 16 new checks (screen.test.js, nightly.test.js, update.test.js) and removal of one dead guard line.",
     "Second run 41897242863 (249e27d, rebased on 0.1.38): 91 tried, 73 run, 71 caught, 2 survived, both on the folder lookup in screen.js; the line was simplified.",
-    "Third run 41900105706 (643ae48): 91 tried, 73 run, 73 caught, 0 survived, 0 crashed, 0 hung, 0 accepted; no NOT PROVEN line in any of the 8 parts."
+    "Third run 41900105706 (the same tree before the rebase onto the 0.1.38 Announce line): 91 tried, 73 run, 73 caught, 0 survived, 0 crashed, 0 hung, 0 accepted; no NOT PROVEN line in any of the 8 parts."
   ],
   "survivors": [],
   "after_this_record": "The version move (extension/manifest.json, extension/bridge.js BUILD) changes no line the prover tries."

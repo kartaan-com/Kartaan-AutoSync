@@ -1,5 +1,5 @@
 {
-  "version": "0.1.38",
+  "version": "0.1.39",
   "url": "https://github.com/kartaan-com/Kartaan-AutoSync/releases/latest/download/kartaan-autosync-extension.zip",
-  "notes": "The nightly run now writes down the list of reports it ran with, for the ERP Data tab."
+  "notes": "A new Needs you box at the top of the panel, a red number on the icon, and a Download button for new versions."
 }
