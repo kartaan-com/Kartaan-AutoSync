@@ -224,6 +224,26 @@ body {
   cursor: help;
 }
 
+/* PN2b: the three platform buttons. */
+.p-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.p-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 140px;
+}
+
+.p-tab--chosen {
+  border-color: var(--brand);
+  background: var(--surface-raised);
+}
+
 .p-actions {
   display: flex;
   flex-wrap: wrap;

@@ -1481,7 +1481,7 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
    * report** -- his way since "make it like Rumee". The checks below then run from
    * nothing ticked, as they always have. */
   check('5b: the panel opens with every report ticked, and the button says Untick all',
-    whatIsTicked(parts).length > 0 && parts.selectAll.textContent === 'Untick all');
+    whatIsTicked(parts).length > 0 && parts.selectAll.textContent === 'Untick all platforms');
   parts.selectAll.click();
   check('5b: one press of Untick all leaves nothing ticked', whatIsTicked(parts).length === 0);
 
@@ -2000,7 +2000,7 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
     platforms: stands.platforms.map((one) => (one.id === 'flipkart' ? { ...one, lastRun: { finishedAt: Date.now(), landed: 3, failed: 2 } } : one)),
   });
   check('a platform\'s card says how many reports the last run fetched AND how many failed',
-    shown.platforms.textContent.includes('3 fetched, 2 failed.'));
+    shown.platforms.textContent.includes('3 fetched, 2 failed'));
 }
 
 /* AJ6: the per-report table replaces the words box. */
@@ -2392,7 +2392,15 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   const titles = every(parts.log).filter((one) => String(one.className || '').split(' ').includes('p-run-title'))
     .map((one) => one.textContent);
   check('Last run box: one table per platform, titled with each platform',
-    titles.join('|') === 'Last run: Flipkart|Last run: Meesho|Last run: Amazon');
+    titles.join('|') === 'Last run: Flipkart');
+  const everyOne = (node) => [node, ...(node.children || []).flatMap(everyOne)];
+  const tabFor = (name) => everyOne(parts.platforms).find((one) => one.tagName === 'button' && one.textContent.startsWith(name));
+  tabFor('Meesho').click();
+  check('PN2b: choosing Meesho shows its own table, and only that one',
+    everyOne(parts.log).filter((one) => String(one.className || '').split(' ').includes('p-run-title')).map((one) => one.textContent).join('|') === 'Last run: Meesho');
+  tabFor('Amazon').click();
+  check('PN2b: and Amazon its own', everyOne(parts.log).some((one) => one.textContent === 'Last run: Amazon'));
+  tabFor('Flipkart').click();
   const before = parts.log.firstChild;
   showHowItStands(parts, stands);
   check('Last run box: the same answer again is not drawn again', parts.log.firstChild === before);
@@ -2609,6 +2617,54 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   check('PN2a: the count shows how many', mine.needs.find('p-count').textContent === '2');
   check('PN2a: the buttons are plain buttons, not form submits',
     buttons('I placed it', mine).every((one) => one.type === 'button') && buttons('I placed all', mine)[0].type === 'button');
+  const instantAsked = [];
+  const pb = buildThePanel(document.body, { runNow: (ids, from, to) => instantAsked.push([ids, from, to]) });
+  const bodyKids = pb.needs.parentNode.children;
+  check('PN2b: Days to fetch, Run now and Stop come straight after the needs box, before set-up and before the platforms',
+    bodyKids[0] === pb.needs && bodyKids.indexOf(pb.actions) > 0 && bodyKids.indexOf(pb.actions) < bodyKids.indexOf(pb.setup)
+    && bodyKids.indexOf(pb.platforms) > bodyKids.indexOf(pb.actions));
+  const live = { ...stands, setUp: { ...stands.setUp, done: true } };
+  showHowItStands(pb, live);
+  const tabs = () => pb.platforms.children;
+  check('PN2b: three platform buttons, Flipkart chosen to begin with', tabs().length === 3 && pb.chosen === 'flipkart');
+  check('PN2b: only the chosen platform\'s reports show', pb.groups.size === 3 && [...pb.groups].every(([platform, group]) => group.hidden === (platform !== 'flipkart')));
+  check('PN2b: the requests-left line shows for Flipkart', pb.allowanceCard.hidden === false);
+  const kept = pb.ticked.size;
+  pb.selectAll.click();
+  const flipkartTicked = pb.platformIds.get('flipkart').filter((id) => !pb.boxes.get(id).disabled && pb.ticked.has(id)).length;
+  check('PN2b: ticking all is counted on the folded heading and on the platform\'s button',
+    pb.ticked.size !== kept && pb.foldTitle.textContent.startsWith(`What to fetch \u00B7 ${flipkartTicked} of `) && tabs()[0].textContent.startsWith(`Flipkart${flipkartTicked} ticked`));
+  check('PN2b: and Tick all platforms says it ticks every platform', pb.selectAll.textContent.endsWith(' all platforms'));
+  pb.selectAll.click();
+  const meeshoTab = tabs().find((one) => one.textContent.startsWith('Meesho'));
+  meeshoTab.click();
+  check('PN2b: choosing Meesho hides Flipkart\'s reports and requests line and shows Meesho\'s',
+    pb.groups.get('flipkart').hidden === true && pb.groups.get('meesho').hidden === false && pb.allowanceCard.hidden === true);
+  showHowItStands(pb, { ...live, needsYou: [{ ...two[0], platformName: 'Meesho' }] });
+  const meeshoNow = pb.platforms.children.find((one) => one.textContent.startsWith('Meesho'));
+  check('PN2b: a day that needs him puts a red number on its platform\'s button only',
+    meeshoNow.children.some((one) => one.className === 'p-count' && one.textContent === '1')
+    && !pb.platforms.children.find((one) => one.textContent.startsWith('Flipkart')).children.some((one) => one.className === 'p-count'));
+  const flipkartOnes = stands.reports.filter((one) => one.platform === 'flipkart' && one.canBeFetched && !one.fetchedBy);
+  check('PN2b: the instant row lists the first platform\'s fetchable reports', pb.instantReport.children.length === flipkartOnes.length && flipkartOnes.length > 1);
+  pb.instantReport.value = flipkartOnes[1].id;
+  pb.from.value = '2026-10-01';
+  pb.to.value = '2026-10-03';
+  const tickedBefore = [...pb.ticked].join();
+  pb.instantRun.click();
+  check('PN2b: Run in the instant row asks for that one report and the days above, and leaves the ticks alone',
+    instantAsked.length === 1 && instantAsked[0][0].join() === flipkartOnes[1].id && instantAsked[0][1] === '2026-10-01' && instantAsked[0][2] === '2026-10-03'
+    && [...pb.ticked].join() === tickedBefore);
+  pb.instantPlatform.value = 'amazon';
+  showHowItStands(pb, live);
+  const amazonOnes = stands.reports.filter((one) => one.platform === 'amazon' && one.canBeFetched && !one.fetchedBy);
+  check('PN2b: another platform lists its own reports', pb.instantReport.children.length === amazonOnes.length);
+  const noReport = buildThePanel(document.body, { runNow: (ids) => instantAsked.push(ids) });
+  noReport.instantRun.click();
+  check('PN2b: with no report chosen the instant Run asks for nothing', instantAsked.length === 1);
+  const goingNight = { ...stands, night: { startedAt: 1, finishedAt: null, done: [], left: [], doing: null }, setUp: { ...stands.setUp, done: true } };
+  showHowItStands(pb, { ...goingNight, setUp: live.setUp });
+  check('PN2b: while a run is going the instant Run is off as Run now is', pb.runNow.disabled === true && pb.instantRun.disabled === true);
   const tiny = { kartaan: 'Mine', reports: [{ id: 'zz_a', name: 'A report', platform: 'flipkart' }], folders: { zz_a: ['Flipkart', 'Things'] } };
   const r1 = theNeedsYouRow(tiny, { reportId: 'zz_a', dataDate: '2026-10-02', triedOn: ['x'] });
   check('PN2a: the row gets its report name, platform and folder, and keeps what it had',
