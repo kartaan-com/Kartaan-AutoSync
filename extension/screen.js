@@ -1587,6 +1587,58 @@ export function buildThePanel(into, doing) {
   parts.needs.hidden = true;
   put(body, parts.needs);
 
+  /* ----------------------------------------------------------- what is happening */
+  parts.banner = make('div', `${OURS}banner`);
+  put(body, parts.banner);
+  /* **"A NEWER VERSION IS OUT" (his ask, 2026-10-20; Kartaan Click's way).** Hidden until the repository says so. */
+  parts.update = make('div', `${OURS}banner ${OURS}banner--setup`);
+  parts.update.hidden = true;
+  put(body, parts.update);
+
+  /* **THE TWO DATE BOXES -- HIS ASK, 2026-09-16.** Empty is yesterday, which is what
+   * every run did before they existed. Filled, Run now fetches every day between them,
+   * oldest first. */
+  const whichDays = make('div', `${OURS}row`);
+  parts.from = make('input', 'k-control');
+  parts.from.type = 'date';
+  parts.to = make('input', 'k-control');
+  parts.to.type = 'date';
+  put(whichDays, make('span', `${OURS}label`, 'Days to fetch'),
+    make('span', `${OURS}note`, 'From'), parts.from,
+    make('span', `${OURS}note`, 'To'), parts.to,
+    make('span', `${OURS}note`, 'Leave both empty for yesterday.'));
+  put(body, whichDays);
+
+  parts.actions = make('div', `${OURS}actions`);
+  parts.runNow = make('button', 'k-button k-button--main', 'Run now');
+  parts.runNow.type = 'button';
+  parts.stop = make('button', 'k-button k-button--danger', 'Stop');
+  parts.stop.type = 'button';
+  parts.resume = make('button', 'k-button k-button--main', 'Resume');
+  parts.resume.type = 'button';
+  parts.resume.hidden = true;
+  parts.said = make('p', `${OURS}said`, '');
+  parts.said.hidden = true;
+  put(parts.actions, parts.runNow, parts.resume, parts.stop);
+  put(body, parts.actions, parts.said);
+
+  /* ----------------------------------------------- PN2b: instant download, one report, ticks untouched */
+  const instant = make('div', `${OURS}row`);
+  parts.instantPlatform = make('select', 'k-control');
+  for (const platform of THROUGH_THE_BROWSER) {
+    const option = make('option', '', CALLED[platform] || platform);
+    option.value = platform;
+    put(parts.instantPlatform, option);
+  }
+  parts.instantPlatform.value = 'flipkart';
+  parts.instantReport = make('select', 'k-control');
+  parts.instantRun = make('button', 'k-button k-button--ordinary', 'Run');
+  parts.instantRun.type = 'button';
+  const instantHint = make('span', `${OURS}hint`, 'i');
+  instantHint.title = 'Fetches just this one report for the days above. Your ticks are not touched.';
+  put(instant, make('span', `${OURS}label`, 'Instant download'), parts.instantPlatform, parts.instantReport, parts.instantRun, instantHint);
+  put(body, instant);
+
   /* ------------------------------------------------------- setting up, once */
   parts.setup = make('section', `${OURS}card`);
   put(parts.setup, make('h2', `${OURS}title`, 'Set up, once'));
@@ -1659,47 +1711,11 @@ export function buildThePanel(into, doing) {
   put(parts.ai, parts.aiNote, parts.aiAsks);
   put(body, parts.ai);
 
-  /* ----------------------------------------------------------- what is happening */
-  parts.banner = make('div', `${OURS}banner`);
-  put(body, parts.banner);
-  /* **"A NEWER VERSION IS OUT" (his ask, 2026-10-20; Kartaan Click's way).** Hidden until the repository says so. */
-  parts.update = make('div', `${OURS}banner ${OURS}banner--setup`);
-  parts.update.hidden = true;
-  put(body, parts.update);
-
-  /* **THE TWO DATE BOXES -- HIS ASK, 2026-09-16.** Empty is yesterday, which is what
-   * every run did before they existed. Filled, Run now fetches every day between them,
-   * oldest first. */
-  const whichDays = make('div', `${OURS}row`);
-  parts.from = make('input', 'k-control');
-  parts.from.type = 'date';
-  parts.to = make('input', 'k-control');
-  parts.to.type = 'date';
-  put(whichDays, make('span', `${OURS}label`, 'Days to fetch'),
-    make('span', `${OURS}note`, 'From'), parts.from,
-    make('span', `${OURS}note`, 'To'), parts.to,
-    make('span', `${OURS}note`, 'Leave both empty for yesterday.'));
-  put(body, whichDays);
-
-  parts.actions = make('div', `${OURS}actions`);
-  parts.runNow = make('button', 'k-button k-button--main', 'Run now');
-  parts.runNow.type = 'button';
-  parts.stop = make('button', 'k-button k-button--danger', 'Stop');
-  parts.stop.type = 'button';
-  parts.resume = make('button', 'k-button k-button--main', 'Resume');
-  parts.resume.type = 'button';
-  parts.resume.hidden = true;
-  parts.said = make('p', `${OURS}said`, '');
-  parts.said.hidden = true;
-  put(parts.actions, parts.runNow, parts.resume, parts.stop);
-  put(body, parts.actions, parts.said);
 
   /* --------------------------------------------------------------- platforms */
-  const platforms = make('section', `${OURS}card`);
-  put(platforms, make('h2', `${OURS}title`, 'Where your reports come from'));
-  parts.platforms = make('div', `${OURS}grid`);
-  put(platforms, parts.platforms);
-  put(body, platforms);
+  parts.platforms = make('div', `${OURS}tabs`);
+  parts.chosen = 'flipkart';
+  put(body, parts.platforms);
 
   /* ------------------------------------------------------- Flipkart's twenty */
   const allowance = make('section', `${OURS}card`);
@@ -1707,16 +1723,18 @@ export function buildThePanel(into, doing) {
   parts.allowance = make('p', `${OURS}figure`, '');
   parts.allowanceNote = make('p', `${OURS}note`, '');
   put(allowance, parts.allowance, parts.allowanceNote);
+  parts.allowanceCard = allowance;
   put(body, allowance);
 
   /* ----------------------------------------------------------------- reports */
   const reports = make('section', `${OURS}card`);
-  put(reports, make('h2', `${OURS}title`, 'What to fetch'));
-  parts.selectAll = make('button', 'k-button k-button--quiet k-button--small', 'Tick all');
+  parts.foldTitle = make('summary', '', 'What to fetch');
+  parts.selectAll = make('button', 'k-button k-button--quiet k-button--small', 'Tick all platforms');
   parts.selectAll.type = 'button';
-  put(reports, parts.selectAll);
   parts.reports = make('div', `${OURS}list`);
-  put(reports, parts.reports);
+  parts.fold = make('details');
+  put(parts.fold, parts.foldTitle, parts.selectAll, parts.reports);
+  put(reports, parts.fold);
   put(body, reports);
 
   /* --------------------------------------------------- what it cannot fetch */
@@ -1805,6 +1823,8 @@ export function buildThePanel(into, doing) {
     whatIsTicked(parts), parts.from.value, parts.to.value,
   ));
   parts.stop.addEventListener('click', () => doing.stop());
+  parts.instantPlatform.addEventListener('change', () => parts.lastStands && fillTheInstantRow(parts, parts.lastStands));
+  parts.instantRun.addEventListener('click', () => parts.instantReport.value && doing.runNow && doing.runNow([parts.instantReport.value], parts.from.value, parts.to.value));
   parts.resume.addEventListener('click', () => doing.resume && doing.resume());
   parts.saveHour.addEventListener('click', () => doing.setTheHour(parts.hour.value));
   parts.selectAll.addEventListener('click', () => tickAll(parts));
@@ -1814,6 +1834,7 @@ export function buildThePanel(into, doing) {
   /* The report rows that are open in the last-run table, kept across the two-second redraws. */
   parts.opened = new Set();
   parts.boxes = new Map();
+  parts.groups = new Map();
   parts.states = new Map();
   /* One tick-all button per platform, so a seller picks a whole platform in one press. */
   parts.platformTicks = new Map();
@@ -1821,6 +1842,7 @@ export function buildThePanel(into, doing) {
    * are for Run now only; the timed sync keeps its own list (A60). */
   parts.ticksChanged = () => {
     showWhatIsTicked(parts);
+    if (parts.lastStands) showThePlatforms(parts, parts.lastStands);
     if (doing.saveTheTicks) doing.saveTheTicks(whatIsTicked(parts));
   };
   /* Each report brought by another's run, and that report (A61, Job 5b). */
@@ -1843,7 +1865,7 @@ function showWhatIsTicked(parts) {
     const own = ids.filter((id) => parts.boxes.get(id) && !parts.boxes.get(id).disabled);
     return own.length > 0 && own.every((id) => parts.ticked.has(id));
   };
-  parts.selectAll.textContent = allOn([...parts.boxes.keys()]) ? 'Untick all' : 'Tick all';
+  parts.selectAll.textContent = allOn([...parts.boxes.keys()]) ? 'Untick all platforms' : 'Tick all platforms';
   for (const [platform, button] of parts.platformTicks) {
     const named = CALLED[platform] || platform;
     button.textContent = `${allOn(parts.platformIds.get(platform) || []) ? 'Untick' : 'Tick'} all ${named}`;
@@ -1877,7 +1899,7 @@ function tickAll(parts) {
     else parts.ticked.add(id);
     parts.boxes.get(id).checked = !allOn;
   }
-  parts.selectAll.textContent = allOn ? 'Tick all' : 'Untick all';
+  parts.selectAll.textContent = allOn ? 'Tick all platforms' : 'Untick all platforms';
   if (parts.ticksChanged) parts.ticksChanged();
 }
 
@@ -1986,21 +2008,10 @@ export function showHowItStands(parts, stands) {
   const going = Boolean(stands.night && !stands.night.finishedAt);
   parts.runNow.disabled = going || !stands.setUp.done;
   parts.stop.disabled = !going;
+  parts.instantRun.disabled = parts.runNow.disabled;
   if (parts.timed) parts.timed.textContent = (stands.timed && stands.timed.said) || '';
 
   /* ------------------------------------------------------------- platforms */
-  parts.platforms.textContent = '';
-  for (const one of stands.platforms) {
-    const card = make('div', `${OURS}platform`);
-    put(card, make('span', `${OURS}platform-name`, one.name));
-    put(card, make('span', `${OURS}state ${OURS}state--${one.ready ? 'yes' : 'no'}`,
-      one.ready ? 'ready' : 'not ready'));
-    put(card, make('span', `${OURS}note`, one.lastRun
-      ? `Last run ${inWordsWhen(one.lastRun.finishedAt)} -- ${one.lastRun.landed} `
-        + `fetched, ${one.lastRun.failed} failed.`
-      : 'Has never run.'));
-    put(parts.platforms, card);
-  }
 
   /* ----------------------------------------------------- Flipkart's twenty */
   parts.allowance.textContent = `${stands.flipkart.leftToday} of ${stands.flipkart.allowedADay}`;
@@ -2021,6 +2032,7 @@ export function showHowItStands(parts, stands) {
     parts.platformTicks.clear();
     parts.tied.clear();
     parts.platformIds.clear();
+    parts.groups.clear();
     /* **GROUPED BY PLATFORM, EACH WITH ITS OWN TICK-ALL -- HIS ASK, 2026-09-16.** A sync
      * runs one platform at a time, so this is also how a seller picks a sync's worth of
      * reports in one press. */
@@ -2028,6 +2040,9 @@ export function showHowItStands(parts, stands) {
     for (const platform of platforms) {
       const named = CALLED[platform] || platform;
       const ofThisPlatform = stands.reports.filter((one) => one.platform === platform);
+      const group = make('div');
+      parts.groups.set(platform, group);
+      put(parts.reports, group);
       const heading = make('div', `${OURS}platform-group`);
       const tickThese = make('button', 'k-button k-button--ordinary', `Tick all ${named}`);
       tickThese.type = 'button';
@@ -2036,11 +2051,11 @@ export function showHowItStands(parts, stands) {
         tickThese.textContent = `${nowOn ? 'Untick' : 'Tick'} all ${named}`;
       });
       put(heading, make('span', `${OURS}report-name`, named), tickThese);
-      put(parts.reports, heading);
+      put(group, heading);
       parts.platformTicks.set(platform, tickThese);
       parts.platformIds.set(platform, ofThisPlatform.map((one) => one.id));
       for (const one of ofThisPlatform) {
-        buildOneReportRow(parts, stands, one);
+        buildOneReportRow(parts, stands, one, group);
       }
     }
     showWhatIsTicked(parts);
@@ -2052,11 +2067,49 @@ export function showHowItStands(parts, stands) {
       ? whatThatStateIsCalled(one.state) + (one.say ? ` -- ${one.say}` : '')
       : 'cannot be fetched';
   }
+  showThePlatforms(parts, stands);
   showTheRestOfIt(parts, stands);
 }
 
+/** PN2b: the three platform buttons, and only the chosen platform's own tick list, requests line and last run below them. */
+function showThePlatforms(parts, stands) {
+  parts.lastStands = stands;
+  const tickable = (platform) => (parts.platformIds.get(platform) || [])
+    .filter((id) => parts.boxes.get(id) && !parts.boxes.get(id).disabled);
+  const ticked = (platform) => tickable(platform).filter((id) => parts.ticked.has(id)).length;
+  parts.platforms.textContent = '';
+  for (const one of stands.platforms) {
+    const waiting = (stands.needsYou || []).filter((day) => day.platformName === one.name).length;
+    const button = make('button', `k-button ${OURS}tab${one.id === parts.chosen ? ` ${OURS}tab--chosen` : ''}`);
+    button.type = 'button';
+    put(button, make('b', '', one.name));
+    if (waiting) put(button, make('span', `${OURS}count`, String(waiting)));
+    put(button, make('small', '', `${ticked(one.id)} ticked${one.ready ? '' : ' \u00B7 not ready'}${one.lastRun ? ` \u00B7 last run ${inWordsWhen(one.lastRun.finishedAt)}: ${one.lastRun.landed} fetched, ${one.lastRun.failed} failed` : ' \u00B7 never run'}`));
+    button.addEventListener('click', () => { parts.chosen = one.id; showHowItStands(parts, parts.lastStands); });
+    put(parts.platforms, button);
+  }
+  for (const [platform, group] of parts.groups) group.hidden = platform !== parts.chosen;
+  parts.allowanceCard.hidden = parts.chosen !== 'flipkart';
+  parts.foldTitle.textContent = `What to fetch \u00B7 ${ticked(parts.chosen)} of ${tickable(parts.chosen).length} ticked`;
+  fillTheInstantRow(parts, stands);
+}
+
+/** PN2b: the instant-download row lists the chosen platform's reports that can be fetched on their own. */
+function fillTheInstantRow(parts, stands) {
+  const mine = stands.reports.filter((one) => one.platform === parts.instantPlatform.value && one.canBeFetched && !one.fetchedBy);
+  const key = `${parts.instantPlatform.value}:${mine.map((one) => one.id).join()}`;
+  if (parts.instantKey === key) return;
+  parts.instantKey = key;
+  parts.instantReport.textContent = '';
+  for (const one of mine) {
+    const option = make('option', '', one.name);
+    option.value = one.id;
+    put(parts.instantReport, option);
+  }
+}
+
 /** One report's own row: its box, its name, and where it got to. */
-function buildOneReportRow(parts, stands, one) {
+function buildOneReportRow(parts, stands, one, into = parts.reports) {
   const row = make('label', `${OURS}report`);
   const box = make('input');
   box.type = 'checkbox';
@@ -2084,7 +2137,7 @@ function buildOneReportRow(parts, stands, one) {
    * promised a seller all along. */
   if (one.fetchedBy) put(row, make('span', `${OURS}note`, one.fetchedBy));
   if (one.fetchedBy && one.broughtBy) parts.tied.set(one.id, one.broughtBy);
-  put(parts.reports, row);
+  put(into, row);
   parts.boxes.set(one.id, box);
   parts.states.set(one.id, state);
 }
@@ -2121,8 +2174,9 @@ function showTheRestOfIt(parts, stands) {
   const names = new Map(stands.reports.map((one) => [one.id, one.name]));
   const ofPlatform = (stands.night && stands.night.platform) || '';
   const runs = (stands.runs && stands.runs.length) ? stands.runs
-    : (stands.night ? [{ name: CALLED[ofPlatform] || ofPlatform, night: stands.night }] : []);
-  const shown = runs.map((run) => ({ name: run.name, table: theReportTable(run.night, (id) => names.get(id) || '') }));
+    : (stands.night ? [{ platform: ofPlatform, name: CALLED[ofPlatform] || ofPlatform, night: stands.night }] : []);
+  const shown = runs.filter((run) => !run.platform || run.platform === parts.chosen)
+    .map((run) => ({ name: run.name, table: theReportTable(run.night, (id) => names.get(id) || '') }));
   const drawn = JSON.stringify(shown);
   if (parts.drawn !== drawn) {
     parts.drawn = drawn;
