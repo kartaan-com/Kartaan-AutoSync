@@ -1630,7 +1630,6 @@ export function buildThePanel(into, doing) {
     option.value = platform;
     put(parts.instantPlatform, option);
   }
-  parts.instantPlatform.value = 'flipkart';
   parts.instantReport = make('select', 'k-control');
   parts.instantRun = make('button', 'k-button k-button--ordinary', 'Run');
   parts.instantRun.type = 'button';
