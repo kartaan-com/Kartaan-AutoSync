@@ -2665,6 +2665,43 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   const goingNight = { ...stands, night: { startedAt: 1, finishedAt: null, done: [], left: [], doing: null }, setUp: { ...stands.setUp, done: true } };
   showHowItStands(pb, { ...goingNight, setUp: live.setUp });
   check('PN2b: while a run is going the instant Run is off as Run now is', pb.runNow.disabled === true && pb.instantRun.disabled === true);
+  /* PN2b proving: every moved and new line is pinned. */
+  const fp = buildThePanel(document.body, { runNow() {} });
+  const fpBody = fp.needs.parentNode.children;
+  const rowOf = (node) => node.parentNode;
+  check('PN2b: the top of the panel is, in order, needs box, status line, update strip, days, run buttons, said line, instant row, set-up',
+    [fp.needs, fp.banner, fp.update, rowOf(fp.from), fp.actions, fp.said, rowOf(fp.instantPlatform), fp.setup].every((node, at, all) => at === 0 || fpBody.indexOf(node) === fpBody.indexOf(all[at - 1]) + 1));
+  check('PN2b: the two day boxes are date boxes, From then To, in the days row',
+    fp.from.type === 'date' && fp.to.type === 'date' && rowOf(fp.from).children.indexOf(fp.from) + 2 === rowOf(fp.from).children.indexOf(fp.to)
+    && rowOf(fp.from).children[rowOf(fp.from).children.indexOf(fp.from) - 1].textContent === 'From' && rowOf(fp.to).children[rowOf(fp.to).children.indexOf(fp.to) - 1].textContent === 'To');
+  check('PN2b: Run now, Stop, Resume and the instant Run are plain buttons, Resume and the said line start hidden',
+    [fp.runNow, fp.stop, fp.resume, fp.instantRun].every((one) => one.type === 'button') && fp.resume.hidden === true && fp.said.hidden === true);
+  check('PN2b: the instant row names the three platforms in order, starts on Flipkart and explains itself',
+    fp.instantPlatform.children.map((one) => one.textContent).join() === 'Flipkart,Meesho,Amazon'
+    && fp.instantPlatform.children.map((one) => one.value).join() === 'flipkart,meesho,amazon' && fp.instantPlatform.value === 'flipkart'
+    && rowOf(fp.instantPlatform).children.map((one) => one.textContent).includes('Instant download')
+    && rowOf(fp.instantPlatform).children[0].textContent === 'Instant download'
+    && rowOf(fp.instantPlatform).children[1] === fp.instantPlatform && rowOf(fp.instantPlatform).children[2] === fp.instantReport
+    && rowOf(fp.instantPlatform).children[3] === fp.instantRun && rowOf(fp.instantPlatform).children[4].title.includes('ticks are not touched'));
+  check('PN2b: the folded list holds its heading, the tick-all button and the list, inside the What to fetch card',
+    fp.fold.children[0] === fp.foldTitle && fp.fold.children[1] === fp.selectAll && fp.fold.children[2] === fp.reports && fpBody.includes(fp.fold.parentNode));
+  showHowItStands(fp, live);
+  check('PN2b: each platform\'s group sits in the list, its heading first and then its reports',
+    [...fp.groups.values()].every((group) => fp.reports.children.includes(group) && String(group.children[0].className).includes('platform-group'))
+    && fp.groups.get('flipkart').children.length === 1 + stands.reports.filter((one) => one.platform === 'flipkart').length);
+  const fkReachable = stands.reports.filter((one) => one.platform === 'flipkart' && one.canBeFetched && !one.fetchedBy).length;
+  check('PN2b: the heading counts only reports that can be ticked', fp.foldTitle.textContent.endsWith(` of ${fkReachable} ticked`));
+  check('PN2b: the platform buttons are plain buttons', fp.platforms.children.length === 3 && fp.platforms.children.every((one) => one.type === 'button'));
+  const optionBefore = fp.instantReport.children[0];
+  showHowItStands(fp, live);
+  check('PN2b: the same list again leaves the instant report choices alone', fp.instantReport.children[0] === optionBefore);
+  fp.instantPlatform.value = 'meesho';
+  fp.instantPlatform.dispatchEvent({ type: 'change' });
+  check('PN2b: changing the instant platform fills its reports at once', fp.instantReport.children.length === stands.reports.filter((one) => one.platform === 'meesho' && one.canBeFetched && !one.fetchedBy).length
+    && fp.instantReport.children[0] !== optionBefore);
+  const oldGroups = [...fp.groups.values()];
+  showHowItStands(fp, { ...live, reports: live.reports.slice(0, live.reports.length - 1) });
+  check('PN2b: when the report list changes the groups are rebuilt, not added to', fp.groups.size === 3 && [...fp.groups.values()].every((group) => !oldGroups.includes(group)) && fp.reports.children.length === 3);
   const tiny = { kartaan: 'Mine', reports: [{ id: 'zz_a', name: 'A report', platform: 'flipkart' }], folders: { zz_a: ['Flipkart', 'Things'] } };
   const r1 = theNeedsYouRow(tiny, { reportId: 'zz_a', dataDate: '2026-10-02', triedOn: ['x'] });
   check('PN2a: the row gets its report name, platform and folder, and keeps what it had',
