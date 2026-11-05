@@ -2702,6 +2702,8 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   const oldGroups = [...fp.groups.values()];
   showHowItStands(fp, { ...live, reports: live.reports.slice(0, live.reports.length - 1) });
   check('PN2b: when the report list changes the groups are rebuilt, not added to', fp.groups.size === 3 && [...fp.groups.values()].every((group) => !oldGroups.includes(group)) && fp.reports.children.length === 3);
+  showHowItStands(fp, { ...live, reports: live.reports.filter((one) => one.platform !== 'amazon') });
+  check('PN2b: a platform that no longer has reports loses its group', fp.groups.size === 2 && !fp.groups.has('amazon'));
   const tiny = { kartaan: 'Mine', reports: [{ id: 'zz_a', name: 'A report', platform: 'flipkart' }], folders: { zz_a: ['Flipkart', 'Things'] } };
   const r1 = theNeedsYouRow(tiny, { reportId: 'zz_a', dataDate: '2026-10-02', triedOn: ['x'] });
   check('PN2a: the row gets its report name, platform and folder, and keeps what it had',
