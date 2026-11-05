@@ -1,13 +1,14 @@
 {
   "record": "security",
-  "commit": "09d3736",
-  "run_at": "4 Nov 2026 (PN2).",
-  "tool": "Sonnet 5.5 sub-agent, read-only, security lens (cso-style read of the diff), on c819b3e.",
-  "invoked_as": "Agent, by PN2.",
+  "commit": "2796aab",
+  "run_at": "5 Nov 2026 (AS8, AS7d).",
+  "tool": "Sonnet 5.5 sub-agent, read-only, security lens, on the diff of autosync and tools against main.",
+  "invoked_as": "Agent, by AS8.",
   "ran_by": "Sub-agent; it wrote none of the code.",
-  "scope": "v0.1.38 to 09d3736. Later commits add checks and simplify one line; nothing held, sent or permitted changed.",
+  "scope": "v0.1.39 to 2796aab (the `by` label in the seller's own Drive manifest).",
   "found": [
-    {"severity": "PASS", "finding": "No secrets or seller data; the box is built with textContent only; the Download link accepts only https github.com/kartaan-com/Kartaan-AutoSync/releases/ addresses; the open-time check fetches only the fixed version.json address and sends nothing; the badge reads only the needs-you list; I placed it clears only exactly named report-days and never during a run; manifest permissions are unchanged.", "fixed": true},
-    {"severity": "LOW", "finding": "The version file is fetched on every panel open, deferred in a background tab; accepted.", "fixed": false}
+    {"severity": "PASS", "finding": "The only new data is the fixed word api; no token, URL or seller data written or logged; no new network call, permission or file; a hostile label is refused on reading and a file name is only compared, never opened.", "fixed": true},
+    {"severity": "LOW", "finding": "The refusal message repeats a hostile label (escaped, so no log forging); worst case a long log line. Accepted.", "fixed": false},
+    {"severity": "LOW", "finding": "One bad label makes the whole manifest read as damaged, like every other bad field; needs write access to the seller's own Drive file. Accepted.", "fixed": false}
   ]
 }
