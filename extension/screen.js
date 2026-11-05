@@ -1899,7 +1899,6 @@ function tickAll(parts) {
     else parts.ticked.add(id);
     parts.boxes.get(id).checked = !allOn;
   }
-  parts.selectAll.textContent = allOn ? 'Tick all platforms' : 'Untick all platforms';
   if (parts.ticksChanged) parts.ticksChanged();
 }
 
