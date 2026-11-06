@@ -257,7 +257,9 @@ const someCampaigns = (howMany, everyNthLive = 1) => Array.from({ length: howMan
     ranOn({ ...his, status: RUNNING, end_date: '' }, '2026-11-06') && !ranOn({ ...his, end_date: '' }, '2026-11-06')
       && !ranOn({ ...his, end_date: 1793889260 }, '2026-11-01'));
   check('a campaign with no start day falls back to whether it is LIVE now',
-    ranOn({ status: RUNNING }, '2026-11-06') && !ranOn({ status: 'PAUSED' }, '2026-11-06'));
+    ranOn({ status: RUNNING }, '2026-11-06') && !ranOn({ status: 'PAUSED' }, '2026-11-06')
+      /* even when it has an end day ahead (proving, 6 Nov): with no start, nothing says which days it ran */
+      && !ranOn({ status: 'PAUSED', end_date: '2026-12-31T00:00:00+05:30' }, '2026-11-06'));
   /* The sweep itself, not only the rule (review 6 Nov): a campaign paused now whose days cover the day is asked about and written. */
   const meesho = aMeesho({ campaigns: [{ ...his, campaign_name: 'his', start_date: '2026-09-01T19:12:26+05:30', end_date: '2026-09-12T08:24:14+05:30' }] });
   const swept = await sweepTheAds(meesho.ask, { supplierId: '1234567' }, DAY);
