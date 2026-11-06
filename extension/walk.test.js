@@ -2001,7 +2001,7 @@ const odd = aPortal({ rows: ['Oct 13 to Oct 20 Download Flat File V2', ROW_20], 
   const asked = await aWalk(portal)('fk_orders', DAY);
   check('asking for a two-phase report is a success, not a failure',
     asked.state === STILL_WAITING);
-  check('and it holds what it was asked under', asked.theirId === DAY);
+  check('and it holds the day it was asked (R239), not the day it is about', asked.theirId === theDayOfTheRun());
   check('and says roughly how long it will take', asked.say.includes('30 minutes'));
   /* **AND THAT THIS SYNC COLLECTS IT AT ITS END RATHER THAN ASKING AGAIN** (A53,
    * Rumee's way), because a line that only says "asked for it" reads like

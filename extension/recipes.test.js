@@ -476,6 +476,17 @@ function aWalk(portal) {
 }
 
 {
+  /* **R239 (his real run, 5 Nov 2026): A ROW NAMED BY THE DAY IT WAS MADE IS COLLECTED UNDER THE DAY IT WAS ASKED.** All Listings
+   * was asked 4 Nov 4:33 pm and was Done; the 5 Nov collect looked for "5 November" and failed three hourly checks. */
+  const portal = aPortal();
+  /* A data day unlike the asked day, so "the day asked" is told apart from "the day it is about" and from today (review, 6 Nov). */
+  await aWalk(portal)('az_listings', '2026-11-03', { askedAlready: '2026-11-04' });
+  const asked = portal.rowsAsked.filter((one) => /November 2026/.test(String(one)));
+  check(`Amazon All Listings is collected under the day it was asked, not today -- ${asked.join(' | ') || 'no row asked'}`,
+    asked.length > 0 && asked.every((one) => /\b0?4 November 2026/.test(String(one))));
+}
+
+{
   /* **THE LIVE FIX IS REALLY IN THE FILE.** Flipkart replaced "Custom Dates" with
    * a dropdown labelled `Custom`, and that one word is the whole of a 29-day
    * outage. It is matched exactly, because a loose match also hits the "Customer
@@ -666,7 +677,7 @@ function aWalk(portal) {
     stillHolding.length === 0);
 }
 
-const EXPECTED = 56;
+const EXPECTED = 57;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

@@ -1397,7 +1397,10 @@ export function theWalk({
       const found = stepsFor(reportId, panel, collecting);
       plan = {
         ...found,
-        steps: found.steps.map((one) => filledIn(one, panel, dataDate, theDayOfTheRun(), fromDay)),
+        /* **A ROW NAMED BY THE DAY IT WAS MADE IS LOOKED FOR UNDER THE DAY IT WAS ASKED, NOT TODAY (R239, 6 Nov 2026).** Amazon's
+         * All Listings row asked 4 Nov at 4:33 pm was Done, but the 5 Nov collect looked for "5 November" and failed three times. */
+        steps: found.steps.map((one) => filledIn(one, panel, dataDate,
+          (collecting && !whyTheDayIsRefused(askedAlready)) ? askedAlready : theDayOfTheRun(), fromDay)),
         collecting,
       };
     } catch (wrong) {
@@ -2192,7 +2195,8 @@ export function theWalk({
        * found when a later run comes back -- and holding it is what stops this
        * being asked a second time. */
       return anAnswer(STILL_WAITING, reportId, dataDate, {
-        theirId: dataDate,
+        /* The day it was asked (R239): what a later collect names a "made" row by. */
+        theirId: theDayOfTheRun(),
         say: `Asked for it. About ${plan.recipe.readyInMinutes} minutes before it is ready; `
           + 'it is collected at the end of this sync rather than asked for again.',
       });
