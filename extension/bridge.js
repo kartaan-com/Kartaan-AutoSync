@@ -30,7 +30,7 @@ import {
   theDayToFetch, theDaysBetween, CALLED,
 } from './screen.js';
 import {
-  theNight, theDay, LAST_LANDED, SPENDS_THE_ALLOWANCE, A_DAYS_ALLOWANCE, KEPT_FOR_HIS_OWN_RUNS,
+  theNight, theDay, LAST_LANDED, SPENDS_THE_ALLOWANCE, A_DAYS_ALLOWANCE, KEPT_FOR_HIS_OWN_RUNS, WALKED_FOR_A_PAST_DAY_ALL_THE_SAME,
 } from './nightly.js';
 
 /** **FOR THE AI, "IN USE" IS THE ANSWER WHENEVER CHROME CANNOT SAY.** The night run starts when it cannot tell; an ask from the AI never does. */
@@ -169,7 +169,8 @@ export function whyThisAskIsRefused(book, { reportIds, from, to }, { now, panel,
   const days = theDaysBetween(from, to);
   const onlyNow = ids.filter((id) => {
     const one = (book.reports || []).find((r) => r.id === id) || {};
-    return one.cannotBeAskedForAgain !== null && one.cannotBeAskedForAgain !== undefined && days.some((d) => d !== latest);
+    return one.cannotBeAskedForAgain !== null && one.cannotBeAskedForAgain !== undefined && days.some((d) => d !== latest)
+      && !WALKED_FOR_A_PAST_DAY_ALL_THE_SAME.includes(id);
   });
   if (onlyNow.length) {
     return `${onlyNow.join(', ')} can only be fetched for yesterday (${latest}), not for ${from} to ${to}. Ask for yesterday alone, or leave ${onlyNow.length > 1 ? 'those' : 'it'} out.`;

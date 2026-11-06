@@ -186,6 +186,8 @@ const refuses = async (name, args, words, setup = null) => {
 
 {
   check('a report that CAN go back is fine for a past stretch (Flipkart orders, 1-31 May)', whyThisAskIsRefused(BOOK, FK, { now: NOW, panel: 'p', leftToday: 20, spentByOthers: 0, waitingCount: 0 }) === '');
+  check('AS9 1c: Meesho ads may be asked for a past stretch (its by-day files are real for a past day; the walk leaves out the lifetime master)',
+    whyThisAskIsRefused(BOOK, { reportIds: ['me_ads'], from: '2026-10-28', to: '2026-10-29' }, { now: NOW, panel: 'p', leftToday: 20, spentByOthers: 0, waitingCount: 0 }) === '');
   check('a report that only exists for now is fine for yesterday alone', whyThisAskIsRefused(BOOK, { reportIds: ['fk_listings'], from: '2026-10-30', to: '2026-10-30' }, { now: NOW, panel: 'p', leftToday: 20, spentByOthers: 0, waitingCount: 0 }) === '');
   check('exactly the days left is allowed, one more is not', whyThisAskIsRefused(BOOK, { ...FK, reportIds: ['fk_orders', 'fk_payments'] }, { now: NOW, panel: 'p', leftToday: 2, spentByOthers: 0, waitingCount: 0 }) === ''
     && whyThisAskIsRefused(BOOK, { ...FK, reportIds: ['fk_orders', 'fk_payments'] }, { now: NOW, panel: 'p', leftToday: 2, spentByOthers: 1, waitingCount: 0 }) !== '');

@@ -701,6 +701,11 @@ export const ONLY_ITS_NEWEST_DAY = Object.freeze([
   'az_listings', 'az_fee_preview', 'az_claims', 'az_orders', 'az_health', 'az_ads',
 ]);
 
+/** **WALKED FOR A PAST DAY ALL THE SAME (AS9 1c), and the Bridge reads this one list too.** Meesho's campaign details call is asked for
+ *  the day at both ends, so its by-day files are real for a past day; the walk leaves the lifetime master out for one (`walk.js`).
+ *  The report keeps its `cannot_backfill` words, so the night never chases its old days by itself: a past day is only ever asked for. */
+export const WALKED_FOR_A_PAST_DAY_ALL_THE_SAME = Object.freeze(['me_ads']);
+
 /**
  * Is this a report the platform only gives for its newest day, asked for an older one?
  *
@@ -718,9 +723,7 @@ export function whyOnlyItsNewestDay(night, reportId, day) {
   if (!ONLY_ITS_NEWEST_DAY.includes(reportId)) return null;
   if (!night || !night.latestDay || !day) return null;
   if (String(day) >= String(night.latestDay)) return null;
-  /* **MEESHO ADS TAKES A PAST DAY (AS9 1c):** the campaign details call is asked for the day at both ends, so the by-day files are real
-   * for a past day; only the lifetime master is a picture of now, and the walk leaves it out for a past day. */
-  if (reportId === 'me_ads') return null;
+  if (WALKED_FOR_A_PAST_DAY_ALL_THE_SAME.includes(reportId)) return null;
   /* The ads report is not a picture of now: every run takes the saved report's last 30 days, so a past day is already in the newest file. */
   if (reportId === 'az_ads') {
     return `az_ads takes the saved report's last 30 days on every run, so ${day} is already in the newest file and was not walked again.`;
