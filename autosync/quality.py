@@ -175,9 +175,14 @@ def read_meesho_quality(report_id: str, platform: str, rows: table.Table, file_d
                 record["digest"] = shared.the_digest({k: v for k, v in record.items() if k not in NOT_IN_THE_DIGEST})
                 # **ON TWO TABS, THE MORE URGENT STANDS, AND BOTH LINES ARE READ (AS9 R240, his real files 26 Oct - 4 Nov).** DJ-5 sat on
                 # Action Pending (Yellow) and on Fixed (Green) in every file; the later line made the ERP say Fixed while Meesho said act.
+                # A product named twice on the SAME tab is said by name, the first line standing (SOLVED_PROBLEMS: never silently the first).
                 earlier = records.get(f"{platform}__{style}")
-                if earlier is not None and _URGENCY.get(str(earlier["tab"]), 9) <= _URGENCY.get(record["tab"], 9):
-                    continue
+                if earlier is not None:
+                    was, now = _URGENCY.get(str(earlier["tab"]), 9), _URGENCY.get(record["tab"], 9)
+                    if was == now:
+                        not_read.append(f"line {row.line}: {style} is named twice on {record['tab']}, so the first line stands")
+                    if was <= now:
+                        continue
                 records[f"{platform}__{style}"] = record
         except ValueError as wrong:
             not_read.append(f"line {row.line}: {wrong}")

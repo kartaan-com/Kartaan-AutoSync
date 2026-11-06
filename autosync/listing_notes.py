@@ -203,7 +203,7 @@ def read_pricing(content: bytes, report_name: str = "this file", shop_listings: 
             # each with its own title; 8 of his 145 rows sat in such catalogues on 2 Nov. Still refused when the title names two products.
             # Spaces are compared collapsed: his C6 title has "||  And" in the catalogue and "|| And" in the pricing file.
             plain = lambda words: " ".join(str(words or "").lower().split())  # noqa: E731
-            titled = [n for n in names if plain(shop_listings[n].get("productName")) == plain(title)]
+            titled = [n for n in names if plain(title) and plain(shop_listings[n].get("productName")) == plain(title)]
             if titled and len({str(shop_listings[n].get("sku") or "").strip() for n in names}) > 1:
                 names = titled
             if len({str(shop_listings[n].get("sku") or "").strip() for n in names}) > 1:

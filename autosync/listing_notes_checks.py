@@ -521,6 +521,10 @@ by_title = answered(lambda: tool.read_pricing(a_price_file(
 ), "f", SHOP2))
 check("AS9 R240: A CATALOGUE OF SEVERAL PRODUCTS IS TOLD APART BY THE ROW'S TITLE (case and extra spaces aside); a title that names none of them is still refused",
       by_title is not None and set(by_title.notes) == {"meesho::6002::1"} and len(by_title.not_read) == 1 and "more than one product" in by_title.not_read[0])
+_blank_shop = {one["platform"] + "::" + one["platformId"]: one for one in (a_shop_listing("8001", "1", "P", "E", ""), a_shop_listing("8002", "1", "Q", "E", "Ring E"))}
+blank_title = answered(lambda: tool.read_pricing(a_price_file(a_price_row("", "E", "", RUPEE_SIGN + "80", RUPEE_SIGN + "70")), "f", _blank_shop))
+check("AS9b review: a row with no title never matches a listing with no name inside a catalogue of several products",
+      blank_title is not None and not blank_title.notes and len(blank_title.not_read) == 1)
 loose = answered(lambda: tool.read_pricing(a_price_file(
     a_price_row("Ring C", "C", "RING", "12%", RUPEE_SIGN + "90"), a_price_row("Necklace C", "C", "NECK", "Rs 100", RUPEE_SIGN + "90"),
 ), "f", SHOP2))
@@ -618,7 +622,7 @@ check("but a dash for the CURRENT price is still refused: there is no price to p
       dash_current is not None and not dash_current.notes and "no current price" in dash_current.not_read[0])
 
 check("nothing above ended by throwing rather than by answering -- " + str(THREW), not THREW)
-EXPECTED = 49 + 7 + 5 + 4 + 1 + 25 + 2 + 6 + 1
+EXPECTED = 49 + 7 + 5 + 4 + 1 + 25 + 2 + 6 + 1 + 1
 check(f"checks went missing -- {ran + 1} ran, {EXPECTED} expected", ran + 1 == EXPECTED)
 
 if failures:

@@ -62,7 +62,9 @@ Fields: `platform`, `day`, `kind`, `fileDay`, `updatedOn`, `digest`, `rows` (lis
 | `orders` | `fk_ads_orders` | campaignId, orderId, advertisedFsn, purchasedFsn (FSNs, not SKUs), listingId, productName, revenue, unitsDirect, unitsIndirect |
 
 A file that covers more than one day (`End Time` on another day than `Start Time`) is refused; `orders` files are split by each row's own Date.
-**Flipkart keyword ads (`fk_ads_kw`) are discontinued by Flipkart** (his ruling, 12 Oct): not read, and switched off like `fk_keywords`.
+| `keywords` | `fk_ads_kw` | campaignId, campaignName, adGroupId, keyword, matchType, views, clicks, spend (SUM(cost)), unitsDirect, unitsIndirect, revenueDirect, revenueIndirect (headings on line 5) |
+
+**Flipkart keyword ads (`fk_ads_kw`) are fetched and read again** (his correction, 6 Nov 2026, AS9 R238: his 12 Oct words were about organic keywords, `fk_keywords`, which stays off).
 
 ## Writes and reads per run (his free daily allowance is 20,000 writes / 50,000 reads)
 

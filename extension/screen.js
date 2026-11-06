@@ -863,7 +863,7 @@ export async function howItStands(chrome, { book, now = Date.now(), theClock = n
         id: one.id,
         name: one.name,
         platform: one.platform,
-        /* The switched-off pair has no tick box and cannot be started (A84). */
+        /* The switched-off report has no tick box and cannot be started (A84). */
         canBeFetched: Boolean((book.recipes || {})[one.id] || fetchedByAnother[one.id]) && !OFF_THE_TIMED_LIST.includes(one.id),
         /* **AND WHICH RUN BRINGS IT, said rather than left to be guessed.** A
          * seller ticking it on its own would be ticking nothing. */
@@ -1271,7 +1271,7 @@ export async function startASync(chrome, parts, asked) {
 
 /**
  * **A PAUSE OR A RE-CHECK KEPT BY THE 15 OCT BUILD MAY HOLD THE SWITCHED-OFF PAIR (A84, review).** They are taken out of what is kept, and a
- * record left with nothing is removed, so nothing keeps saying "Nothing is ticked" and a re-check of only the pair never blocks the days behind it.
+ * record left with nothing is removed, so nothing keeps saying "Nothing is ticked" and a re-check of only the switched-off report never blocks the days behind it.
  */
 async function forgetTheSwitchedOff(chrome) {
   const paused = (await chrome.storage.local.get(PAUSED))[PAUSED];
@@ -1293,7 +1293,7 @@ async function startASyncInTurn(chrome, parts, asked) {
   await forgetTheSwitchedOff(chrome);
   {
     /* **EVERY WAY A RUN STARTS COMES THROUGH HERE**: a resumed run, a queue kept by an older build and the hourly re-check carry ids saved
-     * before the pair was switched off (A84, review). */
+     * before the report was switched off (A84, review). */
     const reportIds = withTheListsTheyRead(book, [...new Set(asked.reportIds || [])].filter((id) => !OFF_THE_TIMED_LIST.includes(id)));
     const setUp = await theSetup(chrome);
     const night = await theNight(chrome);

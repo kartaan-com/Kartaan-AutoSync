@@ -181,6 +181,9 @@ check("a product on two tabs (AS9 R240: DJ-5 on Action Pending and Fixed in his 
       _mq_dup_said == () and _mq_dup["meesho__DJ-5 Test Five"]["tab"] == "Action Pending" and _mq_dup["meesho__DJ-5 Test Five"]["band"] == "Yellow")
 _mq_up, _mq_up_said = answered(lambda: quality.read_meesho_quality("me_quality", "meesho", mq_file(*_MQ, '"product","Blocking Soon","Gold Hoops ...","DJ-7 Test Seven","Red","30","0",""'), "2026-10-26")) or ({}, ())
 check("and a more urgent line later in the file replaces a less urgent earlier one", _mq_up_said == () and _mq_up["meesho__DJ-7 Test Seven"]["tab"] == "Blocking Soon")
+_mq_tie, _mq_tie_said = answered(lambda: quality.read_meesho_quality("me_quality", "meesho", mq_file(*_MQ, '"product","Fixed","Gold Hoops ...","DJ-7 Test Seven","Green","9.9","0",""'), "2026-10-26")) or ({}, ())
+check("AS9b review: a product named twice on the SAME tab is said by name, the first line standing",
+      len(_mq_tie_said) == 1 and "named twice on Fixed" in _mq_tie_said[0] and _mq_tie["meesho__DJ-7 Test Seven"].get("percent") == 3.5)
 _mq_nostore = answered(lambda: quality.read_meesho_quality("me_quality", "meesho", mq_file(*_MQ[1:]), "2026-10-26")) or ({}, ())
 check("a file with no store line is refused by name, the products still read", len(_mq_nostore[1]) == 1 and "store" in _mq_nostore[1][0] and "meesho__DJ-5 Test Five" in _mq_nostore[0])
 _mq_badpct = answered(lambda: quality.read_meesho_quality("me_quality", "meesho", mq_file(_MQ[0], '"product","Fixed","X","DJ-9 Test Nine","Green","lots","0",""', '"product","Fixed","Y","DJ-8 / Bad","Green","3","0",""'), "2026-10-26")) or ({}, ())
@@ -220,7 +223,7 @@ check("a product's fingerprint is the fingerprint of what it says, without the d
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 14 + 6 + 1 + 9 + 6 + 1
+EXPECTED = 14 + 6 + 1 + 9 + 6 + 1 + 1
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

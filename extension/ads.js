@@ -42,7 +42,13 @@ export const RUNNING = 'LIVE';
  * then read PAUSED, so the 1 and 2 Nov sweeps, made after it stopped, kept nothing. A campaign counts for a day when the day sits between
  * its own start and end days (no end day: still running); a campaign Meesho gives no start day for falls back to today's LIVE. */
 export function ranOn(campaign, day) {
-  const dayOf = (when) => (/^\d{4}-\d{2}-\d{2}/.test(String(when || '')) ? String(when).slice(0, 10) : '');
+  /* A time that carries its own offset (Z, +00:00) is turned into India's day first (review 6 Nov): 2 Nov 21:30 Z is 3 Nov in India. */
+  const dayOf = (when) => {
+    const said = String(when || '');
+    if (!/^\d{4}-\d{2}-\d{2}/.test(said)) return '';
+    const at = /T\d{2}:\d{2}[^Z+-]*(?:Z|[+-]\d{2}:?\d{2})$/.test(said) ? Date.parse(said) : NaN;
+    return Number.isNaN(at) ? said.slice(0, 10) : new Date(at + 330 * 60000).toISOString().slice(0, 10);
+  };
   const start = dayOf(campaign.start_date);
   if (!start) return campaign.status === RUNNING;
   const end = dayOf(campaign.end_date);

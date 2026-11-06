@@ -253,6 +253,9 @@ const someCampaigns = (howMany, everyNthLive = 1) => Array.from({ length: howMan
   check('a campaign paused now still counts for the days it ran',
     ranOn(his, '2026-10-24') && ranOn(his, '2026-11-01') && ranOn(his, '2026-11-02'));
   check('and not for a day before it began or after it ended', !ranOn(his, '2026-10-23') && !ranOn(his, '2026-11-03'));
+  /* AS9b review: a time given in UTC is India's day first -- 2 Nov 21:30 Z is 3 Nov 03:00 in India. */
+  check('a day written in UTC is read as India\'s day', ranOn({ ...his, end_date: '2026-11-02T21:30:00Z' }, '2026-11-03')
+    && !ranOn({ ...his, start_date: '2026-10-24T19:00:00Z' }, '2026-10-24'));
   check('a LIVE campaign with no end day is still running, a paused one with no readable end did not run',
     ranOn({ ...his, status: RUNNING, end_date: '' }, '2026-11-06') && !ranOn({ ...his, end_date: '' }, '2026-11-06')
       && !ranOn({ ...his, end_date: 1793889260 }, '2026-11-01'));
@@ -367,7 +370,7 @@ const someCampaigns = (howMany, everyNthLive = 1) => Array.from({ length: howMan
   check('it pauses between one call and the next', paused >= 12);
 }
 
-const EXPECTED = 50;
+const EXPECTED = 51;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;
