@@ -57,7 +57,7 @@ export const SETTLE_MS = 3 * 60 * 1000;
 /** The tools this extension answers, exactly as the Kartaan Bridge lists them for AutoSync (a check in the bridge repo holds the names equal). */
 export const BRIDGE_TOOLS = Object.freeze(['autosync_status', 'autosync_run', 'autosync_result', 'autosync_reload']);
 /** **WHICH CODE IS RUNNING (D912, 3 Nov 2026):** written into this file by hand with every build that changes the AI's door, so `autosync_status` can say which build is running (an old build that was never loaded again says the old one). */
-export const BUILD = 'v0.1.41';
+export const BUILD = 'v0.1.42';
 /** At most this many asks wait at once; the newest twenty are kept for reading back. */
 export const MOST_WAITING = 5;
 export const KEEP_ASKS = 20;
