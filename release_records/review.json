@@ -1,25 +1,24 @@
 {
   "record": "review",
-  "commit": "781d631",
-  "run_at": "5 Nov 2026 (PN2r).",
-  "tool": "Round 1 (PN2, 4-5 Nov): a fresh read-only sub-agent on the PN2b change when it was 570aa60. Round 2 (PN2r): a second fresh read-only sub-agent (Sonnet) on the rebase only.",
-  "invoked_as": "Agent, by PN2 and by PN2r.",
-  "ran_by": "Sub-agents; they wrote none of the code.",
-  "scope": "v0.1.40 to 781d631: PN2b run controls at the top, instant download row, three platform buttons (extension/screen.js, panel.css, screen.test.js). 781d631 is the same three commits as 570aa60 moved onto 0.1.40; git range-diff shows all three unchanged and no file was touched by both sides.",
+  "commit": "ef10fc3",
+  "run_at": "6 Nov 2026 (AS9b).",
+  "tool": "Round 1 (AS9): fresh Opus review of 1b (2 MED fixed in bb20eda/cb7695c). Round 2 (AS9b): AS9b read AS9's uncommitted rounds 3/4/1c as a second pair of eyes (1 fault fixed in 712a7b9). Round 3: fresh read-only review sub-agent (Opus) on the whole diff 9fd3673..712a7b9. Round 4: fresh read-only review sub-agent (Sonnet) on the Bridge change bb33d27.",
+  "invoked_as": "Agent, by AS9 and AS9b.",
+  "ran_by": "Sub-agents that wrote none of the code, and AS9b on AS9's code.",
+  "scope": "v0.1.41 (9fd3673) to ef10fc3: R239 Amazon listings collect day; 1b/1c Meesho ads per day and past day (walk, night, Bridge); R240 Meesho quality two tabs and pricing catalogue by title; R238 Flipkart keyword ads back on with a reader.",
   "found": [
-    {
-      "severity": "LOW",
-      "finding": "Round 1: last-run table filtered by platform, not by name; 'Tick all' ticked every platform; counts refreshed late.",
-      "fixed": true
-    },
-    {
-      "severity": "PASS",
-      "finding": "Round 2 (rebase): range-diff all '='; 570aa60 vs 781d631 differ only by the 13 files 0.1.40 changed; panel.js, screen.js and worker.js identical byte for byte; nothing in 0.1.40 touches the panel.",
-      "fixed": true
-    }
+    {"severity": "MED", "finding": "Meesho quality: a second line for a product on the same tab was dropped without a word (repeat of a SOLVED_PROBLEMS lesson).", "fixed": true},
+    {"severity": "MED", "finding": "Meesho ads ranOn cut a UTC time stamp to its UTC day; now India's day.", "fixed": true},
+    {"severity": "LOW", "finding": "Meesho pricing: a blank title matched a listing with a blank name.", "fixed": true},
+    {"severity": "LOW", "finding": "A past me_ads day whose sweep gave only the lifetime master would throw on landed[0]; guarded (the sweep today always returns a summary with it).", "fixed": true},
+    {"severity": "LOW", "finding": "Stale words: docs and screen.js comments still said Flipkart keyword ads were discontinued / 'the switched-off pair'.", "fixed": true},
+    {"severity": "LOW", "finding": "The Bridge refused a past Meesho ads day although the walk handles one; fixed from one shared list, me_ads keeping cannot_backfill so the night never chases old days.", "fixed": true},
+    {"severity": "LOW", "finding": "Kept: the walk (run day minus 1) and the night (latestDay) use two rules for 'past day'; a run crossing midnight can drop one lifetime snapshot.", "fixed": false, "why": "One snapshot of a lifetime total, re-taken the next night; unifying the two rules touches the night's day logic and belongs to its own round."},
+    {"severity": "LOW", "finding": "Kept: az_listings asks made by the old build hold the data day, so one pending ask across the upgrade fails its three rechecks once.", "fixed": false, "why": "Happens once, across the upgrade only; the next day's ask is right."},
+    {"severity": "LOW", "finding": "Kept: the Bridge asking the same past me_ads day twice walks it twice (whyAlreadyLanded needs canGoBack).", "fixed": false, "why": "Wasted work only, no wrong data; a repeat may be deliberate."}
   ],
   "known_gaps": [
-    "Not opened in real Chrome before release; the live check after release covers the look.",
-    "R201 re-download pop-up not built (own round)."
+    "Meesho pricing short pages (R240 fetch side) taken out as its own round AS9P by Control (6 Nov): his console output shows the page draws 25 of 25 and the reader keeps every row; cause still unknown. Files keep landing marked INCOMPLETE.",
+    "Round 5 (R241) read-only: Meesho per-day campaign figures done; Flipkart and Amazon ad files not yet written up."
   ]
 }

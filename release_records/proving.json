@@ -1,14 +1,14 @@
 {
   "record": "proving",
-  "commit": "781d631",
-  "run_at": "5 Nov 2026 (PN2r).",
-  "tool": "GitHub Proving workflow (tools/proving.py, 8 parts), run 41988977728 on 781d631 against 94911d2.",
-  "invoked_as": "gh workflow run proving.yml -f prove=781d631 -f against=94911d2 -f parts=8 (branch pn2b-041).",
-  "ran_by": "PN2r (Sonnet 5.5, worker for Kartaan Control).",
-  "scope": "Every changed line between v0.1.40 (94911d2) and 781d631.",
+  "commit": "ef10fc3",
+  "run_at": "6 Nov 2026 (AS9b).",
+  "tool": "GitHub Proving workflow (tools/proving.py, 8 parts), run 42217555656 on ef10fc3 against 9fd3673 (v0.1.41).",
+  "invoked_as": "gh workflow run proving.yml --ref as9-next -f prove=<ef10fc3 full id> -f against=<9fd3673 full id> -f parts=8",
+  "ran_by": "AS9b (Opus 5.5, worker for Kartaan Control).",
+  "scope": "Every changed line between v0.1.41 (9fd3673) and ef10fc3.",
   "found": [
-    "125 changes tried, 109 caught by a check, 0 survived, 0 accepted. Earlier runs on the same code before the rebase: 41959060304 (35 survivors) and 41960351023 (2 survivors) answered by new checks; 41961658041 on 570aa60: 0 survived."
+    "87 changes tried, 63 run, 57 caught by a check, 6 crashed, 24 would not parse, 0 survived, 0 accepted. Earlier runs: 42204092184 on 712a7b9 (4 survivors: ads.py fk_ads_kw column map x3, walk.js past-day words) answered by 57f714b; 42215510733 on bb33d27 (1 survivor: ads.js:48) answered by ef10fc3. AS9's own earlier local runs on cb7695c: 0 survived."
   ],
   "survivors": [],
-  "after_this_record": "The version move (extension/manifest.json, extension/bridge.js BUILD) changes no line the prover tries."
+  "after_this_record": "This commit adds release records only; no line the prover tries changes."
 }

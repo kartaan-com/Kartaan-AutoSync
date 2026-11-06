@@ -1,16 +1,13 @@
 {
   "record": "security",
-  "commit": "781d631",
-  "run_at": "5 Nov 2026 (PN2r).",
-  "tool": "Round 1: security read of PN2b at 570aa60 (PASS). Round 2: sub-agent security lens on the diff 94911d2..781d631.",
-  "invoked_as": "Agent, by PN2 and by PN2r.",
-  "ran_by": "Sub-agents; they wrote none of the code.",
-  "scope": "v0.1.40 to 781d631 (panel.css, screen.js, screen.test.js only).",
+  "commit": "ef10fc3",
+  "run_at": "6 Nov 2026 (AS9b).",
+  "tool": "Fresh read-only security sub-agent (Sonnet) on git diff 9fd3673..712a7b9; the later commits (ad63f26, 57f714b, bb33d27) read for the same lens by AS9b and the Bridge review sub-agent.",
+  "invoked_as": "Agent, by AS9b.",
+  "ran_by": "A sub-agent that wrote none of the code; AS9b for the follow-up commits.",
+  "scope": "v0.1.41 (9fd3673) to ef10fc3.",
   "found": [
-    {
-      "severity": "PASS",
-      "finding": "No secret, token or URL with credentials; no new permission, network call, eval or innerHTML with data; manifest permissions unchanged.",
-      "fixed": true
-    }
+    {"severity": "PASS", "finding": "No secret, token or credential URL; manifest.json untouched (no new permission or host); no new fetch, eval, new Function or innerHTML with page data; no file written outside the seller's Drive folders; the one new pattern on platform text is anchored and fixed-length; Date.parse on a platform time string only feeds a string compare.", "fixed": true},
+    {"severity": "PASS", "finding": "SEC2 AutoSync rows (worker-handovers/SEC2-FIXES-BY-PRODUCT.md): none touched by this diff; 33/30/06/10/47/48/08 stay with the later security round R231, 13 needs his answer.", "fixed": true}
   ]
 }
