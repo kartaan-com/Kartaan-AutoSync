@@ -1680,9 +1680,8 @@ export function theWalk({
          * to fetch, and here is why. */
         if (!swept.files.length) {
           return anAnswer(NOTHING_TO_FETCH, reportId, dataDate, {
-            say: `${swept.running} of ${swept.lookedAt} campaigns were running on `
-              + `${dataDate}, so there is nothing to record. Only campaigns that are `
-              + 'running are collected.',
+            say: `No ad campaign ran on ${dataDate} (none of the ${swept.lookedAt} campaigns `
+              + 'was running that day), so there is nothing to record. This is not a failed fetch.',
           });
         }
         /* **ONE SWEEP, THREE REPORTS' FILES, because it is one pair of calls.**

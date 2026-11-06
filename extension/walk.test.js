@@ -1078,8 +1078,8 @@ check('asked to step back by nothing at all, it answers the day itself',
     got.state === NOTHING_TO_FETCH);
   check('and nothing at all was put in the Drive', portal.putAway.length === 0);
   check('and it says how many there were and why none of them counted',
-    got.say.includes('0 of 37 campaigns were running')
-      && got.say.includes('Only campaigns that are running are collected'));
+    got.say.includes('No ad campaign ran on')
+      && got.say.includes('none of the 37 campaigns') && got.say.includes('not a failed fetch'));
 }
 
 {

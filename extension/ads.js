@@ -38,6 +38,20 @@ export const A_PAGE_OF_CAMPAIGNS = 10;
  * **It says so rather than reporting a job well done** -- see `walk.js`. */
 export const RUNNING = 'LIVE';
 
+/* **RAN ON THE DAY, NOT RUNNING NOW (AS9 round 1b, his console output 6 Nov 2026).** Campaign 27647348 ran 24 Oct 19:12 to 2 Nov 08:24 and
+ * then read PAUSED, so the 1 and 2 Nov sweeps, made after it stopped, kept nothing. A campaign counts for a day when the day sits between
+ * its own start and end days (no end day: still running); a campaign Meesho gives no start day for falls back to today's LIVE. */
+export function ranOn(campaign, day) {
+  const dayOf = (when) => (/^\d{4}-\d{2}-\d{2}/.test(String(when || '')) ? String(when).slice(0, 10) : '');
+  const start = dayOf(campaign.start_date);
+  if (!start) return campaign.status === RUNNING;
+  const end = dayOf(campaign.end_date);
+  /* No readable end day counts as still running only for a campaign that is LIVE now (review 6 Nov): a paused one with a blank end is
+   * never swept back to its start every night. */
+  if (!end) return campaign.status === RUNNING && start <= day;
+  return start <= day && day <= end;
+}
+
 /* **HOW MANY PAGES ARE EVER ASKED FOR.** A list that never says it has ended is a
  * loop that never ends, at night, against somebody else's server. Ten pages is a
  * hundred campaigns; past that, something is wrong with the answer rather than
@@ -205,7 +219,7 @@ export async function everyCampaign(askMeesho, who, { pause = async () => {} } =
  */
 export async function sweepTheAds(askMeesho, who, day, { pause = async () => {} } = {}) {
   const all = await everyCampaign(askMeesho, who, { pause });
-  const running = all.filter((one) => one && one.status === RUNNING);
+  const running = all.filter((one) => one && ranOn(one, day));
   const master = [];
   const summary = [];
   const catalogue = [];

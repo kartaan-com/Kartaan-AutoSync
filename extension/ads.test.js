@@ -32,6 +32,7 @@ import {
   asARow,
   asAValue,
   everyCampaign,
+  ranOn,
   sweepTheAds,
   theCatalogueRows,
   theHeadersFor,
@@ -241,8 +242,28 @@ function aMeesho({ campaigns = [], detailsFor = () => ITS_DETAILS } = {}) {
 
 const someCampaigns = (howMany, everyNthLive = 1) => Array.from({ length: howMany }, (_, i) => ({
   campaign_id: i, campaign_name: `c${i}`, status: i % everyNthLive === 0 ? RUNNING : 'PAUSED',
-  start_date: '2026-04-01',
+  /* A paused campaign has an end, as Meesho's real ones do (his console output, 6 Nov 2026). */
+  start_date: '2026-04-01T10:00:00+05:30', end_date: i % everyNthLive === 0 ? '' : '2026-04-02T08:24:14+05:30',
 }));
+
+{
+  /* **AS9 round 1b: RAN ON THE DAY, NOT RUNNING NOW.** His campaign 27647348 ran 24 Oct 19:12 to 2 Nov 08:24 and reads PAUSED now;
+   * the 1 Nov sweep kept nothing and the day was lost. It counts for 1 and 2 Nov, and not for 3 Nov or 23 Oct. */
+  const his = { campaign_id: 27647348, status: 'PAUSED', start_date: '2026-10-24T19:12:26+05:30', end_date: '2026-11-02T08:24:14+05:30' };
+  check('a campaign paused now still counts for the days it ran',
+    ranOn(his, '2026-10-24') && ranOn(his, '2026-11-01') && ranOn(his, '2026-11-02'));
+  check('and not for a day before it began or after it ended', !ranOn(his, '2026-10-23') && !ranOn(his, '2026-11-03'));
+  check('a LIVE campaign with no end day is still running, a paused one with no readable end did not run',
+    ranOn({ ...his, status: RUNNING, end_date: '' }, '2026-11-06') && !ranOn({ ...his, end_date: '' }, '2026-11-06')
+      && !ranOn({ ...his, end_date: 1793889260 }, '2026-11-01'));
+  check('a campaign with no start day falls back to whether it is LIVE now',
+    ranOn({ status: RUNNING }, '2026-11-06') && !ranOn({ status: 'PAUSED' }, '2026-11-06'));
+  /* The sweep itself, not only the rule (review 6 Nov): a campaign paused now whose days cover the day is asked about and written. */
+  const meesho = aMeesho({ campaigns: [{ ...his, campaign_name: 'his', start_date: '2026-09-01T19:12:26+05:30', end_date: '2026-09-12T08:24:14+05:30' }] });
+  const swept = await sweepTheAds(meesho.ask, { supplierId: '1234567' }, DAY);
+  check('the sweep asks about a campaign paused now for a day it ran, and writes its files',
+    swept.running === 1 && meesho.details === 1 && swept.files.length === 3);
+}
 
 {
   /* **TWENTY-THREE CAMPAIGNS IS THREE PAGES, THE LAST ONE SHORT.** A sweep that
@@ -291,7 +312,7 @@ const someCampaigns = (howMany, everyNthLive = 1) => Array.from({ length: howMan
   /* **NONE RUNNING IS THE CASE HE IS IN TODAY: 37 campaigns, every one paused.**
    * No files at all, and the count said out loud so the walk can turn it into a
    * sentence rather than an empty folder. */
-  const meesho = aMeesho({ campaigns: someCampaigns(37).map((one) => ({ ...one, status: 'PAUSED' })) });
+  const meesho = aMeesho({ campaigns: someCampaigns(37).map((one) => ({ ...one, status: 'PAUSED', end_date: '2026-04-02T08:24:14+05:30' })) });
   const swept = await sweepTheAds(meesho.ask, { supplierId: '1234567' }, DAY);
   check('no campaign running writes no file at all', swept.files.length === 0);
   check('and says how many there were to look at', swept.lookedAt === 37 && swept.running === 0);
@@ -344,7 +365,7 @@ const someCampaigns = (howMany, everyNthLive = 1) => Array.from({ length: howMan
   check('it pauses between one call and the next', paused >= 12);
 }
 
-const EXPECTED = 45;
+const EXPECTED = 50;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;
