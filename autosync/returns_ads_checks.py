@@ -263,6 +263,19 @@ check("a search term's cost is read from SUM(cost), whatever spaces the platform
       se is not None and se.records["flipkart__2026-10-11__search"]["rows"][0]["spend"] == 0.63
       and se.records["flipkart__2026-10-11__search"]["rows"][0]["query"] == "bahubali jhumka")
 
+# AS9 R238: Flipkart keyword ads, the shape of his real file flipkart_fk_ads_kw_2026-09-20.csv (two notes above the headings, line 5).
+KW_HEAD = ("Campaign ID,Campaign Name,AdGroup ID,attributed_keyword,keyword_match_type,Views,Clicks,ROI,Direct ROI,Average CPC,SUM(cost),"
+           " Direct Units Sold,Indirect Units Sold,Direct Conversion Rate in %,Direct Revenue,Indirect Revenue,Click Through Rate in %")
+kw = answered(lambda: ads.read_ads("fk_ads_kw", table.read(csv(
+    *TITLES, "Note: Keyword Reports only capture performance at Top of Search (TOS) and Bottom of Search (BOS) placements.", "If your ad got served elsewhere check your Placement Report.",
+    KW_HEAD, "3EWQ,PLA DJ-14 Bahubali,TOB3,bahubali jhumka,EXACT,17,3,9.1,9.2,9.3,0.7,4,5,9.4,288.5,99.25,9.5"), header_row=5), "2026-10-11", "2026-10-11"))
+_kw_row = ((kw.records.get("flipkart__2026-10-11__keywords") or {}).get("rows") or [{}])[0] if kw else {}
+check("AS9 R238: a keyword ad row is read field by field from his real headings (SUM(cost) is the spend, ' Direct Units Sold' keeps its space)",
+      kw is not None and not kw.not_read and {k: _kw_row.get(k) for k in ("campaignId", "campaignName", "adGroupId", "keyword", "matchType")}
+      == {"campaignId": "3EWQ", "campaignName": "PLA DJ-14 Bahubali", "adGroupId": "TOB3", "keyword": "bahubali jhumka", "matchType": "EXACT"}
+      and [_kw_row.get(k) for k in ("views", "clicks", "spend", "unitsDirect", "unitsIndirect", "revenueDirect", "revenueIndirect")]
+      == [17, 3, 0.7, 4, 5, 288.5, 99.25])
+
 orr = answered(lambda: ads.read_ads("fk_ads_orders", flipkart_file(
     ORDERS_HEAD, "C1,AG,LST1,Product,FSN1,2026-10-11,OD9,0.88,,FSN2,294.0000,1,0",
     "C1,AG,LST1,Product,FSN1,2026-10-10,OD8,0.88,,FSN1,100.0000,0,1"), "2026-10-11", "2026-10-11"))
@@ -764,7 +777,7 @@ check("a range of two days with one that is not a day, or of three days, is no d
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 107 + 3 + 2 + 3 + 3 + 7 + 1 + 6 + 2 + 2 + 3
+EXPECTED = 107 + 3 + 2 + 3 + 3 + 7 + 1 + 6 + 2 + 2 + 3 + 1
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

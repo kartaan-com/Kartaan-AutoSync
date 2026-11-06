@@ -1075,7 +1075,8 @@ check('asked to step back by nothing at all, it answers the day itself',
   /* AS9b review: a past day whose sweep gave only the lifetime master has nothing to file, and says so instead of throwing. */
   const onlyMaster = aPortal({ swept: { lookedAt: 9, running: 3, files: [{ reportId: 'me_ads', text: 'Date\n1' }] } });
   const bare = await aWalk(onlyMaster)('me_ads', DAY);
-  check('a past day with only the lifetime master files nothing and says so', bare.state === NOTHING_TO_FETCH && onlyMaster.putAway.length === 0);
+  check('a past day with only the lifetime master files nothing and says so', bare.state === NOTHING_TO_FETCH && onlyMaster.putAway.length === 0
+    && String(bare.say).includes('lifetime') && String(bare.say).includes(DAY));
 }
 
 {
