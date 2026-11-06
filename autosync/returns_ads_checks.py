@@ -495,15 +495,14 @@ check("a file whose columns have moved stops, in words, and is left to be read a
 # ------------------------------------------------------------------ the rule that ties reports to readers
 
 readers = {o.report_id for o in reading.WHAT_RETURNS_CAN_BE_READ + reading.WHAT_ADS_CAN_BE_READ}
-check("the returns and ads readers are the eleven reports named (Amazon ads joined, N018)",
+check("the returns and ads readers are the twelve reports named (Amazon ads joined, N018; Flipkart keyword ads back, AS9 R238)",
       readers == {"fk_returns", "me_returns", "az_returns", "fk_ads_daily", "fk_ads_placements", "fk_ads_overall", "fk_ads_search",
-                  "fk_ads_orders", "me_ads_summary", "me_ads", "az_ads"})
+                  "fk_ads_orders", "fk_ads_kw", "me_ads_summary", "me_ads", "az_ads"})
 check("each is a report that exists and none is also said to be unread",
       all(r in reports.BY_ID for r in readers) and not (readers & set(reading.WHAT_IS_FETCHED_AND_NOT_READ_YET)))
 check("and they write no ledger column", all(o.knows == () for o in reading.WHAT_RETURNS_CAN_BE_READ + reading.WHAT_ADS_CAN_BE_READ))
-check("Flipkart keyword ads are not read, are not fetched, and say why in words",
-      "fk_ads_kw" in reading.WHAT_IS_FETCHED_AND_NOT_READ_YET and "discontinued" in reading.WHAT_IS_FETCHED_AND_NOT_READ_YET["fk_ads_kw"]
-      and reports.BY_ID["fk_ads_kw"].needs_a_person is True)
+check("AS9 R238: Flipkart keyword ads are read and fetched again, and no longer said to be unread",
+      "fk_ads_kw" not in reading.WHAT_IS_FETCHED_AND_NOT_READ_YET and reports.BY_ID["fk_ads_kw"].needs_a_person is False)
 # ---- me_ads (A87): read from his real file meesho_me_ads_2026-10-14.csv (Date, Campaign ID, Campaign Name, Status, Start Date, Ad Spend, ...)
 _ME_ADS_HEAD = '"Date","Campaign ID","Campaign Name","Status","Start Date","Ad Spend","Revenue","Orders","Views","Clicks","ROI","Conversion %","Avg Order Value","Ad Spend Per Order"'
 _life = answered(lambda: ads.read_ads("me_ads", table.read(csv(

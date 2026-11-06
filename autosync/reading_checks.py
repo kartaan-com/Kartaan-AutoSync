@@ -1053,10 +1053,10 @@ check("the rules the read-files list was made under are named, so a change to th
 
 check("every report in REPORTS has a reader or a written reason it is not yet read",
       tool.why_a_report_has_no_decision() == "")
-check("the 37 reports are 35 read (8 into the ledger, 4 into listing records, 3 listing files, 3 side files about listings (AP9 suppressed, the fee preview joined at AP10, and Meesho pricing, N017), 3 returns files, 8 ads files, 6 records files (1 product performance file, 1 quality file, 1 shop figures file, 1 Amazon SAFE-T claims file, 1 Amazon account health file, 1 Meesho product quality file, N018, N025)) and 2 with a reason, which is Finding 51 stated as numbers (A78 moved the returns and ads files up; the two v0.1.21 lanes joined at AP10; AJ2 joined N017 and N018)",
+check("the 37 reports are 36 read (8 into the ledger, 4 into listing records, 3 listing files, 3 side files about listings (AP9 suppressed, the fee preview joined at AP10, and Meesho pricing, N017), 3 returns files, 9 ads files, 6 records files (1 product performance file, 1 quality file, 1 shop figures file, 1 Amazon SAFE-T claims file, 1 Amazon account health file, 1 Meesho product quality file, N018, N025)) and 1 with a reason, which is Finding 51 stated as numbers (A78 moved the returns and ads files up; the two v0.1.21 lanes joined at AP10; AJ2 joined N017 and N018; AS9 R238 put Flipkart keyword ads back on, 6 Nov)",
       len(tool.WHAT_CAN_BE_READ) == 8 and len(tool.WHAT_VIEWS_CAN_BE_READ) == 4 and len(tool.WHAT_LISTINGS_CAN_BE_READ) == 3 and len(tool.WHAT_NOTES_CAN_BE_READ) == 3
-      and len(tool.WHAT_RETURNS_CAN_BE_READ) == 3 and len(tool.WHAT_ADS_CAN_BE_READ) == 8 and len(tool.WHAT_RECORDS_CAN_BE_READ) == 6
-      and len(tool.WHAT_IS_FETCHED_AND_NOT_READ_YET) == 2
+      and len(tool.WHAT_RETURNS_CAN_BE_READ) == 3 and len(tool.WHAT_ADS_CAN_BE_READ) == 9 and len(tool.WHAT_RECORDS_CAN_BE_READ) == 6
+      and len(tool.WHAT_IS_FETCHED_AND_NOT_READ_YET) == 1
       and len(reports.REPORTS) == 37)
 check("Amazon's referral fee preview is read now, as notes on the listing record, and no longer says it waits; its listings file is read",
       "az_fee_preview" not in tool.WHAT_IS_FETCHED_AND_NOT_READ_YET and "az_fee_preview" in {o.report_id for o in tool.WHAT_NOTES_CAN_BE_READ}

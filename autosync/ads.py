@@ -6,7 +6,7 @@
 |---|---|---|---|
 | lifetime | `<platform>__<day>__lifetime` | `me_ads` (Meesho) | `rows`: each campaign's takings since it began, as read that day |
 | days | `<platform>__<day>` | `fk_ads_daily` (Flipkart), `me_ads_summary` (Meesho) | `campaigns`: campaign id -> name, spend, views, clicks, units, revenue |
-| detail | `<platform>__<day>__<kind>` (`overall`: `..__overall__<campaignId>`, a file per campaign) | `fk_ads_placements`, `fk_ads_overall`, `fk_ads_search`, `fk_ads_orders` | `rows`: the file's rows, in the ERP's words |
+| detail | `<platform>__<day>__<kind>` (`overall`: `..__overall__<campaignId>`, a file per campaign) | `fk_ads_placements`, `fk_ads_overall`, `fk_ads_search`, `fk_ads_orders`, `fk_ads_kw` | `rows`: the file's rows, in the ERP's words |
 
 **THE COLUMNS ARE FROM HIS REAL FILES (2026-10-11, `D:\\Kartaan-Samples\\autosync-returns-ads-2026-10-12`).** The Flipkart files open with
 `Start Time, <day>` and `End Time, ...` lines and the column names are on line 3; **only `fk_ads_daily` and `fk_ads_orders` carry a
@@ -129,6 +129,17 @@ WAYS: Dict[str, Way] = {
         },
         needed=("campaignId", "query"), header_row=3,
     ),
+    # **FLIPKART'S KEYWORD ADS ARE STILL ON (his correction, 6 Nov 2026, AS9 R238):** his 12 Oct words were about ORGANIC keywords. Two lines of
+    # times and two of notes stand above the headings (his real files flipkart_fk_ads_kw_2026-09-20.csv .. 2026-10-14.csv).
+    "fk_ads_kw": Way(
+        "flipkart", "keywords",
+        {
+            "campaignId": ("campaign id",), "campaignName": ("campaign name",), "adGroupId": ("adgroup id",), "keyword": ("attributed_keyword",),
+            "matchType": ("keyword_match_type",), "views": ("views",), "clicks": ("clicks",), "spend": ("sum(cost)",),
+            "unitsDirect": ("direct units sold",), "unitsIndirect": ("indirect units sold",), "revenueDirect": ("direct revenue",), "revenueIndirect": ("indirect revenue",),
+        },
+        needed=("campaignId", "keyword"), header_row=5,
+    ),
     "fk_ads_orders": Way(
         "flipkart", "orders",
         {
@@ -143,8 +154,8 @@ WAYS: Dict[str, Way] = {
 
 # **ONE MONTH OF ADS, BUILT FROM THE PER-DAY RECORDS (D463, A87).** Nothing is summed: every day stays a day, so any period inside the month can still be
 # answered. `days` is each day's campaigns as `platform_ads_days` holds them; the other five are each day's rows as `platform_ads_detail` holds them.
-MONTH_FIELDS = ("platform", "month", "updatedOn", "days", "search", "placements", "overall", "orders", "lifetime", "trimmed")
-MONTH_KINDS = ("search", "placements", "overall", "orders", "lifetime")
+MONTH_FIELDS = ("platform", "month", "updatedOn", "days", "search", "placements", "overall", "orders", "lifetime", "keywords", "trimmed")
+MONTH_KINDS = ("search", "placements", "overall", "orders", "lifetime", "keywords")
 MONTH = shared.RecordKind(firestore.ADS_MONTH, MONTH_FIELDS, "month of ads", required_days=("updatedOn",), months=("month",))
 # Firestore's record limit is 1 MiB, counted the way Firestore counts (see `firestore_size`); a month that would not fit is refused in words, never shortened.
 MOST_MONTH_BYTES = 1000 * 1000

@@ -516,6 +516,11 @@ cat_fallback = answered(lambda: tool.read_pricing(a_price_file(
 check("N017 REVIEW: THE CATALOGUE-ID FALLBACK NEVER SPREADS ONE PRICE OVER SEVERAL PRODUCTS: a catalogue of two SKUs is not matched, a catalogue of one SKU in two sizes is",
       cat_fallback is not None and set(cat_fallback.notes) == {"meesho::7001::1", "meesho::7001::2"}
       and len(cat_fallback.not_read) == 1 and "more than one product" in cat_fallback.not_read[0])
+by_title = answered(lambda: tool.read_pricing(a_price_file(
+    a_price_row("NECKLACE  c", "C", "", RUPEE_SIGN + "80", RUPEE_SIGN + "70"), a_price_row("Something else", "C", "", RUPEE_SIGN + "60", RUPEE_SIGN + "50"),
+), "f", SHOP2))
+check("AS9 R240: A CATALOGUE OF SEVERAL PRODUCTS IS TOLD APART BY THE ROW'S TITLE (case and extra spaces aside); a title that names none of them is still refused",
+      by_title is not None and set(by_title.notes) == {"meesho::6002::1"} and len(by_title.not_read) == 1 and "more than one product" in by_title.not_read[0])
 loose = answered(lambda: tool.read_pricing(a_price_file(
     a_price_row("Ring C", "C", "RING", "12%", RUPEE_SIGN + "90"), a_price_row("Necklace C", "C", "NECK", "Rs 100", RUPEE_SIGN + "90"),
 ), "f", SHOP2))
@@ -613,7 +618,7 @@ check("but a dash for the CURRENT price is still refused: there is no price to p
       dash_current is not None and not dash_current.notes and "no current price" in dash_current.not_read[0])
 
 check("nothing above ended by throwing rather than by answering -- " + str(THREW), not THREW)
-EXPECTED = 49 + 7 + 5 + 4 + 1 + 25 + 2 + 6
+EXPECTED = 49 + 7 + 5 + 4 + 1 + 25 + 2 + 6 + 1
 check(f"checks went missing -- {ran + 1} ran, {EXPECTED} expected", ran + 1 == EXPECTED)
 
 if failures:

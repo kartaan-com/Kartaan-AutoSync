@@ -124,10 +124,11 @@ def read_quality(report_id: str, platform: str, rows: table.Table, file_day: str
 MEESHO_COLUMNS = ("Kind", "Tab", "Name", "Style ID", "Band", "Percent", "Count", "Detail")
 _A_REASON = re.compile(r"^(.+) \((\d+) ratings?\)$")
 _TAB_FIELDS = {"Blocking Soon": "blockingSoon", "Action Pending": "actionPending", "Fixed": "fixed"}
+_URGENCY = {"Blocking Soon": 0, "Action Pending": 1, "Fixed": 2}
 
 
 def read_meesho_quality(report_id: str, platform: str, rows: table.Table, file_day: str):
-    """`(records, not_read)`: the store as `<platform>__store`, every product as `<platform>__<Style ID>`; a product named twice is its later line."""
+    """`(records, not_read)`: the store as `<platform>__store`, every product as `<platform>__<Style ID>`; a product on two tabs is its more urgent line."""
     shared.require_columns(rows, MEESHO_COLUMNS, "a Meesho quality file")
     records: Dict[str, Dict[str, object]] = {}
     not_read = []
@@ -172,8 +173,11 @@ def read_meesho_quality(report_id: str, platform: str, rows: table.Table, file_d
                 if percent is not None:
                     record["percent"] = float(percent)
                 record["digest"] = shared.the_digest({k: v for k, v in record.items() if k not in NOT_IN_THE_DIGEST})
-                if f"{platform}__{style}" in records:
-                    not_read.append(f"line {row.line}: {style} is named twice in this file (it is on two tabs), so the later line stands")
+                # **ON TWO TABS, THE MORE URGENT STANDS, AND BOTH LINES ARE READ (AS9 R240, his real files 26 Oct - 4 Nov).** DJ-5 sat on
+                # Action Pending (Yellow) and on Fixed (Green) in every file; the later line made the ERP say Fixed while Meesho said act.
+                earlier = records.get(f"{platform}__{style}")
+                if earlier is not None and _URGENCY.get(str(earlier["tab"]), 9) <= _URGENCY.get(record["tab"], 9):
+                    continue
                 records[f"{platform}__{style}"] = record
         except ValueError as wrong:
             not_read.append(f"line {row.line}: {wrong}")

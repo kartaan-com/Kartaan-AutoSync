@@ -304,10 +304,10 @@ check('a report that reads another report\'s file is fetched after it',
    * reports became the whole daily sync, and no Meesho ran at all. */
   const every = (platform) => (BOOK.reports || [])
     .filter((one) => one.platform === platform && (BOOK.recipes || {})[one.id]
-      && one.id !== 'fk_keywords' && one.id !== 'fk_ads_kw')
+      && one.id !== 'fk_keywords')
     .map((one) => one.id);
-  check('the default timed list leaves out fk_keywords (his decision E)',
-    !theTimedList(BOOK, { timed: null }).includes('fk_keywords') && !theTimedList(BOOK, { timed: null }).includes('fk_ads_kw')
+  check('the default timed list leaves out fk_keywords (his decision E) and holds fk_ads_kw again (AS9 R238, his correction 6 Nov)',
+    !theTimedList(BOOK, { timed: null }).includes('fk_keywords') && theTimedList(BOOK, { timed: null }).includes('fk_ads_kw')
     && theTimedList(BOOK, { timed: null }).length > 0);
   const { chrome } = installFakeChrome();
   const started = [];
@@ -1030,8 +1030,8 @@ check('the allowance is twenty, and it is a number a program can read',
     stands.cannotBeFetched.every((one) => one.why.length > 40));
   check('the reasons are the Python\'s own words, not words invented here',
     stands.cannotBeFetched.every((one) => one.why === BOOK.notYetARecipe[one.id]));
-  check('so every report can be ticked but the two switched off (A84)',
-    stands.reports.filter((one) => !one.canBeFetched).map((one) => one.id).sort().join() === 'fk_ads_kw,fk_keywords');
+  check('so every report can be ticked but the one switched off (A84; fk_ads_kw back on, AS9 R238)',
+    stands.reports.filter((one) => !one.canBeFetched).map((one) => one.id).sort().join() === 'fk_keywords');
   /* **AND THE TWO THE ADS SWEEP BRINGS ARE TICKABLE AND SAY WHO BRINGS THEM.**
    * Listed as unfetchable, a seller would read "cannot be fetched" about two
    * files that arrive in their Drive every night. */
@@ -1909,12 +1909,12 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   await say({ do: 'connect-the-drive' });
   await say({ do: 'save-the-panel-name', panel: 'rumee-panel' });
   const stands = (await say({ do: 'how-it-stands' })).stands;
-  check('A84: the panel opens without a tick box for either switched-off report',
-    !stands.setUp.ticked.includes('fk_keywords') && !stands.setUp.ticked.includes('fk_ads_kw') && stands.setUp.ticked.includes('fk_views'));
+  check('A84: the panel opens without a tick box for the switched-off report, and with one for fk_ads_kw again (AS9 R238)',
+    !stands.setUp.ticked.includes('fk_keywords') && stands.setUp.ticked.includes('fk_ads_kw') && stands.setUp.ticked.includes('fk_views'));
   const alone = await say({ do: 'run-now', reportIds: ['fk_keywords'] });
   check('and a stale tick on one of them alone starts nothing', Boolean(alone.wrong) && !alone.started);
-  const started = await say({ do: 'run-now', reportIds: ['fk_keywords', 'fk_ads_kw', 'fk_views'] });
-  check('and with others ticked, they are fetched and the two are left out',
+  const started = await say({ do: 'run-now', reportIds: ['fk_keywords', 'fk_views'] });
+  check('and with others ticked, they are fetched and the switched-off one is left out',
     Array.isArray(started.started) && started.started.join() === 'fk_views');
 }
 
@@ -1929,7 +1929,7 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   };
   await answerThePanelsQuestion(chrome, parts, { do: 'save-the-panel-name', panel: 'xuptj' });
   await answerThePanelsQuestion(chrome, parts, { do: 'check-the-drive' });
-  await chrome.storage.local.set({ [THE_QUEUE]: [{ reportIds: ['fk_keywords', 'fk_ads_kw', 'fk_views'] }] });
+  await chrome.storage.local.set({ [THE_QUEUE]: [{ reportIds: ['fk_keywords', 'fk_views'] }] });
   const next = await startTheNextPlatform(chrome, parts);
   check('A84: a stored queue naming the switched-off pair starts without them',
     Boolean(next.started) && started.length === 1 && started[0].doing.join() === 'fk_views');
@@ -1943,7 +1943,7 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   const say = (asked) => answerThePanelsQuestion(chrome, parts, asked);
   await say({ do: 'save-the-panel-name', panel: 'xuptj' });
   await say({ do: 'check-the-drive' });
-  await chrome.storage.local.set({ [PAUSED]: { reportIds: ['fk_keywords', 'fk_ads_kw'], dataDate: '2026-10-14' } });
+  await chrome.storage.local.set({ [PAUSED]: { reportIds: ['fk_keywords'], dataDate: '2026-10-14' } });
   const resumed = await say({ do: 'resume' });
   check('A84: resuming a pause that held only the pair says nothing is paused', (resumed.wrong || '').includes('Nothing is paused'));
   check('and the pause is gone', (await chrome.storage.local.get(PAUSED))[PAUSED] === undefined);

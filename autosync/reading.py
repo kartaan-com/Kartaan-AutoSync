@@ -259,10 +259,6 @@ WHAT_IS_FETCHED_AND_NOT_READ_YET: Dict[str, str] = {
         "switched off by his ruling (piece 49), so it is not fetched at all and has no folder"
     ),
 }
-WHAT_IS_FETCHED_AND_NOT_READ_YET["fk_ads_kw"] = (
-    "Flipkart has discontinued keyword ads (his word, 12 Oct), so nothing is read and it is no longer fetched: it is off the extension's "
-    "timed list (screen.js OFF_THE_TIMED_LIST) and marked as needing a person (reports.py), like fk_keywords (piece 35)"
-)
 
 
 def why_a_report_has_no_decision() -> str:

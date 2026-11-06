@@ -1046,7 +1046,9 @@ check('asked to step back by nothing at all, it answers the day itself',
     { reportId: 'me_ads_summary', text: 'Date\n22' },
     { reportId: 'me_ads_catalog', text: 'Date\n333' },
   ] } });
-  const got = await aWalk(portal)('me_ads', DAY);
+  /* Yesterday, the day a sync is normally for: the lifetime master belongs to it (AS9 1c). */
+  const YDAY = daysBefore(theDayOfTheRun(), 1);
+  const got = await aWalk(portal)('me_ads', YDAY);
   check('a sweep that found something lands', got.state === LANDED);
   check('and all three files went away, each under its own report',
     portal.putAway.map((one) => one.reportId).join(',')
@@ -1056,13 +1058,24 @@ check('asked to step back by nothing at all, it answers the day itself',
    * would be empty for ever. */
   check('and each is named for the report it belongs to',
     portal.putAway.map((one) => one.fileName).join(',')
-      === `meesho_me_ads_${DAY}.csv,meesho_me_ads_summary_${DAY}.csv,`
-        + `meesho_me_ads_catalog_${DAY}.csv`);
+      === `meesho_me_ads_${YDAY}.csv,meesho_me_ads_summary_${YDAY}.csv,`
+        + `meesho_me_ads_catalog_${YDAY}.csv`);
   check('and the answer counts every byte of all three',
     got.size === portal.putAway.reduce((all, one) => all + one.size, 0));
   check('and says how many campaigns were running out of how many',
     got.say.includes('3 of 9 campaigns were running'));
-  check('the sweep was told which day to ask about', portal.sweeps[0].dataDate === DAY);
+  check('the sweep was told which day to ask about', portal.sweeps[0].dataDate === YDAY);
+  /* **AS9 1c: AN OLDER DAY GETS ITS BY-DAY FILES ONLY**, never today's lifetime totals under that day's name. */
+  const back = aPortal({ swept: { lookedAt: 9, running: 3, files: [
+    { reportId: 'me_ads', text: 'Date\n1' }, { reportId: 'me_ads_summary', text: 'Date\n22' }, { reportId: 'me_ads_catalog', text: 'Date\n333' },
+  ] } });
+  const old = await aWalk(back)('me_ads', DAY);
+  check('a past day lands only the by-day summary and catalogue files',
+    old.state === LANDED && back.putAway.map((one) => one.reportId).join(',') === 'me_ads_summary,me_ads_catalog');
+  /* AS9b review: a past day whose sweep gave only the lifetime master has nothing to file, and says so instead of throwing. */
+  const onlyMaster = aPortal({ swept: { lookedAt: 9, running: 3, files: [{ reportId: 'me_ads', text: 'Date\n1' }] } });
+  const bare = await aWalk(onlyMaster)('me_ads', DAY);
+  check('a past day with only the lifetime master files nothing and says so', bare.state === NOTHING_TO_FETCH && onlyMaster.putAway.length === 0);
 }
 
 {
@@ -3347,7 +3360,7 @@ check(`nothing above ended by throwing rather than by answering -- ${THREW}`, TH
   check('a press narrowed to a row that sees several is still refused', narrowedClick.state === FAILED);
 }
 
-const EXPECTED = 349 + 31 + 9 + 3 + 1 + 1 + 3 + 8 + 2 + 4 + 2 + 2 + 1 + 14 + 1 + 1 + 1 + 2 + 4 + 3 + 1 + 2 + 2 + 1 + 1 + 2 + 2;
+const EXPECTED = 351 + 31 + 9 + 3 + 1 + 1 + 3 + 8 + 2 + 4 + 2 + 2 + 1 + 14 + 1 + 1 + 1 + 2 + 4 + 3 + 1 + 2 + 2 + 1 + 1 + 2 + 2;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

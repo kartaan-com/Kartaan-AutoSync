@@ -1689,7 +1689,16 @@ export function theWalk({
          * would be three times the load for the same answer -- `recipes.py`
          * `MADE_BY_ANOTHER` is where the other two say who fetches them. */
         const landed = [];
-        for (const one of swept.files) {
+        /* **A PAST DAY GETS ONLY ITS BY-DAY FILES (AS9 1c):** `me_ads` is each campaign's takings since it began, read now, so filed
+         * under a day older than yesterday it would be today's picture under that day's name. */
+        const pastDay = dataDate < daysBefore(theDayOfTheRun(), 1);
+        const toLand = swept.files.filter((file) => !(pastDay && file.reportId === 'me_ads'));
+        if (!toLand.length) {
+          return anAnswer(NOTHING_TO_FETCH, reportId, dataDate, {
+            say: `Meesho gave no by-day ad figures for ${dataDate}, only today's lifetime totals, which are not filed under a past day.`,
+          });
+        }
+        for (const one of toLand) {
           const called = theFileName(book, one.reportId, dataDate);
           if (!called) {
             return anAnswer(FAILED, reportId, dataDate, {

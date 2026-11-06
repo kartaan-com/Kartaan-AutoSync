@@ -360,8 +360,8 @@ check(
     answered(lambda: tool.report("fk_keywords").needs_a_person is True),
 )
 check(
-    "and the only other is Flipkart's keyword ads, which Flipkart has discontinued (his ruling, 12 Oct, A78)",
-    answered(lambda: [r.id for r in tool.REPORTS if r.needs_a_person] == ["fk_keywords", "fk_ads_kw"]),
+    "and it is the only one: Flipkart's keyword ADS are fetched again (his correction, 6 Nov 2026, AS9 R238)",
+    answered(lambda: [r.id for r in tool.REPORTS if r.needs_a_person] == ["fk_keywords"]),
 )
 
 

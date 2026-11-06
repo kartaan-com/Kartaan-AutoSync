@@ -147,6 +147,9 @@ async function said(fn) {
   /* **A PAST DAY OF THE ADS REPORT IS NOT WALKED AGAIN, AND IS TOLD WHY IN ITS OWN WORDS (the fresh review of 27 Oct 2026):** every run takes the saved report's last 30 days, so a day missed is already in the newest file, and a walk per owed day would pay the pause and visit the ads site again each time. */
   const adsWhy = whyOnlyItsNewestDay({ latestDay: '2026-10-27' }, 'az_ads', '2026-10-24');
   check('a past day of the Amazon ads report is left out and says the newest file already holds it', typeof adsWhy === 'string' && adsWhy.includes('30 days') && !adsWhy.includes('picture of how things stand'));
+  /* AS9 1c: Meesho's campaign details are asked by the day, so a past day of Meesho ads is walked (the walk leaves out the lifetime master). */
+  check('a past day of Meesho ads is walked, not skipped', whyOnlyItsNewestDay({ latestDay: '2026-11-05' }, 'me_ads', '2026-11-01') === null
+    && whyOnlyItsNewestDay({ latestDay: '2026-11-05' }, 'me_views', '2026-11-01') !== null);
 }
 
 /* **RETURNS LEFT THE REPORTS CENTRE ON 2026-09-14**, by his ruling, so asking for
@@ -2544,7 +2547,7 @@ check('report table: null night gives null', theReportTable(null, () => '') === 
     walkOrders.started.length === 0 && (await theNight(orders.chrome)).done.some((one) => one.reportId === 'az_orders' && String(one.say).includes('nightly pipeline')));
 }
 
-const EXPECTED = 180 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3 + 1 + 4 + 3 + 2 + 2 + 2 + 1 + 8 + 3 + 13 + 2;
+const EXPECTED = 181 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3 + 1 + 4 + 3 + 2 + 2 + 2 + 1 + 8 + 3 + 13 + 2;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

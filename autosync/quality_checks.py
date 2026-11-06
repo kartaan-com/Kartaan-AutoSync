@@ -176,8 +176,11 @@ check("EVERY PRODUCT IS A RECORD OF ITS OWN named by its Style ID, with its tab,
 check("a product with no reasons has an empty list, and a tab with none of its products is only a count on the store",
       _mq["meesho__DJ-7 Test Seven"]["reasons"] == [] and _mq_store["blockingSoon"] == 0)
 check("every field of every record is one the quality record kind accepts", all(set(r) <= set(quality.QUALITY_FIELDS) for r in _mq.values()))
-_mq_dup, _mq_dup_said = answered(lambda: quality.read_meesho_quality("me_quality", "meesho", mq_file(*_MQ, '"product","Fixed","Gold Hoops ...","DJ-7 Test Seven","Green","3.5","0",""'), "2026-10-26")) or ({}, ())
-check("a product named twice (it is on two tabs) is one record, the later line standing, and it is said", len(_mq_dup_said) == 1 and _mq_dup["meesho__DJ-7 Test Seven"]["tab"] == "Fixed")
+_mq_dup, _mq_dup_said = answered(lambda: quality.read_meesho_quality("me_quality", "meesho", mq_file(*_MQ, '"product","Fixed","Traditional Jhumka ...","DJ-5 Test Five","Green","12.8","0",""'), "2026-10-26")) or ({}, ())
+check("a product on two tabs (AS9 R240: DJ-5 on Action Pending and Fixed in his real files) is one record, the MORE URGENT tab standing, both lines read",
+      _mq_dup_said == () and _mq_dup["meesho__DJ-5 Test Five"]["tab"] == "Action Pending" and _mq_dup["meesho__DJ-5 Test Five"]["band"] == "Yellow")
+_mq_up, _mq_up_said = answered(lambda: quality.read_meesho_quality("me_quality", "meesho", mq_file(*_MQ, '"product","Blocking Soon","Gold Hoops ...","DJ-7 Test Seven","Red","30","0",""'), "2026-10-26")) or ({}, ())
+check("and a more urgent line later in the file replaces a less urgent earlier one", _mq_up_said == () and _mq_up["meesho__DJ-7 Test Seven"]["tab"] == "Blocking Soon")
 _mq_nostore = answered(lambda: quality.read_meesho_quality("me_quality", "meesho", mq_file(*_MQ[1:]), "2026-10-26")) or ({}, ())
 check("a file with no store line is refused by name, the products still read", len(_mq_nostore[1]) == 1 and "store" in _mq_nostore[1][0] and "meesho__DJ-5 Test Five" in _mq_nostore[0])
 _mq_badpct = answered(lambda: quality.read_meesho_quality("me_quality", "meesho", mq_file(_MQ[0], '"product","Fixed","X","DJ-9 Test Nine","Green","lots","0",""', '"product","Fixed","Y","DJ-8 / Bad","Green","3","0",""'), "2026-10-26")) or ({}, ())
@@ -217,7 +220,7 @@ check("a product's fingerprint is the fingerprint of what it says, without the d
 
 check(f"nothing above ended by throwing rather than by answering -- {THREW}", not THREW)
 
-EXPECTED = 14 + 6 + 1 + 9 + 6
+EXPECTED = 14 + 6 + 1 + 9 + 6 + 1
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

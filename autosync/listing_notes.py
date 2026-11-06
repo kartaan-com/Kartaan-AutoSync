@@ -199,6 +199,13 @@ def read_pricing(content: bytes, report_name: str = "this file", shop_listings: 
         elif catalog and catalog in by_catalog:
             # **A CATALOGUE HOLDS SEVERAL PRODUCTS**: one row's price goes on a catalogue's listings only when they are one product (one SKU) in several sizes.
             names = by_catalog[catalog]
+            # **A CATALOGUE OF SEVERAL PRODUCTS IS TOLD APART BY THE ROW'S OWN TITLE (AS9 R240):** Meesho writes one row per product, no SKU,
+            # each with its own title; 8 of his 145 rows sat in such catalogues on 2 Nov. Still refused when the title names two products.
+            # Spaces are compared collapsed: his C6 title has "||  And" in the catalogue and "|| And" in the pricing file.
+            plain = lambda words: " ".join(str(words or "").lower().split())  # noqa: E731
+            titled = [n for n in names if plain(shop_listings[n].get("productName")) == plain(title)]
+            if titled and len({str(shop_listings[n].get("sku") or "").strip() for n in names}) > 1:
+                names = titled
             if len({str(shop_listings[n].get("sku") or "").strip() for n in names}) > 1:
                 not_read.append(f"{who}: the catalogue holds more than one product and the SKU matched none, so which listing is meant cannot be said")
                 continue

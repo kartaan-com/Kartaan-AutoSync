@@ -204,9 +204,9 @@ export async function theSetup(chrome) {
  * downloading when none was ever kept. Never the Run now ticks: on 09-18..09-20
  * two ticked ad reports became the whole daily sync, and no Meesho ran.
  */
-/* Put off by him (decision E; fk_ads_kw 12 Oct, Flipkart ended keyword ads). **NEVER FETCHED -- NOT BY THE TIMER, NOT BY A RUN NOW TICK (A84):**
- * the first run of 15 Oct fetched both because Run now opened with every report ticked, this pair included. */
-const OFF_THE_TIMED_LIST = Object.freeze(['fk_keywords', 'fk_ads_kw']);
+/* Put off by him (decision E: organic keywords). **NEVER FETCHED -- NOT BY THE TIMER, NOT BY A RUN NOW TICK (A84).** `fk_ads_kw` is back on
+ * (his correction 6 Nov 2026, AS9 R238: his 12 Oct words were about organic keywords; keyword ADS are still on Flipkart). */
+const OFF_THE_TIMED_LIST = Object.freeze(['fk_keywords']);
 
 /** **THE REPORTS THAT ARE NOT READY IN THE MORNING (AJ13a, his order of 3 Nov 2026, evidence `R184-MORNING-FETCH-2026-11-03.md`).** The 4 pm run fetches
  *  ONLY these; the morning run fetches every other timed report. **The split is this one list -- moving a report to the other run is one line here.** A
