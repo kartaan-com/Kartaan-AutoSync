@@ -1378,7 +1378,6 @@ export function wireUp(chrome, {
     }
     if (alarm && alarm.name === RETURNS) {
       if (onReturns) await startWhenFree(chrome, 'returns', onReturns);
-      return;
     }
     if (alarm && alarm.name !== DAILY) return;
     await startWhenFree(chrome, 'daily', onDue);
