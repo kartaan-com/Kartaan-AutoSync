@@ -2648,7 +2648,7 @@ check('report table: null night gives null', theReportTable(null, () => '') === 
 
 {
   /* Proving round 7: "for a past day" is read against the time the failure happened, not the time the check runs. */
-  const at = Date.UTC(2026, 10, 7, 6, 30);
+  const at = Date.UTC(2026, 9, 3, 6, 30);
   const today = theDay(at);
   const yesterday = theDay(at - 24 * 60 * 60 * 1000);
   const pastOne = installFakeChrome().chrome;
