@@ -2578,7 +2578,34 @@ check('report table: null night gives null', theReportTable(null, () => '') === 
     && (await r.storage.local.get(RECHECKS))[RECHECKS]['fk_returns|2026-11-07'].tries === 1);
 }
 
-const EXPECTED = 181 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3 + 1 + 4 + 3 + 2 + 2 + 2 + 1 + 8 + 3 + 13 + 2 + 6;
+{
+  /* R208: a sign-in wall in the morning run keeps the stopped report and the platform's rest for 4 pm; the day comes from the time given. */
+  const c = installFakeChrome().chrome;
+  const walk = aWalkThat();
+  const at = Date.UTC(2026, 10, 7, 2, 30);
+  await startTheNight(c, { doing: ['fk_claims', 'fk_views', 'fk_listings'], at, openAt: 'https://x/', dataDate: '2026-11-06', run: 'morning' });
+  await carryTheNightOn(c, { ...walk, at });
+  walk.itFinished({ state: 'failed', reportId: 'fk_claims', needsSigningIn: true, say: 'sign in', dataDate: '2026-11-06' });
+  await carryTheNightOn(c, { ...walk, at });
+  const held = (await c.storage.local.get(THE_FAILED_IN_THE_MORNING))[THE_FAILED_IN_THE_MORNING];
+  check('R208: a morning sign-in wall keeps the stopped report and the ones left behind it for 4 pm, under that day',
+    held && held.day === (new Date(at).getFullYear() + '-' + String(new Date(at).getMonth() + 1).padStart(2, '0') + '-' + String(new Date(at).getDate()).padStart(2, '0'))
+    && held.ids.join() === 'fk_claims,fk_views,fk_listings');
+  const other = installFakeChrome().chrome;
+  const walk2 = aWalkThat();
+  await startTheNight(other, { doing: ['fk_claims', 'fk_views'], at, openAt: 'https://x/', dataDate: '2026-11-06', run: 'evening' });
+  await carryTheNightOn(other, { ...walk2, at });
+  walk2.itFinished({ state: 'failed', reportId: 'fk_claims', needsSigningIn: true, say: 'sign in', dataDate: '2026-11-06' });
+  await carryTheNightOn(other, { ...walk2, at });
+  check('R208: a sign-in wall in any other run keeps nothing for 4 pm', (await other.storage.local.get(THE_FAILED_IN_THE_MORNING))[THE_FAILED_IN_THE_MORNING] === undefined);
+  const noTime = installFakeChrome().chrome;
+  await startTheNight(noTime, { doing: ['fk_claims'], openAt: 'https://x/', dataDate: '2026-11-06', run: 'morning' });
+  await thatOneIsDone(noTime, { reportId: 'fk_claims', state: 'failed', say: 'x', dataDate: '2026-11-06' });
+  const kept = (await noTime.storage.local.get(THE_FAILED_IN_THE_MORNING))[THE_FAILED_IN_THE_MORNING];
+  check('R208: with no time given the failure is kept under today', Boolean(kept) && kept.ids.join() === 'fk_claims' && /^\d{4}-\d{2}-\d{2}$/.test(kept.day));
+}
+
+const EXPECTED = 181 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3 + 1 + 4 + 3 + 2 + 2 + 2 + 1 + 8 + 3 + 13 + 2 + 6 + 3;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

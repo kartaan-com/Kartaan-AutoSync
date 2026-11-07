@@ -25,6 +25,9 @@ import { installFakeChrome } from '../test/fake-chrome.js';
 import {
   DAILY,
   EVENING,
+  RETURNS,
+  makeSureTheReturnsAreSet,
+  THE_RETURNS_AT,
   makeSureTheEveningIsSet,
   THE_EVENING_AT,
   EVERY_DAY_IN_MINUTES,
@@ -2448,7 +2451,34 @@ check('the page relay is OFF in what ships, so no script on a portal page can dr
   check('and it says so when only the 4 pm alarm had to be put back, and says nothing was set when all are there', putBack === true && nothingToDo === false);
 }
 
-const EXPECTED = 262 + 13 + 1 + 4 + 2 + 1 + 1 + 1 + 4 + 11 + 7 + 2 + 1 + 4;
+{
+  /* **THE THIRD TIMED RUN (R208): a 6 pm alarm of its own, starting only the returns run.** */
+  const browser = installFakeChrome();
+  const made = await makeSureTheReturnsAreSet(browser.chrome);
+  const six = theAlarm(browser, RETURNS);
+  check('R208: the 6 pm alarm is made when there is none, at 18:00, every day, and asked to survive a restart',
+    made === true && THE_RETURNS_AT.hour === 18 && THE_RETURNS_AT.minute === 0 && new Date(six.when).getHours() === 18
+    && new Date(six.when).getMinutes() === 0 && six.periodInMinutes === EVERY_DAY_IN_MINUTES && six.persistAcrossSessions === true);
+  check('R208: asking again makes no second one', (await makeSureTheReturnsAreSet(browser.chrome)) === false && browser.alarms().filter((one) => one.name === RETURNS).length === 1);
+  let due = 0; let evening = 0; let returns = 0;
+  const both = { onDue: async () => { due += 1; }, onEvening: async () => { evening += 1; }, onReturns: async () => { returns += 1; } };
+  const wired = installFakeChrome();
+  await wireUp(wired.chrome, both);
+  check('R208: wiring up sets the 6 pm alarm as well as the other two', theAlarm(wired, RETURNS) !== null && theAlarm(wired, EVENING) !== null && theAlarm(wired, DAILY) !== null);
+  wired.forgetTheAlarms();
+  await wired.chrome.runtime.onStartup.happened();
+  check('R208: a cleared 6 pm alarm is put back', theAlarm(wired, RETURNS) !== null);
+  await wired.chrome.alarms.onAlarm.happened({ name: RETURNS });
+  check('R208: the 6 pm alarm starts the returns run and not the others', returns === 1 && due === 0 && evening === 0);
+  wired.setTheComputer('active');
+  await wired.chrome.alarms.onAlarm.happened({ name: RETURNS });
+  check('R208: the returns run waits while the computer is in use, and the wait names it', returns === 1 && (await whatIsWaiting(wired.chrome)).kinds.join() === 'returns');
+  wired.setTheComputer('idle');
+  await wired.chrome.alarms.onAlarm.happened({ name: IDLE_ALARM });
+  check('R208: once the computer is left alone the returns run starts, once', returns === 2 && due === 0 && evening === 0);
+}
+
+const EXPECTED = 262 + 13 + 1 + 4 + 2 + 1 + 1 + 1 + 4 + 11 + 7 + 2 + 1 + 4 + 7;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

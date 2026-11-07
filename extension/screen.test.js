@@ -2846,6 +2846,89 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   check('R208: and the same for a yesterday report is still refused', String(notReturns.wrong).includes('not over yet'));
 }
 
+{
+  /* **R208: THE PANEL'S DAY-AND-RUN ROWS, THE QUEUE WITH OBJECTS, THE 6 PM WAKE LINE (what the first proving run found unproven).** */
+  const now = Date.UTC(2026, 10, 7, 12, 30);
+  check('R208: a range ending today passes when today is allowed, and not otherwise',
+    whyThatRangeCannotBeFetched('2026-11-06', '2026-11-07', now, true) === '' && whyThatRangeCannotBeFetched('2026-11-06', '2026-11-07', now).includes('not over yet'));
+  check('R208: the 6 pm run is named in when the extension next wakes',
+    whenItNextWakes({ chosen: '08:00', nextAt: now + 1000, eveningAt: now + 2000, returnsAt: now + 3000 }).includes('The 6 pm run wakes')
+    && !whenItNextWakes({ chosen: '08:00', nextAt: now + 1000, eveningAt: now + 2000 }).includes('6 pm'));
+  const { chrome } = installFakeChrome();
+  const parts = { book: BOOK, now: () => now, startTheNight, carryOn: async () => {} };
+  await answerThePanelsQuestion(chrome, parts, { do: 'save-the-panel-name', panel: 'xuptj' });
+  await answerThePanelsQuestion(chrome, parts, { do: 'check-the-drive' });
+  const saved = await answerThePanelsQuestion(chrome, parts, { do: 'save-the-report-times', reportId: 'fk_claims', day: 'today', run: 'evening' });
+  check('R208: saving the day and run of a report answers saved', saved.saved === true);
+  const stands = await howItStands(chrome, { book: BOOK, now });
+  const named = stands.schedule.find((one) => one.id === 'fk_returns');
+  check('R208: each row carries the own name of the report', named.name === (BOOK.reports.find((one) => one.id === 'fk_returns') || {}).name && named.name !== 'fk_returns');
+
+  /* The 4 pm list: unknown ids and reports already in the run are not added. */
+  await chrome.storage.local.set({ [THE_FAILED_IN_THE_MORNING]: { day: '2026-11-07', ids: ['not_a_report', 'fk_orders', 'fk_listings'] } });
+  const evening = await startTheScheduledSync(chrome, parts, 'evening');
+  check('R208: the 4 pm list adds a failed report once and never an unknown one',
+    evening.started.filter((id) => id === 'fk_orders').length === 1 && evening.started.includes('fk_listings') && !evening.started.includes('not_a_report'));
+  await endTheNight(chrome, { at: now, why: 'x' });
+
+  /* A yesterday report placed in the returns run is fetched for yesterday, apart from the returns for today. */
+  const moved = installFakeChrome().chrome;
+  await answerThePanelsQuestion(moved, parts, { do: 'save-the-panel-name', panel: 'xuptj' });
+  await answerThePanelsQuestion(moved, parts, { do: 'check-the-drive' });
+  await answerThePanelsQuestion(moved, parts, { do: 'save-the-report-times', reportId: 'fk_claims', day: 'yesterday', run: 'returns' });
+  const nightsSeen = [];
+  const seeing = { ...parts, startTheNight: async (c, how) => { nightsSeen.push(how); return startTheNight(c, how); } };
+  await startTheScheduledSync(moved, seeing, 'returns');
+  const queuedAfter = (await moved.storage.local.get(THE_QUEUE))[THE_QUEUE];
+  check('R208: a yesterday report in the 6 pm run is fetched for yesterday, the returns for today, as separate walks',
+    nightsSeen[0].doing.includes('fk_claims') && !nightsSeen[0].doing.includes('fk_returns') && nightsSeen[0].dataDate === '2026-11-06' && nightsSeen[0].run === 'returns'
+    && queuedAfter.some((entry) => !Array.isArray(entry) && entry.today === true && entry.reportIds.includes('fk_returns')));
+
+  /* A run that finds another going queues behind it: entries keep their run and today mark, and what is already there is not queued twice. */
+  const behind = installFakeChrome().chrome;
+  await answerThePanelsQuestion(behind, parts, { do: 'save-the-panel-name', panel: 'xuptj' });
+  await answerThePanelsQuestion(behind, parts, { do: 'check-the-drive' });
+  await behind.storage.local.set({ [THE_FAILED_IN_THE_MORNING]: { day: '2026-11-07', ids: ['fk_listings'] } });
+  await behind.storage.local.set({ [THE_NIGHT]: { startedAt: now, finishedAt: 0, spent: 0, mayAskFor: 3, done: [], left: ['fk_returns'], doing: null }, [THE_QUEUE]: [] });
+  const waitingRun = await startTheScheduledSync(behind, parts, 'returns');
+  const queuedIds = (await behind.storage.local.get(THE_QUEUE))[THE_QUEUE];
+  check('R208: behind a going run the 6 pm entries are queued with their run and today mark, without the report already left',
+    waitingRun.waiting === true && queuedIds.length > 0 && queuedIds.every((entry) => !Array.isArray(entry) && entry.run === 'returns' && entry.today === true)
+    && !queuedIds.flatMap((entry) => entry.reportIds).includes('fk_returns') && queuedIds.flatMap((entry) => entry.reportIds).includes('me_returns'));
+  check('R208: and a 6 pm run does not touch the failed list of the 4 pm run', (await behind.storage.local.get(THE_FAILED_IN_THE_MORNING))[THE_FAILED_IN_THE_MORNING] !== undefined);
+  await behind.storage.local.set({ [THE_QUEUE]: [] });
+  await startTheScheduledSync(behind, parts, 'evening');
+  check('R208: a waiting 4 pm run uses up the failed list', (await behind.storage.local.get(THE_FAILED_IN_THE_MORNING))[THE_FAILED_IN_THE_MORNING] === undefined);
+  const refusedOne = installFakeChrome().chrome;
+  await refusedOne.storage.local.set({ [THE_FAILED_IN_THE_MORNING]: { day: '2026-11-07', ids: ['fk_listings'] } });
+  const noDrive = await startTheScheduledSync(refusedOne, parts, 'evening');
+  check('R208: a 4 pm start that is refused keeps the failed list for the next try', !noDrive.started
+    && (await refusedOne.storage.local.get(THE_FAILED_IN_THE_MORNING))[THE_FAILED_IN_THE_MORNING] !== undefined);
+
+  /* The panel draws the rows, sends what is picked, and does not redraw when nothing changed. */
+  installFakeBrowser();
+  const picked = [];
+  const panel = buildThePanel(document.body, { saveTheReportTimes: (id, day, run) => picked.push(`${id}:${day}:${run}`) });
+  const schedule = [{ id: 'fk_returns', name: 'Flipkart returns', day: 'today', run: 'returns' }, { id: 'fk_claims', name: 'Flipkart claims', day: 'yesterday', run: 'morning' }];
+  showHowItStands(panel, { ...stands, schedule });
+  const selects = panel.scheduleList.children.flatMap((row) => row.children.filter((one) => one.tagName === 'select'));
+  check('R208: the panel draws a day and a run for each timed report, set as the stands say',
+    selects.length === 4 && selects[0].value === 'today' && selects[1].value === 'returns' && selects[2].value === 'yesterday' && selects[3].value === 'morning'
+    && panel.scheduleList.textContent.includes('Flipkart returns'));
+  check('R208: the run choices are the three runs, the day choices yesterday and today',
+    selects[1].children.map((one) => one.value).join() === 'morning,evening,returns'
+    && selects[0].children.map((one) => one.value).join() === 'yesterday,today'
+    && selects[1].children.map((one) => one.textContent).join() === 'Morning run,4 pm run,6 pm run');
+  selects[0].value = 'yesterday';
+  selects[0].fire('change');
+  check('R208: changing a choice sends that report with both its choices', picked.join() === 'fk_returns:yesterday:returns');
+  check('R208: the card says what a today choice means', document.body.textContent.includes('Platforms often do not have the numbers for today yet')
+    && document.body.textContent.includes('tried again in the 4 pm run'));
+  const before = panel.scheduleList.firstChild;
+  showHowItStands(panel, { ...stands, schedule });
+  check('R208: the rows are not drawn again when nothing changed', panel.scheduleList.firstChild === before);
+}
+
 reachedTheEnd = true;
 console.log(`\n${ran} checks, ${failures} failed.`);
 process.exit(failures ? 1 : 0);
