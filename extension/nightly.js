@@ -371,7 +371,7 @@ export const RECHECK_EVEN_WITHOUT_AN_ASK = Object.freeze(['me_views', 'az_ads', 
 export const THE_FAILED_IN_THE_MORNING = 'kartaan-autosync-failed-in-the-morning';
 
 /** Add to, or take off, the list of what the morning run failed today. A new day starts a new list. */
-async function keepForTheEvening(chrome, at, add, remove, past = false) {
+async function keepForTheEvening(chrome, at, add, remove, past) {
   const on = theDay(at || Date.now());
   const held = (await chrome.storage.local.get(THE_FAILED_IN_THE_MORNING))[THE_FAILED_IN_THE_MORNING];
   const ids = new Set(held && held.day === on ? held.ids : []);

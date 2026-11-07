@@ -3057,6 +3057,22 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
     q.some((entry) => !Array.isArray(entry) && entry.today === false && entry.reportIds.includes('me_returns')) && !q.flatMap((entry) => (Array.isArray(entry) ? entry : entry.reportIds)).includes('fk_returns'));
 }
 
+{
+  /* The morning fallback reads the real clock when none is handed in. */
+  const realYesterday = theDay(Date.now() - 24 * 60 * 60 * 1000);
+  const parts = { book: BOOK, startTheNight, carryOn: async () => {} };
+  const landedOne = installFakeChrome().chrome;
+  await answerThePanelsQuestion(landedOne, { ...parts, now: () => Date.now() }, { do: 'save-the-panel-name', panel: 'xuptj' });
+  await answerThePanelsQuestion(landedOne, { ...parts, now: () => Date.now() }, { do: 'check-the-drive' });
+  await landedOne.storage.local.set({ [LAST_LANDED]: { fk_returns: [realYesterday], me_returns: [realYesterday], az_returns: [realYesterday] } });
+  const none = await startTheScheduledSync(landedOne, parts);
+  const nothing = installFakeChrome().chrome;
+  await answerThePanelsQuestion(nothing, { ...parts, now: () => Date.now() }, { do: 'save-the-panel-name', panel: 'xuptj' });
+  await answerThePanelsQuestion(nothing, { ...parts, now: () => Date.now() }, { do: 'check-the-drive' });
+  const some = await startTheScheduledSync(nothing, parts);
+  check('R208: with no clock handed in, the fallback compares against the real yesterday', !none.started.includes('fk_returns') && some.started.includes('fk_returns'));
+}
+
 reachedTheEnd = true;
 console.log(`\n${ran} checks, ${failures} failed.`);
 process.exit(failures ? 1 : 0);
