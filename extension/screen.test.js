@@ -2929,6 +2929,64 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   check('R208: the rows are not drawn again when nothing changed', panel.scheduleList.firstChild === before);
 }
 
+{
+  /* **R208 proving, second round: the rows redraw when the stands change, the listener of each choice, the panel's own title, the plain-list queue behind a going run, the real clock.** */
+  installFakeBrowser();
+  const sent = [];
+  const handed = { saveTheReportTimes: (id, day, run) => sent.push(`${id}:${day}:${run}`) };
+  const panel = buildThePanel(document.body, handed);
+  check('R208: the panel keeps what it was built with, for the rows to send through', panel.doing === handed);
+  check('R208: the card has its title and its list', document.body.textContent.includes('Which day, and which run, for each report')
+    && panel.scheduleList !== undefined && document.body.children.length > 0);
+  const stands = { reports: [], cannotBeFetched: [], schedule: [{ id: 'fk_returns', name: 'Flipkart returns', day: 'today', run: 'returns' }, { id: 'fk_claims', name: 'Flipkart claims', day: 'yesterday', run: 'morning' }] };
+  showHowItStands(panel, { ...(await howItStands(installFakeChrome().chrome, { book: BOOK, now: Date.now() })), schedule: stands.schedule });
+  const selectsOf = () => panel.scheduleList.children.flatMap((row) => row.children.filter((one) => one.tagName === 'select'));
+  selectsOf()[1].value = 'evening';
+  selectsOf()[1].fire('change');
+  selectsOf()[2].value = 'today';
+  selectsOf()[2].fire('change');
+  check('R208: the run choice and the day choice of a row each send the report with both choices',
+    sent.join() === 'fk_returns:today:evening,fk_claims:today:morning');
+  showHowItStands(panel, { ...(await howItStands(installFakeChrome().chrome, { book: BOOK, now: Date.now() })), schedule: [{ id: 'me_returns', name: 'Meesho returns', day: 'today', run: 'returns' }] });
+  check('R208: when the stands change the old rows go and the new ones are drawn',
+    panel.scheduleList.children.length === 1 && panel.scheduleList.textContent.includes('Meesho returns') && !panel.scheduleList.textContent.includes('Flipkart claims'));
+  check('R208: and the new row shows its choices', selectsOf().length === 2 && selectsOf()[0].value === 'today' && selectsOf()[1].value === 'returns');
+}
+
+{
+  /* A plain-list queue (the morning's) behind a going night: what is already there is dropped, and an entry left empty is not queued. */
+  const now = Date.UTC(2026, 10, 7, 12, 30);
+  const { chrome } = installFakeChrome();
+  const parts = { book: BOOK, now: () => now, startTheNight, carryOn: async () => {} };
+  await answerThePanelsQuestion(chrome, parts, { do: 'save-the-panel-name', panel: 'xuptj' });
+  await answerThePanelsQuestion(chrome, parts, { do: 'check-the-drive' });
+  const everyFlipkart = theTimedListFor(BOOK, { timed: null }, 'morning').filter((id) => id.startsWith('fk_'));
+  await chrome.storage.local.set({ [THE_NIGHT]: { startedAt: now, finishedAt: 0, spent: 0, mayAskFor: 3, done: [], left: [...everyFlipkart], doing: null }, [THE_QUEUE]: [] });
+  await startTheScheduledSync(chrome, parts);
+  const queued = (await chrome.storage.local.get(THE_QUEUE))[THE_QUEUE];
+  const flat = queued.map((entry) => (Array.isArray(entry) ? entry : entry.reportIds));
+  check('R208: the morning list behind a going night leaves out what the night has left, drops an entry left empty, and keeps the others',
+    queued.every((entry) => Array.isArray(entry)) && !flat.flat().some((id) => everyFlipkart.includes(id)) && flat.every((ids) => ids.length > 0)
+    && flat.flat().some((id) => id.startsWith('me_')) && flat.flat().some((id) => id.startsWith('az_')));
+}
+
+{
+  /* The 4 pm list is read against the real clock when the caller gives none. */
+  const { chrome } = installFakeChrome();
+  const parts = { book: BOOK, startTheNight, carryOn: async () => {} };
+  await answerThePanelsQuestion(chrome, { ...parts, now: () => Date.now() }, { do: 'save-the-panel-name', panel: 'xuptj' });
+  await answerThePanelsQuestion(chrome, { ...parts, now: () => Date.now() }, { do: 'check-the-drive' });
+  await chrome.storage.local.set({ [THE_FAILED_IN_THE_MORNING]: { day: theDay(Date.now()), ids: ['fk_listings'] } });
+  const run = await startTheScheduledSync(chrome, parts, 'evening');
+  check('R208: with no clock handed in, a list kept for today is taken', Boolean(run.started) && run.started.includes('fk_listings'));
+  const again = installFakeChrome().chrome;
+  await answerThePanelsQuestion(again, { ...parts, now: () => Date.now() }, { do: 'save-the-panel-name', panel: 'xuptj' });
+  await answerThePanelsQuestion(again, { ...parts, now: () => Date.now() }, { do: 'check-the-drive' });
+  await again.storage.local.set({ [THE_FAILED_IN_THE_MORNING]: { day: '2020-01-01', ids: ['fk_listings'] } });
+  const old = await startTheScheduledSync(again, parts, 'evening');
+  check('R208: and one kept for another day is not', !old.started.includes('fk_listings'));
+}
+
 reachedTheEnd = true;
 console.log(`\n${ran} checks, ${failures} failed.`);
 process.exit(failures ? 1 : 0);
