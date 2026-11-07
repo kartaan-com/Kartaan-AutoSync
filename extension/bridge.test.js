@@ -210,6 +210,10 @@ const refuses = async (name, args, words, setup = null) => {
   check('a returns report the seller set to yesterday is not asked for today', chosen.said.ok === false && /not over yet/.test(chosen.said.error));
   const seller = await askToday(['fk_orders'], { days: { fk_orders: 'today' } });
   check('a report the seller chose "today" for may be asked for today', seller.said.ok !== false && (await asksOf(seller.r)).length === 1);
+  const TODAY_ASK = { reportIds: ['fk_returns'], from: TODAY, to: TODAY };
+  const STANDS = { now: NOW, panel: 'p', leftToday: 20, spentByOthers: 0, waitingCount: 0 };
+  check('the pre-check on its own refuses today unless it is told today is allowed (the default is no)',
+    /not over yet/.test(whyThisAskIsRefused(BOOK, TODAY_ASK, STANDS)) && whyThisAskIsRefused(BOOK, TODAY_ASK, { ...STANDS, todayIsAllowed: true }) === '');
   const later = await askToday(['fk_returns']);
   const future = await call(later.r, 'autosync_run', { reportIds: ['fk_returns'], from: '2026-11-01', to: '2026-11-01' });
   check('tomorrow is still refused, whatever the settings', future.ok === false && /not over yet/.test(future.error));
