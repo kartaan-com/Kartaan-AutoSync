@@ -1,5 +1,5 @@
 {
-  "version": "0.1.42",
+  "version": "0.1.43",
   "url": "https://github.com/kartaan-com/Kartaan-AutoSync/releases/latest/download/kartaan-autosync-extension.zip",
-  "notes": "AutoSync 0.1.42: Meesho ads per day, Flipkart keyword ads back, Amazon listings by asked day, Meesho quality and pricing readers."
+  "notes": "AutoSync 0.1.43: returns at 6 pm for today, a day and a run for each report on the panel, morning failures retried at 4 pm."
 }
