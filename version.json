@@ -1,5 +1,5 @@
 {
-  "version": "0.1.43",
+  "version": "0.1.44",
   "url": "https://github.com/kartaan-com/Kartaan-AutoSync/releases/latest/download/kartaan-autosync-extension.zip",
-  "notes": "AutoSync 0.1.43: returns at 6 pm for today, a day and a run for each report on the panel, morning failures retried at 4 pm."
+  "notes": "AutoSync 0.1.44: the AI door lets today's returns through, the same as the Run now door."
 }
