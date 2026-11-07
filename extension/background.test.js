@@ -2470,15 +2470,18 @@ check('the page relay is OFF in what ships, so no script on a portal page can dr
   check('R208: a cleared 6 pm alarm is put back', theAlarm(wired, RETURNS) !== null);
   await wired.chrome.alarms.onAlarm.happened({ name: RETURNS });
   check('R208: the 6 pm alarm starts the returns run and not the others', returns === 1 && due === 0 && evening === 0);
+  await wired.chrome.alarms.onAlarm.happened({ name: EVENING });
+  await wired.chrome.alarms.onAlarm.happened({ name: DAILY });
+  check('R208: and the other two alarms do not start it', returns === 1 && evening === 1 && due === 1);
   wired.setTheComputer('active');
   await wired.chrome.alarms.onAlarm.happened({ name: RETURNS });
   check('R208: the returns run waits while the computer is in use, and the wait names it', returns === 1 && (await whatIsWaiting(wired.chrome)).kinds.join() === 'returns');
   wired.setTheComputer('idle');
   await wired.chrome.alarms.onAlarm.happened({ name: IDLE_ALARM });
-  check('R208: once the computer is left alone the returns run starts, once', returns === 2 && due === 0 && evening === 0);
+  check('R208: once the computer is left alone the returns run starts, once', returns === 2 && due === 1 && evening === 1);
 }
 
-const EXPECTED = 262 + 13 + 1 + 4 + 2 + 1 + 1 + 1 + 4 + 11 + 7 + 2 + 1 + 4 + 7;
+const EXPECTED = 262 + 13 + 1 + 4 + 2 + 1 + 1 + 1 + 4 + 11 + 7 + 2 + 1 + 4 + 8;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

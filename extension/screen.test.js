@@ -2924,9 +2924,9 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   check('R208: changing a choice sends that report with both its choices', picked.join() === 'fk_returns:yesterday:returns');
   check('R208: the card says what a today choice means', document.body.textContent.includes('Platforms often do not have the numbers for today yet')
     && document.body.textContent.includes('tried again in the 4 pm run'));
-  const before = panel.scheduleList.firstChild;
+  const before = panel.scheduleList.children[0];
   showHowItStands(panel, { ...stands, schedule });
-  check('R208: the rows are not drawn again when nothing changed', panel.scheduleList.firstChild === before);
+  check('R208: the rows are not drawn again when nothing changed', panel.scheduleList.children[0] !== undefined && panel.scheduleList.children[0] === before);
 }
 
 {
@@ -2950,6 +2950,7 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   showHowItStands(panel, { ...(await howItStands(installFakeChrome().chrome, { book: BOOK, now: Date.now() })), schedule: [{ id: 'me_returns', name: 'Meesho returns', day: 'today', run: 'returns' }] });
   check('R208: when the stands change the old rows go and the new ones are drawn',
     panel.scheduleList.children.length === 1 && panel.scheduleList.textContent.includes('Meesho returns') && !panel.scheduleList.textContent.includes('Flipkart claims'));
+  check('R208: the rows are on the page itself, not in a list nobody sees', document.body.textContent.includes('Meesho returns'));
   check('R208: and the new row shows its choices', selectsOf().length === 2 && selectsOf()[0].value === 'today' && selectsOf()[1].value === 'returns');
 }
 
