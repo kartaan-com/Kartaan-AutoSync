@@ -1,14 +1,15 @@
 {
-  "record": "proving",
-  "commit": "b3d293e",
-  "run_at": "7 Nov 2026 (AS11).",
-  "tool": "GitHub Proving workflow (tools/proving.py, 8 parts), run 42365187517 on b3d293e against 31e44ed (v0.1.42), green.",
-  "invoked_as": "gh workflow run proving.yml --ref as11 -f prove=b3d293eafde9cbee1c071496e01497f7a3386ba1 -f against=31e44ed38bfb0e279ac7fd0d7e688158fb36d8aa -f parts=8",
-  "ran_by": "AS11 (Sonnet 5.5, worker for Kartaan Control).",
-  "scope": "Every changed line between v0.1.42 (31e44ed) and b3d293e.",
-  "found": [
-    "Final run 0 survived, 0 findings. Earlier runs on this branch (50, 12, 7, 4, 0-with-2-crashes, then after the fallback 5, 2, 2 findings) were answered by more checks or by deleting dead code; the two crashes (deleting RETURNS or THE_RETURNS_AT stops background.test.js loading) are listed in tools/proven_survivors.json cannot_load."
-  ],
-  "survivors": [],
-  "after_this_record": "This commit adds release records only; no line the prover tries changes."
+ "record": "proving",
+ "commit": "211b827",
+ "run_at": "7 Nov 2026 (AS12).",
+ "tool": "GitHub Proving workflow (tools/proving.py), run 42379447755 on 211b827 against 436a179 (v0.1.43), 2 parts, success.",
+ "invoked_as": "gh workflow run proving.yml --ref as12 -f prove=211b8277f6322e4f83daae1d1fa50cc3fa570307 -f against=436a179be46e872fd0632b4f35da63609bd40bc9 -f parts=2",
+ "ran_by": "AS12 (Sonnet 5.5, worker for Kartaan Control).",
+ "scope": "Every changed line between v0.1.43 (436a179) and 211b827.",
+ "found": [
+  "Final run: 18 changes tried, 13 caught by a check, 5 would not parse, 0 survived, 0 crashed.",
+  "Earlier: run 42378475256 on 20322fa had 1 survivor (bridge.js:154, the default of todayIsAllowed turned to true); answered by one added check (211b827). Run 42379328570 (4 parts) gave one part a single unparseable change, which the tool calls a coverage problem; the same commit was run again with 2 parts."
+ ],
+ "survivors": [],
+ "after_this_record": "The commits after this one add release records and the version number (manifest.json and the BUILD line in extension/bridge.js) only; no line the prover tries changes."
 }

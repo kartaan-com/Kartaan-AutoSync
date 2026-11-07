@@ -1,21 +1,13 @@
 {
-  "record": "security",
-  "commit": "b3d293e",
-  "run_at": "7 Nov 2026 (AS11).",
-  "tool": "The same independent sub-agents, security lens (message surface, input validation, permissions, data read), on the diffs 31e44ed..025c1d3 and ebc1a82..4ed757a; later commits are test files, removed lines and the proving list.",
-  "invoked_as": "Agent (general-purpose), by AS11.",
-  "ran_by": "Sub-agents that wrote none of the code.",
-  "scope": "v0.1.42 (31e44ed) to b3d293e.",
-  "found": [
-    {
-      "severity": "PASS",
-      "finding": "The new panel ask save-the-report-times passes only through answerThePanel (own extension id, top frame, exact panel page); the report id is checked against the timed list and day and run against fixed words; stored values are re-filtered on read. manifest.json untouched: no new permission, host, network call, secret or data read. The fallback only decides which reports a timed run takes.",
-      "fixed": true
-    },
-    {
-      "severity": "PASS",
-      "finding": "SEC2 AutoSync rows: none touched; this round adds no page, no data read, no secret.",
-      "fixed": true
-    }
-  ]
+ "record": "security",
+ "commit": "211b827",
+ "run_at": "7 Nov 2026 (AS12).",
+ "tool": "Security lens of the same independent Opus sub-agent review (read-only), plus AS12's read against SEC1 Part H and I.",
+ "invoked_as": "Agent (general-purpose, model opus), by AS12; asked whether an AI ask can fetch something it should not, read other data, bypass the Flipkart allowance or the seller's per-report setting, or add a secret or new data read.",
+ "ran_by": "A sub-agent that wrote none of the code; AS12 (Sonnet 5.5) for the SEC1 read.",
+ "scope": "v0.1.43 (436a179) to 211b827. SEC1 items read: 47 (no new permission), 49 (no eval or remote code), 51 (AI asks stay data; the extension re-checks at start), 52 (the AI still reaches the extension only through the Run now door and cannot change the per-report setting), 55 (the AI's daily ask and Flipkart limits are untouched), 56 (a refusal still says in words what to do). Not run: dependency audit (SEC2 S2, not part of this round).",
+ "found": [
+  "No security finding. The only new read is the seller's own saved per-report day choice from the extension's storage; it holds no secrets and none of it goes back to the AI.",
+  "No new permission, page, network call or secret; Flipkart's twenty-a-day count and the list of reports that can be fetched are unchanged."
+ ]
 }
