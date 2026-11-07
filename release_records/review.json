@@ -1,15 +1,20 @@
 {
   "record": "review",
-  "commit": "902d704",
+  "commit": "b3d293e",
   "run_at": "7 Nov 2026 (AS11).",
-  "tool": "Fresh independent general-purpose sub-agent reading the whole program diff 31e44ed..025c1d3 (R208), plus AS11's own read of the later test-only and one-line-removal commits; commit gate review_pass.json on every commit.",
-  "invoked_as": "Agent (general-purpose), by AS11, before the first commit.",
-  "ran_by": "A sub-agent that wrote none of the code; AS11 (Sonnet 5.5) for the later test-only commits.",
-  "scope": "v0.1.42 (31e44ed) to 902d704: returns at 6 pm for today, a day and a run for each report, morning failures retried at 4 pm, panel rows, log lines naming /finished or /tell.",
+  "tool": "Two fresh independent general-purpose sub-agents: one on the program diff 31e44ed..025c1d3 (R208), one on the next-morning fallback diff (ebc1a82..4ed757a); AS11's own read of the test-only commits and small removals; commit gate review_pass.json on every commit.",
+  "invoked_as": "Agent (general-purpose), by AS11, before the first commit and before the fallback commit.",
+  "ran_by": "Sub-agents that wrote none of the code; AS11 (Sonnet 5.5) for test-only commits.",
+  "scope": "v0.1.42 (31e44ed) to b3d293e: returns at 6 pm for today, a day and a run for each report, morning failures retried at 4 pm, a returns report that did not land fetched the next morning for yesterday, panel rows, log lines naming /finished or /tell.",
   "found": [
     {
       "severity": "MED",
       "finding": "todayIsAllowed was computed after helper reports were added, so a report set to today that reads another report's list silently fetched yesterday.",
+      "fixed": true
+    },
+    {
+      "severity": "MED",
+      "finding": "Fallback: a platform whose only morning entries were the fallback returns was fetched and filed for TODAY; entries now carry today:false.",
       "fixed": true
     },
     {
@@ -19,20 +24,24 @@
     },
     {
       "severity": "LOW",
-      "finding": "Dead code of AS11's own: parts.doing = doing written twice in buildThePanel; and a bare return after the 6 pm alarm that changed nothing (proving).",
+      "finding": "A failed fallback was tried again at 4 pm as today; the kept list now remembers past-day ids.",
       "fixed": true
     },
     {
       "severity": "LOW",
-      "finding": "Kept: failures of a resumed run, of the hourly re-check, and of platforms queued behind a morning sign-in wall are not all retried at 4 pm.",
-      "fixed": false,
-      "why": "The ruling covers the morning run's own failures; the sign-in wall list does carry the stopped platform's rest."
+      "finding": "Failure words after three hourly checks said the next morning for every report; now say it failed and is fetched again on the next sync.",
+      "fixed": true
     },
     {
       "severity": "LOW",
-      "finding": "Kept: returns failing for any reason are rechecked hourly three times and then worded as not ready (as Meesho returns already was).",
+      "finding": "Dead code of AS11's own removed during proving: a repeated parts.doing line, a bare return after the 6 pm alarm, an unused default argument.",
+      "fixed": true
+    },
+    {
+      "severity": "LOW",
+      "finding": "Kept: failures of a resumed run and of the hourly re-check are not fed to the 4 pm run; the morning run's own failures and a morning sign-in wall are.",
       "fixed": false,
-      "why": "His D1007 asks for hourly retries; the wording is the existing one."
+      "why": "The ruling covers the morning run's own failures."
     },
     {
       "severity": "LOW",
@@ -44,10 +53,10 @@
       "severity": "LOW",
       "finding": "Kept: a 6 pm file is the day so far; returns raised after 18:00 are not fetched again that day.",
       "fixed": false,
-      "why": "His own ruling (D968): the 6 pm file is the whole day, no re-fetch."
+      "why": "His own ruling (D968)."
     }
   ],
   "known_gaps": [
-    "Whether Flipkart's and Amazon's returns pages give today: needs a real try on the HP after release (Meesho returns has no date)."
+    "Whether Flipkart's and Amazon's returns pages give today: needs a real try on the HP after release; the next-morning fallback means nothing is lost if they do not (Control's decision, 7 Nov)."
   ]
 }

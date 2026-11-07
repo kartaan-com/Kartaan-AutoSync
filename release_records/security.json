@@ -1,15 +1,15 @@
 {
   "record": "security",
-  "commit": "902d704",
+  "commit": "b3d293e",
   "run_at": "7 Nov 2026 (AS11).",
-  "tool": "The same independent sub-agent, security lens (message surface, input validation, permissions, data read), on the diff 31e44ed..025c1d3; later commits are test files, one removed line and the proving list.",
+  "tool": "The same independent sub-agents, security lens (message surface, input validation, permissions, data read), on the diffs 31e44ed..025c1d3 and ebc1a82..4ed757a; later commits are test files, removed lines and the proving list.",
   "invoked_as": "Agent (general-purpose), by AS11.",
-  "ran_by": "A sub-agent that wrote none of the code.",
-  "scope": "v0.1.42 (31e44ed) to 902d704.",
+  "ran_by": "Sub-agents that wrote none of the code.",
+  "scope": "v0.1.42 (31e44ed) to b3d293e.",
   "found": [
     {
       "severity": "PASS",
-      "finding": "The new panel ask save-the-report-times passes only through answerThePanel (own extension id, top frame, exact panel page); the report id is checked against the timed list and day and run against fixed words; stored values are re-filtered on read. manifest.json untouched: no new permission, host, network call, secret or data read.",
+      "finding": "The new panel ask save-the-report-times passes only through answerThePanel (own extension id, top frame, exact panel page); the report id is checked against the timed list and day and run against fixed words; stored values are re-filtered on read. manifest.json untouched: no new permission, host, network call, secret or data read. The fallback only decides which reports a timed run takes.",
       "fixed": true
     },
     {

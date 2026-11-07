@@ -1,13 +1,13 @@
 {
   "record": "proving",
-  "commit": "902d704",
+  "commit": "b3d293e",
   "run_at": "7 Nov 2026 (AS11).",
-  "tool": "GitHub Proving workflow (tools/proving.py, 8 parts), run 42359057531 on 902d704 against 31e44ed (v0.1.42), green.",
-  "invoked_as": "gh workflow run proving.yml --ref as11 -f prove=902d7046b07c29406ad352cb16c37d2abaadbb1d -f against=31e44ed38bfb0e279ac7fd0d7e688158fb36d8aa -f parts=8",
+  "tool": "GitHub Proving workflow (tools/proving.py, 8 parts), run 42365187517 on b3d293e against 31e44ed (v0.1.42), green.",
+  "invoked_as": "gh workflow run proving.yml --ref as11 -f prove=b3d293eafde9cbee1c071496e01497f7a3386ba1 -f against=31e44ed38bfb0e279ac7fd0d7e688158fb36d8aa -f parts=8",
   "ran_by": "AS11 (Sonnet 5.5, worker for Kartaan Control).",
-  "scope": "Every changed line between v0.1.42 (31e44ed) and 902d704.",
+  "scope": "Every changed line between v0.1.42 (31e44ed) and b3d293e.",
   "found": [
-    "Final run 0 survived, 0 findings. Earlier runs answered by more checks or by deleting dead code: 42346938645 on 025c1d3 (50 findings), 42349099716 on 5b65253 (12), 42353747652 on dc5635b (7), 42356335673 on 391b556 (4), 42357388284 on 297812a (0 survived, 2 crashes: deleting RETURNS or THE_RETURNS_AT stops background.test.js loading; listed in tools/proven_survivors.json cannot_load)."
+    "Final run 0 survived, 0 findings. Earlier runs on this branch (50, 12, 7, 4, 0-with-2-crashes, then after the fallback 5, 2, 2 findings) were answered by more checks or by deleting dead code; the two crashes (deleting RETURNS or THE_RETURNS_AT stops background.test.js loading) are listed in tools/proven_survivors.json cannot_load."
   ],
   "survivors": [],
   "after_this_record": "This commit adds release records only; no line the prover tries changes."
