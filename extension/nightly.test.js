@@ -2605,7 +2605,22 @@ check('report table: null night gives null', theReportTable(null, () => '') === 
   check('R208: with no time given the failure is kept under today', Boolean(kept) && kept.ids.join() === 'fk_claims' && /^\d{4}-\d{2}-\d{2}$/.test(kept.day));
 }
 
-const EXPECTED = 181 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3 + 1 + 4 + 3 + 2 + 2 + 2 + 1 + 8 + 3 + 13 + 2 + 6 + 3;
+{
+  /* Control, 7 Nov: a returns report that fails every hourly check says it FAILED and is fetched again on the next sync -- not "not ready today". */
+  const c = installFakeChrome().chrome;
+  const at = Date.UTC(2026, 10, 7, 12, 30);
+  await startTheNight(c, { doing: ['fk_returns'], at, openAt: 'https://x/', dataDate: '2026-11-07', run: 'returns', canGoBack: ['fk_returns'] });
+  let last;
+  for (let n = 0; n < 4; n += 1) {
+    // eslint-disable-next-line no-await-in-loop
+    last = await thatOneIsDone(c, { reportId: 'fk_returns', state: 'failed', say: 'The page would not draw.', dataDate: '2026-11-07', at });
+  }
+  const said = last.done.at(-1).say;
+  check('R208: after three failed hourly checks the words say it failed and is fetched again on the next sync',
+    said.includes('failed on all 3 hourly checks') && said.includes('fetched again on the next sync') && !said.includes('not ready today'));
+}
+
+const EXPECTED = 181 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3 + 1 + 4 + 3 + 2 + 2 + 2 + 1 + 8 + 3 + 13 + 2 + 6 + 3 + 1;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

@@ -49,7 +49,7 @@ import {
 } from './screen.js';
 import {
   A_DAYS_ALLOWANCE, KEPT_FOR_HIS_OWN_RUNS, PAUSED, RECHECKS, THE_NIGHT, carryTheNightOn, endTheNight, howTheNightWent, oneWasAskedFor,
-  startTheNight, thatOneIsBeingTried, theIdleLine, theNight, theReportTable, THE_SYNC_FAILED, THE_FAILED_IN_THE_MORNING,
+  startTheNight, thatOneIsBeingTried, theIdleLine, theNight, theReportTable, THE_SYNC_FAILED, THE_FAILED_IN_THE_MORNING, LAST_LANDED, thatOneIsDone,
 } from './nightly.js';
 import { saveTheRunPass } from './kartaan.js';
 import { MOST_DAYS_IN_A_RANGE_FILE, hasNotFinished, theWalk } from './walk.js';
@@ -336,7 +336,7 @@ check('a report that reads another report\'s file is fetched after it',
     Boolean(after.timed) && after.timed.said === (fresh.timed && fresh.timed.said));
   const first = await startTheScheduledSync(chrome, parts);
   check('and the timed sync runs every Flipkart report, not the one tick',
-    Boolean(first.started) && [...first.started].sort().join() === [...every('flipkart')].filter((id) => !THE_EVENING_REPORTS.includes(id) && !THE_RETURNS_REPORTS.includes(id)).sort().join());
+    Boolean(first.started) && [...first.started].sort().join() === [...every('flipkart')].filter((id) => !THE_EVENING_REPORTS.includes(id)).sort().join());
   check('AJ13a: and the morning run leaves out the reports not ready by the morning',
     !first.started.some((id) => THE_EVENING_REPORTS.includes(id)));
   check('and the timed sync keeps a few of the twenty for his own runs, so it may spend less than all of them',
@@ -344,7 +344,7 @@ check('a report that reads another report\'s file is fetched after it',
   await endTheNight(chrome, { at: Date.UTC(2026, 8, 16, 3, 30), why: 'Every report was reached.' });
   const second = await startTheNextPlatform(chrome, parts);
   check('then every Meesho report, though none was ticked',
-    Boolean(second.started) && [...second.started].sort().join() === [...every('meesho')].filter((id) => !THE_EVENING_REPORTS.includes(id) && !THE_RETURNS_REPORTS.includes(id)).sort().join());
+    Boolean(second.started) && [...second.started].sort().join() === [...every('meesho')].filter((id) => !THE_EVENING_REPORTS.includes(id)).sort().join());
 }
 
 {
@@ -2790,8 +2790,9 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   const parts = { book: BOOK, now: () => now, startTheNight: async (c, how) => { nights.push(how); return startTheNight(c, how); }, carryOn: async () => {} };
   await answerThePanelsQuestion(chrome, parts, { do: 'save-the-panel-name', panel: 'xuptj' });
   await answerThePanelsQuestion(chrome, parts, { do: 'check-the-drive' });
+  await chrome.storage.local.set({ [LAST_LANDED]: { fk_returns: ['2026-11-06'], me_returns: ['2026-11-06'], az_returns: ['2026-11-06'] } });
   const morning = await startTheScheduledSync(chrome, parts);
-  check('R208: the morning run does not fetch the returns', !morning.started.includes('fk_returns') && nights[0].run === 'morning');
+  check('R208: the morning run does not fetch returns that landed yesterday', !morning.started.includes('fk_returns') && nights[0].run === 'morning');
   await endTheNight(chrome, { at: now, why: 'x' });
   await chrome.storage.local.set({ [THE_QUEUE]: [] });
   nights.length = 0;
@@ -2807,6 +2808,37 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
 
   await answerThePanelsQuestion(chrome, parts, { do: 'save-the-report-times', reportId: 'fk_claims', day: 'today', run: 'returns' });
   await endTheNight(chrome, { at: now, why: 'x' });
+
+  /* Control, 7 Nov: a returns report that did NOT land is fetched next morning as an ordinary yesterday report; one that did is not. */
+  const fall = installFakeChrome().chrome;
+  await answerThePanelsQuestion(fall, parts, { do: 'save-the-panel-name', panel: 'xuptj' });
+  await answerThePanelsQuestion(fall, parts, { do: 'check-the-drive' });
+  await fall.storage.local.set({ [LAST_LANDED]: { fk_returns: ['2026-11-06'], az_returns: ['2026-11-05'] } });
+  const seenDays = [];
+  const watching = { ...parts, startTheNight: async (c, how) => { seenDays.push([how.doing.join(), how.dataDate, how.run]); return startTheNight(c, how); } };
+  const next = await startTheScheduledSync(fall, watching);
+  const queuedAll = (await fall.storage.local.get(THE_QUEUE))[THE_QUEUE];
+  const allIds = [...next.started, ...queuedAll.flatMap((entry) => (Array.isArray(entry) ? entry : entry.reportIds))];
+  check('R208: next morning, returns that landed yesterday are not fetched again, those that did not are',
+    !allIds.includes('fk_returns') && allIds.includes('az_returns') && allIds.includes('me_returns'));
+  check('R208: and the fallback is an ordinary yesterday report in the morning run (Flipkart not landed: its night is for yesterday)',
+    seenDays.every((one) => one[1] === '2026-11-06' && one[2] === 'morning'));
+  const flipkartMissed = installFakeChrome().chrome;
+  await answerThePanelsQuestion(flipkartMissed, parts, { do: 'save-the-panel-name', panel: 'xuptj' });
+  await answerThePanelsQuestion(flipkartMissed, parts, { do: 'check-the-drive' });
+  const flipSeen = [];
+  const flipParts = { ...parts, startTheNight: async (c, how) => { flipSeen.push([how.doing.join(), how.dataDate, how.run]); return startTheNight(c, how); } };
+  const flip = await startTheScheduledSync(flipkartMissed, flipParts);
+  check('R208: Flipkart returns that did not land at 6 pm are fetched next morning for yesterday, not today',
+    flip.started.includes('fk_returns') && flipSeen[0][1] === '2026-11-06' && flipSeen[0][2] === 'morning');
+  const startedLater = [];
+  for (let n = 0; n < 3; n += 1) {
+    await endTheNight(flipkartMissed, { at: now, why: 'x' });
+    const more = await startTheNextPlatform(flipkartMissed, flipParts);
+    startedLater.push(...(more.started || []));
+  }
+  check('R208: and Amazon returns that did not land likewise, for yesterday', startedLater.includes('az_returns')
+    && flipSeen.filter((one) => one[0].includes('az_returns')).every((one) => one[1] === '2026-11-06'));
   const stands = await howItStands(chrome, { book: BOOK, now });
   const row = stands.schedule.find((one) => one.id === 'fk_claims');
   check('R208: a day and a run chosen on the panel are kept and shown back, others stay at their defaults',
@@ -2962,6 +2994,7 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   await answerThePanelsQuestion(chrome, parts, { do: 'save-the-panel-name', panel: 'xuptj' });
   await answerThePanelsQuestion(chrome, parts, { do: 'check-the-drive' });
   const everyFlipkart = theTimedListFor(BOOK, { timed: null }, 'morning').filter((id) => id.startsWith('fk_'));
+  await chrome.storage.local.set({ [LAST_LANDED]: { fk_returns: ['2026-11-06'], me_returns: ['2026-11-06'], az_returns: ['2026-11-06'] } });
   await chrome.storage.local.set({ [THE_NIGHT]: { startedAt: now, finishedAt: 0, spent: 0, mayAskFor: 3, done: [], left: [...everyFlipkart], doing: null }, [THE_QUEUE]: [] });
   await startTheScheduledSync(chrome, parts);
   const queued = (await chrome.storage.local.get(THE_QUEUE))[THE_QUEUE];
@@ -2986,6 +3019,42 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   await again.storage.local.set({ [THE_FAILED_IN_THE_MORNING]: { day: '2020-01-01', ids: ['fk_listings'] } });
   const old = await startTheScheduledSync(again, parts, 'evening');
   check('R208: and one kept for another day is not', !old.started.includes('fk_listings'));
+}
+
+{
+  /* Review of the fallback: a platform holding ONLY fallbacks is fetched for yesterday, and a failed fallback is tried again at 4 pm for yesterday too. */
+  const now = Date.UTC(2026, 10, 7, 12, 30);
+  const only = installFakeChrome().chrome;
+  const seen = [];
+  const parts = { book: BOOK, now: () => now, startTheNight: async (c, how) => { seen.push([how.doing.join(), how.dataDate, how.run]); return startTheNight(c, how); }, carryOn: async () => {} };
+  await answerThePanelsQuestion(only, parts, { do: 'save-the-panel-name', panel: 'xuptj' });
+  await answerThePanelsQuestion(only, parts, { do: 'check-the-drive' });
+  for (const id of theTimedListFor(BOOK, { timed: null }, 'morning').filter((one) => one.startsWith('fk_'))) {
+    await answerThePanelsQuestion(only, parts, { do: 'save-the-report-times', reportId: id, day: 'yesterday', run: 'evening' });
+  }
+  const alone = await startTheScheduledSync(only, parts);
+  check('R208: a platform whose only morning entries are the fallback returns is fetched for YESTERDAY, not today',
+    alone.started.join() === 'fk_returns' && seen[0][1] === '2026-11-06' && seen[0][2] === 'morning');
+  await endTheNight(only, { at: now, why: 'x' });
+  /* it fails: kept, and the 4 pm run fetches it for yesterday again */
+  await thatOneIsDone(only, { reportId: 'fk_returns', state: 'failed', say: 'x', dataDate: '2026-11-06', at: now, needsSigningIn: true });
+  const held = (await only.storage.local.get(THE_FAILED_IN_THE_MORNING))[THE_FAILED_IN_THE_MORNING];
+  check('R208: a failed fallback is kept as one for a past day', Boolean(held) && held.ids.includes('fk_returns') && held.past.includes('fk_returns'));
+  await only.storage.local.set({ [THE_QUEUE]: [] });
+  await endTheNight(only, { at: now, why: 'x' });
+  seen.length = 0;
+  const four = await startTheScheduledSync(only, parts, 'evening');
+  check('R208: and the 4 pm run fetches it for yesterday, not today', four.started.includes('fk_returns') && seen.some((one) => one[0].includes('fk_returns') && one[1] === '2026-11-06' && one[2] === 'evening'));
+
+  /* a morning fallback queued behind a going night keeps its yesterday mark */
+  const behind = installFakeChrome().chrome;
+  await answerThePanelsQuestion(behind, parts, { do: 'save-the-panel-name', panel: 'xuptj' });
+  await answerThePanelsQuestion(behind, parts, { do: 'check-the-drive' });
+  await behind.storage.local.set({ [THE_NIGHT]: { startedAt: now, finishedAt: 0, spent: 0, mayAskFor: 3, done: [], left: ['fk_returns'], doing: null }, [THE_QUEUE]: [] });
+  await startTheScheduledSync(behind, parts);
+  const q = (await behind.storage.local.get(THE_QUEUE))[THE_QUEUE];
+  check('R208: fallbacks queued behind a going night carry their yesterday mark and leave out what the night has left',
+    q.some((entry) => !Array.isArray(entry) && entry.today === false && entry.reportIds.includes('me_returns')) && !q.flatMap((entry) => (Array.isArray(entry) ? entry : entry.reportIds)).includes('fk_returns'));
 }
 
 reachedTheEnd = true;

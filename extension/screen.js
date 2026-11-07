@@ -36,7 +36,7 @@ import { MANUAL, TOOLTIPS } from './manual.js';
 import {
   theNight, endTheNight, howTheNightWent, theDay, thatOneIsDone, theReportTable, theIdleLine,
   A_DAYS_ALLOWANCE, KEPT_FOR_HIS_OWN_RUNS, inTheNightsOwnLine, spendsTheAllowance, whatNeedsYou,
-  CATCH_UP_REACH_DAYS, clearNamedNeedsYouEntries, rememberLastLanded,
+  CATCH_UP_REACH_DAYS, clearNamedNeedsYouEntries, rememberLastLanded, LAST_LANDED,
 } from './nightly.js';
 import { theUpdateNotice } from './update.js';
 import { whatIsWaiting } from './idle.js';
@@ -1188,21 +1188,36 @@ export async function startTheScheduledSync(chrome, parts, run = 'morning') {
   const { book } = parts;
   const setUp = await theSetup(chrome);
   const timed = theTimedListFor(book, setUp, run);
+  /* Reports fetched for YESTERDAY although their setting is "today": the morning's fallback below, and a failed fallback tried again at 4 pm. */
+  const fallback = new Set();
   /* **R208 (D1006): A REPORT THAT FAILED IN THE MORNING IS TRIED AGAIN IN THE 4 PM RUN.** "Failed" only -- a report that was not ready is the hourly re-check's. The list is
    * written by `thatOneIsDone`; it is read once and cleared here, and only reports still on the timed list come back. */
   if (run === 'evening') {
     const held = (await chrome.storage.local.get(THE_FAILED_IN_THE_MORNING))[THE_FAILED_IN_THE_MORNING];
     if (held && held.day === theDay((parts.now || Date.now)())) {
       timed.push(...(held.ids || []).filter((id) => theTimedList(book, setUp).includes(id) && !timed.includes(id)));
+      (held.past || []).filter((id) => timed.includes(id)).forEach((id) => fallback.add(id));
     }
+  }
+  /* **R208 (Control, 7 Nov): A "TODAY" REPORT THAT DID NOT LAND IS FETCHED THE NEXT MORNING AS AN ORDINARY YESTERDAY REPORT.** A platform that cannot give today loses nothing. A report that
+   * did land (its yesterday is in what landed) is not fetched again. */
+  if (run === 'morning') {
+    const landed = (await chrome.storage.local.get(LAST_LANDED))[LAST_LANDED] || {};
+    const yesterday = theDayToFetch((parts.now || Date.now)());
+    for (const id of theTimedList(book, setUp)) {
+      if (theDayOf(setUp, id) === 'today' && theRunOf(setUp, id) !== 'morning' && !(landed[id] || []).includes(yesterday)) fallback.add(id);
+    }
+    timed.push(...fallback);
   }
   /* A report set to "today" is walked as a run of its own for today. The morning's yesterday reports stay the plain list, exactly as before. */
   const byPlatform = [];
   for (const platform of PLATFORM_ORDER) {
     const ofIt = timed.filter((id) => (book.recipes || {})[id] && thePlatformOf(book, id) === platform);
-    const yesterday = ofIt.filter((id) => theDayOf(setUp, id) === 'yesterday');
-    const today = ofIt.filter((id) => theDayOf(setUp, id) === 'today');
-    if (yesterday.length) byPlatform.push(run === 'morning' ? yesterday : { reportIds: yesterday, run });
+    const yesterday = ofIt.filter((id) => fallback.has(id) || theDayOf(setUp, id) === 'yesterday');
+    const today = ofIt.filter((id) => !fallback.has(id) && theDayOf(setUp, id) === 'today');
+    /* `today: false` says these are for yesterday whatever their setting, so a platform holding only fallbacks is not taken for a today run. */
+    const forYesterday = yesterday.some((id) => fallback.has(id));
+    if (yesterday.length) byPlatform.push(run === 'morning' && !forYesterday ? yesterday : { reportIds: yesterday, run, ...(forYesterday ? { today: false } : {}) });
     if (today.length) byPlatform.push({ reportIds: today, run, today: true });
   }
   /* **A RUN STARTED WHILE ANOTHER NIGHT IS STILL GOING ADDS TO THE QUEUE AND NEVER REPLACES IT (AJ13a review: the 4 pm run must not take the morning's remaining platforms).** What is
@@ -1365,7 +1380,7 @@ async function startASyncInTurn(chrome, parts, asked) {
     const to = String(asked.to || asked.day || '');
     /* **R208 (D1005): TODAY IS ALLOWED WHEN EVERY REPORT ASKED FOR IS SET TO "TODAY"** -- the 6 pm returns, a re-check of them, or a seller's own choice. Never otherwise. */
     const asking = (asked.reportIds || []).filter((id) => !OFF_THE_TIMED_LIST.includes(id));
-    const todayIsAllowed = asking.length > 0 && asking.every((id) => theDayOf(setUp, id) === 'today');
+    const todayIsAllowed = asked.today !== false && asking.length > 0 && asking.every((id) => theDayOf(setUp, id) === 'today');
     let days = [];
     if (from && to) {
       const rangeWrong = whyThatRangeCannotBeFetched(from, to, now(), todayIsAllowed);

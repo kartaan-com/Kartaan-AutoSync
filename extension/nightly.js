@@ -371,13 +371,14 @@ export const RECHECK_EVEN_WITHOUT_AN_ASK = Object.freeze(['me_views', 'az_ads', 
 export const THE_FAILED_IN_THE_MORNING = 'kartaan-autosync-failed-in-the-morning';
 
 /** Add to, or take off, the list of what the morning run failed today. A new day starts a new list. */
-async function keepForTheEvening(chrome, at, add, remove) {
+async function keepForTheEvening(chrome, at, add, remove, past = false) {
   const on = theDay(at || Date.now());
   const held = (await chrome.storage.local.get(THE_FAILED_IN_THE_MORNING))[THE_FAILED_IN_THE_MORNING];
   const ids = new Set(held && held.day === on ? held.ids : []);
-  add.forEach((id) => ids.add(id));
-  remove.forEach((id) => ids.delete(id));
-  if (ids.size || held) await chrome.storage.local.set({ [THE_FAILED_IN_THE_MORNING]: { day: on, ids: [...ids] } });
+  const behind = new Set(held && held.day === on ? held.past : []);
+  add.forEach((id) => { ids.add(id); if (past) behind.add(id); });
+  remove.forEach((id) => { ids.delete(id); behind.delete(id); });
+  if (ids.size || held) await chrome.storage.local.set({ [THE_FAILED_IN_THE_MORNING]: { day: on, ids: [...ids], past: [...behind] } });
 }
 
 /** **AJ9 PIECE 1: A TAB CLOSED MID-WALK IS RETRIED THE SAME NIGHT, NEVER JUST LOST.** Nothing is wrong on the platform
@@ -928,8 +929,10 @@ export async function thatOneIsDone(chrome, {
         };
       } else if (platformIsBuilding) {
         asState = NOT_AVAILABLE_YET;
-        asSay = `${say} Still not ready after ${RECHECK_TIMES} hourly checks: not ready today, `
-          + 'and tried again on the next sync.';
+        /* R208: with no ask held there is no "platform is building it" -- the page failed, and the words say so. */
+        asSay = being[key] === undefined
+          ? `${say} It failed on all ${RECHECK_TIMES} hourly checks, and is fetched again on the next sync.`
+          : `${say} Still not ready after ${RECHECK_TIMES} hourly checks: not ready today, and tried again on the next sync.`;
       } else {
         asSay = `${say} It was checked again ${RECHECK_TIMES} times and the tab was closed each time.`;
       }
@@ -949,7 +952,7 @@ export async function thatOneIsDone(chrome, {
   }
   /* **R208 (D1006): A PLAIN FAILURE OF THE MORNING RUN IS KEPT FOR THE 4 PM RUN; A REPORT THAT LANDED LATER IS TAKEN OFF IT.** Today's list only; a new day starts a new one. */
   if (state === 'landed') await keepForTheEvening(chrome, at, [], [reportId]);
-  else if (night.run === 'morning' && written.state === 'failed') await keepForTheEvening(chrome, at, [reportId], []);
+  else if (night.run === 'morning' && written.state === 'failed') await keepForTheEvening(chrome, at, [reportId], [], String(day) < theDay(at || Date.now()));
   /* **A DAY THE WALK FOUND NOTHING TO FETCH FOR IS SETTLED, NOT OWED AGAIN (review finding, 2026-10-05).** Only
    * days that really landed were remembered, so a day with no campaign running (or none to record) was walked
    * again on every sync for the whole reach. `settled` comes from the walk's own answer only -- never from the
@@ -1447,7 +1450,7 @@ async function carryItOn(chrome, {
       await chrome.storage.local.remove(THE_SYNC_FAILED);
       const after = await theNight(chrome);
       /* R208: the reports a morning sign-in wall stopped are tried again at 4 pm like any morning failure. */
-      if (after && after.run === 'morning') await keepForTheEvening(chrome, at, [stopped, ...(after.left || [])], []);
+      if (after && after.run === 'morning') await keepForTheEvening(chrome, at, [stopped, ...(after.left || [])], [], String(after.dataDate) < theDay(at || Date.now()));
       await chrome.storage.local.set({
         [PAUSED]: {
           reportIds: [stopped, ...((after && after.left) || []).filter((one) => one !== stopped)],
