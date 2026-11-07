@@ -559,7 +559,7 @@ async function oneNightThatEnds({ chrome, tell, doing, failedId, at }) {
   await withAPass(chrome);
   const tell = ({ failed }) => tellFinished(chrome, server.fetch, { failed });
   /* Platform one ends while platform two is still queued. */
-  await chrome.storage.local.set({ [THE_SCHEDULED_QUEUE]: [['fk_returns']] });
+  await chrome.storage.local.set({ [THE_SCHEDULED_QUEUE]: [['fk_listings']] });
   const first = await oneNightThatEnds({ chrome, tell, doing: ['fk_claims'], failedId: 'fk_claims', at: NOW });
   check('tell deferred while another platform is queued: the server is not called at that night\'s end',
     first.finishedAt !== null && server.calls.length === 0);
@@ -574,11 +574,11 @@ async function oneNightThatEnds({ chrome, tell, doing, failedId, at }) {
     && theSyncSummary(first).message.includes('Kartaan is told when the whole sync is done.'));
   /* The queue is emptied as the last platform starts; its night ends. */
   await chrome.storage.local.set({ [THE_SCHEDULED_QUEUE]: [] });
-  const last = await oneNightThatEnds({ chrome, tell, doing: ['fk_returns'], failedId: 'fk_returns', at: NOW + 5000 });
+  const last = await oneNightThatEnds({ chrome, tell, doing: ['fk_listings'], failedId: 'fk_listings', at: NOW + 5000 });
   const sent = server.calls.length === 1 ? formOf(server.calls[0]) : {};
   check('one tell at the end of the whole sync, carrying the union of every platform\'s failed ids',
     server.calls.length === 1 && server.calls[0].address === FINISHED_ADDRESS
-    && (sent.failed || '').split(',').sort().join() === 'fk_claims,fk_returns' && last.toldKartaan.told === true);
+    && (sent.failed || '').split(',').sort().join() === 'fk_claims,fk_listings' && last.toldKartaan.told === true);
   check('and the remembered list is cleared after the tell',
     (await chrome.storage.local.get(THE_SYNC_FAILED))[THE_SYNC_FAILED] === undefined);
 }
@@ -977,11 +977,11 @@ check('kartaan.js opens no connection of its own: it is handed one',
   const no = await tellTheProblem(chrome, aServerThat({ status: 403, body: { queued: false, said: 'Not proved.' } }).fetch,
     { names: ['fk_orders'] });
   check('refused in its own words: not queued, and its words passed on',
-    no.queued === false && no.said === 'His messages were not told which reports failed. Not proved.');
+    no.queued === false && no.said === 'His messages were not told which reports failed (at /tell, a separate door from /finished). Not proved.');
   const odd = await tellTheProblem(chrome, aServerThat({ status: 403, body: { queued: false, said: 42 } }).fetch,
     { names: ['fk_orders'] });
   check('refused with no words: the could-not-reach words, not a number',
-    odd.queued === false && odd.said.startsWith('His messages were not told which reports failed. Kartaan could not be reached')
+    odd.queued === false && odd.said.startsWith('His messages were not told which reports failed (at /tell, a separate door from /finished). Kartaan could not be reached')
     && !odd.said.includes('42'));
   const away = await tellTheProblem(chrome, async () => { throw new Error('offline'); }, { names: ['fk_orders'] });
   check('unreachable: not queued, and says it could not be reached (not the something-went-wrong words)',

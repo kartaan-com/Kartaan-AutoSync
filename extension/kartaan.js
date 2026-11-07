@@ -320,7 +320,7 @@ async function tellFinishedInWords(chrome, fetchImpl, failed, timeoutMs) {
   }
   return {
     told: false, kind: 'refused',
-    said: `${theirWords || `Kartaan did not start a run (status ${status}).`}${named} ${STILL_RUNS}`,
+    said: `(Told at /finished.) ${theirWords || `Kartaan did not start a run (status ${status}).`}${named} ${STILL_RUNS}`,
   };
 }
 
@@ -364,7 +364,7 @@ export async function tellTheProblem(chrome, fetchImpl, { names, timeoutMs = WAI
     }
     const why = got.kind === 'answered' && typeof got.body.said === 'string'
       ? cleaned(got.body.said, pass) : cleaned(whyNoAnswer(got, 'his messages were not told'), pass);
-    return { queued: false, said: `His messages were not told which reports failed. ${why}` };
+    return { queued: false, said: `His messages were not told which reports failed (at /tell, a separate door from /finished). ${why}` };
   } catch (wrong) {
     return { queued: false, said: 'His messages were not told which reports failed (something went wrong sending it).' };
   }

@@ -43,7 +43,7 @@ import { whatIsWaiting } from './idle.js';
 import { THE_WALK } from './background.js';
 import { aDriveToken } from './drive.js';
 import {
-  PAUSED, RECHECKS, THE_NIGHT, THE_SCHEDULED_QUEUE, THE_SYNC_FAILED, whatIsPaused,
+  PAUSED, RECHECKS, THE_FAILED_IN_THE_MORNING, THE_NIGHT, THE_SCHEDULED_QUEUE, THE_SYNC_FAILED, whatIsPaused,
 } from './nightly.js';
 import {
   askMayFetch, saveTheRunPass, whatKartaanLastSaid,
@@ -119,12 +119,13 @@ export function theDayToFetch(now = Date.now()) {
  * calendar day, written `YYYY-MM-DD`, and no later than yesterday: today is not
  * finished, so no platform has built it.
  */
-export function whyThatDayCannotBeFetched(day, now = Date.now()) {
+export function whyThatDayCannotBeFetched(day, now = Date.now(), todayIsAllowed = false) {
   const said = String(day || '');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(said) || theDay(Date.parse(`${said}T12:00:00`)) !== said) {
     return `"${said}" is not a day. Write it as year-month-day, like 2026-09-01.`;
   }
-  if (said > theDayToFetch(now)) {
+  /* **R208 (D1005): TODAY IS NEVER A HARD BLOCK.** Where every report asked for is set to "today", today passes. */
+  if (said > theDayToFetch(now) && !(todayIsAllowed && said === theDay(now))) {
     return `${said} is not over yet, so no platform has built it. Pick yesterday or earlier.`;
   }
   return '';
@@ -149,10 +150,10 @@ export function theDaysBetween(from, to) {
 }
 
 /** Why these two days cannot be fetched, or '' when they can. */
-export function whyThatRangeCannotBeFetched(from, to, now = Date.now()) {
-  const first = whyThatDayCannotBeFetched(from, now);
+export function whyThatRangeCannotBeFetched(from, to, now = Date.now(), todayIsAllowed = false) {
+  const first = whyThatDayCannotBeFetched(from, now, todayIsAllowed);
   if (first) return first;
-  const last = whyThatDayCannotBeFetched(to, now);
+  const last = whyThatDayCannotBeFetched(to, now, todayIsAllowed);
   if (last) return last;
   if (String(from) > String(to)) {
     return `${from} is after ${to}. Put the earlier day in the first box.`;
@@ -196,6 +197,10 @@ export async function theSetup(chrome) {
     /* **THE TIMED SYNC'S OWN LIST, KEPT APART FROM THE TICKS -- HIS DECISION B
      * (A60, 2026-09-21).** Never written yet means every report (`theTimedList`). */
     timed: Array.isArray(kept.timed) ? kept.timed.map(String) : null,
+    /* **R208 (D968, D1005, D1006): EACH REPORT'S OWN DAY AND RUN, chosen on the panel.** Only the two words each may be (`THE_DAY_CHOICES`, `THE_RUNS`);
+     * anything else reads as "not chosen", which is the default (`theDayOf`, `theRunOf`). */
+    days: Object.fromEntries(Object.entries(kept.days || {}).filter(([, one]) => THE_DAY_CHOICES.includes(one))),
+    runs: Object.fromEntries(Object.entries(kept.runs || {}).filter(([, one]) => THE_RUNS.includes(one))),
   };
 }
 
@@ -213,9 +218,30 @@ const OFF_THE_TIMED_LIST = Object.freeze(['fk_keywords']);
  *  report on this list is not a failure when the morning run does not fetch it. */
 export const THE_EVENING_REPORTS = Object.freeze(['fk_orders', 'fk_views', 'az_fee_preview', 'me_views']);
 
-/** What ONE of the two timed runs fetches: the evening list, or every other timed report. */
+/** **R208 (his D968, 7 Nov 2026): THE RETURNS ARE FETCHED AT 6 PM FOR TODAY**, the whole day, and the next morning does not fetch that day again. */
+export const THE_RETURNS_REPORTS = Object.freeze(['fk_returns', 'me_returns', 'az_returns']);
+/** The three timed runs, and the two days a report may be for. A report's own choice is kept on the panel (`theSetup`). */
+export const THE_RUNS = Object.freeze(['morning', 'evening', 'returns']);
+export const THE_DAY_CHOICES = Object.freeze(['yesterday', 'today']);
+
+/** Which timed run a report belongs to: the seller's choice, else the returns' own run, else the evening list, else the morning. */
+export function theRunOf(setUp, id) {
+  const chosen = (setUp.runs || {})[id];
+  if (THE_RUNS.includes(chosen)) return chosen;
+  if (THE_RETURNS_REPORTS.includes(id)) return 'returns';
+  return THE_EVENING_REPORTS.includes(id) ? 'evening' : 'morning';
+}
+
+/** Which day a report is for: the seller's choice, else today for the returns, else yesterday. */
+export function theDayOf(setUp, id) {
+  const chosen = (setUp.days || {})[id];
+  if (THE_DAY_CHOICES.includes(chosen)) return chosen;
+  return THE_RETURNS_REPORTS.includes(id) ? 'today' : 'yesterday';
+}
+
+/** What ONE of the three timed runs fetches: the reports whose run it is. */
 export function theTimedListFor(book, setUp, run) {
-  return theTimedList(book, setUp).filter((id) => THE_EVENING_REPORTS.includes(id) === (run === 'evening'));
+  return theTimedList(book, setUp).filter((id) => theRunOf(setUp, id) === run);
 }
 
 export function theTimedList(book, setUp) {
@@ -884,6 +910,11 @@ export async function howItStands(chrome, { book, now = Date.now(), theClock = n
      * whose sync is minutes away. The clock is the one setting in this product
      * that runs when nobody is watching; it has to say so out loud. */
     clock: typeof theClock === 'function' ? await theClock() : null,
+    /* **R208 (D1006): EACH TIMED REPORT'S DAY AND RUN, for the panel to show and change.** */
+    schedule: theTimedList(book, setUp).map((id) => ({
+      id, name: ((book.reports || []).find((one) => one.id === id) || {}).name || id,
+      day: theDayOf(setUp, id), run: theRunOf(setUp, id),
+    })),
     /* **AJ8: A RUN THAT IS WAITING FOR THE COMPUTER TO BE LEFT ALONE**, or null. */
     waitingForIdle: await whatIsWaiting(chrome),
   };
@@ -918,7 +949,7 @@ function whatTheTimedSyncFetches(book, timed) {
 export const THE_PANEL_ASKS = Object.freeze([
   'how-it-stands', 'connect-the-drive', 'check-the-drive', 'save-the-panel-name',
   'run-now', 'stop', 'set-the-hour', 'reload-the-extension', 'save-the-ticks', 'resume',
-  'save-the-run-pass', 'clear-needs-you',
+  'save-the-run-pass', 'clear-needs-you', 'save-the-report-times',
 ]);
 
 /**
@@ -993,6 +1024,15 @@ export async function answerThePanelsQuestion(chrome, parts, asked) {
     if (unknown.length) return { wrong: `${unknown.join(', ')} is not a report this can fetch.` };
     const unticked = theTickableReports(book).filter((id) => !reportIds.includes(id));
     await keepTheSetup(chrome, { ticked: reportIds, unticked });
+    return { saved: true };
+  }
+
+  if (asked.do === 'save-the-report-times') {
+    const setUp = await theSetup(chrome);
+    const id = String(asked.reportId);
+    if (!theTimedList(book, setUp).includes(id)) return { wrong: `${id} is not a report that runs by itself.` };
+    if (!THE_DAY_CHOICES.includes(asked.day) || !THE_RUNS.includes(asked.run)) return { wrong: 'Pick yesterday or today, and one of the three runs.' };
+    await keepTheSetup(chrome, { days: { ...setUp.days, [id]: asked.day }, runs: { ...setUp.runs, [id]: asked.run } });
     return { saved: true };
   }
 
@@ -1146,24 +1186,44 @@ export const PLATFORM_ORDER = Object.freeze(['flipkart', 'meesho', 'amazon']);
  */
 export async function startTheScheduledSync(chrome, parts, run = 'morning') {
   const { book } = parts;
-  const timed = theTimedListFor(book, await theSetup(chrome), run);
-  const byPlatform = PLATFORM_ORDER
-    .map((platform) => timed.filter(
-      (id) => (book.recipes || {})[id] && thePlatformOf(book, id) === platform,
-    ))
-    .filter((ids) => ids.length);
+  const setUp = await theSetup(chrome);
+  const timed = theTimedListFor(book, setUp, run);
+  /* **R208 (D1006): A REPORT THAT FAILED IN THE MORNING IS TRIED AGAIN IN THE 4 PM RUN.** "Failed" only -- a report that was not ready is the hourly re-check's. The list is
+   * written by `thatOneIsDone`; it is read once and cleared here, and only reports still on the timed list come back. */
+  if (run === 'evening') {
+    const held = (await chrome.storage.local.get(THE_FAILED_IN_THE_MORNING))[THE_FAILED_IN_THE_MORNING];
+    if (held && held.day === theDay((parts.now || Date.now)())) {
+      timed.push(...(held.ids || []).filter((id) => theTimedList(book, setUp).includes(id) && !timed.includes(id)));
+    }
+  }
+  /* A report set to "today" is walked as a run of its own for today. The morning's yesterday reports stay the plain list, exactly as before. */
+  const byPlatform = [];
+  for (const platform of PLATFORM_ORDER) {
+    const ofIt = timed.filter((id) => (book.recipes || {})[id] && thePlatformOf(book, id) === platform);
+    const yesterday = ofIt.filter((id) => theDayOf(setUp, id) === 'yesterday');
+    const today = ofIt.filter((id) => theDayOf(setUp, id) === 'today');
+    if (yesterday.length) byPlatform.push(run === 'morning' ? yesterday : { reportIds: yesterday, run });
+    if (today.length) byPlatform.push({ reportIds: today, run, today: true });
+  }
   /* **A RUN STARTED WHILE ANOTHER NIGHT IS STILL GOING ADDS TO THE QUEUE AND NEVER REPLACES IT (AJ13a review: the 4 pm run must not take the morning's remaining platforms).** What is
    * already queued is kept; a report already queued is not queued twice. */
   const going = await theNight(chrome);
   if (going && !going.finishedAt) {
     const queued = ((await chrome.storage.local.get(THE_QUEUE))[THE_QUEUE] || []).map((entry) => (Array.isArray(entry) ? entry : entry.reportIds));
     const already = new Set([...queued.flat(), ...(going.left || []), ...(going.doing ? [going.doing] : [])]);
-    const added = byPlatform.map((ids) => ids.filter((id) => !already.has(id))).filter((ids) => ids.length);
+    const added = byPlatform
+      .map((entry) => (Array.isArray(entry) ? entry.filter((id) => !already.has(id))
+        : { ...entry, reportIds: entry.reportIds.filter((id) => !already.has(id)) }))
+      .filter((entry) => (Array.isArray(entry) ? entry : entry.reportIds).length);
     await chrome.storage.local.set({ [THE_QUEUE]: [...((await chrome.storage.local.get(THE_QUEUE))[THE_QUEUE] || []), ...added] });
+    if (run === 'evening') await chrome.storage.local.remove(THE_FAILED_IN_THE_MORNING);
     return { started: null, waiting: true, refused: [] };
   }
   await chrome.storage.local.set({ [THE_QUEUE]: byPlatform });
-  return startTheNextPlatform(chrome, parts);
+  const result = await startTheNextPlatform(chrome, parts);
+  /* The morning's failures are used up only once a start went through (or is queued); a refused start keeps them. */
+  if (run === 'evening' && (result.started || result.waiting)) await chrome.storage.local.remove(THE_FAILED_IN_THE_MORNING);
+  return result;
 }
 
 /** Start the next platform of the scheduled sync, if any is left. A sync already
@@ -1177,7 +1237,7 @@ export async function startTheNextPlatform(chrome, parts) {
     const entry = left.shift();
     const { reportIds, ...how } = Array.isArray(entry) ? { reportIds: entry } : entry;
     /* A timed entry is the ids alone; it is the only kind that keeps a few of the day's twenty for him. */
-    const timed = Array.isArray(entry);
+    const timed = Array.isArray(entry) || Boolean(how.run);
     // eslint-disable-next-line no-await-in-loop
     const night = await theNight(chrome);
     if (night && !night.finishedAt) return { started: null, waiting: true, refused };
@@ -1185,7 +1245,7 @@ export async function startTheNextPlatform(chrome, parts) {
     await chrome.storage.local.set({ [THE_QUEUE]: left });
     // eslint-disable-next-line no-await-in-loop
     const said = await startASync(chrome, parts, {
-      reportIds, ...how, timed, continuing: Boolean(parts.continuing),
+      reportIds, ...how, run: how.run || (timed ? 'morning' : ''), timed, continuing: Boolean(parts.continuing),
     });
     if (said && said.started) return { started: reportIds, refused };
     refused.push({ reportIds, wrong: (said && said.wrong) || '' });
@@ -1303,14 +1363,17 @@ async function startASyncInTurn(chrome, parts, asked) {
      * Nothing in the boxes is yesterday, as it has always been. */
     const from = String(asked.from || '');
     const to = String(asked.to || asked.day || '');
+    /* **R208 (D1005): TODAY IS ALLOWED WHEN EVERY REPORT ASKED FOR IS SET TO "TODAY"** -- the 6 pm returns, a re-check of them, or a seller's own choice. Never otherwise. */
+    const asking = (asked.reportIds || []).filter((id) => !OFF_THE_TIMED_LIST.includes(id));
+    const todayIsAllowed = asking.length > 0 && asking.every((id) => theDayOf(setUp, id) === 'today');
     let days = [];
     if (from && to) {
-      const rangeWrong = whyThatRangeCannotBeFetched(from, to, now());
+      const rangeWrong = whyThatRangeCannotBeFetched(from, to, now(), todayIsAllowed);
       if (rangeWrong) return { wrong: rangeWrong };
       days = theDaysBetween(from, to);
     } else if (from || to) {
       const one = to || from;
-      const dayWrong = whyThatDayCannotBeFetched(one, now());
+      const dayWrong = whyThatDayCannotBeFetched(one, now(), todayIsAllowed);
       if (dayWrong) return { wrong: dayWrong };
       days = [one];
     }
@@ -1342,7 +1405,9 @@ async function startASyncInTurn(chrome, parts, asked) {
       }),
       at: now(),
       openAt: whereToStartFrom(book, reportIds, setUp.panel),
-      dataDate: days.length ? days[days.length - 1] : theDayToFetch(now()),
+      dataDate: days.length ? days[days.length - 1] : (todayIsAllowed ? theDay(now()) : theDayToFetch(now())),
+      /* Which timed run this is (R208), so a morning failure is known to be the morning's. */
+      run: String(asked.run || ''),
       /* **THE NEWEST DAY THERE IS TO FETCH**, so the sync can tell a day the seller
        * typed from the ordinary one and leave out the reports that only exist for
        * now (his ruling, 2026-09-16). */
@@ -1765,6 +1830,16 @@ export function buildThePanel(into, doing) {
   put(clock, parts.timed);
   put(body, clock);
 
+  /* --------------------------------------------- each report's day and run (R208) */
+  const times = make('section', `${OURS}card`);
+  put(times, make('h2', `${OURS}title`, 'Which day, and which run, for each report'));
+  parts.scheduleList = make('div', `${OURS}list`);
+  put(times, parts.scheduleList);
+  put(times, make('p', `${OURS}note`,
+    'Yesterday is the usual. The returns are fetched at 6 pm for today. Platforms often do not have the numbers for today yet, so a report set to today may land blank or partial. '
+    + 'A report that fails in the morning is tried again in the 4 pm run.'));
+  put(body, times);
+
   /* ----------------------------------------------------------------- the log */
   const log = make('section', `${OURS}card`);
   parts.log = make('div', `${OURS}run`);
@@ -1813,6 +1888,7 @@ export function buildThePanel(into, doing) {
   }
 
   into.append(page);
+  parts.doing = doing;
 
   parts.connectDrive.addEventListener('click', () => doing.connectTheDrive());
   parts.savePanel.addEventListener('click', () => doing.saveThePanelName(parts.panelName.value));
@@ -2156,6 +2232,36 @@ function showTheRestOfIt(parts, stands) {
     }
   }
 
+  /* ------------------------------------------------------ the day and run of each report (R208) */
+  const scheduleNow = JSON.stringify(stands.schedule || []);
+  const picking = globalThis.document && parts.scheduleList.contains(globalThis.document.activeElement);
+  if (parts.scheduleShown !== scheduleNow && !picking) {
+    parts.scheduleShown = scheduleNow;
+    parts.scheduleList.textContent = '';
+    for (const one of stands.schedule || []) {
+      const row = make('div', `${OURS}row`);
+      const day = make('select', 'k-control');
+      for (const [value, label] of [['yesterday', 'Yesterday'], ['today', 'Today']]) {
+        const option = make('option', '', label);
+        option.value = value;
+        put(day, option);
+      }
+      day.value = one.day;
+      const run = make('select', 'k-control');
+      for (const [value, label] of [['morning', 'Morning run'], ['evening', '4 pm run'], ['returns', '6 pm run']]) {
+        const option = make('option', '', label);
+        option.value = value;
+        put(run, option);
+      }
+      run.value = one.run;
+      const save = () => parts.doing.saveTheReportTimes && parts.doing.saveTheReportTimes(one.id, day.value, run.value);
+      day.addEventListener('change', save);
+      run.addEventListener('change', save);
+      put(row, make('span', `${OURS}label`, one.name), day, run);
+      put(parts.scheduleList, row);
+    }
+  }
+
   /* ------------------------------------------------------------- the clock */
   /* **THE SAVED HOUR IS PUT BACK IN THE BOX, and it never was.** A seller who set
    * it yesterday opened this page to an empty box and no way to tell whether
@@ -2312,7 +2418,8 @@ export function showTheReportTable(into, table, platformName, opened) {
 
 /** When the extension next wakes by itself, in the seller's own words. */
 export function whenItNextWakes(clock) {
-  const evening = clock && clock.eveningAt ? ` The 4 pm run wakes ${inWordsWhen(clock.eveningAt)}.` : '';
+  const evening = (clock && clock.eveningAt ? ` The 4 pm run wakes ${inWordsWhen(clock.eveningAt)}.` : '')
+    + (clock && clock.returnsAt ? ` The 6 pm run wakes ${inWordsWhen(clock.returnsAt)}.` : '');
   if (!clock || !clock.chosen) return `No time saved yet, so the morning run wakes at 8:00.${evening}`;
   if (!clock.nextAt) {
     return `Saved as ${clock.chosen}, but its clock is not set -- nothing will start by itself. `

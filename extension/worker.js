@@ -13,7 +13,7 @@
  */
 
 import {
-  DAILY, EVENING, THE_PANEL, THE_WALK, aFreshSecret, answerAnExternalAsk, answerThePage, answerThePanel, setTheHour, startAWalk,
+  DAILY, EVENING, RETURNS, THE_PANEL, THE_WALK, aFreshSecret, answerAnExternalAsk, answerThePage, answerThePanel, setTheHour, startAWalk,
   theHourItRuns, whyThatIsNotATimeOfDay, wireUp,
 } from './background.js';
 import {
@@ -488,12 +488,14 @@ const answerThePanelsAsk = async (asked) => answerThePanelsQuestion(chrome, {
     const chosen = await theHourItRuns(chrome);
     const clock = await chrome.alarms.get(DAILY);
     const evening = await chrome.alarms.get(EVENING);
+    const returns = await chrome.alarms.get(RETURNS);
     return {
       chosen: chosen
         ? `${String(chosen.hour).padStart(2, '0')}:${String(chosen.minute).padStart(2, '0')}`
         : '',
       nextAt: (clock && (clock.scheduledTime || clock.when)) || null,
       eveningAt: (evening && (evening.scheduledTime || evening.when)) || null,
+      returnsAt: (returns && (returns.scheduledTime || returns.when)) || null,
     };
   },
 }, asked);
@@ -583,6 +585,15 @@ wireUp(chrome, {
     }, 'evening');
     if (said.refused.length) {
       console.warn('Kartaan Auto-sync: part of the evening sync could not start.', said.refused);
+    }
+  },
+  /* **THE 6 PM RUN (R208):** the returns, for today. */
+  onReturns: async () => {
+    const said = await startTheScheduledSync(chrome, {
+      book: await theBook(), startTheNight, carryOn, fetch: kartaanFetch,
+    }, 'returns');
+    if (said.refused.length) {
+      console.warn('Kartaan Auto-sync: part of the 6 pm returns sync could not start.', said.refused);
     }
   },
   onDue: async () => {

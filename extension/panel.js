@@ -109,6 +109,10 @@ const parts = buildThePanel(document.body, {
     saySomething(parts, said && said.stopped ? 'Stopped.' : 'There was nothing going to stop.');
     await refresh();
   },
+  saveTheReportTimes: async (reportId, day, run) => {
+    const said = await ask({ do: 'save-the-report-times', reportId, day, run });
+    saySomething(parts, (said && said.wrong) || 'Saved. The next run uses it.');
+  },
   setTheHour: async (at) => {
     /* **THE BOX'S OWN TEXT GOES ACROSS, UNTOUCHED.** Turned into two numbers
      * here, an unanswered box becomes midnight on the way -- and the guard on

@@ -174,6 +174,10 @@ export const DAILY = 'kartaan-autosync-daily';
 export const EVENING = 'kartaan-autosync-evening';
 export const THE_EVENING_AT = Object.freeze({ hour: 16, minute: 0 });
 
+/* **THE THIRD TIMED RUN (R208, his D968 and 7 Nov 2026): 6 PM, THE RETURNS FOR TODAY.** The whole day's file; the next morning does not fetch that day again. */
+export const RETURNS = 'kartaan-autosync-returns';
+export const THE_RETURNS_AT = Object.freeze({ hour: 18, minute: 0 });
+
 /* Every day, and it is a period rather than a one-off on purpose: a one-off that
  * fires while Chrome is shut is simply never delivered, and nothing reschedules
  * it. */
@@ -269,6 +273,18 @@ export async function makeSureTheEveningIsSet(chrome) {
   if (already) return false;
   await chrome.alarms.create(EVENING, {
     when: whenThatHourNextComes(THE_EVENING_AT, Date.now()),
+    periodInMinutes: EVERY_DAY_IN_MINUTES,
+    persistAcrossSessions: true,
+  });
+  return true;
+}
+
+/** Make sure the 6 pm returns alarm exists, and say whether it had to be created. */
+export async function makeSureTheReturnsAreSet(chrome) {
+  const already = await chrome.alarms.get(RETURNS);
+  if (already) return false;
+  await chrome.alarms.create(RETURNS, {
+    when: whenThatHourNextComes(THE_RETURNS_AT, Date.now()),
     periodInMinutes: EVERY_DAY_IN_MINUTES,
     persistAcrossSessions: true,
   });
@@ -1265,7 +1281,7 @@ export function answerAnExternalAsk(chrome, asked, sender) {
  * between.
  */
 export function wireUp(chrome, {
-  onDue, onEvening = null, onRecheck = null, answer = null, whenATabGoes = null, carryOn = null, answerPanel = null,
+  onDue, onEvening = null, onReturns = null, onRecheck = null, answer = null, whenATabGoes = null, carryOn = null, answerPanel = null,
   answerOutside = null,
 }) {
   /* **THE PANEL'S OWN WAY BACK, and a second listener rather than a wider first
@@ -1350,7 +1366,7 @@ export function wireUp(chrome, {
      * asks again starts whatever waited. Run now never comes through here. The walk being carried on above is not
      * stopped by this: only the starting of a run waits. */
     if (alarm && alarm.name === IDLE_ALARM) {
-      await carryOnWaiting(chrome, { daily: onDue, evening: onEvening, recheck: onRecheck });
+      await carryOnWaiting(chrome, { daily: onDue, evening: onEvening, returns: onReturns, recheck: onRecheck });
       return;
     }
     if (alarm && alarm.name === RECHECK_ALARM) {
@@ -1359,6 +1375,10 @@ export function wireUp(chrome, {
     }
     if (alarm && alarm.name === EVENING) {
       if (onEvening) await startWhenFree(chrome, 'evening', onEvening);
+    }
+    if (alarm && alarm.name === RETURNS) {
+      if (onReturns) await startWhenFree(chrome, 'returns', onReturns);
+      return;
     }
     if (alarm && alarm.name !== DAILY) return;
     await startWhenFree(chrome, 'daily', onDue);
@@ -1385,7 +1405,8 @@ export async function whoClosedIt(chrome) {
 async function bothClocks(chrome) {
   const daily = await makeSureTheClockIsSet(chrome);
   const evening = await makeSureTheEveningIsSet(chrome);
+  const returns = await makeSureTheReturnsAreSet(chrome);
   const awake = await makeSureTheWorkerIsWoken(chrome);
   await askAgainIfWaiting(chrome);
-  return daily || evening || awake;
+  return daily || evening || returns || awake;
 }

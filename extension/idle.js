@@ -6,7 +6,7 @@ export const WAITING = 'kartaan-autosync-waiting-for-idle';
 /** How long to wait before asking again. */
 export const ASK_AGAIN_MINUTES = 1;
 /** The kinds of start that can wait for the computer to be left alone: the morning run, the evening run and the hourly re-check. */
-export const KINDS_THAT_WAIT = Object.freeze(['daily', 'evening', 'recheck']);
+export const KINDS_THAT_WAIT = Object.freeze(['daily', 'evening', 'returns', 'recheck']);
 
 /** AJ9 piece 2: chrome.storage.local key: { kind, waitedMs, at } -- how the run just started got past the idle wait.
  *  `startTheNight` reads it into the night so the run log can say so; a start that did not come through here (Run now)

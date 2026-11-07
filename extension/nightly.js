@@ -115,7 +115,7 @@ export function theRangeOfTheDays(days) {
  */
 export async function startTheNight(chrome, {
   doing, mayAskFor = 0, at = Date.now(), openAt = '', dataDate = '', panel = '', canGoBack = [],
-  days = [], latestDay = '', listFrom = {},
+  days = [], latestDay = '', listFrom = {}, run = '',
 }) {
   if (!openAt) {
     /* **REFUSED HERE, BECAUSE THE ALTERNATIVE IS A NIGHT THAT SPENDS AND NEVER
@@ -165,6 +165,8 @@ export async function startTheNight(chrome, {
      * ruling, 2026-09-16: *"when run is for past day it will ignore meesho views
      * as it is not available"*). */
     latestDay: String(latestDay || ''),
+    /* **WHICH TIMED RUN THIS IS (R208): 'morning', 'evening', 'returns', or '' for Run now and a re-check.** */
+    run: String(run || ''),
     /* **EVERY DAY THIS SYNC IS FOR, oldest first (A53).** One day unless the seller
      * asked for a stretch of them in the panel's two date boxes. */
     days: [...(days || [])],
@@ -363,7 +365,20 @@ export const RECHECK_AFTER_MINUTES = 60;
  *  on the very next try with nothing else changed -- the dashboard had
  *  simply not finished drawing. Named here rather than left to the same
  *  rule as a two-phase report, because there is no `theirId` to have missed. */
-export const RECHECK_EVEN_WITHOUT_AN_ASK = Object.freeze(['me_views', 'az_ads', 'me_returns']);
+export const RECHECK_EVEN_WITHOUT_AN_ASK = Object.freeze(['me_views', 'az_ads', 'me_returns', 'fk_returns', 'az_returns']);
+
+/** **R208 (D1006): WHAT FAILED IN THE MORNING RUN, FOR THE 4 PM RUN TO TRY AGAIN.** `{ day, ids }`; only a plain failure goes in (not "not ready", which the hourly re-check owns). */
+export const THE_FAILED_IN_THE_MORNING = 'kartaan-autosync-failed-in-the-morning';
+
+/** Add to, or take off, the list of what the morning run failed today. A new day starts a new list. */
+async function keepForTheEvening(chrome, at, add, remove) {
+  const on = theDay(at || Date.now());
+  const held = (await chrome.storage.local.get(THE_FAILED_IN_THE_MORNING))[THE_FAILED_IN_THE_MORNING];
+  const ids = new Set(held && held.day === on ? held.ids : []);
+  add.forEach((id) => ids.add(id));
+  remove.forEach((id) => ids.delete(id));
+  if (ids.size || held) await chrome.storage.local.set({ [THE_FAILED_IN_THE_MORNING]: { day: on, ids: [...ids] } });
+}
 
 /** **AJ9 PIECE 1: A TAB CLOSED MID-WALK IS RETRIED THE SAME NIGHT, NEVER JUST LOST.** Nothing is wrong on the platform
  *  when the tab is closed (30 Oct 01:26 UTC: fk_listings, fk_orders and fk_ads_search failed this way and waited for the
@@ -932,6 +947,9 @@ export async function thatOneIsDone(chrome, {
       });
     }
   }
+  /* **R208 (D1006): A PLAIN FAILURE OF THE MORNING RUN IS KEPT FOR THE 4 PM RUN; A REPORT THAT LANDED LATER IS TAKEN OFF IT.** Today's list only; a new day starts a new one. */
+  if (state === 'landed') await keepForTheEvening(chrome, at, [], [reportId]);
+  else if (night.run === 'morning' && written.state === 'failed') await keepForTheEvening(chrome, at, [reportId], []);
   /* **A DAY THE WALK FOUND NOTHING TO FETCH FOR IS SETTLED, NOT OWED AGAIN (review finding, 2026-10-05).** Only
    * days that really landed were remembered, so a day with no campaign running (or none to record) was walked
    * again on every sync for the whole reach. `settled` comes from the walk's own answer only -- never from the
@@ -1428,6 +1446,8 @@ async function carryItOn(chrome, {
       /* A sign-in pause never tells Kartaan: nothing remembered from earlier platforms may linger or be sent. */
       await chrome.storage.local.remove(THE_SYNC_FAILED);
       const after = await theNight(chrome);
+      /* R208: the reports a morning sign-in wall stopped are tried again at 4 pm like any morning failure. */
+      if (after && after.run === 'morning') await keepForTheEvening(chrome, at, [stopped, ...(after.left || [])], []);
       await chrome.storage.local.set({
         [PAUSED]: {
           reportIds: [stopped, ...((after && after.left) || []).filter((one) => one !== stopped)],

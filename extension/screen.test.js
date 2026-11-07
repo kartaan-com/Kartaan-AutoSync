@@ -44,10 +44,12 @@ import {
   wireUp,
 } from './background.js';
 import { RELAY_TO_THE_PAGE } from './driver.js';
-import { THE_EVENING_REPORTS, theTimedListFor, theNeedsYouRow } from './screen.js';
+import {
+  THE_EVENING_REPORTS, THE_RETURNS_REPORTS, theTimedListFor, theNeedsYouRow, theRunOf, theDayOf,
+} from './screen.js';
 import {
   A_DAYS_ALLOWANCE, KEPT_FOR_HIS_OWN_RUNS, PAUSED, RECHECKS, THE_NIGHT, carryTheNightOn, endTheNight, howTheNightWent, oneWasAskedFor,
-  startTheNight, thatOneIsBeingTried, theIdleLine, theNight, theReportTable, THE_SYNC_FAILED,
+  startTheNight, thatOneIsBeingTried, theIdleLine, theNight, theReportTable, THE_SYNC_FAILED, THE_FAILED_IN_THE_MORNING,
 } from './nightly.js';
 import { saveTheRunPass } from './kartaan.js';
 import { MOST_DAYS_IN_A_RANGE_FILE, hasNotFinished, theWalk } from './walk.js';
@@ -334,7 +336,7 @@ check('a report that reads another report\'s file is fetched after it',
     Boolean(after.timed) && after.timed.said === (fresh.timed && fresh.timed.said));
   const first = await startTheScheduledSync(chrome, parts);
   check('and the timed sync runs every Flipkart report, not the one tick',
-    Boolean(first.started) && [...first.started].sort().join() === [...every('flipkart')].filter((id) => !THE_EVENING_REPORTS.includes(id)).sort().join());
+    Boolean(first.started) && [...first.started].sort().join() === [...every('flipkart')].filter((id) => !THE_EVENING_REPORTS.includes(id) && !THE_RETURNS_REPORTS.includes(id)).sort().join());
   check('AJ13a: and the morning run leaves out the reports not ready by the morning',
     !first.started.some((id) => THE_EVENING_REPORTS.includes(id)));
   check('and the timed sync keeps a few of the twenty for his own runs, so it may spend less than all of them',
@@ -342,7 +344,7 @@ check('a report that reads another report\'s file is fetched after it',
   await endTheNight(chrome, { at: Date.UTC(2026, 8, 16, 3, 30), why: 'Every report was reached.' });
   const second = await startTheNextPlatform(chrome, parts);
   check('then every Meesho report, though none was ticked',
-    Boolean(second.started) && [...second.started].sort().join() === [...every('meesho')].filter((id) => !THE_EVENING_REPORTS.includes(id)).sort().join());
+    Boolean(second.started) && [...second.started].sort().join() === [...every('meesho')].filter((id) => !THE_EVENING_REPORTS.includes(id) && !THE_RETURNS_REPORTS.includes(id)).sort().join());
 }
 
 {
@@ -352,10 +354,11 @@ check('a report that reads another report\'s file is fetched after it',
   const whole = theTimedList(BOOK, { timed: null });
   const evening = theTimedListFor(BOOK, { timed: null }, 'evening');
   const morning = theTimedListFor(BOOK, { timed: null }, 'morning');
+  const returns = theTimedListFor(BOOK, { timed: null }, 'returns');
   check('AJ13a: the evening run fetches those four and nothing else', [...evening].sort().join() === [...THE_EVENING_REPORTS].sort().join());
-  check('AJ13a: the morning run fetches every other timed report', morning.length === whole.length - evening.length && !morning.some((id) => evening.includes(id)));
+  check('AJ13a: the morning run fetches every other timed report', morning.length === whole.length - evening.length - returns.length && !morning.some((id) => evening.includes(id) || returns.includes(id)));
   check('AJ13a: together they are the whole timed list, so no report is left out and none is fetched twice',
-    [...morning, ...evening].sort().join() === [...whole].sort().join());
+    [...morning, ...evening, ...returns].sort().join() === [...whole].sort().join());
   check('AJ13a: a list he narrowed himself narrows both runs',
     theTimedListFor(BOOK, { timed: ['fk_claims', 'fk_orders'] }, 'morning').join() === 'fk_claims'
     && theTimedListFor(BOOK, { timed: ['fk_claims', 'fk_orders'] }, 'evening').join() === 'fk_orders');
@@ -381,6 +384,9 @@ check('a report that reads another report\'s file is fetched after it',
   check('AJ13a: then Meesho\'s one evening report', Boolean(next.started) && next.started.join() === 'me_views');
 }
 
+/** The report ids of a queue, whether its entries are plain lists (the morning's) or carry their run (R208). */
+const idsOf = (queue) => (queue || []).map((entry) => (Array.isArray(entry) ? entry : entry.reportIds)).flat();
+
 {
   /* **THE 4 PM RUN NEVER TAKES THE QUEUE OF A MORNING SYNC STILL GOING (AJ13a review).** */
   const { chrome } = installFakeChrome();
@@ -399,9 +405,9 @@ check('a report that reads another report\'s file is fetched after it',
   check('AJ13a: with the morning sync still going, the evening run starts nothing and says it is waiting', Boolean(morning.started) && evening.started === null && evening.waiting === true);
   check('AJ13a: and the morning\'s remaining platforms are all still queued, with the evening reports added behind them',
     queuedBefore.length > 0 && queuedAfter.slice(0, queuedBefore.length).join('|') === queuedBefore.join('|')
-    && queuedAfter.flat().includes('fk_orders') && queuedAfter.flat().includes('me_views'));
+    && idsOf(queuedAfter).includes('fk_orders') && idsOf(queuedAfter).includes('me_views'));
   const again = await startTheScheduledSync(chrome, parts, 'evening');
-  check('AJ13a: and asking again does not queue a report twice', (await chrome.storage.local.get(THE_QUEUE))[THE_QUEUE].flat().filter((id) => id === 'fk_orders').length === 1 && again.waiting === true);
+  check('AJ13a: and asking again does not queue a report twice', idsOf((await chrome.storage.local.get(THE_QUEUE))[THE_QUEUE]).filter((id) => id === 'fk_orders').length === 1 && again.waiting === true);
 }
 
 {
@@ -2762,6 +2768,82 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   check('J016: the ask clears only the days named, not one that came after the panel drew', got.cleared === 2 && left.length === 1 && left[0].dataDate === '2026-10-03');
   check('J016: and marks each as landed so the next night does not write it back',
     (landedDays.fk_claims || []).includes('2026-10-01') && (landedDays.fk_orders || []).includes('2026-10-02'));
+}
+
+{
+  /* **R208 (his D968, D1005, D1006, D1007): RETURNS AT 6 PM FOR TODAY, A DAY AND A RUN FOR EACH REPORT, THE MORNING'S FAILURES AT 4 PM.** */
+  const noChoice = { timed: null, days: {}, runs: {} };
+  check('R208: the returns of all three platforms are the 6 pm run, and for today',
+    THE_RETURNS_REPORTS.every((id) => theRunOf(noChoice, id) === 'returns' && theDayOf(noChoice, id) === 'today'));
+  check('R208: every other report is for yesterday', theDayOf(noChoice, 'fk_orders') === 'yesterday' && theDayOf(noChoice, 'fk_claims') === 'yesterday');
+  check('R208: the seller own choice wins, and a made-up one reads as no choice',
+    theRunOf({ runs: { fk_claims: 'returns' } }, 'fk_claims') === 'returns' && theRunOf({ runs: { fk_claims: 'noon' } }, 'fk_claims') === 'morning'
+    && theDayOf({ days: { fk_claims: 'today' } }, 'fk_claims') === 'today' && theDayOf({ days: { fk_returns: 'tomorrow' } }, 'fk_returns') === 'today'
+    && theDayOf({ days: { fk_returns: 'yesterday' } }, 'fk_returns') === 'yesterday');
+  const now = Date.UTC(2026, 10, 7, 12, 30);
+  check('R208: today is refused for a yesterday report and passes for a today report',
+    whyThatDayCannotBeFetched('2026-11-07', now).includes('not over yet') && whyThatDayCannotBeFetched('2026-11-07', now, true) === ''
+    && whyThatDayCannotBeFetched('2026-11-08', now, true).includes('not over yet'));
+
+  const { chrome } = installFakeChrome();
+  const nights = [];
+  const parts = { book: BOOK, now: () => now, startTheNight: async (c, how) => { nights.push(how); return startTheNight(c, how); }, carryOn: async () => {} };
+  await answerThePanelsQuestion(chrome, parts, { do: 'save-the-panel-name', panel: 'xuptj' });
+  await answerThePanelsQuestion(chrome, parts, { do: 'check-the-drive' });
+  const morning = await startTheScheduledSync(chrome, parts);
+  check('R208: the morning run does not fetch the returns', !morning.started.includes('fk_returns') && nights[0].run === 'morning');
+  await endTheNight(chrome, { at: now, why: 'x' });
+  await chrome.storage.local.set({ [THE_QUEUE]: [] });
+  nights.length = 0;
+  const six = await startTheScheduledSync(chrome, parts, 'returns');
+  check('R208: the 6 pm run starts the Flipkart returns for TODAY, as the returns run',
+    six.started.join() === 'fk_returns' && nights[0].dataDate === '2026-11-07' && nights[0].run === 'returns');
+  await endTheNight(chrome, { at: now, why: 'x' });
+  const meesho = await startTheNextPlatform(chrome, parts);
+  await endTheNight(chrome, { at: now, why: 'x' });
+  const amazon = await startTheNextPlatform(chrome, parts);
+  check('R208: and then the Meesho and Amazon returns, each for today',
+    meesho.started.join() === 'me_returns' && amazon.started.join() === 'az_returns' && nights.every((one) => one.dataDate === '2026-11-07'));
+
+  await answerThePanelsQuestion(chrome, parts, { do: 'save-the-report-times', reportId: 'fk_claims', day: 'today', run: 'returns' });
+  await endTheNight(chrome, { at: now, why: 'x' });
+  const stands = await howItStands(chrome, { book: BOOK, now });
+  const row = stands.schedule.find((one) => one.id === 'fk_claims');
+  check('R208: a day and a run chosen on the panel are kept and shown back, others stay at their defaults',
+    row.day === 'today' && row.run === 'returns' && stands.schedule.find((one) => one.id === 'fk_returns').run === 'returns');
+  const refusedTime = await answerThePanelsQuestion(chrome, parts, { do: 'save-the-report-times', reportId: 'fk_claims', day: 'someday', run: 'returns' });
+  const refusedId = await answerThePanelsQuestion(chrome, parts, { do: 'save-the-report-times', reportId: 'not_a_report', day: 'today', run: 'returns' });
+  check('R208: a made-up day, run or report is refused in words', Boolean(refusedTime.wrong) && Boolean(refusedId.wrong));
+  const sixAgain = await startTheScheduledSync(chrome, parts, 'returns');
+  check('R208: a report moved to the 6 pm run is fetched there', sixAgain.started.join() === 'fk_claims,fk_returns' || [...sixAgain.started].sort().join() === 'fk_claims,fk_returns');
+}
+
+{
+  /* **R208 (D1006): A PLAIN FAILURE OF THE MORNING RUN IS TRIED AGAIN IN THE 4 PM RUN, ONCE; A "NOT READY" ONE IS NOT.** */
+  const now = Date.UTC(2026, 10, 7, 10, 30);
+  const { chrome } = installFakeChrome();
+  const parts = { book: BOOK, now: () => now, startTheNight, carryOn: async () => {} };
+  await answerThePanelsQuestion(chrome, parts, { do: 'save-the-panel-name', panel: 'xuptj' });
+  await answerThePanelsQuestion(chrome, parts, { do: 'check-the-drive' });
+  await chrome.storage.local.set({ [THE_FAILED_IN_THE_MORNING]: { day: '2026-11-07', ids: ['fk_claims', 'fk_listings'] } });
+  const evening = await startTheScheduledSync(chrome, parts, 'evening');
+  check('R208: the 4 pm run takes the failed morning Flipkart reports with its own', evening.started.includes('fk_claims') && evening.started.includes('fk_listings') && evening.started.includes('fk_orders'));
+  check('R208: and the list is cleared once taken', (await chrome.storage.local.get(THE_FAILED_IN_THE_MORNING))[THE_FAILED_IN_THE_MORNING] === undefined);
+  const other = installFakeChrome().chrome;
+  await answerThePanelsQuestion(other, parts, { do: 'save-the-panel-name', panel: 'xuptj' });
+  await answerThePanelsQuestion(other, parts, { do: 'check-the-drive' });
+  await other.storage.local.set({ [THE_FAILED_IN_THE_MORNING]: { day: '2026-11-06', ids: ['fk_claims'] } });
+  const old = await startTheScheduledSync(other, parts, 'evening');
+  check('R208: a list from another day is not taken', !old.started.includes('fk_claims'));
+  /* The hourly re-check of a returns report for today comes back through the same door. */
+  const again = installFakeChrome().chrome;
+  await answerThePanelsQuestion(again, parts, { do: 'save-the-panel-name', panel: 'xuptj' });
+  await answerThePanelsQuestion(again, parts, { do: 'check-the-drive' });
+  const recheck = await startASync(again, parts, { reportIds: ['fk_returns'], day: '2026-11-07' });
+  check('R208: the hourly re-check of a returns report for today starts', Boolean(recheck.started));
+  await endTheNight(again, { at: now, why: 'x' });
+  const notReturns = await startASync(again, parts, { reportIds: ['fk_claims'], day: '2026-11-07' });
+  check('R208: and the same for a yesterday report is still refused', String(notReturns.wrong).includes('not over yet'));
 }
 
 reachedTheEnd = true;

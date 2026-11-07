@@ -16,6 +16,7 @@
 import { readFileSync } from 'node:fs';
 import { installFakeChrome } from '../test/fake-chrome.js';
 import {
+  THE_FAILED_IN_THE_MORNING, RECHECKS,
   SPENDS_THE_ALLOWANCE,
   ONLY_ITS_NEWEST_DAY,
   whyOnlyItsNewestDay,
@@ -1395,15 +1396,22 @@ check('and three days of trying is the reference\'s own number', GIVE_UP_AFTER_D
   });
   for (const reportId of ['az_returns']) {
     // eslint-disable-next-line no-await-in-loop
+    /* R208 (D1007): a returns report that fails is checked again in an hour, three times; only then is the day owed to the next sync. */
     const first = await thatOneIsDone(c, { reportId, state: 'failed', say: 'Download not found.', dataDate: day, at: start });
-    check(`a failed day of ${reportId} is owed to the next sync and said to be tried again`,
-      Object.values(await whatIsNotBuiltYet(c)).some((one) => one.reportId === reportId && one.dataDate === day)
-      && first.done.at(-1).say.includes('tried again on the next sync'));
+    check(`R208: a failed ${reportId} is checked again in an hour, not given up on`, first.done.at(-1).say.includes('checked again in an hour (1 of 3)'));
+    for (let n = 0; n < 3; n += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      await thatOneIsDone(c, { reportId, state: 'failed', say: 'Download not found.', dataDate: day, at: start });
+    }
+    check(`a failed day of ${reportId} is owed to the next sync after the hourly checks`,
+      Object.values(await whatIsNotBuiltYet(c)).some((one) => one.reportId === reportId && one.dataDate === day));
   }
   for (const n of [1, 2]) {
     for (const reportId of ['az_returns']) {
-      // eslint-disable-next-line no-await-in-loop
-      await thatOneIsDone(c, { reportId, state: 'failed', say: 'x', dataDate: day, at: start + n * oneDay });
+      for (let again = 0; again < 4; again += 1) {
+        // eslint-disable-next-line no-await-in-loop
+        await thatOneIsDone(c, { reportId, state: 'failed', say: 'x', dataDate: day, at: start + n * oneDay });
+      }
     }
   }
   check('and an Amazon returns day that failed on three different days needs the seller, shown under needs you',
@@ -2547,7 +2555,30 @@ check('report table: null night gives null', theReportTable(null, () => '') === 
     walkOrders.started.length === 0 && (await theNight(orders.chrome)).done.some((one) => one.reportId === 'az_orders' && String(one.say).includes('nightly pipeline')));
 }
 
-const EXPECTED = 181 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3 + 1 + 4 + 3 + 2 + 2 + 2 + 1 + 8 + 3 + 13 + 2;
+{
+  /* **R208 (D1006, D1007): A MORNING FAILURE IS KEPT FOR 4 PM; A LATER LANDING TAKES IT OFF; ONLY THE MORNING RUN KEEPS ONE; A RETURNS FAILURE IS CHECKED HOURLY.** */
+  const kept = async (c) => ((await c.storage.local.get(THE_FAILED_IN_THE_MORNING))[THE_FAILED_IN_THE_MORNING] || { ids: [] }).ids;
+  const at = Date.UTC(2026, 10, 7, 2, 30);
+  const m = installFakeChrome().chrome;
+  await startTheNight(m, { doing: ['fk_claims', 'fk_listings'], at, openAt: 'https://x/', dataDate: '2026-11-06', run: 'morning' });
+  await thatOneIsDone(m, { reportId: 'fk_claims', state: 'failed', say: 'The page showed the login.', dataDate: '2026-11-06', at });
+  check('R208: a plain failure of the morning run is kept for the 4 pm run', (await kept(m)).join() === 'fk_claims');
+  await thatOneIsDone(m, { reportId: 'fk_listings', state: 'landed', dataDate: '2026-11-06', at });
+  check('R208: and a report that landed is not on the list', (await kept(m)).join() === 'fk_claims');
+  await thatOneIsDone(m, { reportId: 'fk_claims', state: 'landed', dataDate: '2026-11-06', at });
+  check('R208: a report that landed later (an hourly re-check, a hand run) is taken off it', (await kept(m)).length === 0);
+  const e = installFakeChrome().chrome;
+  await startTheNight(e, { doing: ['fk_orders'], at, openAt: 'https://x/', dataDate: '2026-11-06', run: 'evening' });
+  await thatOneIsDone(e, { reportId: 'fk_orders', state: 'failed', say: 'x', dataDate: '2026-11-06', at });
+  check('R208: only the morning run keeps a failure for 4 pm', (await kept(e)).length === 0);
+  const r = installFakeChrome().chrome;
+  await startTheNight(r, { doing: ['fk_returns'], at, openAt: 'https://x/', dataDate: '2026-11-07', run: 'returns' });
+  const once = await thatOneIsDone(r, { reportId: 'fk_returns', state: 'failed', say: 'x', dataDate: '2026-11-07', at });
+  check('R208: a failed 6 pm returns report is checked again in an hour', once.done.at(-1).say.includes('checked again in an hour (1 of 3)')
+    && (await r.storage.local.get(RECHECKS))[RECHECKS]['fk_returns|2026-11-07'].tries === 1);
+}
+
+const EXPECTED = 181 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3 + 1 + 4 + 3 + 2 + 2 + 2 + 1 + 8 + 3 + 13 + 2 + 6;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;
