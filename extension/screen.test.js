@@ -2947,10 +2947,10 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   selectsOf()[2].fire('change');
   check('R208: the run choice and the day choice of a row each send the report with both choices',
     sent.join() === 'fk_returns:today:evening,fk_claims:today:morning');
-  showHowItStands(panel, { ...(await howItStands(installFakeChrome().chrome, { book: BOOK, now: Date.now() })), schedule: [{ id: 'me_returns', name: 'Meesho returns', day: 'today', run: 'returns' }] });
+  showHowItStands(panel, { ...(await howItStands(installFakeChrome().chrome, { book: BOOK, now: Date.now() })), schedule: [{ id: 'me_returns', name: 'Zeta returns', day: 'today', run: 'returns' }] });
   check('R208: when the stands change the old rows go and the new ones are drawn',
-    panel.scheduleList.children.length === 1 && panel.scheduleList.textContent.includes('Meesho returns') && !panel.scheduleList.textContent.includes('Flipkart claims'));
-  check('R208: the rows are on the page itself, not in a list nobody sees', document.body.textContent.includes('Meesho returns'));
+    panel.scheduleList.children.length === 1 && panel.scheduleList.textContent.includes('Zeta returns') && !panel.scheduleList.textContent.includes('Flipkart claims'));
+  check('R208: the rows are on the page itself, not in a list nobody sees', document.body.textContent.includes('Zeta returns'));
   check('R208: and the new row shows its choices', selectsOf().length === 2 && selectsOf()[0].value === 'today' && selectsOf()[1].value === 'returns');
 }
 

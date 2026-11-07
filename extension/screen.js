@@ -1888,7 +1888,6 @@ export function buildThePanel(into, doing) {
   }
 
   into.append(page);
-  parts.doing = doing;
 
   parts.connectDrive.addEventListener('click', () => doing.connectTheDrive());
   parts.savePanel.addEventListener('click', () => doing.saveThePanelName(parts.panelName.value));
