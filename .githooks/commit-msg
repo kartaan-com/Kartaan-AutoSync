@@ -86,7 +86,7 @@ rm -f "$IT_RAN"
 # .github/workflows/pm_check.yml.** Three copies of one fact, and a check in
 # tools/gate_checks.py holds them to each other -- because the day they disagree,
 # one of them is letting a commit through that another would have stopped.
-NOT_CODE='(^|/)(README|LICENSE|CHANGELOG|NOTICE)(\.md)?$|^\.gitignore$|^\.gitattributes$|^review_pass\.json$|^review_pass\.template\.json$'
+NOT_CODE='(^|/)(README|LICENSE|CHANGELOG|NOTICE)(\.md)?$|^\.gitignore$|^\.gitattributes$|^review_pass\.json$|^review_pass\.template\.json$|^release_records/[^/]+\.json$'
 
 # ASKED SO THAT A FAILURE IS NOT AN EMPTY ANSWER, the same way .githooks/pre-commit
 # asks it. There is no `set -e` here, so a git that cannot answer -- a damaged
@@ -96,7 +96,7 @@ NOT_CODE='(^|/)(README|LICENSE|CHANGELOG|NOTICE)(\.md)?$|^\.gitignore$|^\.gitatt
 # **IT WAS LEFT STANDING HERE WHILE BEING FIXED TWELVE LINES AWAY IN THE OTHER
 # HOOK**, found by an independent reviewer on 2026-09-02. `git merge` runs
 # commit-msg and NEVER runs pre-commit, so nothing else covers that path.
-if ! ALL_STAGED="$(git diff --cached --name-only)"; then
+if ! ALL_STAGED="$(git diff --cached --name-only --no-renames)"; then
   printf '\n  BLOCKED: git could not say what is staged, so this hook cannot tell\n' >&2
   printf '  whether the commit needs a review tag. Refusing rather than guessing.\n\n' >&2
   exit 1

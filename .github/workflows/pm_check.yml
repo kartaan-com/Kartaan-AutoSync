@@ -99,7 +99,7 @@ jobs:
       # so a new kind of file is covered by default.
       - name: Every code commit carries the review tag
         run: |
-          NOT_CODE='(^|/)(README|LICENSE|CHANGELOG|NOTICE)(\.md)?$|^\.gitignore$|^\.gitattributes$|^review_pass\.json$|^review_pass\.template\.json$'
+          NOT_CODE='(^|/)(README|LICENSE|CHANGELOG|NOTICE)(\.md)?$|^\.gitignore$|^\.gitattributes$|^review_pass\.json$|^review_pass\.template\.json$|^release_records/[^/]+\.json$'
 
           # **WHERE THE RULE STARTS.** The commit that introduced the review
           # record. Everything before it carries code and no tag and COULD NOT
@@ -266,7 +266,7 @@ jobs:
             # `-m` expands a merge commit against each parent. Without it git
             # shows a combined diff that omits cleanly-merged files, so a merge
             # could present an empty file list and skip this check entirely.
-            FILES="$(git show -m --pretty=format: --name-only "$sha" | grep -v -E "$NOT_CODE" || true)"
+            FILES="$(git show -m --no-renames --pretty=format: --name-only "$sha" | grep -v -E "$NOT_CODE" || true)"
             [ -z "$FILES" ] && continue
             # ANCHORED TO A WHOLE LINE, and spelled exactly as .githooks/commit-msg
             # spells it. Grepped as a substring, a --no-verify commit whose message

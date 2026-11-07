@@ -277,7 +277,7 @@ def the_step_taken_out(name):
 # applying says which line went rather than failing somewhere unreadable.
 THE_WALKED_RANGE = 'RANGE="${RANGE:-$BASE..$HEAD}"'
 THE_FINAL_WORD = '[ "$MISSING" -eq 0 ] || exit 1'
-THE_MERGE_FLAG = "git show -m --pretty=format: --name-only"
+THE_MERGE_FLAG = "git show -m --no-renames --pretty=format: --name-only"
 NOTHING_TO_TAG = '[ -z "$FILES" ] && continue'
 THE_OLD_QUESTION = 'TAG_TEST="$TAG_BEFORE_THAT"'
 THE_STRICT_QUESTION = 'TAG_TEST="$TAG_ANCHORED"'

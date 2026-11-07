@@ -1170,7 +1170,89 @@ check(
 # tests it -- which is the whole of D170 arriving from the direction of a comment.
 # **A reading check kept for a reason is not a weakness; a note that hides one is.**
 
-EXPECTED = 125
+# ------------------------------------------- D1017: A SAVE OF PAPERWORK ONLY SKIPS THE SUITE
+#
+# **DRIVEN, NOT READ.** `main` is run with the register, the credential scan and the checks list
+# replaced by recorders, and a stand-in for the shared paperwork tool (same contract:
+# `--is-paperwork FILES` exits 0 only when every file is paperwork; given a folder it checks it).
+# The question is whether the suite STARTED -- `every_checks_file` is its first step.
+_control = Path(tempfile.mkdtemp())
+(_control / "tools").mkdir()
+(_control / "tools" / "paperwork_check.py").write_text(
+    "import sys\n"
+    "if sys.argv[1] == '--is-paperwork':\n"
+    "    sys.exit(0 if len(sys.argv) > 2 and all(f.startswith('release_records/') for f in sys.argv[2:]) else 1)\n"
+    "sys.exit(0)\n", encoding="utf-8")
+
+
+def _drive(staged, control):
+    """(did the suite start, what main answered) for that staged list."""
+    saved = {n: getattr(tool, n) for n in (
+        "staged_files", "the_lines_being_added", "the_register", "why_the_register_is_refused",
+        "every_commit_named", "why_a_named_commit_is_refused", "every_checks_file", "why_the_review_is_refused")}
+    old_env = os.environ.get("KARTAAN_CONTROL")
+    started = []
+    tool.staged_files = lambda: staged
+    tool.the_lines_being_added = lambda: []
+    tool.the_register = lambda: {}
+    tool.why_the_register_is_refused = lambda register: []
+    tool.every_commit_named = lambda: []
+    tool.why_a_named_commit_is_refused = lambda named: []
+    tool.why_the_review_is_refused = lambda record, code: []
+    tool.every_checks_file = lambda: started.append(1) or []
+    os.environ["KARTAAN_CONTROL"] = str(control)
+    answer = None
+    out = io.StringIO()
+    try:
+        real, sys.stdout = sys.stdout, out
+        try:
+            answer = tool.main()
+        finally:
+            sys.stdout = real
+    except tool.Refused as no:
+        answer = no
+    finally:
+        for n, v in saved.items():
+            setattr(tool, n, v)
+        if old_env is None:
+            os.environ.pop("KARTAAN_CONTROL", None)
+        else:
+            os.environ["KARTAAN_CONTROL"] = old_env
+    return bool(started), answer
+
+
+_s, _a = _drive(["release_records/review.json"], _control)
+check("A SAVE OF RELEASE RECORDS ONLY SKIPS THE SUITE AND PASSES", not _s and _a == 0)
+_s, _a = _drive(["release_records/review.json", "autosync/ledger.py"], _control)
+check("A CODE FILE STAGED BESIDE PAPERWORK STILL RUNS THE WHOLE SUITE", _s)
+_s, _a = _drive(["autosync/ledger.py"], _control)
+check("code alone runs the whole suite", _s)
+_s, _a = _drive(["release_records/review.json"], _control / "nowhere")
+check("NO PAPERWORK TOOL ON THIS MACHINE MEANS THE SUITE RUNS", _s)
+check("an empty staged list is not paperwork", tool.only_paperwork([]) is False)
+check("A RELEASE RECORD IS NOT CODE, so a records-only save is asked for no review record and no review tag (D1017)", tool.code_among(["release_records/review.json", "release_records/proving.json"]) == [] and tool.code_among(["release_records/review.json", "autosync/ledger.py"]) == ["autosync/ledger.py"])
+
+# A CODE FILE RENAMED INTO release_records/ MUST STILL SHOW AS CODE (security read, 7 Nov 2026):
+# with git's default rename detection only the new name is listed, which is paperwork.
+_repo = Path(tempfile.mkdtemp())
+subprocess.run(["git", "init", "-q"], cwd=_repo, check=True)
+(_repo / "autosync").mkdir()
+(_repo / "release_records").mkdir()
+(_repo / "autosync" / "ledger.py").write_text("print(1)\n" * 20, encoding="utf-8")
+subprocess.run(["git", "add", "-A"], cwd=_repo, check=True)
+subprocess.run(["git", "-c", "user.email=a@b", "-c", "user.name=t", "commit", "-q", "-m", "base"], cwd=_repo, check=True)
+subprocess.run(["git", "mv", "autosync/ledger.py", "release_records/ledger.json"], cwd=_repo, check=True)
+_real_root = tool.ROOT
+tool.ROOT = _repo
+try:
+    _listed = tool.staged_files()
+finally:
+    tool.ROOT = _real_root
+check("A CODE FILE RENAMED INTO release_records IS STILL LISTED BY ITS OLD NAME, so it counts as code",
+      "autosync/ledger.py" in _listed and tool.code_among(_listed) == ["autosync/ledger.py"])
+shutil.rmtree(_repo, ignore_errors=True)
+
+EXPECTED = 132
 if ran != EXPECTED:
     print(f"FAIL  checks went missing -- {ran} ran, {EXPECTED} expected")
     failures.append("count")

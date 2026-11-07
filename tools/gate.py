@@ -50,6 +50,7 @@ decision:**
 """
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -96,6 +97,7 @@ NOT_CODE = re.compile(
     r"(^|/)(README|LICENSE|CHANGELOG|NOTICE)(\.md)?$"
     r"|^\.gitignore$|^\.gitattributes$"
     r"|^review_pass\.json$|^review_pass\.template\.json$"
+    r"|^release_records/[^/]+\.json$"
 )
 
 THE_RECORD = "review_pass.json"
@@ -149,7 +151,7 @@ def staged_files():
     Filtered out, the one commit that takes a checks file away is the one commit
     this gate does not look at.
     """
-    said = _git("diff", "--cached", "--name-only", "-z")
+    said = _git("diff", "--cached", "--name-only", "--no-renames", "-z")
     return [one for one in said.split("\0") if one]
 
 
@@ -255,6 +257,33 @@ def why_the_register_is_refused(register):
 def code_among(staged):
     """The staged paths that count as code. See NOT_CODE."""
     return [one for one in staged if not NOT_CODE.search(one)]
+
+
+def the_paperwork_tool():
+    """The shared paperwork check in the Control folder, or None when it is not on this machine."""
+    where = Path(os.environ.get("KARTAAN_CONTROL", "D:/Control")) / "tools" / "paperwork_check.py"
+    return where if where.is_file() else None
+
+
+def only_paperwork(staged):
+    """His D1017 (7 Nov 2026): is EVERY staged file paperwork (release records, the work list)?
+
+    **THE SAFE DIRECTION IS ALWAYS "RUN THE WHOLE SUITE".** No tool, an empty list, one file the
+    tool does not call paperwork: False, and everything runs as before. What counts as paperwork
+    is decided in ONE place -- the tool's `--is-paperwork`.
+    """
+    tool = the_paperwork_tool()
+    if tool is None or not staged:
+        return False
+    return subprocess.run([sys.executable, str(tool), "--is-paperwork", *staged],
+                          cwd=ROOT, capture_output=True, text=True, check=False).returncode == 0
+
+
+def why_the_paperwork_is_refused():
+    """The paperwork check on this folder: what it said if it refused, else None."""
+    done = subprocess.run([sys.executable, str(the_paperwork_tool()), str(ROOT)],
+                          capture_output=True, text=True, check=False)
+    return None if done.returncode == 0 else (done.stdout + done.stderr).strip()
 
 
 def the_review_record():
@@ -544,6 +573,19 @@ def main():
             "  name goes on looking perfectly correct. Repoint each line above at the\n"
             "  commit that replaced it -- same tree, same message, new id."
         )
+
+    # **D1017: A SAVE OF PAPERWORK ONLY SKIPS THE SUITE.** The same code already passed the whole
+    # suite when it was saved. Every staged file must be paperwork; one code file beside it and
+    # everything below runs. The credential scan, the register and the named-commit sweep above
+    # have already run; the paperwork check REFUSES here, naming the missing field. The review
+    # record is not asked for: the release records are themselves what a review leaves behind.
+    if only_paperwork(staged):
+        wrong = why_the_paperwork_is_refused()
+        if wrong:
+            raise Refused("the paperwork check found something (D1017):\n\n" + wrong)
+        print("  gate: only paperwork is being saved and the paperwork check passed; "
+              "the full suite is skipped because the same code already passed it.")
+        return 0
 
     # **ONLY WHEN CODE IS BEING COMMITTED.** A commit that changes nothing but the
     # README does not need somebody to have read a diff of it -- and demanding one
