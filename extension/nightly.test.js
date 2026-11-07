@@ -2646,7 +2646,40 @@ check('report table: null night gives null', theReportTable(null, () => '') === 
   check('R208: a sign-in wall in a morning run for today keeps the ids, not as past-day ones', wall.ids.join() === 'fk_claims,fk_views' && wall.past.length === 0);
 }
 
-const EXPECTED = 181 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3 + 1 + 4 + 3 + 2 + 2 + 2 + 1 + 8 + 3 + 13 + 2 + 6 + 3 + 1 + 3;
+{
+  /* Proving round 7: "for a past day" is read against the time the failure happened, not the time the check runs. */
+  const at = Date.UTC(2026, 10, 7, 6, 30);
+  const today = theDay(at);
+  const yesterday = theDay(at - 24 * 60 * 60 * 1000);
+  const pastOne = installFakeChrome().chrome;
+  await startTheNight(pastOne, { doing: ['fk_claims'], at, openAt: 'https://x/', dataDate: yesterday, run: 'morning' });
+  await thatOneIsDone(pastOne, { reportId: 'fk_claims', state: 'failed', say: 'x', dataDate: yesterday, at });
+  const past = (await pastOne.storage.local.get(THE_FAILED_IN_THE_MORNING))[THE_FAILED_IN_THE_MORNING];
+  const todayOne = installFakeChrome().chrome;
+  await startTheNight(todayOne, { doing: ['fk_claims'], at, openAt: 'https://x/', dataDate: today, run: 'morning' });
+  await thatOneIsDone(todayOne, { reportId: 'fk_claims', state: 'failed', say: 'x', dataDate: today, at });
+  const notPast = (await todayOne.storage.local.get(THE_FAILED_IN_THE_MORNING))[THE_FAILED_IN_THE_MORNING];
+  check('R208: a morning failure for the day before the failure is a past-day one; one for the same day is not',
+    past.past.join() === 'fk_claims' && notPast.past.length === 0 && past.day === today);
+  const wallPast = installFakeChrome().chrome;
+  const walkA = aWalkThat();
+  await startTheNight(wallPast, { doing: ['fk_claims', 'fk_views'], at, openAt: 'https://x/', dataDate: yesterday, run: 'morning' });
+  await carryTheNightOn(wallPast, { ...walkA, at });
+  walkA.itFinished({ state: 'failed', reportId: 'fk_claims', needsSigningIn: true, say: 'sign in', dataDate: yesterday });
+  await carryTheNightOn(wallPast, { ...walkA, at });
+  const wallToday = installFakeChrome().chrome;
+  const walkB = aWalkThat();
+  await startTheNight(wallToday, { doing: ['fk_claims', 'fk_views'], at, openAt: 'https://x/', dataDate: today, run: 'morning' });
+  await carryTheNightOn(wallToday, { ...walkB, at });
+  walkB.itFinished({ state: 'failed', reportId: 'fk_claims', needsSigningIn: true, say: 'sign in', dataDate: today });
+  await carryTheNightOn(wallToday, { ...walkB, at });
+  const a = (await wallPast.storage.local.get(THE_FAILED_IN_THE_MORNING))[THE_FAILED_IN_THE_MORNING];
+  const z = (await wallToday.storage.local.get(THE_FAILED_IN_THE_MORNING))[THE_FAILED_IN_THE_MORNING];
+  check('R208: a sign-in wall in a run for the day before marks what it kept as past-day; for the same day it does not',
+    a.past.join() === 'fk_claims,fk_views' && z.past.length === 0);
+}
+
+const EXPECTED = 181 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3 + 1 + 4 + 3 + 2 + 2 + 2 + 1 + 8 + 3 + 13 + 2 + 6 + 3 + 1 + 3 + 2;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;
