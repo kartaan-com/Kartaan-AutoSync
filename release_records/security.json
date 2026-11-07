@@ -1,13 +1,21 @@
 {
   "record": "security",
-  "commit": "ef10fc3",
-  "run_at": "6 Nov 2026 (AS9b).",
-  "tool": "Fresh read-only security sub-agent (Sonnet) on git diff 9fd3673..712a7b9; the later commits (ad63f26, 57f714b, bb33d27) read for the same lens by AS9b and the Bridge review sub-agent.",
-  "invoked_as": "Agent, by AS9b.",
-  "ran_by": "A sub-agent that wrote none of the code; AS9b for the follow-up commits.",
-  "scope": "v0.1.41 (9fd3673) to ef10fc3.",
+  "commit": "902d704",
+  "run_at": "7 Nov 2026 (AS11).",
+  "tool": "The same independent sub-agent, security lens (message surface, input validation, permissions, data read), on the diff 31e44ed..025c1d3; later commits are test files, one removed line and the proving list.",
+  "invoked_as": "Agent (general-purpose), by AS11.",
+  "ran_by": "A sub-agent that wrote none of the code.",
+  "scope": "v0.1.42 (31e44ed) to 902d704.",
   "found": [
-    {"severity": "PASS", "finding": "No secret, token or credential URL; manifest.json untouched (no new permission or host); no new fetch, eval, new Function or innerHTML with page data; no file written outside the seller's Drive folders; the one new pattern on platform text is anchored and fixed-length; Date.parse on a platform time string only feeds a string compare.", "fixed": true},
-    {"severity": "PASS", "finding": "SEC2 AutoSync rows (worker-handovers/SEC2-FIXES-BY-PRODUCT.md): none touched by this diff; 33/30/06/10/47/48/08 stay with the later security round R231, 13 needs his answer.", "fixed": true}
+    {
+      "severity": "PASS",
+      "finding": "The new panel ask save-the-report-times passes only through answerThePanel (own extension id, top frame, exact panel page); the report id is checked against the timed list and day and run against fixed words; stored values are re-filtered on read. manifest.json untouched: no new permission, host, network call, secret or data read.",
+      "fixed": true
+    },
+    {
+      "severity": "PASS",
+      "finding": "SEC2 AutoSync rows: none touched; this round adds no page, no data read, no secret.",
+      "fixed": true
+    }
   ]
 }

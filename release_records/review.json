@@ -1,24 +1,53 @@
 {
   "record": "review",
-  "commit": "ef10fc3",
-  "run_at": "6 Nov 2026 (AS9b).",
-  "tool": "Round 1 (AS9): fresh Opus review of 1b (2 MED fixed in bb20eda/cb7695c). Round 2 (AS9b): AS9b read AS9's uncommitted rounds 3/4/1c as a second pair of eyes (1 fault fixed in 712a7b9). Round 3: fresh read-only review sub-agent (Opus) on the whole diff 9fd3673..712a7b9. Round 4: fresh read-only review sub-agent (Sonnet) on the Bridge change bb33d27.",
-  "invoked_as": "Agent, by AS9 and AS9b.",
-  "ran_by": "Sub-agents that wrote none of the code, and AS9b on AS9's code.",
-  "scope": "v0.1.41 (9fd3673) to ef10fc3: R239 Amazon listings collect day; 1b/1c Meesho ads per day and past day (walk, night, Bridge); R240 Meesho quality two tabs and pricing catalogue by title; R238 Flipkart keyword ads back on with a reader.",
+  "commit": "902d704",
+  "run_at": "7 Nov 2026 (AS11).",
+  "tool": "Fresh independent general-purpose sub-agent reading the whole program diff 31e44ed..025c1d3 (R208), plus AS11's own read of the later test-only and one-line-removal commits; commit gate review_pass.json on every commit.",
+  "invoked_as": "Agent (general-purpose), by AS11, before the first commit.",
+  "ran_by": "A sub-agent that wrote none of the code; AS11 (Sonnet 5.5) for the later test-only commits.",
+  "scope": "v0.1.42 (31e44ed) to 902d704: returns at 6 pm for today, a day and a run for each report, morning failures retried at 4 pm, panel rows, log lines naming /finished or /tell.",
   "found": [
-    {"severity": "MED", "finding": "Meesho quality: a second line for a product on the same tab was dropped without a word (repeat of a SOLVED_PROBLEMS lesson).", "fixed": true},
-    {"severity": "MED", "finding": "Meesho ads ranOn cut a UTC time stamp to its UTC day; now India's day.", "fixed": true},
-    {"severity": "LOW", "finding": "Meesho pricing: a blank title matched a listing with a blank name.", "fixed": true},
-    {"severity": "LOW", "finding": "A past me_ads day whose sweep gave only the lifetime master would throw on landed[0]; guarded (the sweep today always returns a summary with it).", "fixed": true},
-    {"severity": "LOW", "finding": "Stale words: docs and screen.js comments still said Flipkart keyword ads were discontinued / 'the switched-off pair'.", "fixed": true},
-    {"severity": "LOW", "finding": "The Bridge refused a past Meesho ads day although the walk handles one; fixed from one shared list, me_ads keeping cannot_backfill so the night never chases old days.", "fixed": true},
-    {"severity": "LOW", "finding": "Kept: the walk (run day minus 1) and the night (latestDay) use two rules for 'past day'; a run crossing midnight can drop one lifetime snapshot.", "fixed": false, "why": "One snapshot of a lifetime total, re-taken the next night; unifying the two rules touches the night's day logic and belongs to its own round."},
-    {"severity": "LOW", "finding": "Kept: az_listings asks made by the old build hold the data day, so one pending ask across the upgrade fails its three rechecks once.", "fixed": false, "why": "Happens once, across the upgrade only; the next day's ask is right."},
-    {"severity": "LOW", "finding": "Kept: the Bridge asking the same past me_ads day twice walks it twice (whyAlreadyLanded needs canGoBack).", "fixed": false, "why": "Wasted work only, no wrong data; a repeat may be deliberate."}
+    {
+      "severity": "MED",
+      "finding": "todayIsAllowed was computed after helper reports were added, so a report set to today that reads another report's list silently fetched yesterday.",
+      "fixed": true
+    },
+    {
+      "severity": "LOW",
+      "finding": "The morning-failures list was cleared before the 4 pm run knew it could start.",
+      "fixed": true
+    },
+    {
+      "severity": "LOW",
+      "finding": "Dead code of AS11's own: parts.doing = doing written twice in buildThePanel; and a bare return after the 6 pm alarm that changed nothing (proving).",
+      "fixed": true
+    },
+    {
+      "severity": "LOW",
+      "finding": "Kept: failures of a resumed run, of the hourly re-check, and of platforms queued behind a morning sign-in wall are not all retried at 4 pm.",
+      "fixed": false,
+      "why": "The ruling covers the morning run's own failures; the sign-in wall list does carry the stopped platform's rest."
+    },
+    {
+      "severity": "LOW",
+      "finding": "Kept: returns failing for any reason are rechecked hourly three times and then worded as not ready (as Meesho returns already was).",
+      "fixed": false,
+      "why": "His D1007 asks for hourly retries; the wording is the existing one."
+    },
+    {
+      "severity": "LOW",
+      "finding": "Kept: Run now with returns ticked together with a yesterday report fetches one day for the whole run.",
+      "fixed": false,
+      "why": "One run has one day; the timed runs split by day."
+    },
+    {
+      "severity": "LOW",
+      "finding": "Kept: a 6 pm file is the day so far; returns raised after 18:00 are not fetched again that day.",
+      "fixed": false,
+      "why": "His own ruling (D968): the 6 pm file is the whole day, no re-fetch."
+    }
   ],
   "known_gaps": [
-    "Meesho pricing short pages (R240 fetch side) taken out as its own round AS9P by Control (6 Nov): his console output shows the page draws 25 of 25 and the reader keeps every row; cause still unknown. Files keep landing marked INCOMPLETE.",
-    "Round 5 (R241) read-only: Meesho per-day campaign figures done; Flipkart and Amazon ad files not yet written up."
+    "Whether Flipkart's and Amazon's returns pages give today: needs a real try on the HP after release (Meesho returns has no date)."
   ]
 }

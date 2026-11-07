@@ -1,13 +1,13 @@
 {
   "record": "proving",
-  "commit": "ef10fc3",
-  "run_at": "6 Nov 2026 (AS9b).",
-  "tool": "GitHub Proving workflow (tools/proving.py, 8 parts), run 42217555656 on ef10fc3 against 9fd3673 (v0.1.41).",
-  "invoked_as": "gh workflow run proving.yml --ref as9-next -f prove=<ef10fc3 full id> -f against=<9fd3673 full id> -f parts=8",
-  "ran_by": "AS9b (Opus 5.5, worker for Kartaan Control).",
-  "scope": "Every changed line between v0.1.41 (9fd3673) and ef10fc3.",
+  "commit": "902d704",
+  "run_at": "7 Nov 2026 (AS11).",
+  "tool": "GitHub Proving workflow (tools/proving.py, 8 parts), run 42359057531 on 902d704 against 31e44ed (v0.1.42), green.",
+  "invoked_as": "gh workflow run proving.yml --ref as11 -f prove=902d7046b07c29406ad352cb16c37d2abaadbb1d -f against=31e44ed38bfb0e279ac7fd0d7e688158fb36d8aa -f parts=8",
+  "ran_by": "AS11 (Sonnet 5.5, worker for Kartaan Control).",
+  "scope": "Every changed line between v0.1.42 (31e44ed) and 902d704.",
   "found": [
-    "87 changes tried, 63 run, 57 caught by a check, 6 crashed, 24 would not parse, 0 survived, 0 accepted. Earlier runs: 42204092184 on 712a7b9 (4 survivors: ads.py fk_ads_kw column map x3, walk.js past-day words) answered by 57f714b; 42215510733 on bb33d27 (1 survivor: ads.js:48) answered by ef10fc3. AS9's own earlier local runs on cb7695c: 0 survived."
+    "Final run 0 survived, 0 findings. Earlier runs answered by more checks or by deleting dead code: 42346938645 on 025c1d3 (50 findings), 42349099716 on 5b65253 (12), 42353747652 on dc5635b (7), 42356335673 on 391b556 (4), 42357388284 on 297812a (0 survived, 2 crashes: deleting RETURNS or THE_RETURNS_AT stops background.test.js loading; listed in tools/proven_survivors.json cannot_load)."
   ],
   "survivors": [],
   "after_this_record": "This commit adds release records only; no line the prover tries changes."
