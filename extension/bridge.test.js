@@ -184,6 +184,37 @@ const refuses = async (name, args, words, setup = null) => {
   await refuses('Meesho without the seller\'s panel name', { reportIds: ['me_orders'], from: '2026-05-01', to: '2026-05-31' }, /panel/i, async (r) => { r.state.panel = ''; });
 }
 
+/* ------------------------------------------- R208 run 2 (0.1.44): TODAY, when every report asked for is set to today */
+{
+  const TODAY = '2026-10-31'; // NOW is 31 Oct 2026, 10:00
+  const RETURNS = ['fk_returns', 'me_returns', 'az_returns'];
+  const SETUP = 'kartaan-autosync-setup';
+  const askToday = async (reportIds, setup) => {
+    const r = rig();
+    await r.chrome.storage.local.set({ [AI_SWITCH]: true });
+    if (setup) await r.chrome.storage.local.set({ [SETUP]: setup });
+    const said = await call(r, 'autosync_run', { reportIds, from: TODAY, to: TODAY });
+    return { r, said };
+  };
+  const all = await askToday(RETURNS);
+  check('a Bridge ask for today\'s returns (all three, nothing saved, so returns default to today) is kept, not refused as "not over yet"',
+    all.said.ok !== false && !!all.said.result && (await asksOf(all.r)).length === 1);
+  const one = await askToday(['me_returns']);
+  check('Meesho returns for today alone is kept (it exports what is there now: not refused as "only for yesterday")', one.said.ok !== false && (await asksOf(one.r)).length === 1);
+  const started = await askToday(RETURNS);
+  await processTheAsks(started.r.chrome, started.r.parts);
+  check('and the kept ask is started: the check made again at the moment of starting lets today through too', started.r.state.runNow.length === 1 && started.r.state.runNow[0].from === TODAY);
+  const mixed = await askToday(['fk_returns', 'fk_orders']);
+  check('today with one report that is for yesterday among them is still refused', mixed.said.ok === false && /not over yet/.test(mixed.said.error));
+  const chosen = await askToday(RETURNS, { days: { fk_returns: 'yesterday' } });
+  check('a returns report the seller set to yesterday is not asked for today', chosen.said.ok === false && /not over yet/.test(chosen.said.error));
+  const seller = await askToday(['fk_orders'], { days: { fk_orders: 'today' } });
+  check('a report the seller chose "today" for may be asked for today', seller.said.ok !== false && (await asksOf(seller.r)).length === 1);
+  const later = await askToday(['fk_returns']);
+  const future = await call(later.r, 'autosync_run', { reportIds: ['fk_returns'], from: '2026-11-01', to: '2026-11-01' });
+  check('tomorrow is still refused, whatever the settings', future.ok === false && /not over yet/.test(future.error));
+}
+
 {
   check('a report that CAN go back is fine for a past stretch (Flipkart orders, 1-31 May)', whyThisAskIsRefused(BOOK, FK, { now: NOW, panel: 'p', leftToday: 20, spentByOthers: 0, waitingCount: 0 }) === '');
   check('AS9 1c: Meesho ads may be asked for a past stretch (its by-day files are real for a past day; the walk leaves out the lifetime master)',

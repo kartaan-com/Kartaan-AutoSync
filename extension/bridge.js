@@ -27,7 +27,7 @@
 import { IDLE_SECONDS } from './idle.js';
 import {
   THE_QUEUE, theTickableReports, thePlatformOf, whyItCannotBeStarted, withTheListsTheyRead, whyThatRangeCannotBeFetched,
-  theDayToFetch, theDaysBetween, CALLED,
+  theDayToFetch, theDaysBetween, theSetup, theDayOf, CALLED,
 } from './screen.js';
 import {
   theNight, theDay, LAST_LANDED, SPENDS_THE_ALLOWANCE, A_DAYS_ALLOWANCE, KEPT_FOR_HIS_OWN_RUNS, WALKED_FOR_A_PAST_DAY_ALL_THE_SAME,
@@ -151,7 +151,7 @@ export function slimAsk(book, ask) {
  * Why an ask must be refused before it is kept, or '' when it may wait. **EVERY REFUSAL SAYS WHAT TO DO INSTEAD**, because the reader is an AI
  * that will tell the seller.
  */
-export function whyThisAskIsRefused(book, { reportIds, from, to }, { now, panel, leftToday, spentByOthers, waitingCount }) {
+export function whyThisAskIsRefused(book, { reportIds, from, to }, { now, panel, leftToday, spentByOthers, waitingCount, todayIsAllowed = false }) {
   const ids = reportIds;
   if (new Set(ids).size !== ids.length) return 'A report is named twice. Name each report once.';
   const tickable = theTickableReports(book);
@@ -163,13 +163,13 @@ export function whyThisAskIsRefused(book, { reportIds, from, to }, { now, panel,
   if (unknown.length) {
     return `${unknown.join(', ')} ${unknown.length > 1 ? 'are not reports' : 'is not a report'} AutoSync can fetch. It can fetch: ${tickable.join(', ')}.`;
   }
-  const rangeWrong = whyThatRangeCannotBeFetched(from, to, now);
+  const rangeWrong = whyThatRangeCannotBeFetched(from, to, now, todayIsAllowed);
   if (rangeWrong) return rangeWrong;
   const latest = theDayToFetch(now);
   const days = theDaysBetween(from, to);
   const onlyNow = ids.filter((id) => {
     const one = (book.reports || []).find((r) => r.id === id) || {};
-    return one.cannotBeAskedForAgain !== null && one.cannotBeAskedForAgain !== undefined && days.some((d) => d !== latest)
+    return one.cannotBeAskedForAgain !== null && one.cannotBeAskedForAgain !== undefined && days.some((d) => d < latest)
       && !WALKED_FOR_A_PAST_DAY_ALL_THE_SAME.includes(id);
   });
   if (onlyNow.length) {
@@ -239,6 +239,15 @@ async function status(chrome, parts) {
   };
 }
 
+/**
+ * **R208 (D1005): TODAY IS NEVER A HARD BLOCK.** Today may be asked for when every report asked for is set to "today" on the panel -- the same test the Run now
+ * door makes (`startASyncInTurn`), so the AI door cannot refuse what the door behind it would accept.
+ */
+async function todayIsAllowedFor(chrome, reportIds) {
+  const setUp = await theSetup(chrome);
+  return reportIds.length > 0 && reportIds.every((id) => theDayOf(setUp, id) === 'today');
+}
+
 /** The reports and days already promised to waiting asks, as a count of Flipkart requests. */
 const promised = (asks) => asks.filter((a) => a.state === 'waiting')
   .reduce((all, a) => all + a.reportIds.filter((id) => SPENDS_THE_ALLOWANCE.includes(id)).length, 0);
@@ -252,7 +261,7 @@ async function run(chrome, parts, args) {
   const asks = await refreshTheAsks(chrome, parts);
   const why = whyThisAskIsRefused(book, { reportIds, from, to }, {
     now, panel: stands.setUp.panel, leftToday: stands.flipkart.leftToday, spentByOthers: promised(asks),
-    waitingCount: asks.filter((a) => a.state === 'waiting').length,
+    waitingCount: asks.filter((a) => a.state === 'waiting').length, todayIsAllowed: await todayIsAllowedFor(chrome, reportIds),
   });
   if (why) return { ok: false, error: `Not asked: ${why}` };
   if (!stands.setUp.driveConnectedAt) return { ok: false, error: 'Not asked: the seller\'s Google Drive is not connected in AutoSync yet, so nothing fetched would have anywhere to go. Ask the seller to connect it.' };
@@ -391,7 +400,7 @@ async function prepareInner(chrome, parts) {
   const book = await parts.theBook();
   const stands = (await parts.panelAnswer({ do: 'how-it-stands' })).stands;
   const now = (parts.now || Date.now)();
-  const why = whyThisAskIsRefused(book, next, { now, panel: stands.setUp.panel, leftToday: stands.flipkart.leftToday, spentByOthers: 0, waitingCount: 0 })
+  const why = whyThisAskIsRefused(book, next, { now, panel: stands.setUp.panel, leftToday: stands.flipkart.leftToday, spentByOthers: 0, waitingCount: 0, todayIsAllowed: await todayIsAllowedFor(chrome, next.reportIds) })
     || (stands.setUp.driveConnectedAt ? '' : 'the seller\'s Google Drive is not connected');
   if (why) {
     next.state = 'refused';
