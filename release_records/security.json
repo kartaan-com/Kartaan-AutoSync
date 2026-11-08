@@ -1,17 +1,15 @@
 {
  "record": "security",
- "commit": "4de4f4b6796fdb8110b0f0e09e0fcc30d097653c",
- "run_at": "8 Nov 2026 (R250 run 3).",
+ "commit": "8ddd642a908bc36d9ff183e4c652d0078d8a1240",
+ "run_at": "8 Nov 2026 (R253 run 1).",
  "tool": "Security lens of the same independent Opus sub-agent review (read-only).",
- "invoked_as": "Agent (general-purpose, model opus), by R250 run 3; asked about new permissions, secrets, eval or remote code, text put on screen, the password box, new data reads, and whether the AI door could change times or fetch more.",
+ "invoked_as": "Agent (general-purpose, model opus), by R253 run 1; asked about new permissions, secrets, eval or remote code, text put on screen, and what is stored.",
  "ran_by": "A sub-agent that wrote none of the code.",
- "scope": "v0.1.44 (5f33ecb) to 4de4f4b. SEC1 items touched: no new permission (47), no eval or remote code (49), AI asks stay data and the Bridge tools are unchanged (51, 52, 55), panel-only asks accepted only from the extension's own panel page.",
+ "scope": "v0.1.45 (b671961) to 8ddd642. SEC1 items touched: no new permission (47), no eval or remote code (49), nothing new stored beyond report ids, a day and true/false flags, and the run name a report first failed in.",
  "found": [
-  "No security finding. manifest.json changes only the version (0.1.44 to 0.1.45): no new permission, host or key.",
-  "No eval, Function, innerHTML or insertAdjacentHTML added; every new text is set as text. Platform, report and folder names in the needs-you box and the schedule are text only.",
-  "The Kartaan password box keeps type=password and autocomplete=off and is never shown back.",
-  "No new outside call. The only new address is the static docs.kartaan.com link in How this works (a plain link; it is only a dead link if the site is not up).",
-  "set-a-run-time and save-the-report-times are panel-only asks; BRIDGE_TOOLS and the relay asks are unchanged, so the AI cannot change run times or fetch more. The light/dark choice is kept in the panel page's own storage and holds nothing sensitive.",
+  "No security finding. manifest.json changes only the version (0.1.45 to 0.1.46): no new permission, host or key.",
+  "No eval, new Function or innerHTML; the new panel words go through the existing text path.",
+  "What is saved is report ids, a day, the run name and flags; nothing outside the extension reads it.",
   "Not run: dependency audit (not part of this round)."
  ]
 }

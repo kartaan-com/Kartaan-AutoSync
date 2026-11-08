@@ -1,47 +1,16 @@
 {
  "record": "review",
- "commit": "4de4f4b6796fdb8110b0f0e09e0fcc30d097653c",
- "run_at": "8 Nov 2026 (R250 run 3).",
- "tool": "One fresh independent Opus sub-agent, read-only, on the whole uncommitted diff (12 files) before the first commit c97f8f3; the commit gate review_pass.json on each of the five code and test commits.",
- "invoked_as": "Agent (general-purpose, model opus), by R250 run 3; given the diff against 5f33ecb, the approved drawing link, the rulings D968, D1033-D1036 and the list of run-path files.",
- "ran_by": "A sub-agent that wrote none of the code; R250 run 3 (Sonnet 5.5) for the later test-only commits.",
- "scope": "v0.1.44 (5f33ecb) to 4de4f4b: the panel on the approved drawing, own-time runs, the hourly retry as the only retry (the old 4 pm retry removed), the evening time as a setting.",
+ "commit": "8ddd642a908bc36d9ff183e4c652d0078d8a1240",
+ "run_at": "8 Nov 2026 (R253 run 1).",
+ "tool": "One fresh independent Opus sub-agent, read-only, on the whole diff against b671961 (v0.1.45) before the commit; the commit gate review_pass.json.",
+ "invoked_as": "Agent (general-purpose, model opus), by R253 run 1; given the diff, the 0.1.44 commit 5f33ecb to compare with, and the job (the 4 pm pickup restored, fitted to the hourly retry, never past the Flipkart 20).",
+ "ran_by": "A sub-agent that wrote none of the code.",
+ "scope": "v0.1.45 (b671961) to 8ddd642: the failed-in-the-morning list restored (nightly.js, screen.js), the Evening-run words, the version 0.1.46.",
  "found": [
-  {
-   "severity": "HIGH",
-   "finding": "panel.js dropped the time box value, so Own time could never be saved (the extension answered 'No time was chosen').",
-   "fixed": true
-  },
-  {
-   "severity": "MED",
-   "finding": "Set-up messages (panel name saved, refusals, Drive errors) were hidden before set-up because the panel hides everything but Settings.",
-   "fixed": true
-  },
-  {
-   "severity": "MED",
-   "finding": "An Evening or Morning time can still be set to the same time as an own-time run (both fire together; the second joins the first one's queue, nothing breaks). Left: the rule 'two runs may not share a time' is enforced between morning and evening, and for a new own time against both, not for the other direction.",
-   "fixed": false
-  },
-  {
-   "severity": "MED",
-   "finding": "Two kinds of failure get no hourly retry: Flipkart reports that spend one of the 20 requests and failed before their ask was placed (kept, so the 20 are never exceeded), and reports stopped by a sign-in wall (they wait for Resume or the next morning; the old 4 pm list that used to carry them is the thing removed on his word, D1036). Written for Control to confirm.",
-   "fixed": false
-  },
-  {
-   "severity": "LOW",
-   "finding": "The old 0.1.44 returns alarm is never cleared and does nothing; a 0.1.44 non-returns report saved on the 6 pm run falls back to morning/evening. No conversion step.",
-   "fixed": false
-  },
-  {
-   "severity": "none",
-   "finding": "No finding on the removed 4 pm retry: no code or storage key of the failed-in-the-morning list is left; the morning today-to-yesterday fallback is unchanged and tested. Alarms are recreated after a Chrome restart; own alarms are cleared when unused; the retry stops at 3 tries and is held to the Flipkart 20; own runs wait for 3 minutes idle.",
-   "fixed": true
-  },
-  {
-   "severity": "found by writing a check",
-   "finding": "On the first drawing every platform's greyed 'cannot be fetched' rows showed (the hiding step ran before the rows were built). Fixed in 0f8d95a.",
-   "fixed": true
-  }
- ],
- "drawing_rows_not_built": ["D948 'time has passed' pop-up (no code exists; adding it is run-path code, outside his scope word of 8 Nov)", "'By API' label (needs a new data read)"]
+  {"severity": "HIGH", "finding": "A morning report still failed after the three hourly tries was never kept for 4 pm: the last hourly re-check runs with no run name, so the keep line (which needed the morning run) never fired. The test that passed had preset 'tries 3' by hand. Fixed: the retry record carries the run the report first failed in and the keep line reads it; the tests now walk the real road (morning failure, then three unnamed hourly re-check runs) and fail without the fix.", "fixed": true},
+  {"severity": "MED", "finding": "A report kept after a morning sign-in wall that then fails again after Resume can be on both the hourly list and the 4 pm list and be fetched twice; the Flipkart 20 still holds (also true in 0.1.44). Left.", "fixed": false},
+  {"severity": "LOW", "finding": "Only 'landed' takes a report off the 4 pm list; a later 'nothing to fetch' leaves it there for one harmless extra walk. Left.", "fixed": false},
+  {"severity": "none", "finding": "The restored lines are word for word the 0.1.44 ones; the 4 pm run goes through the same start as every run (capped at what is left of the day's 20); landed reports come off the list; a stale day and unknown ids are not taken; own-time runs do not touch the list.", "fixed": true},
+  {"severity": "answer to R254", "finding": "A Flipkart orders or payments report that failed before its ask was placed is not retried hourly and, in a morning run, is kept by this list for the 4 pm run (shown by a trial).", "fixed": true}
+ ]
 }
