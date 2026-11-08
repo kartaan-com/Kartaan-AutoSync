@@ -16,7 +16,7 @@
 import { readFileSync } from 'node:fs';
 import { installFakeChrome } from '../test/fake-chrome.js';
 import {
-  RECHECKS, theDay,
+  THE_FAILED_IN_THE_MORNING, RECHECKS, theDay,
   SPENDS_THE_ALLOWANCE,
   ONLY_ITS_NEWEST_DAY,
   whyOnlyItsNewestDay,
@@ -2555,6 +2555,18 @@ check('report table: null night gives null', theReportTable(null, () => '') === 
     walkOrders.started.length === 0 && (await theNight(orders.chrome)).done.some((one) => one.reportId === 'az_orders' && String(one.say).includes('nightly pipeline')));
 }
 
+/* **R253: THE REAL ROAD TO "STILL FAILED AFTER THE THREE HOURLY TRIES".** The first failure is in the run named `run`; the three hourly re-checks are runs with NO name (as the real re-check starts them). Leaves a re-check night going, for the final failure. */
+async function toTheLastTry(c, run, id, day, at) {
+  const fail = () => thatOneIsDone(c, { reportId: id, state: 'failed', say: 'x', dataDate: day, at });
+  await startTheNight(c, { doing: [id], at, openAt: 'https://x/', dataDate: day, run });
+  await fail();
+  for (let n = 0; n < 2; n += 1) {
+    await startTheNight(c, { doing: [id], at, openAt: 'https://x/', dataDate: day });
+    await fail();
+  }
+  await startTheNight(c, { doing: [id], at, openAt: 'https://x/', dataDate: day });
+}
+
 {
   /* **R250 (D1036): THE OLD 4 PM RETRY OF FAILED MORNING REPORTS IS GONE; THE HOURLY RETRY (3 TRIES) IS THE ONLY RETRY.** */
   const at = Date.UTC(2026, 10, 7, 2, 30);
@@ -2564,11 +2576,12 @@ check('report table: null night gives null', theReportTable(null, () => '') === 
   check('R250 (D1035): a plain failure of the morning run is tried again in an hour (1 of 3)',
     first.done.at(-1).say.includes('checked again in an hour (1 of 3)')
     && (await m.storage.local.get(RECHECKS))[RECHECKS]['fk_claims|2026-11-06'].tries === 1);
-  await m.storage.local.set({ [RECHECKS]: { 'fk_claims|2026-11-06': { reportId: 'fk_claims', dataDate: '2026-11-06', tries: 3 } } });
-  const last = await thatOneIsDone(m, { reportId: 'fk_claims', state: 'failed', say: 'The page showed the login.', dataDate: '2026-11-06', at });
-  check('R250 (D1036): after the third hourly try the failure stays a failure and nothing is kept for a 4 pm retry',
+  const m2 = installFakeChrome().chrome;
+  await toTheLastTry(m2, 'morning', 'fk_claims', '2026-11-06', at);
+  const last = await thatOneIsDone(m2, { reportId: 'fk_claims', state: 'failed', say: 'The page showed the login.', dataDate: '2026-11-06', at });
+  check('R253: after the third hourly try the failure stays a failure and is kept for the 4 pm run',
     last.done.at(-1).say.includes('tried again 3 times, an hour apart')
-    && (await m.storage.local.get('kartaan-autosync-failed-in-the-morning'))['kartaan-autosync-failed-in-the-morning'] === undefined);
+    && (await m2.storage.local.get('kartaan-autosync-failed-in-the-morning'))['kartaan-autosync-failed-in-the-morning'].ids.join() === 'fk_claims');
   const e = installFakeChrome().chrome;
   await startTheNight(e, { doing: ['fk_orders'], at, openAt: 'https://x/', dataDate: '2026-11-06', run: 'evening' });
   await thatOneIsDone(e, { reportId: 'fk_orders', state: 'failed', say: 'x', dataDate: '2026-11-06', at });
@@ -2596,7 +2609,64 @@ check('report table: null night gives null', theReportTable(null, () => '') === 
     said.includes('failed on all 3 hourly checks') && said.includes('fetched again on the next sync') && !said.includes('not ready today'));
 }
 
-const EXPECTED = 181 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3 + 1 + 4 + 3 + 2 + 2 + 2 + 1 + 8 + 3 + 13 + 2 + 6 + 3 + 1 + 3 + 2 - 9;
+{
+  /* **R253 (his D1039): THE 4 PM PICKUP IS BACK -- a morning report still failed after the three hourly tries, or never tried (a sign-in wall), is kept for the Evening run.** */
+  const kept = async (c) => (await c.storage.local.get(THE_FAILED_IN_THE_MORNING))[THE_FAILED_IN_THE_MORNING] || { ids: [], past: [] };
+  const at = Date.UTC(2026, 10, 7, 2, 30);
+  const m = installFakeChrome().chrome;
+  await startTheNight(m, { doing: ['fk_claims', 'fk_listings'], at, openAt: 'https://x/', dataDate: '2026-11-06', run: 'morning' });
+  await thatOneIsDone(m, { reportId: 'fk_claims', state: 'failed', say: 'x', dataDate: '2026-11-06', at });
+  check('R253: the first failure goes to the hourly retry and is not yet kept for 4 pm', (await kept(m)).ids.length === 0);
+  await toTheLastTry(m, 'morning', 'fk_claims', '2026-11-06', at);
+  await thatOneIsDone(m, { reportId: 'fk_claims', state: 'failed', say: 'x', dataDate: '2026-11-06', at });
+  const held = await kept(m);
+  check('R253: still failed after the three hourly tries, it is kept for the 4 pm run, as a report for the day before', held.ids.join() === 'fk_claims' && held.past.join() === 'fk_claims' && held.day === theDay(at));
+  await thatOneIsDone(m, { reportId: 'fk_listings', state: 'landed', dataDate: '2026-11-06', at });
+  check('R253: a report that landed is not on the list', (await kept(m)).ids.join() === 'fk_claims');
+  await thatOneIsDone(m, { reportId: 'fk_claims', state: 'landed', dataDate: '2026-11-06', at });
+  check('R253: one that lands later (an hourly check, a hand run) is taken off it', (await kept(m)).ids.length === 0);
+
+  const e = installFakeChrome().chrome;
+  await startTheNight(e, { doing: ['fk_claims'], at, openAt: 'https://x/', dataDate: '2026-11-06', run: 'evening' });
+  await toTheLastTry(e, 'evening', 'fk_claims', '2026-11-06', at);
+  await thatOneIsDone(e, { reportId: 'fk_claims', state: 'failed', say: 'x', dataDate: '2026-11-06', at });
+  check('R253: only the morning run keeps a failure for 4 pm', (await kept(e)).ids.length === 0);
+
+  const t = installFakeChrome().chrome;
+  await startTheNight(t, { doing: ['fk_claims'], at, openAt: 'https://x/', dataDate: theDay(at), run: 'morning' });
+  await toTheLastTry(t, 'morning', 'fk_claims', theDay(at), at);
+  await thatOneIsDone(t, { reportId: 'fk_claims', state: 'failed', say: 'x', dataDate: theDay(at), at });
+  const today = await kept(t);
+  check('R253: a morning failure for today is kept, but not as a day-before one', today.ids.join() === 'fk_claims' && today.past.length === 0);
+
+  /* a sign-in wall in the morning keeps the stopped report and what was left behind it */
+  const wall = installFakeChrome().chrome;
+  const walk = aWalkThat();
+  await startTheNight(wall, { doing: ['fk_claims', 'fk_views', 'fk_listings'], at, openAt: 'https://x/', dataDate: '2026-11-06', run: 'morning' });
+  await carryTheNightOn(wall, { ...walk, at });
+  walk.itFinished({ state: 'failed', reportId: 'fk_claims', needsSigningIn: true, say: 'sign in', dataDate: '2026-11-06' });
+  await carryTheNightOn(wall, { ...walk, at });
+  const stopped = await kept(wall);
+  check('R253: a morning sign-in wall keeps the stopped report and the ones behind it (never tried), as day-before ones',
+    stopped.ids.join() === 'fk_claims,fk_views,fk_listings' && stopped.past.join() === 'fk_claims,fk_views,fk_listings' && stopped.day === theDay(at));
+  const other = installFakeChrome().chrome;
+  const walk2 = aWalkThat();
+  await startTheNight(other, { doing: ['fk_claims', 'fk_views'], at, openAt: 'https://x/', dataDate: '2026-11-06', run: 'evening' });
+  await carryTheNightOn(other, { ...walk2, at });
+  walk2.itFinished({ state: 'failed', reportId: 'fk_claims', needsSigningIn: true, say: 'sign in', dataDate: '2026-11-06' });
+  await carryTheNightOn(other, { ...walk2, at });
+  check('R253: a sign-in wall in any other run keeps nothing', (await kept(other)).ids.length === 0);
+
+  /* yesterday's list is not carried into today's */
+  const old = installFakeChrome().chrome;
+  await old.storage.local.set({ [THE_FAILED_IN_THE_MORNING]: { day: '2020-01-01', ids: ['fk_views'], past: ['fk_views'] } });
+  await startTheNight(old, { doing: ['fk_claims'], at, openAt: 'https://x/', dataDate: '2026-11-06', run: 'morning' });
+  await toTheLastTry(old, 'morning', 'fk_claims', '2026-11-06', at);
+  await thatOneIsDone(old, { reportId: 'fk_claims', state: 'failed', say: 'x', dataDate: '2026-11-06', at });
+  check('R253: a list kept on another day is not carried into today\'s', (await kept(old)).ids.join() === 'fk_claims');
+}
+
+const EXPECTED = 181 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3 + 1 + 4 + 3 + 2 + 2 + 2 + 1 + 8 + 3 + 13 + 2 + 6 + 3 + 1 + 3 + 2 - 9 + 9;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

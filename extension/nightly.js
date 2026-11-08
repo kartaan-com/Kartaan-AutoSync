@@ -367,6 +367,20 @@ export const RECHECK_AFTER_MINUTES = 60;
  *  rule as a two-phase report, because there is no `theirId` to have missed. */
 export const RECHECK_EVEN_WITHOUT_AN_ASK = Object.freeze(['me_views', 'az_ads', 'me_returns', 'fk_returns', 'az_returns']);
 
+/** **R208 (D1006): WHAT FAILED IN THE MORNING RUN, FOR THE 4 PM RUN TO TRY AGAIN.** `{ day, ids }`; only a plain failure goes in (not "not ready", which the hourly re-check owns). */
+export const THE_FAILED_IN_THE_MORNING = 'kartaan-autosync-failed-in-the-morning';
+
+/** Add to, or take off, the list of what the morning run failed today. A new day starts a new list. */
+async function keepForTheEvening(chrome, at, add, remove, past) {
+  const on = theDay(at || Date.now());
+  const held = (await chrome.storage.local.get(THE_FAILED_IN_THE_MORNING))[THE_FAILED_IN_THE_MORNING];
+  const ids = new Set(held && held.day === on ? held.ids : []);
+  const behind = new Set(held && held.day === on ? held.past : []);
+  add.forEach((id) => { ids.add(id); if (past) behind.add(id); });
+  remove.forEach((id) => { ids.delete(id); behind.delete(id); });
+  if (ids.size || held) await chrome.storage.local.set({ [THE_FAILED_IN_THE_MORNING]: { day: on, ids: [...ids], past: [...behind] } });
+}
+
 /** **AJ9 PIECE 1: A TAB CLOSED MID-WALK IS RETRIED THE SAME NIGHT, NEVER JUST LOST.** Nothing is wrong on the platform
  *  when the tab is closed (30 Oct 01:26 UTC: fk_listings, fk_orders and fk_ads_search failed this way and waited for the
  *  next sync), so a failure that starts with this sentence is checked again in an hour like any report above. The
@@ -862,6 +876,8 @@ export async function thatOneIsDone(chrome, {
   /* **WHAT IS WRITTEN DOWN IS NOT ALWAYS WHAT THE WALK SAID.** A day still not
    * built on its third day becomes one that needs the seller. */
   let written = { state, say };
+  /* R253: the run a report first failed in; an hourly re-check has no run name of its own, so its record carries the first one. */
+  let startedIn = night.run;
   /* **A SIGN-IN WALL IS NOT A FACT ABOUT THE PLATFORM, SO IT IS BOOKED AS NOTHING.** It used to be
    * counted as one more "tried" day for a report that can go back, so three syncs on three days with
    * the seller signed out (Flipkart's sign-in takes a code they must type) turned a day nobody ever
@@ -902,13 +918,14 @@ export async function thatOneIsDone(chrome, {
     const platformIsBuilding = being[key] !== undefined || RECHECK_EVEN_WITHOUT_AN_ASK.includes(reportId);
     /* **R250 (his D1035): RETRY -- ANY REPORT THAT FAILED IN THE MORNING, EVENING OR AN OWN-TIME RUN IS TRIED AGAIN EVERY HOUR, UP TO THREE TRIES** (and one already being retried goes on being). The same
      * safety as a closed tab: never a request that spends Flipkart's twenty unless its ask is already held, so the day's 20 are never exceeded. */
+    startedIn = (rechecks[key] && rechecks[key].run) || night.run;
     const retryable = (['morning', 'evening', 'own'].includes(night.run) || rechecks[key] !== undefined)
       && (!SPENDS_THE_ALLOWANCE.includes(reportId) || being[key] !== undefined);
     if (state === 'failed' && (platformIsBuilding || closedTab || retryable)) {
       const tries = ((rechecks[key] && rechecks[key].tries) || 0) + 1;
       if (tries <= RECHECK_TIMES) {
         await chrome.storage.local.set({
-          [RECHECKS]: { ...rechecks, [key]: { reportId, dataDate: day, tries, ...theRangeFromFor(night, reportId, day) } },
+          [RECHECKS]: { ...rechecks, [key]: { reportId, dataDate: day, tries, run: startedIn, ...theRangeFromFor(night, reportId, day) } },
         });
         rechecking = true;
         written = {
@@ -942,6 +959,9 @@ export async function thatOneIsDone(chrome, {
       });
     }
   }
+  /* **R208 (D1006): A PLAIN FAILURE OF THE MORNING RUN IS KEPT FOR THE 4 PM RUN; A REPORT THAT LANDED LATER IS TAKEN OFF IT.** Today's list only; a new day starts a new one. */
+  if (state === 'landed') await keepForTheEvening(chrome, at, [], [reportId]);
+  else if (startedIn === 'morning' && written.state === 'failed') await keepForTheEvening(chrome, at, [reportId], [], String(day) < theDay(at || Date.now()));
   /* **A DAY THE WALK FOUND NOTHING TO FETCH FOR IS SETTLED, NOT OWED AGAIN (review finding, 2026-10-05).** Only
    * days that really landed were remembered, so a day with no campaign running (or none to record) was walked
    * again on every sync for the whole reach. `settled` comes from the walk's own answer only -- never from the
@@ -1438,6 +1458,8 @@ async function carryItOn(chrome, {
       /* A sign-in pause never tells Kartaan: nothing remembered from earlier platforms may linger or be sent. */
       await chrome.storage.local.remove(THE_SYNC_FAILED);
       const after = await theNight(chrome);
+      /* R208: the reports a morning sign-in wall stopped are tried again at 4 pm like any morning failure. */
+      if (after && after.run === 'morning') await keepForTheEvening(chrome, at, [stopped, ...(after.left || [])], [], String(after.dataDate) < theDay(at || Date.now()));
       await chrome.storage.local.set({
         [PAUSED]: {
           reportIds: [stopped, ...((after && after.left) || []).filter((one) => one !== stopped)],

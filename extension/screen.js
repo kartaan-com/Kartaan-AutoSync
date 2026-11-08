@@ -43,7 +43,7 @@ import { whatIsWaiting } from './idle.js';
 import { THE_WALK } from './background.js';
 import { aDriveToken } from './drive.js';
 import {
-  PAUSED, RECHECKS, THE_NIGHT, THE_SCHEDULED_QUEUE, THE_SYNC_FAILED, whatIsPaused,
+  PAUSED, RECHECKS, THE_FAILED_IN_THE_MORNING, THE_NIGHT, THE_SCHEDULED_QUEUE, THE_SYNC_FAILED, whatIsPaused,
 } from './nightly.js';
 import {
   askMayFetch, saveTheRunPass, whatKartaanLastSaid,
@@ -1245,8 +1245,17 @@ export async function startTheScheduledSync(chrome, parts, run = 'morning', at =
   const { book } = parts;
   const setUp = await theSetup(chrome);
   const timed = theTimedListFor(book, setUp, run, at);
-  /* Reports fetched for YESTERDAY although their setting is "today": the morning's fallback below. */
+  /* Reports fetched for YESTERDAY although their setting is "today": the morning's fallback below, and a failed fallback tried again at 4 pm. */
   const fallback = new Set();
+  /* **R208 (D1006): A REPORT THAT FAILED IN THE MORNING IS TRIED AGAIN IN THE 4 PM RUN.** "Failed" only -- a report that was not ready is the hourly re-check's. The list is
+   * written by `thatOneIsDone`; it is read once and cleared here, and only reports still on the timed list come back. */
+  if (run === 'evening') {
+    const held = (await chrome.storage.local.get(THE_FAILED_IN_THE_MORNING))[THE_FAILED_IN_THE_MORNING];
+    if (held && held.day === theDay((parts.now || Date.now)())) {
+      timed.push(...(held.ids || []).filter((id) => theTimedList(book, setUp).includes(id) && !timed.includes(id)));
+      (held.past || []).filter((id) => timed.includes(id)).forEach((id) => fallback.add(id));
+    }
+  }
   /* **R208 (Control, 7 Nov): A "TODAY" REPORT THAT DID NOT LAND IS FETCHED THE NEXT MORNING AS AN ORDINARY YESTERDAY REPORT.** A platform that cannot give today loses nothing. A report that
    * did land (its yesterday is in what landed) is not fetched again. */
   if (run === 'morning') {
@@ -1279,10 +1288,13 @@ export async function startTheScheduledSync(chrome, parts, run = 'morning', at =
         : { ...entry, reportIds: entry.reportIds.filter((id) => !already.has(id)) }))
       .filter((entry) => (Array.isArray(entry) ? entry : entry.reportIds).length);
     await chrome.storage.local.set({ [THE_QUEUE]: [...((await chrome.storage.local.get(THE_QUEUE))[THE_QUEUE] || []), ...added] });
+    if (run === 'evening') await chrome.storage.local.remove(THE_FAILED_IN_THE_MORNING);
     return { started: null, waiting: true, refused: [] };
   }
   await chrome.storage.local.set({ [THE_QUEUE]: byPlatform });
   const result = await startTheNextPlatform(chrome, parts);
+  /* The morning's failures are used up only once a start went through (or is queued); a refused start keeps them. */
+  if (run === 'evening' && (result.started || result.waiting)) await chrome.storage.local.remove(THE_FAILED_IN_THE_MORNING);
   return result;
 }
 
@@ -1974,8 +1986,8 @@ export function buildThePanel(into, doing) {
     parts[`${which}Save`].addEventListener('click', () => doing.setARunTime && doing.setARunTime(which, parts[`${which}Time`].value));
     put(clock, runRow(label, parts[`${which}Time`], parts[`${which}Save`], fetches, why));
   };
-  otherRun('evening', 'Evening run', 'Fetches the reports that are not ready in the morning.',
-    'Why 4 pm by default: these reports are ready by then.');
+  otherRun('evening', 'Evening run', 'Fetches the reports that are not ready in the morning, and picks up the morning reports still failed after the hourly tries, or never tried (for example behind a sign-in).',
+    'Why 4 pm by default: these reports are ready by then, and a morning report that is still failed gets another try the same day.');
   put(clock, make('p', `${OURS}note`, 'Own time: any report can have a time of its own, set below under "Which report runs when". The returns reports are on 18:00 and the day Today until you change them.'));
   put(clock, parts.hourState);
   parts.clash = make('p', `${OURS}clash`, '');

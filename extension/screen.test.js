@@ -49,7 +49,7 @@ import {
 } from './screen.js';
 import {
   A_DAYS_ALLOWANCE, KEPT_FOR_HIS_OWN_RUNS, PAUSED, RECHECKS, THE_NIGHT, carryTheNightOn, endTheNight, howTheNightWent, oneWasAskedFor,
-  startTheNight, thatOneIsBeingTried, theIdleLine, theNight, theReportTable, THE_SYNC_FAILED, LAST_LANDED, thatOneIsDone,
+  startTheNight, thatOneIsBeingTried, theIdleLine, theNight, theReportTable, THE_SYNC_FAILED, THE_FAILED_IN_THE_MORNING, LAST_LANDED, thatOneIsDone,
 } from './nightly.js';
 import { saveTheRunPass } from './kartaan.js';
 import { MOST_DAYS_IN_A_RANGE_FILE, hasNotFinished, theWalk } from './walk.js';
@@ -3294,6 +3294,60 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   ownTime.value = '19:00';
   ownTime.fire('input');
   check('R250 proving: and a later one takes it away', ownWarn.hidden === true);
+}
+
+{
+  /* **R253 (his D1039): THE EVENING RUN TAKES WHAT THE MORNING LEFT -- failed after the hourly tries, or never tried.** */
+  const now = Date.UTC(2026, 10, 7, 10, 30);
+  const parts = { book: BOOK, now: () => now, startTheNight, carryOn: async () => {} };
+  const ready = async () => {
+    const c = installFakeChrome().chrome;
+    await answerThePanelsQuestion(c, parts, { do: 'save-the-panel-name', panel: 'xuptj' });
+    await answerThePanelsQuestion(c, parts, { do: 'check-the-drive' });
+    return c;
+  };
+  const list = (c) => c.storage.local.get(THE_FAILED_IN_THE_MORNING).then((all) => all[THE_FAILED_IN_THE_MORNING]);
+  const chrome = await ready();
+  await chrome.storage.local.set({ [THE_FAILED_IN_THE_MORNING]: { day: '2026-11-07', ids: ['fk_claims', 'fk_listings'] } });
+  const evening = await startTheScheduledSync(chrome, parts, 'evening');
+  check('R253: the Evening run takes the morning reports that are still failed, with its own', evening.started.includes('fk_claims') && evening.started.includes('fk_listings') && evening.started.includes('fk_orders'));
+  check('R253: and the list is used up once taken', (await list(chrome)) === undefined);
+  const another = await ready();
+  await another.storage.local.set({ [THE_FAILED_IN_THE_MORNING]: { day: '2026-11-06', ids: ['fk_claims'] } });
+  check('R253: a list from another day is not taken', !(await startTheScheduledSync(another, parts, 'evening')).started.includes('fk_claims'));
+  const mixed = await ready();
+  await mixed.storage.local.set({ [THE_FAILED_IN_THE_MORNING]: { day: '2026-11-07', ids: ['not_a_report', 'fk_orders', 'fk_listings'] } });
+  const adds = await startTheScheduledSync(mixed, parts, 'evening');
+  check('R253: a failed report that is already in the run is added once, and an unknown one never',
+    adds.started.filter((id) => id === 'fk_orders').length === 1 && adds.started.includes('fk_listings') && !adds.started.includes('not_a_report'));
+  const behind = await ready();
+  await behind.storage.local.set({ [THE_FAILED_IN_THE_MORNING]: { day: '2026-11-07', ids: ['fk_listings'] } });
+  await behind.storage.local.set({ [THE_NIGHT]: { startedAt: now, finishedAt: 0, spent: 0, mayAskFor: 3, done: [], left: ['fk_returns'], doing: null }, [THE_QUEUE]: [] });
+  await startTheScheduledSync(behind, parts, 'own', '18:00');
+  check('R253: an own-time run does not touch the list of the Evening run', (await list(behind)) !== undefined);
+  await behind.storage.local.set({ [THE_QUEUE]: [] });
+  await startTheScheduledSync(behind, parts, 'evening');
+  check('R253: an Evening run that has to wait behind a going run uses the list up', (await list(behind)) === undefined);
+  const refused = installFakeChrome().chrome;
+  await refused.storage.local.set({ [THE_FAILED_IN_THE_MORNING]: { day: '2026-11-07', ids: ['fk_listings'] } });
+  const noDrive = await startTheScheduledSync(refused, parts, 'evening');
+  check('R253: an Evening start that is refused keeps the list for the next try', !noDrive.started && (await list(refused)) !== undefined);
+  const day = installFakeChrome().chrome;
+  const real = { book: BOOK, startTheNight, carryOn: async () => {} };
+  await answerThePanelsQuestion(day, { ...real, now: () => Date.now() }, { do: 'save-the-panel-name', panel: 'xuptj' });
+  await answerThePanelsQuestion(day, { ...real, now: () => Date.now() }, { do: 'check-the-drive' });
+  await day.storage.local.set({ [THE_FAILED_IN_THE_MORNING]: { day: theDay(Date.now()), ids: ['fk_listings'] } });
+  check('R253: with no clock handed in, a list kept for today is taken', (await startTheScheduledSync(day, real, 'evening')).started.includes('fk_listings'));
+  const past = await ready();
+  await past.storage.local.set({ [THE_FAILED_IN_THE_MORNING]: { day: '2026-11-07', ids: ['fk_returns'], past: ['fk_returns'] } });
+  const seen = [];
+  const seeing = { ...parts, startTheNight: async (c, how) => { seen.push([how.doing.join(), how.dataDate, how.run]); return startTheNight(c, how); } };
+  await startTheScheduledSync(past, seeing, 'evening');
+  check('R253: a day-before report kept from the morning is fetched for the day before, not for today',
+    seen.some((one) => one[0].includes('fk_returns') && one[1] === '2026-11-06' && one[2] === 'evening'));
+  buildThePanel(document.body, {});
+  check('R253: the Run times words say the Evening run picks up the morning reports still failed or never tried',
+    document.body.textContent.includes('still failed after the hourly tries, or never tried'));
 }
 
 reachedTheEnd = true;
