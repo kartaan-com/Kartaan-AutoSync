@@ -203,6 +203,307 @@
       "line": "sys.path.insert(0, str(Path(__file__).resolve().parent))",
       "occurrence": 0,
       "why": "It only makes `import move_group` find tools/. Run as a script (the workflow runs `python tools/move_group_on_release.py`), Python already puts the script's own folder first on the path, and the checks put tools/ there themselves. So the same move_group is found in every state and nothing moved, refused or said differs (AJ9)."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "parts.modeSwitch.type = 'button';",
+      "occurrence": 0,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "put(bar, parts.modeSwitch);",
+      "occurrence": 0,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "parts.gear.type = 'button';",
+      "occurrence": 0,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "parts.gear.setAttribute('aria-expanded', 'false');",
+      "occurrence": 0,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "boolean",
+      "line": "parts.gear.hidden = true;",
+      "occurrence": 0,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "parts.gear.hidden = true;",
+      "occurrence": 0,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "parts.gear.setAttribute('aria-label', 'Settings');",
+      "occurrence": 0,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "put(bar, parts.gear);",
+      "occurrence": 0,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "parts.theme.setAttribute('aria-label', 'Light or dark');",
+      "occurrence": 0,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "parts.modeSwitch.title = dark ? 'Switch to the light colours' : 'Switch to the dark colours';",
+      "occurrence": 0,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "parts.showMode();",
+      "occurrence": 1,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "put(platformCard, parts.log);",
+      "occurrence": 0,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "parts.allowanceNote.tabIndex = 0;",
+      "occurrence": 0,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "put(allowance, make('span', `${OURS}label`, 'Flipkart requests left today'), parts.allowance, parts.allowanceNote);",
+      "occurrence": 0,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "put(platformCard, allowance);",
+      "occurrence": 0,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "drawers.push([button, section]);",
+      "occurrence": 0,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "button.type = 'button';",
+      "occurrence": 0,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "button.setAttribute('aria-expanded', 'false');",
+      "occurrence": 0,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "put(buttons, button);",
+      "occurrence": 0,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "parts.helpButtonState.textContent = '›';",
+      "occurrence": 0,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "put(body, buttons);",
+      "occurrence": 0,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "put(clock, make('h2', `${OURS}title`, 'When each report is fetched by itself'));",
+      "occurrence": 0,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "put(line, make('span', `${OURS}label`, label), time, save);",
+      "occurrence": 0,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "put(row, line, make('p', `${OURS}note`, fetches), make('p', `${OURS}note`, why));",
+      "occurrence": 0,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "parts.hour.setAttribute('aria-label', 'Morning run time');",
+      "occurrence": 0,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "parts[`${which}Time`].type = 'time';",
+      "occurrence": 0,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "parts[`${which}Time`].setAttribute('aria-label', `${label} time`);",
+      "occurrence": 0,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "parts[`${which}Save`].type = 'button';",
+      "occurrence": 0,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "put(clock, runRow(label, parts[`${which}Time`], parts[`${which}Save`], fetches, why));",
+      "occurrence": 0,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "put(clock, make('p', `${OURS}note`, 'Own time: any report can have a time of its own, set below under \"Which report runs when\". The returns reports are on 18:00 and the day Today until you change them.'));",
+      "occurrence": 0,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "put(clock, parts.hourState);",
+      "occurrence": 0,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "boolean",
+      "line": "parts.clash.hidden = true;",
+      "occurrence": 0,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "parts.clash.hidden = true;",
+      "occurrence": 0,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "put(clock, parts.clash);",
+      "occurrence": 0,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "put(timesFold, parts.timesFoldTitle);",
+      "occurrence": 0,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "addDrawer(parts.timesButton, clock);",
+      "occurrence": 0,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "put(help, make('h2', `${OURS}title`, 'Questions'));",
+      "occurrence": 0,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "addDrawer(parts.helpButton, help);",
+      "occurrence": 0,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "parts.showMode();",
+      "occurrence": 2,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "parts.setUpDone = setUpDone;",
+      "occurrence": 0,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "parts.gear.setAttribute('aria-expanded', 'false');",
+      "occurrence": 1,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "time.type = 'time';",
+      "occurrence": 0,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
+    },
+    {
+      "file": "extension/screen.js",
+      "operator": "line",
+      "line": "time.setAttribute('aria-label', `${one.name} own time`);",
+      "occurrence": 0,
+      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
     }
   ],
   "cannot_load": {

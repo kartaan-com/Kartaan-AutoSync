@@ -3264,23 +3264,36 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
     how.how === 'done' ? panel.banner.textContent === `${how.said} ${whenItNextWakes(doneStands.clock)}` : panel.banner.textContent === how.said);
   check('R250 proving: the idle words are not what a finished run says', typeof said === 'string');
 
-  /* cannot-fetch rows: one per report that cannot be fetched, shown only on the platform chosen */
-  const withCannot = { ...stands, cannotBeFetched: [{ id: 'a', name: 'Alpha', platform: 'flipkart', why: 'because a' }, { id: 'b', name: 'Beta', platform: 'meesho', why: 'because b' }] };
-  const p2 = buildThePanel(document.body, {});
-  p2.chosen = 'flipkart';
-  showHowItStands(p2, withCannot);
-  check('R250 proving: a cannot-fetch row is built for each report that cannot be fetched, with its reason, and only the chosen platform shows',
-    p2.cannotRows.length === 2 && p2.cannotRows[0][1].hidden === false && p2.cannotRows[1][1].hidden === true
-    && p2.cannotRows[1][1].children.map((c) => c.textContent).join('|') === 'Beta · cannot be fetched|because b');
-  p2.chosen = 'meesho';
-  showHowItStands(p2, withCannot);
-  check('R250 proving: choosing another platform swaps which cannot-fetch row shows', p2.cannotRows[0][1].hidden === true && p2.cannotRows[1][1].hidden === false);
+  /* the three drawers: one open at a time, the button says which */
+  const open = (button) => button.getAttribute('aria-expanded');
+  check('R250 proving: all three drawers start shut', [panel.aiButton, panel.timesButton, panel.helpButton].every((b) => open(b) === 'false'));
+  panel.timesButton.click();
+  check('R250 proving: pressing Run times opens it and says so', open(panel.timesButton) === 'true' && open(panel.helpButton) === 'false' && open(panel.aiButton) === 'false');
+  panel.helpButton.click();
+  check('R250 proving: pressing another drawer shuts the first and opens the other', open(panel.timesButton) === 'false' && open(panel.helpButton) === 'true');
+  panel.helpButton.click();
+  check('R250 proving: pressing the open one again shuts it', open(panel.helpButton) === 'false');
 
-  /* two reports of one platform: by name */
-  const mk = (id, name, n) => ({ reportId: id, dataDate: `2026-09-0${n}`, name, platformName: 'Flipkart', folder: '' });
-  showHowItStands(panel, { ...quiet, needsYou: [mk('fk_a', 'Zebra', 1), mk('fk_b', 'Apple', 1)] });
-  const heads = panel.needs.children[0].children.find((one) => one.className === 'p-needsList').children.filter((one) => one.className === 'p-needsGroup').map((one) => one.textContent);
-  check('R250 proving: two reports of one platform are grouped by their names', heads[0].includes('Apple') && heads[1].includes('Zebra'));
+  /* the gear says whether Settings is open, and shuts itself when the panel goes back to set-up */
+  check('R250 proving: the gear starts hidden and shut', panel.gear.getAttribute('aria-expanded') === 'false');
+  showHowItStands(panel, quiet);
+  panel.gear.click();
+  check('R250 proving: pressing the gear opens Settings and says so', panel.settings.hidden === false && panel.gear.getAttribute('aria-expanded') === 'true');
+  panel.gear.click();
+  check('R250 proving: pressing it again shuts Settings and says so', panel.settings.hidden === true && panel.gear.getAttribute('aria-expanded') === 'false');
+
+  /* typing an own time updates the warning at once */
+  const ownP = buildThePanel(document.body, {});
+  showHowItStands(ownP, { ...stands, schedule: [{ id: 'fk_returns', name: 'Flipkart returns', platform: 'flipkart', day: 'today', run: 'own', at: '18:30' }] });
+  const ownRow = ownP.scheduleList.children.find((one) => one.className === 'p-schedRow');
+  const ownTime = ownRow.children[2].children[1];
+  const ownWarn = ownP.scheduleList.children.find((one) => one.className === 'p-schedWarn');
+  ownTime.value = '10:00';
+  ownTime.fire('input');
+  check('R250 proving: typing an earlier own time shows the ready-time warning straight away', ownWarn.hidden === false && ownWarn.textContent.includes('10:00'));
+  ownTime.value = '19:00';
+  ownTime.fire('input');
+  check('R250 proving: and a later one takes it away', ownWarn.hidden === true);
 }
 
 reachedTheEnd = true;

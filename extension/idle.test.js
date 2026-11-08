@@ -389,5 +389,32 @@ function check(name, passed) { ran++; console.log(`${passed ? 'PASS' : 'FAIL'}  
   check('AJ13a: and once the computer is left alone it starts with the evening start and not the morning one', ran2.join() === 'evening');
 }
 
+{
+  /* **R250 proving: an own-time run waits under its own name and starts through the own starter with its time; a morning run never goes through it.** */
+  const wait = async (kinds) => {
+    const fake = installFakeChrome();
+    fake.setTheComputer('active');
+    for (const kind of kinds) await startWhenFree(fake.chrome, kind, async () => {});
+    fake.setTheComputer('idle');
+    return fake;
+  };
+  const a = await wait(['own-19:30']);
+  const seenA = [];
+  await carryOnWaiting(a.chrome, { own: (at) => seenA.push(`own:${at}`), daily: () => seenA.push('daily') });
+  check('R250: a waiting own-time run starts through the own starter with its time', seenA.join() === 'own:19:30');
+  const b = await wait(['daily', 'own-19:30']);
+  const seenB = [];
+  await carryOnWaiting(b.chrome, { own: (at) => seenB.push(`own:${at}`), daily: () => seenB.push('daily') });
+  check('R250: a waiting morning run still starts through the morning starter when an own starter exists', seenB.slice().sort().join() === 'daily,own:19:30');
+  const c = await wait(['own-19:30']);
+  const seenC = [];
+  await carryOnWaiting(c.chrome, { daily: () => seenC.push('daily') });
+  check('R250: an own-time run with no own starter starts nothing else', seenC.length === 0);
+  const d = await wait(['daily']);
+  const seenD = [];
+  await carryOnWaiting(d.chrome, { own: (at) => seenD.push(`own:${at}`) });
+  check('R250: a morning run with no morning starter is not handed to the own starter', seenD.length === 0);
+}
+
 console.log(`\n${ran - failures} of ${ran} passed`);
 process.exit(failures ? 1 : 0);
