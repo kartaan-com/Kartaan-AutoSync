@@ -227,13 +227,6 @@
     },
     {
       "file": "extension/screen.js",
-      "operator": "line",
-      "line": "parts.gear.setAttribute('aria-expanded', 'false');",
-      "occurrence": 0,
-      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
-    },
-    {
-      "file": "extension/screen.js",
       "operator": "boolean",
       "line": "parts.gear.hidden = true;",
       "occurrence": 0,
@@ -312,21 +305,7 @@
     {
       "file": "extension/screen.js",
       "operator": "line",
-      "line": "drawers.push([button, section]);",
-      "occurrence": 0,
-      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
-    },
-    {
-      "file": "extension/screen.js",
-      "operator": "line",
       "line": "button.type = 'button';",
-      "occurrence": 0,
-      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
-    },
-    {
-      "file": "extension/screen.js",
-      "operator": "line",
-      "line": "button.setAttribute('aria-expanded', 'false');",
       "occurrence": 0,
       "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
     },
@@ -482,13 +461,6 @@
       "operator": "line",
       "line": "parts.setUpDone = setUpDone;",
       "occurrence": 0,
-      "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
-    },
-    {
-      "file": "extension/screen.js",
-      "operator": "line",
-      "line": "parts.gear.setAttribute('aria-expanded', 'false');",
-      "occurrence": 1,
       "why": "screen look, approved by him on the built panel (D1036, look 3); Rule 34: screen words he checks himself. This line only sets how the panel is built or described on screen (type, label, order, hidden at first, a button's open/shut note); no stored value, no alarm and no fetch depends on it."
     },
     {

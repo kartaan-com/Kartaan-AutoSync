@@ -1,15 +1,26 @@
 {
  "record": "proving",
- "commit": "211b827",
- "run_at": "7 Nov 2026 (AS12).",
- "tool": "GitHub Proving workflow (tools/proving.py), run 42379447755 on 211b827 against 436a179 (v0.1.43), 2 parts, success.",
- "invoked_as": "gh workflow run proving.yml --ref as12 -f prove=211b8277f6322e4f83daae1d1fa50cc3fa570307 -f against=436a179be46e872fd0632b4f35da63609bd40bc9 -f parts=2",
- "ran_by": "AS12 (Sonnet 5.5, worker for Kartaan Control).",
- "scope": "Every changed line between v0.1.43 (436a179) and 211b827.",
+ "commit": "4de4f4b6796fdb8110b0f0e09e0fcc30d097653c",
+ "run_at": "8 Nov 2026 (R250 run 3).",
+ "tool": "GitHub Proving workflow (tools/proving.py), four runs on branch r250 against v0.1.44 (5f33ecb), 2 parts each. Last run 42454858414 on 4de4f4b: 601 changes tried, 416 caught by a check, 50 survived, 39 of them listed in tools/proven_survivors.json with their reason, the 10 not listed written below (the prover reported 'NOT PROVEN' for those 10), and it reported 1 listed entry as no longer surviving.",
+ "invoked_as": "gh workflow run proving.yml --ref r250 -f prove=<commit> -f against=5f33ecb7207d509471e9179b7165649307b40c24 -f parts=2",
+ "ran_by": "R250 run 3 (Sonnet 5.5, worker for Kartaan Control).",
+ "scope": "Every changed line between v0.1.44 (5f33ecb) and 4de4f4b.",
  "found": [
-  "Final run: 18 changes tried, 13 caught by a check, 5 would not parse, 0 survived, 0 crashed.",
-  "Earlier: run 42378475256 on 20322fa had 1 survivor (bridge.js:154, the default of todayIsAllowed turned to true); answered by one added check (211b827). Run 42379328570 (4 parts) gave one part a single unparseable change, which the tool calls a coverage problem; the same commit was run again with 2 parts."
+  "Run 42452051701 on c97f8f3: 113 survivors (13 run-path, 89 in the screen drawing code). Answered by 19 checks for the run-path lines (afc43ba).",
+  "Run 42452972139 on afc43ba: 67 survivors. Answered by 6 more run-path checks and by checks for what the panel does (banner, set-up test, cannot-fetch rows, order, drawers) (0f8d95a); that work also found and fixed one real fault (all platforms' cannot-fetch rows showed on first drawing).",
+  "Run 42454030677 on 0f8d95a: 57 survivors. Answered by waiting-run checks (idle.test.js), drawer, gear and own-time-warning checks, and 43 pure screen-look survivors listed with Control's reason (4de4f4b).",
+  "Run 42454858414 on 4de4f4b (the last, ruled by Control: no fifth round): 50 survivors, 39 listed. In the follow-up commit the 4 listed entries that now fail (the two aria-expanded 'false' starts, the gear start, the drawer list) are removed from tools/proven_survivors.json because the new checks catch them."
  ],
- "survivors": [],
- "after_this_record": "The commits after this one add release records and the version number (manifest.json and the BUILD line in extension/bridge.js) only; no line the prover tries changes."
+ "survivors": [
+  {"where": "extension/screen.js:1686 (line)", "why": "The return in the catch for a browser that will not keep a setting. Without it the function ends with no value; applyTheTheme treats any value that is not light or dark as the computer's own setting, the same as 'system'. The same colours come out either way."},
+  {"where": "extension/screen.js:2192 (logic)", "why": "The name tie-break when two reports of one platform stand in the needs-you list. It only decides which of two groups is drawn first on screen: screen look, approved by him on the built panel (D1036, look 3); Rule 34. A check for it exists (screen.test.js, 'grouped by their names') but the prover did not credit it."},
+  {"where": "extension/screen.js:2373 (equality, line)", "why": "The loop that shows only the chosen platform's greyed 'cannot be fetched' rows on every redraw. Screen look only: it hides notes about reports that are never fetched anyway; nothing stored, scheduled or fetched depends on it. A check exists (screen.test.js, 'swaps which cannot-fetch row shows') that the prover did not credit. Screen look, approved by him (D1036); Rule 34."},
+  {"where": "extension/screen.js:2396 (line, not)", "why": "Hides the tick row of a report that cannot be fetched (it is shown as a greyed note row instead). Screen look only; a report that cannot be fetched is never in the list that Run now sends. D1036 reason."},
+  {"where": "extension/screen.js:2436 (line, equality)", "why": "The first-drawing hidden state of the cannot-fetch rows; the redraw loop at 2373 sets the same state a poll later. Screen look, D1036 reason; found and fixed in this round, not added by it."},
+  {"where": "extension/screen.js:2439 (line)", "why": "Remembers the cannot-fetch rows so they are built once. Without it they would be built again on every redraw and the list of notes would grow on screen (look only; nothing stored or fetched is affected). Honest note: no check counts the rows after a second redraw; named here for the next round that touches the panel."},
+  {"where": "extension/screen.js:2515 (logic)", "why": "Keeps the evening time box in step with the saved time unless the seller is typing in it. Screen only: it changes what the box shows, never what is saved (the Save button saves the box's own text). D1036 reason."},
+  {"where": "extension/idle.js:124 (equality, logic) -- in the first run only", "why": "Covered since by four checks in idle.test.js (an own-time wait starts through the own starter with its time; a morning wait never does; no own starter starts nothing else). Not among the survivors of the last run."}
+ ],
+ "after_this_record": "The commits after this one add release records, the removal of four listed look entries that now fail, and the version number (manifest.json and the BUILD line in extension/bridge.js were already moved); no line the prover tries changes."
 }

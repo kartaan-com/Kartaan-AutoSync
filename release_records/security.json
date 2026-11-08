@@ -1,13 +1,17 @@
 {
  "record": "security",
- "commit": "211b827",
- "run_at": "7 Nov 2026 (AS12).",
- "tool": "Security lens of the same independent Opus sub-agent review (read-only), plus AS12's read against SEC1 Part H and I.",
- "invoked_as": "Agent (general-purpose, model opus), by AS12; asked whether an AI ask can fetch something it should not, read other data, bypass the Flipkart allowance or the seller's per-report setting, or add a secret or new data read.",
- "ran_by": "A sub-agent that wrote none of the code; AS12 (Sonnet 5.5) for the SEC1 read.",
- "scope": "v0.1.43 (436a179) to 211b827. SEC1 items read: 47 (no new permission), 49 (no eval or remote code), 51 (AI asks stay data; the extension re-checks at start), 52 (the AI still reaches the extension only through the Run now door and cannot change the per-report setting), 55 (the AI's daily ask and Flipkart limits are untouched), 56 (a refusal still says in words what to do). Not run: dependency audit (SEC2 S2, not part of this round).",
+ "commit": "4de4f4b6796fdb8110b0f0e09e0fcc30d097653c",
+ "run_at": "8 Nov 2026 (R250 run 3).",
+ "tool": "Security lens of the same independent Opus sub-agent review (read-only).",
+ "invoked_as": "Agent (general-purpose, model opus), by R250 run 3; asked about new permissions, secrets, eval or remote code, text put on screen, the password box, new data reads, and whether the AI door could change times or fetch more.",
+ "ran_by": "A sub-agent that wrote none of the code.",
+ "scope": "v0.1.44 (5f33ecb) to 4de4f4b. SEC1 items touched: no new permission (47), no eval or remote code (49), AI asks stay data and the Bridge tools are unchanged (51, 52, 55), panel-only asks accepted only from the extension's own panel page.",
  "found": [
-  "No security finding. The only new read is the seller's own saved per-report day choice from the extension's storage; it holds no secrets and none of it goes back to the AI.",
-  "No new permission, page, network call or secret; Flipkart's twenty-a-day count and the list of reports that can be fetched are unchanged."
+  "No security finding. manifest.json changes only the version (0.1.44 to 0.1.45): no new permission, host or key.",
+  "No eval, Function, innerHTML or insertAdjacentHTML added; every new text is set as text. Platform, report and folder names in the needs-you box and the schedule are text only.",
+  "The Kartaan password box keeps type=password and autocomplete=off and is never shown back.",
+  "No new outside call. The only new address is the static docs.kartaan.com link in How this works (a plain link; it is only a dead link if the site is not up).",
+  "set-a-run-time and save-the-report-times are panel-only asks; BRIDGE_TOOLS and the relay asks are unchanged, so the AI cannot change run times or fetch more. The light/dark choice is kept in the panel page's own storage and holds nothing sensitive.",
+  "Not run: dependency audit (not part of this round)."
  ]
 }

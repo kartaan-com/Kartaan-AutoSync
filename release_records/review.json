@@ -1,31 +1,47 @@
 {
  "record": "review",
- "commit": "211b827",
- "run_at": "7 Nov 2026 (AS12).",
- "tool": "One fresh independent Opus sub-agent on commit 20322fa (the program change); AS12's own read of the one test-only commit after it (211b827); commit gate review_pass.json on both commits.",
- "invoked_as": "Agent (general-purpose, model opus), by AS12, read-only, before any tag; given the diff, the base 436a179 and the decision D1005.",
- "ran_by": "A sub-agent that wrote none of the code; AS12 (Sonnet 5.5) for the test-only commit.",
- "scope": "v0.1.43 (436a179) to 211b827: the Bridge lets today through when every report asked for is set to today (extension/bridge.js, extension/bridge.test.js).",
+ "commit": "4de4f4b6796fdb8110b0f0e09e0fcc30d097653c",
+ "run_at": "8 Nov 2026 (R250 run 3).",
+ "tool": "One fresh independent Opus sub-agent, read-only, on the whole uncommitted diff (12 files) before the first commit c97f8f3; the commit gate review_pass.json on each of the five code and test commits.",
+ "invoked_as": "Agent (general-purpose, model opus), by R250 run 3; given the diff against 5f33ecb, the approved drawing link, the rulings D968, D1033-D1036 and the list of run-path files.",
+ "ran_by": "A sub-agent that wrote none of the code; R250 run 3 (Sonnet 5.5) for the later test-only commits.",
+ "scope": "v0.1.44 (5f33ecb) to 4de4f4b: the panel on the approved drawing, own-time runs, the hourly retry as the only retry (the old 4 pm retry removed), the evening time as a setting.",
  "found": [
   {
-   "severity": "none",
-   "finding": "No HIGH or MED finding. Every other caller of whyThatRangeCannotBeFetched / whyThatDayCannotBeFetched already passes the flag (screen.js:1386, 1391). The Bridge test and the Run now door use the same rule. Mixed list with a yesterday report, and tomorrow, are still refused (tested). d < latest differs from d !== latest only for today. The check at the moment of starting re-reads the setting.",
+   "severity": "HIGH",
+   "finding": "panel.js dropped the time box value, so Own time could never be saved (the extension answered 'No time was chosen').",
    "fixed": true
   },
   {
+   "severity": "MED",
+   "finding": "Set-up messages (panel name saved, refusals, Drive errors) were hidden before set-up because the panel hides everything but Settings.",
+   "fixed": true
+  },
+  {
+   "severity": "MED",
+   "finding": "An Evening or Morning time can still be set to the same time as an own-time run (both fire together; the second joins the first one's queue, nothing breaks). Left: the rule 'two runs may not share a time' is enforced between morning and evening, and for a new own time against both, not for the other direction.",
+   "fixed": false
+  },
+  {
+   "severity": "MED",
+   "finding": "Two kinds of failure get no hourly retry: Flipkart reports that spend one of the 20 requests and failed before their ask was placed (kept, so the 20 are never exceeded), and reports stopped by a sign-in wall (they wait for Resume or the next morning; the old 4 pm list that used to carry them is the thing removed on his word, D1036). Written for Control to confirm.",
+   "fixed": false
+  },
+  {
    "severity": "LOW",
-   "finding": "A picture-of-now report (az_health) set to today can be asked for yesterday-through-today and gives two files of the same snapshot. The Run now door already allowed this; not new, left.",
+   "finding": "The old 0.1.44 returns alarm is never cleared and does nothing; a 0.1.44 non-returns report saved on the 6 pm run falls back to morning/evening. No conversion step.",
    "fixed": false
   },
   {
-   "severity": "wording",
-   "finding": "The refusal still says 'Pick yesterday or earlier' even for a report the seller could set to today (queue item, not a finding).",
-   "fixed": false
+   "severity": "none",
+   "finding": "No finding on the removed 4 pm retry: no code or storage key of the failed-in-the-morning list is left; the morning today-to-yesterday fallback is unchanged and tested. Alarms are recreated after a Chrome restart; own alarms are cleared when unused; the retry stops at 3 tries and is held to the Flipkart 20; own runs wait for 3 minutes idle.",
+   "fixed": true
   },
   {
-   "severity": "gap",
-   "finding": "The Bridge tests stand in for the Run now door; the door's own handling of today is in screen.test.js 2785-2885. Not changed.",
-   "fixed": false
+   "severity": "found by writing a check",
+   "finding": "On the first drawing every platform's greyed 'cannot be fetched' rows showed (the hiding step ran before the rows were built). Fixed in 0f8d95a.",
+   "fixed": true
   }
- ]
+ ],
+ "drawing_rows_not_built": ["D948 'time has passed' pop-up (no code exists; adding it is run-path code, outside his scope word of 8 Nov)", "'By API' label (needs a new data read)"]
 }
