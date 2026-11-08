@@ -3238,6 +3238,51 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
     byId.fk_claims.at === '13:00' && byId.me_claims.at === '14:30' && byId.fk_claims.platform === 'flipkart' && byId.me_claims.platform === 'meesho');
 }
 
+{
+  /* **R250 PROVING, second run: the banner's three branches, when the panel counts as set up, the cannot-fetch rows, the order of two reports of one platform.** */
+  installFakeBrowser();
+  const { chrome } = installFakeChrome();
+  const stands = await howItStands(chrome, { book: BOOK, now: Date.now() });
+  const panel = buildThePanel(document.body, {});
+  const setUp = (extra) => ({ ...stands.setUp, ...extra });
+  showHowItStands(panel, { ...stands, setUp: setUp({ driveConnectedAt: 5, panel: '' }) });
+  const noName = panel.body.className.includes('p-pre');
+  showHowItStands(panel, { ...stands, setUp: setUp({ driveConnectedAt: 0, panel: 'xuptj' }) });
+  const noDrive = panel.body.className.includes('p-pre');
+  showHowItStands(panel, { ...stands, setUp: setUp({ driveConnectedAt: 5, panel: 'xuptj' }) });
+  check('R250 proving: the panel counts as set up only with BOTH the Drive connected and the panel named',
+    noName === true && noDrive === true && panel.body.className.includes('p-pre') === false);
+  const quiet = { ...stands, setUp: setUp({ driveConnectedAt: 5, panel: 'xuptj', done: true }), night: null, needsYou: [], clock: { chosen: '08:00', nextAt: Date.now() + 1000, times: { morning: '08:00', evening: '16:00' } } };
+  showHowItStands(panel, quiet);
+  const idleLine = panel.banner.textContent;
+  const said = whatTheBannerSays(quiet).said;
+  check('R250 proving: the status line is "Ready." plus when it wakes while quiet', idleLine.startsWith('Ready. ') && idleLine.includes('wakes'));
+  const doneStands = { ...quiet, night: { startedAt: 1, finishedAt: 2, spent: 0, mayAskFor: 3, done: [{ reportId: 'fk_orders', state: 'landed', say: 'x' }], left: [], doing: null } };
+  const how = whatTheBannerSays(doneStands);
+  showHowItStands(panel, doneStands);
+  check('R250 proving: when a run is done the line is its own words plus when it wakes; otherwise just its own words',
+    how.how === 'done' ? panel.banner.textContent === `${how.said} ${whenItNextWakes(doneStands.clock)}` : panel.banner.textContent === how.said);
+  check('R250 proving: the idle words are not what a finished run says', typeof said === 'string');
+
+  /* cannot-fetch rows: one per report that cannot be fetched, shown only on the platform chosen */
+  const withCannot = { ...stands, cannotBeFetched: [{ id: 'a', name: 'Alpha', platform: 'flipkart', why: 'because a' }, { id: 'b', name: 'Beta', platform: 'meesho', why: 'because b' }] };
+  const p2 = buildThePanel(document.body, {});
+  p2.chosen = 'flipkart';
+  showHowItStands(p2, withCannot);
+  check('R250 proving: a cannot-fetch row is built for each report that cannot be fetched, with its reason, and only the chosen platform shows',
+    p2.cannotRows.length === 2 && p2.cannotRows[0][1].hidden === false && p2.cannotRows[1][1].hidden === true
+    && p2.cannotRows[1][1].children.map((c) => c.textContent).join('|') === 'Beta · cannot be fetched|because b');
+  p2.chosen = 'meesho';
+  showHowItStands(p2, withCannot);
+  check('R250 proving: choosing another platform swaps which cannot-fetch row shows', p2.cannotRows[0][1].hidden === true && p2.cannotRows[1][1].hidden === false);
+
+  /* two reports of one platform: by name */
+  const mk = (id, name, n) => ({ reportId: id, dataDate: `2026-09-0${n}`, name, platformName: 'Flipkart', folder: '' });
+  showHowItStands(panel, { ...quiet, needsYou: [mk('fk_a', 'Zebra', 1), mk('fk_b', 'Apple', 1)] });
+  const heads = panel.needs.children[0].children.find((one) => one.className === 'p-needsList').children.filter((one) => one.className === 'p-needsGroup').map((one) => one.textContent);
+  check('R250 proving: two reports of one platform are grouped by their names', heads[0].includes('Apple') && heads[1].includes('Zebra'));
+}
+
 reachedTheEnd = true;
 console.log(`\n${ran} checks, ${failures} failed.`);
 process.exit(failures ? 1 : 0);

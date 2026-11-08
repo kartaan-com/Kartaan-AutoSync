@@ -2625,9 +2625,56 @@ check('the page relay is OFF in what ships, so no script on a portal page can dr
   waitChrome.setTheComputer('idle');
   await carryOnWaiting(waitChrome.chrome, { own: (at) => started.push(`own:${at}`), daily: () => started.push('daily') });
   check('R250 proving: a waiting own-time run is started with its own time, through the own starter and not another', started.join() === 'own:19:30');
+
+  /* a waiting morning run uses its own starter even when an own starter exists; an own run with no own starter starts nothing else */
+  const w2 = installFakeChrome();
+  w2.setTheComputer('active');
+  await startWhenFree(w2.chrome, 'daily', async () => {});
+  await startWhenFree(w2.chrome, 'own-19:30', async () => {});
+  const s2 = [];
+  w2.setTheComputer('idle');
+  await carryOnWaiting(w2.chrome, { own: (at) => s2.push(`own:${at}`), daily: () => s2.push('daily') });
+  check('R250 proving: with both waiting, the morning run goes through the morning starter and the own run through the own one', s2.sort().join() === 'daily,own:19:30');
+  const w3 = installFakeChrome();
+  w3.setTheComputer('active');
+  await startWhenFree(w3.chrome, 'own-19:30', async () => {});
+  const s3 = [];
+  w3.setTheComputer('idle');
+  await carryOnWaiting(w3.chrome, { daily: () => s3.push('daily') });
+  check('R250 proving: an own-time run with no own starter does not borrow another starter', s3.length === 0);
+
+  /* the dispatcher given nothing */
+  const w4 = installFakeChrome();
+  let d4 = 0;
+  await wireUp(w4.chrome, { onDue: async () => { d4 += 1; }, onOwn: async () => {} });
+  let threw = false;
+  try { await w4.chrome.alarms.onAlarm.happened(undefined); } catch (error) { threw = true; }
+  check('R250 proving: an alarm event with no alarm in it is ignored, never a crash', threw === false);
+
+  /* own time: only the exact minute of another run is refused */
+  const o = installFakeChrome().chrome;
+  check('R250 proving: an own time is refused only at the exact time of the morning or evening run',
+    (await whyAnOwnTimeIsRefused(o, '16:30')) === null && (await whyAnOwnTimeIsRefused(o, '17:00')) === null && (await whyAnOwnTimeIsRefused(o, '08:30')) === null
+    && (await whyAnOwnTimeIsRefused(o, '16:00')) !== null);
+
+  /* the clock reads the next time from the alarm */
+  const c5 = installFakeChrome();
+  const real5 = c5.chrome.alarms.get;
+  c5.chrome.alarms.get = async (name) => (name === EVENING ? { name, scheduledTime: 123 } : { name, when: 456 });
+  const clock5 = await theClock(c5.chrome);
+  check('R250 proving: the clock gives the scheduled time of an alarm, or its when', clock5.eveningAt === 123 && clock5.nextAt === 456);
+  c5.chrome.alarms.get = real5;
+
+  /* moving the evening clears the old alarm first */
+  const c6 = installFakeChrome();
+  const cleared = [];
+  const clear6 = c6.chrome.alarms.clear;
+  c6.chrome.alarms.clear = async (name) => { cleared.push(name); return clear6(name); };
+  await setARunTime(c6.chrome, { which: 'evening', at: '17:15', now: () => t0 });
+  check('R250 proving: moving the evening clears its old alarm before making the new one', cleared.includes(EVENING));
 }
 
-const EXPECTED = 262 + 13 + 1 + 4 + 2 + 1 + 1 + 1 + 4 + 11 + 7 + 2 + 1 + 4 + 8 + 10 + 4 + 2 + 19;
+const EXPECTED = 262 + 13 + 1 + 4 + 2 + 1 + 1 + 1 + 4 + 11 + 7 + 2 + 1 + 4 + 8 + 10 + 4 + 2 + 25;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

@@ -2433,6 +2433,7 @@ function showTheRestOfIt(parts, stands) {
     parts.cannotRows = [];
     for (const one of stands.cannotBeFetched) {
       const row = make('div', `${OURS}cannot`);
+      row.hidden = one.platform !== parts.chosen;
       put(row, make('span', `${OURS}report-name`, `${one.name} · cannot be fetched`), make('span', `${OURS}note`, one.why));
       put(parts.cannot, row);
       parts.cannotRows.push([one.platform, row]);
