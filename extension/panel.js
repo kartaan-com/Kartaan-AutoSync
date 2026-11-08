@@ -16,15 +16,14 @@
  * broken. (Three, this said, until an independent reviewer counted them.)
  */
 
-import { buildThePanel, showHowItStands, saySomething } from './screen.js';
+import { applyTheTheme, buildThePanel, showHowItStands, saySomething, theThemeChosen } from './screen.js';
 
-/* **THE ERP'S OWN DARK RULE, not a second one.** `from-the-erp/tokens.css` puts
- * every dark colour under `body.dark`, exactly as the product does, so the class
- * is what switches it. Following the browser's own setting rather than adding a
- * switch: this is a page somebody opens to look at a run, not a place to keep
- * preferences. */
-if (globalThis.matchMedia && globalThis.matchMedia('(prefers-color-scheme: dark)').matches) {
-  document.body.classList.add('dark');
+/* **THE ERP'S OWN DARK RULE, not a second one.** `from-the-erp/tokens.css` puts every dark colour under `body.dark`, exactly as the product does,
+ * so the class is what switches it. The default is the computer's own setting; Settings can choose Light or Dark, and that is remembered
+ * (`screen.js`, `applyTheTheme`). */
+applyTheTheme(theThemeChosen());
+if (globalThis.matchMedia) {
+  globalThis.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => applyTheTheme(theThemeChosen()));
 }
 
 /**
@@ -109,9 +108,14 @@ const parts = buildThePanel(document.body, {
     saySomething(parts, said && said.stopped ? 'Stopped.' : 'There was nothing going to stop.');
     await refresh();
   },
-  saveTheReportTimes: async (reportId, day, run) => {
-    const said = await ask({ do: 'save-the-report-times', reportId, day, run });
+  saveTheReportTimes: async (reportId, day, run, at) => {
+    const said = await ask({ do: 'save-the-report-times', reportId, day, run, at });
     saySomething(parts, (said && said.wrong) || 'Saved. The next run uses it.');
+  },
+  setARunTime: async (which, at) => {
+    const said = await ask({ do: 'set-a-run-time', which, at });
+    saySomething(parts, (said && said.wrong) || 'Saved. The next run uses it.');
+    await refresh();
   },
   setTheHour: async (at) => {
     /* **THE BOX'S OWN TEXT GOES ACROSS, UNTOUCHED.** Turned into two numbers

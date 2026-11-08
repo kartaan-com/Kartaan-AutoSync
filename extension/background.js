@@ -174,9 +174,13 @@ export const DAILY = 'kartaan-autosync-daily';
 export const EVENING = 'kartaan-autosync-evening';
 export const THE_EVENING_AT = Object.freeze({ hour: 16, minute: 0 });
 
-/* **THE THIRD TIMED RUN (R208, his D968 and 7 Nov 2026): 6 PM, THE RETURNS FOR TODAY.** The whole day's file; the next morning does not fetch that day again. */
-export const RETURNS = 'kartaan-autosync-returns';
-export const THE_RETURNS_AT = Object.freeze({ hour: 18, minute: 0 });
+/* **OWN TIMES (R250, his D1035, replacing the named 6 pm "returns run"): a report may have a time of its own.** One alarm per DISTINCT own time, named `OWN` + HH:MM; the reports
+ * whose own time it is are fetched when it fires. The three returns reports default to an own time of 18:00 (and the day "today"). The list of times is written by the worker
+ * whenever a report's time is saved (`setTheOwnTimes`); with nothing ever written the one time is 18:00. */
+export const OWN = 'kartaan-autosync-own-';
+export const THE_OWN_TIMES = 'kartaan-autosync-own-times';
+export const THE_OWN_DEFAULT = Object.freeze(['18:00']);
+const A_TIME_OF_DAY = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 /* Every day, and it is a period rather than a one-off on purpose: a one-off that
  * fires while Chrome is shut is simply never delivered, and nothing reschedules
@@ -267,28 +271,54 @@ export async function makeSureTheClockIsSet(chrome) {
   return true;
 }
 
-/** Make sure the 4 pm alarm exists, and say whether it had to be created. Its hour is fixed, so putting it back needs nothing else. */
+/** Make sure the 4 pm alarm exists, and say whether it had to be created. Its hour is the saved one (R250), or 4 pm until one is saved. */
 export async function makeSureTheEveningIsSet(chrome) {
   const already = await chrome.alarms.get(EVENING);
   if (already) return false;
   await chrome.alarms.create(EVENING, {
-    when: whenThatHourNextComes(THE_EVENING_AT, Date.now()),
+    when: whenThatHourNextComes(await theEveningAt(chrome), Date.now()),
     periodInMinutes: EVERY_DAY_IN_MINUTES,
     persistAcrossSessions: true,
   });
   return true;
 }
 
-/** Make sure the 6 pm returns alarm exists, and say whether it had to be created. */
-export async function makeSureTheReturnsAreSet(chrome) {
-  const already = await chrome.alarms.get(RETURNS);
-  if (already) return false;
-  await chrome.alarms.create(RETURNS, {
-    when: whenThatHourNextComes(THE_RETURNS_AT, Date.now()),
-    periodInMinutes: EVERY_DAY_IN_MINUTES,
-    persistAcrossSessions: true,
-  });
-  return true;
+/** The own times the alarms should be at: what the worker last wrote, or 18:00 when nothing was ever written (a damaged record is the default, never a bad time). */
+export async function theOwnTimes(chrome) {
+  const kept = (await chrome.storage.local.get(THE_OWN_TIMES))[THE_OWN_TIMES];
+  if (!Array.isArray(kept)) return [...THE_OWN_DEFAULT];
+  return [...new Set(kept.filter((one) => A_TIME_OF_DAY.test(one)))].sort();
+}
+
+const anOwnAlarmAt = (at) => {
+  const [hour, minute] = at.split(':').map(Number);
+  return { when: whenThatHourNextComes({ hour, minute }, Date.now()), periodInMinutes: EVERY_DAY_IN_MINUTES, persistAcrossSessions: true };
+};
+
+/** Make sure one alarm exists for each own time, and none for a time nobody has any more; say whether one had to be created. */
+export async function makeSureTheOwnTimesAreSet(chrome) {
+  const wanted = await theOwnTimes(chrome);
+  for (const alarm of await chrome.alarms.getAll()) {
+    if (alarm.name.startsWith(OWN) && !wanted.includes(alarm.name.slice(OWN.length))) await chrome.alarms.clear(alarm.name);
+  }
+  let made = false;
+  for (const at of wanted) {
+    if (await chrome.alarms.get(`${OWN}${at}`)) continue;
+    await chrome.alarms.create(`${OWN}${at}`, anOwnAlarmAt(at));
+    made = true;
+  }
+  return made;
+}
+
+/** Save the own times the reports have now (only real times of day, each once), and make the alarms again the way `setTheHour` does. */
+export async function setTheOwnTimes(chrome, times) {
+  const kept = [...new Set((times || []).filter((one) => A_TIME_OF_DAY.test(one)))].sort();
+  await chrome.storage.local.set({ [THE_OWN_TIMES]: kept });
+  for (const alarm of await chrome.alarms.getAll()) {
+    if (alarm.name.startsWith(OWN)) await chrome.alarms.clear(alarm.name);
+  }
+  for (const at of kept) await chrome.alarms.create(`${OWN}${at}`, anOwnAlarmAt(at));
+  return kept;
 }
 
 /* ------------------------------------------------------- the hour it runs at */
@@ -400,6 +430,105 @@ export async function setTheHour(chrome, { at, now = () => Date.now() }) {
     periodInMinutes: EVERY_DAY_IN_MINUTES,
     persistAcrossSessions: true,
   });
+  return when;
+}
+
+/* ------------------------------------------- the evening time, and the own times (R250) */
+
+/* What the evening time is called in storage: a seller setting saved like the morning one (`THE_HOUR`). */
+export const THE_EVENING_SAVED = 'kartaan-autosync-evening-hour';
+
+/** A saved time of day, or the fallback when nothing valid is saved (a bad record is the default, never NaN -- the same check as `theHourItRuns`). */
+async function aSavedTime(chrome, key, fallback) {
+  const kept = (await chrome.storage.local.get(key))[key];
+  if (!kept) return fallback;
+  const hour = Number(kept.hour);
+  const minute = Number(kept.minute);
+  if (!Number.isInteger(hour) || !Number.isInteger(minute) || hour < 0 || hour > 23 || minute < 0 || minute > 59) return fallback;
+  return { hour, minute };
+}
+
+/** The evening run's time: the saved one, or 4 pm. */
+export const theEveningAt = (chrome) => aSavedTime(chrome, THE_EVENING_SAVED, THE_EVENING_AT);
+
+/** The two named runs' times now, each as hours and minutes. */
+export async function theRunTimes(chrome) {
+  return {
+    morning: (await theHourItRuns(chrome)) || UNTIL_A_SELLER_CHOOSES,
+    evening: await theEveningAt(chrome),
+  };
+}
+
+/** What the panel is told about the clock: the two saved times as HH:MM, and when each alarm will really next fire (from Chrome's own alarms, not from the saved times). `own` lists each own time with its next firing. */
+export async function theClock(chrome) {
+  const chosen = await theHourItRuns(chrome);
+  const at = (t) => `${String(t.hour).padStart(2, '0')}:${String(t.minute).padStart(2, '0')}`;
+  const times = await theRunTimes(chrome);
+  const next = async (name) => {
+    const alarm = await chrome.alarms.get(name);
+    return (alarm && (alarm.scheduledTime || alarm.when)) || null;
+  };
+  const own = [];
+  for (const time of await theOwnTimes(chrome)) own.push({ time, at: await next(`${OWN}${time}`) });
+  return {
+    times: { morning: at(times.morning), evening: at(times.evening) },
+    chosen: chosen ? at(chosen) : '',
+    nextAt: await next(DAILY),
+    eveningAt: await next(EVENING),
+    own,
+  };
+}
+
+/** A time of day in the words a seller reads: 4:00 pm. */
+export function inTheSellersWords({ hour, minute }) {
+  return `${hour % 12 || 12}:${String(minute).padStart(2, '0')} ${hour < 12 ? 'am' : 'pm'}`;
+}
+
+const THE_RUN_NAMES = Object.freeze({ morning: 'Morning', evening: 'Evening' });
+
+/** Why a time cannot be given to a run because another run has it, or nothing when it is free. Two runs may not share a time. */
+export function whyTwoRunsClash(times, which, at) {
+  for (const other of Object.keys(THE_RUN_NAMES)) {
+    if (other === which) continue;
+    if (times[other].hour === at.hour && times[other].minute === at.minute) {
+      return `${THE_RUN_NAMES[which]} run cannot be at ${inTheSellersWords(at)}: the ${THE_RUN_NAMES[other].toLowerCase()} run is already then. Pick another time.`;
+    }
+  }
+  return null;
+}
+
+/** Why a run cannot be moved to that text (not a time, or already taken by another run), or nothing. */
+export async function whyThatRunTimeIsRefused(chrome, which, said) {
+  if (!Object.keys(THE_RUN_NAMES).includes(which)) return 'Pick the morning or the evening run.';
+  const wrong = whyThatIsNotATimeOfDay(said);
+  if (wrong) return wrong;
+  return whyTwoRunsClash(await theRunTimes(chrome), which, theTimeOfDayIn(said));
+}
+
+/** Why a report's own time is refused: not a time of day, or the same as the morning or the evening run (two runs may not share a time). Nothing when it is fine. */
+export async function whyAnOwnTimeIsRefused(chrome, said) {
+  const wrong = whyThatIsNotATimeOfDay(said);
+  if (wrong) return wrong;
+  const at = theTimeOfDayIn(said);
+  const times = await theRunTimes(chrome);
+  for (const [which, name] of Object.entries(THE_RUN_NAMES)) {
+    if (times[which].hour === at.hour && times[which].minute === at.minute) {
+      return `An own time cannot be ${inTheSellersWords(at)}: the ${name.toLowerCase()} run is already then. Pick another time.`;
+    }
+  }
+  return null;
+}
+
+/** Set the evening time: saved, and the alarm cleared and made again the way `setTheHour` does it. */
+export async function setARunTime(chrome, { which, at, now = () => Date.now() }) {
+  if (which !== 'evening') throw new Error('Only the evening time is set here.');
+  const refused = await whyThatRunTimeIsRefused(chrome, which, at);
+  if (refused) throw new Error(refused);
+  const { hour, minute } = theTimeOfDayIn(at);
+  await chrome.storage.local.set({ [THE_EVENING_SAVED]: { hour, minute } });
+  await chrome.alarms.clear(EVENING);
+  const when = whenThatHourNextComes({ hour, minute }, now());
+  await chrome.alarms.create(EVENING, { when, periodInMinutes: EVERY_DAY_IN_MINUTES, persistAcrossSessions: true });
   return when;
 }
 
@@ -1281,7 +1410,7 @@ export function answerAnExternalAsk(chrome, asked, sender) {
  * between.
  */
 export function wireUp(chrome, {
-  onDue, onEvening = null, onReturns = null, onRecheck = null, answer = null, whenATabGoes = null, carryOn = null, answerPanel = null,
+  onDue, onEvening = null, onOwn = null, onRecheck = null, answer = null, whenATabGoes = null, carryOn = null, answerPanel = null,
   answerOutside = null,
 }) {
   /* **THE PANEL'S OWN WAY BACK, and a second listener rather than a wider first
@@ -1366,7 +1495,7 @@ export function wireUp(chrome, {
      * asks again starts whatever waited. Run now never comes through here. The walk being carried on above is not
      * stopped by this: only the starting of a run waits. */
     if (alarm && alarm.name === IDLE_ALARM) {
-      await carryOnWaiting(chrome, { daily: onDue, evening: onEvening, returns: onReturns, recheck: onRecheck });
+      await carryOnWaiting(chrome, { daily: onDue, evening: onEvening, own: onOwn, recheck: onRecheck });
       return;
     }
     if (alarm && alarm.name === RECHECK_ALARM) {
@@ -1376,8 +1505,9 @@ export function wireUp(chrome, {
     if (alarm && alarm.name === EVENING) {
       if (onEvening) await startWhenFree(chrome, 'evening', onEvening);
     }
-    if (alarm && alarm.name === RETURNS) {
-      if (onReturns) await startWhenFree(chrome, 'returns', onReturns);
+    if (alarm && alarm.name.startsWith(OWN)) {
+      const at = alarm.name.slice(OWN.length);
+      if (onOwn && A_TIME_OF_DAY.test(at)) await startWhenFree(chrome, `own-${at}`, () => onOwn(at));
     }
     if (alarm && alarm.name !== DAILY) return;
     await startWhenFree(chrome, 'daily', onDue);
@@ -1404,8 +1534,8 @@ export async function whoClosedIt(chrome) {
 async function bothClocks(chrome) {
   const daily = await makeSureTheClockIsSet(chrome);
   const evening = await makeSureTheEveningIsSet(chrome);
-  const returns = await makeSureTheReturnsAreSet(chrome);
+  const own = await makeSureTheOwnTimesAreSet(chrome);
   const awake = await makeSureTheWorkerIsWoken(chrome);
   await askAgainIfWaiting(chrome);
-  return daily || evening || returns || awake;
+  return daily || evening || own || awake;
 }

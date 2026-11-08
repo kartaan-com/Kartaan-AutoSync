@@ -6,7 +6,11 @@ export const WAITING = 'kartaan-autosync-waiting-for-idle';
 /** How long to wait before asking again. */
 export const ASK_AGAIN_MINUTES = 1;
 /** The kinds of start that can wait for the computer to be left alone: the morning run, the evening run and the hourly re-check. */
-export const KINDS_THAT_WAIT = Object.freeze(['daily', 'evening', 'returns', 'recheck']);
+export const KINDS_THAT_WAIT = Object.freeze(['daily', 'evening', 'recheck']);
+
+/** R250 (his D1035): a report's OWN TIME is a run of its own at that time of day, waiting like the others under the kind `own-HH:MM`. */
+export const OWN_KIND = /^own-([01]\d|2[0-3]):[0-5]\d$/;
+const canWait = (kind) => KINDS_THAT_WAIT.includes(kind) || OWN_KIND.test(kind);
 
 /** AJ9 piece 2: chrome.storage.local key: { kind, waitedMs, at } -- how the run just started got past the idle wait.
  *  `startTheNight` reads it into the night so the run log can say so; a start that did not come through here (Run now)
@@ -94,7 +98,7 @@ export async function carryOnWaiting(chrome, starts, now = Date.now()) {
     const stored = await chrome.storage.local.get(WAITING);
     const waiting = stored[WAITING] || {};
     for (const kind of Object.keys(waiting)) {
-      if (!KINDS_THAT_WAIT.includes(kind) || !Number.isFinite(waiting[kind])) {
+      if (!canWait(kind) || !Number.isFinite(waiting[kind])) {
         delete waiting[kind];
       }
     }
@@ -115,9 +119,9 @@ export async function carryOnWaiting(chrome, starts, now = Date.now()) {
     await chrome.alarms.clear(IDLE_ALARM);
     await chrome.storage.local.remove(WAITING);
 
-    for (const kind of KINDS_THAT_WAIT) {
+    for (const kind of [...KINDS_THAT_WAIT, ...Object.keys(waiting).filter((one) => OWN_KIND.test(one)).sort()]) {
       if (!(kind in waiting)) continue;
-      const start = starts[kind];
+      const start = OWN_KIND.test(kind) && typeof starts.own === 'function' ? () => starts.own(kind.slice(4)) : starts[kind];
       if (typeof start !== 'function') {
         console.warn(`Kartaan Auto-sync: no start function for waiting ${kind}.`);
         continue;
@@ -136,7 +140,7 @@ export async function whatIsWaiting(chrome) {
   const stored = await chrome.storage.local.get(WAITING);
   const waiting = stored[WAITING] || {};
   for (const kind of Object.keys(waiting)) {
-    if (!KINDS_THAT_WAIT.includes(kind) || !Number.isFinite(waiting[kind])) {
+    if (!canWait(kind) || !Number.isFinite(waiting[kind])) {
       delete waiting[kind];
     }
   }

@@ -224,11 +224,17 @@ body {
   cursor: help;
 }
 
-/* PN2b: the three platform buttons. */
+/* PN2b: the three platform buttons. R250: one row of three at laptop width, one below it on a phone; the text is always the readable colour. */
 .p-tabs {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
+}
+
+@media (max-width: 560px) {
+  .p-tabs {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .p-tab {
@@ -236,12 +242,167 @@ body {
   flex-direction: column;
   align-items: flex-start;
   gap: 2px;
-  min-width: 140px;
+  min-width: 0;
+  height: auto;
+  min-height: 37px;
+  padding-top: 6px;
+  padding-bottom: 6px;
+  color: var(--text);
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.p-tabTop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .p-tab--chosen {
   border-color: var(--brand);
   background: var(--surface-raised);
+  color: var(--text);
+}
+
+/* R250: fold-aways (details): the summary reads as the box's title. */
+.p-fold {
+  min-width: 0;
+}
+
+.p-foldHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+/* R250: the gear in the top bar, and what it opens (set-up and run pass). */
+.p-gear {
+  margin-left: auto;
+  padding: 4px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--on-brand);
+  font: inherit;
+  cursor: pointer;
+}
+
+.p-gear[aria-expanded="true"] {
+  border-color: var(--on-brand);
+}
+
+.p-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.p-settings[hidden] {
+  display: none;
+}
+
+/* R250: one run per block in the Run times drawer: its name, time and Save on a line, then what it fetches and why. */
+.p-runRow {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.p-runRow .p-note {
+  margin: 0;
+}
+
+/* R250: AI, Run times and How this works: three buttons in one row (one below the other only on a phone). */
+.p-three {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+@media (max-width: 560px) {
+  .p-three {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.p-drawerButton {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  height: auto;
+  min-height: 37px;
+  padding-top: 6px;
+  padding-bottom: 6px;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.p-drawerButton[aria-expanded="true"] {
+  border-color: var(--brand);
+  background: var(--surface-raised);
+}
+
+.p-drawerButton small {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.p-drawerButton small.p-clashing {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+/* R250: before set-up the panel shows only the set-up steps. */
+.p-pre > :not(.p-settings):not(.p-said) {
+  display: none;
+}
+
+.p-version {
+  margin-left: auto;
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+.p-version + .p-gear,
+.p-modeSwitch,
+.p-modeSwitch + .p-gear {
+  margin-left: 8px;
+}
+
+/* R250: the needs-you list: one row per report-day, scrolling inside the box. */
+.p-needsList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.p-needsRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.p-clash {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--danger);
 }
 
 .p-actions {
@@ -539,4 +700,50 @@ body {
   .p-counts {
     grid-template-columns: repeat(2, 1fr);
   }
+}
+
+/* R250 (his look, D1034): the needs-you rows grouped by report, and the report-runs-when list as columns grouped by platform. */
+.p-needsGroup {
+  margin-top: 6px;
+  font-weight: 600;
+}
+
+.p-schedGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content max-content;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.p-schedRow {
+  display: contents;
+}
+
+.p-schedPlatform {
+  grid-column: 1 / -1;
+  margin-top: 8px;
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 700;
+}
+
+/* R250 (his look 2, D1035): Own time: the run and its time box side by side, and the warning under the row. */
+.p-runCell {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.p-schedWarn {
+  grid-column: 1 / -1;
+  margin-top: -4px;
+  color: var(--warn);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* R250 (his look 2, D1035): the "cannot be fetched" box is as tall as its words (the report name's flex-basis was a height in a column). */
+.p-cannot .p-report-name {
+  flex: 0 0 auto;
 }

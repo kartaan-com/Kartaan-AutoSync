@@ -43,7 +43,7 @@ import { whatIsWaiting } from './idle.js';
 import { THE_WALK } from './background.js';
 import { aDriveToken } from './drive.js';
 import {
-  PAUSED, RECHECKS, THE_FAILED_IN_THE_MORNING, THE_NIGHT, THE_SCHEDULED_QUEUE, THE_SYNC_FAILED, whatIsPaused,
+  PAUSED, RECHECKS, THE_NIGHT, THE_SCHEDULED_QUEUE, THE_SYNC_FAILED, whatIsPaused,
 } from './nightly.js';
 import {
   askMayFetch, saveTheRunPass, whatKartaanLastSaid,
@@ -201,6 +201,8 @@ export async function theSetup(chrome) {
      * anything else reads as "not chosen", which is the default (`theDayOf`, `theRunOf`). */
     days: Object.fromEntries(Object.entries(kept.days || {}).filter(([, one]) => THE_DAY_CHOICES.includes(one))),
     runs: Object.fromEntries(Object.entries(kept.runs || {}).filter(([, one]) => THE_RUNS.includes(one))),
+    /* R250 (D1035): the own time of each report that has one (only real times of day). */
+    ownAt: Object.fromEntries(Object.entries(kept.ownAt || {}).filter(([, one]) => A_TIME_OF_DAY.test(String(one)))),
   };
 }
 
@@ -221,14 +223,36 @@ export const THE_EVENING_REPORTS = Object.freeze(['fk_orders', 'fk_views', 'az_f
 /** **R208 (his D968, 7 Nov 2026): THE RETURNS ARE FETCHED AT 6 PM FOR TODAY**, the whole day, and the next morning does not fetch that day again. */
 export const THE_RETURNS_REPORTS = Object.freeze(['fk_returns', 'me_returns', 'az_returns']);
 /** The three timed runs, and the two days a report may be for. A report's own choice is kept on the panel (`theSetup`). */
-export const THE_RUNS = Object.freeze(['morning', 'evening', 'returns']);
+export const THE_RUNS = Object.freeze(['morning', 'evening', 'own']);
+
+/** R250 (his D1035): a report on "Own time" runs at a time of its own; the returns default to 18:00. */
+export const A_TIME_OF_DAY = /^([01]\d|2[0-3]):[0-5]\d$/;
+export const THE_OWN_DEFAULT = '18:00';
+
+/**
+ * R250 (his D1035): WHEN EACH REPORT IS USUALLY READY, for the warning shown while an own time is set. A small FIXED table; nothing is read from a platform.
+ * Where each time came from:
+ *  - fk_orders, fk_views, az_fee_preview, me_views = `THE_EVENING_REPORTS`: the morning fetch of 3 Nov 2026 found them not ready (`R184-MORNING-FETCH-2026-11-03.md`), which is why the evening run (4 pm) exists (AJ13a, D918).
+ *  - fk_returns, me_returns, az_returns = `THE_RETURNS_REPORTS`: his D968 and 7 Nov 2026, the day's returns are all in by 6 pm.
+ * A report not in the table is not warned about.
+ */
+export const USUALLY_READY_AFTER = Object.freeze({
+  fk_orders: '16:00', fk_views: '16:00', az_fee_preview: '16:00', me_views: '16:00',
+  fk_returns: '18:00', me_returns: '18:00', az_returns: '18:00',
+});
+
+/** The warning for an own time earlier than the report is usually ready, or ''. */
+export function theReadyWarning(id, at) {
+  const ready = USUALLY_READY_AFTER[id];
+  return ready && A_TIME_OF_DAY.test(at || '') && at < ready ? `You may not get this report at ${at}. It is usually ready after ${ready}.` : '';
+}
 export const THE_DAY_CHOICES = Object.freeze(['yesterday', 'today']);
 
 /** Which timed run a report belongs to: the seller's choice, else the returns' own run, else the evening list, else the morning. */
 export function theRunOf(setUp, id) {
   const chosen = (setUp.runs || {})[id];
   if (THE_RUNS.includes(chosen)) return chosen;
-  if (THE_RETURNS_REPORTS.includes(id)) return 'returns';
+  if (THE_RETURNS_REPORTS.includes(id)) return 'own';
   return THE_EVENING_REPORTS.includes(id) ? 'evening' : 'morning';
 }
 
@@ -239,9 +263,20 @@ export function theDayOf(setUp, id) {
   return THE_RETURNS_REPORTS.includes(id) ? 'today' : 'yesterday';
 }
 
-/** What ONE of the three timed runs fetches: the reports whose run it is. */
-export function theTimedListFor(book, setUp, run) {
-  return theTimedList(book, setUp).filter((id) => theRunOf(setUp, id) === run);
+/** A report's own time: the seller's, else 18:00. */
+export function theOwnAtOf(setUp, id) {
+  const chosen = (setUp.ownAt || {})[id];
+  return A_TIME_OF_DAY.test(chosen || '') ? chosen : THE_OWN_DEFAULT;
+}
+
+/** The distinct own times the reports have now, earliest first: one alarm each. */
+export function theOwnTimesOf(book, setUp) {
+  return [...new Set(theTimedList(book, setUp).filter((id) => theRunOf(setUp, id) === 'own').map((id) => theOwnAtOf(setUp, id)))].sort();
+}
+
+/** What ONE timed run fetches: the reports whose run it is; for an own-time run (`at` given), the reports whose own time it is. */
+export function theTimedListFor(book, setUp, run, at = null) {
+  return theTimedList(book, setUp).filter((id) => theRunOf(setUp, id) === run && (run !== 'own' || !at || theOwnAtOf(setUp, id) === at));
 }
 
 export function theTimedList(book, setUp) {
@@ -913,7 +948,8 @@ export async function howItStands(chrome, { book, now = Date.now(), theClock = n
     /* **R208 (D1006): EACH TIMED REPORT'S DAY AND RUN, for the panel to show and change.** */
     schedule: theTimedList(book, setUp).map((id) => ({
       id, name: ((book.reports || []).find((one) => one.id === id) || {}).name || id,
-      day: theDayOf(setUp, id), run: theRunOf(setUp, id),
+      platform: thePlatformOf(book, id),
+      day: theDayOf(setUp, id), run: theRunOf(setUp, id), at: theOwnAtOf(setUp, id),
     })),
     /* **AJ8: A RUN THAT IS WAITING FOR THE COMPUTER TO BE LEFT ALONE**, or null. */
     waitingForIdle: await whatIsWaiting(chrome),
@@ -949,7 +985,7 @@ function whatTheTimedSyncFetches(book, timed) {
 export const THE_PANEL_ASKS = Object.freeze([
   'how-it-stands', 'connect-the-drive', 'check-the-drive', 'save-the-panel-name',
   'run-now', 'stop', 'set-the-hour', 'reload-the-extension', 'save-the-ticks', 'resume',
-  'save-the-run-pass', 'clear-needs-you', 'save-the-report-times',
+  'save-the-run-pass', 'clear-needs-you', 'save-the-report-times', 'set-a-run-time',
 ]);
 
 /**
@@ -1031,15 +1067,36 @@ export async function answerThePanelsQuestion(chrome, parts, asked) {
     const setUp = await theSetup(chrome);
     const id = String(asked.reportId);
     if (!theTimedList(book, setUp).includes(id)) return { wrong: `${id} is not a report that runs by itself.` };
-    if (!THE_DAY_CHOICES.includes(asked.day) || !THE_RUNS.includes(asked.run)) return { wrong: 'Pick yesterday or today, and one of the three runs.' };
-    await keepTheSetup(chrome, { days: { ...setUp.days, [id]: asked.day }, runs: { ...setUp.runs, [id]: asked.run } });
+    if (!THE_DAY_CHOICES.includes(asked.day) || !THE_RUNS.includes(asked.run)) return { wrong: 'Pick yesterday or today, and morning, evening or own time.' };
+    let ownAt = setUp.ownAt || {};
+    if (asked.run === 'own') {
+      const wrong = (parts.whyAnOwnTimeIsRefused && await parts.whyAnOwnTimeIsRefused(chrome, asked.at))
+        || (A_TIME_OF_DAY.test(String(asked.at)) ? null : 'An own time is a time of day, like 18:00.');
+      if (wrong) return { wrong };
+      ownAt = { ...ownAt, [id]: String(asked.at) };
+    }
+    const kept = await keepTheSetup(chrome, { days: { ...setUp.days, [id]: asked.day }, runs: { ...setUp.runs, [id]: asked.run }, ownAt });
+    /* R250: the alarms follow the reports: one for each own time that is left. */
+    if (parts.setTheOwnTimes) await parts.setTheOwnTimes(chrome, theOwnTimesOf(book, kept));
     return { saved: true };
   }
 
   if (asked.do === 'set-the-hour') {
     const wrong = parts.whyThatIsNotATimeOfDay(asked.at);
     if (wrong) return { wrong };
+    /* R250: two runs may not share a time. */
+    const taken = parts.whyThatRunTimeIsRefused && await parts.whyThatRunTimeIsRefused(chrome, 'morning', asked.at);
+    if (taken) return { wrong: taken };
     const set = await parts.setTheHour(chrome, { at: asked.at, now });
+    return { at: set };
+  }
+
+  /* R250: the evening time, saved like the morning one. */
+  if (asked.do === 'set-a-run-time') {
+    if (asked.which !== 'evening') return { wrong: 'Only the evening time is set here.' };
+    const wrong = parts.whyThatRunTimeIsRefused && await parts.whyThatRunTimeIsRefused(chrome, asked.which, asked.at);
+    if (wrong) return { wrong };
+    const set = await parts.setARunTime(chrome, { which: asked.which, at: asked.at, now });
     return { at: set };
   }
 
@@ -1184,21 +1241,12 @@ export const PLATFORM_ORDER = Object.freeze(['flipkart', 'meesho', 'amazon']);
  * sync adds those itself); one sync, one platform at a time, never side by side; a
  * platform that is signed out stops only itself.
  */
-export async function startTheScheduledSync(chrome, parts, run = 'morning') {
+export async function startTheScheduledSync(chrome, parts, run = 'morning', at = null) {
   const { book } = parts;
   const setUp = await theSetup(chrome);
-  const timed = theTimedListFor(book, setUp, run);
-  /* Reports fetched for YESTERDAY although their setting is "today": the morning's fallback below, and a failed fallback tried again at 4 pm. */
+  const timed = theTimedListFor(book, setUp, run, at);
+  /* Reports fetched for YESTERDAY although their setting is "today": the morning's fallback below. */
   const fallback = new Set();
-  /* **R208 (D1006): A REPORT THAT FAILED IN THE MORNING IS TRIED AGAIN IN THE 4 PM RUN.** "Failed" only -- a report that was not ready is the hourly re-check's. The list is
-   * written by `thatOneIsDone`; it is read once and cleared here, and only reports still on the timed list come back. */
-  if (run === 'evening') {
-    const held = (await chrome.storage.local.get(THE_FAILED_IN_THE_MORNING))[THE_FAILED_IN_THE_MORNING];
-    if (held && held.day === theDay((parts.now || Date.now)())) {
-      timed.push(...(held.ids || []).filter((id) => theTimedList(book, setUp).includes(id) && !timed.includes(id)));
-      (held.past || []).filter((id) => timed.includes(id)).forEach((id) => fallback.add(id));
-    }
-  }
   /* **R208 (Control, 7 Nov): A "TODAY" REPORT THAT DID NOT LAND IS FETCHED THE NEXT MORNING AS AN ORDINARY YESTERDAY REPORT.** A platform that cannot give today loses nothing. A report that
    * did land (its yesterday is in what landed) is not fetched again. */
   if (run === 'morning') {
@@ -1231,13 +1279,10 @@ export async function startTheScheduledSync(chrome, parts, run = 'morning') {
         : { ...entry, reportIds: entry.reportIds.filter((id) => !already.has(id)) }))
       .filter((entry) => (Array.isArray(entry) ? entry : entry.reportIds).length);
     await chrome.storage.local.set({ [THE_QUEUE]: [...((await chrome.storage.local.get(THE_QUEUE))[THE_QUEUE] || []), ...added] });
-    if (run === 'evening') await chrome.storage.local.remove(THE_FAILED_IN_THE_MORNING);
     return { started: null, waiting: true, refused: [] };
   }
   await chrome.storage.local.set({ [THE_QUEUE]: byPlatform });
   const result = await startTheNextPlatform(chrome, parts);
-  /* The morning's failures are used up only once a start went through (or is queued); a refused start keeps them. */
-  if (run === 'evening' && (result.started || result.waiting)) await chrome.storage.local.remove(THE_FAILED_IN_THE_MORNING);
   return result;
 }
 
@@ -1604,20 +1649,7 @@ export function whatTheBannerSays(stands) {
         + 'from there.',
     };
   }
-  /* **A DAY THAT NEEDS THE SELLER COMES BEFORE ANYTHING ABOUT THE LAST RUN.** It
-   * stays true whatever the last run did, and it is the one thing on this page
-   * nobody else can do. */
-  const needsYou = stands.needsYou || [];
-  if (needsYou.length) {
-    const named = needsYou.map((one) => `${one.reportId} for ${one.dataDate}`).join(', ');
-    return {
-      how: 'wrong',
-      said: `${needsYou.length === 1 ? 'One day needs' : `${needsYou.length} days need`} you: `
-        + `${named}. AutoSync could not fetch ${needsYou.length === 1 ? 'it' : 'them'}: ${needsYou.length === 1 ? 'it' : 'each'} failed or was not available `
-        + `after three days of trying, or ${needsYou.length === 1 ? 'it is' : 'is'} older than the ${CATCH_UP_REACH_DAYS} days AutoSync goes back for. `
-        + `Fetch ${needsYou.length === 1 ? 'it' : 'them'} by hand.`,
-    };
-  }
+  /* R250 (his look, D1034): the days that need him are in the amber box at the top, not repeated here. */
   if (!stands.night) {
     return { how: 'idle', said: 'No runs yet. Tick what you want and press Run now.' };
   }
@@ -1642,6 +1674,26 @@ export function whatTheBannerSays(stands) {
   };
 }
 
+/* ---------------------------------------------------------------- light or dark (R250, his look D1034) */
+const THEME_KEY = 'kartaan-autosync-theme';
+
+/** What the seller chose: 'light', 'dark', or 'system' (the computer's own setting, the default). */
+export function theThemeChosen() {
+  try {
+    const kept = globalThis.localStorage && globalThis.localStorage.getItem(THEME_KEY);
+    return kept === 'light' || kept === 'dark' ? kept : 'system';
+  } catch (storageRefused) {
+    return 'system'; // a browser that will not let a page keep a setting: the computer's own setting, as if nothing was chosen
+  }
+}
+
+/** Put the colours on: the ERP's own `dark` class on the body, switched by the choice or, for 'system', by the computer's setting. Answers whether it is dark. */
+export function applyTheTheme(choice, doc = globalThis.document, match = globalThis.matchMedia) {
+  const dark = choice === 'dark' || (choice !== 'light' && Boolean(match && match('(prefers-color-scheme: dark)').matches));
+  doc.body.classList.toggle('dark', dark);
+  return dark;
+}
+
 /**
  * Build the page once, and hand back the pieces that change.
  *
@@ -1656,6 +1708,20 @@ export function buildThePanel(into, doing) {
 
   const bar = make('div', `${OURS}bar`);
   put(bar, make('span', `${OURS}brand`, 'KARTAAN'), make('span', `${OURS}what`, 'Auto-sync'));
+  /* R250 (drawing row "Version line"): the version sits in the top bar, always. Filled in by `showHowItStands`. */
+  parts.version = make('span', `${OURS}version`, '');
+  put(bar, parts.version);
+  /* R250 (his approved drawing, D968): the one-time set-up and the run pass sit behind a gear in the top bar once set-up is done. */
+  /* R250 (his look 2, D1035): a day/night switch beside Settings, always on the panel face. It flips light <-> dark and is remembered; Settings keeps the three-way choice. */
+  parts.modeSwitch = make('button', `${OURS}gear ${OURS}modeSwitch`, '');
+  parts.modeSwitch.type = 'button';
+  put(bar, parts.modeSwitch);
+  parts.gear = make('button', `${OURS}gear`, '⚙ Settings');
+  parts.gear.type = 'button';
+  parts.gear.setAttribute('aria-expanded', 'false');
+  parts.gear.hidden = true;
+  parts.gear.setAttribute('aria-label', 'Settings');
+  put(bar, parts.gear);
   put(page, bar);
 
   const body = make('div', `${OURS}body`);
@@ -1667,9 +1733,8 @@ export function buildThePanel(into, doing) {
   parts.needs.hidden = true;
   put(body, parts.needs);
 
-  /* ----------------------------------------------------------- what is happening */
+  /* ----------------------------------------------------------- what is happening: the status line, drawn under the run controls (below) */
   parts.banner = make('div', `${OURS}banner`);
-  put(body, parts.banner);
   /* **"A NEWER VERSION IS OUT" (his ask, 2026-10-20; Kartaan Click's way).** Hidden until the repository says so. */
   parts.update = make('div', `${OURS}banner ${OURS}banner--setup`);
   parts.update.hidden = true;
@@ -1700,7 +1765,9 @@ export function buildThePanel(into, doing) {
   parts.said = make('p', `${OURS}said`, '');
   parts.said.hidden = true;
   put(parts.actions, parts.runNow, parts.resume, parts.stop);
-  put(body, parts.actions, parts.said);
+  /* R250 (his look, D1034): Run now and Stop sit beside the From / To dates, in one row. */
+  put(whichDays, parts.actions);
+  put(body, parts.said);
 
   /* ----------------------------------------------- PN2b: instant download, one report, ticks untouched */
   const instant = make('div', `${OURS}row`);
@@ -1717,6 +1784,7 @@ export function buildThePanel(into, doing) {
   instantHint.title = 'Fetches just this one report for the days above. Your ticks are not touched.';
   put(instant, make('span', `${OURS}label`, 'Instant download'), parts.instantPlatform, parts.instantReport, parts.instantRun, instantHint);
   put(body, instant);
+  put(body, parts.banner);
 
   /* ------------------------------------------------------- setting up, once */
   parts.setup = make('section', `${OURS}card`);
@@ -1745,7 +1813,9 @@ export function buildThePanel(into, doing) {
   put(parts.setup, make('p', `${OURS}note`,
     'It is the part of the address of your own Meesho supplier panel between "fulfillment/" '
     + 'and "/orders". It is yours, so it is not in the extension.'));
-  put(body, parts.setup);
+  parts.settings = make('div', `${OURS}settings`);
+  put(parts.settings, parts.setup);
+  put(body, parts.settings);
 
   /* ------------------------------------------------------ the run pass, optional
    * **NOT PART OF "SET UP, ONCE", AND NOT HIDDEN WHEN THAT IS DONE.** Nothing is refused for lacking it -- a sync
@@ -1769,13 +1839,42 @@ export function buildThePanel(into, doing) {
     'Copy it from Kartaan\'s page. With it saved, each sync first asks Kartaan whether it may run, and Kartaan is '
     + 'told when a sync ends. Without it, syncs run as before and say the check was not made.'));
   put(parts.kartaan, parts.kartaanSaid);
-  put(body, parts.kartaan);
+  put(parts.settings, parts.kartaan);
+
+  /* R250 (his look, D1034): Light, Dark or Same as computer, remembered. */
+  const look = make('section', `${OURS}card`);
+  parts.theme = make('select', 'k-control');
+  for (const [value, label] of [['system', 'Same as computer'], ['light', 'Light'], ['dark', 'Dark']]) {
+    const option = make('option', '', label);
+    option.value = value;
+    put(parts.theme, option);
+  }
+  parts.theme.value = theThemeChosen();
+  parts.theme.setAttribute('aria-label', 'Light or dark');
+  const chooseTheTheme = (choice) => {
+    try { globalThis.localStorage.setItem(THEME_KEY, choice); } catch (storageRefused) { /* not kept this time; it still applies now */ }
+    applyTheTheme(choice);
+    parts.theme.value = choice;
+    parts.showMode();
+  };
+  parts.theme.addEventListener('change', () => chooseTheTheme(parts.theme.value));
+  /* What the switch says is what pressing it does: from dark it says Light, from light it says Dark. */
+  parts.showMode = () => {
+    const dark = String((globalThis.document && globalThis.document.body.className) || '').includes('dark');
+    parts.modeSwitch.textContent = dark ? '☀ Light' : '☾ Dark';
+    parts.modeSwitch.title = dark ? 'Switch to the light colours' : 'Switch to the dark colours';
+  };
+  parts.modeSwitch.addEventListener('click', () => chooseTheTheme(String((globalThis.document && globalThis.document.body.className) || '').includes('dark') ? 'light' : 'dark'));
+  parts.showMode();
+  const lookRow = make('div', `${OURS}row`);
+  put(lookRow, make('span', `${OURS}label`, 'Light or dark'), parts.theme);
+  put(look, lookRow);
+  put(parts.settings, look);
 
   /* ----------------------------------------------------------- your AI (AD1, D818)
    * **OFF UNTIL HE TURNS IT ON, and only here.** With it on, his AI app can read how the reports stand and ask for a run through the Kartaan
    * Bridge helper; every ask waits for the computer to be left alone for 3 minutes. */
   parts.ai = make('section', `${OURS}card`);
-  put(parts.ai, make('h2', `${OURS}title`, 'Your AI'));
   const aiRow = make('div', `${OURS}row`);
   parts.aiSwitch = make('button', 'k-button k-button--ordinary', 'AI may run AutoSync: Off');
   parts.aiSwitch.type = 'button';
@@ -1788,52 +1887,101 @@ export function buildThePanel(into, doing) {
   parts.aiNote = make('p', `${OURS}note`, '');
   parts.aiAsks = make('div', `${OURS}note`, '');
   put(parts.ai, parts.aiNote, parts.aiAsks);
-  put(body, parts.ai);
-
 
   /* --------------------------------------------------------------- platforms */
   parts.platforms = make('div', `${OURS}tabs`);
   parts.chosen = 'flipkart';
   put(body, parts.platforms);
 
-  /* ------------------------------------------------------- Flipkart's twenty */
-  const allowance = make('section', `${OURS}card`);
-  put(allowance, make('h2', `${OURS}title`, 'Flipkart requests left today'));
-  parts.allowance = make('p', `${OURS}figure`, '');
-  parts.allowanceNote = make('p', `${OURS}note`, '');
-  put(allowance, parts.allowance, parts.allowanceNote);
-  parts.allowanceCard = allowance;
-  put(body, allowance);
+  /* R250 (drawing rows "Last run table", "Flipkart requests left today", "What to fetch", "What this cannot fetch"): ONE card for the chosen platform. */
+  const platformCard = make('section', `${OURS}card`);
+  parts.log = make('div', `${OURS}run`);
+  put(platformCard, parts.log);
 
-  /* ----------------------------------------------------------------- reports */
-  const reports = make('section', `${OURS}card`);
+  /* ------------------------------------------------------- Flipkart's twenty: one line, Flipkart's view only */
+  const allowance = make('div', `${OURS}row`);
+  parts.allowance = make('span', `${OURS}figure`, '');
+  parts.allowanceNote = make('span', `${OURS}hint`, 'i');
+  parts.allowanceNote.tabIndex = 0;
+  put(allowance, make('span', `${OURS}label`, 'Flipkart requests left today'), parts.allowance, parts.allowanceNote);
+  parts.allowanceCard = allowance;
+  put(platformCard, allowance);
+
+  /* ----------------------------------------------------------------- reports (and, at their end, what cannot be fetched) */
   parts.foldTitle = make('summary', '', 'What to fetch');
   parts.selectAll = make('button', 'k-button k-button--quiet k-button--small', 'Tick all platforms');
   parts.selectAll.type = 'button';
   parts.reports = make('div', `${OURS}list`);
-  parts.fold = make('details');
-  put(parts.fold, parts.foldTitle, parts.selectAll, parts.reports);
-  put(reports, parts.fold);
-  put(body, reports);
-
-  /* --------------------------------------------------- what it cannot fetch */
-  const cannot = make('section', `${OURS}card`);
-  put(cannot, make('h2', `${OURS}title`, 'What this cannot fetch, and why'));
   parts.cannot = make('div', `${OURS}list`);
-  put(cannot, parts.cannot);
-  put(body, cannot);
+  parts.fold = make('details');
+  put(parts.fold, parts.foldTitle, parts.selectAll, parts.reports, parts.cannot);
+  put(platformCard, parts.fold);
+  put(body, platformCard);
+
+  /* ------------------------------------------- the three buttons under the platform: AI, Run times, How this works */
+  const buttons = make('div', `${OURS}three`);
+  const drawers = [];
+  const addDrawer = (button, section) => {
+    section.hidden = true;
+    drawers.push([button, section]);
+    button.type = 'button';
+    button.setAttribute('aria-expanded', 'false');
+    button.addEventListener('click', () => {
+      const open = section.hidden;
+      for (const [other, one] of drawers) { one.hidden = true; other.setAttribute('aria-expanded', 'false'); }
+      section.hidden = !open;
+      button.setAttribute('aria-expanded', String(open));
+    });
+    put(buttons, button);
+  };
+  const threeButton = (title) => {
+    const button = make('button', `k-button k-button--ordinary ${OURS}drawerButton`);
+    const small = make('small', '', '');
+    put(button, make('b', '', title), small);
+    return [button, small];
+  };
+  [parts.aiButton, parts.aiButtonState] = threeButton('AI may run it');
+  [parts.timesButton, parts.timesButtonState] = threeButton('Run times');
+  [parts.helpButton, parts.helpButtonState] = threeButton('How this works');
+  parts.helpButtonState.textContent = '›';
+  put(body, buttons);
 
   /* -------------------------------------------------------------- the clock */
   const clock = make('section', `${OURS}card`);
-  put(clock, make('h2', `${OURS}title`, 'When this extension wakes each day'));
-  const clockRow = make('div', `${OURS}row`);
+  put(clock, make('h2', `${OURS}title`, 'When each report is fetched by itself'));
+  /* R250: the three daily runs, each changeable, each with its why. The morning one keeps its original boxes (`hour`, `saveHour`, `hourState`). */
+  const runRow = (label, time, save, fetches, why) => {
+    const row = make('div', `${OURS}runRow`);
+    const line = make('div', `${OURS}row`);
+    put(line, make('span', `${OURS}label`, label), time, save);
+    put(row, line, make('p', `${OURS}note`, fetches), make('p', `${OURS}note`, why));
+    return row;
+  };
   parts.hour = make('input', 'k-control');
   parts.hour.type = 'time';
+  parts.hour.setAttribute('aria-label', 'Morning run time');
   parts.saveHour = make('button', 'k-button k-button--ordinary', 'Save');
   parts.saveHour.type = 'button';
-  parts.hourState = make('span', `${OURS}state`, '');
-  put(clockRow, parts.hour, parts.saveHour, parts.hourState);
-  put(clock, clockRow);
+  parts.hourState = make('p', `${OURS}note`, '');
+  put(clock, runRow('Morning run', parts.hour, parts.saveHour, 'Fetches yesterday, every report on this run.',
+    'Why 8:00 by default: yesterday is complete by then, and the ERP is up to date before your working day.'));
+  const otherRun = (which, label, fetches, why) => {
+    parts[`${which}Time`] = make('input', 'k-control');
+    parts[`${which}Time`].type = 'time';
+    parts[`${which}Time`].setAttribute('aria-label', `${label} time`);
+    parts[`${which}Save`] = make('button', 'k-button k-button--ordinary', 'Save');
+    parts[`${which}Save`].type = 'button';
+    parts[`${which}Save`].addEventListener('click', () => doing.setARunTime && doing.setARunTime(which, parts[`${which}Time`].value));
+    put(clock, runRow(label, parts[`${which}Time`], parts[`${which}Save`], fetches, why));
+  };
+  otherRun('evening', 'Evening run', 'Fetches the reports that are not ready in the morning.',
+    'Why 4 pm by default: these reports are ready by then.');
+  put(clock, make('p', `${OURS}note`, 'Own time: any report can have a time of its own, set below under "Which report runs when". The returns reports are on 18:00 and the day Today until you change them.'));
+  put(clock, parts.hourState);
+  parts.clash = make('p', `${OURS}clash`, '');
+  parts.clash.hidden = true;
+  put(clock, parts.clash);
+  put(clock, make('p', `${OURS}note`, 'Retry: a report that failed in the morning, evening or an own-time run is tried again every hour, up to 3 tries, and never spends more Flipkart requests than the day\'s 20 allow. That is not a setting.'));
   put(clock, make('p', `${OURS}note`,
     'This is the clock inside your browser. It is NOT the clock the scheduled sync in your '
     + 'own GitHub account runs on -- that one is set there, and changing this does not move '
@@ -1843,30 +1991,25 @@ export function buildThePanel(into, doing) {
    * are for Run now only and never change it. */
   parts.timed = make('p', `${OURS}note`, '');
   put(clock, parts.timed);
+
+  /* --------------------------------------------- each report's day and run (R208), folded inside the run times */
+  /* R250 (drawing: "Which report runs when"): folded by default; its rows are in order (platform, run, name). */
+  const timesFold = make('details', `${OURS}fold`);
+  parts.timesFoldTitle = make('summary', `${OURS}foldHead`, 'Which report runs when');
+  put(timesFold, parts.timesFoldTitle);
+  parts.scheduleList = make('div', `${OURS}list ${OURS}schedGrid`);
+  put(timesFold, parts.scheduleList);
+  put(timesFold, make('p', `${OURS}note`,
+    'Yesterday is the usual. The returns are on their own time (18:00) for today. Platforms often do not have the numbers for today yet, so a report set to today may land blank or partial.'));
+  put(clock, timesFold);
+  addDrawer(parts.timesButton, clock);
   put(body, clock);
-
-  /* --------------------------------------------- each report's day and run (R208) */
-  const times = make('section', `${OURS}card`);
-  put(times, make('h2', `${OURS}title`, 'Which day, and which run, for each report'));
-  parts.scheduleList = make('div', `${OURS}list`);
-  put(times, parts.scheduleList);
-  put(times, make('p', `${OURS}note`,
-    'Yesterday is the usual. The returns are fetched at 6 pm for today. Platforms often do not have the numbers for today yet, so a report set to today may land blank or partial. '
-    + 'A report that fails in the morning is tried again in the 4 pm run.'));
-  put(body, times);
-
-  /* ----------------------------------------------------------------- the log */
-  const log = make('section', `${OURS}card`);
-  parts.log = make('div', `${OURS}run`);
-  put(log, parts.log);
-  put(body, log);
+  addDrawer(parts.aiButton, parts.ai);
+  put(body, parts.ai);
 
   /* ------------------------------------------------------- what happened, in order (AJ9 piece 6) */
-  const happened = make('section', `${OURS}card`);
-  put(happened, make('h2', `${OURS}title`, 'What happened, in order'));
+  /* R250 (drawing: "off panel"): NOT drawn. It is still worked out here (`showTheEvents` fills this list, as the drawing says) and the full words stay in the run log in Drive. */
   parts.events = make('ul', `${OURS}helpSteps`);
-  put(happened, parts.events);
-  put(body, happened);
 
   /* ------------------------------------------------------------- the manual */
   /* **THE LONGER ANSWER, AND IT IS ON THE SAME PAGE AS THE THING.** His
@@ -1875,7 +2018,7 @@ export function buildThePanel(into, doing) {
    * next. **The words are `manual.js`'s, never invented here** -- the same rule
    * the failure reasons follow, so there is one place to correct and not two. */
   const help = make('section', `${OURS}card`);
-  put(help, make('h2', `${OURS}title`, 'How this works'));
+  put(help, make('h2', `${OURS}title`, 'Questions'));
   for (const entry of MANUAL) {
     const one = make('details', `${OURS}help`);
     put(one, make('summary', `${OURS}helpTitle`, `${entry.label} -- ${entry.crux}`));
@@ -1885,14 +2028,20 @@ export function buildThePanel(into, doing) {
     for (const said of entry.more || []) put(one, make('p', `${OURS}note`, said));
     put(help, one);
   }
+  /* R250 (drawing): "Read more" on docs.kartaan.com. That site is planned, so it is said as plain text, not a link that goes nowhere. */
+  const docs = make('a', '', 'Read more on docs.kartaan.com');
+  docs.href = 'https://docs.kartaan.com';
+  docs.target = '_blank';
+  docs.rel = 'noopener';
+  put(help, put(make('p', `${OURS}note`), docs));
   parts.help = help;
+  addDrawer(parts.helpButton, help);
   put(body, help);
+  parts.body = body;
 
   /* **WHICH VERSION THIS IS, ALWAYS (his ask, 2026-10-20, D425).** Until this line the number showed only
    * inside "A newer version is out" and only when an update existed; otherwise it took a visit to
    * chrome://extensions. Filled in by `showHowItStands` from the version the extension itself reports. */
-  parts.version = make('p', `${OURS}note`, '');
-  put(body, parts.version);
 
   /* **AND THE SHORT ANSWER SITS ON THE CONTROL ITSELF.** Written from the same
    * file, so a tooltip and a manual entry cannot drift apart -- and a control
@@ -1917,6 +2066,10 @@ export function buildThePanel(into, doing) {
   parts.resume.addEventListener('click', () => doing.resume && doing.resume());
   parts.saveHour.addEventListener('click', () => doing.setTheHour(parts.hour.value));
   parts.selectAll.addEventListener('click', () => tickAll(parts));
+  parts.gear.addEventListener('click', () => {
+    parts.settings.hidden = !parts.settings.hidden;
+    parts.gear.setAttribute('aria-expanded', String(!parts.settings.hidden));
+  });
 
   /* What is ticked, kept here rather than read back off the page every poll. */
   parts.ticked = new Set();
@@ -2014,29 +2167,54 @@ function showTheNeedsYou(parts, list) {
   parts.needs.textContent = '';
   if (!list.length) return;
   const place = (days) => parts.doing && parts.doing.clearNeedsYou && parts.doing.clearNeedsYou(days);
-  const head = make('div', `${OURS}row`);
+  /* R250 (drawing + his 8 Nov "expand collapse"): folded by default, so 104 rows are one line with the count. Opened, ONE ROW PER REPORT-DAY, each with its own "I placed it", in order (platform, report, date), scrolling inside the box. What is open is kept across the two-second redraws, for this visit only. */
+  const outer = make('details', `${OURS}fold`);
+  outer.open = Boolean(parts.needsOpen);
+  outer.addEventListener('toggle', () => { parts.needsOpen = outer.open; });
   const hint = make('span', `${OURS}hint`, 'i');
   hint.title = 'AutoSync could not fetch these. Download each one yourself from the platform, put it in your Kartaan folder in Drive, inside that report\'s own folder (named on its row), then press I placed it. Nothing is asked for again after that.';
-  put(head, make('h2', `${OURS}title`, 'Needs you: download by hand'), make('span', `${OURS}count`, String(list.length)), hint);
+  const head = make('summary', `${OURS}foldHead`);
+  put(head, make('span', `${OURS}count`, String(list.length)), make('span', `${OURS}title`, 'Needs you: download by hand'), hint);
+  put(outer, head);
   if (list.length > 1) {
-    const all = make('button', 'k-button k-button--ordinary', 'I placed all');
+    const all = make('button', 'k-button k-button--main', 'I placed all');
     all.type = 'button';
     all.addEventListener('click', () => place(list.map((one) => ({ reportId: one.reportId, dataDate: one.dataDate }))));
-    put(head, all);
+    put(outer, all);
   }
-  put(parts.needs, head);
+  const order = (name) => { const at = PLATFORM_NAMES_IN_ORDER.indexOf(name); return at < 0 ? PLATFORM_NAMES_IN_ORDER.length : at; };
+  const groups = new Map();
   for (const one of list) {
-    const tries = (one.triedOn || []).length;
-    const row = make('div', `${OURS}row`);
-    const where = one.folder ? ` Put it in: ${one.folder}` : '';
-    const button = make('button', 'k-button k-button--ordinary', 'I placed it');
-    button.type = 'button';
-    button.addEventListener('click', () => place([{ reportId: one.reportId, dataDate: one.dataDate }]));
-    put(row, make('span', `${OURS}label`, `${one.platformName || ''} · ${one.name || one.reportId} · ${one.dataDate}`),
-      make('span', `${OURS}note`, `${tries ? `tried ${tries} time${tries === 1 ? '' : 's'}` : 'too old for AutoSync to fetch'}.${where}`), button);
-    put(parts.needs, row);
+    if (!groups.has(one.reportId)) groups.set(one.reportId, []);
+    groups.get(one.reportId).push(one);
   }
+  const byReport = [...groups.values()].sort((a, b) => order(a[0].platformName) - order(b[0].platformName)
+    || String(a[0].name || a[0].reportId).localeCompare(String(b[0].name || b[0].reportId)));
+  const rows = make('div', `${OURS}needsList`);
+  for (const days of byReport) {
+    days.sort((a, b) => String(a.dataDate).localeCompare(String(b.dataDate)));
+    put(rows, make('div', `${OURS}needsGroup`,
+      `${days[0].platformName || ''} · ${days[0].name || days[0].reportId} -- ${days.length} day${days.length === 1 ? '' : 's'}`));
+    for (const one of days) {
+      const tries = (one.triedOn || []).length;
+      const row = make('div', `${OURS}needsRow`);
+      const where = one.folder ? ` Put it in: ${one.folder}` : '';
+      const button = make('button', 'k-button k-button--ordinary', 'I placed it');
+      button.type = 'button';
+      button.addEventListener('click', () => place([{ reportId: one.reportId, dataDate: one.dataDate }]));
+      const words = make('div');
+      put(words, make('b', '', one.dataDate),
+        make('div', `${OURS}note`, `${tries ? `tried ${tries} time${tries === 1 ? '' : 's'}` : 'too old for AutoSync to fetch'}.${where}`));
+      put(row, words, button);
+      put(rows, row);
+    }
+  }
+  put(outer, rows);
+  put(parts.needs, outer);
 }
+
+/* R250: the platform names in the order they are shown, wherever a list is sorted by platform. */
+const PLATFORM_NAMES_IN_ORDER = PLATFORM_ORDER.map((id) => CALLED[id] || id);
 
 function showTheUpdate(parts, update) {
   if (!parts.update) return;
@@ -2057,9 +2235,12 @@ function showTheUpdate(parts, update) {
 }
 
 export function showHowItStands(parts, stands) {
+  parts.showMode();
   const banner = whatTheBannerSays(stands);
   parts.banner.className = `${OURS}banner ${OURS}banner--${banner.how}`;
-  parts.banner.textContent = banner.said;
+  /* R250 (drawing: ONE status line, "Ready. Next timed run wakes ..."): a quiet panel also says when the next timed run wakes. */
+  const wakes = whenItNextWakes(stands.clock || null);
+  parts.banner.textContent = banner.how === 'idle' ? `Ready. ${wakes}` : banner.how === 'done' ? `${banner.said} ${wakes}` : banner.said;
   showTheUpdate(parts, stands.update);
   if (parts.version) {
     const installed = stands.update && stands.update.installed;
@@ -2071,12 +2252,21 @@ export function showHowItStands(parts, stands) {
     const ai = stands.ai || { on: false, note: '', asks: [] };
     parts.aiOn = Boolean(ai.on);
     parts.aiSwitch.textContent = `AI may run AutoSync: ${ai.on ? 'On' : 'Off'}`;
+    parts.aiButtonState.textContent = ai.on ? 'On' : 'Off';
     parts.aiState.textContent = ai.on ? (ai.connected ? 'helper connected' : 'waiting for the helper') : '';
     parts.aiNote.textContent = ai.note || '';
     parts.aiAsks.textContent = (ai.asks || []).map((one) => one.panel_line).join('\n');
   }
 
-  parts.setup.hidden = stands.setUp.done;
+  /* R250 (drawing): until Drive and the panel name are set the panel shows ONLY the set-up steps and no gear; after that Set up (done) and the password are behind the gear, closed on every visit. */
+  const setUpDone = Boolean(stands.setUp.driveConnectedAt && stands.setUp.panel);
+  parts.body.classList.toggle(`${OURS}pre`, !setUpDone);
+  parts.gear.hidden = !setUpDone;
+  if (parts.setUpDone !== setUpDone) {
+    parts.setUpDone = setUpDone;
+    parts.settings.hidden = setUpDone;
+    parts.gear.setAttribute('aria-expanded', 'false');
+  }
   parts.driveState.textContent = stands.setUp.driveConnectedAt
     ? `connected ${inWordsWhen(stands.setUp.driveConnectedAt)}`
     : (stands.setUp.driveSaid || 'not connected yet');
@@ -2103,7 +2293,7 @@ export function showHowItStands(parts, stands) {
 
   /* ----------------------------------------------------- Flipkart's twenty */
   parts.allowance.textContent = `${stands.flipkart.leftToday} of ${stands.flipkart.allowedADay}`;
-  parts.allowanceNote.textContent
+  parts.allowanceNote.title
     = `${stands.flipkart.askedForToday} used today. Only Flipkart's orders and payments `
     + 'reports spend one; everything else is free.';
 
@@ -2168,16 +2358,19 @@ function showThePlatforms(parts, stands) {
   parts.platforms.textContent = '';
   for (const one of stands.platforms) {
     const waiting = (stands.needsYou || []).filter((day) => day.platformName === one.name).length;
-    const button = make('button', `k-button ${OURS}tab${one.id === parts.chosen ? ` ${OURS}tab--chosen` : ''}`);
+    const button = make('button', `k-button k-button--ordinary ${OURS}tab${one.id === parts.chosen ? ` ${OURS}tab--chosen` : ''}`);
     button.type = 'button';
-    put(button, make('b', '', one.name));
-    if (waiting) put(button, make('span', `${OURS}count`, String(waiting)));
+    const top = make('span', `${OURS}tabTop`);
+    put(top, make('b', '', one.name));
+    if (waiting) put(top, make('span', `${OURS}count`, String(waiting)));
+    put(button, top);
     put(button, make('small', '', `${ticked(one.id)} ticked${one.ready ? '' : ' \u00B7 not ready'}${one.lastRun ? ` \u00B7 last run ${inWordsWhen(one.lastRun.finishedAt)}: ${one.lastRun.landed} fetched, ${one.lastRun.failed} failed` : ' \u00B7 never run'}`));
     button.addEventListener('click', () => { parts.chosen = one.id; showHowItStands(parts, parts.lastStands); });
     put(parts.platforms, button);
   }
   for (const [platform, group] of parts.groups) group.hidden = platform !== parts.chosen;
   parts.allowanceCard.hidden = parts.chosen !== 'flipkart';
+  if (parts.cannotRows) for (const [platform, row] of parts.cannotRows) row.hidden = platform !== parts.chosen;
   parts.foldTitle.textContent = `What to fetch \u00B7 ${ticked(parts.chosen)} of ${tickable(parts.chosen).length} ticked`;
   fillTheInstantRow(parts, stands);
 }
@@ -2199,6 +2392,8 @@ function fillTheInstantRow(parts, stands) {
 /** One report's own row: its box, its name, and where it got to. */
 function buildOneReportRow(parts, stands, one, into = parts.reports) {
   const row = make('label', `${OURS}report`);
+  /* R250 (drawing): a report that cannot be fetched is not a tick row; it is a greyed row at the end of the list with its reason behind an i (`showTheRestOfIt`). */
+  row.hidden = !one.canBeFetched;
   const box = make('input');
   box.type = 'checkbox';
   /* **A REPORT THAT ARRIVES WITH ANOTHER HAS NO TICK OF ITS OWN**, and until this
@@ -2233,16 +2428,14 @@ function buildOneReportRow(parts, stands, one, into = parts.reports) {
 /** Everything under the report list, drawn on every poll. */
 function showTheRestOfIt(parts, stands) {
   /* ------------------------------------------------ what it cannot fetch */
-  if (!parts.cannot.children.length) {
+  /* R250 (drawing: "greyed rows at the end of that platform's tick list, the reason behind an i"): built once, shown with the chosen platform. */
+  if (!parts.cannotRows || !parts.cannotRows.length) {
+    parts.cannotRows = [];
     for (const one of stands.cannotBeFetched) {
       const row = make('div', `${OURS}cannot`);
-      put(row, make('span', `${OURS}report-name`, one.name),
-        make('span', `${OURS}report-id`, one.id),
-        make('span', `${OURS}note`, one.why));
+      put(row, make('span', `${OURS}report-name`, `${one.name} · cannot be fetched`), make('span', `${OURS}note`, one.why));
       put(parts.cannot, row);
-    }
-    if (!stands.cannotBeFetched.length) {
-      put(parts.cannot, make('p', `${OURS}note`, 'Every report this door declares can be fetched.'));
+      parts.cannotRows.push([one.platform, row]);
     }
   }
 
@@ -2252,8 +2445,18 @@ function showTheRestOfIt(parts, stands) {
   if (parts.scheduleShown !== scheduleNow && !picking) {
     parts.scheduleShown = scheduleNow;
     parts.scheduleList.textContent = '';
-    for (const one of stands.schedule || []) {
-      const row = make('div', `${OURS}row`);
+    for (const head of ['Report', 'Day', 'Run']) put(parts.scheduleList, make('span', `${OURS}gridHead`, head));
+    const platformRank = (one) => { const at = PLATFORM_ORDER.indexOf(one.platform); return at < 0 ? PLATFORM_ORDER.length : at; };
+    const runRank = (one) => THE_RUNS.indexOf(one.run);
+    const inOrder = [...(stands.schedule || [])].sort((a, b) => platformRank(a) - platformRank(b)
+      || runRank(a) - runRank(b) || String(a.name).localeCompare(String(b.name)));
+    let platformShown = null;
+    for (const one of inOrder) {
+      if (one.platform && one.platform !== platformShown) {
+        platformShown = one.platform;
+        put(parts.scheduleList, make('div', `${OURS}schedPlatform`, CALLED[one.platform] || one.platform));
+      }
+      const row = make('div', `${OURS}schedRow`);
       const day = make('select', 'k-control');
       for (const [value, label] of [['yesterday', 'Yesterday'], ['today', 'Today']]) {
         const option = make('option', '', label);
@@ -2262,18 +2465,36 @@ function showTheRestOfIt(parts, stands) {
       }
       day.value = one.day;
       const run = make('select', 'k-control');
-      for (const [value, label] of [['morning', 'Morning run'], ['evening', '4 pm run'], ['returns', '6 pm run']]) {
+      for (const [value, label] of [['morning', 'Morning run'], ['evening', 'Evening run'], ['own', 'Own time']]) {
         const option = make('option', '', label);
         option.value = value;
         put(run, option);
       }
       run.value = one.run;
-      const save = () => parts.doing.saveTheReportTimes && parts.doing.saveTheReportTimes(one.id, day.value, run.value);
+      /* R250 (D1035): Own time shows a time box, and a warning when the time is earlier than the report is usually ready. */
+      const time = make('input', 'k-control');
+      time.type = 'time';
+      time.value = one.at || THE_OWN_DEFAULT;
+      time.setAttribute('aria-label', `${one.name} own time`);
+      const warn = make('div', `${OURS}schedWarn`);
+      const showOwn = () => {
+        time.hidden = run.value !== 'own';
+        warn.textContent = run.value === 'own' ? theReadyWarning(one.id, time.value) : '';
+        warn.hidden = !warn.textContent;
+      };
+      showOwn();
+      const save = () => parts.doing.saveTheReportTimes && parts.doing.saveTheReportTimes(one.id, day.value, run.value, run.value === 'own' ? time.value : undefined);
       day.addEventListener('change', save);
-      run.addEventListener('change', save);
-      put(row, make('span', `${OURS}label`, one.name), day, run);
-      put(parts.scheduleList, row);
+      run.addEventListener('change', () => { showOwn(); save(); });
+      time.addEventListener('input', showOwn);
+      time.addEventListener('change', () => { showOwn(); save(); });
+      const cell = make('span', `${OURS}runCell`);
+      put(cell, run, time);
+      put(row, make('span', `${OURS}label`, one.name), day, cell);
+      put(parts.scheduleList, row, warn);
     }
+    const offMorning = inOrder.filter((one) => one.run !== 'morning').length;
+    parts.timesFoldTitle.textContent = `Which report runs when${offMorning ? ` · ${offMorning} not on the morning run` : ''}`;
   }
 
   /* ------------------------------------------------------------- the clock */
@@ -2286,6 +2507,18 @@ function showTheRestOfIt(parts, stands) {
     parts.hour.value = clock.chosen;
   }
   parts.hourState.textContent = theClockLine(clock, stands.waitingForIdle);
+  /* R250: the evening and returns boxes show what is saved (unless being typed in), and two runs at one time are said in red. */
+  if (clock && clock.times) {
+    for (const which of ['evening']) {
+      const box = parts[`${which}Time`];
+      if (box.value !== clock.times[which] && !(globalThis.document && globalThis.document.activeElement === box)) box.value = clock.times[which];
+    }
+    if (!clock.chosen && parts.hour.value !== clock.times.morning && !(globalThis.document && globalThis.document.activeElement === parts.hour)) parts.hour.value = clock.times.morning;
+    parts.clash.textContent = theClashLine(clock.times);
+    parts.clash.hidden = !parts.clash.textContent;
+    parts.timesButtonState.textContent = [clock.times.morning, clock.times.evening, ...(clock.own || []).map((one) => `own ${one.time}`)].join(' · ');
+    parts.timesButtonState.classList.toggle(`${OURS}clashing`, Boolean(parts.clash.textContent));
+  }
 
   /* **ONE TABLE FOR THE LAST RUN, REPLACING THE WORDS BOX (AJ6).** The full words still go to the Drive; the panel draws only when the run changed, so an open row is not rebuilt for nothing. */
   /* **ONE TABLE PER PLATFORM OF THE SYNC (his ask, 1 Nov 2026)**, Flipkart, Meesho, Amazon in walking order. */
@@ -2324,7 +2557,7 @@ export function showTheEvents(parts, events) {
     put(parts.events, make('li', '', 'Nothing has run yet.'));
     return;
   }
-  for (const one of events) {
+  for (const one of [...events].reverse()) {
     put(parts.events, make('li', '', `${one.at ? `${inWordsWhen(one.at)} -- ` : ''}${one.words}`));
   }
 }
@@ -2432,8 +2665,8 @@ export function showTheReportTable(into, table, platformName, opened) {
 
 /** When the extension next wakes by itself, in the seller's own words. */
 export function whenItNextWakes(clock) {
-  const evening = (clock && clock.eveningAt ? ` The 4 pm run wakes ${inWordsWhen(clock.eveningAt)}.` : '')
-    + (clock && clock.returnsAt ? ` The 6 pm run wakes ${inWordsWhen(clock.returnsAt)}.` : '');
+  const evening = (clock && clock.eveningAt ? ` The evening run wakes ${inWordsWhen(clock.eveningAt)}.` : '')
+    + ((clock && clock.own) || []).map((one) => (one.at ? ` The own-time run at ${one.time} wakes ${inWordsWhen(one.at)}.` : '')).join('');
   if (!clock || !clock.chosen) return `No time saved yet, so the morning run wakes at 8:00.${evening}`;
   if (!clock.nextAt) {
     return `Saved as ${clock.chosen}, but its clock is not set -- nothing will start by itself. `
@@ -2451,6 +2684,19 @@ export function saySomething(parts, said) {
 /** What the panel says while an automatic run waits for the computer to be left alone (AJ8, his N063). */
 export function theWaitingSaid(waiting) {
   return waiting ? 'Waiting until the computer has not been used for 3 minutes. Then the sync starts by itself.' : '';
+}
+
+/** R250: "Morning run is at 4:00 pm, the same as the evening run" for the first two runs that share a time, or ''. */
+export function theClashLine(times) {
+  const names = { morning: 'Morning', evening: 'Evening' };
+  const words = (hhmm) => { const [h, m] = hhmm.split(':').map(Number); return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`; };
+  const keys = Object.keys(names);
+  for (let a = 0; a < keys.length; a += 1) {
+    for (let b = a + 1; b < keys.length; b += 1) {
+      if (times[keys[a]] === times[keys[b]]) return `${names[keys[a]]} run is at ${words(times[keys[a]])}, the same as the ${names[keys[b]].toLowerCase()} run. Change one of them.`;
+    }
+  }
+  return '';
 }
 
 /** The clock's line on the panel: when it next wakes, and that a run is waiting when one is (AJ8). */

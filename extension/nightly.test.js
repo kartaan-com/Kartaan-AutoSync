@@ -16,7 +16,7 @@
 import { readFileSync } from 'node:fs';
 import { installFakeChrome } from '../test/fake-chrome.js';
 import {
-  THE_FAILED_IN_THE_MORNING, RECHECKS, theDay,
+  RECHECKS, theDay,
   SPENDS_THE_ALLOWANCE,
   ONLY_ITS_NEWEST_DAY,
   whyOnlyItsNewestDay,
@@ -2556,53 +2556,29 @@ check('report table: null night gives null', theReportTable(null, () => '') === 
 }
 
 {
-  /* **R208 (D1006, D1007): A MORNING FAILURE IS KEPT FOR 4 PM; A LATER LANDING TAKES IT OFF; ONLY THE MORNING RUN KEEPS ONE; A RETURNS FAILURE IS CHECKED HOURLY.** */
-  const kept = async (c) => ((await c.storage.local.get(THE_FAILED_IN_THE_MORNING))[THE_FAILED_IN_THE_MORNING] || { ids: [] }).ids;
+  /* **R250 (D1036): THE OLD 4 PM RETRY OF FAILED MORNING REPORTS IS GONE; THE HOURLY RETRY (3 TRIES) IS THE ONLY RETRY.** */
   const at = Date.UTC(2026, 10, 7, 2, 30);
   const m = installFakeChrome().chrome;
   await startTheNight(m, { doing: ['fk_claims', 'fk_listings'], at, openAt: 'https://x/', dataDate: '2026-11-06', run: 'morning' });
-  await thatOneIsDone(m, { reportId: 'fk_claims', state: 'failed', say: 'The page showed the login.', dataDate: '2026-11-06', at });
-  check('R208: a plain failure of the morning run is kept for the 4 pm run', (await kept(m)).join() === 'fk_claims');
-  await thatOneIsDone(m, { reportId: 'fk_listings', state: 'landed', dataDate: '2026-11-06', at });
-  check('R208: and a report that landed is not on the list', (await kept(m)).join() === 'fk_claims');
-  await thatOneIsDone(m, { reportId: 'fk_claims', state: 'landed', dataDate: '2026-11-06', at });
-  check('R208: a report that landed later (an hourly re-check, a hand run) is taken off it', (await kept(m)).length === 0);
+  const first = await thatOneIsDone(m, { reportId: 'fk_claims', state: 'failed', say: 'The page showed the login.', dataDate: '2026-11-06', at });
+  check('R250 (D1035): a plain failure of the morning run is tried again in an hour (1 of 3)',
+    first.done.at(-1).say.includes('checked again in an hour (1 of 3)')
+    && (await m.storage.local.get(RECHECKS))[RECHECKS]['fk_claims|2026-11-06'].tries === 1);
+  await m.storage.local.set({ [RECHECKS]: { 'fk_claims|2026-11-06': { reportId: 'fk_claims', dataDate: '2026-11-06', tries: 3 } } });
+  const last = await thatOneIsDone(m, { reportId: 'fk_claims', state: 'failed', say: 'The page showed the login.', dataDate: '2026-11-06', at });
+  check('R250 (D1036): after the third hourly try the failure stays a failure and nothing is kept for a 4 pm retry',
+    last.done.at(-1).say.includes('tried again 3 times, an hour apart')
+    && (await m.storage.local.get('kartaan-autosync-failed-in-the-morning'))['kartaan-autosync-failed-in-the-morning'] === undefined);
   const e = installFakeChrome().chrome;
   await startTheNight(e, { doing: ['fk_orders'], at, openAt: 'https://x/', dataDate: '2026-11-06', run: 'evening' });
   await thatOneIsDone(e, { reportId: 'fk_orders', state: 'failed', say: 'x', dataDate: '2026-11-06', at });
-  check('R208: only the morning run keeps a failure for 4 pm', (await kept(e)).length === 0);
+  check('R250 (D1035): a failed report that spends the Flipkart twenty is NOT tried again without its ask held, so the 20 of the day are never exceeded',
+    (await e.storage.local.get(RECHECKS))[RECHECKS] === undefined);
   const r = installFakeChrome().chrome;
-  await startTheNight(r, { doing: ['fk_returns'], at, openAt: 'https://x/', dataDate: '2026-11-07', run: 'returns' });
+  await startTheNight(r, { doing: ['fk_returns'], at, openAt: 'https://x/', dataDate: '2026-11-07', run: 'own' });
   const once = await thatOneIsDone(r, { reportId: 'fk_returns', state: 'failed', say: 'x', dataDate: '2026-11-07', at });
-  check('R208: a failed 6 pm returns report is checked again in an hour', once.done.at(-1).say.includes('checked again in an hour (1 of 3)')
+  check('R208: a failed own-time returns report is checked again in an hour', once.done.at(-1).say.includes('checked again in an hour (1 of 3)')
     && (await r.storage.local.get(RECHECKS))[RECHECKS]['fk_returns|2026-11-07'].tries === 1);
-}
-
-{
-  /* R208: a sign-in wall in the morning run keeps the stopped report and the platform's rest for 4 pm; the day comes from the time given. */
-  const c = installFakeChrome().chrome;
-  const walk = aWalkThat();
-  const at = Date.UTC(2026, 10, 7, 2, 30);
-  await startTheNight(c, { doing: ['fk_claims', 'fk_views', 'fk_listings'], at, openAt: 'https://x/', dataDate: '2026-11-06', run: 'morning' });
-  await carryTheNightOn(c, { ...walk, at });
-  walk.itFinished({ state: 'failed', reportId: 'fk_claims', needsSigningIn: true, say: 'sign in', dataDate: '2026-11-06' });
-  await carryTheNightOn(c, { ...walk, at });
-  const held = (await c.storage.local.get(THE_FAILED_IN_THE_MORNING))[THE_FAILED_IN_THE_MORNING];
-  check('R208: a morning sign-in wall keeps the stopped report and the ones left behind it for 4 pm, under that day',
-    held && held.day === (new Date(at).getFullYear() + '-' + String(new Date(at).getMonth() + 1).padStart(2, '0') + '-' + String(new Date(at).getDate()).padStart(2, '0'))
-    && held.ids.join() === 'fk_claims,fk_views,fk_listings');
-  const other = installFakeChrome().chrome;
-  const walk2 = aWalkThat();
-  await startTheNight(other, { doing: ['fk_claims', 'fk_views'], at, openAt: 'https://x/', dataDate: '2026-11-06', run: 'evening' });
-  await carryTheNightOn(other, { ...walk2, at });
-  walk2.itFinished({ state: 'failed', reportId: 'fk_claims', needsSigningIn: true, say: 'sign in', dataDate: '2026-11-06' });
-  await carryTheNightOn(other, { ...walk2, at });
-  check('R208: a sign-in wall in any other run keeps nothing for 4 pm', (await other.storage.local.get(THE_FAILED_IN_THE_MORNING))[THE_FAILED_IN_THE_MORNING] === undefined);
-  const noTime = installFakeChrome().chrome;
-  await startTheNight(noTime, { doing: ['fk_claims'], openAt: 'https://x/', dataDate: '2026-11-06', run: 'morning' });
-  await thatOneIsDone(noTime, { reportId: 'fk_claims', state: 'failed', say: 'x', dataDate: '2026-11-06' });
-  const kept = (await noTime.storage.local.get(THE_FAILED_IN_THE_MORNING))[THE_FAILED_IN_THE_MORNING];
-  check('R208: with no time given the failure is kept under today', Boolean(kept) && kept.ids.join() === 'fk_claims' && /^\d{4}-\d{2}-\d{2}$/.test(kept.day));
 }
 
 {
@@ -2620,66 +2596,7 @@ check('report table: null night gives null', theReportTable(null, () => '') === 
     said.includes('failed on all 3 hourly checks') && said.includes('fetched again on the next sync') && !said.includes('not ready today'));
 }
 
-{
-  /* Proving round 6: the list of past-day ids is per day, a today-dated morning failure is not a past one, and the morning fallback reads the real clock when none is handed in. */
-  const day = (offset) => theDay(Date.now() + offset * 24 * 60 * 60 * 1000);
-  const c = installFakeChrome().chrome;
-  const at = Date.now();
-  await c.storage.local.set({ [THE_FAILED_IN_THE_MORNING]: { day: day(-1), ids: ['fk_views'], past: ['fk_views'] } });
-  await startTheNight(c, { doing: ['fk_claims'], at, openAt: 'https://x/', dataDate: day(-1), run: 'morning' });
-  await thatOneIsDone(c, { reportId: 'fk_claims', state: 'failed', say: 'x', dataDate: day(-1), at });
-  const first = (await c.storage.local.get(THE_FAILED_IN_THE_MORNING))[THE_FAILED_IN_THE_MORNING];
-  check('R208: a list kept on another day is not carried into today\'s, past marks included',
-    first.day === day(0) && first.ids.join() === 'fk_claims' && first.past.join() === 'fk_claims');
-  const t = installFakeChrome().chrome;
-  await startTheNight(t, { doing: ['fk_claims'], at, openAt: 'https://x/', dataDate: day(0), run: 'morning' });
-  await thatOneIsDone(t, { reportId: 'fk_claims', state: 'failed', say: 'x', dataDate: day(0), at });
-  const heldToday = (await t.storage.local.get(THE_FAILED_IN_THE_MORNING))[THE_FAILED_IN_THE_MORNING];
-  check('R208: a failure of a morning run that was for today is kept, but not as a past-day one', heldToday.ids.join() === 'fk_claims' && heldToday.past.length === 0);
-  const w = installFakeChrome().chrome;
-  const walk = aWalkThat();
-  await startTheNight(w, { doing: ['fk_claims', 'fk_views'], at, openAt: 'https://x/', dataDate: day(0), run: 'morning' });
-  await carryTheNightOn(w, { ...walk, at });
-  walk.itFinished({ state: 'failed', reportId: 'fk_claims', needsSigningIn: true, say: 'sign in', dataDate: day(0) });
-  await carryTheNightOn(w, { ...walk, at });
-  const wall = (await w.storage.local.get(THE_FAILED_IN_THE_MORNING))[THE_FAILED_IN_THE_MORNING];
-  check('R208: a sign-in wall in a morning run for today keeps the ids, not as past-day ones', wall.ids.join() === 'fk_claims,fk_views' && wall.past.length === 0);
-}
-
-{
-  /* Proving round 7: "for a past day" is read against the time the failure happened, not the time the check runs. */
-  const at = Date.UTC(2026, 9, 3, 6, 30);
-  const today = theDay(at);
-  const yesterday = theDay(at - 24 * 60 * 60 * 1000);
-  const pastOne = installFakeChrome().chrome;
-  await startTheNight(pastOne, { doing: ['fk_claims'], at, openAt: 'https://x/', dataDate: yesterday, run: 'morning' });
-  await thatOneIsDone(pastOne, { reportId: 'fk_claims', state: 'failed', say: 'x', dataDate: yesterday, at });
-  const past = (await pastOne.storage.local.get(THE_FAILED_IN_THE_MORNING))[THE_FAILED_IN_THE_MORNING];
-  const todayOne = installFakeChrome().chrome;
-  await startTheNight(todayOne, { doing: ['fk_claims'], at, openAt: 'https://x/', dataDate: today, run: 'morning' });
-  await thatOneIsDone(todayOne, { reportId: 'fk_claims', state: 'failed', say: 'x', dataDate: today, at });
-  const notPast = (await todayOne.storage.local.get(THE_FAILED_IN_THE_MORNING))[THE_FAILED_IN_THE_MORNING];
-  check('R208: a morning failure for the day before the failure is a past-day one; one for the same day is not',
-    past.past.join() === 'fk_claims' && notPast.past.length === 0 && past.day === today);
-  const wallPast = installFakeChrome().chrome;
-  const walkA = aWalkThat();
-  await startTheNight(wallPast, { doing: ['fk_claims', 'fk_views'], at, openAt: 'https://x/', dataDate: yesterday, run: 'morning' });
-  await carryTheNightOn(wallPast, { ...walkA, at });
-  walkA.itFinished({ state: 'failed', reportId: 'fk_claims', needsSigningIn: true, say: 'sign in', dataDate: yesterday });
-  await carryTheNightOn(wallPast, { ...walkA, at });
-  const wallToday = installFakeChrome().chrome;
-  const walkB = aWalkThat();
-  await startTheNight(wallToday, { doing: ['fk_claims', 'fk_views'], at, openAt: 'https://x/', dataDate: today, run: 'morning' });
-  await carryTheNightOn(wallToday, { ...walkB, at });
-  walkB.itFinished({ state: 'failed', reportId: 'fk_claims', needsSigningIn: true, say: 'sign in', dataDate: today });
-  await carryTheNightOn(wallToday, { ...walkB, at });
-  const a = (await wallPast.storage.local.get(THE_FAILED_IN_THE_MORNING))[THE_FAILED_IN_THE_MORNING];
-  const z = (await wallToday.storage.local.get(THE_FAILED_IN_THE_MORNING))[THE_FAILED_IN_THE_MORNING];
-  check('R208: a sign-in wall in a run for the day before marks what it kept as past-day; for the same day it does not',
-    a.past.join() === 'fk_claims,fk_views' && z.past.length === 0);
-}
-
-const EXPECTED = 181 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3 + 1 + 4 + 3 + 2 + 2 + 2 + 1 + 8 + 3 + 13 + 2 + 6 + 3 + 1 + 3 + 2;
+const EXPECTED = 181 + 16 + 5 + 1 + 1 + 1 + 1 + 12 + 8 + 11 + 1 + 2 + 5 + 3 + 1 + 4 + 3 + 2 + 2 + 2 + 1 + 8 + 3 + 13 + 2 + 6 + 3 + 1 + 3 + 2 - 9;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

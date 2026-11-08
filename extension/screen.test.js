@@ -49,7 +49,7 @@ import {
 } from './screen.js';
 import {
   A_DAYS_ALLOWANCE, KEPT_FOR_HIS_OWN_RUNS, PAUSED, RECHECKS, THE_NIGHT, carryTheNightOn, endTheNight, howTheNightWent, oneWasAskedFor,
-  startTheNight, thatOneIsBeingTried, theIdleLine, theNight, theReportTable, THE_SYNC_FAILED, THE_FAILED_IN_THE_MORNING, LAST_LANDED, thatOneIsDone,
+  startTheNight, thatOneIsBeingTried, theIdleLine, theNight, theReportTable, THE_SYNC_FAILED, LAST_LANDED, thatOneIsDone,
 } from './nightly.js';
 import { saveTheRunPass } from './kartaan.js';
 import { MOST_DAYS_IN_A_RANGE_FILE, hasNotFinished, theWalk } from './walk.js';
@@ -90,6 +90,10 @@ import {
   theNightsEvents,
   showTheReportTable,
   whenItNextWakes,
+  applyTheTheme,
+  theThemeChosen,
+  theReadyWarning,
+  theOwnAtOf,
   theWaitingSaid,
   theClockLine,
   theDay,
@@ -354,7 +358,7 @@ check('a report that reads another report\'s file is fetched after it',
   const whole = theTimedList(BOOK, { timed: null });
   const evening = theTimedListFor(BOOK, { timed: null }, 'evening');
   const morning = theTimedListFor(BOOK, { timed: null }, 'morning');
-  const returns = theTimedListFor(BOOK, { timed: null }, 'returns');
+  const returns = theTimedListFor(BOOK, { timed: null }, 'own');
   check('AJ13a: the evening run fetches those four and nothing else', [...evening].sort().join() === [...THE_EVENING_REPORTS].sort().join());
   check('AJ13a: the morning run fetches every other timed report', morning.length === whole.length - evening.length - returns.length && !morning.some((id) => evening.includes(id) || returns.includes(id)));
   check('AJ13a: together they are the whole timed list, so no report is left out and none is fetched twice',
@@ -442,11 +446,11 @@ const idsOf = (queue) => (queue || []).map((entry) => (Array.isArray(entry) ? en
   check('AJ13a: a partly saved table is filed with the failed, not with the landed, in the night\'s card', filed.failed === 1 && filed.landed === 1);
 }
 
-check('AJ13a: with no time saved, the clock line still names the 4 pm run, and a clock that is not set says to press Save again and names it too',
-  whenItNextWakes(null).includes('8:00') && !whenItNextWakes(null).includes('4 pm')
-  && whenItNextWakes({ chosen: '08:00', nextAt: null, eveningAt: Date.now() + 3600000 }).includes('Press Save again. The 4 pm run wakes')
+check('AJ13a: with no time saved, the clock line still names the evening run, and a clock that is not set says to press Save again and names it too',
+  whenItNextWakes(null).includes('8:00') && !whenItNextWakes(null).includes('evening')
+  && whenItNextWakes({ chosen: '08:00', nextAt: null, eveningAt: Date.now() + 3600000 }).includes('Press Save again. The evening run wakes')
   && whenItNextWakes(null).startsWith('No time saved yet')
-  && whenItNextWakes({ chosen: '', eveningAt: Date.now() + 3600000 }).includes('The 4 pm run wakes'));
+  && whenItNextWakes({ chosen: '', eveningAt: Date.now() + 3600000 }).includes('The evening run wakes'));
 
 {
   /* **TWO STARTERS AT ONCE CANNOT BOTH START A NIGHT (review finding, 2026-10-05).** The timed alarm and Run now
@@ -1101,12 +1105,8 @@ check('AJ13a: a table saved with a short page is said as partly fetched, not fet
     night: { finishedAt: 2000, doing: null, left: [], done: [{ state: 'landed' }] },
     needsYou: [{ reportId: 'fk_orders', dataDate: '2026-09-13' }],
   });
-  check('A DAY THAT NEEDS THE SELLER IS NAMED IN THE BANNER, even after a clean run',
-    banner.how === 'wrong' && banner.said.includes('fk_orders for 2026-09-13')
-      && banner.said.includes('by hand'));
-  check('and it says truthfully why: failed or not available after three days, or older than the 14 days it goes back for (AJ11)',
-    banner.said.includes('failed or was not available after three days of trying')
-      && banner.said.includes('older than the 14 days'));
+  check('R250: a day that needs the seller is in the amber box, not repeated in the status line',
+    banner.how === 'done' && !banner.said.includes('fk_orders') && !banner.said.includes('by hand'));
 }
 check('while a run that is going is still said first',
   whatTheBannerSays({
@@ -1387,8 +1387,8 @@ function panelParts(chrome, held = {}) {
   check('and an hour nobody ever chose says what happens instead',
     whenItNextWakes(null).includes('8:00'));
   check('AJ13a: the clock line names both runs when the 4 pm alarm is set, and the morning one alone as before when it is not',
-    whenItNextWakes({ chosen: '08:00', nextAt: Date.now() + 3600000, eveningAt: Date.now() + 7200000 }).includes('The 4 pm run wakes')
-    && !whenItNextWakes({ chosen: '08:00', nextAt: Date.now() + 3600000 }).includes('4 pm'));
+    whenItNextWakes({ chosen: '08:00', nextAt: Date.now() + 3600000, eveningAt: Date.now() + 7200000 }).includes('The evening run wakes')
+    && !whenItNextWakes({ chosen: '08:00', nextAt: Date.now() + 3600000 }).includes('evening'));
 
   /* **AJ8 (his N063): THE PANEL SAYS PLAINLY WHEN A RUN IS WAITING FOR THE COMPUTER TO BE LEFT ALONE.** */
   check('the panel is told nothing waits when nothing does', told.stands.waitingForIdle === null);
@@ -1449,8 +1449,10 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   check('the box is off for exactly the reports that arrive with another',
     [...parts.boxes.entries()].filter(([, one]) => one.disabled).map(([id]) => id).join(',')
     === stands.reports.filter((one) => one.fetchedBy || !one.canBeFetched).map((one) => one.id).join(','));
-  check('what cannot be fetched is on the page with its reason',
-    parts.cannot.children.length === 1);
+  showHowItStands(parts, { ...stands, cannotBeFetched: [{ id: 'fk_ads', name: 'Ads report', platform: 'flipkart', why: 'Flipkart gives no download for it.' }] });
+  check('what cannot be fetched is at the end of its platform\'s list, its reason behind an i',
+    parts.cannot.children.length === 1 && parts.cannot.children[0].textContent.includes('Ads report')
+    && parts.cannot.children[0].textContent.includes('Flipkart gives no download for it.'));
   check('the log says no night has been run rather than nothing at all',
     parts.log.textContent.includes('No sync has been run'));
 
@@ -1480,7 +1482,7 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   /* Now the state a seller is in between runs. */
   const setUp = { ...goingOn, night: null };
   showHowItStands(parts, setUp);
-  check('the setup screen goes when both halves are done', parts.setup.hidden === true);
+  check('R250: once both halves are done the panel is no longer in its set-up-only view', !parts.body.className.includes('p-pre'));
   check('and Run now comes on', parts.runNow.disabled === false);
 
   /* **A61, JOB 5b: EVERYTHING STARTS TICKED, and he unticks it all to run one
@@ -2250,13 +2252,16 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   const parts = buildThePanel(document.body, { connectTheDrive() {}, saveThePanelName() {}, runNow() {}, stop() {}, setTheHour() {}, aiSwitch: (on) => asked.push(on) });
   const stands = await howItStands(chrome, { book: BOOK, now: Date.now() });
   const card = parts.ai;
-  const row = card.children[1];
-  check('AD1: the AI card is on the page, in the page body', card.parentNode !== null && card.parentNode.children.includes(card) && card.parentNode.className.includes('body'));
-  check('AD1: the card is titled "Your AI", as a heading', card.children[0].tagName === 'h2' && card.children[0].textContent === 'Your AI');
+  const row = card.children[0];
+  check('AD1: the AI card is on the page, in the page body, closed until its button "AI may run it" is pressed',
+    card.parentNode !== null && card.parentNode.children.includes(card) && card.parentNode.className.includes('body') && card.hidden === true
+    && parts.aiButton.children[0].textContent === 'AI may run it');
+  parts.aiButton.click();
+  check('R250: pressing the button opens the AI card, and its state reads Off', card.hidden === false && parts.aiButtonState.textContent === '' );
   check('AD1: the switch and its state sit in one row of the card', row.children[0] === parts.aiSwitch && row.children[1] === parts.aiState && row.children.length === 2);
   check('AD1: the switch is a plain button, off to start with', parts.aiSwitch.type === 'button' && parts.aiSwitch.textContent === 'AI may run AutoSync: Off');
-  check('AD1: the card says what the switch lets the AI do, and holds the note and the asks', /read how your reports stand/.test(card.children[2].textContent)
-    && /3 minutes/.test(card.children[2].textContent) && card.children[3] === parts.aiNote && card.children[4] === parts.aiAsks && card.children.length === 5);
+  check('AD1: the card says what the switch lets the AI do, and holds the note and the asks', /read how your reports stand/.test(card.children[1].textContent)
+    && /3 minutes/.test(card.children[1].textContent) && card.children[2] === parts.aiNote && card.children[3] === parts.aiAsks && card.children.length === 4);
 
   showHowItStands(parts, stands);
   check('AD1: with no word from the worker the switch reads Off and the rest is empty', parts.aiSwitch.textContent === 'AI may run AutoSync: Off'
@@ -2552,10 +2557,8 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   installFakeBrowser();
   const { chrome } = installFakeChrome();
   const parts = buildThePanel(document.body, { connectTheDrive() {}, saveThePanelName() {}, runNow() {}, stop() {}, setTheHour() {} });
-  const card = parts.events.parentNode;
-  check('AJ9: the card titled "What happened, in order" is on the panel and holds the events list',
-    Boolean(card) && document.body.contains(card)
-    && card.children.some((one) => one.tagName === 'h2' && one.textContent === 'What happened, in order'));
+  check('AJ9/R250 (drawing: "off panel"): "What happened" is worked out into the events list but is not drawn on the panel',
+    Boolean(parts.events) && !document.body.contains(parts.events) && !document.body.textContent.includes('What happened'));
   const stands = await howItStands(chrome, { book: BOOK, now: Date.now() });
   showHowItStands(parts, { ...stands, events: [{ at: null, words: 'Fetching now: Flipkart orders.' }] });
   check('AJ9: the events the panel is told are the ones drawn',
@@ -2593,7 +2596,7 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   check('PN2a: with nothing that needs him, the box is hidden', panel.needs.hidden === true);
   showHowItStands(panel, { ...stands, needsYou: [two[0]] });
   check('PN2a: one day: the box shows, names platform, report, day and folder, and has no "I placed all"',
-    panel.needs.hidden === false && panel.needs.textContent.includes('Flipkart · Claims · 2026-10-01')
+    panel.needs.hidden === false && panel.needs.textContent.includes('Flipkart · Claims -- 1 day') && panel.needs.textContent.includes('2026-10-01')
     && panel.needs.textContent.includes('Put it in: Kartaan > Flipkart > Claims') && !panel.needs.textContent.includes('I placed all'));
   const allIn = (node) => [node, ...node.children.flatMap(allIn)];
   const buttons = (words, on = panel) => allIn(on.needs).filter((one) => one.tagName === 'button' && one.textContent === words);
@@ -2627,8 +2630,8 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   const pb = buildThePanel(document.body, { runNow: (ids, from, to) => instantAsked.push([ids, from, to]) });
   const bodyKids = pb.needs.parentNode.children;
   check('PN2b: Days to fetch, Run now and Stop come straight after the needs box, before set-up and before the platforms',
-    bodyKids[0] === pb.needs && bodyKids.indexOf(pb.actions) > 0 && bodyKids.indexOf(pb.actions) < bodyKids.indexOf(pb.setup)
-    && bodyKids.indexOf(pb.platforms) > bodyKids.indexOf(pb.actions));
+    bodyKids[0] === pb.needs && bodyKids.indexOf(pb.from.parentNode) > 0 && bodyKids.indexOf(pb.from.parentNode) < bodyKids.indexOf(pb.settings)
+    && bodyKids.indexOf(pb.platforms) > bodyKids.indexOf(pb.from.parentNode));
   const live = { ...stands, setUp: { ...stands.setUp, done: true } };
   showHowItStands(pb, live);
   const tabs = () => pb.platforms.children;
@@ -2649,8 +2652,8 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   showHowItStands(pb, { ...live, needsYou: [{ ...two[0], platformName: 'Meesho' }] });
   const meeshoNow = pb.platforms.children.find((one) => one.textContent.startsWith('Meesho'));
   check('PN2b: a day that needs him puts a red number on its platform\'s button only',
-    meeshoNow.children.some((one) => one.className === 'p-count' && one.textContent === '1')
-    && !pb.platforms.children.find((one) => one.textContent.startsWith('Flipkart')).children.some((one) => one.className === 'p-count'));
+    meeshoNow.children[0].children.some((one) => one.className === 'p-count' && one.textContent === '1')
+    && !pb.platforms.children.find((one) => one.textContent.startsWith('Flipkart')).children[0].children.some((one) => one.className === 'p-count'));
   const flipkartOnes = stands.reports.filter((one) => one.platform === 'flipkart' && one.canBeFetched && !one.fetchedBy);
   check('PN2b: the instant row lists the first platform\'s fetchable reports', pb.instantReport.children.length === flipkartOnes.length && flipkartOnes.length > 1);
   pb.instantReport.value = flipkartOnes[1].id;
@@ -2675,8 +2678,8 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   const fp = buildThePanel(document.body, { runNow() {} });
   const fpBody = fp.needs.parentNode.children;
   const rowOf = (node) => node.parentNode;
-  check('PN2b: the top of the panel is, in order, needs box, status line, update strip, days, run buttons, said line, instant row, set-up',
-    [fp.needs, fp.banner, fp.update, rowOf(fp.from), fp.actions, fp.said, rowOf(fp.instantPlatform), fp.setup].every((node, at, all) => at === 0 || fpBody.indexOf(node) === fpBody.indexOf(all[at - 1]) + 1));
+  check('PN2b: the top of the panel is, in order, needs box, update strip, days row (with Run now and Stop beside the dates), said line, instant row, status line, set-up',
+    [fp.needs, fp.update, rowOf(fp.from), fp.said, rowOf(fp.instantPlatform), fp.banner, fp.settings].every((node, at, all) => at === 0 || fpBody.indexOf(node) === fpBody.indexOf(all[at - 1]) + 1));
   check('PN2b: the two day boxes are date boxes, From then To, in the days row',
     fp.from.type === 'date' && fp.to.type === 'date' && rowOf(fp.from).children.indexOf(fp.from) + 2 === rowOf(fp.from).children.indexOf(fp.to)
     && rowOf(fp.from).children[rowOf(fp.from).children.indexOf(fp.from) - 1].textContent === 'From' && rowOf(fp.to).children[rowOf(fp.to).children.indexOf(fp.to) - 1].textContent === 'To');
@@ -2773,11 +2776,11 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
 {
   /* **R208 (his D968, D1005, D1006, D1007): RETURNS AT 6 PM FOR TODAY, A DAY AND A RUN FOR EACH REPORT, THE MORNING'S FAILURES AT 4 PM.** */
   const noChoice = { timed: null, days: {}, runs: {} };
-  check('R208: the returns of all three platforms are the 6 pm run, and for today',
-    THE_RETURNS_REPORTS.every((id) => theRunOf(noChoice, id) === 'returns' && theDayOf(noChoice, id) === 'today'));
+  check('R208: the returns of all three platforms are on their own time, and for today',
+    THE_RETURNS_REPORTS.every((id) => theRunOf(noChoice, id) === 'own' && theDayOf(noChoice, id) === 'today'));
   check('R208: every other report is for yesterday', theDayOf(noChoice, 'fk_orders') === 'yesterday' && theDayOf(noChoice, 'fk_claims') === 'yesterday');
   check('R208: the seller own choice wins, and a made-up one reads as no choice',
-    theRunOf({ runs: { fk_claims: 'returns' } }, 'fk_claims') === 'returns' && theRunOf({ runs: { fk_claims: 'noon' } }, 'fk_claims') === 'morning'
+    theRunOf({ runs: { fk_claims: 'own' } }, 'fk_claims') === 'own' && theRunOf({ runs: { fk_claims: 'noon' } }, 'fk_claims') === 'morning'
     && theDayOf({ days: { fk_claims: 'today' } }, 'fk_claims') === 'today' && theDayOf({ days: { fk_returns: 'tomorrow' } }, 'fk_returns') === 'today'
     && theDayOf({ days: { fk_returns: 'yesterday' } }, 'fk_returns') === 'yesterday');
   const now = Date.UTC(2026, 10, 7, 12, 30);
@@ -2796,9 +2799,9 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   await endTheNight(chrome, { at: now, why: 'x' });
   await chrome.storage.local.set({ [THE_QUEUE]: [] });
   nights.length = 0;
-  const six = await startTheScheduledSync(chrome, parts, 'returns');
+  const six = await startTheScheduledSync(chrome, parts, 'own', '18:00');
   check('R208: the 6 pm run starts the Flipkart returns for TODAY, as the returns run',
-    six.started.join() === 'fk_returns' && nights[0].dataDate === '2026-11-07' && nights[0].run === 'returns');
+    six.started.join() === 'fk_returns' && nights[0].dataDate === '2026-11-07' && nights[0].run === 'own', '18:00');
   await endTheNight(chrome, { at: now, why: 'x' });
   const meesho = await startTheNextPlatform(chrome, parts);
   await endTheNight(chrome, { at: now, why: 'x' });
@@ -2806,7 +2809,7 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   check('R208: and then the Meesho and Amazon returns, each for today',
     meesho.started.join() === 'me_returns' && amazon.started.join() === 'az_returns' && nights.every((one) => one.dataDate === '2026-11-07'));
 
-  await answerThePanelsQuestion(chrome, parts, { do: 'save-the-report-times', reportId: 'fk_claims', day: 'today', run: 'returns' });
+  await answerThePanelsQuestion(chrome, parts, { do: 'save-the-report-times', reportId: 'fk_claims', day: 'today', run: 'own', at: '18:00' });
   await endTheNight(chrome, { at: now, why: 'x' });
 
   /* Control, 7 Nov: a returns report that did NOT land is fetched next morning as an ordinary yesterday report; one that did is not. */
@@ -2842,32 +2845,18 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   const stands = await howItStands(chrome, { book: BOOK, now });
   const row = stands.schedule.find((one) => one.id === 'fk_claims');
   check('R208: a day and a run chosen on the panel are kept and shown back, others stay at their defaults',
-    row.day === 'today' && row.run === 'returns' && stands.schedule.find((one) => one.id === 'fk_returns').run === 'returns');
-  const refusedTime = await answerThePanelsQuestion(chrome, parts, { do: 'save-the-report-times', reportId: 'fk_claims', day: 'someday', run: 'returns' });
-  const refusedId = await answerThePanelsQuestion(chrome, parts, { do: 'save-the-report-times', reportId: 'not_a_report', day: 'today', run: 'returns' });
+    row.day === 'today' && row.run === 'own' && stands.schedule.find((one) => one.id === 'fk_returns').run === 'own', '18:00');
+  const refusedTime = await answerThePanelsQuestion(chrome, parts, { do: 'save-the-report-times', reportId: 'fk_claims', day: 'someday', run: 'own', at: '18:00' });
+  const refusedId = await answerThePanelsQuestion(chrome, parts, { do: 'save-the-report-times', reportId: 'not_a_report', day: 'today', run: 'own', at: '18:00' });
   check('R208: a made-up day, run or report is refused in words', Boolean(refusedTime.wrong) && Boolean(refusedId.wrong));
-  const sixAgain = await startTheScheduledSync(chrome, parts, 'returns');
+  const sixAgain = await startTheScheduledSync(chrome, parts, 'own', '18:00');
   check('R208: a report moved to the 6 pm run is fetched there', sixAgain.started.join() === 'fk_claims,fk_returns' || [...sixAgain.started].sort().join() === 'fk_claims,fk_returns');
 }
 
 {
-  /* **R208 (D1006): A PLAIN FAILURE OF THE MORNING RUN IS TRIED AGAIN IN THE 4 PM RUN, ONCE; A "NOT READY" ONE IS NOT.** */
-  const now = Date.UTC(2026, 10, 7, 10, 30);
-  const { chrome } = installFakeChrome();
-  const parts = { book: BOOK, now: () => now, startTheNight, carryOn: async () => {} };
-  await answerThePanelsQuestion(chrome, parts, { do: 'save-the-panel-name', panel: 'xuptj' });
-  await answerThePanelsQuestion(chrome, parts, { do: 'check-the-drive' });
-  await chrome.storage.local.set({ [THE_FAILED_IN_THE_MORNING]: { day: '2026-11-07', ids: ['fk_claims', 'fk_listings'] } });
-  const evening = await startTheScheduledSync(chrome, parts, 'evening');
-  check('R208: the 4 pm run takes the failed morning Flipkart reports with its own', evening.started.includes('fk_claims') && evening.started.includes('fk_listings') && evening.started.includes('fk_orders'));
-  check('R208: and the list is cleared once taken', (await chrome.storage.local.get(THE_FAILED_IN_THE_MORNING))[THE_FAILED_IN_THE_MORNING] === undefined);
-  const other = installFakeChrome().chrome;
-  await answerThePanelsQuestion(other, parts, { do: 'save-the-panel-name', panel: 'xuptj' });
-  await answerThePanelsQuestion(other, parts, { do: 'check-the-drive' });
-  await other.storage.local.set({ [THE_FAILED_IN_THE_MORNING]: { day: '2026-11-06', ids: ['fk_claims'] } });
-  const old = await startTheScheduledSync(other, parts, 'evening');
-  check('R208: a list from another day is not taken', !old.started.includes('fk_claims'));
   /* The hourly re-check of a returns report for today comes back through the same door. */
+  const now = Date.UTC(2026, 10, 7, 10, 30);
+  const parts = { book: BOOK, now: () => now, startTheNight, carryOn: async () => {} };
   const again = installFakeChrome().chrome;
   await answerThePanelsQuestion(again, parts, { do: 'save-the-panel-name', panel: 'xuptj' });
   await answerThePanelsQuestion(again, parts, { do: 'check-the-drive' });
@@ -2884,8 +2873,8 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   check('R208: a range ending today passes when today is allowed, and not otherwise',
     whyThatRangeCannotBeFetched('2026-11-06', '2026-11-07', now, true) === '' && whyThatRangeCannotBeFetched('2026-11-06', '2026-11-07', now).includes('not over yet'));
   check('R208: the 6 pm run is named in when the extension next wakes',
-    whenItNextWakes({ chosen: '08:00', nextAt: now + 1000, eveningAt: now + 2000, returnsAt: now + 3000 }).includes('The 6 pm run wakes')
-    && !whenItNextWakes({ chosen: '08:00', nextAt: now + 1000, eveningAt: now + 2000 }).includes('6 pm'));
+    whenItNextWakes({ chosen: '08:00', nextAt: now + 1000, eveningAt: now + 2000, own: [{ time: '18:00', at: now + 3000 }] }).includes('own-time run at 18:00 wakes')
+    && !whenItNextWakes({ chosen: '08:00', nextAt: now + 1000, eveningAt: now + 2000 }).includes('own-time'));
   const { chrome } = installFakeChrome();
   const parts = { book: BOOK, now: () => now, startTheNight, carryOn: async () => {} };
   await answerThePanelsQuestion(chrome, parts, { do: 'save-the-panel-name', panel: 'xuptj' });
@@ -2896,66 +2885,47 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   const named = stands.schedule.find((one) => one.id === 'fk_returns');
   check('R208: each row carries the own name of the report', named.name === (BOOK.reports.find((one) => one.id === 'fk_returns') || {}).name && named.name !== 'fk_returns');
 
-  /* The 4 pm list: unknown ids and reports already in the run are not added. */
-  await chrome.storage.local.set({ [THE_FAILED_IN_THE_MORNING]: { day: '2026-11-07', ids: ['not_a_report', 'fk_orders', 'fk_listings'] } });
-  const evening = await startTheScheduledSync(chrome, parts, 'evening');
-  check('R208: the 4 pm list adds a failed report once and never an unknown one',
-    evening.started.filter((id) => id === 'fk_orders').length === 1 && evening.started.includes('fk_listings') && !evening.started.includes('not_a_report'));
-  await endTheNight(chrome, { at: now, why: 'x' });
-
   /* A yesterday report placed in the returns run is fetched for yesterday, apart from the returns for today. */
   const moved = installFakeChrome().chrome;
   await answerThePanelsQuestion(moved, parts, { do: 'save-the-panel-name', panel: 'xuptj' });
   await answerThePanelsQuestion(moved, parts, { do: 'check-the-drive' });
-  await answerThePanelsQuestion(moved, parts, { do: 'save-the-report-times', reportId: 'fk_claims', day: 'yesterday', run: 'returns' });
+  await answerThePanelsQuestion(moved, parts, { do: 'save-the-report-times', reportId: 'fk_claims', day: 'yesterday', run: 'own', at: '18:00' });
   const nightsSeen = [];
   const seeing = { ...parts, startTheNight: async (c, how) => { nightsSeen.push(how); return startTheNight(c, how); } };
-  await startTheScheduledSync(moved, seeing, 'returns');
+  await startTheScheduledSync(moved, seeing, 'own', '18:00');
   const queuedAfter = (await moved.storage.local.get(THE_QUEUE))[THE_QUEUE];
   check('R208: a yesterday report in the 6 pm run is fetched for yesterday, the returns for today, as separate walks',
-    nightsSeen[0].doing.includes('fk_claims') && !nightsSeen[0].doing.includes('fk_returns') && nightsSeen[0].dataDate === '2026-11-06' && nightsSeen[0].run === 'returns'
+    nightsSeen[0].doing.includes('fk_claims') && !nightsSeen[0].doing.includes('fk_returns') && nightsSeen[0].dataDate === '2026-11-06' && nightsSeen[0].run === 'own'
     && queuedAfter.some((entry) => !Array.isArray(entry) && entry.today === true && entry.reportIds.includes('fk_returns')));
 
   /* A run that finds another going queues behind it: entries keep their run and today mark, and what is already there is not queued twice. */
   const behind = installFakeChrome().chrome;
   await answerThePanelsQuestion(behind, parts, { do: 'save-the-panel-name', panel: 'xuptj' });
   await answerThePanelsQuestion(behind, parts, { do: 'check-the-drive' });
-  await behind.storage.local.set({ [THE_FAILED_IN_THE_MORNING]: { day: '2026-11-07', ids: ['fk_listings'] } });
   await behind.storage.local.set({ [THE_NIGHT]: { startedAt: now, finishedAt: 0, spent: 0, mayAskFor: 3, done: [], left: ['fk_returns'], doing: null }, [THE_QUEUE]: [] });
-  const waitingRun = await startTheScheduledSync(behind, parts, 'returns');
+  const waitingRun = await startTheScheduledSync(behind, parts, 'own', '18:00');
   const queuedIds = (await behind.storage.local.get(THE_QUEUE))[THE_QUEUE];
   check('R208: behind a going run the 6 pm entries are queued with their run and today mark, without the report already left',
-    waitingRun.waiting === true && queuedIds.length > 0 && queuedIds.every((entry) => !Array.isArray(entry) && entry.run === 'returns' && entry.today === true)
+    waitingRun.waiting === true && queuedIds.length > 0 && queuedIds.every((entry) => !Array.isArray(entry) && entry.run === 'own' && entry.today === true)
     && !queuedIds.flatMap((entry) => entry.reportIds).includes('fk_returns') && queuedIds.flatMap((entry) => entry.reportIds).includes('me_returns'));
-  check('R208: and a 6 pm run does not touch the failed list of the 4 pm run', (await behind.storage.local.get(THE_FAILED_IN_THE_MORNING))[THE_FAILED_IN_THE_MORNING] !== undefined);
-  await behind.storage.local.set({ [THE_QUEUE]: [] });
-  await startTheScheduledSync(behind, parts, 'evening');
-  check('R208: a waiting 4 pm run uses up the failed list', (await behind.storage.local.get(THE_FAILED_IN_THE_MORNING))[THE_FAILED_IN_THE_MORNING] === undefined);
-  const refusedOne = installFakeChrome().chrome;
-  await refusedOne.storage.local.set({ [THE_FAILED_IN_THE_MORNING]: { day: '2026-11-07', ids: ['fk_listings'] } });
-  const noDrive = await startTheScheduledSync(refusedOne, parts, 'evening');
-  check('R208: a 4 pm start that is refused keeps the failed list for the next try', !noDrive.started
-    && (await refusedOne.storage.local.get(THE_FAILED_IN_THE_MORNING))[THE_FAILED_IN_THE_MORNING] !== undefined);
-
   /* The panel draws the rows, sends what is picked, and does not redraw when nothing changed. */
   installFakeBrowser();
   const picked = [];
   const panel = buildThePanel(document.body, { saveTheReportTimes: (id, day, run) => picked.push(`${id}:${day}:${run}`) });
-  const schedule = [{ id: 'fk_returns', name: 'Flipkart returns', day: 'today', run: 'returns' }, { id: 'fk_claims', name: 'Flipkart claims', day: 'yesterday', run: 'morning' }];
+  const schedule = [{ id: 'fk_returns', name: 'Flipkart returns', day: 'today', run: 'own', at: '18:00' }, { id: 'fk_claims', name: 'Flipkart claims', day: 'yesterday', run: 'morning' }];
   showHowItStands(panel, { ...stands, schedule });
-  const selects = panel.scheduleList.children.flatMap((row) => row.children.filter((one) => one.tagName === 'select'));
+  const selects = panel.scheduleList.children.flatMap((row) => row.children.flatMap((one) => (one.tagName === 'select' ? [one] : one.children.filter((c) => c.tagName === 'select'))));
   check('R208: the panel draws a day and a run for each timed report, set as the stands say',
-    selects.length === 4 && selects[0].value === 'today' && selects[1].value === 'returns' && selects[2].value === 'yesterday' && selects[3].value === 'morning'
+    selects.length === 4 && selects[0].value === 'yesterday' && selects[1].value === 'morning' && selects[2].value === 'today' && selects[3].value === 'own'
     && panel.scheduleList.textContent.includes('Flipkart returns'));
   check('R208: the run choices are the three runs, the day choices yesterday and today',
-    selects[1].children.map((one) => one.value).join() === 'morning,evening,returns'
+    selects[1].children.map((one) => one.value).join() === 'morning,evening,own'
     && selects[0].children.map((one) => one.value).join() === 'yesterday,today'
-    && selects[1].children.map((one) => one.textContent).join() === 'Morning run,4 pm run,6 pm run');
-  selects[0].value = 'yesterday';
-  selects[0].fire('change');
-  check('R208: changing a choice sends that report with both its choices', picked.join() === 'fk_returns:yesterday:returns');
-  check('R208: the card says what a today choice means', document.body.textContent.includes('Platforms often do not have the numbers for today yet')
-    && document.body.textContent.includes('tried again in the 4 pm run'));
+    && selects[1].children.map((one) => one.textContent).join() === 'Morning run,Evening run,Own time');
+  selects[2].value = 'yesterday';
+  selects[2].fire('change');
+  check('R208: changing a choice sends that report with both its choices', picked.join() === 'fk_returns:yesterday:own');
+  check('R208: the card says what a today choice means', document.body.textContent.includes('Platforms often do not have the numbers for today yet'));
   const before = panel.scheduleList.children[0];
   showHowItStands(panel, { ...stands, schedule });
   check('R208: the rows are not drawn again when nothing changed', panel.scheduleList.children[0] !== undefined && panel.scheduleList.children[0] === before);
@@ -2968,22 +2938,22 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   const handed = { saveTheReportTimes: (id, day, run) => sent.push(`${id}:${day}:${run}`) };
   const panel = buildThePanel(document.body, handed);
   check('R208: the panel keeps what it was built with, for the rows to send through', panel.doing === handed);
-  check('R208: the card has its title and its list', document.body.textContent.includes('Which day, and which run, for each report')
+  check('R208: the card has its title and its list', document.body.textContent.includes('Which report runs when')
     && panel.scheduleList !== undefined && document.body.children.length > 0);
-  const stands = { reports: [], cannotBeFetched: [], schedule: [{ id: 'fk_returns', name: 'Flipkart returns', day: 'today', run: 'returns' }, { id: 'fk_claims', name: 'Flipkart claims', day: 'yesterday', run: 'morning' }] };
+  const stands = { reports: [], cannotBeFetched: [], schedule: [{ id: 'fk_returns', name: 'Flipkart returns', day: 'today', run: 'own', at: '18:00' }, { id: 'fk_claims', name: 'Flipkart claims', day: 'yesterday', run: 'morning' }] };
   showHowItStands(panel, { ...(await howItStands(installFakeChrome().chrome, { book: BOOK, now: Date.now() })), schedule: stands.schedule });
-  const selectsOf = () => panel.scheduleList.children.flatMap((row) => row.children.filter((one) => one.tagName === 'select'));
-  selectsOf()[1].value = 'evening';
-  selectsOf()[1].fire('change');
-  selectsOf()[2].value = 'today';
-  selectsOf()[2].fire('change');
+  const selectsOf = () => panel.scheduleList.children.flatMap((row) => row.children.flatMap((one) => (one.tagName === 'select' ? [one] : one.children.filter((c) => c.tagName === 'select'))));
+  selectsOf()[3].value = 'evening';
+  selectsOf()[3].fire('change');
+  selectsOf()[0].value = 'today';
+  selectsOf()[0].fire('change');
   check('R208: the run choice and the day choice of a row each send the report with both choices',
     sent.join() === 'fk_returns:today:evening,fk_claims:today:morning');
-  showHowItStands(panel, { ...(await howItStands(installFakeChrome().chrome, { book: BOOK, now: Date.now() })), schedule: [{ id: 'me_returns', name: 'Zeta returns', day: 'today', run: 'returns' }] });
+  showHowItStands(panel, { ...(await howItStands(installFakeChrome().chrome, { book: BOOK, now: Date.now() })), schedule: [{ id: 'me_returns', name: 'Zeta returns', day: 'today', run: 'own', at: '18:00' }] });
   check('R208: when the stands change the old rows go and the new ones are drawn',
-    panel.scheduleList.children.length === 1 && panel.scheduleList.textContent.includes('Zeta returns') && !panel.scheduleList.textContent.includes('Flipkart claims'));
+    panel.scheduleList.children.length === 5 && panel.scheduleList.textContent.includes('Zeta returns') && !panel.scheduleList.textContent.includes('Flipkart claims'));
   check('R208: the rows are on the page itself, not in a list nobody sees', document.body.textContent.includes('Zeta returns'));
-  check('R208: and the new row shows its choices', selectsOf().length === 2 && selectsOf()[0].value === 'today' && selectsOf()[1].value === 'returns');
+  check('R208: and the new row shows its choices', selectsOf().length === 2 && selectsOf()[0].value === 'today' && selectsOf()[1].value === 'own');
 }
 
 {
@@ -3005,24 +2975,7 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
 }
 
 {
-  /* The 4 pm list is read against the real clock when the caller gives none. */
-  const { chrome } = installFakeChrome();
-  const parts = { book: BOOK, startTheNight, carryOn: async () => {} };
-  await answerThePanelsQuestion(chrome, { ...parts, now: () => Date.now() }, { do: 'save-the-panel-name', panel: 'xuptj' });
-  await answerThePanelsQuestion(chrome, { ...parts, now: () => Date.now() }, { do: 'check-the-drive' });
-  await chrome.storage.local.set({ [THE_FAILED_IN_THE_MORNING]: { day: theDay(Date.now()), ids: ['fk_listings'] } });
-  const run = await startTheScheduledSync(chrome, parts, 'evening');
-  check('R208: with no clock handed in, a list kept for today is taken', Boolean(run.started) && run.started.includes('fk_listings'));
-  const again = installFakeChrome().chrome;
-  await answerThePanelsQuestion(again, { ...parts, now: () => Date.now() }, { do: 'save-the-panel-name', panel: 'xuptj' });
-  await answerThePanelsQuestion(again, { ...parts, now: () => Date.now() }, { do: 'check-the-drive' });
-  await again.storage.local.set({ [THE_FAILED_IN_THE_MORNING]: { day: '2020-01-01', ids: ['fk_listings'] } });
-  const old = await startTheScheduledSync(again, parts, 'evening');
-  check('R208: and one kept for another day is not', !old.started.includes('fk_listings'));
-}
-
-{
-  /* Review of the fallback: a platform holding ONLY fallbacks is fetched for yesterday, and a failed fallback is tried again at 4 pm for yesterday too. */
+  /* Review of the fallback: a platform holding ONLY fallbacks is fetched for yesterday, */
   const now = Date.UTC(2026, 10, 7, 12, 30);
   const only = installFakeChrome().chrome;
   const seen = [];
@@ -3036,16 +2989,6 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   check('R208: a platform whose only morning entries are the fallback returns is fetched for YESTERDAY, not today',
     alone.started.join() === 'fk_returns' && seen[0][1] === '2026-11-06' && seen[0][2] === 'morning');
   await endTheNight(only, { at: now, why: 'x' });
-  /* it fails: kept, and the 4 pm run fetches it for yesterday again */
-  await thatOneIsDone(only, { reportId: 'fk_returns', state: 'failed', say: 'x', dataDate: '2026-11-06', at: now, needsSigningIn: true });
-  const held = (await only.storage.local.get(THE_FAILED_IN_THE_MORNING))[THE_FAILED_IN_THE_MORNING];
-  check('R208: a failed fallback is kept as one for a past day', Boolean(held) && held.ids.includes('fk_returns') && held.past.includes('fk_returns'));
-  await only.storage.local.set({ [THE_QUEUE]: [] });
-  await endTheNight(only, { at: now, why: 'x' });
-  seen.length = 0;
-  const four = await startTheScheduledSync(only, parts, 'evening');
-  check('R208: and the 4 pm run fetches it for yesterday, not today', four.started.includes('fk_returns') && seen.some((one) => one[0].includes('fk_returns') && one[1] === '2026-11-06' && one[2] === 'evening'));
-
   /* a morning fallback queued behind a going night keeps its yesterday mark */
   const behind = installFakeChrome().chrome;
   await answerThePanelsQuestion(behind, parts, { do: 'save-the-panel-name', panel: 'xuptj' });
@@ -3071,6 +3014,138 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
   await answerThePanelsQuestion(nothing, { ...parts, now: () => Date.now() }, { do: 'check-the-drive' });
   const some = await startTheScheduledSync(nothing, parts);
   check('R208: with no clock handed in, the fallback compares against the real yesterday', !none.started.includes('fk_returns') && some.started.includes('fk_returns'));
+}
+
+{
+  /* **R250: THE PANEL'S TIDY-UP -- needs-you folded and grouped, run times, the clash line, newest first.** */
+  installFakeBrowser();
+  const { chrome } = installFakeChrome();
+  const stands = await howItStands(chrome, { book: BOOK, now: Date.now() });
+  const picked = [];
+  const panel = buildThePanel(document.body, { clearNeedsYou() {}, setARunTime: (which, at) => picked.push(`${which}:${at}`) });
+  const day = (n) => `2026-09-${String(n).padStart(2, '0')}`;
+  const many = [];
+  for (let n = 9; n >= 1; n -= 1) many.push({ reportId: 'fk_orders', dataDate: day(n), name: 'Orders', platformName: 'Flipkart', folder: '' });
+  many.push({ reportId: 'me_orders', dataDate: day(3), name: 'Orders', platformName: 'Meesho', folder: '' });
+  many.unshift({ reportId: 'az_orders', dataDate: day(2), name: 'Orders', platformName: 'Amazon', folder: '' });
+  showHowItStands(panel, { ...stands, needsYou: many });
+  const outer = panel.needs.children[0];
+  check('R250: the needs-you box is folded, and shows its count', outer.tagName === 'details' && outer.open === false
+    && panel.needs.find('p-count').textContent === String(many.length));
+  const all = outer.children.find((one) => one.className === 'p-needsList').children;
+  const rowsOf = all.filter((one) => one.className === 'p-needsRow');
+  const headings = all.filter((one) => one.className === 'p-needsGroup').map((one) => one.textContent);
+  check('R250: opened, one row per report-day, each with its own "I placed it"',
+    rowsOf.length === many.length && rowsOf.every((one) => one.children.some((c) => c.tagName === 'button' && c.textContent === 'I placed it')));
+  check('R250 (D1034): rows are grouped by report, each group headed with its count, in platform order',
+    headings.join('|') === 'Flipkart · Orders -- 9 days|Meesho · Orders -- 1 day|Amazon · Orders -- 1 day');
+  check('R250: and a group days are in date order',
+    rowsOf.slice(0, 9).map((one) => one.children[0].children[0].textContent).join() === [1, 2, 3, 4, 5, 6, 7, 8, 9].map(day).join());
+  check('R250: "I placed all" is in the box', outer.children.some((one) => one.tagName === 'button' && one.textContent === 'I placed all'));
+
+  const times = { morning: '16:00', evening: '16:00' };
+  showHowItStands(panel, { ...stands, clock: { chosen: '16:00', nextAt: null, times } });
+  check('R250: a morning time equal to the evening time is said in red, and nothing is changed',
+    panel.clash.hidden === false && panel.clash.textContent.startsWith('Morning run is at 4:00 pm, the same as the evening run')
+    && panel.hour.value === '16:00');
+  showHowItStands(panel, { ...stands, clock: { chosen: '08:00', nextAt: null, times: { morning: '08:00', evening: '16:30' } } });
+  check('R250: with no clash the line is gone, and the three boxes show the three times',
+    panel.clash.hidden === true && panel.hour.value === '08:00' && panel.eveningTime.value === '16:30');
+  panel.eveningTime.value = '17:00';
+  panel.eveningSave.click();
+  check('R250: the evening Save button sends that run and its box\'s own text', picked.join() === 'evening:17:00');
+
+  const notYet = { ...stands, setUp: { ...stands.setUp, driveConnectedAt: 0, panel: '' } };
+  showHowItStands(panel, notYet);
+  check('R250: before set-up the settings are open, there is no gear, and the panel shows only the set-up steps',
+    panel.settings.hidden === false && panel.gear.hidden === true && panel.body.className.includes('p-pre'));
+  showHowItStands(panel, { ...stands, setUp: { ...stands.setUp, driveConnectedAt: 5, panel: 'xuptj' } });
+  check('R250: after set-up the settings are behind the gear, closed, and the rest of the panel is back',
+    panel.settings.hidden === true && panel.gear.hidden === false && !panel.body.className.includes('p-pre'));
+  panel.gear.click();
+  check('R250: the gear opens them, with Set up once and the run pass inside, and opens nothing else',
+    panel.settings.hidden === false && panel.settings.children.includes(panel.setup) && panel.settings.children.includes(panel.kartaan));
+  panel.gear.click();
+  check('R250: and shuts them again', panel.settings.hidden === true);
+  const sched = panel.scheduleList.parentNode;
+  check('R250: the day-and-run list is folded by default', sched.tagName === 'details' && !sched.open);
+  /* his look, D1035: Own time */
+  const ownSaved = [];
+  const ownPanel = buildThePanel(document.body, { saveTheReportTimes: (id, day, run, at) => ownSaved.push(`${id}:${day}:${run}:${at}`) });
+  const ownSched = [
+    { id: 'fk_returns', name: 'Flipkart returns', platform: 'flipkart', day: 'today', run: 'own', at: '12:00' },
+    { id: 'fk_claims', name: 'Flipkart claims', platform: 'flipkart', day: 'yesterday', run: 'morning', at: '18:00' },
+    { id: 'me_claims', name: 'Meesho claims', platform: 'meesho', day: 'yesterday', run: 'own', at: '19:00' },
+  ];
+  showHowItStands(ownPanel, { ...stands, schedule: ownSched });
+  const cells = ownPanel.scheduleList.children.filter((one) => one.className === 'p-schedRow').map((row) => row.children[2]);
+  const timeBoxes = cells.map((cell) => cell.children[1]);
+  const warns = ownPanel.scheduleList.children.filter((one) => one.className === 'p-schedWarn');
+  check('R250 (D1035): the Run column offers Morning run, Evening run and Own time',
+    cells[0].children[0].children.map((one) => one.textContent).join() === 'Morning run,Evening run,Own time');
+  check('R250 (D1035): a time box shows only for a report on Own time, filled with its own time', timeBoxes[0].hidden === true && timeBoxes[1].hidden === false && timeBoxes[1].value === '12:00');
+  check('R250 (D1035): the returns on 12:00 get the warning "You may not get this report at 12:00. It is usually ready after 18:00."',
+    warns[1].hidden === false && warns[1].textContent === 'You may not get this report at 12:00. It is usually ready after 18:00.');
+  check('R250 (D1035): a report with no known ready time, or a time after it, gets no warning', warns[2].hidden === true && warns[0].hidden === true && theReadyWarning('fk_returns', '18:30') === '' && theReadyWarning('fk_claims', '01:00') === '');
+  timeBoxes[1].value = '19:30';
+  timeBoxes[1].fire('change');
+  check('R250 (D1035): a changed own time is saved with the report, the day and the run, and the warning goes', ownSaved.join() === 'fk_returns:today:own:19:30' && warns[1].hidden === true);
+  cells[0].children[0].value = 'own';
+  cells[0].children[0].fire('change');
+  check('R250 (D1035): choosing Own time shows the time box and sends the run with its time', timeBoxes[0].hidden === false && ownSaved.at(-1) === 'fk_claims:yesterday:own:18:00');
+  check('R250 (D1035): the schedule is grouped under a heading for each platform', ownPanel.scheduleList.children.filter((one) => one.className === 'p-schedPlatform').map((one) => one.textContent).join() === 'Flipkart,Meesho');
+  const ask = { do: 'save-the-report-times', reportId: 'fk_claims', day: 'today', run: 'own', at: '13:15' };
+  const ownChrome = installFakeChrome().chrome;
+  const ownParts = { book: BOOK, now: () => Date.now(), whyAnOwnTimeIsRefused: async (c, at) => (at === '16:00' ? 'taken' : null), setTheOwnTimes: async (c, times) => { ownTimesSeen.push(times.join()); } };
+  const ownTimesSeen = [];
+  const okOwn = await answerThePanelsQuestion(ownChrome, ownParts, ask);
+  const refusedOwn = await answerThePanelsQuestion(ownChrome, ownParts, { ...ask, at: '16:00' });
+  const noTime = await answerThePanelsQuestion(ownChrome, ownParts, { ...ask, at: 'soon' });
+  check('R250 (D1035): an own time is saved and the alarms are told every own time now in use (the returns default 18:00 and this one)',
+    okOwn.saved === true && ownTimesSeen[0] === '13:15,18:00');
+  check('R250 (D1035): an own time another run has, or that is not a time, is refused in words and saves nothing', refusedOwn.wrong === 'taken' && Boolean(noTime.wrong) && ownTimesSeen.length === 1);
+  check('R250 (D1035): the own time of a report is read back, and a bad saved one reads as 18:00',
+    theOwnAtOf({ ownAt: { fk_claims: '13:15' } }, 'fk_claims') === '13:15' && theOwnAtOf({ ownAt: { fk_claims: '99:99' } }, 'fk_claims') === '18:00');
+  const evenOwn = theTimedListFor(BOOK, { timed: null, runs: { fk_claims: 'own' }, ownAt: { fk_claims: '13:15' } }, 'own', '13:15');
+  check('R250 (D1035): an own-time run fetches only the reports whose own time it is', evenOwn.join() === 'fk_claims' && !theTimedListFor(BOOK, { timed: null, runs: { fk_claims: 'own' }, ownAt: { fk_claims: '13:15' } }, 'own', '18:00').includes('fk_claims'));
+  const walkAll = (node) => [node, ...node.children.flatMap(walkAll)];
+  showHowItStands(ownPanel, { ...stands, setUp: { ...stands.setUp, done: true }, clock: { chosen: '08:00', nextAt: null, times: { morning: '08:00', evening: '16:00' }, own: [{ time: '18:00', at: null }] } });
+  check('R250 (D1035): the Run times button lists the times, with own times', ownPanel.timesButtonState.textContent === '08:00 · 16:00 · own 18:00'
+    && !document.body.textContent.includes('Returns run'));
+  check('R250 (D1035): the retry is said as a line, never a setting, with the 20 a day', document.body.textContent.includes('tried again every hour, up to 3 tries') && document.body.textContent.includes('20'));
+
+  /* his look, D1034 */
+  const walk = (node) => [node, ...node.children.flatMap(walk)];
+  check('R250 (D1034): Run now and Stop sit in the same row as the From and To dates', panel.actions.parentNode === panel.from.parentNode && panel.to.parentNode === panel.from.parentNode);
+  showHowItStands(panel, { ...stands, setUp: { ...stands.setUp, done: true }, night: null, needsYou: [], clock: null });
+  check('R250 (D1034): a quiet panel says ONE status line, "Ready." and when the next timed run wakes', panel.banner.textContent.startsWith('Ready. ') && panel.banner.textContent.includes('morning run wakes'));
+  const docs = walk(panel.help).find((one) => one.tagName === 'a');
+  check('R250 (D1034): "Read more on docs.kartaan.com" is a real link that opens in a new tab',
+    Boolean(docs) && docs.href === 'https://docs.kartaan.com' && docs.target === '_blank' && docs.rel === 'noopener' && docs.textContent === 'Read more on docs.kartaan.com');
+  const flipped = [];
+  const doc = (on) => ({ body: { classList: { toggle: (name, now) => flipped.push(`${name}:${now}`) } }, on });
+  const dark = (matches) => () => ({ matches });
+  check('R250 (D1034): the default follows the computer: dark when it is dark, light when it is light',
+    applyTheTheme('system', doc(), dark(true)) === true && applyTheTheme('system', doc(), dark(false)) === false);
+  check('R250 (D1034): a chosen Light or Dark wins over the computer', applyTheTheme('light', doc(), dark(true)) === false && applyTheTheme('dark', doc(), dark(false)) === true);
+  check('R250 (D1034): and the body class switched is the ERP dark one is what is switched', flipped.every((one) => one.startsWith('dark:')) && flipped.length === 4);
+  check('R250 (D1034): with nothing kept the choice is Same as computer', theThemeChosen() === 'system');
+  check('R250 (D1034): the choice is in Settings with its three words, and starts on Same as computer',
+    panel.settings.children.some((one) => walk(one).includes(panel.theme)) && panel.theme.children.map((one) => one.textContent).join() === 'Same as computer,Light,Dark' && panel.theme.value === 'system');
+
+  const parts = { ...panelParts(chrome), setARunTime: async (c, how) => { picked.push(`set:${how.which}`); return 1; }, whyThatRunTimeIsRefused: async (c, which, at) => (at === '16:00' ? 'taken' : null) };
+  const refusedAsk = await answerThePanelsQuestion(chrome, parts, { do: 'set-a-run-time', which: 'evening', at: '16:00' });
+  const okAsk = await answerThePanelsQuestion(chrome, parts, { do: 'set-a-run-time', which: 'evening', at: '17:00' });
+  const badAsk = await answerThePanelsQuestion(chrome, parts, { do: 'set-a-run-time', which: 'morning', at: '17:00' });
+  check('R250: the panel may ask for it; a taken time is refused with the words, a free one is saved, the morning is not set this way',
+    THE_PANEL_ASKS.includes('set-a-run-time') && refusedAsk.wrong === 'taken' && okAsk.at === 1 && picked.includes('set:evening') && Boolean(badAsk.wrong));
+}
+
+{
+  /* R250 review (HIGH): the panel's own wiring must pass the time box value on, or Own time can never be saved. */
+  const PANEL = readFileSync(new URL('panel.js', HERE), 'utf8');
+  check('R250: the panel sends the time of an own-time choice to the extension',
+    /saveTheReportTimes: async \(reportId, day, run, at\)[\s\S]{0,200}save-the-report-times', reportId, day, run, at \}/.test(PANEL));
 }
 
 reachedTheEnd = true;

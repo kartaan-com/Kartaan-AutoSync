@@ -25,9 +25,18 @@ import { installFakeChrome } from '../test/fake-chrome.js';
 import {
   DAILY,
   EVENING,
-  RETURNS,
-  makeSureTheReturnsAreSet,
-  THE_RETURNS_AT,
+  OWN,
+  setARunTime,
+  setTheOwnTimes,
+  whyAnOwnTimeIsRefused,
+  setTheHour,
+  theClock,
+  theRunTimes,
+  whyThatRunTimeIsRefused,
+  whyTwoRunsClash,
+  THE_EVENING_SAVED,
+  makeSureTheOwnTimesAreSet,
+  THE_OWN_DEFAULT,
   makeSureTheEveningIsSet,
   THE_EVENING_AT,
   EVERY_DAY_IN_MINUTES,
@@ -64,6 +73,7 @@ import {
   NAMED_PER_CAMPAIGN,
   whoClosedIt,
 } from './background.js';
+import { whenItNextWakes } from './screen.js';
 import { LAST_LANDED } from './nightly.js';
 import { IDLE_ALARM, whatIsWaiting } from './idle.js';
 import { CAUGHT, TOO_BIG, catchTheNextFile } from './catch-blob.js';
@@ -2452,36 +2462,98 @@ check('the page relay is OFF in what ships, so no script on a portal page can dr
 }
 
 {
-  /* **THE THIRD TIMED RUN (R208): a 6 pm alarm of its own, starting only the returns run.** */
+  /* **OWN TIMES (R250, his D1035, replacing the named 6 pm returns run): one alarm for each distinct own time, 18:00 until the worker writes others.** */
   const browser = installFakeChrome();
-  const made = await makeSureTheReturnsAreSet(browser.chrome);
-  const six = theAlarm(browser, RETURNS);
-  check('R208: the 6 pm alarm is made when there is none, at 18:00, every day, and asked to survive a restart',
-    made === true && THE_RETURNS_AT.hour === 18 && THE_RETURNS_AT.minute === 0 && new Date(six.when).getHours() === 18
+  const made = await makeSureTheOwnTimesAreSet(browser.chrome);
+  const six = theAlarm(browser, `${OWN}18:00`);
+  check('R250 (D1035): the 18:00 own-time alarm is made when there is none, every day, asked to survive a restart',
+    made === true && THE_OWN_DEFAULT.join() === '18:00' && new Date(six.when).getHours() === 18
     && new Date(six.when).getMinutes() === 0 && six.periodInMinutes === EVERY_DAY_IN_MINUTES && six.persistAcrossSessions === true);
-  check('R208: asking again makes no second one', (await makeSureTheReturnsAreSet(browser.chrome)) === false && browser.alarms().filter((one) => one.name === RETURNS).length === 1);
-  let due = 0; let evening = 0; let returns = 0;
-  const both = { onDue: async () => { due += 1; }, onEvening: async () => { evening += 1; }, onReturns: async () => { returns += 1; } };
+  check('R250 (D1035): asking again makes no second one', (await makeSureTheOwnTimesAreSet(browser.chrome)) === false && browser.alarms().filter((one) => one.name.startsWith(OWN)).length === 1);
+  let due = 0; let evening = 0; const owns = [];
+  const both = { onDue: async () => { due += 1; }, onEvening: async () => { evening += 1; }, onOwn: async (at) => { owns.push(at); } };
   const wired = installFakeChrome();
   await wireUp(wired.chrome, both);
-  check('R208: wiring up sets the 6 pm alarm as well as the other two', theAlarm(wired, RETURNS) !== null && theAlarm(wired, EVENING) !== null && theAlarm(wired, DAILY) !== null);
+  check('R250 (D1035): wiring up sets the own-time alarm as well as the other two', theAlarm(wired, `${OWN}18:00`) !== null && theAlarm(wired, EVENING) !== null && theAlarm(wired, DAILY) !== null);
   wired.forgetTheAlarms();
   await wired.chrome.runtime.onStartup.happened();
-  check('R208: a cleared 6 pm alarm is put back', theAlarm(wired, RETURNS) !== null);
-  await wired.chrome.alarms.onAlarm.happened({ name: RETURNS });
-  check('R208: the 6 pm alarm starts the returns run and not the others', returns === 1 && due === 0 && evening === 0);
+  check('R250 (D1035): a cleared own-time alarm is put back', theAlarm(wired, `${OWN}18:00`) !== null);
+  await wired.chrome.alarms.onAlarm.happened({ name: `${OWN}18:00` });
+  check('R250 (D1035): the own-time alarm starts that time\'s run and not the others', owns.join() === '18:00' && due === 0 && evening === 0);
   await wired.chrome.alarms.onAlarm.happened({ name: EVENING });
   await wired.chrome.alarms.onAlarm.happened({ name: DAILY });
-  check('R208: and the other two alarms do not start it', returns === 1 && evening === 1 && due === 1);
+  check('R250 (D1035): and the other two alarms do not start it', owns.length === 1 && evening === 1 && due === 1);
   wired.setTheComputer('active');
-  await wired.chrome.alarms.onAlarm.happened({ name: RETURNS });
-  check('R208: the returns run waits while the computer is in use, and the wait names it', returns === 1 && (await whatIsWaiting(wired.chrome)).kinds.join() === 'returns');
+  await wired.chrome.alarms.onAlarm.happened({ name: `${OWN}18:00` });
+  check('R250 (D1035): the own-time run waits while the computer is in use, and the wait names it', owns.length === 1 && (await whatIsWaiting(wired.chrome)).kinds.join() === 'own-18:00');
   wired.setTheComputer('idle');
   await wired.chrome.alarms.onAlarm.happened({ name: IDLE_ALARM });
-  check('R208: once the computer is left alone the returns run starts, once', returns === 2 && due === 1 && evening === 1);
+  check('R250 (D1035): once the computer is left alone the own-time run starts, once, with its own time', owns.join() === '18:00,18:00' && due === 1 && evening === 1);
+  const kept = await setTheOwnTimes(wired.chrome, ['07:30', '18:00', '07:30', 'bad', '25:00']);
+  check('R250 (D1035): saving own times keeps each real time once and makes exactly those alarms',
+    kept.join() === '07:30,18:00' && wired.alarms().filter((one) => one.name.startsWith(OWN)).map((one) => one.name).sort().join() === `${OWN}07:30,${OWN}18:00`);
+  await setTheOwnTimes(wired.chrome, ['09:15']);
+  await makeSureTheOwnTimesAreSet(wired.chrome);
+  check('R250 (D1035): a time nobody has any more loses its alarm, and survives a restart as saved',
+    wired.alarms().filter((one) => one.name.startsWith(OWN)).map((one) => one.name).join() === `${OWN}09:15`);
+  await wired.chrome.storage.local.set({ 'kartaan-autosync-own-times': 'junk' });
+  check('R250 (D1035): a damaged own-times record reads as the default 18:00, never as a bad time', (await makeSureTheOwnTimesAreSet(wired.chrome)) === true && theAlarm(wired, `${OWN}18:00`) !== null);
 }
 
-const EXPECTED = 262 + 13 + 1 + 4 + 2 + 1 + 1 + 1 + 4 + 11 + 7 + 2 + 1 + 4 + 8;
+{
+  /* **R250: THE EVENING TIME IS A SETTING, AND A REPORT'S OWN TIME IS REFUSED WHEN IT IS ANOTHER RUN'S (his panel ask, 8 Nov 2026; D1035).** Saved like the morning one; two runs never share a time. */
+  const browser = installFakeChrome();
+  const { chrome } = browser;
+  const t0 = new Date(2026, 10, 8, 10, 0).getTime();
+  const defaults = await theRunTimes(chrome);
+  check('R250: with nothing saved the named runs are at 8:00 and 4 pm', defaults.morning.hour === 8 && defaults.evening.hour === 16);
+  const when = await setARunTime(chrome, { which: 'evening', at: '17:30', now: () => t0 });
+  check('R250: setting the evening saves it and makes the alarm at that time, every day, surviving a restart',
+    (await theRunTimes(chrome)).evening.minute === 30 && new Date(when).getHours() === 17
+    && theAlarm(browser, EVENING).when === when && theAlarm(browser, EVENING).periodInMinutes === EVERY_DAY_IN_MINUTES
+    && theAlarm(browser, EVENING).persistAcrossSessions === true);
+  browser.forgetTheAlarms();
+  await makeSureTheEveningIsSet(chrome);
+  check('R250: a cleared evening alarm is put back at the saved time, not at 4 pm', new Date(theAlarm(browser, EVENING).when).getHours() === 17);
+  const ownRefused = await whyAnOwnTimeIsRefused(chrome, '17:30');
+  check('R250 (D1035): a report\'s own time cannot be the evening run\'s time, and says so plainly',
+    ownRefused !== null && ownRefused.includes('5:30 pm') && ownRefused.includes('evening') && (await whyAnOwnTimeIsRefused(chrome, '08:00')) !== null
+    && (await whyAnOwnTimeIsRefused(chrome, '12:45')) === null && (await whyAnOwnTimeIsRefused(chrome, '')) !== null);
+  check('R250: the morning run cannot take a time another run has',
+    (await whyThatRunTimeIsRefused(chrome, 'morning', '17:30')) !== null && (await whyThatRunTimeIsRefused(chrome, 'morning', '09:00')) === null);
+  check('R250: an empty or odd text is refused as not a time, never saved as midnight',
+    (await whyThatRunTimeIsRefused(chrome, 'evening', '')) !== null && (await whyThatRunTimeIsRefused(chrome, 'evening', 'four')) !== null
+    && (await whyThatRunTimeIsRefused(chrome, 'noon', '12:00')) !== null);
+  await chrome.storage.local.set({ [THE_EVENING_SAVED]: { hour: 'x', minute: null } });
+  check('R250: a damaged saved time is read as the default, never as NaN', (await theRunTimes(chrome)).evening.hour === 16);
+  await setTheHour(chrome, { at: '16:00', now: () => t0 });
+  check('R250: the clash a saved 16:00 morning time makes with the evening run is found',
+    whyTwoRunsClash(await theRunTimes(chrome), 'evening', { hour: 16, minute: 0 }) !== null);
+  let wrongRun = false;
+  try { await setARunTime(chrome, { which: 'morning', at: '09:00' }); } catch (error) { wrongRun = true; }
+  check('R250: this setter only moves the evening run', wrongRun === true);
+}
+
+{
+  /* **R250 (his look, D1034): THE CLOCK LINE SHOWS THE SAVED TIMES.** The real worker code and the real wording, no stand-in: the three times are saved through
+   * the real setters, then read back by the real `theClock` the worker hands the panel, and put into words by the real `whenItNextWakes`. */
+  const browser = installFakeChrome();
+  const { chrome } = browser;
+  const t0 = new Date(2026, 10, 8, 10, 0).getTime();
+  await setTheHour(chrome, { at: '09:00', now: () => t0 });
+  await setARunTime(chrome, { which: 'evening', at: '17:30', now: () => t0 });
+  await setTheOwnTimes(chrome, ['19:00']);
+  const clock = await theClock(chrome);
+  const at = (stamp) => `${String(new Date(stamp).getHours()).padStart(2, '0')}:${String(new Date(stamp).getMinutes()).padStart(2, '0')}`;
+  check('R250: the clock the panel is given holds the saved times', clock.times.morning === '09:00' && clock.times.evening === '17:30' && clock.own.map((one) => one.time).join() === '19:00');
+  check('R250: and the alarms really fire at those times', at(clock.nextAt) === '09:00' && at(clock.eveningAt) === '17:30' && at(clock.own[0].at) === '19:00');
+  const said = whenItNextWakes(clock);
+  check('R250: and the line the seller reads says those times, not others', said.includes('at 09:00') && said.includes('at 17:30') && said.includes('own-time run at 19:00') && said.includes('at 19:00'));
+  const quiet = whenItNextWakes(await theClock(installFakeChrome().chrome));
+  check('R250: with nothing saved it says the morning run is at 8:00 and the alarms are not yet made', quiet.includes('8:00'));
+}
+
+const EXPECTED = 262 + 13 + 1 + 4 + 2 + 1 + 1 + 1 + 4 + 11 + 7 + 2 + 1 + 4 + 8 + 10 + 4 + 2;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

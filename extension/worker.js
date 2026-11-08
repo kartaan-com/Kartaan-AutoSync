@@ -13,8 +13,8 @@
  */
 
 import {
-  DAILY, EVENING, RETURNS, THE_PANEL, THE_WALK, aFreshSecret, answerAnExternalAsk, answerThePage, answerThePanel, setTheHour, startAWalk,
-  theHourItRuns, whyThatIsNotATimeOfDay, wireUp,
+  THE_PANEL, THE_WALK, aFreshSecret, answerAnExternalAsk, answerThePage, answerThePanel, setARunTime, setTheHour, startAWalk,
+  setTheOwnTimes, theClock, whyAnOwnTimeIsRefused, whyThatRunTimeIsRefused, whyThatIsNotATimeOfDay, wireUp,
 } from './background.js';
 import {
   RECHECK_ALARM, carryTheNightOn, clearNamedNeedsYouEntries, howTheNightWent, rememberLastLanded, setTheRecheckClock,
@@ -480,24 +480,15 @@ const answerThePanelsAsk = async (asked) => answerThePanelsQuestion(chrome, {
   watching,
   closeOurWindow: () => closeOurOwn(chrome, { ownWindow: WALK_IN_HIS_OWN_WINDOW }),
   setTheHour,
+  setARunTime,
+  setTheOwnTimes,
+  whyAnOwnTimeIsRefused,
+  whyThatRunTimeIsRefused,
   whyThatIsNotATimeOfDay,
   /* **WHEN IT NEXT WAKES BY ITSELF (A53, 2026-09-16).** The hour as it was
    * saved, and the moment Chrome's own clock will next fire -- the two
    * together are what say whether anything will happen at all. */
-  theClock: async () => {
-    const chosen = await theHourItRuns(chrome);
-    const clock = await chrome.alarms.get(DAILY);
-    const evening = await chrome.alarms.get(EVENING);
-    const returns = await chrome.alarms.get(RETURNS);
-    return {
-      chosen: chosen
-        ? `${String(chosen.hour).padStart(2, '0')}:${String(chosen.minute).padStart(2, '0')}`
-        : '',
-      nextAt: (clock && (clock.scheduledTime || clock.when)) || null,
-      eveningAt: (evening && (evening.scheduledTime || evening.when)) || null,
-      returnsAt: (returns && (returns.scheduledTime || returns.when)) || null,
-    };
-  },
+  theClock: () => theClock(chrome),
 }, asked);
 
 /* **AD1: THE SELLER'S AI, THROUGH THE KARTAAN BRIDGE HELPER.** The port opens only while the panel's "AI may run AutoSync" switch is on. An ask
@@ -587,13 +578,13 @@ wireUp(chrome, {
       console.warn('Kartaan Auto-sync: part of the evening sync could not start.', said.refused);
     }
   },
-  /* **THE 6 PM RUN (R208):** the returns, for today. */
-  onReturns: async () => {
+  /* **A REPORT'S OWN TIME (R250, his D1035; the returns are on 18:00 by default):** the reports whose own time this is, for the day each is set to. */
+  onOwn: async (at) => {
     const said = await startTheScheduledSync(chrome, {
       book: await theBook(), startTheNight, carryOn, fetch: kartaanFetch,
-    }, 'returns');
+    }, 'own', at);
     if (said.refused.length) {
-      console.warn('Kartaan Auto-sync: part of the 6 pm returns sync could not start.', said.refused);
+      console.warn(`Kartaan Auto-sync: part of the ${at} own-time sync could not start.`, said.refused);
     }
   },
   onDue: async () => {
