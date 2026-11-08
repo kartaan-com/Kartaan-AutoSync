@@ -75,7 +75,7 @@ import {
 } from './background.js';
 import { whenItNextWakes } from './screen.js';
 import { LAST_LANDED } from './nightly.js';
-import { IDLE_ALARM, whatIsWaiting } from './idle.js';
+import { IDLE_ALARM, whatIsWaiting, startWhenFree, carryOnWaiting } from './idle.js';
 import { CAUGHT, TOO_BIG, catchTheNextFile } from './catch-blob.js';
 import {
   A_PLATFORM_OR_ITS_STORAGE, DECLINED_A_LINK, RELAY_TO_THE_PAGE, WHERE_A_FILE_REALLY_COMES_FROM, aFileReallyComesFrom,
@@ -2553,7 +2553,81 @@ check('the page relay is OFF in what ships, so no script on a portal page can dr
   check('R250: with nothing saved it says the morning run is at 8:00 and the alarms are not yet made', quiet.includes('8:00'));
 }
 
-const EXPECTED = 262 + 13 + 1 + 4 + 2 + 1 + 1 + 1 + 4 + 11 + 7 + 2 + 1 + 4 + 8 + 10 + 4 + 2;
+{
+  /* **R250 PROVING (8 Nov 2026): the lines the first proving run found no check for.** */
+  const browser = installFakeChrome();
+  const { chrome } = browser;
+  const t0 = new Date(2026, 10, 8, 10, 0).getTime();
+  /* stale and wanted own alarms, made behind the setter's back */
+  await chrome.alarms.create(`${OWN}05:05`, { when: t0 + 1000 });
+  await chrome.alarms.create(`${OWN}18:00`, { when: t0 + 5000 });
+  await makeSureTheOwnTimesAreSet(chrome);
+  check('R250 proving: an own alarm for a time nobody has is cleared, and the wanted one is left exactly as it was',
+    theAlarm(browser, `${OWN}05:05`) === null && theAlarm(browser, `${OWN}18:00`).when === t0 + 5000);
+  await chrome.alarms.create(`${OWN}06:06`, { when: t0 + 1000 });
+  await chrome.alarms.create('kartaan-autosync-other', { when: t0 + 1000 });
+  await setTheOwnTimes(chrome, ['12:00']);
+  check('R250 proving: saving own times clears every old own alarm and touches no other alarm',
+    theAlarm(browser, `${OWN}06:06`) === null && theAlarm(browser, `${OWN}18:00`) === null && theAlarm(browser, `${OWN}12:00`) !== null && theAlarm(browser, 'kartaan-autosync-other') !== null);
+
+  for (const bad of [{ hour: 24, minute: 0 }, { hour: 5, minute: 60 }, { hour: -1, minute: 0 }, { hour: 5, minute: -1 }, { hour: 5.5, minute: 0 }, { hour: 5, minute: 0.5 }]) {
+    await chrome.storage.local.set({ [THE_EVENING_SAVED]: bad });
+    check(`R250 proving: a saved evening time of ${bad.hour}:${bad.minute} is read as the default 4 pm`, (await theRunTimes(chrome)).evening.hour === 16 && (await theRunTimes(chrome)).evening.minute === 0);
+  }
+  await chrome.storage.local.set({ [THE_EVENING_SAVED]: { hour: 23, minute: 59 } });
+  check('R250 proving: the last minute of the day is a real saved time', (await theRunTimes(chrome)).evening.hour === 23 && (await theRunTimes(chrome)).evening.minute === 59);
+  await chrome.storage.local.set({ [THE_EVENING_SAVED]: { hour: 0, minute: 0 } });
+  check('R250 proving: midnight is a real saved time', (await theRunTimes(chrome)).evening.hour === 0);
+
+  const fresh = installFakeChrome().chrome;
+  check('R250 proving: with no alarm made the clock says no next time, not zero', (await theClock(fresh)).eveningAt === null);
+
+  const clock = { morning: { hour: 8, minute: 0 }, evening: { hour: 16, minute: 0 } };
+  check('R250 proving: a run clashes only with the OTHER run, at the same hour AND minute',
+    whyTwoRunsClash(clock, 'morning', { hour: 16, minute: 0 }) !== null && whyTwoRunsClash(clock, 'evening', { hour: 8, minute: 0 }) !== null
+    && whyTwoRunsClash(clock, 'morning', { hour: 16, minute: 1 }) === null && whyTwoRunsClash(clock, 'morning', { hour: 17, minute: 0 }) === null
+    && whyTwoRunsClash(clock, 'morning', { hour: 8, minute: 0 }) === null && whyTwoRunsClash(clock, 'evening', { hour: 16, minute: 0 }) === null);
+
+  const s = installFakeChrome().chrome;
+  check('R250 proving: a run time equal to the other run\'s is refused, a different minute is not',
+    (await whyThatRunTimeIsRefused(s, 'evening', '08:00')) !== null && (await whyThatRunTimeIsRefused(s, 'evening', '08:01')) === null
+    && (await whyThatRunTimeIsRefused(s, 'evening', '09:00')) === null);
+  let said = '';
+  try { await setARunTime(s, { which: 'evening', at: '08:00', now: () => t0 }); } catch (error) { said = error.message; }
+  check('R250 proving: setting the evening to the morning\'s time throws the words and saves nothing',
+    said.includes('morning run is already then') && (await theRunTimes(s)).evening.hour === 16);
+  const one = installFakeChrome();
+  await setARunTime(one.chrome, { which: 'evening', at: '17:00', now: () => t0 });
+  await setARunTime(one.chrome, { which: 'evening', at: '18:30', now: () => t0 });
+  check('R250 proving: moving the evening twice leaves one evening alarm, at the last time',
+    one.alarms().filter((a) => a.name === EVENING).length === 1 && new Date(theAlarm(one, EVENING).when).getMinutes() === 30);
+
+  /* the alarm dispatcher */
+  let due = 0; let evening = 0; const owns = [];
+  const wired = installFakeChrome();
+  await wireUp(wired.chrome, { onDue: async () => { due += 1; }, onEvening: async () => { evening += 1; }, onOwn: async (at) => { owns.push(at); } });
+  await wired.chrome.alarms.onAlarm.happened({ name: `${OWN}bad` });
+  await wired.chrome.alarms.onAlarm.happened({ name: `${OWN}25:00` });
+  check('R250 proving: an own alarm whose name is not a time of day starts nothing, not even the morning run', owns.length === 0 && due === 0 && evening === 0);
+  await wired.chrome.alarms.onAlarm.happened({ name: 'kartaan-autosync-something-else' });
+  check('R250 proving: an unknown alarm starts nothing', due === 0 && evening === 0 && owns.length === 0);
+  const noOwn = installFakeChrome();
+  let morning = 0;
+  await wireUp(noOwn.chrome, { onDue: async () => { morning += 1; } });
+  await noOwn.chrome.alarms.onAlarm.happened({ name: `${OWN}18:00` });
+  check('R250 proving: an own alarm with no own-run handler does nothing, and does not start the morning run in its place', morning === 0);
+
+  /* the waiting list */
+  const waitChrome = installFakeChrome();
+  waitChrome.setTheComputer('active');
+  await startWhenFree(waitChrome.chrome, 'own-19:30', async () => {});
+  const started = [];
+  waitChrome.setTheComputer('idle');
+  await carryOnWaiting(waitChrome.chrome, { own: (at) => started.push(`own:${at}`), daily: () => started.push('daily') });
+  check('R250 proving: a waiting own-time run is started with its own time, through the own starter and not another', started.join() === 'own:19:30');
+}
+
+const EXPECTED = 262 + 13 + 1 + 4 + 2 + 1 + 1 + 1 + 4 + 11 + 7 + 2 + 1 + 4 + 8 + 10 + 4 + 2 + 19;
 if (ran !== EXPECTED) {
   console.log(`FAIL  checks went missing -- ${ran} ran, ${EXPECTED} expected`);
   failures++;

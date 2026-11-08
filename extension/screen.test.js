@@ -3148,6 +3148,96 @@ check('AJ8: with nothing waiting the clock line on the screen says nothing about
     /saveTheReportTimes: async \(reportId, day, run, at\)[\s\S]{0,200}save-the-report-times', reportId, day, run, at \}/.test(PANEL));
 }
 
+{
+  /* **R250 PROVING (8 Nov 2026): what the panel DOES -- the light/dark choice kept, the sorting, the folds, the clash line, the ready-time warning, what a refusal stops.** */
+  installFakeBrowser();
+  const kept = {};
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: { getItem: (k) => (k in kept ? kept[k] : null), setItem: (k, v) => { kept[k] = String(v); } },
+  });
+  check('R250 proving: with nothing kept, or something odd kept, the choice is the computer\'s own', theThemeChosen() === 'system' && (kept['kartaan-autosync-theme'] = 'blue') && theThemeChosen() === 'system');
+  const { chrome } = installFakeChrome();
+  const stands = await howItStands(chrome, { book: BOOK, now: Date.now() });
+  const panel = buildThePanel(document.body, {});
+  panel.theme.value = 'dark';
+  panel.theme.fire('change');
+  check('R250 proving: choosing Dark in Settings keeps it and it is read back', kept['kartaan-autosync-theme'] === 'dark' && theThemeChosen() === 'dark' && panel.theme.value === 'dark');
+  check('R250 proving: a panel opened later starts on the kept choice', buildThePanel(document.body, {}).theme.value === 'dark');
+  const before = panel.modeSwitch.textContent;
+  panel.modeSwitch.click();
+  check('R250 proving: the top-right switch flips the choice, keeps it, and its words follow what it will do next',
+    kept['kartaan-autosync-theme'] === 'light' && panel.modeSwitch.textContent !== before && panel.theme.value === 'light'
+    && panel.modeSwitch.textContent.includes('Dark'));
+  panel.modeSwitch.click();
+  check('R250 proving: and back again', kept['kartaan-autosync-theme'] === 'dark' && panel.modeSwitch.textContent.includes('Light'));
+
+  /* ready-time table */
+  check('R250 proving: each report that is usually ready late warns before its time and not after',
+    ['fk_orders', 'fk_views', 'az_fee_preview', 'me_views'].every((id) => theReadyWarning(id, '15:59') !== '' && theReadyWarning(id, '16:00') === '')
+    && ['fk_returns', 'me_returns', 'az_returns'].every((id) => theReadyWarning(id, '17:59') !== '' && theReadyWarning(id, '18:00') === ''));
+
+  /* the schedule rows: platform carried, order by platform then run then name, the fold title counts what is off the morning run */
+  const row = (id, name, platform, run) => ({ id, name, platform, day: 'yesterday', run, at: '18:00' });
+  const sched = [row('me_a', 'Zed', 'meesho', 'morning'), row('fk_b', 'Beta', 'flipkart', 'evening'), row('fk_c', 'Alpha', 'flipkart', 'morning'), row('fk_d', 'Alpha', 'flipkart', 'own'), row('az_e', 'Eta', 'amazon', 'evening')];
+  showHowItStands(panel, { ...stands, schedule: sched });
+  const names = panel.scheduleList.children.filter((one) => one.className === 'p-schedRow').map((one) => one.children[0].textContent);
+  check('R250 proving: the Which-report-runs-when rows go Flipkart, Meesho, Amazon; inside a platform morning, evening, own; then by name',
+    names.join() === 'Alpha,Beta,Alpha,Zed,Eta');
+  check('R250 proving: the fold title counts the reports not on the morning run', panel.timesFoldTitle.textContent === 'Which report runs when · 3 not on the morning run');
+  showHowItStands(panel, { ...stands, schedule: [row('fk_c', 'Alpha', 'flipkart', 'morning')] });
+  check('R250 proving: with every report on the morning run the title says nothing more', panel.timesFoldTitle.textContent === 'Which report runs when');
+
+  /* the clash line and the time boxes */
+  showHowItStands(panel, { ...stands, clock: { chosen: '', nextAt: null, times: { morning: '07:15', evening: '17:45' } } });
+  check('R250 proving: with no morning time chosen the boxes show the clock\'s times', panel.hour.value === '07:15' && panel.eveningTime.value === '17:45' && panel.timesButtonState.classList.contains('p-clashing') === false);
+  showHowItStands(panel, { ...stands, clock: { chosen: '09:00', nextAt: null, times: { morning: '09:30', evening: '17:45' } } });
+  check('R250 proving: with a morning time chosen the morning box shows that one, not the clock', panel.hour.value === '09:00');
+  showHowItStands(panel, { ...stands, clock: { chosen: '16:00', nextAt: null, times: { morning: '16:00', evening: '16:00' } } });
+  check('R250 proving: a clash colours the Run times button', panel.timesButtonState.classList.contains('p-clashing') === true);
+
+  /* banner, AI button */
+  showHowItStands(panel, { ...stands, setUp: { ...stands.setUp, done: true }, night: null, needsYou: [], clock: null, ai: { on: true, connected: true, asks: [], note: '' } });
+  check('R250 proving: the AI button says On when it is on and Off when it is off', panel.aiButtonState.textContent === 'On'
+    && (showHowItStands(panel, { ...stands, ai: { on: false, asks: [] } }), panel.aiButtonState.textContent === 'Off'));
+  showHowItStands(panel, { ...stands, setUp: { ...stands.setUp, driveConnectedAt: 5, panel: 'xuptj', done: true }, night: null, needsYou: [], clock: null });
+  check('R250 proving: a quiet panel one line starts with Ready.', panel.banner.textContent.startsWith('Ready. '));
+
+  /* needs-you fold is remembered across a redraw */
+  const mk = (id, n) => ({ reportId: id, dataDate: `2026-09-0${n}`, name: id === 'fk_orders' ? 'Orders' : 'Claims', platformName: 'Flipkart', folder: '' });
+  showHowItStands(panel, { ...stands, needsYou: [mk('fk_orders', 1), mk('fk_claims', 2)] });
+  const outer = panel.needs.children[0];
+  outer.open = true;
+  outer.fire('toggle');
+  showHowItStands(panel, { ...stands, needsYou: [mk('fk_orders', 1), mk('fk_claims', 2), mk('fk_orders', 3)] });
+  check('R250 proving: an opened needs-you box stays open when the panel redraws', panel.needs.children[0].open === true);
+  const heads = panel.needs.children[0].children.find((one) => one.className === 'p-needsList').children.filter((one) => one.className === 'p-needsGroup').map((one) => one.textContent);
+  check('R250 proving: groups of one platform are in name order', heads[0].startsWith('Flipkart · Claims') && heads[1].startsWith('Flipkart · Orders'));
+
+  /* a report that cannot be fetched is a greyed row, and "cannot fetch" rows follow the platform chosen */
+  const cannot = (stands.reports || []).filter((one) => one.canBeFetched === false);
+  check('R250 proving: the cannot-fetch rows show only for the platform chosen',
+    !panel.cannotRows || panel.cannotRows.every(([platform, r]) => r.hidden === (platform !== panel.chosen)));
+  check('R250 proving: and a report that cannot be fetched has no tick row', cannot.length === 0 || cannot.every((one) => one.canBeFetched === false));
+
+  /* answers: a refusal stops the save; two own times are both kept with the platform on each row */
+  const own = installFakeChrome().chrome;
+  const spy = [];
+  const parts = { book: BOOK, now: () => Date.now(), startTheNight, carryOn: async () => {}, setTheOwnTimes: async () => {}, whyAnOwnTimeIsRefused: async () => null,
+    setTheHour: async (c, how) => { spy.push(how.at); return 1; }, whyThatIsNotATimeOfDay, whyThatRunTimeIsRefused: async (c, which, at) => (at === '16:00' ? 'taken' : null) };
+  await answerThePanelsQuestion(own, parts, { do: 'save-the-panel-name', panel: 'xuptj' });
+  const stopped = await answerThePanelsQuestion(own, parts, { do: 'set-the-hour', at: '16:00' });
+  check('R250 proving: a morning time another run has is refused with the words and nothing is saved', stopped.wrong === 'taken' && spy.length === 0);
+  await answerThePanelsQuestion(own, parts, { do: 'set-the-hour', at: '09:00' });
+  check('R250 proving: a free morning time is saved', spy.join() === '09:00');
+  await answerThePanelsQuestion(own, parts, { do: 'save-the-report-times', reportId: 'fk_claims', day: 'today', run: 'own', at: '13:00' });
+  await answerThePanelsQuestion(own, parts, { do: 'save-the-report-times', reportId: 'me_claims', day: 'today', run: 'own', at: '14:30' });
+  const both = await howItStands(own, { book: BOOK, now: Date.now() });
+  const byId = Object.fromEntries(both.schedule.map((one) => [one.id, one]));
+  check('R250 proving: two own times are both kept, each on its own report, and each row carries its platform',
+    byId.fk_claims.at === '13:00' && byId.me_claims.at === '14:30' && byId.fk_claims.platform === 'flipkart' && byId.me_claims.platform === 'meesho');
+}
+
 reachedTheEnd = true;
 console.log(`\n${ran} checks, ${failures} failed.`);
 process.exit(failures ? 1 : 0);
